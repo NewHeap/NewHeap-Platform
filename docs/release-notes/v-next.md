@@ -19,6 +19,45 @@ their initiator, the routes of consultation proposals and requests by a person w
 |---|---|
 | A headless run of an agent that acts with its account's rights and does not delegate from its initiator no longer consults or requests other agents. | Turn on delegation from the initiator (`delegateFromInitiator` in the run settings, `DelegateFromInitiator()` in code) for agents whose runs should consult with the rights of the person who started them. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: consultations defined as data
+
+`UseConsultationsAsData(data => data.AllowRoutes(...).AllowRequests().AllowMcp().MaxLimits(...))` lets
+administrators define consultations at runtime within a ceiling in code: which agent may be consulted
+about which object type, with which description and instructions, by whom, read-only or with proposals
+by the routes the ceiling names, and within its limits. Agents created in the administration with run
+settings get the application's ceiling; an agent in code only with `ConsultableAsData(...)`, whose ceiling
+applies together with the application's. `INhAssistantAgentConfiguration.SaveConsultationAsync` and
+`RemoveConsultationAsync` (`PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`) store one
+versioned row per agent and subject type; the agent configuration lists code and data consultations and the
+ceilings, and data that no longer fits after a deploy is reported as problems of kind `consultation`, out of
+effect or with the parts that no longer fit dropped or capped. The generated tools of data consultations are
+the catalog `assistant-consultations-data`, which every assistant host follows within seconds and whose
+calls fail with `assistant-consult-agent-unavailable` once a consultation was removed or its contract
+changed. Applications that do not call `UseConsultationsAsData` behave as before.
+
+| Breaking change | Required action |
+|---|---|
+| The `AgentConsultationDefinitions` migrations add the table `AssistantAgentConsultationDefinition` and the nullable column `AssistantConsultation.ConsultationVersion` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `INhAssistantAgentConfiguration` has the new members `SaveConsultationAsync` and `RemoveConsultationAsync`. | Implement them in a class of your own that implements the interface; callers need nothing. |
+| `NhAssistantAuditEventKind` has the new value `AdminAgentConsultationDefinitionChanged` (66), and `NhAssistantAuditEvent` the codes `ConsultationSource` and `ConsultationVersion`, which `AgentConsulted` now carries. | Let a business audit sink handle or ignore kinds it does not know. |
+| With `UseConsultationsAsData`, the tools of data consultations come from the new catalog `assistant-consultations-data`, every assistant host runs the background refresh of the run configuration, and removing the run settings of an agent that has data consultations fails with `assistant-run-settings-in-use`. | Let an `INhAiToolDiscoveryPolicy` that lists exact tool ids allow the `assistant.consult.` and `assistant.request.` prefixes, and remove an agent's consultations before its run settings. |
+| The catalog of consultations in code (`assistant-consultations`) reads the consultations registered in code only. | None. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.AgentFramework and NewHeap.Platform.AI.AspNet.Common: tool catalogs that change at runtime
+
+`INhAiChangingToolCatalog` is an attested catalog whose descriptors change while the application runs, in
+immutable views (`Current`) that are attested on their own. Discovery calls its `RefreshAsync` first, the
+agent framework adapter and the MCP export read descriptors and functions from one view
+(`NhAiToolCatalogViews.Of`), and the MCP export leaves a view that fails its attestation, or a tool that
+would take an export name already taken, out instead of failing. When such a catalog may reach MCP
+clients, `WithNewHeapPlatformAITools` declares `listChanged` for tools and announces
+`notifications/tools/list_changed` to every session when it changes.
+
+| Breaking change | Required action |
+|---|---|
+| With a catalog that may reach MCP clients registered as `INhAiChangingToolCatalog`, `WithNewHeapPlatformAITools` replaces `McpServerOptions.ToolCollection` with a collection that holds the same tools and signals changes, and the server declares `listChanged` for tools. | None; tools added to the options' collection after the server options were built are not copied. |
+| The MCP startup check skips the export names of catalogs that change at runtime; their views are checked when they are exported. | None. |
+
 ## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: the request's person by the platform's actor id
 
 The platform recognizes the person who sent a request by the actor id the registered

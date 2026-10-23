@@ -1,0 +1,632 @@
+using System.Runtime.CompilerServices;
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Mcp;
+using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Models;
+using Xunit;
+
+namespace NewHeap.Platform.AI.Chat.Tests;
+
+/// <summary>
+/// Consultations defined as data: administrators let other assistants consult an agent within the
+/// ceiling in code, the configuration in effect follows the data on every host, data that no longer
+/// fits is left out or degraded with problems, and the generated tools appear, disappear and fail
+/// closed when they went stale.
+/// </summary>
+public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
+{
+    private const string StarterId = "project-starter";
+    private const string AskingAgentId = "consulting-assistant";
+    private const string ReviewerId = "intake-reviewer";
+    private const string PlannerId = "project-planner";
+    private const string FollowerId = "project-follower";
+    private const string ConsultToolId = "assistant.consult.project-starter.project";
+    private const string RequestToolId = "assistant.request.project-starter.project";
+    private const string ConsultTool = "consult_project-starter_project_v1";
+    private const string Admin = "admin-1";
+    private const string Member = "member-1";
+    private const string ProjectId = "project-0001";
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Saving_checks_a_consultation_against_the_ceiling_and_its_agent_and_puts_it_in_effect(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient());
+        await CreateStarterAsync(host, withRunSettings: false);
+
+        // An agent created in the administration needs run settings (AC18).
+        Assert.Equal(NhAssistantErrorCodes.AgentNotConfigured, Code(await SaveAsync(host, StarterId, Read())));
+        await SaveRunSettingsAsync(host, NhAssistantAccountabilities.ServiceAccount, KnownAccountPrincipalFactory.First, null);
+
+        // Every field within the builder's bounds and the ceiling.
+        Assert.Equal("routes", Field(await SaveAsync(host, StarterId, Read() with { Routes = [NhAssistantConsultationRoutes.SubjectAskerRights] }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("routes", Field(await SaveAsync(host, StarterId, Read() with { Routes = [NhAssistantConsultationRoutes.SubjectAgentRights, NhAssistantConsultationRoutes.SubjectAskerRights] }), NhAssistantFieldErrors.Invalid));
+        Assert.Equal("description", Field(await SaveAsync(host, StarterId, Read() with { Description = " " }), NhAssistantFieldErrors.Required));
+        Assert.Equal("description", Field(await SaveAsync(host, StarterId, Read() with { Description = new string('x', 1_001) }), NhAssistantFieldErrors.TooLong));
+        Assert.Equal("instructions", Field(await SaveAsync(host, StarterId, Read() with { Instructions = new string('x', 4_001) }), NhAssistantFieldErrors.TooLong));
+        Assert.Equal("askerPolicy", Field(await SaveAsync(host, StarterId, Read() with { AskerPolicy = "app.unlisted" }), NhAssistantFieldErrors.NotFound));
+        Assert.Equal("minimumRole", Field(await SaveAsync(host, StarterId, Read() with { MinimumRole = "owner" }), NhAssistantFieldErrors.Invalid));
+        Assert.Equal("limits", Field(await SaveAsync(host, StarterId, Read() with { MaxToolCalls = 33 }), NhAssistantFieldErrors.Invalid));
+        Assert.Equal("limits", Field(await SaveAsync(host, StarterId, Read() with { MaxToolCalls = 9 }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("proposalPolicy", Field(await SaveAsync(host, StarterId, Read() with { Routes = [NhAssistantConsultationRoutes.AskerDecides], ProposalPolicy = "missing" }), NhAssistantFieldErrors.NotFound));
+        Assert.Equal("proposalPolicy", Field(await SaveAsync(host, StarterId, Read() with { Routes = [NhAssistantConsultationRoutes.SubjectAgentRights], ProposalPolicy = "initiator-only" }), NhAssistantFieldErrors.Invalid));
+        Assert.Equal("subjectType", Field(await SaveAsync(host, StarterId, Read(), "ghost-type"), NhAssistantFieldErrors.NotFound));
+        // Code agents get consultations as data only when they opt in, and never for a type in code.
+        Assert.Equal(NhAssistantErrorCodes.ConsultationsNotAllowed, Code(await SaveAsync(host, ReviewerId, Read())));
+        Assert.Equal(NhAssistantErrorCodes.ConsultationInCode, Code(await SaveAsync(host, PlannerId, Read())));
+        Assert.Equal(NhAssistantErrorCodes.AgentNotFound, Code(await SaveAsync(host, "missing-agent", Read())));
+
+        var saved = await SaveAsync(host, StarterId, Read() with
+        {
+            Routes = [NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights],
+            Instructions = "Say whether the draft can start.",
+            AllowRequests = true,
+            Reason = "Pilot"
+        });
+        Assert.True(saved.Success);
+        var dto = saved.Data!;
+        Assert.Equal((1, true, null, ConsultToolId, RequestToolId), (dto.Version, dto.InEffect, dto.Problem, dto.ConsultToolId, dto.RequestToolId));
+        Assert.Equal([NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights], dto.RoutesInEffect);
+        // Defaults of code, capped by the ceiling: 4 tool calls, 60 seconds, 4,000 characters, 20 messages.
+        Assert.Equal((4, 60, 4_000, 20), (dto.MaxToolCalls, dto.TimeoutSeconds, dto.MaxAnswerChars, dto.MaxHistoryMessages));
+        // The second key: the asking agent selects the generated tool (AC5).
+        Assert.Equal([AskingAgentId], dto.AskingAgents);
+
+        var options = Assert.Single(State(host).AgentRuns[StarterId].Consultations);
+        Assert.Equal((NhAssistantConsultationSources.Data, (int?)1, NhAssistantConsultationRights.Agent, true), (options.Source, options.DataVersion, options.AtSubjectRights, options.AskerDecides));
+        Assert.Equal("Say whether the draft can start.", options.Instructions!.Content);
+        // In code nothing changed.
+        Assert.False(State(host).CodeAgentRuns.ContainsKey(StarterId));
+        Assert.DoesNotContain(
+            host.Services.GetServices<INhAiToolCatalog>().OfType<NhAssistantConsultationToolCatalog>().Single().Descriptors,
+            descriptor => descriptor.Id == ConsultToolId);
+        Assert.Equal(
+            [ConsultToolId, RequestToolId],
+            host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().Descriptors.Select(descriptor => descriptor.Id));
+
+        // A change is the next version; a stale version is refused.
+        Assert.Equal(NhAssistantAdminErrorCodes.VersionConflict, Code(await SaveAsync(host, StarterId, Read())));
+        var changed = await SaveAsync(host, StarterId, Read() with { Routes = [NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights], ExpectedVersion = 1 });
+        Assert.Equal(2, changed.Data!.Version);
+
+        // The route switches of the agent cover its data consultations (AC10).
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var control = scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>();
+            Assert.Equal(
+                NhAssistantErrorCodes.ConsultRouteNotAllowed,
+                Code(await control.SetConsultationRoutesAsync(StarterId, new NhAssistantConsultationRouteOverrides(null, null, true), Admin)));
+            var switched = await control.SetConsultationRoutesAsync(StarterId, new NhAssistantConsultationRouteOverrides(null, false, null), Admin, "Incident");
+            Assert.True(switched.Success);
+            var agent = (await host.Services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(StarterId, includeDisabled: true, CancellationToken.None))!;
+            var routing = NhAssistantConsultationRouting.Of(State(host).AgentRuns[StarterId].Consultations.Single(), agent.ConsultationRoutes);
+            Assert.Equal((true, (NhAssistantConsultationRights?)null), (routing.AskerDecides, routing.AtSubjectRights));
+        }
+
+        // Run settings stay while a consultation belongs to the agent (AC18).
+        Assert.Equal(NhAssistantErrorCodes.RunSettingsInUse, Code(await ConfigureAsync(host, configuration => configuration.RemoveRunSettingsAsync(StarterId, 1, Admin))));
+
+        // Answering for itself, the agent has no rights of its own: the route with its rights is
+        // dropped and the consultation keeps answering (AC11).
+        await SaveRunSettingsAsync(host, NhAssistantAccountabilities.Agent, null, 1);
+        var view = (await ConfigureAsync(host, configuration => configuration.GetAsync(StarterId)))!;
+        var degraded = Assert.Single(view.DataConsultations);
+        Assert.Equal((true, NhAssistantRunConfigurationProblems.AgentHasNoRights), (degraded.InEffect, degraded.Problem));
+        Assert.Equal([NhAssistantConsultationRoutes.AskerDecides], degraded.RoutesInEffect);
+        Assert.Null(State(host).AgentRuns[StarterId].Consultations.Single().AtSubjectRights);
+        Assert.NotNull(view.ConsultationCeiling);
+        Assert.Empty(view.CodeConsultations);
+
+        var planner = (await ConfigureAsync(host, configuration => configuration.GetAsync(PlannerId)))!;
+        Assert.Equal(["project"], planner.CodeConsultations.Select(item => item.SubjectType));
+        Assert.Equal([NhAssistantConsultationRoutes.AskerDecides], planner.ConsultationCeiling!.Routes);
+
+        // Removing takes it out of effect at once.
+        Assert.Equal(NhAssistantErrorCodes.ConsultationInCode, Code(await ConfigureAsync(host, configuration => configuration.RemoveConsultationAsync(PlannerId, "project", null, Admin))));
+        Assert.True((await ConfigureAsync(host, configuration => configuration.RemoveConsultationAsync(StarterId, "project", 2, Admin, "Pilot ended"))).Success);
+        Assert.Equal(NhAssistantErrorCodes.ConsultationNotFound, Code(await ConfigureAsync(host, configuration => configuration.RemoveConsultationAsync(StarterId, "project", null, Admin))));
+        Assert.Empty(State(host).AgentRuns[StarterId].Consultations);
+        Assert.Empty(host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().Descriptors);
+
+        // Audited with version and instructions hash, never the texts (AC19).
+        var audited = host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged).ToArray();
+        Assert.Equal(["created", "changed", "removed"], audited.Select(evt => evt.ResultCode));
+        Assert.Equal([1, 2, 2], audited.Select(evt => evt.ConsultationVersion ?? 0));
+        Assert.All(audited, evt => Assert.Equal(("project", NhAssistantConsultationSources.Data, StarterId), (evt.SubjectType, evt.ConsultationSource, evt.AgentId)));
+        Assert.Equal(NhAssistantAgentCatalog.ComputeHash("Say whether the draft can start."), audited[0].InstructionsHash);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_chat_consults_an_administration_agent_through_its_data_consultation_until_the_consultation_is_removed(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithText("The draft can start once the budget is approved.")
+            .RespondWithText("It still can start.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Can the draft start?" } }, "call-1")
+            .RespondWithText("The starter says the draft can start once the budget is approved.");
+        await using var host = await CreateHostAsync(provider, target, asker);
+        await CreateStarterAsync(host, withRunSettings: true);
+        var catalog = host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>();
+        var changes = 0;
+        catalog.Changed += (_, _) => Interlocked.Increment(ref changes);
+
+        Assert.True((await SaveAsync(host, StarterId, Read())).Success);
+        Assert.Equal(1, changes);
+        var descriptor = Assert.Single(catalog.Descriptors);
+        Assert.Equal((ConsultToolId, ConsultTool, NhAiToolExposure.Local | NhAiToolExposure.Agent), (descriptor.Id, descriptor.ExportName, descriptor.Exposure));
+        Assert.Equal(NhAssistantDataConsultationToolCatalog.CatalogId, descriptor.CatalogId);
+        NhAiToolCatalogAttestation.Validate(catalog.Current, host.Services);
+
+        // The asking agent sees the tool from its next turn on, and the starter answers with the
+        // member's rights.
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+        var turn = await host.SendAsync(conversation.Id, "Can the draft project start?", Member);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, turn.Single<NhAssistantTurnCompletedEvent>().Status);
+        Assert.Contains("The draft can start once the budget is approved.", asker.FunctionResults.Single().Result?.ToString());
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            var consultation = await context.Consultations.SingleAsync();
+            Assert.Equal((Member, (int?)1, NhAssistantConsultationStatuses.Completed), (consultation.AskerActorId, consultation.ConsultationVersion, consultation.Status));
+        }
+        var consulted = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentConsulted);
+        Assert.Equal((NhAssistantConsultationSources.Data, (int?)1), (consulted.ConsultationSource, consulted.ConsultationVersion));
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var services = scope.ServiceProvider;
+
+            // The tools act for a person: an agent that acts with its account's rights and does not
+            // delegate from its initiator is never offered them, also for a data consultation (AC1).
+            var authorizer = services.GetRequiredService<INhAiAgentToolAuthorizer>();
+            var accountable = AgentScope() with
+            {
+                Accountability = NhAiAgentAccountability.ServiceAccount,
+                AccountableOwnerId = KnownAccountPrincipalFactory.First,
+                ActWithAccountableRights = true,
+                InitiatorActorId = Member
+            };
+            Assert.Equal(NhAiGrantSource.None, await authorizer.AuthorizeAsync(descriptor, accountable));
+            Assert.Equal(NhAiGrantSource.None, await authorizer.AuthorizeAsync(descriptor, accountable with { Grants = [new NhAiAgentGrant("assistant.*")] }));
+            Assert.Equal(NhAiGrantSource.Delegated, await authorizer.AuthorizeAsync(descriptor, accountable with { DelegateFromInitiator = true }));
+            using (NhAiAgentInvocationScopes.Begin(accountable))
+            {
+                var discovered = await services.GetRequiredService<INhAiToolDiscoveryService>().DiscoverAsync(
+                    new NhAiToolDiscoveryRequest(AgentContext(), NhAiToolExposure.Agent));
+                Assert.DoesNotContain(discovered, item => item.Id == ConsultToolId);
+            }
+
+            // A call bound to the consultation in effect works; one with another contract fails closed.
+            var handler = services.GetRequiredService<NhAssistantConsultationToolHandler>();
+            var answered = await handler.ConsultDataAsync(StarterId, "project", descriptor.ContractHash, Question(), PersonContext(), CancellationToken.None);
+            Assert.True(answered.Success);
+            var stale = await handler.ConsultDataAsync(StarterId, "project", new string('0', 64), Question(), PersonContext(), CancellationToken.None);
+            Assert.Contains(stale.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ConsultAgentUnavailable);
+        }
+
+        // After removal the tool is gone and a call of a function built before fails closed (AC12).
+        Assert.True((await ConfigureAsync(host, configuration => configuration.RemoveConsultationAsync(StarterId, "project", 1, Admin))).Success);
+        Assert.Equal(2, changes);
+        Assert.Empty(catalog.Descriptors);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var removed = await scope.ServiceProvider.GetRequiredService<NhAssistantConsultationToolHandler>()
+                .ConsultDataAsync(StarterId, "project", descriptor.ContractHash, Question(), PersonContext(), CancellationToken.None);
+            Assert.Contains(removed.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ConsultAgentUnavailable);
+        }
+        Assert.Equal(2, target.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Data_that_no_longer_fits_is_left_out_or_degraded_and_another_host_follows_through_the_stamp(AssistantTestProvider provider)
+    {
+        // Every check reads the stamp, so the test need not wait for the interval.
+        await using var host = await CreateHostAsync(
+            provider,
+            new NhAiScriptedChatClient(),
+            new NhAiScriptedChatClient(),
+            timing: new NhAssistantTiming { RunConfigurationCheckInterval = TimeSpan.Zero });
+        await CreateStarterAsync(host, withRunSettings: true);
+        var catalog = host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>();
+        await catalog.RefreshAsync(CancellationToken.None);
+        Assert.Empty(catalog.Descriptors);
+
+        // Another host stored what this host's code no longer allows.
+        var store = host.Services.GetRequiredService<NhAssistantRunConfigurationStore>();
+        await StoreAsync(store, Row(StarterId, "project", row =>
+        {
+            row.RoutesJson = "[\"asker-decides\",\"subject-asker-rights\"]";
+            row.MaxToolCalls = 20;
+            row.TimeoutSeconds = 600;
+            row.AllowRequests = true;
+            row.ExposeToMcp = true;
+        }));
+        await StoreAsync(store, Row(StarterId, "order", row => row.AskerPolicy = "app.unlisted"));
+        await StoreAsync(store, Row(ReviewerId, "project"));
+        await StoreAsync(store, Row(PlannerId, "project"));
+
+        // A listing on this host reads the stamp first (AC23).
+        await catalog.RefreshAsync(CancellationToken.None);
+
+        var problems = host.Services.GetRequiredService<NhAssistantRunConfigurations>().Problems
+            .Where(problem => problem.Kind == NhAssistantRunConfigurationProblems.ConsultationKind)
+            .Select(problem => (problem.AgentId, problem.Id, problem.Code))
+            .ToArray();
+        Assert.Equivalent(
+            new[]
+            {
+                (PlannerId, "project", NhAssistantRunConfigurationProblems.ConflictsWithCode),
+                (StarterId, "order", NhAssistantRunConfigurationProblems.UnknownAgentPolicy),
+                (StarterId, "project", NhAssistantRunConfigurationProblems.RouteNotAllowed),
+                (StarterId, "project", NhAssistantRunConfigurationProblems.LimitAboveCeiling),
+                (ReviewerId, "project", NhAssistantRunConfigurationProblems.NotConsultable)
+            },
+            problems,
+            strict: true);
+
+        // The degraded consultation stays in effect with what still fits: no route at the subject,
+        // limits at the ceiling's, requests and MCP as the ceiling allows them.
+        var options = Assert.Single(State(host).AgentRuns[StarterId].Consultations);
+        Assert.Equal((true, (NhAssistantConsultationRights?)null), (options.AskerDecides, options.AtSubjectRights));
+        Assert.Equal((8, TimeSpan.FromSeconds(120), true), (options.MaxToolCalls, options.Timeout, options.AllowRequests));
+        Assert.True(options.Exposure.HasFlag(NhAiToolExposure.Mcp));
+        Assert.Equal([ConsultToolId, RequestToolId], catalog.Descriptors.Select(descriptor => descriptor.Id));
+        Assert.DoesNotContain(State(host).AgentRuns[ReviewerId].Consultations, consultation => consultation.IsData);
+        Assert.DoesNotContain(State(host).AgentRuns[PlannerId].Consultations, consultation => consultation.IsData);
+
+        var view = (await ConfigureAsync(host, configuration => configuration.GetAsync(StarterId)))!;
+        var order = Assert.Single(view.DataConsultations, item => item.SubjectType == "order");
+        Assert.Equal((false, NhAssistantRunConfigurationProblems.UnknownAgentPolicy), (order.InEffect, order.Problem));
+        var project = Assert.Single(view.DataConsultations, item => item.SubjectType == "project");
+        Assert.True(project.InEffect);
+        Assert.Equal([NhAssistantRunConfigurationProblems.RouteNotAllowed, NhAssistantRunConfigurationProblems.LimitAboveCeiling], project.Problems);
+        Assert.Equal([NhAssistantConsultationRoutes.AskerDecides], project.RoutesInEffect);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task MCP_clients_see_a_data_consultation_only_within_the_ceiling(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient(), allowMcp: false);
+        await CreateStarterAsync(host, withRunSettings: true);
+        var catalog = host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>();
+        Assert.False(catalog.MayExportToMcp);
+
+        Assert.Equal("exposeToMcp", Field(await SaveAsync(host, StarterId, Read() with { ExposeToMcp = true }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("allowRequests", Field(await SaveAsync(host, StarterId, Read() with { AllowRequests = true }), NhAssistantFieldErrors.NotAllowed));
+        Assert.True((await SaveAsync(host, StarterId, Read())).Success);
+        Assert.Empty(await McpToolNamesAsync(host));
+
+        await using var open = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient(), allowMcp: true);
+        await CreateStarterAsync(open, withRunSettings: true);
+        Assert.True(open.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().MayExportToMcp);
+        Assert.True((await SaveAsync(open, StarterId, Read())).Success);
+        // A consultation asks for MCP itself; the ceiling only allows it.
+        Assert.Empty(await McpToolNamesAsync(open));
+        Assert.True((await SaveAsync(open, StarterId, Read() with { ExposeToMcp = true, ExpectedVersion = 1 })).Success);
+        Assert.Equal([ConsultTool], await McpToolNamesAsync(open));
+        Assert.True((await ConfigureAsync(open, configuration => configuration.RemoveConsultationAsync(StarterId, "project", 2, Admin))).Success);
+        Assert.Empty(await McpToolNamesAsync(open));
+    }
+
+    [Fact]
+    public void The_ceiling_of_an_agent_in_code_stays_within_the_applications_and_needs_rights_of_its_own_for_its_rights()
+    {
+        var state = new NhAssistantRegistrationState();
+        state.AddAgent(AssistantTestData.Agent(PlannerId));
+        var planner = new NhAssistantAgentRunBuilder(state.GetOrAddAgentRun(PlannerId));
+        planner.ConsultableAsData(data => data
+            .AllowRoutes(NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights)
+            .AllowRequests()
+            .MaxLimits(maxToolCalls: 2, timeout: TimeSpan.FromMinutes(5)));
+
+        // Without the application's ceiling an agent in code may not opt in.
+        Assert.Contains("UseConsultationsAsData", Assert.Throws<InvalidOperationException>(state.ValidateAgentRuns).Message);
+
+        state.ConsultationsAsData = Ceiling(data => data
+            .AllowRoutes(NhAssistantConsultationRoutes.AskerDecides)
+            .MaxLimits(maxToolCalls: 4, timeout: TimeSpan.FromMinutes(1)));
+        Assert.Contains("beyond UseConsultationsAsData", Assert.Throws<InvalidOperationException>(state.ValidateAgentRuns).Message);
+
+        state.ConsultationsAsData = Ceiling(data => data
+            .AllowRoutes(NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights, NhAssistantConsultationRoutes.SubjectAskerRights)
+            .AllowRequests()
+            .AllowMcp());
+        // The route with the agent's own rights needs grants or a technical account.
+        Assert.Contains("without grants", Assert.Throws<InvalidOperationException>(state.ValidateAgentRuns).Message);
+        planner.Accountability(NhAiAgentAccountability.SubjectResponsible);
+        Assert.Contains("responsible person", Assert.Throws<InvalidOperationException>(state.ValidateAgentRuns).Message);
+        planner.ServiceAccount(KnownAccountPrincipalFactory.First);
+        state.ValidateAgentRuns();
+
+        // Both ceilings together: the routes of both, requests and MCP only when both allow them, and
+        // the lower limits (AC3).
+        var effective = state.ConsultationCeilingOf(PlannerId)!;
+        Assert.Equal([NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights], effective.Routes);
+        Assert.Equal((true, false, 2, TimeSpan.FromMinutes(5), 32_000, 200), (effective.AllowRequests, effective.AllowMcp, effective.MaxToolCalls, effective.MaxTimeout, effective.MaxAnswerChars, effective.MaxHistoryMessages));
+        // An agent created in the administration gets the application's; an agent in code without
+        // ConfigureAgent none.
+        Assert.Same(state.ConsultationsAsData, state.ConsultationCeilingOf("created-in-administration"));
+        state.AddAgent(AssistantTestData.Agent("chat-only"));
+        Assert.Null(state.ConsultationCeilingOf("chat-only"));
+
+        Assert.Throws<ArgumentException>(() => Ceiling(data => data.AllowRoutes("anyone-decides")));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Ceiling(data => data.MaxLimits(maxToolCalls: 33)));
+    }
+
+    private async Task<AssistantTestHost> CreateHostAsync(
+        AssistantTestProvider provider,
+        NhAiScriptedChatClient target,
+        NhAiScriptedChatClient asker,
+        NhAssistantTiming? timing = null,
+        bool allowMcp = true)
+    {
+        // The agent created in the administration works with the application's chat profile, so the
+        // host's model is the consulted agent's; the asking agent has a model of its own.
+        return await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            target,
+            configure: services =>
+            {
+                if (timing is not null)
+                {
+                    services.AddSingleton(timing);
+                }
+
+                services.AddSingleton(new TestSubjects());
+                services.AddSingleton<RecordingOperations>();
+                services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
+                services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, KnownAccountPrincipalFactory>());
+                services.AddKeyedSingleton<IChatClient>("asking-chat-model", asker);
+                services.AddNewHeapPlatformAI(ai => ai.AddChatProfile("asking-chat", profile => profile
+                    .UseKeyedClient("asking-chat-model")
+                    .RequireCapabilities(NhAiModelCapability.FunctionCalling)
+                    .WithStreaming(NhAiStreamingPolicy.Allowed)
+                    .PermitDataClassifications(NhAiDataClassification.Internal)
+                    .PermitExecutionRegions("local")
+                    .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16)));
+            },
+            assistantBuilder: assistant => assistant
+                .AddSubjectType<TestSubjectResolver>()
+                .AddSubjectType<TestOrderResolver>()
+                .AddApprovalPolicy("initiator-only", policy => policy
+                    .Mode(NhAiApprovalMode.Deferred)
+                    .Lifetime(TimeSpan.FromDays(1))
+                    .Approvers(NhAiApprovers.Initiator))
+                .UseConsultationsAsData(data =>
+                {
+                    data
+                        .AllowRoutes(NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights)
+                        .AllowRequests(allowMcp)
+                        .MaxLimits(maxToolCalls: 8, timeout: TimeSpan.FromSeconds(120), maxAnswerChars: 8_000, history: 40);
+                    data.AllowMcp(allowMcp);
+                })
+                .AddAgent(AssistantTestData.Agent(AskingAgentId) with
+                {
+                    ProfileName = "asking-chat",
+                    ToolSelectors = ["assistant.consult.*"]
+                })
+                .AddAgent(AssistantTestData.Agent(ReviewerId))
+                .ConfigureAgent(ReviewerId, agent => agent.AllowConsultation("project"))
+                .AddAgent(AssistantTestData.Agent(PlannerId))
+                .ConfigureAgent(PlannerId, agent => agent
+                    .Grant("projects.*")
+                    .AllowConsultation("project")
+                    .ConsultableAsData(data => data.AllowRoutes(NhAssistantConsultationRoutes.AskerDecides))));
+    }
+
+    /// <summary>
+    /// The project starter, created in the administration as an administrator does, with run
+    /// settings that let it answer to the operations account.
+    /// </summary>
+    private static async Task CreateStarterAsync(AssistantTestHost host, bool withRunSettings)
+    {
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var created = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
+                new NhAssistantAgentInput(
+                    StarterId,
+                    "Project starter",
+                    "Starts draft projects.",
+                    "Say whether a draft project can start.",
+                    ["projects.*"],
+                    [],
+                    null,
+                    NhAiAutonomyLevel.Execute),
+                Admin,
+                CancellationToken.None);
+            Assert.True(created.Success);
+        }
+
+        if (withRunSettings)
+        {
+            await SaveRunSettingsAsync(host, NhAssistantAccountabilities.ServiceAccount, KnownAccountPrincipalFactory.First, null);
+        }
+    }
+
+    private static async Task SaveRunSettingsAsync(AssistantTestHost host, string accountability, string? serviceAccount, int? expectedVersion)
+    {
+        var saved = await ConfigureAsync(host, configuration => configuration.SaveRunSettingsAsync(
+            StarterId,
+            new NhAssistantAgentRunSettingsRequest(accountability, serviceAccount, ExpectedVersion: expectedVersion),
+            Admin));
+        Assert.True(saved.Success);
+    }
+
+    private static NhAssistantDataConsultationRequest Read()
+    {
+        return new NhAssistantDataConsultationRequest("Knows whether a draft project can start.");
+    }
+
+    private static Task<TaskResult<NhAssistantDataConsultationDto>> SaveAsync(
+        AssistantTestHost host,
+        string agentId,
+        NhAssistantDataConsultationRequest request,
+        string subjectType = "project")
+    {
+        return ConfigureAsync(host, configuration => configuration.SaveConsultationAsync(agentId, subjectType, request, Admin));
+    }
+
+    private static async Task<T> ConfigureAsync<T>(AssistantTestHost host, Func<INhAssistantAgentConfiguration, Task<T>> action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>());
+    }
+
+    private static AssistantAgentConsultationDefinition Row(
+        string agentId,
+        string subjectType,
+        Action<AssistantAgentConsultationDefinition>? configure = null)
+    {
+        var row = new AssistantAgentConsultationDefinition
+        {
+            AgentId = agentId,
+            SubjectType = subjectType,
+            Description = "Knows the subject.",
+            UpdatedAt = DateTimeOffset.UtcNow,
+            UpdatedBy = Admin
+        };
+        configure?.Invoke(row);
+        return row;
+    }
+
+    private static async Task StoreAsync(NhAssistantRunConfigurationStore store, AssistantAgentConsultationDefinition row)
+    {
+        Assert.True((await store.SaveConsultationAsync(row, null, CancellationToken.None)).Succeeded);
+    }
+
+    private static async Task<IReadOnlyList<string>> McpToolNamesAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Member)], "test")),
+            RequestServices = scope.ServiceProvider
+        };
+        var tools = await scope.ServiceProvider.GetRequiredService<INhAiMcpToolAdapter>()
+            .CreateToolsAsync(scope.ServiceProvider, PersonContext());
+        return tools
+            .Select(tool => tool.ProtocolTool.Name)
+            .Where(name => name.StartsWith("consult_", StringComparison.Ordinal) || name.StartsWith("request_", StringComparison.Ordinal))
+            .Where(name => name.Contains(StarterId, StringComparison.Ordinal))
+            .ToArray();
+    }
+
+    private static NhAssistantConsultationCeiling Ceiling(Action<NhAssistantConsultationCeilingBuilder> configure)
+    {
+        var services = new ServiceCollection();
+        NhAssistantConsultationCeiling? ceiling = null;
+        var state = new NhAssistantRegistrationState();
+        new NhAssistantBuilder(services, state).UseConsultationsAsData(configure);
+        ceiling = state.ConsultationsAsData;
+        return ceiling!;
+    }
+
+    private static NhAssistantRegistrationState State(AssistantTestHost host)
+    {
+        return host.Services.GetRequiredService<NhAssistantRegistrationState>();
+    }
+
+    private static NhAiInvocationContext PersonContext()
+    {
+        return new NhAiInvocationContext(Member, "project-assistance", new Dictionary<string, string>())
+        {
+            ActorKind = NhAiActorKind.Human
+        };
+    }
+
+    private static NhAiInvocationContext AgentContext()
+    {
+        return new NhAiInvocationContext("assistant-agent:" + FollowerId, "assistant", new Dictionary<string, string>())
+        {
+            ActorKind = NhAiActorKind.Agent
+        };
+    }
+
+    private static NhAiAgentInvocationScope AgentScope()
+    {
+        return new NhAiAgentInvocationScope(
+            FollowerId,
+            "assistant-agent:" + FollowerId,
+            1,
+            new NhAiSubjectInfo(new NhAiSubjectRef("project", ProjectId), NhAiSubjectInfo.CreateScopeKey(null, null)),
+            "assistant-agent:" + FollowerId,
+            Guid.NewGuid().ToString(),
+            "assistant");
+    }
+
+    private static JsonElement Question()
+    {
+        return JsonSerializer.SerializeToElement(new { subjectId = ProjectId, question = "Can the draft start?" });
+    }
+
+    private static string? Code(TaskResult result)
+    {
+        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+    }
+
+    /// <summary>
+    /// The one field a validation failure names, with the error it expects.
+    /// </summary>
+    private static string Field(TaskResult result, string error)
+    {
+        Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(result));
+        var fields = NhAssistantResults.FieldErrorsOf(result);
+        var field = Assert.Single(fields);
+        Assert.Equal([error], field.Value);
+        return field.Key;
+    }
+}
+
+/// <summary>
+/// Orders as a second subject type that everybody of <see cref="TestSubjects"/> may read.
+/// </summary>
+public sealed class TestOrderResolver(TestSubjects subjects) : INhAiSubjectAccessResolver
+{
+    public string SubjectType => "order";
+
+    public ValueTask<NhAiSubjectInfo?> DescribeAsync(NhAiSubjectRef subject, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<NhAiSubjectInfo?>(new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, null))
+        {
+            DisplayName = "Order " + subject.Id
+        });
+    }
+
+    public ValueTask<NhAiSubjectAccess> ResolveAsync(NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult(subjects.Roles.TryGetValue(actorId, out var role)
+            ? new NhAiSubjectAccess(role)
+            : NhAiSubjectAccess.None);
+    }
+
+    public async IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync(
+        NhAiSubjectRef subject,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var (actorId, role) in subjects.Roles)
+        {
+            await Task.Yield();
+            yield return new NhAiSubjectMember(actorId, role) { DisplayName = actorId };
+        }
+    }
+}

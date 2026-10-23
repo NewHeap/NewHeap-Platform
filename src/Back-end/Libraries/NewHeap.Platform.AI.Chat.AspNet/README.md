@@ -155,7 +155,21 @@ approves, rejects or, with decision `leave`, leaves it for the subject's approve
 the asker's own request. Startup refuses `AtSubject(NhAssistantConsultationRights.Agent)` for an
 agent that answers to the subject's responsible person, for the whole application and for a
 consultation policy that names only the initiator. `POST admin/agents/{id}/consultation-routes`
-switches the routes of an agent's consultations within what code allows.
+switches the routes of an agent's consultations within what code allows, in code and as data.
+
+With `UseConsultationsAsData`, `PUT admin/agents/{id}/consultations/{subjectType}` and `DELETE`
+on the same path (or `INhAssistantAgentConfiguration.SaveConsultationAsync` and
+`RemoveConsultationAsync`) define consultations as data within the ceiling; field errors such as
+`routes: not-allowed` name what the ceiling or the agent does not allow, and
+`assistant-consultations-not-allowed`, `assistant-consultation-in-code` and
+`assistant-consultation-not-found` are conflicts and a missing consultation. `GET
+admin/agents/{id}/configuration` lists `codeConsultations`, `dataConsultations` (with problems,
+the routes in effect and the agents that select the tool) and the agent's `consultationCeiling`;
+`GET admin/run-catalog` has the application's. Their tools are the catalog
+`assistant-consultations-data`, an `INhAiChangingToolCatalog`: every assistant host reads the run
+configuration stamp at most once per second before a listing and refreshes in the background, and
+with `AllowMcp` in the ceiling an MCP server of `WithNewHeapPlatformAITools` announces
+`notifications/tools/list_changed` when they change.
 
 A message to a thread while a run is active returns `202` with a receipt; the next run
 receives it. Turns that a person types in a thread are bound to the request like chat

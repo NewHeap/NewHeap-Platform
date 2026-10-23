@@ -665,7 +665,9 @@ internal sealed class NhAssistantAgentControl(
             return TaskResult<NhAssistantAgentState>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
         }
 
-        // Code is the ceiling: a route no consultation registration allows can never be switched on.
+        // The registrations are the ceiling: a route no consultation of the agent allows, in code or
+        // defined as data (AC10), can never be switched on.
+        await services.GetRequiredService<NhAssistantRunConfigurations>().EnsureCurrentAsync(cancellationToken);
         var allowed = AllowedRoutes(agentId);
         if (allowed.Count == 0
             || (routes.AskerDecides == true && !allowed.ContainsKey(NhAssistantConsultationRoutes.AskerDecides))

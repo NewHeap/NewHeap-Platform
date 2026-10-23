@@ -3,6 +3,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Core.Services;
 
 namespace SampleProjectManagement.Api.Services;
 
@@ -246,6 +247,54 @@ public sealed class SampleAgentConfigurationService(
 
         var settings = await configuration.RemoveRunSettingsAsync(agentId, null, actorId, cancellationToken: cancellationToken);
         return settings.Success || HasCode(settings, NhAssistantErrorCodes.AgentNotConfigured) ? TaskResult.Succeeded() : settings;
+    }
+
+    /// <summary>
+    /// SPM-311: lets other assistants consult the project starter about projects, as an administrator
+    /// does in the administration: it says whether a draft project can start and may propose to start
+    /// it. The person who asked decides the proposal in their own chat when they may; otherwise a
+    /// project approver other than that person decides it and it executes with the rights of the
+    /// operations account the starter answers to. The consultation is in effect at once; the project
+    /// assistant, whose tool selectors name its consult tool, sees the tool from its next turn on.
+    /// </summary>
+    public Task<TaskResult<NhAssistantDataConsultationDto>> MakeStarterConsultableAsync(
+        string agentId,
+        Guid operatorId,
+        CancellationToken cancellationToken)
+    {
+        return configuration.SaveConsultationAsync(
+            agentId,
+            ProjectSubjects.Type,
+            StarterConsultation(),
+            operatorId.ToString("D"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-311: what the starter's consultation says and allows.
+    /// </summary>
+    public static NhAssistantDataConsultationRequest StarterConsultation()
+    {
+        return new NhAssistantDataConsultationRequest(
+            "Knows whether a draft project can start and can propose to start it.",
+            Instructions: "You are asked whether a draft project can start. Answer in one or two sentences; "
+                          + "when it can start, propose to make it active.",
+            Routes:
+            [
+                NhAssistantConsultationRoutes.AskerDecides,
+                NhAssistantConsultationRoutes.SubjectAgentRights
+            ],
+            ProposalPolicy: SampleProjectStarterComposition.ConsultationPolicyId,
+            Reason: "Let the project assistant ask the starter");
+    }
+
+    /// <summary>
+    /// SPM-311: takes the starter's consultation out of effect; proposals it left can still be decided.
+    /// </summary>
+    public async Task<TaskResult> RemoveStarterConsultationAsync(string agentId, Guid operatorId, CancellationToken cancellationToken)
+    {
+        var removed = await configuration.RemoveConsultationAsync(agentId, ProjectSubjects.Type, null, operatorId.ToString("D"), cancellationToken: cancellationToken);
+        return removed.Success || HasCode(removed, NhAssistantErrorCodes.ConsultationNotFound) ? TaskResult.Succeeded() : removed;
     }
 
     private static bool HasCode(TaskResult result, string code)

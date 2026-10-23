@@ -78,6 +78,15 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   what code allows. `NhAssistantLimits.MaxConsultationDepth`,
   `MaxConsultationsPerActorPerDay` and `MaxOpenConsultationProposalsPerAsker` bound it;
   the consulted agent's daily budget includes its consultations.
+- **Consultations as data** — `UseConsultationsAsData(data => ...)` lets administrators define
+  consultations at runtime within a ceiling in code: the routes data may use, request tools,
+  MCP exposure (off by default) and the highest limits. Agents created in the administration
+  with run settings get that ceiling; an agent in code only with `ConsultableAsData(...)`, whose
+  ceiling applies together with the application's. A consultation defined as data is checked
+  against the code on save and on every load, is in effect once saved, never changes one in
+  code, and carries `Source` `data` and its `DataVersion` on its options, consultation records
+  and audit. Its tools live in the catalog `assistant-consultations-data`, which follows every
+  host's configuration in effect and fails a call of a removed or changed consultation closed.
 - **Proposal feedback** — after a rejection, the person who decided a proposal and the
   subject's approvers may say what was wrong: a category from
   `NhAssistantProposalFeedbackCategories` and an optional text, stored in

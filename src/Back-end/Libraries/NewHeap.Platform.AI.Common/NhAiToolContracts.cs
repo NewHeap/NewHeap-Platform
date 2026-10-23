@@ -430,6 +430,57 @@ public interface INhAiAttestedToolCatalog : INhAiToolCatalog
 }
 
 /// <summary>
+/// An attested catalog whose descriptors change while the application runs, such as the generated
+/// tools of configuration that administrators store. Every change is a new, immutable view of the
+/// catalog that is attested on its own. A reader that needs descriptors and functions of the same
+/// moment, such as an agent's tool list or the MCP export, takes <see cref="Current"/> once and uses
+/// only that view; the catalog's own <see cref="INhAiToolCatalog.Descriptors"/> and
+/// <see cref="INhAiToolCatalog.CreateFunctions"/> may each read a later view. Register it as a
+/// singleton, as <see cref="INhAiChangingToolCatalog"/> and as <see cref="INhAiToolCatalog"/>.
+/// </summary>
+public interface INhAiChangingToolCatalog : INhAiAttestedToolCatalog
+{
+    /// <summary>
+    /// The catalog as it is now: the descriptors, manifest, attestation hash and functions of one view.
+    /// </summary>
+    INhAiAttestedToolCatalog Current { get; }
+
+    /// <summary>
+    /// Whether a view may hold descriptors that MCP clients see. MCP servers announce changes of their
+    /// tool list (<c>notifications/tools/list_changed</c>) only for such a catalog.
+    /// </summary>
+    bool MayExportToMcp { get; }
+
+    /// <summary>
+    /// Brings <see cref="Current"/> up to date with the catalog's source before a reader lists tools;
+    /// the catalog decides how often it reads that source.
+    /// </summary>
+    ValueTask RefreshAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Raised after <see cref="Current"/> became a view with other descriptors.
+    /// </summary>
+    event EventHandler? Changed;
+}
+
+/// <summary>
+/// Reads tool catalogs consistently.
+/// </summary>
+public static class NhAiToolCatalogViews
+{
+    /// <summary>
+    /// The view of <paramref name="catalog"/> to read descriptors and functions of the same moment
+    /// from: <see cref="INhAiChangingToolCatalog.Current"/> for a catalog that changes at runtime, the
+    /// catalog itself otherwise.
+    /// </summary>
+    public static INhAiToolCatalog Of(INhAiToolCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        return catalog is INhAiChangingToolCatalog changing ? changing.Current : catalog;
+    }
+}
+
+/// <summary>
 /// Validates that a runtime catalog is governed by the shared invoker before it is exported.
 /// </summary>
 public static class NhAiToolCatalogAttestation

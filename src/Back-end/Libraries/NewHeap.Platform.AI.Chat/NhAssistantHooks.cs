@@ -293,6 +293,17 @@ public enum NhAssistantAuditEventKind
     AdminAgentConsultationRoutesChanged = 65,
 
     /// <summary>
+    /// An administrator or the application added, changed or removed a consultation defined as data.
+    /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// name its subject type, <see cref="NhAssistantAuditEvent.AgentVersion"/> and
+    /// <see cref="NhAssistantAuditEvent.ConsultationVersion"/> its version,
+    /// <see cref="NhAssistantAuditEvent.InstructionsHash"/> the hash of its instructions and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>created</c>, <c>changed</c> or
+    /// <c>removed</c>. Never its description or instructions.
+    /// </summary>
+    AdminAgentConsultationDefinitionChanged = 66,
+
+    /// <summary>
     /// The application posted a message into a conversation with
     /// <see cref="INhAssistantConversationMessages.PostAsync"/>. <see cref="NhAssistantAuditEvent.ActorId"/>
     /// is <c>application</c>, <see cref="NhAssistantAuditEvent.ObjectId"/> the message and
@@ -446,6 +457,19 @@ public sealed record NhAssistantAuditEvent(
     /// <c>assistant-consult-proposal-refused</c>.
     /// </summary>
     public string? ConsultationRefusalReason { get; init; }
+
+    /// <summary>
+    /// Where the consultation of an <see cref="NhAssistantAuditEventKind.AgentConsulted"/> or
+    /// <see cref="NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged"/> event comes from,
+    /// one of <see cref="NhAssistantConsultationSources"/>; <see langword="null"/> for other events.
+    /// </summary>
+    public string? ConsultationSource { get; init; }
+
+    /// <summary>
+    /// The version of the consultation defined as data the event concerns; <see langword="null"/>
+    /// for a consultation in code and other events.
+    /// </summary>
+    public int? ConsultationVersion { get; init; }
 
     /// <summary>
     /// The run of the agent that handed work off.

@@ -5084,6 +5084,32 @@
       ]
     },
     {
+      "id": "SPM-311",
+      "categoryId": "18",
+      "title": "An administrator lets the project assistant consult the project starter, an agent created at runtime, without a deploy",
+      "surface": "`NhAssistantBuilder.UseConsultationsAsData` and `NhAssistantAgentRunBuilder.ConsultableAsData` with `NhAssistantConsultationCeilingBuilder` (`AllowRoutes`, `AllowRequests`, `AllowMcp`, `MaxLimits`) and `NhAssistantConsultationCeiling`; `INhAssistantAgentConfiguration.SaveConsultationAsync` and `RemoveConsultationAsync` with `NhAssistantDataConsultationRequest` and `NhAssistantDataConsultationDto`; `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`; `CodeConsultations`, `DataConsultations` and `ConsultationCeiling` on `NhAssistantAgentConfigurationDto` with `NhAssistantCodeConsultationDto` and `NhAssistantConsultationCeilingDto`, `ConsultationCeiling` on `NhAssistantRunCatalogDto`; `NhAssistantConsultationOptions.Source`, `DataVersion` and `IsData` with `NhAssistantConsultationSources`; `NhAssistantSubjectRoleNames`; the problems of kind `consultation` of `NhAssistantRunConfigurationProblems`; the codes `assistant-consultation-in-code`, `assistant-consultation-not-found` and `assistant-consultations-not-allowed` and the field error `not-allowed`; `NhAssistantAuditEventKind.AdminAgentConsultationDefinitionChanged` and `NhAssistantAuditEvent.ConsultationSource` and `ConsultationVersion`; the catalog `assistant-consultations-data`; `INhAiChangingToolCatalog` and `NhAiToolCatalogViews` with `notifications/tools/list_changed` from `WithNewHeapPlatformAITools`; the AgentConsultationDefinitions migrations for SQL Server and PostgreSQL",
+      "outcome": "The sample lets administrators define consultations within a ceiling in code: the person who asked decides, or a project approver other than that person decides and it executes with the agent's own rights; the route that rebuilds the asker's principal is not named and MCP clients never see them. The project assistant selects the consult tool of the project starter, an agent created in the administration that answers to the operations account (SPM-296, SPM-298), which selects nothing until an administrator saves the starter's consultation about projects. Once saved, the tool appears in the administration's tool list and in the assistant's next turn without a deploy (SPM-278 shows consultations in code). A project approver asks whether a draft can start; the starter answers with that person's rights and proposes to start it, and the person decides it on the card in their own chat. A reader gets the answer without a proposal. When an operator switches the asker's route off for the starter, its proposal waits for a project approver other than the asker and executes with the operations account. A route outside the ceiling is refused with `routes: not-allowed`, and the route with the agent's own rights is refused for an agent that answers for itself. After the consultation is removed the assistant's next turn has no tool, while the waiting proposal can still be decided. A principal factory that refuses people proves that no person's principal is rebuilt. In development the seeder defines the starter's consultation once.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataConsultationTools.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataConsultationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationContractTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChangingToolCatalogTests.cs"
+      ]
+    },
+    {
       "id": "SPM-312",
       "categoryId": "18",
       "title": "The portfolio analysis tells the assistant conversation that started it that it finished, as a message from the application",

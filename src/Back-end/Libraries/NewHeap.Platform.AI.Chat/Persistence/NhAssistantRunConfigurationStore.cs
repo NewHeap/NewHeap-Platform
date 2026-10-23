@@ -13,17 +13,26 @@ internal sealed record NhAssistantStoredRunConfiguration(
     IReadOnlyList<AssistantAgentRunConfiguration> AgentRuns,
     IReadOnlyDictionary<string, NhAssistantStoredAdminAgent> AdminAgents,
     IReadOnlyList<AssistantAgentSkillDefinition> Skills,
-    IReadOnlyList<AssistantAgentTriggerDefinition> Triggers);
+    IReadOnlyList<AssistantAgentTriggerDefinition> Triggers)
+{
+    /// <summary>
+    /// The consultations defined as data, ordered by agent and subject type.
+    /// </summary>
+    public IReadOnlyList<AssistantAgentConsultationDefinition> Consultations { get; init; } = [];
+}
 
 /// <summary>
 /// What the run configuration reads of an agent created in the administration.
 /// </summary>
 /// <param name="DataClassification">The classification of its model calls, one of
 /// <see cref="NhAssistantDataClassificationNames"/>; <see langword="null"/> for none.</param>
+/// <param name="RequiredPolicy">The policy a person needs to use the agent; a consultation defined as
+/// data without an asker policy requires it of the asker.</param>
 internal sealed record NhAssistantStoredAdminAgent(
     string ToolSelectorsJson,
     NhAssistantAgentWorksOn WorksOn,
-    string? DataClassification = null);
+    string? DataClassification = null,
+    string? RequiredPolicy = null);
 
 /// <summary>
 /// Persistence of the run configuration defined as data: the versions of data skills and the data
@@ -73,7 +82,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                     PerDivision = agent.PerDivision,
                     RunPolicy = agent.RunPolicy,
                     ViewPolicy = agent.ViewPolicy,
-                    DataClassification = agent.DataClassification
+                    DataClassification = agent.DataClassification,
+                    RequiredPolicy = agent.RequiredPolicy
                 })
                 .ToListAsync(cancellationToken))
             .ToDictionary(
@@ -81,7 +91,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
                 agent => new NhAssistantStoredAdminAgent(
                     agent.ToolSelectorsJson,
                     NhAssistantAgentWorksOn.FromRow(agent),
-                    agent.DataClassification),
+                    agent.DataClassification,
+                    agent.RequiredPolicy),
                 StringComparer.Ordinal);
         var skills = await context.AgentSkillDefinitions
             .AsNoTracking()
@@ -96,7 +107,15 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.Id)
             .ToListAsync(cancellationToken);
-        return new NhAssistantStoredRunConfiguration(stamp, agentRuns, adminAgents, skills, triggers);
+        var consultations = await context.AgentConsultationDefinitions
+            .AsNoTracking()
+            .OrderBy(item => item.AgentId)
+            .ThenBy(item => item.SubjectType)
+            .ToListAsync(cancellationToken);
+        return new NhAssistantStoredRunConfiguration(stamp, agentRuns, adminAgents, skills, triggers)
+        {
+            Consultations = consultations
+        };
     }
 
     public async Task<AssistantAgentRunConfiguration?> FindRunSettingsAsync(string agentId, CancellationToken cancellationToken)
@@ -177,7 +196,8 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
 
     /// <summary>
     /// Removes the run settings of an agent, which then only chats. Fails with
-    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills or data triggers.
+    /// <see cref="NhAssistantStoreOutcome.Rejected"/> while the agent has data skills, data triggers or
+    /// data consultations.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> RemoveRunSettingsAsync(
         string agentId,
@@ -196,6 +216,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
         }
         if (await context.AgentTriggerDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
+            || await context.AgentConsultationDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
             || await context.AgentSkillDefinitions.AnyAsync(
                 item => item.AgentId == agentId && item.Status != NhAssistantSkillDefinitionStatuses.Superseded,
                 cancellationToken))
@@ -593,6 +614,112 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
 
         await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(existing);
+    }
+
+    public async Task<IReadOnlyList<AssistantAgentConsultationDefinition>> ListConsultationsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.AgentConsultationDefinitions
+            .AsNoTracking()
+            .Where(item => item.AgentId == agentId)
+            .OrderBy(item => item.SubjectType)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds a consultation defined as data, or changes one when <paramref name="expectedVersion"/> is
+    /// its current version; <see langword="null"/> for a new consultation. A change is its next
+    /// version.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentConsultationDefinition>> SaveConsultationAsync(
+        AssistantAgentConsultationDefinition consultation,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await context.AgentConsultationDefinitions.SingleOrDefaultAsync(
+            item => item.AgentId == consultation.AgentId && item.SubjectType == consultation.SubjectType,
+            cancellationToken);
+        if (existing?.Version != expectedVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        if (existing is null)
+        {
+            consultation.Version = 1;
+            consultation.CreatedAt = consultation.UpdatedAt;
+            consultation.CreatedBy = consultation.UpdatedBy;
+            consultation.ConcurrencyStamp = Guid.NewGuid();
+            context.AgentConsultationDefinitions.Add(consultation);
+            existing = consultation;
+        }
+        else
+        {
+            existing.Description = consultation.Description;
+            existing.Instructions = consultation.Instructions;
+            existing.InstructionsHash = consultation.InstructionsHash;
+            existing.MinimumRole = consultation.MinimumRole;
+            existing.AskerPolicy = consultation.AskerPolicy;
+            existing.RoutesJson = consultation.RoutesJson;
+            existing.ProposalRole = consultation.ProposalRole;
+            existing.ProposalPolicyId = consultation.ProposalPolicyId;
+            existing.MaxToolCalls = consultation.MaxToolCalls;
+            existing.TimeoutSeconds = consultation.TimeoutSeconds;
+            existing.MaxAnswerChars = consultation.MaxAnswerChars;
+            existing.MaxHistoryMessages = consultation.MaxHistoryMessages;
+            existing.AllowRequests = consultation.AllowRequests;
+            existing.ExposeToMcp = consultation.ExposeToMcp;
+            existing.DataClassification = consultation.DataClassification;
+            existing.Version++;
+            existing.UpdatedAt = consultation.UpdatedAt;
+            existing.UpdatedBy = consultation.UpdatedBy;
+            existing.Reason = consultation.Reason;
+            existing.ConcurrencyStamp = Guid.NewGuid();
+        }
+
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
+    }
+
+    /// <summary>
+    /// Removes a consultation defined as data. <paramref name="expectedVersion"/>, when given, must be
+    /// its current version.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentConsultationDefinition>> RemoveConsultationAsync(
+        string agentId,
+        string subjectType,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await context.AgentConsultationDefinitions.SingleOrDefaultAsync(
+            item => item.AgentId == agentId && item.SubjectType == subjectType,
+            cancellationToken);
+        if (existing is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+        if (expectedVersion is not null && existing.Version != expectedVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        context.AgentConsultationDefinitions.Remove(existing);
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
     }
 
     private static async Task<bool> TrySaveAsync(NhAssistantDbContext context, CancellationToken cancellationToken)

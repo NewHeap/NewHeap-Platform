@@ -143,6 +143,23 @@ public sealed class NhAssistantConsultationOptions
     /// </summary>
     public NhAiDataClassification DataClassification { get; internal set; } = NhAiDataClassification.Internal;
 
+    /// <summary>
+    /// Where the consultation comes from: <see cref="NhAssistantConsultationSources.Code"/> for
+    /// <c>AllowConsultation</c>, <see cref="NhAssistantConsultationSources.Data"/> for a consultation an
+    /// administrator defined.
+    /// </summary>
+    public string Source { get; internal set; } = NhAssistantConsultationSources.Code;
+
+    /// <summary>
+    /// The version of a consultation defined as data; <see langword="null"/> for one in code.
+    /// </summary>
+    public int? DataVersion { get; internal set; }
+
+    /// <summary>
+    /// Whether an administrator defined the consultation as data.
+    /// </summary>
+    public bool IsData => string.Equals(Source, NhAssistantConsultationSources.Data, StringComparison.Ordinal);
+
     internal void AddPolicies(IEnumerable<string> policies)
     {
         foreach (var policy in policies)
@@ -447,6 +464,32 @@ public static class NhAssistantConsultationTools
     {
         return toolId.StartsWith(ConsultPrefix, StringComparison.Ordinal)
                || toolId.StartsWith(RequestPrefix, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The version of the generated tools' contract.
+    /// </summary>
+    internal const int ContractVersion = 1;
+
+    private const int MaxExportNameLength = 64;
+
+    /// <summary>
+    /// The name a model or MCP client calls a generated tool by, for example
+    /// <c>consult_project-reviewer_project_v1</c>, within the 64 characters model providers accept, with a
+    /// stable hash suffix when it has to be shortened.
+    /// </summary>
+    internal static string ExportNameOf(bool request, string agentId, string subjectType)
+    {
+        var name = ((request ? "request_" : "consult_") + agentId + "_" + subjectType + "_v"
+                    + ContractVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Replace('.', '_');
+        if (name.Length <= MaxExportNameLength)
+        {
+            return name;
+        }
+
+        var suffix = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name)))[..12];
+        return name[..(MaxExportNameLength - suffix.Length - 1)].TrimEnd('_', '-') + "_" + suffix;
     }
 
     /// <summary>

@@ -892,6 +892,40 @@ agent's daily `Budget`. Make `INhAiSubjectAccessResolver` accept only the canoni
 subject, because the asking model types the id. Unknown subjects and subjects the asker
 may not read both return `assistant-consult-subject-unavailable`.
 
+Let administrators define consultations as data only within a ceiling in code. Call
+`UseConsultationsAsData(data => data.AllowRoutes(...).AllowRequests().MaxLimits(...))`: it
+names the routes data may use (answering without proposals is always allowed), whether data
+may generate request tools, whether MCP clients may see a consultation that asks for it
+(`AllowMcp`, off by default) and the highest limits. Agents created in the administration
+with run settings get that ceiling; an agent in code gets consultations as data only with
+`ConfigureAgent(...).ConsultableAsData(...)`, whose ceiling applies together with the
+application's, and startup refuses a code ceiling beyond the application's or one with
+`subject-agent-rights` for an agent without rights of its own. Do not name
+`subject-asker-rights` unless the application rebuilds people's principals, and give
+`subject-agent-rights` only to agents whose technical account or grants may lend their
+rights: for an agent created in the administration it means its technical account's rights,
+and saving it is refused for one that answers for itself. Save a consultation with
+`INhAssistantAgentConfiguration.SaveConsultationAsync` (or `PUT admin/agents/{id}/consultations/{subjectType}`)
+with `NhAssistantDataConsultationRequest`: a description, optional instructions, who may
+ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`), the routes, the
+proposal role and approval policy, limits within the bounds of `AllowConsultation` and the
+ceiling, requests, MCP and the classification of the answers; at most
+`NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent` per agent. A consultation is
+in effect once saved, versioned like a data trigger, audited with
+`AdminAgentConsultationDefinitionChanged` and never changes one in code
+(`assistant-consultation-in-code`). It answers only when an asking agent selects its tool:
+the asking side stays the asking agent's tool selectors, so prefer an exact
+`NhAssistantConsultationTools.ConsultToolId` over `assistant.consult.*`. Its tools live in
+the catalog `assistant-consultations-data`, which follows the configuration in effect on
+every host within seconds; a call of a tool whose consultation was removed or whose contract
+changed fails with `assistant-consult-agent-unavailable`, while proposals it left can still be
+decided. Data that no longer fits after a deploy is reported as a problem of kind
+`consultation`: out of effect when its agent, subject type, works-on or asker policy no
+longer fits, without the routes, requests or MCP exposure that no longer fit, or with limits
+capped at the ceiling. The route switches of `SetConsultationRoutesAsync` apply to
+consultations in code and as data alike. Run settings of an agent created in the
+administration stay while consultations belong to it.
+
 Learn from rejected proposals before letting an agent learn by itself. After a person
 rejects a proposal, offer the optional feedback of `PUT approvals/{approvalId}/feedback`:
 a category from `NhAssistantProposalFeedbackCategories` and at most
@@ -1601,3 +1635,8 @@ executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html)
+- SPM-311 — An administrator lets the project assistant consult the project starter, an agent created at runtime, without a deploy
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

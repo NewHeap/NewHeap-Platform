@@ -333,6 +333,23 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets administrators define consultations of agents as data, within this ceiling: which agent
+    /// may be consulted about which object type, with which description and instructions, by whom,
+    /// read-only or with proposals by the routes the ceiling names, and within its limits. Agents
+    /// created in the administration with run settings get this ceiling; an agent in code gets
+    /// consultations as data only with <see cref="NhAssistantAgentRunBuilder.ConsultableAsData"/>. Data
+    /// never changes a consultation in code. The asking side stays the asking agent's tool selectors.
+    /// Without this call consultations exist in code only.
+    /// </summary>
+    public NhAssistantBuilder UseConsultationsAsData(Action<NhAssistantConsultationCeilingBuilder>? configure = null)
+    {
+        var ceiling = new NhAssistantConsultationCeiling();
+        configure?.Invoke(new NhAssistantConsultationCeilingBuilder(ceiling));
+        _state.ConsultationsAsData = ceiling;
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -857,6 +874,31 @@ internal sealed class NhAssistantRegistrationState
     /// </summary>
     public bool DataAgentRunsEnabled { get; set; }
 
+    /// <summary>
+    /// The application's ceiling of consultations defined as data; <see langword="null"/> while
+    /// consultations exist in code only.
+    /// </summary>
+    public NhAssistantConsultationCeiling? ConsultationsAsData { get; set; }
+
+    /// <summary>
+    /// The ceiling of consultations defined as data of an agent: the application's for an agent
+    /// created in the administration, both ceilings together for an agent in code that is consultable
+    /// as data, <see langword="null"/> when the agent may get none.
+    /// </summary>
+    public NhAssistantConsultationCeiling? ConsultationCeilingOf(string agentId)
+    {
+        if (ConsultationsAsData is not { } application)
+        {
+            return null;
+        }
+        if (_agentRuns.TryGetValue(agentId, out var code))
+        {
+            return code.ConsultationCeiling?.Intersect(application);
+        }
+
+        return _agents.ContainsKey(agentId) ? null : application;
+    }
+
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 
     public IReadOnlyDictionary<string, NhAssistantRuleHandlerDefinition> RuleHandlers => _ruleHandlers;
@@ -1183,6 +1225,11 @@ internal sealed class NhAssistantRegistrationState
                 ValidateConsultationProposals(options, consultation);
             }
 
+            if (options.ConsultationCeiling is { } consultationCeiling)
+            {
+                ValidateConsultationCeiling(options, consultationCeiling);
+            }
+
             // WithLimits may run after ConfigureAgent: agent and skill file limits are checked now.
             options.FileLimits?.Validate(Limits, $"agent '{agentId}'");
             foreach (var skill in options.Skills.Values)
@@ -1287,6 +1334,39 @@ internal sealed class NhAssistantRegistrationState
                 throw new InvalidOperationException(
                     $"The {owner} executes proposals with the agent's own rights after another approver decided them, but approval policy '{policyId}' names only the initiator. Add an approver rule.");
             }
+        }
+    }
+
+    /// <summary>
+    /// The ceiling of an agent in code that is consultable as data stays within the application's,
+    /// and the route with the agent's own rights needs an agent with rights of its own: grants, or a
+    /// technical account it acts for.
+    /// </summary>
+    private void ValidateConsultationCeiling(NhAssistantAgentRunOptions options, NhAssistantConsultationCeiling ceiling)
+    {
+        if (ConsultationsAsData is not { } application)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{options.AgentId}' is consultable as data, but the application does not call UseConsultationsAsData.");
+        }
+        if (ceiling.OutsideOf(application) is { } outside)
+        {
+            throw new InvalidOperationException(
+                $"The ceiling of consultations as data of agent '{options.AgentId}' allows {outside} beyond UseConsultationsAsData. Keep it within the application's ceiling.");
+        }
+        if (!ceiling.Allows(NhAssistantConsultationRoutes.SubjectAgentRights))
+        {
+            return;
+        }
+        if (options.Accountability == NhAiAgentAccountability.SubjectResponsible)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{options.AgentId}' may be consulted as data with proposals that execute with its own rights, but it answers to the subject's responsible person. Leave subject-agent-rights out of ConsultableAsData, or use a technical account.");
+        }
+        if (options.Accountability == NhAiAgentAccountability.Agent && options.Grants.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Agent '{options.AgentId}' may be consulted as data with proposals that execute with its own rights, but it answers for itself without grants, so it has no rights of its own. Leave subject-agent-rights out of ConsultableAsData, or grant tools.");
         }
     }
 

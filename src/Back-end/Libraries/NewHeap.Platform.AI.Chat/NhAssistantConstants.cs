@@ -883,9 +883,27 @@ public static class NhAssistantErrorCodes
     public const string RunSettingsInCode = "assistant-run-settings-in-code";
 
     /// <summary>
-    /// Skills or triggers defined as data still belong to the agent; remove them first.
+    /// Skills, triggers or consultations defined as data still belong to the agent; remove them first.
     /// </summary>
     public const string RunSettingsInUse = "assistant-run-settings-in-use";
+
+    /// <summary>
+    /// The agent allows consultation about this subject type in code (<c>AllowConsultation</c>); a
+    /// consultation in code does not change as data.
+    /// </summary>
+    public const string ConsultationInCode = "assistant-consultation-in-code";
+
+    /// <summary>
+    /// The agent has no consultation defined as data about this subject type.
+    /// </summary>
+    public const string ConsultationNotFound = "assistant-consultation-not-found";
+
+    /// <summary>
+    /// The agent may not get consultations defined as data: the application did not call
+    /// <c>UseConsultationsAsData</c>, or the agent is registered in code without
+    /// <c>ConsultableAsData</c>.
+    /// </summary>
+    public const string ConsultationsNotAllowed = "assistant-consultations-not-allowed";
 
     /// <summary>
     /// The skill has no candidate version to promote, discard or compare.
@@ -1562,6 +1580,12 @@ public static class NhAssistantFieldErrors
     public const string Invalid = "invalid";
     public const string TooLong = "too-long";
     public const string NotFound = "not-found";
+
+    /// <summary>
+    /// The value is valid but the ceiling in code does not allow it, for example a consultation route
+    /// that <c>UseConsultationsAsData</c> does not name.
+    /// </summary>
+    public const string NotAllowed = "not-allowed";
 }
 
 /// <summary>

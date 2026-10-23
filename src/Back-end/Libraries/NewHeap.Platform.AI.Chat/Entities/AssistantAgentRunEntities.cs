@@ -255,6 +255,12 @@ public sealed class AssistantConsultation
     public int Depth { get; set; }
 
     /// <summary>
+    /// The version of the consultation defined as data the agent was consulted under;
+    /// <see langword="null"/> for a consultation in code.
+    /// </summary>
+    public int? ConsultationVersion { get; set; }
+
+    /// <summary>
     /// One of the values in <see cref="NhAssistantConsultationStatuses"/>.
     /// </summary>
     public string Status { get; set; } = NhAssistantConsultationStatuses.Running;

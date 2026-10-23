@@ -250,6 +250,104 @@ public sealed class AssistantAgentRunConfiguration
 }
 
 /// <summary>
+/// A consultation an administrator defined as data: other assistants may consult the agent about
+/// subjects of one type, with this description and instructions, by whom and by which routes, within
+/// the ceiling in code. One row per agent and subject type; every change is its next version.
+/// </summary>
+public sealed class AssistantAgentConsultationDefinition
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    public string SubjectType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Incremented on every change.
+    /// </summary>
+    public int Version { get; set; } = 1;
+
+    /// <summary>
+    /// What the asking model reads about the agent, so it consults it at the right moment.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Extra instructions the agent follows when it is consulted, next to its own.
+    /// </summary>
+    public string? Instructions { get; set; }
+
+    /// <summary>
+    /// The SHA-256 of <see cref="Instructions"/>, lowercase hex.
+    /// </summary>
+    public string? InstructionsHash { get; set; }
+
+    /// <summary>
+    /// The role the asking person needs on the subject, one of <see cref="NhAssistantSubjectRoleNames"/>.
+    /// </summary>
+    public string MinimumRole { get; set; } = NhAssistantSubjectRoleNames.Reader;
+
+    /// <summary>
+    /// The authorization policy the asking person must pass, one the application lists with
+    /// <c>AddAgentPolicy</c>; <see langword="null"/> uses the agent's required policy, else the
+    /// assistant's access policy.
+    /// </summary>
+    public string? AskerPolicy { get; set; }
+
+    /// <summary>
+    /// The routes of the agent's proposals, a JSON array of <see cref="NhAssistantConsultationRoutes"/>;
+    /// an empty array keeps the consultation read-only.
+    /// </summary>
+    public string RoutesJson { get; set; } = "[]";
+
+    /// <summary>
+    /// The role the asking person needs before the agent may propose, one of
+    /// <see cref="NhAssistantSubjectRoleNames"/>.
+    /// </summary>
+    public string ProposalRole { get; set; } = NhAssistantSubjectRoleNames.Participant;
+
+    /// <summary>
+    /// The approval policy of the consultation's proposals, registered with <c>AddApprovalPolicy</c>;
+    /// <see langword="null"/> uses the agent's.
+    /// </summary>
+    public string? ProposalPolicyId { get; set; }
+
+    public int MaxToolCalls { get; set; } = 4;
+
+    public int TimeoutSeconds { get; set; } = 60;
+
+    public int MaxAnswerChars { get; set; } = 4_000;
+
+    public int MaxHistoryMessages { get; set; } = 20;
+
+    /// <summary>
+    /// Also generates the request tool, when the ceiling allows requests.
+    /// </summary>
+    public bool AllowRequests { get; set; }
+
+    /// <summary>
+    /// MCP clients may see the consultation's tools, when the ceiling allows MCP.
+    /// </summary>
+    public bool ExposeToMcp { get; set; }
+
+    /// <summary>
+    /// The classification of the answers, one of <see cref="NhAssistantDataClassificationNames"/>;
+    /// <see langword="null"/> uses the agent's.
+    /// </summary>
+    public string? DataClassification { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public string CreatedBy { get; set; } = string.Empty;
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public string UpdatedBy { get; set; } = string.Empty;
+
+    public string? Reason { get; set; }
+
+    public Guid ConcurrencyStamp { get; set; }
+}
+
+/// <summary>
 /// One row whose value changes with every change of the data-defined run configuration, so every
 /// host knows when to reload.
 /// </summary>

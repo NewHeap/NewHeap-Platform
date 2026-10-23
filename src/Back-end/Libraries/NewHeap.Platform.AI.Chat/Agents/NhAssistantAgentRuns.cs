@@ -43,7 +43,7 @@ public sealed class NhAssistantAgentRunOptions
     /// The most skills one agent declares.
     /// </summary>
     public const int MaxSkills = 20;
-    private readonly List<NhAssistantConsultationOptions> _consultations = [];
+    private List<NhAssistantConsultationOptions> _consultations = [];
     private readonly List<NhAssistantHandOffOptions> _handOffs = [];
 
     internal NhAssistantAgentRunOptions(string agentId)
@@ -298,9 +298,30 @@ public sealed class NhAssistantAgentRunOptions
     public int MemorySchemaVersion { get; internal set; }
 
     /// <summary>
-    /// The subject types other assistants may consult the agent about, one entry per type.
+    /// The subject types other assistants may consult the agent about, one entry per type: those in
+    /// code and, in the configuration in effect, those an administrator defined as data
+    /// (<see cref="NhAssistantConsultationOptions.Source"/>).
     /// </summary>
     public IReadOnlyList<NhAssistantConsultationOptions> Consultations => _consultations;
+
+    /// <summary>
+    /// The agent's own ceiling of consultations defined as data, from
+    /// <see cref="NhAssistantAgentRunBuilder.ConsultableAsData"/>; <see langword="null"/> when
+    /// administrators may not make the agent in code consultable. It applies together with the
+    /// application's ceiling.
+    /// </summary>
+    public NhAssistantConsultationCeiling? ConsultationCeiling { get; internal set; }
+
+    /// <summary>
+    /// A copy of the options with the consultations defined as data next to those in code. The
+    /// options in code stay as they are.
+    /// </summary>
+    internal NhAssistantAgentRunOptions WithDataConsultations(IEnumerable<NhAssistantConsultationOptions> dataConsultations)
+    {
+        var copy = (NhAssistantAgentRunOptions)MemberwiseClone();
+        copy._consultations = [.. _consultations, .. dataConsultations];
+        return copy;
+    }
 
     /// <summary>
     /// The subject types other agents may hand work on to this agent, one entry per type.
@@ -948,6 +969,24 @@ public sealed class NhAssistantAgentRunBuilder
 
         var consultation = _options.AddConsultation(subjectType);
         configure?.Invoke(new NhAssistantConsultationBuilder(consultation));
+        return this;
+    }
+
+    /// <summary>
+    /// Lets administrators make the agent consultable as data about the object types it works on and
+    /// that it has no <see cref="AllowConsultation"/> for, within this ceiling and the application's
+    /// (<c>UseConsultationsAsData</c>). Without it the agent gets no consultations as data: the
+    /// developer decides whether people reach its memory and tools through other assistants. The
+    /// route that executes with the agent's own rights needs an agent that answers for itself with
+    /// grants or a technical account; startup fails for an agent that answers to the subject's
+    /// responsible person, for a ceiling outside the application's and without
+    /// <c>UseConsultationsAsData</c>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ConsultableAsData(Action<NhAssistantConsultationCeilingBuilder>? configure = null)
+    {
+        var ceiling = new NhAssistantConsultationCeiling();
+        configure?.Invoke(new NhAssistantConsultationCeilingBuilder(ceiling));
+        _options.ConsultationCeiling = ceiling;
         return this;
     }
 

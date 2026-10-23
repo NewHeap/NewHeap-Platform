@@ -5,7 +5,7 @@ area: backend
 reference: ai-mcp-tools
 summary: "Adapt an explicitly MCP-exposed generated NewHeap catalog through the official SDK without duplicating domain code or bypassing discovery and invocation authorization."
 sample-cases: ["SPM-222", "SPM-240"]
-public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions"]
+public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions", "INhAiChangingToolCatalog", "NhAiToolCatalogViews"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -108,6 +108,21 @@ without MCP exposure, such as a run-scoped imported MCP catalog that only serves
 agents, is skipped by the export path and may share the host. Catalogs may be
 registered as scoped services; startup validation resolves them in a scope of its
 own.
+
+A runtime catalog whose descriptors change while the application runs, such as the
+tools of consultations that administrators define as data, implements
+INhAiChangingToolCatalog and is registered as a singleton. Every change is a new,
+immutable view (Current) that is attested on its own; discovery calls
+RefreshAsync first, and the agent framework and the MCP export read descriptors and
+functions from one view (NhAiToolCatalogViews.Of), so a change between the two never
+breaks a listing. A view that fails its attestation, or a tool that would take the
+export name of a tool registered at startup, stays out of the export instead of
+failing it, and startup never fails on such data. When MayExportToMcp is true,
+WithNewHeapPlatformAITools declares listChanged for tools and announces
+
+otifications/tools/list_changed to every session when the catalog raises Changed;
+clients of the 2026-07-28 revision receive it on a subscriptions/listen stream, and a
+stateless transport has no session to tell.
 
 ## Avoid
 

@@ -1481,7 +1481,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var context = CreateAgentInvocationContext(state, callerContext);
         var selected = (await SelectToolsAsync(agent, context, null, cancellationToken)).ToHashSet(StringComparer.Ordinal);
         var tools = new Dictionary<string, AIFunction>(StringComparer.Ordinal);
-        foreach (var catalog in _catalogs)
+        foreach (var catalog in _catalogs.Select(NhAiToolCatalogViews.Of))
         {
             if (!catalog.Descriptors.Any(descriptor => selected.Contains(descriptor.Id)))
             {
@@ -2084,7 +2084,7 @@ internal sealed partial class NhAssistantTurnRunner(
 
     private (AIFunction Function, NhAiToolDescriptor Descriptor)? FindGovernedFunction(AssistantToolInvocation invocation)
     {
-        foreach (var catalog in _catalogs)
+        foreach (var catalog in _catalogs.Select(NhAiToolCatalogViews.Of))
         {
             var descriptors = catalog.Descriptors;
             if (!descriptors.Any(descriptor => Matches(descriptor, invocation)))

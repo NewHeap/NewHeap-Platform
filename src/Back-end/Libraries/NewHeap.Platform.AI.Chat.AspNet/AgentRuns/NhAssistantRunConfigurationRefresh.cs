@@ -99,11 +99,13 @@ internal sealed class NhAssistantRunConfigurationRefresh(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // A host that runs no agents on their own, in code or as data, follows nothing.
+        // A host that runs no agents on their own, in code or as data, follows nothing, unless
+        // consultations are data: then every assistant host follows them, also one that only chats
+        // (AC23), so its tool lists, MCP export and consult tools see a change another host made.
         var runsAgents = registration.CodeAgentRuns.Count > 0
             || services.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>()
                 ?.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _) == true;
-        if (!configurations.Enabled || !runsAgents)
+        if (!configurations.Enabled || (!runsAgents && registration.ConsultationsAsData is null))
         {
             return;
         }

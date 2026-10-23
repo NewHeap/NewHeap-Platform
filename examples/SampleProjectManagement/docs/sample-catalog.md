@@ -223,6 +223,21 @@ visit of the inbox in its scope is marked new, also what arrives while it is sho
 lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
 grouped order and totals across pages, the recorded parent, the division filter and what is new.
 
+Administrators let other assistants consult an agent without a deploy (SPM-311). The project starter's
+composition calls `UseConsultationsAsData`: data may let the person who asked decide a proposal, or let
+a project approver other than that person decide it with the agent's own rights, and may generate request
+tools; the route that rebuilds the asker's principal later is not named, and MCP clients never see such
+consultations. The project assistant selects the consult tool of the project starter in code, which
+selects nothing until an administrator saves the starter's consultation about projects with
+`SaveConsultationAsync`, as `SampleAgentConfigurationService` does; the development seeder defines it
+once. The tool then appears in the administration's tool list and the assistant's next turn. A project
+approver asks whether a draft can start, the starter answers with that person's rights and proposes to
+start it, and the person decides it on the card. A reader gets the answer only. With the asker's route
+switched off for the starter, the proposal waits for another project approver and executes with the
+operations account the starter answers to. After the consultation is removed the tool is gone, while
+the waiting proposal can still be decided. `AssistantAgentRunSamplesTests` runs the case, with a
+principal factory that refuses the people involved.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server

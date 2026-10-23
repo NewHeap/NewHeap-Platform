@@ -161,8 +161,11 @@ internal sealed class NhAiAgentFrameworkAdapter(
             .Select(descriptor => $"{descriptor.Id}@{descriptor.Version}")
             .ToHashSet(StringComparer.Ordinal);
         var functions = new List<AITool>();
-        foreach (var catalog in catalogs)
+        foreach (var listed in catalogs)
         {
+            // A catalog that changes at runtime is read through one view, so its descriptors and
+            // functions belong to the same moment.
+            var catalog = NhAiToolCatalogViews.Of(listed);
             if (catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
                 throw new InvalidOperationException(

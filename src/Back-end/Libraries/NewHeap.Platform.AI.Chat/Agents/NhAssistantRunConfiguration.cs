@@ -51,6 +51,21 @@ public static class NhAssistantAgentConfigurationLimits
     /// The most runs per subject and day in the run settings of an agent.
     /// </summary>
     public const int MaxRunsPerSubjectPerDay = 1_000;
+
+    /// <summary>
+    /// The most consultations defined as data of one agent, one per subject type.
+    /// </summary>
+    public const int MaxConsultationsPerAgent = 20;
+
+    /// <summary>
+    /// The longest instructions of a consultation defined as data, in characters.
+    /// </summary>
+    public const int MaxConsultationInstructionsLength = 4_000;
+
+    /// <summary>
+    /// The longest description of a consultation, in characters, in code and as data.
+    /// </summary>
+    public const int MaxConsultationDescriptionLength = 1_000;
 }
 
 /// <summary>
@@ -113,12 +128,15 @@ public static class NhAssistantElevatedReadNames
 }
 
 /// <summary>
-/// A skill or trigger defined as data that is out of effect because it no longer fits the code, for
-/// example after a deploy removed the profile, policy, rule handler, event or subject set it names.
-/// The administration shows it; startup does not fail on it.
+/// A skill, trigger or consultation defined as data that is out of effect, or a consultation that
+/// works with less than it was saved with, because it no longer fits the code, for example after a
+/// deploy removed the profile, policy, rule handler, event or subject set it names. The
+/// administration shows it; startup does not fail on it.
 /// </summary>
-/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c> or <c>trigger</c>.</param>
-/// <param name="Id">The agent id, the skill id or the trigger id.</param>
+/// <param name="Kind"><c>agent</c> for run settings, <c>skill</c>, <c>candidate</c>, <c>trigger</c> or
+/// <c>consultation</c>.</param>
+/// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation, its subject
+/// type. A consultation that works with less has a problem per part that no longer fits.</param>
 /// <param name="Code">One of <see cref="NhAssistantRunConfigurationProblems"/>.</param>
 public sealed record NhAssistantRunConfigurationProblem(string AgentId, string Kind, string Id, string Code);
 
@@ -186,6 +204,67 @@ public static class NhAssistantRunConfigurationProblems
 
     /// <summary>The stored definition is invalid in another way.</summary>
     public const string Invalid = "invalid";
+
+    /// <summary>A consultation defined as data, by its subject type.</summary>
+    public const string ConsultationKind = "consultation";
+
+    /// <summary>The consultation's subject type has no subject access resolver.</summary>
+    public const string UnknownSubjectType = "unknown-subject-type";
+
+    /// <summary>
+    /// The consultation's asker policy is no longer listed with <c>AddAgentPolicy</c>; the consultation
+    /// is out of effect.
+    /// </summary>
+    public const string UnknownAgentPolicy = "unknown-agent-policy";
+
+    /// <summary>Another tool catalog has a tool with the consultation's tool id or export name.</summary>
+    public const string ConflictsWithTool = "conflicts-with-tool";
+
+    /// <summary>
+    /// The agent may no longer get consultations as data: the application no longer calls
+    /// <c>UseConsultationsAsData</c>, or the agent in code no longer calls <c>ConsultableAsData</c>.
+    /// </summary>
+    public const string NotConsultable = "not-consultable";
+
+    /// <summary>
+    /// The ceiling in code no longer allows a route of the consultation; the consultation stays in
+    /// effect without it, read-only when no route is left.
+    /// </summary>
+    public const string RouteNotAllowed = "route-not-allowed";
+
+    /// <summary>
+    /// The route that executes with the agent's own rights is dropped: the agent answers to the
+    /// subject's responsible person.
+    /// </summary>
+    public const string AgentAnswersToPerson = "agent-answers-to-person";
+
+    /// <summary>
+    /// The route that executes with the agent's own rights is dropped: the agent answers for itself
+    /// without grants, such as an agent created in the administration that answers for itself.
+    /// </summary>
+    public const string AgentHasNoRights = "agent-has-no-rights";
+
+    /// <summary>
+    /// The route that executes with the agent's own rights is dropped: an approval policy that applies
+    /// names only the person who caused the proposal.
+    /// </summary>
+    public const string NoApprover = "no-approver";
+
+    /// <summary>
+    /// A limit of the consultation is above the ceiling's; it works with the ceiling's.
+    /// </summary>
+    public const string LimitAboveCeiling = "limit-above-ceiling";
+
+    /// <summary>
+    /// The ceiling in code no longer allows request tools; the consultation stays without one.
+    /// </summary>
+    public const string RequestsNotAllowed = "requests-not-allowed";
+
+    /// <summary>
+    /// The ceiling in code no longer lets MCP clients see consultations; the consultation stays for
+    /// chats and agents only.
+    /// </summary>
+    public const string McpNotAllowed = "mcp-not-allowed";
 }
 
 /// <summary>
@@ -280,6 +359,77 @@ internal static class NhAssistantDataTriggerFilters
     {
         return names.Count == 0 ? null : JsonSerializer.Serialize(names);
     }
+}
+
+/// <summary>
+/// The routes a consultation defined as data stores: a JSON array of distinct values of
+/// <see cref="NhAssistantConsultationRoutes"/> with at most one route at the subject; an empty array
+/// keeps the consultation read-only.
+/// </summary>
+internal static class NhAssistantDataConsultationRoutes
+{
+    /// <summary>
+    /// The stored routes in order, or <see langword="null"/> when the value is not a valid list.
+    /// </summary>
+    public static IReadOnlyList<string>? Read(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 200)
+        {
+            return null;
+        }
+
+        string[]? routes;
+        try
+        {
+            routes = JsonSerializer.Deserialize<string[]>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return routes is not null && IsValid(routes) ? routes : null;
+    }
+
+    public static string Write(IReadOnlyList<string> routes)
+    {
+        return JsonSerializer.Serialize(routes);
+    }
+
+    /// <summary>
+    /// Known routes, each once, and at most one of the two routes at the subject.
+    /// </summary>
+    public static bool IsValid(IReadOnlyList<string> routes)
+    {
+        return routes.All(NhAssistantConsultationBounds.IsRoute)
+               && routes.Distinct(StringComparer.Ordinal).Count() == routes.Count
+               && !(routes.Contains(NhAssistantConsultationRoutes.SubjectAgentRights)
+                    && routes.Contains(NhAssistantConsultationRoutes.SubjectAskerRights));
+    }
+}
+
+/// <summary>
+/// The outcome of checking a consultation defined as data: its options in effect, or
+/// <see langword="null"/> when it is out of effect, and every problem, the reason it is out of effect
+/// first.
+/// </summary>
+internal sealed record NhAssistantDataConsultationCheck(
+    NhAssistantConsultationOptions? Options,
+    IReadOnlyList<string> Problems)
+{
+    public static NhAssistantDataConsultationCheck Out(string problem)
+    {
+        return new NhAssistantDataConsultationCheck(null, [problem]);
+    }
+}
+
+/// <summary>
+/// The tool ids and export names other tool catalogs already use, which the generated tools of a
+/// consultation defined as data may not take; the ASP.NET integration reads them from the catalogs.
+/// </summary>
+internal interface INhAssistantReservedToolNames
+{
+    bool IsReserved(string toolId, string exportName);
 }
 
 /// <summary>
@@ -505,6 +655,242 @@ internal sealed class NhAssistantRunConfigurationValidator(
     }
 
     /// <summary>
+    /// Checks a consultation defined as data against the code, on save and on every load (AC11): a
+    /// consultation whose agent, subject type, what the agent works on or asker policy no longer fits
+    /// is out of effect; a route that no longer fits is dropped (read-only when none is left), a
+    /// request tool or MCP exposure the ceiling no longer allows is dropped and limits above the
+    /// ceiling are capped, each with a problem. <paramref name="runOptions"/> are the agent's options
+    /// in effect, <see langword="null"/> for an agent without runs. Without an asker policy the asker
+    /// needs <paramref name="agentRequiredPolicy"/>, the agent's own required policy, and without that
+    /// the assistant's access policy (AC14).
+    /// </summary>
+    public NhAssistantDataConsultationCheck CheckConsultation(
+        AssistantAgentConsultationDefinition row,
+        NhAssistantAgentRunOptions? runOptions,
+        string? agentRequiredPolicy)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (runOptions is null)
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.UnknownAgent);
+        }
+        if (registration.ConsultationCeilingOf(row.AgentId) is not { } ceiling)
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.NotConsultable);
+        }
+
+        var routes = NhAssistantDataConsultationRoutes.Read(row.RoutesJson);
+        if (routes is null
+            || !NhAiSubjectRef.IsValidType(row.SubjectType)
+            || string.IsNullOrWhiteSpace(row.Description)
+            || row.Description.Length > NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength
+            || row.Instructions?.Length > NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength
+            || !NhAssistantSubjectRoleNames.TryParse(row.MinimumRole, out var minimumRole)
+            || !NhAssistantSubjectRoleNames.TryParse(row.ProposalRole, out var proposalRole)
+            || row.MaxToolCalls is < 0 or > NhAssistantConsultationBounds.MaxToolCalls
+            || row.TimeoutSeconds < NhAssistantConsultationBounds.MinTimeout.TotalSeconds
+            || row.TimeoutSeconds > NhAssistantConsultationBounds.MaxTimeout.TotalSeconds
+            || row.MaxAnswerChars is < NhAssistantConsultationBounds.MinAnswerChars or > NhAssistantConsultationBounds.MaxAnswerChars
+            || row.MaxHistoryMessages is < 0 or > NhAssistantConsultationBounds.MaxHistoryMessages
+            || (row.DataClassification is not null && !NhAssistantDataClassificationNames.TryParse(row.DataClassification, out _)))
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.Invalid);
+        }
+        if (!KnownSubjectTypes.Contains(row.SubjectType))
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.UnknownSubjectType);
+        }
+        if (!runOptions.WorksOn.Covers(row.SubjectType))
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.NotWorkedOn);
+        }
+        if (registration.CodeAgentRuns.TryGetValue(row.AgentId, out var code)
+            && code.Consultations.Any(item => string.Equals(item.SubjectType, row.SubjectType, StringComparison.Ordinal)))
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.ConflictsWithCode);
+        }
+        if (row.AskerPolicy is { } askerPolicy && !registration.AgentPolicies.ContainsKey(askerPolicy))
+        {
+            return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.UnknownAgentPolicy);
+        }
+
+        var problems = new List<string>();
+        var kept = new List<string>();
+        foreach (var route in routes)
+        {
+            var agentRights = route == NhAssistantConsultationRoutes.SubjectAgentRights;
+            if (!ceiling.Allows(route)
+                || (agentRights && string.Equals(row.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)))
+            {
+                AddOnce(problems, NhAssistantRunConfigurationProblems.RouteNotAllowed);
+                continue;
+            }
+            if (agentRights && AgentRightsProblemOf(runOptions) is { } rightsProblem)
+            {
+                AddOnce(problems, rightsProblem);
+                continue;
+            }
+
+            kept.Add(route);
+        }
+
+        var proposalPolicyId = row.ProposalPolicyId;
+        if (proposalPolicyId is not null && !registration.ApprovalPolicies.ContainsKey(proposalPolicyId))
+        {
+            // Without its policy nobody knows who decides a proposal: the consultation only answers.
+            AddOnce(problems, NhAssistantRunConfigurationProblems.UnknownPolicy);
+            kept.Clear();
+            proposalPolicyId = null;
+        }
+        if (kept.Contains(NhAssistantConsultationRoutes.SubjectAgentRights) && NamesOnlyTheInitiator(runOptions, proposalPolicyId))
+        {
+            AddOnce(problems, NhAssistantRunConfigurationProblems.NoApprover);
+            kept.Remove(NhAssistantConsultationRoutes.SubjectAgentRights);
+        }
+
+        var allowRequests = row.AllowRequests;
+        if (allowRequests && !ceiling.AllowRequests)
+        {
+            problems.Add(NhAssistantRunConfigurationProblems.RequestsNotAllowed);
+            allowRequests = false;
+        }
+        var exposeToMcp = row.ExposeToMcp;
+        if (exposeToMcp && !ceiling.AllowMcp)
+        {
+            problems.Add(NhAssistantRunConfigurationProblems.McpNotAllowed);
+            exposeToMcp = false;
+        }
+
+        var timeout = TimeSpan.FromSeconds(row.TimeoutSeconds);
+        if (row.MaxToolCalls > ceiling.MaxToolCalls
+            || timeout > ceiling.MaxTimeout
+            || row.MaxAnswerChars > ceiling.MaxAnswerChars
+            || row.MaxHistoryMessages > ceiling.MaxHistoryMessages)
+        {
+            problems.Add(NhAssistantRunConfigurationProblems.LimitAboveCeiling);
+        }
+
+        NhAssistantDataClassificationNames.TryParse(row.DataClassification, out var classification);
+        var options = new NhAssistantConsultationOptions(row.AgentId, row.SubjectType)
+        {
+            Description = row.Description,
+            MinimumRole = minimumRole,
+            ProposalRole = proposalRole,
+            AskerDecides = kept.Contains(NhAssistantConsultationRoutes.AskerDecides),
+            AtSubjectRights = kept.Contains(NhAssistantConsultationRoutes.SubjectAgentRights)
+                ? NhAssistantConsultationRights.Agent
+                : kept.Contains(NhAssistantConsultationRoutes.SubjectAskerRights)
+                    ? NhAssistantConsultationRights.Asker
+                    : null,
+            ProposalPolicyId = proposalPolicyId,
+            MaxToolCalls = Math.Min(row.MaxToolCalls, ceiling.MaxToolCalls),
+            Timeout = timeout < ceiling.MaxTimeout ? timeout : ceiling.MaxTimeout,
+            MaxAnswerChars = Math.Min(row.MaxAnswerChars, ceiling.MaxAnswerChars),
+            MaxHistoryMessages = Math.Min(row.MaxHistoryMessages, ceiling.MaxHistoryMessages),
+            AllowRequests = allowRequests,
+            Exposure = exposeToMcp
+                ? NhAiToolExposure.Local | NhAiToolExposure.Agent | NhAiToolExposure.Mcp
+                : NhAiToolExposure.Local | NhAiToolExposure.Agent,
+            Instructions = string.IsNullOrWhiteSpace(row.Instructions) ? null : CreateConsultationInstructions(row),
+            // Free, as in code (AC13); without a value the agent's own classification.
+            DataClassification = row.DataClassification is null
+                ? runOptions.DataClassification ?? NhAiDataClassification.Internal
+                : classification,
+            Source = NhAssistantConsultationSources.Data,
+            DataVersion = row.Version
+        };
+        if ((row.AskerPolicy ?? agentRequiredPolicy) is { } policy)
+        {
+            options.AddPolicies([policy]);
+        }
+
+        return new NhAssistantDataConsultationCheck(options, problems);
+    }
+
+    /// <summary>
+    /// The subject types that have an access resolver, read once from the registered resolvers.
+    /// </summary>
+    internal IReadOnlySet<string> KnownSubjectTypes
+    {
+        get
+        {
+            var known = Volatile.Read(ref _knownSubjectTypes);
+            if (known is not null)
+            {
+                return known;
+            }
+
+            using var scope = services.GetRequiredService<IServiceScopeFactory>().CreateScope();
+            known = scope.ServiceProvider.GetServices<INhAiSubjectAccessResolver>()
+                .Select(resolver => resolver.SubjectType)
+                .ToHashSet(StringComparer.Ordinal);
+            Volatile.Write(ref _knownSubjectTypes, known);
+            return known;
+        }
+    }
+
+    private HashSet<string>? _knownSubjectTypes;
+
+    /// <summary>
+    /// Why the route that executes with the agent's own rights does not fit the agent, or
+    /// <see langword="null"/>: it needs grants of its own or a technical account it acts for.
+    /// </summary>
+    internal static string? AgentRightsProblemOf(NhAssistantAgentRunOptions runOptions)
+    {
+        if (runOptions.Accountability == NhAiAgentAccountability.SubjectResponsible)
+        {
+            return NhAssistantRunConfigurationProblems.AgentAnswersToPerson;
+        }
+
+        return runOptions.Accountability == NhAiAgentAccountability.Agent && runOptions.Grants.Count == 0
+            ? NhAssistantRunConfigurationProblems.AgentHasNoRights
+            : null;
+    }
+
+    /// <summary>
+    /// Whether an approval policy that applies to the consultation's proposals names only the person
+    /// who caused them, so no approver other than the asker could decide one.
+    /// </summary>
+    internal bool NamesOnlyTheInitiator(NhAssistantAgentRunOptions runOptions, string? proposalPolicyId)
+    {
+        return runOptions.ToolApprovalPolicies.Values
+            .Append(proposalPolicyId)
+            .Append(runOptions.ApprovalPolicyId)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Any(policyId => registration.ApprovalPolicies.TryGetValue(policyId, out var policy)
+                             && policy.Approvers.All(rule => rule is NhAiInitiatorApproverRule));
+    }
+
+    private static void AddOnce(List<string> problems, string problem)
+    {
+        if (!problems.Contains(problem, StringComparer.Ordinal))
+        {
+            problems.Add(problem);
+        }
+    }
+
+    private static NhAiTextAsset CreateConsultationInstructions(AssistantAgentConsultationDefinition row)
+    {
+        var version = row.Version.ToString(CultureInfo.InvariantCulture);
+        return NhAiTextAssetFactory.Create(
+            $"consultation-{row.AgentId}-{row.SubjectType}",
+            row.Version,
+            row.Instructions!,
+            "assistant-consultation-data:" + row.AgentId,
+            NhAiAssetRole.SystemInstructions,
+            NhAiContextTrust.TrustedApplication,
+            NhAiModelCapability.Chat,
+            [],
+            "default",
+            NhAssistantDataClassificationNames.TryParse(row.DataClassification, out var classification)
+                ? classification
+                : NhAiDataClassification.Internal,
+            NhAiRetentionCategory.Operational,
+            $"{row.AgentId}-{row.SubjectType}-v{version}");
+    }
+
+    /// <summary>
     /// A five- or six-field cron expression of plain cron characters; Hangfire checks the rest when
     /// it registers the job.
     /// </summary>
@@ -558,10 +944,12 @@ internal sealed class NhAssistantRunConfigurations(
     private long _checkedAt = long.MinValue;
 
     /// <summary>
-    /// Whether the host loads the run configuration defined as data: it has agent runs in code or
-    /// runs agents whose run settings are data.
+    /// Whether the host loads the run configuration defined as data: it has agent runs in code, runs
+    /// agents whose run settings are data, or lets administrators define consultations as data.
     /// </summary>
-    public bool Enabled => registration.CodeAgentRuns.Count > 0 || registration.DataAgentRunsEnabled;
+    public bool Enabled => registration.CodeAgentRuns.Count > 0
+                           || registration.DataAgentRunsEnabled
+                           || registration.ConsultationsAsData is not null;
 
     /// <summary>
     /// Makes sure the snapshot in effect has the latest data: reads the stamp when the last check
@@ -757,6 +1145,8 @@ internal sealed class NhAssistantRunConfigurations(
             }
         }
 
+        AddDataConsultations(stored, agentRuns, problems);
+
         var triggers = new Dictionary<string, NhAssistantTriggerDefinition>(registration.CodeTriggers, StringComparer.Ordinal);
         foreach (var row in stored.Triggers)
         {
@@ -783,6 +1173,57 @@ internal sealed class NhAssistantRunConfigurations(
         }
 
         return new NhAssistantRunSnapshot(agentRuns, triggers, stored.Stamp, problems);
+    }
+
+    /// <summary>
+    /// Adds the consultations defined as data that fit the code to their agents' options, checked
+    /// after the run settings and skills, and lists every problem.
+    /// </summary>
+    private void AddDataConsultations(
+        NhAssistantStoredRunConfiguration stored,
+        Dictionary<string, NhAssistantAgentRunOptions> agentRuns,
+        List<NhAssistantRunConfigurationProblem> problems)
+    {
+        var reserved = services.GetService<INhAssistantReservedToolNames>();
+        foreach (var group in stored.Consultations.GroupBy(row => row.AgentId, StringComparer.Ordinal))
+        {
+            var runOptions = agentRuns.GetValueOrDefault(group.Key);
+            var dataConsultations = new List<NhAssistantConsultationOptions>();
+            var requiredPolicy = registration.TryGetAgent(group.Key, out var codeAgent)
+                ? codeAgent.RequiredPolicy
+                : stored.AdminAgents.GetValueOrDefault(group.Key)?.RequiredPolicy;
+            foreach (var row in group)
+            {
+                var check = validator.CheckConsultation(row, runOptions, requiredPolicy);
+                var codes = check.Problems;
+                if (check.Options is { } checkedOptions && reserved is not null && IsReserved(reserved, checkedOptions))
+                {
+                    codes = [NhAssistantRunConfigurationProblems.ConflictsWithTool];
+                    check = check with { Options = null };
+                }
+
+                foreach (var code in codes)
+                {
+                    problems.Add(new NhAssistantRunConfigurationProblem(row.AgentId, NhAssistantRunConfigurationProblems.ConsultationKind, row.SubjectType, code));
+                }
+                if (check.Options is { } options)
+                {
+                    dataConsultations.Add(options);
+                }
+            }
+
+            if (dataConsultations.Count > 0)
+            {
+                agentRuns[group.Key] = runOptions!.WithDataConsultations(dataConsultations);
+            }
+        }
+    }
+
+    private static bool IsReserved(INhAssistantReservedToolNames reserved, NhAssistantConsultationOptions options)
+    {
+        return reserved.IsReserved(options.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, options.AgentId, options.SubjectType))
+               || (options.AllowRequests
+                   && reserved.IsReserved(options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, options.AgentId, options.SubjectType)));
     }
 
     internal static IReadOnlyList<string>? ReadSelectors(string json)

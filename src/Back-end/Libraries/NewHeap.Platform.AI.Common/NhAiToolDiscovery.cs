@@ -47,8 +47,15 @@ internal sealed class NhAiToolDiscoveryService(
         ArgumentNullException.ThrowIfNull(request.Context);
         ValidateExposure(request.Exposure);
 
+        // A catalog that changes at runtime reads its source first, so a listing sees a change that
+        // another host made.
+        foreach (var changing in catalogs.OfType<INhAiChangingToolCatalog>())
+        {
+            await changing.RefreshAsync(cancellationToken);
+        }
+
         var descriptors = catalogs
-            .SelectMany(catalog => catalog.Descriptors)
+            .SelectMany(catalog => NhAiToolCatalogViews.Of(catalog).Descriptors)
             .Where(descriptor => (descriptor.Exposure & request.Exposure) == request.Exposure)
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ThenBy(descriptor => descriptor.Version)

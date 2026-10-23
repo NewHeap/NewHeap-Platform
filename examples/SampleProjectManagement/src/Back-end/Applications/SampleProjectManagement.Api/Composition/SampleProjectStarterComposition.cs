@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using SampleProjectManagement.Core.Events;
@@ -43,9 +44,28 @@ public static class SampleProjectStarterComposition
     public const string ProjectManagePolicy = "app.project.manage";
     public const string ProjectViewPolicy = "app.project.view";
 
+    /// <summary>
+    /// SPM-311: the approval policy of the proposals of the starter's consultation defined as data:
+    /// the person who asked decides in their own chat when they may, otherwise a project approver
+    /// other than that person.
+    /// </summary>
+    public const string ConsultationPolicyId = "project-start-consultation";
+
     public static IServiceCollection AddSampleProjectStarterBlocks(this IServiceCollection services)
     {
         services.AddNewHeapAssistant(assistant => assistant
+            // SPM-311: administrators may let other assistants consult agents as data, within this
+            // ceiling: the person who asked decides (asker-decides), or a project approver other than
+            // that person decides and it executes with the agent's own rights, which for an agent
+            // created in the administration are its technical account's (subject-agent-rights). The
+            // route that rebuilds the asker's principal later is not named, and MCP clients never
+            // see these consultations.
+            .UseConsultationsAsData(data => data
+                .AllowRoutes(NhAssistantConsultationRoutes.AskerDecides, NhAssistantConsultationRoutes.SubjectAgentRights)
+                .AllowRequests())
+            .AddApprovalPolicy(ConsultationPolicyId, policy => policy
+                .Approvers(NhAiApprovers.Initiator, NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                .Lifetime(TimeSpan.FromDays(1)))
             // SPM-302: the agent editor offers these as run and view policies; startup checks that
             // the policies are registered.
             .AddAgentPolicy(ProjectManagePolicy, "Project managers: people who may change projects.")

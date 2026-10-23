@@ -16,6 +16,50 @@ and the [trigger event filters](ai-trigger-event-filters-plan.md). It was checke
 Proposed on 2026-10-23. Lars decided CP25 (b): consultations become configurable in the
 administration. Lars decided AC1 to AC24 on 2026-10-23, as recorded below: the recommendation everywhere except AC8 (b), AC13 (b) and AC15 (b).
 
+P1 (library, migrations, sample SPM-311, guidance and release notes) was built on 2026-10-23 on
+`feature/admin-consultations`, on top of the AC1 fix; see [Implementation of P1](#implementation-of-p1).
+The lane's own choices are AC25 to AC34, for Lars to review. P2 (administration UI and mock) is open.
+
+## Implementation of P1
+
+- **Ceilings.** `UseConsultationsAsData` and `ConsultableAsData` take an `NhAssistantConsultationCeilingBuilder`
+  (`AllowRoutes`, `AllowRequests`, `AllowMcp`, `MaxLimits`); `NhAssistantRegistrationState.ConsultationCeilingOf`
+  gives an agent's ceiling (the application's for an agent created in the administration, both together
+  for a consultable agent in code, none otherwise). `ValidateAgentRuns` refuses a code ceiling without
+  `UseConsultationsAsData`, beyond it, or with `subject-agent-rights` for an agent that answers to the
+  subject's responsible person or for itself without grants.
+- **Storage.** `AssistantAgentConsultationDefinition` (key agent and subject type, `RoutesJson`, limits,
+  `ExposeToMcp`, version and concurrency stamp, cascade with its agent) and
+  `AssistantConsultation.ConsultationVersion`, migrations `AgentConsultationDefinitions` for SQL Server and
+  PostgreSQL. Every save and removal changes the run configuration stamp in its transaction; run settings
+  stay while consultations belong to the agent.
+- **Snapshot.** `NhAssistantRunConfigurationValidator.CheckConsultation` checks a row on save and on load
+  (AC11) and builds its `NhAssistantConsultationOptions` with `Source` `data` and `DataVersion`;
+  `NhAssistantRunConfigurations.Build` adds them with `WithDataConsultations` after run settings and skills
+  and lists problems of kind `consultation`, one per part that no longer fits.
+- **Tools.** The code catalog reads `CodeAgentRuns`. `NhAssistantDataConsultationToolCatalog`
+  (`assistant-consultations-data`) builds an attested view per snapshot, binds functions late through
+  `NhAssistantConsultationToolHandler.ConsultDataAsync` and `RequestDataAsync` with a contract check, and
+  raises `Changed` when its listing changes. It implements the new `INhAiChangingToolCatalog` of
+  NewHeap.Platform.AI.Common: discovery refreshes such catalogs, the agent framework adapter and the MCP
+  export read one view, the MCP export attests every view once and skips a failing view or a taken export
+  name, and `WithNewHeapPlatformAITools` signals `notifications/tools/list_changed` through the MCP SDK's
+  tool collection when a changing catalog may reach MCP clients. The AC1 seam
+  (`NhAssistantConsultationPersonRightsTools`) covers the data tools by their prefixes.
+- **Administration.** `INhAssistantAgentConfiguration.SaveConsultationAsync` and `RemoveConsultationAsync`,
+  `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`, `CodeConsultations`, `DataConsultations`
+  and `ConsultationCeiling` on the agent configuration, `ConsultationCeiling` on the run catalog, codes
+  `assistant-consultation-in-code` (409), `assistant-consultation-not-found` (404),
+  `assistant-consultations-not-allowed` (409), audit `AdminAgentConsultationDefinitionChanged` (66) and
+  `ConsultationSource` and `ConsultationVersion` on the audit event.
+- **Freshness.** Discovery (chat and agent turns, MCP listing), `GET admin/tools`, the route switches and the
+  administration read the stamp at most once per check interval; the background refresh runs on every
+  assistant host when consultations are data.
+- **What P2 needs.** The endpoints and DTOs above; the new error codes and the field error `not-allowed` in
+  the Angular error and field texts; the problem codes of kind `consultation`, including the lane's
+  `requests-not-allowed` and `mcp-not-allowed` (AC27); `AskingAgents`, `RoutesInEffect` and `Problems` on
+  each data consultation for the section and the flow view.
+
 ## Problem
 
 - Consultations exist only in code: `ConfigureAgent(...).AllowConsultation(subjectType, ...)` adds an
@@ -501,3 +545,13 @@ Each line: the question, the options, the recommendation and the status.
 | AC22 | What does an administration agent consulted with B answer to? | (a) its technical account at proposal time, kept on the proposal (as CP30), with the runtime override included; (b) the account at execution. | (a): the evidence binds the accountable owner, as for run proposals. | Decided by Lars (2026-10-23): (a) |
 | AC23 | How fresh is the snapshot on hosts that only chat? | (a) chat turns, MCP listing and the admin tool list check the stamp at most once per second when data consultations are on, and the background refresh runs on every assistant host; (b) the 30-second background refresh only, on hosts that run agents. | (a): a chat-only host otherwise never sees a new or removed consultation. | Decided by Lars (2026-10-23): (a) |
 | AC24 | In which order is it delivered? | (a) P0 the fix of AC1 on its own, P1 library, sample and guidance, P2 administration UI and mock; (b) everything at once; (c) library and UI together after the fix. | (a): the fix matters today; P1 keeps the library and its sample evidence together as AGENTS.md requires. | Decided by Lars (2026-10-23): (a) |
+| AC25 | How is AC15 (b), "exactly the builder's bounds", read next to the ceiling's maximum limits of AC3 and AC11? | (a) roles and limits exactly as `AllowConsultation` allows them (`MinimumRole` and the proposal role reader, participant or approver; 0 to 32 calls, 1 second to 10 minutes, 200 to 32,000 characters, 0 to 200 messages); `MaxLimits` of a ceiling stays optional and only lowers them (default: the builder's bounds), with `limits: not-allowed` on save and `limit-above-ceiling` on load; the description is required and an agent has at most 20 consultations as storage limits of the administration; (b) no ceiling maxima at all; (c) also an optional description and no count limit. | (a): AC3 (b) and AC11 (a) name the ceiling's maxima, so they remain for applications that want them; without them data has exactly the builder's bounds. A description is the only text the asking model reads about when to consult an agent nobody described in code, and 20 matches the triggers. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC26 | How does a data consultation reach MCP clients under AC8 (b)? | (a) per consultation: `exposeToMcp`, off by default, allowed only when the ceiling (both ceilings for an agent in code) calls `AllowMcp()`; the catalog is a generic `INhAiChangingToolCatalog` whose every view is attested before it enters the export, and the MCP SDK's tool collection signals `notifications/tools/list_changed`, which 2026-07-28 clients receive on a `subscriptions/listen` stream and stateless transports cannot receive; (b) every data consultation is exported once the ceiling allows MCP; (c) a catalog type of the assistant only. | (a): as `Exposure(Mcp)` in code, MCP stays a choice per consultation; a generic interface keeps the MCP export and the agent adapter free of assistant types and lets other runtime catalogs reuse it. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC27 | Which problems does a consultation get when the ceiling no longer allows requests or MCP? | (a) `requests-not-allowed` and `mcp-not-allowed`: it stays in effect without the request tool or the MCP exposure; (b) `route-not-allowed` for both; (c) out of effect. | (a): AC11 (a) degrades per part; the administration can name the part. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC28 | Which field errors does saving return? | (a) `routes: not-allowed` outside the ceiling and `routes: invalid` for the route with the agent's own rights on an agent without rights of its own; `proposalPolicy: not-found` or `invalid` (approvers only the initiator); `limits: invalid` outside the builder's bounds and `not-allowed` above the ceiling; `allowRequests` and `exposeToMcp: not-allowed`; `askerPolicy: not-found`; `subjectType: not-found` or `invalid` (not worked on, or a tool name taken); a new field error value `not-allowed`; (b) one generic `invalid`. | (a): the administration explains each refusal at its field (U1). | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC29 | Where is "else the agent's required policy" of AC14 resolved? | (a) in the snapshot: without an asker policy the consultation's policies are the agent's required policy at load, so a changed required policy changes the tool's contract and a turn built before fails closed; (b) at call time. | (a): the descriptor carries the policies the gate checks, and AC12 already fails a changed contract closed. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC30 | Which classification does a consultation without one get? | (a) the agent's classification at every load (stored as none), as data skills do; (b) the agent's classification at save, stored. | (a): AC13 (b) frees the value; without one it follows the agent. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC31 | When is the catalog `assistant-consultations-data` registered? | (a) only with `UseConsultationsAsData`; (b) always, empty. | (a): applications without consultations as data see no new catalog. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC32 | What does `conflicts-with-tool` compare? | (a) the tool ids and export names of every catalog registered at startup, read once, on save and on load; (b) ids only. | (a): the agent adapter and the MCP export refuse duplicate export names. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC33 | What does `ConsultableAsData()` without a configuration allow? | (a) answers only: no routes, requests or MCP, the builder's limits within the application's; (b) the application's ceiling. | (a): a code agent opts in to each route explicitly, as AC4 (a) says. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
+| AC34 | What does the sample's project starter need to propose in a consultation? | (a) `Execute` autonomy, so its model is offered the status tool; every change still waits for a decision; (b) keep `Propose` and let consultations offer mutating tools to `Propose` agents. | (a): the library offers mutating tools only to agents with `Execute`, in runs and consultations alike; changing that is outside P1. | Built by the P1 lane (2026-10-23): (a), for Lars to review |
