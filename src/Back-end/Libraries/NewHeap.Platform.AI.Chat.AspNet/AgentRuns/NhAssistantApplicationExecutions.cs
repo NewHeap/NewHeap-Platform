@@ -1,6 +1,8 @@
 using System.Globalization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Live;
@@ -30,6 +32,7 @@ internal sealed class NhAssistantApplicationExecutions(
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentTriggers triggers,
     NhAssistantAgentWorkUpdates workUpdates,
+    IOptions<RequestLocalizationOptions> localization,
     IServiceProvider services,
     ILogger<NhAssistantApplicationExecutions> logger) : INhAssistantProposalExecutionReports
 {
@@ -179,6 +182,9 @@ internal sealed class NhAssistantApplicationExecutions(
             return TaskResult<NhAssistantExecutionReportReceipt>.Failed(NhAssistantErrorCodes.ProposalHashMismatch, "The proposal changed.");
         }
 
+        // A report has no request of a person: what it writes uses the application's default culture,
+        // as headless runs and executions do.
+        using var culture = NhAssistantRunCulture.Use(localization.Value);
         if (approval.Status == NhAssistantApprovalStatuses.AwaitingApplication
             && await CloseReportedAsync(approval, thread, report.Outcome, report.Code, summary) is { } closed)
         {
@@ -203,6 +209,7 @@ internal sealed class NhAssistantApplicationExecutions(
     /// </summary>
     public async Task<int> ExpireReportsAsync(DateTimeOffset now, int maximum, CancellationToken cancellationToken)
     {
+        using var culture = NhAssistantRunCulture.Use(localization.Value);
         var expired = 0;
         foreach (var approval in await runs.GetOverdueExecutionReportsAsync(now, maximum, cancellationToken))
         {
