@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "d6ea41ebd85e0d10a0987ecb86b5b8b4a179d8efc668a59e8b2d9c129c35240c",
-    "declarationCount": 10040,
+    "hash": "d6fafe905b43285e74963ae116f56fa6ed2cc4e59b3fba877dd1325e21f1f29e",
+    "declarationCount": 10053,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5527,6 +5527,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentRunProposals = \"agent-run-proposals\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentRunProposalsExpiring = \"agent-run-proposals-expiring\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+        "declaration": "public const string AgentRunProposalsEscalated = \"agent-run-proposals-escalated\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
         "declaration": "public const string ApplicationMessage = \"application-message\";"
       },
       {
@@ -5535,7 +5547,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
-        "declaration": "public static byte[] Create(string kind, Guid conversationId, string title, string body) {"
+        "declaration": "public static byte[] Create(string kind, Guid conversationId, string title, string body, Guid? runId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
@@ -7619,11 +7631,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public sealed record NhAssistantAgentNotificationObject( NhAiSubjectRef Subject, string? SubjectDisplayName, Guid ConversationId, int ProposalCount);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
         "declaration": "public sealed record NhAssistantAgentNotificationContext( NhAssistantAgentNotificationKind Kind, string AgentId, Guid ConversationId, NhAiSubjectRef Subject, string? SubjectDisplayName, Guid? RunId, Guid? ApprovalId, string? InitiatorActorId, IReadOnlyList<NhAiSubjectMember> Members) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
         "declaration": "public int ProposalCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAgentNotificationObject> Objects { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
@@ -15359,6 +15379,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
+        "declaration": "public static bool IsRunProposals(NhAssistantAgentNotificationKind kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
+        "declaration": "public static Func<string, CultureInfo, string?> PluralNamesOf(NhAssistantSubjectAccessService? subjects) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
+        "declaration": "public static (string Title, string Body) ForRunProposals( NhAssistantAgentNotificationKind kind, string language, IReadOnlyList<NhAssistantAgentNotificationObject> objects, int proposalCount, string? subjectDisplayName, Func<string, CultureInfo, string?>? pluralName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
         "declaration": "public static (string Title, string Body) ForApplicationMessage(string language, string? conversationTitle) {"
       },
       {
@@ -17188,6 +17220,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public async Task NotifyAsync( NhAssistantAgentNotificationKind kind, AssistantThread thread, Guid? runId, AssistantApproval? approval, string? initiatorActorId, bool shadow, CancellationToken cancellationToken, int proposalCount = 0, string? failureCode = null, NhAssistantMcpConnectionNotice? mcpConnection = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public async Task NotifyProposalsAsync( NhAssistantAgentNotificationKind kind, Guid? runId, Guid? runConversationId, string? runInitiatorActorId, bool shadow, IReadOnlyList<NhAssistantProposalNotice> notices, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public NhAssistantAgentNotificationContext Context { get; } = context;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public int ProposalCount { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public IReadOnlyList<AssistantApproval> Approvals => _approvals;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public void Add(NhAssistantProposalNotice notice) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -43696,6 +43748,7 @@
       "INhAssistantAgentNotificationChannel",
       "NhAssistantAgentNotificationContext",
       "NhAssistantAgentNotificationKind",
+      "NhAssistantAgentNotificationObject",
       "NhAssistantDefaultAgentNotificationPolicy",
       "UseAgentNotificationPolicy",
       "AddAgentNotificationChannel",

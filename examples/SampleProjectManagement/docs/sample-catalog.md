@@ -96,7 +96,12 @@ its routing rules send to the same skill, place each proposal in the follow-up's
 after the platform checked the project and that the operations account reads it; the project's
 approver finds it in the inbox and on the project as "Proposed by a run for the whole application",
 opens that run's conversation from it and approves it, which changes that project's status. People
-with the application-wide project view permission read every project's agent work.
+with the application-wide project view permission read every project's agent work. Each approver
+hears once per run about what waits for them: the colleague who approves every finished project reads
+"4 proposals at 4 projects wait for your decision" in the application's inbox, grouped per run, and an
+approver of one project only reads about that project, by its name; a day later each is reminded once
+for the run. A clicked notification about a run opens the intake reviews page with that run's
+proposals (SPM-310), because the portal's shell subscribes to `NhAssistantPushService.openRun$`.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
 keeps next to the small summary its next runs start from. The rules write it per culture, so an

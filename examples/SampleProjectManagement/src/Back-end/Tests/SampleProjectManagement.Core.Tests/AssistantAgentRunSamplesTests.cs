@@ -1699,17 +1699,21 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
             // One notification per approver and run, in the application's inbox and grouped per run:
             // the colleague, who approves every finished project, reads how many proposals wait at
-            // how many projects, without their names; the second approver reads only about the one
-            // project it approves, by its name. A message speaks the recipient's language, or that of
-            // the work that sends it: English or the host's Dutch.
+            // how many projects, named by the project type's plural and without the projects' names;
+            // the second approver reads only about the one project it approves, by its name. A message
+            // speaks the recipient's language, or that of the work that sends it: English or the
+            // host's Dutch.
             var runGroup = $"assistant-agent:run:{tick.Id:N}";
             var waitingForColleague = inbox.Items.Count(item => item.RunId == tick.Id);
+            var projectsInDutch = new ResourceManager(typeof(SampleAssistantToolPresenter))
+                .GetString("SubjectTypeProjects", CultureInfo.GetCultureInfo("nl-NL"))!
+                .ToLowerInvariant();
             var toColleague = Assert.Single(await WaitForInboxAsync(host.ColleagueId, runGroup, 1));
             Assert.Contains(toColleague.Title, new[] { "Assistant", "Assistent" });
             Assert.Contains(toColleague.Message, new[]
             {
                 $"{waitingForColleague} proposals at {waitingForColleague} projects wait for your decision.",
-                $"{waitingForColleague} voorstellen bij {waitingForColleague} projecten wachten op je besluit."
+                $"{waitingForColleague} voorstellen bij {waitingForColleague} {projectsInDutch} wachten op je besluit."
             });
             var toSecondApprover = Assert.Single(await WaitForInboxAsync(secondApproverId, runGroup, 1));
             Assert.Equal(placed[3].SubjectDisplayName, toSecondApprover.Title);
@@ -1724,7 +1728,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains(remindColleague[1].Message, new[]
             {
                 $"{waitingForColleague} proposals at {waitingForColleague} projects still wait for your decision.",
-                $"{waitingForColleague} voorstellen bij {waitingForColleague} projecten wachten nog op je besluit."
+                $"{waitingForColleague} voorstellen bij {waitingForColleague} {projectsInDutch} wachten nog op je besluit."
             });
             var remindSecondApprover = await WaitForInboxAsync(secondApproverId, runGroup, 2);
             Assert.Equal(2, remindSecondApprover.Length);
