@@ -111,18 +111,22 @@ own.
 
 A runtime catalog whose descriptors change while the application runs, such as the
 tools of consultations that administrators define as data, implements
-INhAiChangingToolCatalog and is registered as a singleton. Every change is a new,
-immutable view (Current) that is attested on its own; discovery calls
-RefreshAsync first, and the agent framework and the MCP export read descriptors and
-functions from one view (NhAiToolCatalogViews.Of), so a change between the two never
+`INhAiChangingToolCatalog` and is registered as a singleton. Every change is a new,
+immutable view (`Current`) that is attested on its own; discovery calls
+`RefreshAsync` first, and the agent framework and the MCP export read descriptors and
+functions from one view (`NhAiToolCatalogViews.Of`), so a change between the two never
 breaks a listing. A view that fails its attestation, or a tool that would take the
 export name of a tool registered at startup, stays out of the export instead of
-failing it, and startup never fails on such data. When MayExportToMcp is true,
-WithNewHeapPlatformAITools declares listChanged for tools and announces
-
-otifications/tools/list_changed to every session when the catalog raises Changed;
-clients of the 2026-07-28 revision receive it on a subscriptions/listen stream, and a
-stateless transport has no session to tell.
+failing it, and startup never fails on such data. When `MayExportToMcp` is true,
+`WithNewHeapPlatformAITools` signals `notifications/tools/list_changed` through the
+MCP SDK's tool collection whenever the catalog raises `Changed`. Over Streamable HTTP
+only a stateful server (`Stateless = false`, which needs session affinity across
+instances) declares `listChanged` and tells its sessions: clients of the initialize
+handshake (2025-11-25) hear the change on their standalone GET stream. A stateless
+server, the recommended setup and the SDK's default, declares no `listChanged`, and its
+`subscriptions/listen` grants no tool list changes, so its clients see a change on their
+next `tools/list`. Every listing and call reads the view in effect, so a call of a tool
+from a stale list fails with `ai-tool-not-authorized` and runs nothing.
 
 ## Avoid
 
