@@ -1,6 +1,11 @@
-import { ApprovalPart, Conversation, ToolCallPart } from '../models/assistant-api.models';
+import { ApprovalPart, Conversation, Message, ToolCallPart } from '../models/assistant-api.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
-import { applyNhAssistantApprovalDecision, applyNhAssistantEvent, nhAssistantLatestTurnHasText } from './nh-assistant-reducer';
+import {
+  applyNhAssistantApprovalDecision,
+  applyNhAssistantEvent,
+  applyNhAssistantLiveEvent,
+  nhAssistantLatestTurnHasText
+} from './nh-assistant-reducer';
 
 const usage = { inputTokens: 120, outputTokens: 40, toolCalls: 2 };
 
@@ -219,5 +224,48 @@ describe('nhAssistantLatestTurnHasText', () => {
     };
 
     expect(nhAssistantLatestTurnHasText(next)).toBeFalse();
+  });
+});
+
+describe('applyNhAssistantLiveEvent message.created', () => {
+  function stored(id: string, sequence: number | undefined, role: Message['role'] = 'application'): Message {
+    return { id, role, createdAt: '2026-10-23T10:00:00Z', sequence, parts: [{ type: 'text', text: id }] };
+  }
+
+  function created(conversation: Conversation, message: Message): Conversation {
+    return applyNhAssistantLiveEvent(conversation, { conversationId: 'c1', actorId: 'application', type: 'message.created', data: message });
+  }
+
+  function ids(conversation: Conversation): string[] {
+    return conversation.messages.map(message => message.id);
+  }
+
+  it('follows the answer a turn is still writing, which the server numbered when the turn started', () => {
+    const started: NhAssistantSseEvent = { type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } };
+    const streaming = replay(emptyConversation(), [started, { type: 'message.delta', data: { messageId: 'a1', text: 'Looking' } }], 'client-1');
+
+    const withMessage = created(streaming, stored('m1', 7));
+    const answered = applyNhAssistantEvent(withMessage, { type: 'message.delta', data: { messageId: 'a1', text: ' it up.' } });
+
+    expect(ids(answered)).toEqual(['u1', 'a1', 'm1']);
+    expect(answered.messages[1].parts).toEqual([{ type: 'text', text: 'Looking it up.' }]);
+  });
+
+  it('sits where its sequence number puts it among stored messages, after equal numbers', () => {
+    const conversation: Conversation = { ...emptyConversation(), messages: [stored('m1', 1, 'user'), stored('m2', 2, 'assistant'), stored('m4', 4)] };
+
+    expect(ids(created(conversation, stored('m3', 3)))).toEqual(['m1', 'm2', 'm3', 'm4']);
+    expect(ids(created(conversation, stored('m0', 0)))).toEqual(['m1', 'm2', 'm4', 'm0']);
+    expect(ids(created(conversation, stored('old', undefined)))).toEqual(['m1', 'm2', 'm4', 'old']);
+    expect(ids(created(conversation, stored('twin', 4)))).toEqual(['m1', 'm2', 'm4', 'twin']);
+  });
+
+  it('adds a message once', () => {
+    const conversation: Conversation = { ...emptyConversation(), messages: [stored('m1', 1, 'user')] };
+    const once = created(conversation, stored('m2', 2));
+
+    expect(created(once, stored('m2', 2))).toBe(once);
+    expect(created(once, { ...stored('', 3) })).toBe(once);
+    expect(ids(once)).toEqual(['m1', 'm2']);
   });
 });

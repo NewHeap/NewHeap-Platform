@@ -27,6 +27,7 @@ import {
   ConversationSummary,
   DirectoryEntry,
   FileReference,
+  Message,
   MessagePart
 } from '../models/assistant-api.models';
 import { nhAssistantFileProblem, nhAssistantMediaTypeOf } from '../internal/nh-assistant-files';
@@ -1749,13 +1750,20 @@ export class NhAssistantStore {
     }
   }
 
+  /**
+   * Applies a live turn event or message to a conversation this tab shows. While the tab streams a
+   * turn of the conversation, its stream brings the turn's events and its own message, so it applies
+   * only messages that others stored meanwhile: the application's and other people's.
+   */
   private onLiveEvent(event: LiveConversationEvent): void {
     const session = this.sessionsState().get(event.conversationId);
     if (event.type === 'turn.started') {
       this.patchSummary(event.conversationId, summary => ({ ...summary, status: 'running', activeActorId: event.actorId }));
     }
-    if (!session || session.streaming) {
-      // This tab streams the turn itself, or does not show the conversation.
+    if (!session) {
+      return;
+    }
+    if (session.streaming && !isMessageOfOthers(session.conversation, event)) {
       return;
     }
     this.patchSession(event.conversationId, current => ({
@@ -1957,16 +1965,47 @@ function messageQueuedNotice(fileCount: number): NhAssistantNotice {
   };
 }
 
-/** A completed turn with a server code, or without any answer text, explains itself with a notice. */
+/**
+ * A completed turn with a server code, or without any answer text, explains itself with a notice.
+ * Another person's message that arrived while the turn ran does not end this tab's turn.
+ */
 function completionNotice(conversation: Conversation, errorCode: string | null): NhAssistantNotice | null {
   if (errorCode) {
     return clientError(errorCode);
   }
-  if (!nhAssistantLatestTurnHasText(conversation)) {
+  const ownTurn = { ...conversation, messages: conversation.messages.filter(message => !isOtherPersonsMessage(conversation, message)) };
+  if (!nhAssistantLatestTurnHasText(ownTurn)) {
     return { code: NH_ASSISTANT_NO_ANSWER_NOTICE_CODE, messageKey: 'nh-assistant.notices.no-answer' };
   }
 
   return null;
+}
+
+/**
+ * True for a live `message.created` of a message that this tab did not write: the application's, or
+ * a user message of another writer. A user message is this tab's own when the current user wrote it,
+ * and when the tab does not know the current user, so a turn's own message never shows twice.
+ */
+function isMessageOfOthers(conversation: Conversation, event: LiveConversationEvent): boolean {
+  if (event.type !== 'message.created') {
+    return false;
+  }
+  const message = event.data as Message | null;
+  if (!message?.id) {
+    return false;
+  }
+  if (message.role === 'application') {
+    return true;
+  }
+
+  return message.role === 'user' && isOtherPersonsMessage(conversation, message, event.actorId);
+}
+
+/** True for a user message that a known writer other than the current user wrote. */
+function isOtherPersonsMessage(conversation: Conversation, message: Message, fallbackAuthor?: string): boolean {
+  const author = message.authorActorId ?? fallbackAuthor;
+  const currentActorId = conversation.currentActorId;
+  return message.role === 'user' && !!author && !!currentActorId && author !== currentActorId;
 }
 
 /** The approvals of a conversation that still wait for a decision, each once. */

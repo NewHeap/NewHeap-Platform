@@ -184,8 +184,9 @@ function decidedApproval(part: ApprovalPart, decision: ApprovalDecision): Approv
 }
 
 /**
- * Applies a live update of another session: `message.created` adds a participant's message,
- * the turn events behave exactly like the starting request's stream. Unknown types are ignored.
+ * Applies a live update of another session: `message.created` adds a participant's or the
+ * application's message once, where its sequence number puts it; the turn events behave exactly
+ * like the starting request's stream. Unknown types are ignored.
  */
 export function applyNhAssistantLiveEvent(conversation: Conversation, event: LiveConversationEvent): Conversation {
   if (event.type === 'message.created') {
@@ -193,7 +194,7 @@ export function applyNhAssistantLiveEvent(conversation: Conversation, event: Liv
     if (!message?.id || conversation.messages.some(existing => existing.id === message.id)) {
       return conversation;
     }
-    return { ...conversation, messages: [...conversation.messages, message] };
+    return { ...conversation, messages: insertBySequence(conversation.messages, message) };
   }
 
   if (!(NH_ASSISTANT_SSE_EVENT_TYPES as readonly string[]).includes(event.type)) {
@@ -244,6 +245,28 @@ function conversationStatusFor(status: TurnCompletionStatus): ConversationStatus
     case 'failed':
       return 'failed';
   }
+}
+
+/**
+ * Places a stored message before the messages at the end that have a higher sequence number. A
+ * message without a number, such as an optimistic message or the answer a running turn is still
+ * writing, counts as earlier: the server numbers a turn's messages when the turn starts, so a message
+ * stored during the turn follows its answer. A message without a number of its own goes last.
+ */
+function insertBySequence(messages: Message[], message: Message): Message[] {
+  const sequence = message.sequence;
+  let index = messages.length;
+  if (typeof sequence === 'number' && sequence > 0) {
+    while (index > 0) {
+      const previous = messages[index - 1].sequence;
+      if (typeof previous !== 'number' || previous <= sequence) {
+        break;
+      }
+      index--;
+    }
+  }
+
+  return [...messages.slice(0, index), message, ...messages.slice(index)];
 }
 
 function createAssistantMessage(id: string): Message {

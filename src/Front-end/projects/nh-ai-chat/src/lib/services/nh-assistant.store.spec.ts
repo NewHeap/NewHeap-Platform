@@ -2,8 +2,8 @@ import { Injectable, Provider, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, NEVER, Observable, Subject, of, throwError } from 'rxjs';
 import { AgentProposal } from '../models/assistant-agent-run.models';
-import { ApprovalPart, AssistantStatus, Conversation, ConversationThreadDecision, ToolCallPart } from '../models/assistant-api.models';
-import { LiveAgentWorkChanged } from '../models/assistant-live.models';
+import { ApprovalPart, AssistantStatus, Conversation, ConversationThreadDecision, Message, ToolCallPart } from '../models/assistant-api.models';
+import { LiveAgentWorkChanged, LiveConversationEvent } from '../models/assistant-live.models';
 import { NhAssistantMessageEvent, NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -61,13 +61,14 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-/** A connected hub whose agent-work updates the test sends. */
+/** A connected hub whose agent-work updates and conversation events the test sends. */
 class FakeLiveService {
   readonly agentWork = new Subject<LiveAgentWorkChanged>();
+  readonly events = new Subject<LiveConversationEvent>();
   readonly changed$ = NEVER;
   readonly read$ = NEVER;
   readonly removed$ = NEVER;
-  readonly events$ = NEVER;
+  readonly events$ = this.events.asObservable();
   readonly resync$ = NEVER;
   readonly agentWork$ = this.agentWork.asObservable();
   readonly state = signal<NhAssistantLiveState>('connected').asReadonly();
@@ -1129,6 +1130,95 @@ describe('NhAssistantStore', () => {
 
       expect(store.approvalRights().has('intake-1')).toBeFalse();
       expect(store.approvalRights().has('intake-2')).toBeFalse();
+    });
+  });
+
+  describe('live messages while this tab streams a turn', () => {
+    let live: FakeLiveService;
+
+    function stored(id: string, role: Message['role'], sequence: number, authorActorId: string | null, text = id): Message {
+      return { id, role, createdAt: '2026-10-23T10:00:00Z', sequence, parts: [{ type: 'text', text }], authorActorId };
+    }
+
+    function created(message: Message, actorId = message.authorActorId ?? 'application'): void {
+      live.events.next({ conversationId: 'c1', actorId, type: 'message.created', data: message });
+    }
+
+    function ids(store: NhAssistantStore): string[] {
+      return store.activeConversation()!.messages.map(message => message.id);
+    }
+
+    async function streaming(currentActorId: string | null = 'me'): Promise<NhAssistantStore> {
+      live = new FakeLiveService();
+      api.createConversation.and.callFake(request => of({ ...conversation(request.agentId), currentActorId }));
+      const store = setup(undefined, undefined, [{ provide: NhAssistantLiveService, useValue: live }]);
+      await store.initialize();
+      const sent = store.send('First');
+      await flush();
+      // The server shows the sender's message to everyone, this tab too, before its stream starts the turn.
+      created(stored('u1', 'user', 1, 'me', 'First'), 'me');
+      stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+      expect(await sent).toBeTrue();
+      stream.next({ type: 'message.delta', data: { messageId: 'a1', text: 'Checking' } });
+      return store;
+    }
+
+    it('shows an application\'s and a colleague\'s message after the answer it still writes, each once', async () => {
+      const store = await streaming();
+
+      created(stored('app-1', 'application', 3, null, 'The export finished.'));
+      // The turn's own events come with its stream; their live copies change nothing.
+      live.events.next({ conversationId: 'c1', actorId: 'me', type: 'message.delta', data: { messageId: 'a1', text: 'Checking' } });
+      live.events.next({ conversationId: 'c1', actorId: 'me', type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+      created(stored('sam-1', 'user', 4, 'sam', 'I added the budget.'));
+      created(stored('app-1', 'application', 3, null, 'The export finished.'));
+      stream.next({ type: 'message.delta', data: { messageId: 'a1', text: ' the projects.' } });
+
+      expect(store.streaming()).toBeTrue();
+      expect(ids(store)).toEqual(['u1', 'a1', 'app-1', 'sam-1']);
+      expect(store.activeConversation()!.messages[1].parts).toEqual([{ type: 'text', text: 'Checking the projects.' }]);
+
+      finishTurn(stream);
+      await flush();
+      created(stored('sam-1', 'user', 4, 'sam', 'I added the budget.'));
+
+      expect(store.streaming()).toBeFalse();
+      expect(ids(store)).toEqual(['u1', 'a1', 'app-1', 'sam-1']);
+      // The colleague's message does not hide the answer of this tab's turn.
+      expect(store.notice()).toBeNull();
+    });
+
+    it('keeps the message once when the turn fails and the conversation is read again', async () => {
+      const store = await streaming();
+      created(stored('app-1', 'application', 3, null, 'The export finished.'));
+      api.getConversation.and.returnValue(of({
+        ...conversation(),
+        currentActorId: 'me',
+        status: 'failed',
+        messages: [
+          stored('u1', 'user', 1, 'me', 'First'),
+          stored('a1', 'assistant', 2, null, 'Checking'),
+          stored('app-1', 'application', 3, null, 'The export finished.')
+        ]
+      }));
+
+      stream.next({ type: 'error', data: { code: 'assistant-server-error', messageKey: 'nh-assistant.errors.server' } });
+      stream.complete();
+      await flush();
+
+      expect(api.getConversation).toHaveBeenCalledWith('c1');
+      expect(ids(store)).toEqual(['u1', 'a1', 'app-1']);
+    });
+
+    it('never shows its own message twice, also when it does not know the current user', async () => {
+      const store = await streaming(null);
+
+      // Without the current user a user message may be this tab's own, so only the application's shows.
+      created(stored('u1', 'user', 1, 'me', 'First'), 'me');
+      created(stored('sam-1', 'user', 4, 'sam', 'I added the budget.'));
+      created(stored('app-1', 'application', 3, null, 'The export finished.'));
+
+      expect(ids(store)).toEqual(['u1', 'a1', 'app-1']);
     });
   });
 
