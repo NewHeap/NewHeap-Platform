@@ -441,7 +441,8 @@ usage report or billing needs: `TriggerKind`, what started the run as one of `Nh
 `request`, `hand-off`, `follow-up` for a decided or executed proposal or an ended hand-off, and `replay`),
 recorded on the run when it is created (`AssistantRun.TriggerKind`, migration `RunTriggerKinds`) so
 removing or changing its trigger later does not change it; `Shadow`; `SkillVersion`, the version of a
-skill defined as data; `ModelCallCount`, every governed model call of the run across its turns and
+skill defined as data; `TriggerVersion`, the version of a trigger defined as data that started the run
+(a trigger candidate's runs are shadow runs of its version); `ModelCallCount`, every governed model call of the run across its turns and
 attempts, triage included, which the run counts when the call's budget is reserved, so a failed,
 cancelled or retried turn keeps its calls and a run by rules alone stays 0; and `RunStatus` and
 `RunFailureCode` apart, while `ResultCode` keeps `status:code`. Count runs, runs without a model call
@@ -612,7 +613,12 @@ recorded at the first start on this version; a skill that was deployed before an
 in that same deploy therefore starts off once. An agent created in the administration
 (`startsOff` on `POST admin/agents` and `NhAssistantAgentRequest`) and a new data skill (`startsOff`
 on `NhAssistantDataSkillRequest`) start off only when asked to; the administration's create forms
-offer it as "Switch on now", on by default. The run configuration reports `startsOff` for an agent
+offer it as "Switch on now", on by default. An agent created at runtime starts in shadow only when
+asked to (`StartsInShadow` on `NhAssistantAgentRequest`, `startsInShadow` on `POST admin/agents`): it
+is stored as the agent's shadow override from its first row and audited as `AdminAgentShadowChanged`
+(`shadow`), so it takes effect as soon as the agent has run settings, also when they and its triggers
+are saved right after in the same request, and no event reaches it live first. Put it live with
+`SetShadowAsync`; the agent editor offers "Start in shadow" for a new agent that runs, off by default. The run configuration reports `startsOff` for an agent
 and its skills in code.
 
 The shadow mode and the technical account are runtime overrides of the code, changed the same way
@@ -683,6 +689,38 @@ in code reports whom it answers to, whether it delegates from the initiator, its
 whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`). `GET admin/tools`
 names the object type a tool declares with `[NhAiSubject]` (`SubjectType`), so a screen can say that
 a run's proposal of it waits at that object; MCP tools never declare one.
+
+Try a change of a data trigger in shadow before it replaces the live one, as for a skill. Triggers
+defined as data have append-only versions: a change is the next version (`expectedVersion` is the
+live version, otherwise `assistant-version-conflict`), and `Apply` of `NhAssistantDataTriggerRequest`
+chooses how it takes effect. `live` (default) replaces the live version at once, in the mode the
+trigger has. `shadow` makes it the trigger's candidate next to the live version, which keeps working
+unchanged: the candidate fires on every event and schedule its own definition selects, for the
+trigger's own agent and always into the agent's shadow thread of the subject, with its own filters,
+subject, dedupe, conflict, debounce and daily limit, so it never refuses, queues or deduplicates the
+live version's work, nor the live version its work; an event may start either, both or neither. A
+publisher's receipts are the live triggers'; a candidate adds none. A deferred fire keeps it, a data
+schedule's candidate gets a recurring job of its own, a candidate lets nothing wait while the agent or
+skill is paused, and its runs use the live version of the skill it names. A new trigger has no live
+version to compare with (`apply: invalid`), and a later change discards an earlier candidate. The
+administrator promotes it (`PromoteTriggerCandidateAsync`, `POST
+admin/agents/{id}/triggers/{triggerId}/candidate/promote` with its `version`), which makes it the live
+version in the trigger's mode, or discards it (`DiscardTriggerCandidateAsync`, `POST
+.../candidate/discard`); another version answers `assistant-version-conflict` and none
+`404 assistant-trigger-candidate-not-found`. Runs record `TriggerVersion` and `TriggerCandidate`
+(`NhAssistantRunDto`); `CompareTriggerCandidateAsync` (`GET .../candidate/comparison`,
+`NhAssistantTriggerComparisonDto`) counts the runs, outcomes, usage and proposals per tool of both
+versions since the candidate was saved, what people decided about the live version's proposals, and
+the events both, only the live version or only the candidate started a run for. Every version stays
+as history with its status (`live`, `candidate`, `superseded`, `discarded`), definition, author and
+reason (`GetTriggerVersionsAsync`, `GET .../triggers/{triggerId}/versions`,
+`NhAssistantDataTriggerVersionDto`), also after the trigger is removed. `SetTriggerShadowAsync`
+changes the live version's mode only. A candidate that no longer fits the code is a problem of kind
+`trigger-candidate` and fires no more, while the live version keeps working. Triggers saved before
+keep their version as the live one (migration `TriggerVersions`). Every saved, promoted and discarded
+version is audited as `AdminAgentTriggerDefinitionChanged`. The administration's run configuration
+shows a trigger's candidate with what it changes, the comparison, promote, discard and the history,
+and the trigger form asks how a change of a saved trigger takes effect.
 
 Keep instructions that the application owns, such as texts it ships with its code, reviews in its own
 process or keeps in its own store, in the application and let a data skill or an agent created in the
@@ -1103,7 +1141,16 @@ the answers; at most
 `NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent` per agent. A consultation is
 in effect once saved, versioned like a data trigger, audited with
 `AdminAgentConsultationDefinitionChanged` and never changes one in code
-(`assistant-consultation-in-code`). It answers only when an asking agent selects its tool:
+(`assistant-consultation-in-code`). A new one starts off only when asked to (`StartsOff` of
+`NhAssistantDataConsultationRequest`) or when the application's ceiling says so for every new one
+(`StartOff()` on `NhAssistantConsultationCeilingBuilder`, reported as
+`NhAssistantConsultationCeilingDto.StartsOff`); consultations saved before keep their state. Off
+(`NhAssistantDataConsultationDto.Off`), it is saved and checked but not offered: asking agents get none
+of its tools until an administrator switches it on with `SetConsultationStateAsync` (`POST
+admin/agents/{id}/consultations/{subjectType}/state` with `NhAssistantConsultationStateRequest`,
+`state` one of `NhAssistantConsultationStates`, `on` or `off`), without a new version, and a change
+keeps whether it is on. The administration's consultation form offers "Start off", and the list marks
+one that is off and switches it on and off. It answers only when an asking agent selects its tool:
 the asking side stays the asking agent's tool selectors, so prefer an exact
 `NhAssistantConsultationTools.ConsultToolId` over `assistant.consult.*`. Its tools live in
 the catalog `assistant-consultations-data`, which follows the configuration in effect on
@@ -1296,8 +1343,13 @@ entry's name and the version only.
   technical account; change it at runtime with `INhAssistantAgentControl`.
 - Registering a skill or trigger in code that administrators are meant to change; register its
   building blocks and let them define it as data. Putting a data skill or trigger live without
-  reading its shadow runs first, or putting a real change of a live skill live without evaluating it
-  as a candidate.
+  reading its shadow runs first, or putting a real change of a live skill or trigger live without
+  evaluating it as a candidate (`Apply` `shadow`); changing a live trigger's filters in place to see
+  what they would do.
+- Creating an agent at runtime that should be evaluated before it acts live and putting it in shadow
+  in a later request: use `StartsInShadow`, so no event reaches it live in between. Letting a new
+  consultation be offered before it was reviewed when the application wants that: save it with
+  `StartsOff` or set `StartOff()` on the ceiling.
 - Letting an administration agent answer to a technical account with more rights than its work
   needs, or to itself when it must use tools: it then has no rights at all.
 - Changing the text of a published version of a text asset: every load refuses it as `asset-changed`.
@@ -1753,8 +1805,19 @@ and code but never the summary, that the summary reaches the thread without the 
 same report again is a duplicate and a late one is refused, that a report of another tenant reads as
 unknown, that the deadline makes it `execution-unknown` and `hand-to-application` hands it over again
 with a higher attempt, and that a host that declares such a tool without an executor does not start.
-SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310 and SPM-314 are the
-executable references.
+For trigger versions, on both providers assert that a change with `apply: shadow` keeps the live
+version firing unchanged while the candidate fires into the shadow thread with its own filters, that
+an event the live version filters out starts only the candidate and one both select starts both,
+that a candidate's run records `TriggerVersion` and `TriggerCandidate` and `AgentRunEnded` carries
+the version, that a deferred fire and a data schedule fire the candidate too, that the comparison
+counts both versions and their paired events, that promote and discard check the candidate's
+version and keep every version as history, also after the trigger is removed, and that the
+administration endpoints refuse people who do not administer and stay within the caller's tenant.
+Assert that an agent created with `StartsInShadow` and run settings and a trigger in the same request
+runs its first event in its shadow thread, and that a consultation saved with `StartsOff` or under a
+ceiling with `StartOff()` offers no tool until `SetConsultationStateAsync` switches it on.
+SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
+SPM-316 and SPM-317 are the executable references.
 
 ## Executable evidence
 
@@ -1958,6 +2021,16 @@ executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+- SPM-316 — A change of the planner's status follow-up trigger runs as its candidate in shadow next to the live trigger, is compared with it and is discarded
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs)
+- SPM-317 — An agent created at runtime starts in shadow from the same request that gives it run settings, and its consultation is offered only once an administrator switches it on
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs)
 - SPM-320 — The planner's risk review is a skill defined as data whose instructions are the sample's own text asset, checked by its hash at every load
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleInstructionAssetService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleInstructionAssetService.cs)

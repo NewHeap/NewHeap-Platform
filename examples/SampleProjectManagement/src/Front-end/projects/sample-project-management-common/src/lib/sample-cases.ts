@@ -5201,6 +5201,56 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-316",
+    "title": "A change of the planner's status follow-up trigger runs as its candidate in shadow next to the live trigger, is compared with it and is discarded",
+    "category": "AI tools and generated catalogs",
+    "surface": "Apply of NhAssistantDataTriggerRequest (NhAssistantSkillApplyModes.Live or Shadow) on INhAssistantAgentConfiguration.SaveTriggerAsync and PUT admin/agents/{id}/triggers/{triggerId}, with the field error apply: invalid for a new trigger; append-only trigger versions with NhAssistantDataTriggerDto.Candidate, CreatedAt and CreatedBy; GetTriggerVersionsAsync and GET admin/agents/{id}/triggers/{triggerId}/versions with NhAssistantDataTriggerVersionDto; PromoteTriggerCandidateAsync, DiscardTriggerCandidateAsync and CompareTriggerCandidateAsync with NhAssistantTriggerComparisonDto, and POST .../candidate/promote, POST .../candidate/discard and GET .../candidate/comparison; TriggerVersion and TriggerCandidate of NhAssistantRunDto; NhAssistantAuditEvent.TriggerVersion of AgentRunEnded; the problem kind trigger-candidate and the code assistant-trigger-candidate-not-found; the TriggerVersions migrations for SQL Server and PostgreSQL; the trigger's candidate with its changes, comparison, promote, discard and history in the run configuration of @newheap/platform-ai-chat/admin, with NhAssistantAdminApiService.getDataTriggerVersions, promoteTriggerCandidate, discardTriggerCandidate and compareTriggerCandidate",
+    "outcome": "The planner's status follow-up is a data trigger that is live and skips the planner's own status changes with the filter not-own-change (SPM-308). The team wants to know what dropping the filter would do and saves that change with apply shadow: the change becomes the trigger's next version as its candidate, in shadow, while the live version keeps firing unchanged, and the run configuration shows the live version with its candidate. When the planner changes a project's status itself, the live version ignores the event as filtered and only the candidate starts a run, in the planner's shadow thread of the project, where nobody is notified and nothing executes; the run records the trigger's version and that a candidate started it. A person's change starts both: the live version's run in the live thread, as before, and the candidate's run in the shadow thread, without the one waiting for or refusing the other. The comparison counts the runs of both versions, one event both handled and one only the candidate did. The team keeps the filter and discards the candidate with a reason: the trigger's history keeps the discarded version next to the live one, and the live version never changed. Triggers saved before keep their version as the live one.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023205139_TriggerVersions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261023205143_TriggerVersions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerVersionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerVersionEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/trigger-versions.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-317",
+    "title": "An agent created at runtime starts in shadow from the same request that gives it run settings, and its consultation is offered only once an administrator switches it on",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRequest.StartsInShadow on INhAssistantAgentConfiguration.CreateAgentAsync and startsInShadow of POST admin/agents (NhAssistantAdminAgentInputDto.StartsInShadow), stored as the agent's shadow override and audited as AdminAgentShadowChanged (shadow); NhAssistantDataConsultationRequest.StartsOff, NhAssistantDataConsultationDto.Off and NhAssistantConsultationCeilingBuilder.StartOff() with NhAssistantConsultationCeilingDto.StartsOff; SetConsultationStateAsync with NhAssistantConsultationStateRequest and NhAssistantConsultationStates (on, off) and POST admin/agents/{id}/consultations/{subjectType}/state; \"Start in shadow\" in the agent editor, and \"Start off\", the off badge and \"Switch on\" and \"Switch off\" for consultations in @newheap/platform-ai-chat/admin, with NhAssistantAdminApiService.setDataConsultationState",
+    "outcome": "The application creates a shadow starter, an agent of its own, at runtime with StartsInShadow and in the same call gives it run settings and a live trigger on created projects. The agent is in shadow from its first row, so the trigger never reaches it live: a created project starts its run at once in its shadow thread, where nobody is notified and nothing it proposes executes, until an administrator puts it live. The application then lets the project assistant consult the shadow starter about projects with a consultation that starts off: it is saved and checked, but not offered, and asking agents get no consult tool. Once the administrator switches it on, the consult tool appears in the administration's tool list and the next turns. A consultation saved before keeps its state, and one saved without StartsOff is offered at once, as before.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerVersionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataConsultationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-consultation-form.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-consultations.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-consultations-admin.spec.ts"
+    ]
+  },
+  {
     "id": "SPM-320",
     "title": "The planner's risk review is a skill defined as data whose instructions are the sample's own text asset, checked by its hash at every load",
     "category": "AI tools and generated catalogs",
