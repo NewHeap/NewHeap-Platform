@@ -30,7 +30,11 @@ import { NhAssistantComposerComponent } from '../composer/nh-assistant-composer.
 import { NhAssistantConversationListComponent } from '../conversation-list/nh-assistant-conversation-list.component';
 import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-preferences.component';
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
-import { NH_ASSISTANT_CONVERSATION_FRAGMENT, NH_ASSISTANT_JOIN_FRAGMENT } from '../../services/nh-assistant-share-link';
+import {
+  NH_ASSISTANT_CONVERSATION_FRAGMENT,
+  NH_ASSISTANT_JOIN_FRAGMENT,
+  NH_ASSISTANT_RUN_FRAGMENT
+} from '../../services/nh-assistant-share-link';
 import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
 
@@ -267,7 +271,9 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Opens the panel for an invitation link or a clicked notification in the URL fragment and
-   * removes the fragment, so a reload or a shared screenshot does not reuse the token.
+   * removes the fragment, so a reload or a shared screenshot does not reuse the token. A clicked
+   * notification about the proposals of a run goes to `NhAssistantPushService.openRun$` while the
+   * application subscribes, and otherwise opens its conversation.
    */
   private openFromLocation(): void {
     const location = globalThis.location;
@@ -275,7 +281,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     const separatorIndex = hash.indexOf('=');
     const name = separatorIndex < 0 ? hash : hash.slice(0, separatorIndex);
     const value = separatorIndex < 0 ? '' : hash.slice(separatorIndex + 1);
-    if (!value || (name !== NH_ASSISTANT_JOIN_FRAGMENT && name !== NH_ASSISTANT_CONVERSATION_FRAGMENT)) {
+    if (!value || (name !== NH_ASSISTANT_JOIN_FRAGMENT && name !== NH_ASSISTANT_CONVERSATION_FRAGMENT && name !== NH_ASSISTANT_RUN_FRAGMENT)) {
       return;
     }
 
@@ -287,6 +293,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
     const tokenIndex = value.indexOf('.');
     if (tokenIndex <= 0) {
+      return;
+    }
+    if (name === NH_ASSISTANT_RUN_FRAGMENT) {
+      this.push.openNotification(decodeURIComponent(value.slice(tokenIndex + 1)), decodeURIComponent(value.slice(0, tokenIndex)));
       return;
     }
     const conversationId = decodeURIComponent(value.slice(0, tokenIndex));
