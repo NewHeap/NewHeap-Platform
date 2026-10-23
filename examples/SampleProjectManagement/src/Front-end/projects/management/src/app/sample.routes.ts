@@ -98,8 +98,10 @@ export const SAMPLE_ROUTES: Routes = [
         title: 'Assistant administration',
         canActivate: [NhIsOnePermissionGrantedGuard],
         data: { oneMatchPermissions: ['app.assistant.access'] },
-        loadComponent: () => import('./assistant-administration/assistant-administration-page.component')
-          .then(module => module.AssistantAdministrationPageComponent)
+        // SPM-313: its routes register the portal's editor of the cost center of agents, loaded with
+        // the administration.
+        loadChildren: () => import('./assistant-administration/assistant-administration.routes')
+          .then(module => module.ASSISTANT_ADMINISTRATION_ROUTES)
       },
       {
         // SPM-304: the board of the project management group of agents; the server decides which

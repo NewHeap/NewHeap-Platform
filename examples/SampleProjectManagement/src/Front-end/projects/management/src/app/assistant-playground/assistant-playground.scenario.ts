@@ -272,6 +272,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       // SPM-302: the API lists the divisions of NewHeap Identity, so an agent may work per division.
       divisions: true
     },
+    // SPM-313: the API's cost center of agents, an entry of agent metadata: its shape, size limit,
+    // validator and searchable code as AddSampleAgentCostCenter registers them; editable on agents in code.
+    agentMetadata: [
+      {
+        name: 'cost-center',
+        editable: true,
+        maxBytes: 512,
+        indexBy: 'code',
+        fields: ['code', 'owner'],
+        validate: value => ({
+          ...(typeof value['code'] === 'string' && /^CC-[0-9]{4}$/.test(value['code']) ? {} : { code: ['unknown-cost-center'] }),
+          ...(typeof value['owner'] === 'string' && value['owner'].length > 100 ? { owner: ['too-long'] } : {})
+        })
+      }
+    ],
     // SPM-311: administrators define consultations within the API's ceiling: the person who asked
     // decides, or a project approver other than that person decides with the agent's own rights; the
     // route that rebuilds the asker's principal later is not named, and data may generate requests.
@@ -325,6 +340,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         autonomy: 'execute',
         // SPM-302: the planner works on projects, as its code says.
         worksOnSubjectTypes: ['project'],
+        // SPM-313: the cost center its code books its work on.
+        metadata: { 'cost-center': { code: 'CC-4100', owner: 'Planning office' } },
         // SPM-298: how its code makes it run, for the flow view: it answers to the person responsible for
         // the project and its proposals wait for the intake approval.
         codeRunSettings: { accountability: 'subject-responsible', approvalPolicy: 'project-intake', usesRules: false },
