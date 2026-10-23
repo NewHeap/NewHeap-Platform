@@ -95,6 +95,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentRunConfiguration> AgentRunConfigurations => Set<AssistantAgentRunConfiguration>();
 
+    public DbSet<AssistantAgentConsultationDefinition> AgentConsultationDefinitions => Set<AssistantAgentConsultationDefinition>();
+
     public DbSet<AssistantAgentGroupMember> AgentGroupMembers => Set<AssistantAgentGroupMember>();
 
     public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();
@@ -690,6 +692,31 @@ public sealed class NhAssistantDbContext : DbContext
             settings.HasOne<AssistantAgent>()
                 .WithOne()
                 .HasForeignKey<AssistantAgentRunConfiguration>(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentConsultationDefinition>(consultation =>
+        {
+            consultation.ToTable("AssistantAgentConsultationDefinition");
+            consultation.HasKey(item => new { item.AgentId, item.SubjectType });
+            consultation.Property(item => item.AgentId).HasMaxLength(128);
+            consultation.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            consultation.Property(item => item.Description).HasMaxLength(NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength).IsRequired();
+            consultation.Property(item => item.Instructions).HasMaxLength(NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength);
+            consultation.Property(item => item.InstructionsHash).HasMaxLength(64);
+            consultation.Property(item => item.MinimumRole).HasMaxLength(16).IsRequired();
+            consultation.Property(item => item.AskerPolicy).HasMaxLength(NhAssistantAgentWorksOn.MaxPolicyLength);
+            consultation.Property(item => item.RoutesJson).HasMaxLength(200).IsRequired();
+            consultation.Property(item => item.ProposalRole).HasMaxLength(16).IsRequired();
+            consultation.Property(item => item.ProposalPolicyId).HasMaxLength(128);
+            consultation.Property(item => item.DataClassification).HasMaxLength(16);
+            consultation.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            consultation.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+            consultation.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
+            consultation.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            consultation.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

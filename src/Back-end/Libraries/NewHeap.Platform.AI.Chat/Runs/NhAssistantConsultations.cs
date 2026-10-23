@@ -249,7 +249,9 @@ internal sealed class NhAssistantConsultationService(
             await events.ConsultationAsync(
                 new NhAssistantConsultationEvent(options.AgentId, request.AskerActorId, askingAgentId, depth, code)
                 {
-                    SubjectType = options.SubjectType
+                    SubjectType = options.SubjectType,
+                    ConsultationSource = options.Source,
+                    ConsultationVersion = options.DataVersion
                 },
                 CancellationToken.None);
             return TaskResult<NhAssistantConsultationAnswer>.Failed(prepared);
@@ -269,6 +271,9 @@ internal sealed class NhAssistantConsultationService(
             AskingConversationId = asking?.ConversationId,
             AskingTurnId = asking?.TurnId,
             Depth = depth,
+            // The version of a consultation defined as data it runs under; it finishes with these
+            // options, also when an administrator changes the consultation meanwhile.
+            ConsultationVersion = options.DataVersion,
             Status = NhAssistantConsultationStatuses.Running,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -539,6 +544,10 @@ internal sealed class NhAssistantConsultationService(
                 ConsultationId = consultation.Id,
                 SubjectType = thread.SubjectType,
                 SubjectId = thread.SubjectId,
+                ConsultationSource = consultation.ConsultationVersion is null
+                    ? NhAssistantConsultationSources.Code
+                    : NhAssistantConsultationSources.Data,
+                ConsultationVersion = consultation.ConsultationVersion,
                 ToolCalls = result?.ToolCalls,
                 InputTokens = result?.InputTokens,
                 OutputTokens = result?.OutputTokens,
@@ -619,4 +628,14 @@ internal sealed record NhAssistantConsultationEvent(
     public long? OutputTokens { get; init; }
 
     public int? ProposalCount { get; init; }
+
+    /// <summary>
+    /// One of <see cref="NhAssistantConsultationSources"/>.
+    /// </summary>
+    public string? ConsultationSource { get; init; }
+
+    /// <summary>
+    /// The version of a consultation defined as data; <see langword="null"/> for one in code.
+    /// </summary>
+    public int? ConsultationVersion { get; init; }
 }
