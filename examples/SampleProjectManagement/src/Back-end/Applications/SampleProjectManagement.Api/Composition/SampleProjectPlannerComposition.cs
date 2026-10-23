@@ -41,6 +41,8 @@ namespace SampleProjectManagement.Api.Composition;
 /// changed there. The status tool stamps the agent and the subject it works in on the event; the filter
 /// skips the event only when both are the trigger's agent and subject, so the planner's change made
 /// while it worked on another subject, and every person's change, still start it.
+/// SPM-313: the planner's work is booked on cost center CC-4100, set in code as agent metadata; an
+/// administrator may book it elsewhere in the administration, which overrides the value in code.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -101,7 +103,11 @@ public static class SampleProjectPlannerComposition
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             // SPM-304: the planner belongs to the project management group, whose board the portal shows.
             .AddSampleProjectManagementGroup()
+            // SPM-313: the application's cost center of agents, registered once with the planner.
+            .AddSampleAgentCostCenter()
             .ConfigureAgent(AgentId, agent => agent
+                // SPM-313: the cost center the planner's work is booked on, checked at startup.
+                .Metadata(SampleAgentCostCenterComposition.Entry, SampleAgentCostCenterComposition.PlannerCostCenter)
                 // SPM-302: the planner works on projects.
                 .WorksOn(ProjectSubjects.Type)
                 .InGroup(SampleAgentGroupComposition.ProjectManagement)
