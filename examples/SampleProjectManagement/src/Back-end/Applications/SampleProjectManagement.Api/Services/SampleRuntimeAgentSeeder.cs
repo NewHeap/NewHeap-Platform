@@ -120,9 +120,9 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                 "You start projects that were created as drafts. Propose to make a draft project active "
                 + "and explain in one sentence why it can start. Never start a project that is not a draft.",
                 [ProjectAiTools.ChangeStatusToolId],
-                // SPM-311: consulted with proposals, its model is offered the status tool; every
-                // change it makes still waits for a decision.
-                NhAiAutonomyLevel.Execute,
+                // SPM-311: it only proposes. A consultation with a proposal route offers its model the
+                // status tool as well, and every change it makes there waits for a decision.
+                NhAiAutonomyLevel.Propose,
                 OfferedInChat: false,
                 // SPM-302: it works on projects; its trigger names the project type up front.
                 WorksOnSubjectTypes: [ProjectSubjects.Type]),

@@ -294,6 +294,54 @@ public sealed class AiModelProfileSamplesTests
             ProjectAiAssets.ProjectAgentInstructions.Content,
             ProjectAiAssets.ProjectAgentInstructions.Manifest.ToString(),
             StringComparison.Ordinal);
+
+        // An agent with Propose autonomy only reads, also with the rights to change projects, unless
+        // the runtime turns every change into a proposal: in a scope that requires approval for
+        // effects, such as an assistant consultation with a proposal route, EffectsAsProposals offers
+        // it the tools that change state, and each call waits for approval (AC34).
+        var adapter = scope.ServiceProvider.GetRequiredService<INhAiAgentFrameworkAdapter>();
+        var proposing = descriptor with
+        {
+            Description = "Proposes changes to authorized projects; every change waits for approval.",
+            MaximumAutonomy = NhAiAutonomyLevel.Propose
+        };
+        var manager = context with
+        {
+            CapabilityGrants = new HashSet<string>(StringComparer.Ordinal)
+            {
+                ProjectAiTools.ReadCapability,
+                ProjectAiTools.ManageCapability
+            }
+        };
+        var reading = await adapter.CreateAsync(
+            new NhAiAgentCreateRequest(proposing, manager, ProjectAiAssets.ProjectAgentInstructions.Content),
+            scope.ServiceProvider);
+        Assert.True(reading.Success);
+        Assert.All(reading.Data.Tools, tool => Assert.Equal(NhAiToolEffect.ReadOnly, tool.Effect));
+
+        var consultation = new NhAiAgentInvocationScope(
+            "project-agent",
+            "project-agent",
+            1,
+            new NhAiSubjectInfo(new NhAiSubjectRef("project", Guid.NewGuid().ToString()), NhAiSubjectInfo.CreateScopeKey(null, divisionId)),
+            "owner-1",
+            "consultation-1",
+            "project-assistance")
+        {
+            RequireApprovalForEffects = true
+        };
+        using (NhAiAgentInvocationScopes.Begin(consultation))
+        {
+            var proposingAgent = await adapter.CreateAsync(
+                new NhAiAgentCreateRequest(proposing, manager, ProjectAiAssets.ProjectAgentInstructions.Content)
+                {
+                    EffectsAsProposals = true
+                },
+                scope.ServiceProvider);
+            Assert.True(proposingAgent.Success);
+            Assert.Contains(proposingAgent.Data.Tools, tool => tool.Id == ProjectAiTools.ChangeStatusToolId);
+            Assert.Contains(proposingAgent.Data.Tools, tool => tool.Id == "projects.search");
+        }
     }
 
     private sealed class RecordingProjectAiService :
