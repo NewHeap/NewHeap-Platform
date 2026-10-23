@@ -113,6 +113,9 @@ describe('The status table of the mock API', () => {
       ['assistant-agent-not-found', 404],
       ['assistant-subject-not-found', 404],
       ['assistant-trigger-rate-limited', 409],
+      ['assistant-consultation-not-found', 404],
+      ['assistant-consultation-in-code', 409],
+      ['assistant-consultations-not-allowed', 409],
       ['assistant-mcp-connection-required', 409],
       ['assistant-mcp-connection-not-supported', 409],
       ['assistant-mcp-secret-unreadable', 409],
@@ -140,7 +143,8 @@ describe('The status table of the mock API', () => {
     expect(table).toEqual(jasmine.arrayContaining([
       'assistant-trigger-rate-limited', 'assistant-trigger-rolled-back', 'assistant-subject-invalid',
       'assistant-webhook-payload-too-large', 'assistant-mcp-connection-not-supported',
-      'assistant-mcp-secret-unreadable', 'assistant-mcp-secret-unavailable'
+      'assistant-mcp-secret-unreadable', 'assistant-mcp-secret-unavailable',
+      'assistant-consultation-in-code', 'assistant-consultation-not-found', 'assistant-consultations-not-allowed'
     ]));
     expect(NH_ASSISTANT_SERVER_ERROR_CODES).not.toContain('rate-limited');
   });

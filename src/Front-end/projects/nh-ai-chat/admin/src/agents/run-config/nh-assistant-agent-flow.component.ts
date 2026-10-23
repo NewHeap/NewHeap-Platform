@@ -146,7 +146,7 @@ export class NhAssistantAgentFlowComponent implements OnInit {
   /** When another assistant consults the agent: its consultations in code and as data. */
   readonly consultations = computed(() => consultationRows(this.configuration()));
   /** Administrators may add a consultation to the agent now. */
-  readonly canAddConsultation = computed(() => consultationsClosed(this.configuration(), this.catalog()) === null);
+  readonly canAddConsultation = computed(() => consultationsClosed(this.configuration(), this.catalog(), this.agent()) === null);
   readonly runNow = computed(() => flowRunNow(this.agent(), this.configuration(), this.catalog()));
   /**
    * What people run the agent for by hand, as the run-now dialog offers it: the whole application (one

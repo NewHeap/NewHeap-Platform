@@ -23,6 +23,7 @@ import {
   consultationRoles,
   consultationRouteBlock,
   consultationRoutes,
+  consultationTypeOptions,
   initiatorOnly,
   maxConsultationDescription,
   subjectRoutes
@@ -39,8 +40,7 @@ import {
   policyOptions,
   requireText,
   runConfigLimits,
-  toNumber,
-  worksOnCovers
+  toNumber
 } from './run-config-shared';
 
 let nextId = 0;
@@ -134,12 +134,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     return this.catalog()?.subjectTypes?.find(item => item.id === type)?.name ?? type;
   });
   /** The types the agent works on and has no consultation about yet, the whole application included. */
-  readonly typeOptions = computed<NhAssistantPickerOption[]>(() => {
-    const taken = this.takenTypes();
-    return (this.catalog()?.subjectTypes ?? [])
-      .filter(type => worksOnCovers(this.worksOn(), type.id) && !taken.includes(type.id))
-      .map(type => ({ value: type.id, label: type.name, description: type.isSystem ? null : type.pluralName ?? null }));
-  });
+  readonly typeOptions = computed<NhAssistantPickerOption[]>(() => consultationTypeOptions(this.catalog(), this.worksOn(), this.takenTypes())
+    .map(type => ({ value: type.id, label: type.name, description: type.isSystem ? null : type.pluralName ?? null })));
   /** The ceiling allows routes, so the consultation may propose. */
   readonly mayPropose = computed(() => this.ceiling().routes.length > 0);
   readonly routeChoices = computed<RouteChoice[]>(() => {

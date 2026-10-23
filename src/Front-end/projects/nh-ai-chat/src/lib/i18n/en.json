@@ -1740,7 +1740,8 @@
             "application": "The application does not let administrators add consultations; they come from its code.",
             "agent": "This agent is defined in code and does not let administrators add consultations to it.",
             "needs-settings": "Give the agent run settings before you add consultations.",
-            "limit": "This agent has as many consultations as allowed ({{max}})."
+            "limit": "This agent has as many consultations as allowed ({{max}}).",
+            "no-types": "Every kind of object this agent works on already has a consultation."
           },
           "requests": "Takes requests",
           "mcp": "Offered to MCP clients",

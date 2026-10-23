@@ -235,7 +235,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   /** Why administrators cannot add a consultation now, or `null` when they can. */
   readonly consultationsClosed = computed(() => {
     const configuration = this.configuration();
-    return configuration ? consultationsClosed(configuration, this.catalog()) : null;
+    return configuration ? consultationsClosed(configuration, this.catalog(), this.agent()) : null;
   });
   /** The subject types the agent already has a consultation about. */
   readonly consultationTypes = computed(() => this.consultationRows().map(row => row.subjectType));

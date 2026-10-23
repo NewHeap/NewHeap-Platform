@@ -1740,7 +1740,8 @@
             "application": "De applicatie laat beheerders geen raadplegingen toevoegen; die komen uit haar code.",
             "agent": "Deze agent staat in de code en laat beheerders geen raadplegingen toevoegen.",
             "needs-settings": "Geef de agent runinstellingen voordat je raadplegingen toevoegt.",
-            "limit": "Deze agent heeft al zoveel raadplegingen als is toegestaan ({{max}})."
+            "limit": "Deze agent heeft al zoveel raadplegingen als is toegestaan ({{max}}).",
+            "no-types": "Elke soort object waaraan deze agent werkt, heeft al een raadpleging."
           },
           "requests": "Neemt verzoeken aan",
           "mcp": "Aangeboden aan MCP-clients",

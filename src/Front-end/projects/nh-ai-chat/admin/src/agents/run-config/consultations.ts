@@ -1,6 +1,7 @@
 import {
   AgentAccountability,
   AgentRunConfiguration,
+  AgentSubjectType,
   ApprovalPolicySummary,
   CodeConsultation,
   ConsultationCeiling,
@@ -9,7 +10,7 @@ import {
   NhAssistantConsultationRoute,
   RunCatalog
 } from '@newheap/platform-ai-chat';
-import { systemSubjectType } from './run-config-shared';
+import { WorksOnStatement, systemSubjectType, worksOnCovers } from './run-config-shared';
 
 /**
  * Consultations in the run configuration (AC20): other assistants consult an agent about a subject
@@ -107,11 +108,16 @@ export function consultationRows(configuration: AgentRunConfiguration): Consulta
  * Why administrators cannot add a consultation to the agent now, or `null` when they can:
  * `application` when the application does not let them define consultations, `agent` when the agent
  * is in code and not consultable as data, `needs-settings` while an agent created here has no run
- * settings, and `limit` when it has as many as the ceiling allows.
+ * settings, `limit` when it has as many as the ceiling allows, and `no-types` when every kind of
+ * object it works on already has a consultation.
  */
-export type ConsultationsClosed = 'application' | 'agent' | 'needs-settings' | 'limit';
+export type ConsultationsClosed = 'application' | 'agent' | 'needs-settings' | 'limit' | 'no-types';
 
-export function consultationsClosed(configuration: AgentRunConfiguration, catalog: RunCatalog | null): ConsultationsClosed | null {
+export function consultationsClosed(
+  configuration: AgentRunConfiguration,
+  catalog: RunCatalog | null,
+  worksOn: WorksOnStatement | null
+): ConsultationsClosed | null {
   const ceiling = configuration.consultationCeiling ?? null;
   if (ceiling === null) {
     return configuration.source === 'code' && (catalog?.consultationCeiling ?? null) !== null ? 'agent' : 'application';
@@ -119,7 +125,24 @@ export function consultationsClosed(configuration: AgentRunConfiguration, catalo
   if (configuration.source === 'admin' && configuration.runSettings === null) {
     return 'needs-settings';
   }
-  return (configuration.dataConsultations ?? []).length >= ceiling.maxConsultations ? 'limit' : null;
+  if ((configuration.dataConsultations ?? []).length >= ceiling.maxConsultations) {
+    return 'limit';
+  }
+  return catalog?.subjectTypes && consultationTypeOptions(catalog, worksOn, consultationRows(configuration).map(row => row.subjectType)).length === 0
+    ? 'no-types'
+    : null;
+}
+
+/**
+ * The subject types a new consultation can be about: those the agent works on, the whole application
+ * included, that it has no consultation about yet.
+ */
+export function consultationTypeOptions(
+  catalog: RunCatalog | null,
+  worksOn: WorksOnStatement | null,
+  taken: readonly string[]
+): AgentSubjectType[] {
+  return (catalog?.subjectTypes ?? []).filter(type => worksOnCovers(worksOn, type.id) && !taken.includes(type.id));
 }
 
 /**
