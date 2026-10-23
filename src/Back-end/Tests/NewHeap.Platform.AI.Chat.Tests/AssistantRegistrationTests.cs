@@ -237,6 +237,8 @@ public sealed class AssistantRegistrationTests
                     or "ConsultationRoute" or "ConsultationRefusalReason"
                     // Where a consultation comes from: a code of NhAssistantConsultationSources.
                     or "ConsultationSource"
+                    // The name of an agent metadata entry (AddAgentMetadata), an identifier; never its value.
+                    or "MetadataEntry"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
