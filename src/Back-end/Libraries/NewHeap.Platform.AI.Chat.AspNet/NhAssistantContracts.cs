@@ -703,6 +703,12 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// <c>dataClassification: invalid</c> otherwise). A skill's own wins. Omitted keeps it on update; a new
 /// agent has none, so its model calls are <c>internal</c>. Agents in code take it from their
 /// code.</param>
+/// <param name="Metadata">For an agent created in the administration: values of entries of agent
+/// metadata registered with <c>AddAgentMetadata</c>, by entry name, saved with the definition's
+/// version; <c>null</c> removes an entry's value and entries left out keep theirs. They are checked as
+/// <c>PUT agents/{id}/metadata/{name}</c> checks them, with field errors <c>metadata.&lt;name&gt;</c>
+/// (<c>not-found</c> for an entry that is not registered). An agent in code changes its editable entries
+/// one by one (field error <c>metadata: not-allowed</c>).</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -723,7 +729,8 @@ public sealed record NhAssistantAdminAgentInputDto(
     string? ViewPolicy = null,
     bool? StartsOff = null,
     string? Profile = null,
-    string? DataClassification = null);
+    string? DataClassification = null,
+    IReadOnlyDictionary<string, JsonElement>? Metadata = null);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
