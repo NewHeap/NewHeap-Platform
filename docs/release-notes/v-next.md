@@ -138,3 +138,48 @@ activity (`newheap.ai.model_call_id`) share; `InvocationId` still names the invo
 | `AssistantRun.ModelCalls`, and with it the run history's and the evaluation's model calls, also counts the calls of turns that failed, were cancelled or were retried. | Expect higher counts than before for runs with such turns; compare periods across the upgrade with that in mind. |
 | `NhAssistantAuditEvent` has the new properties `TriggerKind`, `SkillVersion`, `Shadow`, `ModelCallCount`, `RunStatus` and `RunFailureCode`, set on `AgentRunEnded`. | Let audit sinks that store every property accept them; count runs from them instead of parsing `ResultCode`. |
 | `NhAiUsageRecord` and `NhAiBudgetRequest` have the new property `ModelCallId`; a reservation that is no model call keeps `Guid.Empty`. | Count and correlate model calls by `ModelCallId` instead of `InvocationId`. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: extensible agent metadata
+
+`AddAgentMetadata<T>(name, entry => entry.MaxBytes(...).Validate(...).IndexBy(...).Editable())`
+registers a named entry of the application's own data about agents, such as a cost center: `T` is its
+JSON shape (camelCase), the size limit counts the bytes of its JSON (4,096 by default, at most 65,536),
+and the validators report dash-case codes per field (`NhAssistantAgentMetadataErrors`). An agent in code
+sets its value in `ConfigureAgent` with `Metadata(name, value)`, which startup checks as every save
+checks data; administrators override it only when the entry is `Editable()`, as an override with a
+version of its own. An agent created at runtime gets values through `metadata` of `POST` and
+`PUT admin/agents`, `NhAssistantAgentRequest.Metadata` of `CreateAgentAsync` and
+`PUT admin/agents/{id}/metadata/{name}` (`INhAssistantAgentConfiguration.SaveMetadataAsync`, with
+`RemoveMetadataAsync` and `GetMetadataAsync`); each change is the agent's next version. Values live in
+the new table `AssistantAgentMetadata` per agent and name, with the entry's searchable value
+(`IndexBy`) trimmed and in lowercase in an indexed column, and are removed with the agent.
+`INhAssistantAgentMetadata` reads an agent with its metadata (`GetAgentAsync`, typed with
+`NhAssistantAgentWithMetadata.Get<T>`) and finds the agents of a searchable value with provider-neutral
+LINQ (`ListAgentsAsync(name, value)`). NewHeap never interprets metadata and it never widens rights; the
+audit records `AdminAgentMetadataChanged` with the entry's name only.
+
+| Breaking change | Required action |
+|---|---|
+| The `AgentMetadata` migrations add the table `AssistantAgentMetadata` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `NhAssistantAuditEventKind` has the new value `AdminAgentMetadataChanged` (71), and `NhAssistantAuditEvent` the property `MetadataEntry`. | Let audit sinks with an exhaustive switch, or that store every property, record or ignore them. |
+| `NhAssistantAdminErrorCodes` has the new codes `assistant-metadata-entry-not-found` (HTTP 404) and `assistant-metadata-read-only` (HTTP 409). | Let code that maps assistant codes handle values it does not know. |
+| `INhAssistantAgentConfiguration` has the new members `GetMetadataAsync`, `SaveMetadataAsync` and `RemoveMetadataAsync`. | Implement them in a class of your own that implements the interface, or delegate to the registered one. |
+
+## @newheap/platform-ai-chat: a slot per entry of agent metadata in the agent editor
+
+Below its form, the agent editor of `@newheap/platform-ai-chat/admin` shows the application's fields of an
+existing agent (`nh-assistant-agent-metadata`): one slot per entry of the run catalog's `agentMetadata`,
+with its title, where its value comes from (code, override or stored with the agent) and whether only
+code changes it. The application renders its own editor in a slot: `provideNhAssistantAgentMetadataEditors`
+maps an entry name to a standalone component, which injects `NhAssistantAgentMetadataSlot` for the value
+and saves with `save` and `remove`, through `NhAssistantAdminApiService.saveAgentMetadata` and
+`removeAgentMetadata` with the entry's version; there is no generic form. A change of an agent created
+in the administration is its next version, which the editor's next save continues on; a new agent shows
+its fields once it is saved. `AgentMetadata`, `AgentMetadataEntry`, `AgentMetadataRequest`,
+`AdminAgentInput.metadata` and `getAgentMetadata` complete the client. The slot's frame and the codes
+`assistant-metadata-entry-not-found` and `assistant-metadata-read-only` have English and Dutch texts. The
+mock API takes `admin.agentMetadata` and the agents' `metadata` of its scenario.
+
+| Breaking change | Required action |
+|---|---|
+| The agent editor shows a section of application fields below its form when the application registers entries of agent metadata. | Register an editor per entry with `provideNhAssistantAgentMetadataEditors`; an entry without one says that the application shows no editor. |

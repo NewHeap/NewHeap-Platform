@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -1139,7 +1139,34 @@ reason, what became of each proposal the rules asked for and the recent decision
 model. A person's message in the thread and a consultation always reach the model, so keep a model
 profile and instructions that answer questions about the rules' proposals from the thread.
 
+Keep the application's own data about agents, such as the cost center their work is booked on, as
+agent metadata instead of a table of the application keyed by agent id. Register each entry once with
+`AddAgentMetadata<T>(name, entry => entry.MaxBytes(...).Validate(...).IndexBy(...).Editable())`: `T` is
+the value's JSON shape (camelCase), the size limit counts the bytes of its JSON (4,096 by default, at
+most `NhAssistantAgentMetadataLimits.MaxBytes`), and a validator reports stable dash-case codes per
+field through `NhAssistantAgentMetadataErrors`, never the value itself. An agent in code sets its value
+in `ConfigureAgent` with `Metadata(name, value)`; startup checks it exactly as a save checks data, so a
+value that a save would refuse fails startup. Administrators change the entry of an agent in code only
+when it is `Editable()`: their value is an override with a version of its own, and removing it lets the
+value in code apply again. An agent created at runtime gets values with its definition (`metadata` of
+`POST` and `PUT admin/agents`, `NhAssistantAgentRequest.Metadata` of `CreateAgentAsync`) or per entry
+with `PUT admin/agents/{id}/metadata/{name}` and `INhAssistantAgentConfiguration.SaveMetadataAsync`,
+always with the expected version: each change is the agent's next version. Values are stored per agent
+and name in `AssistantAgentMetadata` (the AgentMetadata migrations) and removed with the agent. Read them
+with `INhAssistantAgentMetadata`: `GetAgentAsync` returns the agent with the values in effect (typed
+with `NhAssistantAgentWithMetadata.Get<T>`), and `ListAgentsAsync(name, value)` finds the agents whose
+searchable value (`IndexBy`) matches, trimmed and without regard to case on both providers. NewHeap
+never interprets metadata and it never grants an agent or a person anything: authorize what the
+application does with it in the application. The audit records `AdminAgentMetadataChanged` with the
+entry's name and the version only.
+
 ## Avoid
+- Deciding rights, routes or approvals from agent metadata in NewHeap hooks; metadata is the
+  application's data and never widens what an agent may do.
+- Putting secrets, prompts or people's data in agent metadata, or validator codes that repeat the value;
+  the administration shows it and export may carry it.
+- Registering one metadata name in two compositions; register each entry once, next to the agent that
+  needs it, and let other agents get values for it.
 
 - An event `When` that compares the event with one agent: it applies to every trigger on the event.
   Register a named filter with `Filter(...)` and select it on the data trigger.
@@ -1306,6 +1333,15 @@ profile and instructions that answer questions about the rules' proposals from t
 - Registering a group id that starts with `nh-`; the platform reserves those ids.
 
 ## Verification
+
+For agent metadata, on both providers, save a value of an agent created at runtime and assert the
+agent's next version, a stale `expectedVersion` (`assistant-version-conflict`), the field errors of
+the validator (`value.<field>`), `value: too-long` above the size limit and `value: invalid` for a
+field the type does not have; override an editable entry of an agent in code and assert its own version
+and the value in code next to it, refuse a read-only entry (`assistant-metadata-read-only`), find agents
+with `ListAgentsAsync` in another case, delete the agent and assert that its values are gone, assert
+`403` for people who do not administer and that the audit carries the entry's name only; assert that
+startup refuses a value in code that a save would refuse.
 
 For the inbox overview, on both providers, assert the flat expiry order without `Groups`, the grouped
 order (groups by first expiry, a group's own subject first, runs together) with each group's `Count`

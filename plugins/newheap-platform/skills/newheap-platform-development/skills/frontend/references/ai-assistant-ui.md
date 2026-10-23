@@ -639,7 +639,24 @@ answer with them. The mock also offers sharing, read state and in-memory live up
 colleague continue a conversation in a demo or test. A route may host its own assistant scope with route-level providers; put
 the administration route under the same parent to share that scope.
 
+Give each entry of agent metadata the application registers (`AddAgentMetadata`) an editor of the
+application in the agent editor: register a standalone component per entry name with
+`provideNhAssistantAgentMetadataEditors({ name, component, label })` in the providers of the
+administration route, so it loads with the administration. The editor renders below the agent editor's
+form in the entry's slot (`nh-assistant-agent-metadata`), injects `NhAssistantAgentMetadataSlot` for
+the value, where it comes from and whether it is read-only, and saves with `slot.save(value)` or
+`slot.remove()`, which go through `NhAssistantAdminApiService` with the entry's version; show
+`slot.fieldErrors(field)` at the fields and use buttons of type `button`. The frame names the entry,
+shows its source, the read-only notice and what a save did; a change of an agent created in the
+administration is its next version, which the agent editor's next save continues on. There is no
+generic form: an entry without an editor says that the application shows none. In the mock API give
+`admin.agentMetadata` the entries with their checks and the agents' `metadata` their values.
+
 ## Avoid
+- Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
+  the application's own editor in the entry's slot.
+- Registering the metadata editors in the application's root providers, which loads the administration
+  with the first page; register them on the administration route.
 
 - Building a node editor or a graph of an agent's configuration beside the run configuration; its
   flow is the overview and each step opens the form that changes it.
