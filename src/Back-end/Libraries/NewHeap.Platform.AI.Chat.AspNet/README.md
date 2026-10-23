@@ -167,9 +167,12 @@ admin/agents/{id}/configuration` lists `codeConsultations`, `dataConsultations` 
 the routes in effect and the agents that select the tool) and the agent's `consultationCeiling`;
 `GET admin/run-catalog` has the application's. Their tools are the catalog
 `assistant-consultations-data`, an `INhAiChangingToolCatalog`: every assistant host reads the run
-configuration stamp at most once per second before a listing and refreshes in the background, and
-with `AllowMcp` in the ceiling an MCP server of `WithNewHeapPlatformAITools` announces
-`notifications/tools/list_changed` when they change.
+configuration stamp at most once per second before a listing and refreshes in the background. With
+`AllowMcp` in the ceiling, a stateful MCP server of `WithNewHeapPlatformAITools` (`Stateless =
+false`) tells its sessions with `notifications/tools/list_changed` when they change; clients of a
+stateless server, the recommended setup, see a change on their next `tools/list`. A call of a
+removed consultation from a stale list fails with `ai-tool-not-authorized` before the agent is
+consulted.
 
 A message to a thread while a run is active returns `202` with a receipt; the next run
 receives it. Turns that a person types in a thread are bound to the request like chat

@@ -70,12 +70,16 @@ immutable views (`Current`) that are attested on their own. Discovery calls its 
 agent framework adapter and the MCP export read descriptors and functions from one view
 (`NhAiToolCatalogViews.Of`), and the MCP export leaves a view that fails its attestation, or a tool that
 would take an export name already taken, out instead of failing. When such a catalog may reach MCP
-clients, `WithNewHeapPlatformAITools` declares `listChanged` for tools and announces
-`notifications/tools/list_changed` to every session when it changes.
+clients, `WithNewHeapPlatformAITools` signals `notifications/tools/list_changed` when it changes. Over
+Streamable HTTP only a stateful server (`Stateless = false`, which needs session affinity across
+instances) declares `listChanged` and tells its sessions, on their standalone GET stream; a stateless
+server, the recommended setup and the SDK's default, declares no `listChanged` and its
+`subscriptions/listen` grants no tool list changes, so its clients see a change on their next
+`tools/list`. A call of a tool from a stale list fails with `ai-tool-not-authorized` and runs nothing.
 
 | Breaking change | Required action |
 |---|---|
-| With a catalog that may reach MCP clients registered as `INhAiChangingToolCatalog`, `WithNewHeapPlatformAITools` replaces `McpServerOptions.ToolCollection` with a collection that holds the same tools and signals changes, and the server declares `listChanged` for tools. | None; tools added to the options' collection after the server options were built are not copied. |
+| With a catalog that may reach MCP clients registered as `INhAiChangingToolCatalog`, `WithNewHeapPlatformAITools` replaces `McpServerOptions.ToolCollection` with a collection that holds the same tools and signals changes, and a stateful server declares `listChanged` for tools. | None; tools added to the options' collection after the server options were built are not copied. |
 | The MCP startup check skips the export names of catalogs that change at runtime; their views are checked when they are exported. | None. |
 
 ## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: the request's person by the platform's actor id

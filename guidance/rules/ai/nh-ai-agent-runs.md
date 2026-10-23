@@ -917,7 +917,12 @@ the asking side stays the asking agent's tool selectors, so prefer an exact
 the catalog `assistant-consultations-data`, which follows the configuration in effect on
 every host within seconds; a call of a tool whose consultation was removed or whose contract
 changed fails with `assistant-consult-agent-unavailable`, while proposals it left can still be
-decided. Data that no longer fits after a deploy is reported as a problem of kind
+decided. An MCP client sees a consultation that asks for MCP only through
+`WithNewHeapPlatformAITools`: a stateful MCP server (`Stateless = false`) tells its sessions with
+`notifications/tools/list_changed` when consultations come and go, clients of a stateless server
+see the change on their next `tools/list`, and a call of a removed consultation from a stale list
+is refused by the export with `ai-tool-not-authorized` before the agent is consulted. Data that no
+longer fits after a deploy is reported as a problem of kind
 `consultation`: out of effect when its agent, subject type, works-on or asker policy no
 longer fits, without the routes, requests or MCP exposure that no longer fit, or with limits
 capped at the ceiling. The route switches of `SetConsultationRoutesAsync` apply to
