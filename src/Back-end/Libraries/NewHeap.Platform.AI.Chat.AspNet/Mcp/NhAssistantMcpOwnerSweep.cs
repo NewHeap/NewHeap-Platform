@@ -22,7 +22,9 @@ internal sealed record NhAssistantMcpOwnerSweepBatch(int Checked, string? LastOw
 /// with <see cref="UnresolvedReason"/>; a consent to background use stays on the row without tokens,
 /// as after retention, and grants nothing until the person is resolved and connects again. The
 /// built-in factory of a host without the NewHeap user manager resolves nobody, so the sweep does not
-/// ask it. A failure for one person is logged and skips that person only.
+/// ask it, nor the factory of the application's access source (<c>UsePrincipalsFromAccessSource</c>),
+/// whose missing or stale context does not mean the person was removed. A failure for one person is
+/// logged and skips that person only.
 /// </summary>
 internal sealed partial class NhAssistantMcpOwnerSweep(
     NhAssistantMcpOAuthStore store,
@@ -88,12 +90,14 @@ internal sealed partial class NhAssistantMcpOwnerSweep(
 
     /// <summary>
     /// The principal factory when it can resolve people: not the built-in factory in a host without
-    /// the NewHeap user manager, which resolves nobody and would remove every connection.
+    /// the NewHeap user manager, which resolves nobody and would remove every connection, and not the
+    /// access source's factory, which says only whether the application holds a fresh context of the
+    /// person and would remove the connections of everyone who was not active within its maximum age.
     /// </summary>
     private INhAiPrincipalFactory? ResolvingPrincipalFactory()
     {
         var principals = services.GetService<INhAiPrincipalFactory>();
-        if (principals is null)
+        if (principals is null or NhAiAccessSourcePrincipalFactory)
         {
             return null;
         }
