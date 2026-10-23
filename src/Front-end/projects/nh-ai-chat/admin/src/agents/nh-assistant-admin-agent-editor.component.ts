@@ -31,6 +31,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
 import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
+import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -65,12 +66,15 @@ let nextId = 0;
  * patterns, and assigned MCP servers. A new agent meant to work on its own continues with
  * `workRequested`. An agent in code names and describes itself with translation keys: the editor
  * shows their translation and sends the key back unless the administrator changed the text, so the
- * agent stays translated; what it works on comes from its code and is not edited here.
+ * agent stays translated; what it works on comes from its code and is not edited here. Below the form,
+ * an existing agent shows the application's fields (`nh-assistant-agent-metadata`): one slot per entry
+ * of agent metadata, where the application's own editor saves the value; a change of a field of an
+ * agent created here is its next version, which the next save of the definition continues on.
  */
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentMetadataComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agent-editor.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -145,6 +149,15 @@ export class NhAssistantAdminAgentEditorComponent {
   private readonly created = signal<AdminAgent | null>(null);
   /** The agent the next save updates; `null` while a new agent is not created yet. */
   private readonly editing = computed(() => this.created() ?? this.agent());
+  /**
+   * The agent's version after one of its application fields changed, which made its next version;
+   * `null` while no field changed.
+   */
+  private readonly fieldsVersion = signal<number | null>(null);
+  /** The agent whose application fields show below the form; `null` for a new agent. */
+  readonly metadataAgent = computed(() => this.editing());
+  /** The entries of agent metadata the application registers, for a new agent. */
+  readonly metadataEntries = computed(() => this.catalog()?.agentMetadata ?? []);
 
   readonly isNew = computed(() => this.editing() === null);
   /** Only agents created here choose whether they are offered in the chat; code decides for the others. */
@@ -281,6 +294,11 @@ export class NhAssistantAdminAgentEditorComponent {
     return code ? `nh-assistant.admin.run-config.field-errors.${code}` : null;
   }
 
+  /** An application field of an agent created here made the agent's next version. */
+  fieldsChanged(agentVersion: number): void {
+    this.fieldsVersion.set(agentVersion);
+  }
+
   save(): void {
     this.submitted.set(true);
     if (!this.valid() || this.saving()) {
@@ -321,7 +339,7 @@ export class NhAssistantAdminAgentEditorComponent {
       : of(null);
     const request: Observable<AdminAgent> = existing
       ? groupsSaved.pipe(
-        switchMap(membership => this.admin.updateAgent(existing.id, { ...input, expectedVersion: existing.version }).pipe(
+        switchMap(membership => this.admin.updateAgent(existing.id, { ...input, expectedVersion: this.fieldsVersion() ?? existing.version }).pipe(
           map(agent => withGroups(agent, membership)))))
       : this.admin.createAgent(input).pipe(
         tap(agent => this.created.set(agent)),
@@ -386,6 +404,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.viewPolicy.set(worksOn.viewPolicy ?? '');
     this.groups.set([...(agent?.groups ?? [])]);
     this.created.set(null);
+    this.fieldsVersion.set(null);
     this.submitted.set(false);
     this.error.set(null);
   }

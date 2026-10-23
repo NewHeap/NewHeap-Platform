@@ -1,0 +1,58 @@
+@if (agent()) {
+  @if (loadFailed()) {
+    <section class="subsection" [attr.aria-labelledby]="id + '-title'" data-agent-metadata>
+      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-editor.metadata.title' | translate }}</h4>
+      <div class="state" role="alert" data-agent-metadata-failed>
+        <p>{{ 'nh-assistant.admin.agent-editor.metadata.load-failed' | translate }}</p>
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    </section>
+  } @else if (loading()) {
+    <section class="subsection" [attr.aria-labelledby]="id + '-title'" aria-busy="true" data-agent-metadata>
+      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-editor.metadata.title' | translate }}</h4>
+      <p class="muted" role="status" data-agent-metadata-loading>{{ 'nh-assistant.admin.agent-editor.metadata.loading' | translate }}</p>
+    </section>
+  } @else if (slots().length > 0) {
+    <section class="subsection" [attr.aria-labelledby]="id + '-title'" data-agent-metadata>
+      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-editor.metadata.title' | translate }}</h4>
+      <p class="muted">{{ 'nh-assistant.admin.agent-editor.metadata.hint' | translate }}</p>
+      <ul class="cards">
+        @for (view of slots(); track view.name) {
+          @let entry = view.slot.entry();
+          <li
+            class="card"
+            [attr.aria-labelledby]="id + '-' + view.name"
+            [attr.aria-busy]="view.slot.saving()"
+            [attr.data-agent-metadata-entry]="view.name">
+            <div class="card-header">
+              <strong [id]="id + '-' + view.name">{{ view.label ? (view.label | translate) : view.name }}</strong>
+              <span class="badge" [class.warning]="entry.source === 'override'" data-metadata-source [attr.data-source]="entry.source ?? 'none'">
+                {{ sourceKey(entry) | translate }}
+              </span>
+            </div>
+            @if (view.slot.readOnly()) {
+              <p class="muted" data-metadata-read-only>{{ 'nh-assistant.admin.agent-editor.metadata.read-only' | translate }}</p>
+            }
+            @if (view.component) {
+              <ng-container *ngComponentOutlet="view.component; injector: view.injector" />
+            } @else {
+              <p class="muted" data-metadata-no-editor>{{ 'nh-assistant.admin.agent-editor.metadata.no-editor' | translate }}</p>
+            }
+            <p class="hint" aria-live="polite" data-metadata-status>
+              @if (view.slot.error(); as failure) {
+                <span class="error-text" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys(failure) | nhAssistantTranslate: failure.code }}</span>
+              } @else if (view.slot.status(); as status) {
+                <span>{{ 'nh-assistant.admin.agent-editor.metadata.' + status | translate }}</span>
+              }
+            </p>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+} @else if (entries().length > 0) {
+  <section class="subsection" [attr.aria-labelledby]="id + '-title'" data-agent-metadata>
+    <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-editor.metadata.title' | translate }}</h4>
+    <p class="muted" data-agent-metadata-save-first>{{ 'nh-assistant.admin.agent-editor.metadata.save-first' | translate }}</p>
+  </section>
+}

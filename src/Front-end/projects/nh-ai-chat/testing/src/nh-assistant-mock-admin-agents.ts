@@ -150,6 +150,19 @@ export class NhAssistantMockAdminAgents {
     return [...this.agents.values()].map(stored => stored.agent);
   }
 
+  /**
+   * Makes the next version of an agent, as a change of the metadata of an agent created here does on
+   * the server; nothing else of the agent changes.
+   */
+  nextVersion(agentId: string): AdminAgent {
+    const stored = this.agents.get(agentId);
+    if (!stored) {
+      throw new Error(`The mock has no agent '${agentId}'.`);
+    }
+    stored.agent = { ...stored.agent, version: stored.agent.version + 1, updatedAt: this.now() };
+    return stored.agent;
+  }
+
   /** Removes a deleted MCP server from the agents it was assigned to. */
   removeServer(serverId: string): void {
     for (const agent of this.agents.values()) {
@@ -764,7 +777,8 @@ export class NhAssistantMockAdminAgents {
     previous?: AdminAgent
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
-    const { isEnabled, startsOff, profile, dataClassification, ...definition } = structuredClone(input);
+    // Metadata is not part of the definition; its values live with the mock's agent metadata.
+    const { isEnabled, startsOff, profile, dataClassification, metadata, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
     const chosenProfile = source === 'admin' && typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : null;
     const classification = chosenClassification(dataClassification) as AssistantDataClassification | null;

@@ -471,7 +471,9 @@
       "assistant-file-scan-refused": "Het bestand is niet door de scan op schadelijke inhoud gekomen en is niet opgeslagen.",
       "assistant-consultation-in-code": "De agent staat raadpleging over deze soort object in code toe; die kan hier niet veranderen.",
       "assistant-consultation-not-found": "De raadpleging is niet gevonden.",
-      "assistant-consultations-not-allowed": "De applicatie laat beheerders geen raadplegingen aan deze agent toevoegen."
+      "assistant-consultations-not-allowed": "De applicatie laat beheerders geen raadplegingen aan deze agent toevoegen.",
+      "assistant-metadata-entry-not-found": "De applicatie kent dit veld van agents niet.",
+      "assistant-metadata-read-only": "De applicatie zet dit veld van de agent in haar code; het kan hier niet veranderen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -854,6 +856,23 @@
           "hint": "Pagina's van de applicatie tonen de agents van een groep op een bord, met hun laatste resultaten. Jouw keuze gaat boven de code.",
           "in-code": "In deze groep in de code",
           "shadow-variant": "Een schaduwvariant werkt alleen voor beheerders en hoort bij geen groep."
+        },
+        "metadata": {
+          "title": "Applicatievelden",
+          "hint": "De applicatie bewaart hier haar eigen gegevens over agents. Elk veld heeft een editor van de applicatie, die het zelf opslaat.",
+          "save-first": "Sla de agent eerst op; daarna verschijnen zijn velden hier.",
+          "loading": "De velden worden geladen",
+          "load-failed": "De velden van deze agent konden niet worden geladen.",
+          "no-editor": "De applicatie toont geen editor voor dit veld.",
+          "read-only": "Ingesteld in de code van de applicatie; het kan hier niet veranderen.",
+          "saved": "Opgeslagen.",
+          "removed": "Verwijderd.",
+          "source": {
+            "code": "Uit de code",
+            "override": "Hier gewijzigd, boven de waarde in de code",
+            "data": "Opgeslagen bij de agent",
+            "none": "Geen waarde"
+          }
         },
         "catalog-unavailable": "De bouwstenen van agentruns konden niet worden gelezen, dus waar deze agent aan werkt en zijn groepen kun je nu niet wijzigen. Opslaan laat ze zoals ze zijn."
       },

@@ -167,6 +167,9 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-agent-exists',
   'assistant-code-agent-not-deletable',
   'assistant-agent-not-code',
+  // Agent metadata registered by the application
+  'assistant-metadata-entry-not-found',
+  'assistant-metadata-read-only',
   'assistant-mcp-server-not-found',
   'assistant-mcp-server-exists',
   'assistant-mcp-tool-not-found',

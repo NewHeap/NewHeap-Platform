@@ -141,6 +141,13 @@ export interface AdminAgentInput {
    */
   startsOff?: boolean;
   /**
+   * For an agent created in the administration: values of the run catalog's `agentMetadata` entries
+   * by name, saved with the definition's version; `null` removes one, entries left out keep theirs.
+   * Field errors are `metadata.<name>`. An agent in code changes its editable entries one by one with
+   * `saveAgentMetadata`.
+   */
+  metadata?: Record<string, unknown>;
+  /**
    * For an agent created in the administration: the model profile of its model calls, one of the run
    * catalog's `profiles` (`profile: not-found` otherwise). Omitted keeps it on update; a new agent uses
    * the application's chat profile. Agents in code take it from their code.
@@ -979,6 +986,66 @@ export interface RunCatalog {
    * older servers.
    */
   consultationCeiling?: ConsultationCeiling | null;
+  /**
+   * The entries of agent metadata the application registers with `AddAgentMetadata`, ordered by name:
+   * the slots of the agent editor; missing on older servers.
+   */
+  agentMetadata?: AgentMetadataEntry[];
+}
+
+/** An entry of agent metadata registered in code with `AddAgentMetadata`. */
+export interface AgentMetadataEntry {
+  /** The entry's dash-case name. */
+  name: string;
+  /** Administrators may change it on agents in code, as an override. */
+  editable: boolean;
+  /** The largest value in bytes of its JSON. */
+  maxBytes: number;
+  /** It declares a searchable value with `IndexBy`. */
+  indexed: boolean;
+}
+
+/** Where the value of an agent's metadata entry comes from. */
+export type AgentMetadataSource = 'code' | 'override' | 'data';
+
+/**
+ * One entry of agent metadata of one agent (`GET admin/agents/{id}/metadata`): the application's own
+ * data about the agent, which NewHeap stores and checks but never interprets.
+ */
+export interface AgentMetadata {
+  name: string;
+  /**
+   * Whether it changes here: always for an agent created here, for an agent in code only when the
+   * entry is editable.
+   */
+  editable: boolean;
+  maxBytes: number;
+  /** Where the value in effect comes from; `null` without a value. */
+  source: AgentMetadataSource | null;
+  /** The value in effect, in the shape of the entry's type; `null` without one. */
+  value: unknown;
+  /**
+   * The version a change sends as `expectedVersion`: the agent's version for an agent created here,
+   * the override's version for an agent in code, `null` while it has no override.
+   */
+  version: number | null;
+  /** The agent's version: a change of an agent created here makes its next version. */
+  agentVersion: number;
+  /** The value in code of an agent in code, next to an override. */
+  codeValue?: unknown;
+  indexed?: boolean;
+  /** The searchable value of the value in effect, trimmed and in lowercase. */
+  indexValue?: string | null;
+  changedAt?: string | null;
+  changedBy?: string | null;
+}
+
+/** Body of `PUT admin/agents/{id}/metadata/{name}`. */
+export interface AgentMetadataRequest {
+  /** The value in the shape of the entry's type (camelCase); required. */
+  value: unknown;
+  /** The entry's `version` the change was made on; `null` for a new override of an agent in code. */
+  expectedVersion: number | null;
 }
 
 /**
