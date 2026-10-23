@@ -65,7 +65,8 @@ public interface INhAssistantAgentConfiguration
 
     /// <summary>
     /// Removes the run settings of an agent created in the administration, which then only chats.
-    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills or data triggers.
+    /// Fails with <c>assistant-run-settings-in-use</c> while it has data skills, data triggers or data
+    /// consultations.
     /// </summary>
     Task<TaskResult> RemoveRunSettingsAsync(
         string agentId,
@@ -181,6 +182,40 @@ public interface INhAssistantAgentConfiguration
         string actorId,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds or changes the consultation defined as data of an agent about one subject type, within
+    /// the ceiling in code (<c>UseConsultationsAsData</c>, and <c>ConsultableAsData</c> for an agent in
+    /// code). It is in effect once saved; it answers when an asking agent selects its generated tool.
+    /// An agent that may get none fails with <c>assistant-consultations-not-allowed</c>, an agent
+    /// created in the administration without run settings with <c>assistant-agent-not-configured</c>,
+    /// a subject type the agent allows consultation about in code with
+    /// <c>assistant-consultation-in-code</c>, more than
+    /// <see cref="NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent"/> with
+    /// <c>assistant-configuration-limit</c>, a stale <c>expectedVersion</c> with
+    /// <c>assistant-version-conflict</c> and invalid input with field errors, such as
+    /// <c>routes: not-allowed</c> for a route outside the ceiling.
+    /// </summary>
+    Task<TaskResult<NhAssistantDataConsultationDto>> SaveConsultationAsync(
+        string agentId,
+        string subjectType,
+        NhAssistantDataConsultationRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a consultation defined as data. Its tools disappear; a call of them fails with
+    /// <c>assistant-consult-agent-unavailable</c>, while its recorded proposals can still be decided.
+    /// Fails with <c>assistant-consultation-not-found</c> without one and with
+    /// <c>assistant-consultation-in-code</c> for a consultation in code.
+    /// </summary>
+    Task<TaskResult> RemoveConsultationAsync(
+        string agentId,
+        string subjectType,
+        int? expectedVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <param name="TriggerEvents">The events a data trigger can start a skill on.</param>
@@ -240,7 +275,207 @@ public sealed record NhAssistantRunCatalogDto(
     /// created in the administration and a data skill can only lower them.
     /// </summary>
     public NhAssistantFileLimitsDto? FileLimits { get; init; }
+
+    /// <summary>
+    /// The application's ceiling of consultations defined as data (<c>UseConsultationsAsData</c>);
+    /// <see langword="null"/> while consultations exist in code only.
+    /// </summary>
+    public NhAssistantConsultationCeilingDto? ConsultationCeiling { get; init; }
 }
+
+/// <summary>
+/// A ceiling in code of consultations defined as data.
+/// </summary>
+/// <param name="Routes">The routes of proposals data may use, values of
+/// <see cref="NhAssistantConsultationRoutes"/>; empty allows answers only.</param>
+/// <param name="AllowRequests">Data may generate the request tool.</param>
+/// <param name="AllowMcp">MCP clients may see the tools of a consultation that asks for it.</param>
+/// <param name="MaxToolCalls">The most tool calls of one consultation.</param>
+/// <param name="MaxTimeoutSeconds">The longest consultation, in seconds.</param>
+/// <param name="MaxAnswerChars">The longest answer.</param>
+/// <param name="MaxHistoryMessages">The most thread messages a consulted agent reads.</param>
+public sealed record NhAssistantConsultationCeilingDto(
+    IReadOnlyList<string> Routes,
+    bool AllowRequests,
+    bool AllowMcp,
+    int MaxToolCalls,
+    int MaxTimeoutSeconds,
+    int MaxAnswerChars,
+    int MaxHistoryMessages)
+{
+    /// <summary>
+    /// The most consultations defined as data of one agent.
+    /// </summary>
+    public int MaxConsultations { get; init; } = NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent;
+
+    /// <summary>
+    /// The longest instructions of a consultation defined as data.
+    /// </summary>
+    public int MaxInstructionsLength { get; init; } = NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength;
+
+    internal static NhAssistantConsultationCeilingDto? From(NhAssistantConsultationCeiling? ceiling)
+    {
+        return ceiling is null
+            ? null
+            : new NhAssistantConsultationCeilingDto(
+                ceiling.Routes,
+                ceiling.AllowRequests,
+                ceiling.AllowMcp,
+                ceiling.MaxToolCalls,
+                (int)ceiling.MaxTimeout.TotalSeconds,
+                ceiling.MaxAnswerChars,
+                ceiling.MaxHistoryMessages);
+    }
+}
+
+/// <summary>
+/// A consultation registered in code with <c>AllowConsultation</c>, as the administration shows it
+/// read-only.
+/// </summary>
+/// <param name="AllowedRoutes">The routes its registration allows, before the agent's route switches.</param>
+/// <param name="Exposure">Where its tools are offered: <c>local</c>, <c>agent</c>, <c>mcp</c>.</param>
+public sealed record NhAssistantCodeConsultationDto(
+    string SubjectType,
+    string? Description,
+    IReadOnlyList<string> AllowedRoutes,
+    bool AllowRequests,
+    IReadOnlyList<string> Exposure)
+{
+    /// <summary>
+    /// The id of the generated consult tool, which asking agents select.
+    /// </summary>
+    public string ConsultToolId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The id of the generated request tool; <see langword="null"/> without requests.
+    /// </summary>
+    public string? RequestToolId { get; init; }
+
+    /// <summary>
+    /// The agents whose tool selectors select the consult tool now, ordered by id.
+    /// </summary>
+    public IReadOnlyList<string> AskingAgents { get; init; } = [];
+}
+
+/// <summary>
+/// A consultation defined as data, as stored, with what is in effect of it.
+/// </summary>
+/// <param name="MinimumRole">The role the asking person needs on the subject: <c>reader</c>,
+/// <c>participant</c> or <c>approver</c>.</param>
+/// <param name="AskerPolicy">The policy the asking person must pass, one listed with
+/// <c>AddAgentPolicy</c>; <see langword="null"/> uses the agent's required policy, else the access
+/// policy.</param>
+/// <param name="Routes">The routes as saved; empty for a consultation that only answers.</param>
+/// <param name="ProposalRole">The role the asking person needs before the agent may propose.</param>
+/// <param name="ProposalPolicy">The approval policy of its proposals; <see langword="null"/> uses the
+/// agent's.</param>
+/// <param name="DataClassification">The classification of its answers; <see langword="null"/> uses the
+/// agent's.</param>
+/// <param name="InEffect">Whether the consultation is in effect; <see langword="false"/> with
+/// <paramref name="Problem"/> when it no longer fits the code.</param>
+/// <param name="Problem">The first problem, the reason it is out of effect when it is.</param>
+public sealed record NhAssistantDataConsultationDto(
+    string SubjectType,
+    int Version,
+    string Description,
+    string? Instructions,
+    string? InstructionsHash,
+    string MinimumRole,
+    string? AskerPolicy,
+    IReadOnlyList<string> Routes,
+    string ProposalRole,
+    string? ProposalPolicy,
+    int MaxToolCalls,
+    int TimeoutSeconds,
+    int MaxAnswerChars,
+    int MaxHistoryMessages,
+    bool AllowRequests,
+    bool ExposeToMcp,
+    string? DataClassification,
+    DateTimeOffset ChangedAt,
+    string ChangedBy,
+    string? Reason,
+    bool InEffect,
+    string? Problem)
+{
+    /// <summary>
+    /// Every problem of the consultation, values of <see cref="NhAssistantRunConfigurationProblems"/>:
+    /// the reason it is out of effect, or each part that no longer fits and was dropped or capped.
+    /// </summary>
+    public IReadOnlyList<string> Problems { get; init; } = [];
+
+    /// <summary>
+    /// The routes in effect: those saved that still fit the ceiling and the agent, before the agent's
+    /// route switches.
+    /// </summary>
+    public IReadOnlyList<string> RoutesInEffect { get; init; } = [];
+
+    /// <summary>
+    /// The id of the generated consult tool, which asking agents select.
+    /// </summary>
+    public string ConsultToolId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The id of the generated request tool when requests are in effect.
+    /// </summary>
+    public string? RequestToolId { get; init; }
+
+    /// <summary>
+    /// The agents whose tool selectors select the consult tool now, ordered by id: the second key of
+    /// the consultation (AC5).
+    /// </summary>
+    public IReadOnlyList<string> AskingAgents { get; init; } = [];
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public string CreatedBy { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// A consultation to define as data with <see cref="INhAssistantAgentConfiguration.SaveConsultationAsync"/>.
+/// </summary>
+/// <param name="Description">What the asking model reads about the agent, required, at most 1,000
+/// characters.</param>
+/// <param name="Instructions">Extra instructions of the consulted agent, at most 4,000 characters.</param>
+/// <param name="MinimumRole">The role the asking person needs on the subject: <c>reader</c> (default),
+/// <c>participant</c> or <c>approver</c>.</param>
+/// <param name="AskerPolicy">A policy the application lists with <c>AddAgentPolicy</c> that the asking
+/// person must pass; without it the agent's required policy, else the access policy.</param>
+/// <param name="Routes">How the agent's proposals are decided: <c>asker-decides</c>, and at most one of
+/// <c>subject-asker-rights</c> and <c>subject-agent-rights</c>, within the ceiling; empty or
+/// <see langword="null"/> keeps the consultation read-only.</param>
+/// <param name="ProposalRole">The role the asking person needs before the agent may propose:
+/// <c>participant</c> (default), <c>reader</c> or <c>approver</c>.</param>
+/// <param name="ProposalPolicy">An approval policy registered with <c>AddApprovalPolicy</c>.</param>
+/// <param name="MaxToolCalls">0 to 32, at most the ceiling's; 4 by default, capped by the ceiling.
+/// The other limits follow the same rule.</param>
+/// <param name="TimeoutSeconds">1 to 600; 60 by default.</param>
+/// <param name="MaxAnswerChars">200 to 32,000; 4,000 by default.</param>
+/// <param name="MaxHistoryMessages">0 to 200; 20 by default.</param>
+/// <param name="AllowRequests">Also generates the request tool, when the ceiling allows requests.</param>
+/// <param name="ExposeToMcp">MCP clients may see its tools, when the ceiling allows MCP.</param>
+/// <param name="DataClassification">The classification of its answers: <c>public</c>,
+/// <c>internal</c>, <c>confidential</c> or <c>restricted</c>; <see langword="null"/> uses the agent's.</param>
+/// <param name="ExpectedVersion">The consultation's version the change was made on;
+/// <see langword="null"/> for a new consultation.</param>
+/// <param name="Reason">At most 500 characters.</param>
+public sealed record NhAssistantDataConsultationRequest(
+    string? Description,
+    string? Instructions = null,
+    string? MinimumRole = null,
+    string? AskerPolicy = null,
+    IReadOnlyList<string>? Routes = null,
+    string? ProposalRole = null,
+    string? ProposalPolicy = null,
+    int? MaxToolCalls = null,
+    int? TimeoutSeconds = null,
+    int? MaxAnswerChars = null,
+    int? MaxHistoryMessages = null,
+    bool AllowRequests = false,
+    bool ExposeToMcp = false,
+    string? DataClassification = null,
+    int? ExpectedVersion = null,
+    string? Reason = null);
 
 /// <summary>
 /// File limits: the largest file in bytes, the most pages of one file, the most files of one turn and
@@ -395,6 +630,22 @@ public sealed record NhAssistantAgentConfigurationDto(
     /// <see cref="RunSettings"/> are data.
     /// </summary>
     public NhAssistantCodeRunSettingsDto? CodeRunSettings { get; init; }
+
+    /// <summary>
+    /// The consultations the agent allows in code, read-only, ordered by subject type.
+    /// </summary>
+    public IReadOnlyList<NhAssistantCodeConsultationDto> CodeConsultations { get; init; } = [];
+
+    /// <summary>
+    /// The consultations of the agent defined as data, ordered by subject type.
+    /// </summary>
+    public IReadOnlyList<NhAssistantDataConsultationDto> DataConsultations { get; init; } = [];
+
+    /// <summary>
+    /// The ceiling within which the agent may get consultations as data; <see langword="null"/> when
+    /// it may get none.
+    /// </summary>
+    public NhAssistantConsultationCeilingDto? ConsultationCeiling { get; init; }
 }
 
 /// <summary>
@@ -867,7 +1118,8 @@ internal sealed class NhAssistantAgentConfiguration(
                 registration.Limits.MaxFileBytes,
                 registration.Limits.MaxFilePages,
                 registration.Limits.MaxFilesPerTurn,
-                registration.Limits.MaxFileTokensPerTurn)
+                registration.Limits.MaxFileTokensPerTurn),
+            ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData)
         };
     }
 
@@ -973,6 +1225,10 @@ internal sealed class NhAssistantAgentConfiguration(
         var triggers = (await store.ListTriggersAsync(agentId, cancellationToken))
             .Select(item => ToDto(item, problems))
             .ToArray();
+        var askers = await AskingAgentsAsync(agentId, cancellationToken);
+        var dataConsultations = (await store.ListConsultationsAsync(agentId, cancellationToken))
+            .Select(item => ToDto(item, problems, askers))
+            .ToArray();
         return new NhAssistantAgentConfigurationDto(
             agentId,
             agent.Definition.ToolSelectors,
@@ -995,8 +1251,68 @@ internal sealed class NhAssistantAgentConfiguration(
             code is null ? NhAssistantAgentSources.Admin : NhAssistantAgentSources.Code,
             settings is null ? null : ToDto(settings, problems))
         {
-            CodeRunSettings = code is null ? null : ToCodeDto(code)
+            CodeRunSettings = code is null ? null : ToCodeDto(code),
+            CodeConsultations = code is null
+                ? []
+                : code.Consultations
+                    .OrderBy(item => item.SubjectType, StringComparer.Ordinal)
+                    .Select(item => ToCodeDto(item, askers))
+                    .ToArray(),
+            DataConsultations = dataConsultations,
+            ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationCeilingOf(agentId))
         };
+    }
+
+    private static NhAssistantCodeConsultationDto ToCodeDto(
+        NhAssistantConsultationOptions consultation,
+        IReadOnlyList<NhAssistantAgent> askers)
+    {
+        var exposure = new List<string>(3);
+        if (consultation.Exposure.HasFlag(NhAiToolExposure.Local))
+        {
+            exposure.Add("local");
+        }
+        if (consultation.Exposure.HasFlag(NhAiToolExposure.Agent))
+        {
+            exposure.Add("agent");
+        }
+        if (consultation.Exposure.HasFlag(NhAiToolExposure.Mcp))
+        {
+            exposure.Add("mcp");
+        }
+
+        return new NhAssistantCodeConsultationDto(
+            consultation.SubjectType,
+            consultation.Description,
+            consultation.AllowedRoutes,
+            consultation.AllowRequests,
+            exposure)
+        {
+            ConsultToolId = consultation.ConsultToolId,
+            RequestToolId = consultation.AllowRequests ? consultation.RequestToolId : null,
+            AskingAgents = AskersOf(consultation.AgentId, consultation.ConsultToolId, askers)
+        };
+    }
+
+    /// <summary>
+    /// Every agent, with the tool selectors in effect, to tell which of them select a consultation's
+    /// tool.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAssistantAgent>> AskingAgentsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        return (await agents.ListAsync(includeDisabled: true, cancellationToken))
+            .Where(agent => !string.Equals(agent.Id, agentId, StringComparison.Ordinal))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> AskersOf(string agentId, string toolId, IReadOnlyList<NhAssistantAgent> askers)
+    {
+        return askers
+            .Where(agent => !string.Equals(agent.Id, agentId, StringComparison.Ordinal)
+                            && agent.Definition.ToolSelectors.Any(selector => NhAssistantRegistrationState.Covers(selector, toolId)))
+            .Select(agent => agent.Id)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static NhAssistantCodeRunSettingsDto ToCodeDto(NhAssistantAgentRunOptions code)
@@ -1147,7 +1463,7 @@ internal sealed class NhAssistantAgentConfiguration(
             case NhAssistantStoreOutcome.Conflict:
                 return TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
             case NhAssistantStoreOutcome.Rejected:
-                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills or triggers still belong to the agent.");
+                return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInUse, "Data skills, triggers or consultations still belong to the agent.");
         }
 
         await events.RunSettingsChangedAsync(agentId, removed.Value!.Version, "removed", actorId, cancellationToken);
@@ -1664,6 +1980,299 @@ internal sealed class NhAssistantAgentConfiguration(
         }
 
         return TaskResult<NhAssistantDataTriggerDto>.Succeeded(ToDto(changed.Value!, configurations.Problems));
+    }
+
+    public async Task<TaskResult<NhAssistantDataConsultationDto>> SaveConsultationAsync(
+        string agentId,
+        string subjectType,
+        NhAssistantDataConsultationRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectType);
+        ArgumentNullException.ThrowIfNull(request);
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(invalid);
+        }
+
+        var (refused, agent, runOptions, ceiling) = await ResolveConsultableAsync(agentId, cancellationToken);
+        if (refused is not null)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(refused);
+        }
+        if (registration.CodeAgentRuns.TryGetValue(agentId, out var code)
+            && code.Consultations.Any(item => string.Equals(item.SubjectType, subjectType, StringComparison.Ordinal)))
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
+        }
+
+        var description = Blank(request.Description);
+        var instructions = Blank(request.Instructions);
+        var routes = (request.Routes ?? []).Select(route => route?.Trim() ?? string.Empty).ToArray();
+        var minimumRole = Blank(request.MinimumRole) ?? NhAssistantSubjectRoleNames.Reader;
+        var proposalRole = Blank(request.ProposalRole) ?? NhAssistantSubjectRoleNames.Participant;
+        var dataClassification = Blank(request.DataClassification);
+        // A new consultation starts with the defaults of code, capped by the ceiling.
+        var maxToolCalls = request.MaxToolCalls ?? Math.Min(NhAssistantConsultationBounds.DefaultToolCalls, ceiling!.MaxToolCalls);
+        var timeoutSeconds = request.TimeoutSeconds
+                             ?? (int)Math.Min(NhAssistantConsultationBounds.DefaultTimeout.TotalSeconds, ceiling!.MaxTimeout.TotalSeconds);
+        var maxAnswerChars = request.MaxAnswerChars ?? Math.Min(NhAssistantConsultationBounds.DefaultAnswerChars, ceiling!.MaxAnswerChars);
+        var maxHistoryMessages = request.MaxHistoryMessages ?? Math.Min(NhAssistantConsultationBounds.DefaultHistoryMessages, ceiling!.MaxHistoryMessages);
+        var errors = new NhAssistantValidationErrors()
+            .Require(NhAiSubjectRef.IsValidType(subjectType), "subjectType", NhAssistantFieldErrors.Invalid)
+            .Require(description is not null, "description", NhAssistantFieldErrors.Required)
+            .Require(description is null || description.Length <= NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength, "description", NhAssistantFieldErrors.TooLong)
+            .Require(instructions is null || instructions.Length <= NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength, "instructions", NhAssistantFieldErrors.TooLong)
+            .Require(NhAssistantSubjectRoleNames.TryParse(minimumRole, out _), "minimumRole", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantSubjectRoleNames.TryParse(proposalRole, out _), "proposalRole", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantDataConsultationRoutes.IsValid(routes), "routes", NhAssistantFieldErrors.Invalid)
+            .Require(
+                maxToolCalls is >= 0 and <= NhAssistantConsultationBounds.MaxToolCalls
+                && timeoutSeconds >= NhAssistantConsultationBounds.MinTimeout.TotalSeconds
+                && timeoutSeconds <= NhAssistantConsultationBounds.MaxTimeout.TotalSeconds
+                && maxAnswerChars is >= NhAssistantConsultationBounds.MinAnswerChars and <= NhAssistantConsultationBounds.MaxAnswerChars
+                && maxHistoryMessages is >= 0 and <= NhAssistantConsultationBounds.MaxHistoryMessages,
+                "limits",
+                NhAssistantFieldErrors.Invalid)
+            .Require(dataClassification is null || NhAssistantDataClassificationNames.TryParse(dataClassification, out _), "dataClassification", NhAssistantFieldErrors.Invalid);
+        if (!errors.IsEmpty)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(errors.ToResult());
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var row = new AssistantAgentConsultationDefinition
+        {
+            AgentId = agentId,
+            SubjectType = subjectType,
+            Description = description!,
+            Instructions = instructions,
+            InstructionsHash = instructions is null ? null : NhAssistantAgentCatalog.ComputeHash(instructions),
+            MinimumRole = minimumRole,
+            AskerPolicy = Blank(request.AskerPolicy),
+            RoutesJson = NhAssistantDataConsultationRoutes.Write(routes),
+            ProposalRole = proposalRole,
+            ProposalPolicyId = Blank(request.ProposalPolicy),
+            MaxToolCalls = maxToolCalls,
+            TimeoutSeconds = timeoutSeconds,
+            MaxAnswerChars = maxAnswerChars,
+            MaxHistoryMessages = maxHistoryMessages,
+            AllowRequests = request.AllowRequests,
+            ExposeToMcp = request.ExposeToMcp,
+            DataClassification = dataClassification,
+            UpdatedAt = now,
+            UpdatedBy = actorId,
+            Reason = reason
+        };
+
+        // The same check as every load, refused here instead of degraded (AC11).
+        var check = validator.CheckConsultation(row, runOptions, agent!.Definition.RequiredPolicy);
+        if (check.Problems.Count > 0)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(ConsultationFieldErrors(check.Problems));
+        }
+        if (services.GetService<INhAssistantReservedToolNames>() is { } reserved
+            && (reserved.IsReserved(check.Options!.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, agentId, subjectType))
+                || (row.AllowRequests && reserved.IsReserved(check.Options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, agentId, subjectType)))))
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantValidationErrors.Failed("subjectType", NhAssistantFieldErrors.Invalid));
+        }
+
+        var existing = await store.ListConsultationsAsync(agentId, cancellationToken);
+        if (request.ExpectedVersion is null
+            && existing.All(item => item.SubjectType != subjectType)
+            && existing.Count >= NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many consultations defined as data as allowed.");
+        }
+
+        var saved = await store.SaveConsultationAsync(row, request.ExpectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The consultation changed in the meantime.");
+        }
+
+        await events.ConsultationDefinitionChangedAsync(
+            agentId,
+            subjectType,
+            saved.Value!.Version,
+            saved.Value.InstructionsHash,
+            saved.Value.Version == 1 ? "created" : "changed",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantDataConsultationDto>.Succeeded(
+            ToDto(saved.Value, configurations.Problems, await AskingAgentsAsync(agentId, cancellationToken)));
+    }
+
+    public async Task<TaskResult> RemoveConsultationAsync(
+        string agentId,
+        string subjectType,
+        int? expectedVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectType);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
+        if (registration.CodeAgentRuns.TryGetValue(agentId, out var code)
+            && code.Consultations.Any(item => string.Equals(item.SubjectType, subjectType, StringComparison.Ordinal)))
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
+        }
+
+        var removed = await store.RemoveConsultationAsync(agentId, subjectType, expectedVersion, cancellationToken);
+        switch (removed.Outcome)
+        {
+            case NhAssistantStoreOutcome.NotFound:
+                return TaskResult.Failed(NhAssistantErrorCodes.ConsultationNotFound, "The agent has no such consultation defined as data.");
+            case NhAssistantStoreOutcome.Conflict or NhAssistantStoreOutcome.Rejected:
+                return TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The consultation changed in the meantime.");
+        }
+
+        await events.ConsultationDefinitionChangedAsync(
+            agentId,
+            subjectType,
+            removed.Value!.Version,
+            removed.Value.InstructionsHash,
+            "removed",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// The agent a consultation defined as data is saved on, with its options in effect and its
+    /// ceiling: an agent in code that is consultable as data, or one created in the administration
+    /// with run settings (AC18), while the application lets administrators define consultations.
+    /// </summary>
+    private async Task<(TaskResult? Refused, NhAssistantAgent? Agent, NhAssistantAgentRunOptions? RunOptions, NhAssistantConsultationCeiling? Ceiling)> ResolveConsultableAsync(
+        string agentId,
+        CancellationToken cancellationToken)
+    {
+        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
+        if (agent is null)
+        {
+            return (TaskResult.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found."), null, null, null);
+        }
+
+        var ceiling = registration.ConsultationCeilingOf(agentId);
+        if (ceiling is null || (agent.Source != NhAssistantAgentSources.Admin && !registration.CodeAgentRuns.ContainsKey(agentId)))
+        {
+            return (TaskResult.Failed(NhAssistantErrorCodes.ConsultationsNotAllowed, "The agent may not get consultations defined as data."), agent, null, null);
+        }
+
+        await configurations.EnsureCurrentAsync(cancellationToken);
+        if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions)
+            || (agent.Source == NhAssistantAgentSources.Admin && await store.FindRunSettingsAsync(agentId, cancellationToken) is null))
+        {
+            return (TaskResult.Failed(NhAssistantErrorCodes.AgentNotConfigured, "The agent has no run settings."), agent, null, null);
+        }
+
+        return (null, agent, runOptions, ceiling);
+    }
+
+    /// <summary>
+    /// The field error of each problem a consultation would have.
+    /// </summary>
+    private static TaskResult ConsultationFieldErrors(IReadOnlyList<string> problems)
+    {
+        if (problems.Contains(NhAssistantRunConfigurationProblems.NotConsultable, StringComparer.Ordinal))
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.ConsultationsNotAllowed, "The agent may not get consultations defined as data.");
+        }
+        if (problems.Contains(NhAssistantRunConfigurationProblems.ConflictsWithCode, StringComparer.Ordinal))
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
+        }
+        if (problems.Contains(NhAssistantRunConfigurationProblems.UnknownAgent, StringComparer.Ordinal))
+        {
+            return TaskResult.Failed(NhAssistantErrorCodes.AgentNotConfigured, "The agent has no run settings.");
+        }
+
+        var errors = new NhAssistantValidationErrors();
+        foreach (var problem in problems)
+        {
+            _ = problem switch
+            {
+                NhAssistantRunConfigurationProblems.UnknownSubjectType => errors.Add("subjectType", NhAssistantFieldErrors.NotFound),
+                NhAssistantRunConfigurationProblems.NotWorkedOn => errors.Add("subjectType", NhAssistantFieldErrors.Invalid),
+                NhAssistantRunConfigurationProblems.UnknownAgentPolicy => errors.Add("askerPolicy", NhAssistantFieldErrors.NotFound),
+                NhAssistantRunConfigurationProblems.RouteNotAllowed => errors.Add("routes", NhAssistantFieldErrors.NotAllowed),
+                NhAssistantRunConfigurationProblems.AgentAnswersToPerson or NhAssistantRunConfigurationProblems.AgentHasNoRights
+                    => errors.Add("routes", NhAssistantFieldErrors.Invalid),
+                NhAssistantRunConfigurationProblems.UnknownPolicy => errors.Add("proposalPolicy", NhAssistantFieldErrors.NotFound),
+                NhAssistantRunConfigurationProblems.NoApprover => errors.Add("proposalPolicy", NhAssistantFieldErrors.Invalid),
+                NhAssistantRunConfigurationProblems.LimitAboveCeiling => errors.Add("limits", NhAssistantFieldErrors.NotAllowed),
+                NhAssistantRunConfigurationProblems.RequestsNotAllowed => errors.Add("allowRequests", NhAssistantFieldErrors.NotAllowed),
+                NhAssistantRunConfigurationProblems.McpNotAllowed => errors.Add("exposeToMcp", NhAssistantFieldErrors.NotAllowed),
+                _ => errors.Add("subjectType", NhAssistantFieldErrors.Invalid)
+            };
+        }
+
+        return errors.ToResult();
+    }
+
+    private NhAssistantDataConsultationDto ToDto(
+        AssistantAgentConsultationDefinition item,
+        IReadOnlyList<NhAssistantRunConfigurationProblem> problems,
+        IReadOnlyList<NhAssistantAgent> askers)
+    {
+        var own = problems
+            .Where(entry => entry.AgentId == item.AgentId
+                            && entry.Kind == NhAssistantRunConfigurationProblems.ConsultationKind
+                            && entry.Id == item.SubjectType)
+            .Select(entry => entry.Code)
+            .ToArray();
+        // What is in effect of it: the options of the configuration in effect, with the parts that no
+        // longer fit dropped or capped.
+        var inEffect = registration.AgentRuns.TryGetValue(item.AgentId, out var runOptions)
+            ? runOptions.Consultations.FirstOrDefault(consultation => consultation.IsData
+                && string.Equals(consultation.SubjectType, item.SubjectType, StringComparison.Ordinal))
+            : null;
+        var consultToolId = NhAiSubjectRef.IsValidType(item.SubjectType)
+            ? NhAssistantConsultationTools.ConsultToolId(item.AgentId, item.SubjectType)
+            : string.Empty;
+        return new NhAssistantDataConsultationDto(
+            item.SubjectType,
+            item.Version,
+            item.Description,
+            item.Instructions,
+            item.InstructionsHash,
+            item.MinimumRole,
+            item.AskerPolicy,
+            NhAssistantDataConsultationRoutes.Read(item.RoutesJson) ?? [],
+            item.ProposalRole,
+            item.ProposalPolicyId,
+            item.MaxToolCalls,
+            item.TimeoutSeconds,
+            item.MaxAnswerChars,
+            item.MaxHistoryMessages,
+            item.AllowRequests,
+            item.ExposeToMcp,
+            item.DataClassification,
+            item.UpdatedAt,
+            item.UpdatedBy,
+            item.Reason,
+            inEffect is not null,
+            own.FirstOrDefault())
+        {
+            Problems = own,
+            RoutesInEffect = inEffect?.AllowedRoutes ?? [],
+            ConsultToolId = consultToolId,
+            RequestToolId = inEffect is { AllowRequests: true } ? inEffect.RequestToolId : null,
+            AskingAgents = consultToolId.Length == 0 ? [] : AskersOf(item.AgentId, consultToolId, askers),
+            CreatedAt = item.CreatedAt,
+            CreatedBy = item.CreatedBy
+        };
     }
 
     /// <summary>

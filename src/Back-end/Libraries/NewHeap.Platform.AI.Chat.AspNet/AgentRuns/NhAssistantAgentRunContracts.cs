@@ -946,6 +946,8 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantDataTriggerDto))]
 [JsonSerializable(typeof(NhAssistantDataSkillRequest))]
 [JsonSerializable(typeof(NhAssistantDataTriggerRequest))]
+[JsonSerializable(typeof(NhAssistantDataConsultationDto))]
+[JsonSerializable(typeof(NhAssistantDataConsultationRequest))]
 [JsonSerializable(typeof(NhAssistantAgentRunSettingsDto))]
 [JsonSerializable(typeof(NhAssistantAgentRunSettingsRequest))]
 [JsonSerializable(typeof(NhAssistantSkillCandidateRequest))]

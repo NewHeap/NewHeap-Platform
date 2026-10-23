@@ -45,7 +45,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapDelete("agents/{id}/run-settings", RemoveRunSettingsAsync)
             .WithName("NhAssistantAdminRemoveAgentRunSettings")
             .WithSummary("Remove the run settings of an agent created in the administration")
-            .WithDescription("The agent then only chats. While data skills or triggers belong to it, 409.")
+            .WithDescription("The agent then only chats. While data skills, triggers or consultations belong to it, 409.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -105,6 +105,22 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .WithName("NhAssistantAdminRemoveDataTrigger")
             .WithSummary("Remove a trigger defined as data")
             .WithDescription("Removes the trigger; runs it started finish. A trigger in code cannot be removed (409).")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPut("agents/{id}/consultations/{subjectType}", SaveConsultationAsync)
+            .WithName("NhAssistantAdminSaveDataConsultation")
+            .WithSummary("Add or change a consultation defined as data")
+            .WithDescription("Lets other assistants consult the agent about subjects of one type: description, instructions, who may ask (minimumRole and an askerPolicy listed with AddAgentPolicy), the routes of its proposals, the proposal role and approval policy, limits, the request tool, MCP exposure and the classification of its answers, within the ceiling in code (UseConsultationsAsData, and ConsultableAsData for an agent in code). It is in effect once saved and answers when an asking agent selects its generated tool. A route outside the ceiling is refused with routes not-allowed (400); an agent that may get none (409 assistant-consultations-not-allowed), an agent created in the administration without run settings (409 assistant-agent-not-configured), a type the agent allows consultation about in code (409 assistant-consultation-in-code), more than 20 per agent (409 assistant-configuration-limit) and a stale expectedVersion (409) are refused.")
+            .Produces<NhAssistantDataConsultationDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapDelete("agents/{id}/consultations/{subjectType}", RemoveConsultationAsync)
+            .WithName("NhAssistantAdminRemoveDataConsultation")
+            .WithDescription("Removes the consultation; its tools disappear and a later call of them fails with assistant-consult-agent-unavailable, while its recorded proposals can still be decided. Without such a consultation 404 assistant-consultation-not-found; a consultation in code cannot be removed (409).")
+            .WithSummary("Remove a consultation defined as data")
             .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -357,6 +373,49 @@ internal static class NhAssistantAgentConfigurationEndpoints
         }
 
         var result = await configuration.RemoveTriggerAsync(id, triggerId, expectedVersion, actor, reason, httpContext.RequestAborted);
+        return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> SaveConsultationAsync(
+        string id,
+        string subjectType,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+
+        var result = await configuration.SaveConsultationAsync(id, subjectType, body, actor, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> RemoveConsultationAsync(
+        string id,
+        string subjectType,
+        int? expectedVersion,
+        string? reason,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+
+        var result = await configuration.RemoveConsultationAsync(id, subjectType, expectedVersion, actor, reason, httpContext.RequestAborted);
         return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
     }
 
