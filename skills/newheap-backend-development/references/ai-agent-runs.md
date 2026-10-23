@@ -307,7 +307,9 @@ placed one answers with the object, `NhAssistantRuleProposal.PlacedAt` names it,
 `ApprovalRequested` and `AgentProposalPlaced` about the object. Proposal DTOs name the run with
 `PlacedBy` (`NhAssistantProposalOriginDto`: its thread, the run and its subject type; the subject's id
 and name only for the whole application, which every reader may know). When the run ends, also after a
-failure, the approvers of each object are notified once per object, and the run's summary counts its
+failure, each approver is notified once for the run about the objects that wait for them (SPM-302: the
+colleague reads "4 proposals at 4 projects wait for your decision", an approver of one project only
+about that project, and a day later one reminder), and the run's summary counts its
 placed proposals per tool and status. The migration `AgentPlacedProposals` adds the column that marks a
 placed proposal.
 
@@ -653,7 +655,23 @@ checked when the run settings are saved.
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
 `INhAssistantAgentNotificationChannel`; `INhAssistantAgentNotificationPolicy` picks the
-recipients from the subject's member snapshot, by default its approvers. Triggers,
+recipients from the subject's member snapshot, by default its approvers. The proposals of a
+run reach each person once per run: the policy is still asked per object
+(`RunEndedWithProposals`) or per proposal (`ProposalExpiring`, `ProposalEscalated`), and the
+platform then gives Web Push and the channels one context of `RunProposalsWaiting`,
+`RunProposalsExpiring` or `RunProposalsEscalated` per group of recipients with the same objects,
+whose `Objects` (`NhAssistantAgentNotificationObject`: subject, display name, conversation and
+proposal count) name only what waits for them, the run's own thread first. Its `ConversationId`
+and `Subject` are the object a click opens: the run's own thread for the run's initiator,
+otherwise the object with the most proposals. The run maintenance bundles the reminders and the
+escalations of one pass per run and recipient and still records every reminder per proposal; a
+run whose reminders fall due in different passes is reminded per pass. A consultation's
+proposals arrive the same way without a run, an inline wait as one object. Channels never
+receive the per-object kinds any more, so handle the new kinds in a custom channel. For one
+object the texts read as before; for several the title is "Assistant" and the text counts the
+proposals and the objects, named by the subject type's plural (`NamedPlural`) in the recipient's
+language, or "objects". The in-app message groups per run (`assistant-agent:run:{runId}`), and
+the Web Push payload carries `runId` and a tag per run. Triggers,
 ended runs, executions, resolutions, pauses, stops and resumes are content-free business
 audit events; the reason of a state change stays with the state.
 

@@ -36,20 +36,34 @@ export class NhAssistantPushService {
   private readonly subscribedState = signal(false);
   private readonly busyState = signal(false);
   private readonly openSubject = new Subject<string>();
+  private readonly openRunSubject = new Subject<string>();
   private registration?: Promise<ServiceWorkerRegistration>;
   private revision = 0;
   private readonly onWorkerMessage = (event: MessageEvent) => {
-    const data = event.data as { type?: unknown; conversationId?: unknown } | null;
+    const data = event.data as { type?: unknown; conversationId?: unknown; runId?: unknown } | null;
     if (data?.type === openConversationMessage && typeof data.conversationId === 'string') {
-      this.openSubject.next(data.conversationId);
+      this.openNotification(data.conversationId, typeof data.runId === 'string' ? data.runId : undefined);
     }
   };
 
   /** The caller's server-side choice, or `null` before it was loaded. */
   readonly settings = this.settingsState.asReadonly();
   readonly busy = this.busyState.asReadonly();
-  /** Conversations a clicked notification asks to open. */
+  /**
+   * Conversations a clicked notification asks to open; the assistant panel opens them. A
+   * notification about the proposals of a run goes to `openRun$` instead while the application
+   * subscribes to it.
+   */
   readonly openConversation$: Observable<string> = this.openSubject.asObservable();
+  /**
+   * Runs whose proposals a clicked notification is about, for the application to open its inbox of
+   * the run, for example `nh-assistant-agent-inbox` with `[runId]`, which lists every proposal of the
+   * run the person may decide. While the application subscribes, such a click emits the run here
+   * instead of opening the conversation in the panel; without a subscriber it opens the conversation
+   * as before. Subscribe in the application shell, so a notification that opens a new window finds
+   * the subscription.
+   */
+  readonly openRun$: Observable<string> = this.openRunSubject.asObservable();
   readonly state = computed<NhAssistantPushState>(() => {
     const settings = this.settingsState();
     if (!settings?.pushAvailable || !this.isSupported()) {
@@ -71,11 +85,26 @@ export class NhAssistantPushService {
         navigator.serviceWorker.removeEventListener('message', this.onWorkerMessage);
       }
       this.openSubject.complete();
+      this.openRunSubject.complete();
     });
     if (this.browser && this.isSupported()) {
       navigator.serviceWorker.addEventListener('message', this.onWorkerMessage);
       navigator.serviceWorker.startMessages();
     }
+  }
+
+  /**
+   * Opens what a clicked notification is about: the run through `openRun$` when the notification
+   * names one and the application subscribes, otherwise the conversation through
+   * `openConversation$`. The bundled worker and the panel's notification fragments call it.
+   */
+  openNotification(conversationId: string, runId?: string): void {
+    if (runId && this.openRunSubject.observed) {
+      this.openRunSubject.next(runId);
+      return;
+    }
+
+    this.openSubject.next(conversationId);
   }
 
   /**

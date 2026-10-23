@@ -8,7 +8,9 @@
  * It shows a notification only when no window of the application is focused; otherwise it
  * forwards the message to the open windows, which already show the conversation live. A click
  * focuses an open window and opens the conversation there, or opens `app` with the conversation
- * in the URL fragment. Notifications carry a conversation id and short texts only.
+ * in the URL fragment. A notification about the proposals of a run also carries the run, which the
+ * click forwards, so the application can open its inbox of the run (`openRun$`). Notifications
+ * carry a conversation id, a run id and short texts only.
  */
 const settings = new URL(self.location.href).searchParams;
 const appUrl = settings.get('app') || '/';
@@ -27,12 +29,13 @@ self.addEventListener('push', event => {
   if (!payload || payload.type !== 'nh-assistant' || typeof payload.conversationId !== 'string') {
     return;
   }
+  const runId = typeof payload.runId === 'string' ? payload.runId : undefined;
 
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (windows.some(client => client.focused && client.visibilityState === 'visible')) {
       for (const client of windows) {
-        client.postMessage({ type: 'nh-assistant.push', kind: payload.kind, conversationId: payload.conversationId });
+        client.postMessage({ type: 'nh-assistant.push', kind: payload.kind, conversationId: payload.conversationId, runId });
       }
       return;
     }
@@ -42,29 +45,33 @@ self.addEventListener('push', event => {
       tag: String(payload.tag || `nh-assistant:${payload.conversationId}`),
       renotify: true,
       icon: iconUrl,
-      data: { conversationId: payload.conversationId }
+      data: { conversationId: payload.conversationId, runId }
     });
   })());
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const conversationId = event.notification.data && event.notification.data.conversationId;
+  const data = event.notification.data || {};
+  const conversationId = data.conversationId;
   if (typeof conversationId !== 'string') {
     return;
   }
+  const runId = typeof data.runId === 'string' ? data.runId : undefined;
 
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const target = windows.find(client => client.focused) || windows[0];
     if (target) {
       await target.focus();
-      target.postMessage({ type: 'nh-assistant.open-conversation', conversationId });
+      target.postMessage({ type: 'nh-assistant.open-conversation', conversationId, runId });
       return;
     }
 
     const url = new URL(appUrl, self.location.origin);
-    url.hash = `nh-assistant-conversation=${encodeURIComponent(conversationId)}`;
+    url.hash = runId
+      ? `nh-assistant-run=${encodeURIComponent(runId)}.${encodeURIComponent(conversationId)}`
+      : `nh-assistant-conversation=${encodeURIComponent(conversationId)}`;
     await self.clients.openWindow(url.href);
   })());
 });

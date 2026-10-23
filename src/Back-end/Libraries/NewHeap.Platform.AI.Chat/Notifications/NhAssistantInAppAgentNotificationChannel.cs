@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AI.Chat.Notifications;
@@ -10,6 +11,7 @@ namespace NewHeap.Platform.AI.Chat.Notifications;
 /// <see cref="INhUserNotificationSink"/>, so they appear in the application's own inbox next to
 /// Web Push. Recipients whose actor id is not a user id are skipped. Messages use the recipient's
 /// culture from <see cref="INhActorDirectory"/> when known, and otherwise the culture of the run.
+/// The proposals of a run are one message per run, grouped by the run.
 /// </summary>
 internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAgentNotificationChannel
 {
@@ -57,18 +59,27 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
         }
 
         var cultures = await NhAssistantNotificationCultures.GetAsync(_services, recipients, cancellationToken);
+        var pluralNames = NhAssistantAgentNotificationTexts.PluralNamesOf(_services.GetService<NhAssistantSubjectAccessService>());
         foreach (var recipient in recipients)
         {
             recipient.TryGetUserId(out var userId);
             var language = cultures.GetValueOrDefault(recipient) ?? CultureInfo.CurrentUICulture.Name;
-            var (title, body) = NhAssistantAgentNotificationTexts.ForAgent(
-                context.Kind,
-                language,
-                context.SubjectDisplayName,
-                context.ProposalCount,
-                context.McpServerDisplayName,
-                context.FailureCode,
-                context.ProposalStatus);
+            var (title, body) = NhAssistantAgentNotificationTexts.IsRunProposals(context.Kind)
+                ? NhAssistantAgentNotificationTexts.ForRunProposals(
+                    context.Kind,
+                    language,
+                    context.Objects,
+                    context.ProposalCount,
+                    context.SubjectDisplayName,
+                    pluralNames)
+                : NhAssistantAgentNotificationTexts.ForAgent(
+                    context.Kind,
+                    language,
+                    context.SubjectDisplayName,
+                    context.ProposalCount,
+                    context.McpServerDisplayName,
+                    context.FailureCode,
+                    context.ProposalStatus);
             try
             {
                 var result = await sink.SendAsync(
@@ -76,8 +87,7 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
                     {
                         Category = Category,
                         Level = LevelFor(context),
-                        // One thread per agent thread, so repeated events of a subject stay together.
-                        GroupKey = $"{Category}:{context.ConversationId:N}"
+                        GroupKey = GroupKeyOf(context)
                     },
                     cancellationToken);
                 if (!result.Success)
@@ -99,6 +109,18 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
         }
     }
 
+    /// <summary>
+    /// The proposals of a run stay together per run (RN5), so its reminders and escalations join the
+    /// message about it; every other event stays together per agent thread, so repeated events of a
+    /// subject stay together.
+    /// </summary>
+    internal static string GroupKeyOf(NhAssistantAgentNotificationContext context)
+    {
+        return NhAssistantAgentNotificationTexts.IsRunProposals(context.Kind) && context.RunId is { } runId
+            ? $"{Category}:run:{runId:N}"
+            : $"{Category}:{context.ConversationId:N}";
+    }
+
     private static NhUserNotificationLevel LevelFor(NhAssistantAgentNotificationContext context)
     {
         return context.Kind switch
@@ -106,6 +128,7 @@ internal sealed class NhAssistantInAppAgentNotificationChannel : INhAssistantAge
             NhAssistantAgentNotificationKind.RunFailed => NhUserNotificationLevel.Error,
             NhAssistantAgentNotificationKind.ExecutionUnknown => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.ProposalEscalated => NhUserNotificationLevel.Warning,
+            NhAssistantAgentNotificationKind.RunProposalsEscalated => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.McpConnectionMissing => NhUserNotificationLevel.Warning,
             NhAssistantAgentNotificationKind.RequestAnswered => NhUserNotificationLevel.Success,
             NhAssistantAgentNotificationKind.ConsultationProposalDecided => context.ProposalStatus == NhAssistantApprovalStatuses.Executed

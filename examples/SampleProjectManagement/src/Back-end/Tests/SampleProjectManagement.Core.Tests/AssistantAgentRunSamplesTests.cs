@@ -1660,6 +1660,9 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             await host.AddMemberAsync(unfinished, host.ColleagueId, ProjectMemberRole.Approver);
             await host.AddMemberAsync(unfinished, host.OperationsAccountId, ProjectMemberRole.Reader);
             await host.CreateTaskAsync(unfinished, "Write the report");
+            // A second approver approves the last finished project only.
+            var secondApproverId = await host.CreatePersonAsync();
+            await host.AddMemberAsync(finished[3], secondApproverId, ProjectMemberRole.Approver);
 
             // People with the application-wide view permission read every project's agent work.
             Assert.Equal("reader", (await reader.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/{ProjectSubjects.Type}/{unfinished:D}/work", Json))!.Role);
@@ -1693,6 +1696,43 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 Assert.Equal("Project", proposal.SubjectTypeName);
             });
             Assert.DoesNotContain(inbox.Items, item => item.SubjectId == unfinished.ToString("D"));
+
+            // One notification per approver and run, in the application's inbox and grouped per run:
+            // the colleague, who approves every finished project, reads how many proposals wait at
+            // how many projects, named by the project type's plural and without the projects' names;
+            // the second approver reads only about the one project it approves, by its name. A message
+            // speaks the recipient's language, or that of the work that sends it: English or the
+            // host's Dutch.
+            var runGroup = $"assistant-agent:run:{tick.Id:N}";
+            var waitingForColleague = inbox.Items.Count(item => item.RunId == tick.Id);
+            var projectsInDutch = new ResourceManager(typeof(SampleAssistantToolPresenter))
+                .GetString("SubjectTypeProjects", CultureInfo.GetCultureInfo("nl-NL"))!
+                .ToLowerInvariant();
+            var toColleague = Assert.Single(await WaitForInboxAsync(host.ColleagueId, runGroup, 1));
+            Assert.Contains(toColleague.Title, new[] { "Assistant", "Assistent" });
+            Assert.Contains(toColleague.Message, new[]
+            {
+                $"{waitingForColleague} proposals at {waitingForColleague} projects wait for your decision.",
+                $"{waitingForColleague} voorstellen bij {waitingForColleague} {projectsInDutch} wachten op je besluit."
+            });
+            var toSecondApprover = Assert.Single(await WaitForInboxAsync(secondApproverId, runGroup, 1));
+            Assert.Equal(placed[3].SubjectDisplayName, toSecondApprover.Title);
+            Assert.Contains(toSecondApprover.Message, new[] { "A proposal waits for a decision.", "Een voorstel wacht op een besluit." });
+
+            // A day later the reminders of the run's proposals fall due together. The host's clock moves
+            // forward instead of waiting, and the maintenance job reminds each approver once for the
+            // run, in the same group.
+            host.Clock.Advance(TimeSpan.FromDays(1));
+            var remindColleague = await WaitForInboxAsync(host.ColleagueId, runGroup, 2);
+            Assert.Equal(2, remindColleague.Length);
+            Assert.Contains(remindColleague[1].Message, new[]
+            {
+                $"{waitingForColleague} proposals at {waitingForColleague} projects still wait for your decision.",
+                $"{waitingForColleague} voorstellen bij {waitingForColleague} {projectsInDutch} wachten nog op je besluit."
+            });
+            var remindSecondApprover = await WaitForInboxAsync(secondApproverId, runGroup, 2);
+            Assert.Equal(2, remindSecondApprover.Length);
+            Assert.Contains(remindSecondApprover[1].Message, new[] { "A proposal still waits for a decision.", "Een voorstel wacht nog op een besluit." });
 
             // The project page shows the proposal in the follow-up's thread at the project.
             var work = await colleague.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/{ProjectSubjects.Type}/{finished[0]:D}/work", Json);
@@ -2039,6 +2079,34 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var match = System.Text.RegularExpressions.Regex.Match(result ?? string.Empty, pattern);
         Assert.True(match.Success, result);
         Assert.All(keys, key => Assert.Contains(key, match.Groups["keys"].Value, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The messages in the application's inbox for <paramref name="userId"/> in <paramref name="groupKey"/>, once
+    /// there are at least <paramref name="count"/>. Agent notifications arrive after the run or the
+    /// maintenance pass that sends them, so the test waits for them.
+    /// </summary>
+    private async Task<NhUserNotificationRequest[]> WaitForInboxAsync(Guid userId, string groupKey, int count)
+    {
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
+        NhUserNotificationRequest[] found = [];
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            found = host.Inbox.Requests
+                .Where(request => request.UserId == userId && request.GroupKey == groupKey)
+                .ToArray();
+            if (found.Length >= count)
+            {
+                return found;
+            }
+
+            await Task.Delay(AssistantAgentRunSampleHost.PollInterval);
+        }
+
+        throw new TimeoutException(
+            $"Waited {Elapsed(started)} for {count} inbox messages of {userId} in {groupKey}; found {found.Length}: "
+            + string.Join("; ", found.Select(request => request.Message)));
     }
 
     /// <summary>
@@ -4775,6 +4843,9 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
         services.AddNewHeapPlatformAIDelegatedReads();
+        // SPM-302: the run maintenance reminds and escalates every second instead of every minute, so
+        // a test that moves the clock past a reminder reads it without waiting a minute.
+        services.AddNewHeapAssistant(assistant => assistant.WithLimits(limits => limits.MaintenanceInterval = TimeSpan.FromSeconds(1)));
         // SPM-251: agent notifications, such as a server a background run left out for want of the
         // person's consent, also reach the application's inbox (Inbox), which the base host turns on.
         base.ConfigureServices(services);

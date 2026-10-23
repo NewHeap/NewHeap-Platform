@@ -17,10 +17,20 @@
           {{ 'intake-reviews.active-division-only' | translate }}
         </label>
       }
+      <!-- SPM-310: a clicked notification about a run's proposals opens the inbox of that run, of any
+           agent and object, until the person shows every proposal again. -->
+      @if (runId()) {
+        <p class="run-filter" role="status">
+          <i class="ph ph-bell-ringing" aria-hidden="true"></i>
+          <span>{{ 'intake-reviews.run-only' | translate }}</span>
+          <button type="button" (click)="showAllProposals()">{{ 'intake-reviews.show-all' | translate }}</button>
+        </p>
+      }
       <!-- SPM-302: a proposal a run for the whole application placed here opens that run's conversation. -->
       <nh-assistant-agent-inbox
-        [agentId]="agentId"
-        subjectType="project"
+        [agentId]="runId() ? undefined : agentId"
+        [subjectType]="runId() ? undefined : 'project'"
+        [runId]="runId()"
         [divisionId]="activeDivisionOnly() ? activeDivisionId : null"
         [grouped]="true"
         [groupByRun]="true"

@@ -113,37 +113,30 @@ internal sealed class NhAssistantRunEnding(
                 run.Shadow,
                 CancellationToken.None,
                 failureCode: code);
-            await NotifyPlacedProposalsAsync(run);
+            await NotifyRunProposalsAsync(run, await PlacedNoticesAsync(await WaitingAsync(run), run));
         }
 
         return failed;
     }
 
     /// <summary>
-    /// Tells the people who decide the proposals a completed run left open about them: the run's
-    /// initiator about those in its own thread, the approvers of other objects about those it placed
-    /// there.
+    /// Tells the people who decide the proposals a completed run left open about them, each person
+    /// once for the whole run (RN1): the approvers of the run's own thread about those there, with the
+    /// run's initiator in the policy's context, and the approvers of other objects about those it
+    /// placed there.
     /// </summary>
     public async Task NotifyWaitingProposalsAsync(AssistantRun run, AssistantThread thread)
     {
-        var waiting = (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
-            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
-            .ToArray();
+        var waiting = await WaitingAsync(run);
+        var notices = new List<NhAssistantProposalNotice>();
         var own = waiting.Where(approval => approval.ConversationId == run.ConversationId).ToArray();
         if (own.Length > 0)
         {
-            await notifier.NotifyAsync(
-                NhAssistantAgentNotificationKind.RunEndedWithProposals,
-                thread,
-                run.Id,
-                own[0],
-                run.InitiatorActorId,
-                run.Shadow,
-                CancellationToken.None,
-                proposalCount: own.Length);
+            notices.Add(new NhAssistantProposalNotice(thread, own, run.InitiatorActorId, own.Length));
         }
 
-        await NotifyPlacedProposalsAsync(run, waiting);
+        notices.AddRange(await PlacedNoticesAsync(waiting, run));
+        await NotifyRunProposalsAsync(run, notices);
     }
 
     /// <summary>
@@ -299,14 +292,25 @@ internal sealed class NhAssistantRunEnding(
     }
 
     /// <summary>
-    /// Proposals a run placed at other objects reach those objects' approvers, once per object, also
-    /// when the run failed afterwards; the run's initiator is told only about its own thread.
+    /// The proposals of the run that wait for a decision.
     /// </summary>
-    private async Task NotifyPlacedProposalsAsync(AssistantRun run, IReadOnlyList<AssistantApproval>? waiting = null)
+    private async Task<AssistantApproval[]> WaitingAsync(AssistantRun run)
     {
-        waiting ??= (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
+        return (await runs.GetRunApprovalsAsync(run.Id, CancellationToken.None))
             .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending)
             .ToArray();
+    }
+
+    /// <summary>
+    /// The proposals a run placed at other objects, one notice per object for that object's
+    /// approvers, also when the run failed afterwards. The policy's context names no initiator for
+    /// them: the run's initiator is asked about only its own thread.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAssistantProposalNotice>> PlacedNoticesAsync(
+        IReadOnlyList<AssistantApproval> waiting,
+        AssistantRun run)
+    {
+        var notices = new List<NhAssistantProposalNotice>();
         foreach (var placed in waiting
             .Where(approval => approval.PlacedFromConversationId is not null && approval.ConversationId != run.ConversationId)
             .GroupBy(approval => approval.ConversationId))
@@ -316,16 +320,31 @@ internal sealed class NhAssistantRunEnding(
                 continue;
             }
 
-            await notifier.NotifyAsync(
-                NhAssistantAgentNotificationKind.RunEndedWithProposals,
-                target,
-                run.Id,
-                placed.First(),
-                null,
-                run.Shadow,
-                CancellationToken.None,
-                proposalCount: placed.Count());
+            var approvals = placed.ToArray();
+            notices.Add(new NhAssistantProposalNotice(target, approvals, null, approvals.Length));
         }
+
+        return notices;
+    }
+
+    /// <summary>
+    /// One notification per person about everything of the run that waits for them (RN1, RN3).
+    /// </summary>
+    private async Task NotifyRunProposalsAsync(AssistantRun run, IReadOnlyList<NhAssistantProposalNotice> notices)
+    {
+        if (notices.Count == 0)
+        {
+            return;
+        }
+
+        await notifier.NotifyProposalsAsync(
+            NhAssistantAgentNotificationKind.RunEndedWithProposals,
+            run.Id,
+            run.ConversationId,
+            run.InitiatorActorId,
+            run.Shadow,
+            notices,
+            CancellationToken.None);
     }
 }
 

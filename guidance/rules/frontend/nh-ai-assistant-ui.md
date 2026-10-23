@@ -604,7 +604,14 @@ asks for permission on the next message sent. The header bell turns them off or 
 is hidden when unavailable, and shows off or blocked states in its icon and tooltip.
 The preferences view also explains a blocked permission. The worker shows a notification only while no
 window of the application is focused, and a click opens the conversation in an open
-window or through `#nh-assistant-conversation=<id>`.
+window or through `#nh-assistant-conversation=<id>`. A notification about the proposals of a run
+(one per person and run) also carries the run: subscribe to `NhAssistantPushService.openRun$` in the
+application shell and open the application's inbox of that run, `nh-assistant-agent-inbox` with
+`[runId]`, which lists every proposal of the run the person may decide (SPM-310: the management
+portal's shell opens its intake reviews page with `?run=`). While the application subscribes, such a
+click emits the run instead of opening the conversation, also from a new window through
+`#nh-assistant-run=<runId>.<conversationId>`; without a subscriber it opens the conversation as before.
+Copy the worker again after an upgrade, since the run arrives through it.
 
 Test hosts and demos with `provideNhAssistantMockApi(script)` from
 `@newheap/platform-ai-chat/testing`, registered after `provideNhAssistant` in the

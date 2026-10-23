@@ -653,7 +653,9 @@
     "load-failed": "The projects could not be loaded. Start the sample through Aspire.",
     "report-label": "Intake reviewer feedback report",
     "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals.",
-    "active-division-only": "Only proposals of my active division"
+    "active-division-only": "Only proposals of my active division",
+    "run-only": "The proposals of the run a notification is about",
+    "show-all": "Show all proposals"
   },
   "project-management-board": {
     "navigation": "Project management",

@@ -17,7 +17,8 @@ import {
   SampleAuthService
 } from 'sample-project-management-common';
 
-const projectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The ids of projects and runs in the address. */
+const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * SPM-277: the intake reviewer's work in the management portal. The inbox lists the proposals
@@ -32,6 +33,9 @@ const projectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
  * which every proposal records, so the inbox shows a division with its projects' proposals, per
  * project and run, says how many of a group it shows and selects only those with "Select group". It
  * marks what came since the person's last visit, and can show only the active division's proposals.
+ * A clicked notification about the proposals of a run (`NhAssistantPushService.openRun$`, which the
+ * portal's shell subscribes to) opens this page with `?run=`; the inbox then lists every proposal of
+ * that run the person may decide, of any agent and object, until the person shows all again.
  *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
@@ -64,6 +68,8 @@ export class IntakeReviewsPageComponent implements OnInit {
   readonly activeDivisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id ?? null;
   /** SPM-310: whether the inbox shows the active division's proposals only. */
   readonly activeDivisionOnly = signal(false);
+  /** SPM-310: the run a clicked notification is about; the inbox then lists that run's proposals. */
+  readonly runId = signal<string | null>(null);
   readonly projects = signal<ProjectViewModel[]>([]);
   readonly projectId = signal<string | null>(null);
   readonly loading = signal(true);
@@ -80,9 +86,11 @@ export class IntakeReviewsPageComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(parameters => {
         const linked = parameters.get('project');
-        if (linked && projectIdPattern.test(linked)) {
+        if (linked && idPattern.test(linked)) {
           this.projectId.set(linked);
         }
+        const run = parameters.get('run');
+        this.runId.set(run && idPattern.test(run) ? run : null);
       });
 
     this.projectApi.list(new ProjectCollectionRequestOptions({ itemsPerPage: 100 }))
@@ -112,5 +120,15 @@ export class IntakeReviewsPageComponent implements OnInit {
 
   openConversation(conversationId: string): void {
     this.panel.open(conversationId);
+  }
+
+  /** SPM-310: leaves the run a notification opened and shows the whole inbox again. */
+  showAllProposals(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { run: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 }

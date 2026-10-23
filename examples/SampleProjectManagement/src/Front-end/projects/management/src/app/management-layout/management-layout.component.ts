@@ -1,6 +1,6 @@
 import { Component, HostListener, OnDestroy, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { NhAssistantLauncherComponent, NhAssistantPanelComponent } from '@newheap/platform-ai-chat';
+import { NhAssistantLauncherComponent, NhAssistantPanelComponent, NhAssistantPushService } from '@newheap/platform-ai-chat';
 import { NhAuthService } from '@newheap/platform-common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription, filter } from 'rxjs';
@@ -28,6 +28,7 @@ export class ManagementLayoutComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly auth = inject(NhAuthService);
   private readonly navigationSubscription: Subscription;
+  private readonly notifiedRunSubscription: Subscription;
 
   readonly connectionState = inject(SampleApiConnectionStateService);
   readonly navigationOpen = signal(false);
@@ -41,10 +42,17 @@ export class ManagementLayoutComponent implements OnDestroy {
         this.syncPageTitle();
         this.navigationOpen.set(false);
       });
+
+    // SPM-310: a clicked notification about the proposals of a run opens the approval inbox of that
+    // run, which lists every proposal of the run the person may decide, instead of one of its
+    // conversations. The shell subscribes, so a notification that opens a new window finds it.
+    this.notifiedRunSubscription = inject(NhAssistantPushService).openRun$
+      .subscribe(runId => void this.router.navigate(['/management/intake-reviews'], { queryParams: { run: runId } }));
   }
 
   ngOnDestroy(): void {
     this.navigationSubscription.unsubscribe();
+    this.notifiedRunSubscription.unsubscribe();
   }
 
   canAdministerBackgroundOperations(): boolean {

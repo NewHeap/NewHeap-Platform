@@ -10,6 +10,7 @@ using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -34,11 +35,15 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
     private const string ApplicationOnly = "application-statistics";
     private const string DivisionAgent = "division-assistant";
     private const string ResponsibleAgent = "responsible-assistant";
+    private const string RemindedAgent = "reminded-assistant";
     private const string Admin = "admin-1";
     private const string Approver = "approver-1";
+    private const string Reviewer = "reviewer-1";
     private const string Member = "member-1";
     private const string Runner = "runner-1";
     private const string PolicyId = "placed-review";
+    private const string RemindedPolicyId = "placed-reminded";
+    private const string EscalationPolicyId = "placed-escalation";
     private const string ChangeStatusTool = "projects.change-status";
 
     private static readonly Guid North = Guid.Parse("c3000000-0000-0000-0000-0000000000c3");
@@ -361,7 +366,224 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         }
         var delivery = Assert.Single(app.Services.GetRequiredService<RecordingChannel>().Deliveries);
         Assert.Equal([Admin], delivery.Recipients);
+        Assert.Equal(NhAssistantAgentNotificationKind.RunProposalsWaiting, delivery.Context.Kind);
         Assert.Equal(NhAiSystemSubjects.Global, delivery.Context.Subject);
+        Assert.Equal(NhAiSystemSubjects.Global, Assert.Single(delivery.Context.Objects).Subject);
+    }
+
+    [Fact]
+    public async Task A_run_that_places_proposals_at_several_projects_tells_each_approver_once_about_the_projects_that_wait_for_them()
+    {
+        // RN1, RN3, RN4: one notification per person and run. The approver of every project hears once
+        // about the three projects; the reviewer, who approves one of them, only about that one.
+        await using var app = await StartAsync(AssistantTestProvider.PostgreSql);
+        var first = AddProject(app);
+        var second = AddProject(app);
+        var third = AddProject(app, ownApprover: Reviewer);
+        var run = await StartRunAsync(app, FollowUp, NhAiSystemSubjects.Global, initiator: Runner);
+        Script(app).Run = async (context, cancellationToken) =>
+        {
+            foreach (var project in new[] { first, second, third })
+            {
+                Script(app).Proposals.Enqueue(await context.ProposeAsync(TestPlacementToolCatalog.CloseToolId, new ProjectCloseInput(project), null, cancellationToken));
+            }
+            return NhAssistantRuleResult.Done("Proposed to close three projects.");
+        };
+        await RunTurnAsync(app, run);
+        var approvals = (await WithRunsAsync(app, runs => runs.GetRunApprovalsAsync(run.Run.Id, CancellationToken.None))).ToArray();
+        Assert.Equal(3, approvals.Length);
+
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantRunEnding>().NotifyWaitingProposalsAsync(run.Run, run.Thread);
+        }
+
+        // The policy is asked once per object, as before, without the run's initiator for placed ones.
+        var asked = app.Services.GetRequiredService<PolicyQuestions>().Asked.ToArray();
+        Assert.Equal(approvals.Select(approval => approval.ConversationId), asked.Select(context => context.ConversationId));
+        Assert.All(asked, context =>
+        {
+            Assert.Equal(NhAssistantAgentNotificationKind.RunEndedWithProposals, context.Kind);
+            Assert.Equal((1, (string?)null, run.Run.Id), (context.ProposalCount, context.InitiatorActorId, context.RunId));
+            Assert.Empty(context.Objects);
+        });
+
+        // Web Push and the channels receive one notification of the new kind per group of recipients.
+        var deliveries = app.Services.GetRequiredService<RecordingChannel>().Deliveries.ToArray();
+        Assert.Equal(2, deliveries.Length);
+        var all = Assert.Single(deliveries, delivery => delivery.Recipients.Contains(Approver));
+        Assert.Equal([Approver], all.Recipients);
+        Assert.Equal(NhAssistantAgentNotificationKind.RunProposalsWaiting, all.Context.Kind);
+        Assert.Equal((run.Run.Id, Runner, 3, (Guid?)null, (string?)null), (all.Context.RunId, all.Context.InitiatorActorId, all.Context.ProposalCount, all.Context.ApprovalId, all.Context.ToolId));
+        Assert.Equal(approvals.Select(approval => approval.ConversationId), all.Context.Objects.Select(item => item.ConversationId));
+        Assert.Equal([Project(first), Project(second), Project(third)], all.Context.Objects.Select(item => item.Subject));
+        Assert.All(all.Context.Objects, item => Assert.Equal(1, item.ProposalCount));
+        Assert.Equal("Project " + first.ToString()[..8], all.Context.Objects[0].SubjectDisplayName);
+        Assert.Equal(approvals.Min(approval => approval.ExpiresAt), all.Context.ExpiresAt);
+        // Nobody is the run's initiator here, so the notification opens the first of the objects with the most proposals.
+        Assert.Equal((approvals[0].ConversationId, Project(first)), (all.Context.ConversationId, all.Context.Subject));
+
+        var own = Assert.Single(deliveries, delivery => delivery.Recipients.Contains(Reviewer));
+        Assert.Equal([Reviewer], own.Recipients);
+        var only = Assert.Single(own.Context.Objects);
+        Assert.Equal((approvals[2].ConversationId, Project(third), 1), (only.ConversationId, only.Subject, only.ProposalCount));
+        Assert.Equal((approvals[2].ConversationId, approvals[2].Id, approvals[2].ToolId, 1), (own.Context.ConversationId, own.Context.ApprovalId, own.Context.ToolId, own.Context.ProposalCount));
+
+        // Several objects count proposals and objects in the recipient's language, named by the
+        // subject type's plural; one object reads as before, with its name.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var pluralNames = NhAssistantAgentNotificationTexts.PluralNamesOf(scope.ServiceProvider.GetRequiredService<NhAssistantSubjectAccessService>());
+            Assert.Equal(
+                ("Assistant", "3 proposals at 3 projects wait for your decision."),
+                NhAssistantAgentNotificationTexts.ForRunProposals(all.Context.Kind, "en-GB", all.Context.Objects, all.Context.ProposalCount, all.Context.SubjectDisplayName, pluralNames));
+            Assert.Equal(
+                ("Assistent", "3 voorstellen bij 3 projecten wachten op je besluit."),
+                NhAssistantAgentNotificationTexts.ForRunProposals(all.Context.Kind, "nl-NL", all.Context.Objects, all.Context.ProposalCount, all.Context.SubjectDisplayName, pluralNames));
+            Assert.Equal(
+                ("Project " + third.ToString()[..8], "A proposal waits for a decision."),
+                NhAssistantAgentNotificationTexts.ForRunProposals(own.Context.Kind, "en", own.Context.Objects, own.Context.ProposalCount, own.Context.SubjectDisplayName, pluralNames));
+            // Objects of different types are "objects".
+            var mixed = all.Context.Objects.Take(1).Append(all.Context.Objects[1] with { Subject = NhAiSystemSubjects.Global }).ToArray();
+            Assert.Equal(
+                ("Assistent", "2 voorstellen bij 2 objecten wachten op je besluit."),
+                NhAssistantAgentNotificationTexts.ForRunProposals(all.Context.Kind, "nl", mixed, 2, null, pluralNames));
+        }
+    }
+
+    [Fact]
+    public async Task A_notification_opens_the_runs_own_thread_for_its_initiator_and_otherwise_the_object_with_the_most_proposals()
+    {
+        // RN5: the approver started the run whose own thread is the first project's; the reviewer, who
+        // approves the same projects, opens the second, where more proposals wait.
+        await using var app = await StartAsync(AssistantTestProvider.PostgreSql);
+        var first = AddProject(app, ownApprover: Reviewer);
+        var second = AddProject(app, ownApprover: Reviewer);
+        var run = await StartRunAsync(app, FollowUp, NhAiSystemSubjects.Global, initiator: Approver);
+        Script(app).Run = async (context, cancellationToken) =>
+        {
+            foreach (var project in new[] { first, second })
+            {
+                Script(app).Proposals.Enqueue(await context.ProposeAsync(TestPlacementToolCatalog.CloseToolId, new ProjectCloseInput(project), null, cancellationToken));
+            }
+            return NhAssistantRuleResult.Done("Proposed.");
+        };
+        await RunTurnAsync(app, run);
+        var approvals = (await WithRunsAsync(app, runs => runs.GetRunApprovalsAsync(run.Run.Id, CancellationToken.None))).ToArray();
+        var threads = new List<AssistantThread>();
+        foreach (var approval in approvals)
+        {
+            threads.Add((await WithRunsAsync(app, runs => runs.FindThreadByConversationAsync(approval.ConversationId, CancellationToken.None)))!);
+        }
+
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantAgentNotifier>().NotifyProposalsAsync(
+                NhAssistantAgentNotificationKind.RunEndedWithProposals,
+                run.Run.Id,
+                threads[0].ConversationId,
+                Approver,
+                shadow: false,
+                [
+                    new NhAssistantProposalNotice(threads[1], [approvals[1]], null, 2),
+                    new NhAssistantProposalNotice(threads[0], [approvals[0]], Approver, 1)
+                ],
+                CancellationToken.None);
+        }
+
+        var deliveries = app.Services.GetRequiredService<RecordingChannel>().Deliveries.ToArray();
+        Assert.Equal(2, deliveries.Length);
+        var initiator = Assert.Single(deliveries, delivery => delivery.Recipients.Contains(Approver));
+        var reviewer = Assert.Single(deliveries, delivery => delivery.Recipients.Contains(Reviewer));
+        // Both name the run's own thread first and count three proposals at two projects.
+        foreach (var delivery in new[] { initiator, reviewer })
+        {
+            Assert.Equal([threads[0].ConversationId, threads[1].ConversationId], delivery.Context.Objects.Select(item => item.ConversationId));
+            Assert.Equal([1, 2], delivery.Context.Objects.Select(item => item.ProposalCount));
+            Assert.Equal(3, delivery.Context.ProposalCount);
+        }
+        Assert.Equal((threads[0].ConversationId, Project(first)), (initiator.Context.ConversationId, initiator.Context.Subject));
+        Assert.Equal((threads[1].ConversationId, Project(second)), (reviewer.Context.ConversationId, reviewer.Context.Subject));
+
+        // Shadow work notifies nobody.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<NhAssistantAgentNotifier>().NotifyProposalsAsync(
+                NhAssistantAgentNotificationKind.RunEndedWithProposals,
+                run.Run.Id,
+                threads[0].ConversationId,
+                Approver,
+                shadow: true,
+                [new NhAssistantProposalNotice(threads[0], [approvals[0]], Approver, 1)],
+                CancellationToken.None);
+        }
+        Assert.Equal(2, app.Services.GetRequiredService<RecordingChannel>().Deliveries.Count);
+    }
+
+    [Fact]
+    public async Task The_reminders_and_escalations_of_a_run_reach_each_approver_once_per_maintenance_pass()
+    {
+        // RN6: the run maintenance asks the policy per proposal, records every reminder per proposal
+        // and tells each approver once per run, on the application's clock.
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 6, 2, 9, 0, 0, TimeSpan.Zero));
+        await using var app = await StartAsync(AssistantTestProvider.PostgreSql, clock: clock);
+        var first = AddProject(app);
+        var second = AddProject(app);
+        var third = AddProject(app, ownApprover: Reviewer);
+        var run = await StartRunAsync(app, RemindedAgent, NhAiSystemSubjects.Global, initiator: Runner);
+        Script(app).Run = async (context, cancellationToken) =>
+        {
+            foreach (var project in new[] { first, second, third })
+            {
+                Script(app).Proposals.Enqueue(await context.ProposeAsync(TestPlacementToolCatalog.CloseToolId, new ProjectCloseInput(project), null, cancellationToken));
+            }
+            return NhAssistantRuleResult.Done("Proposed to close three projects.");
+        };
+        await RunTurnAsync(app, run);
+        var approvals = (await WithRunsAsync(app, runs => runs.GetRunApprovalsAsync(run.Run.Id, CancellationToken.None))).ToArray();
+        Assert.Equal(3, approvals.Length);
+        Assert.All(approvals, approval => Assert.Equal(clock.GetUtcNow().AddDays(1), approval.NextReminderAt));
+        var atThird = Assert.Single(approvals, approval => approval.TargetsJson.Contains($"project:{third}", StringComparison.Ordinal));
+        var maintenance = app.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
+        var channel = app.Services.GetRequiredService<RecordingChannel>();
+        var questions = app.Services.GetRequiredService<PolicyQuestions>();
+
+        // A day later the three reminders are due in one pass: one notification per approver.
+        clock.Advance(TimeSpan.FromDays(1));
+        await maintenance.RunOnceAsync(CancellationToken.None);
+        await maintenance.RunOnceAsync(CancellationToken.None);
+
+        var reminded = channel.Deliveries.Where(delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.RunProposalsExpiring).ToArray();
+        Assert.Equal(2, reminded.Length);
+        var all = Assert.Single(reminded, delivery => delivery.Recipients.Contains(Approver));
+        Assert.Equal([Approver], all.Recipients);
+        Assert.Equal((3, run.Run.Id, 3), (all.Context.ProposalCount, all.Context.RunId, all.Context.Objects.Count));
+        var own = Assert.Single(reminded, delivery => delivery.Recipients.Contains(Reviewer));
+        Assert.Equal([Reviewer], own.Recipients);
+        Assert.Equal((atThird.ConversationId, atThird.Id), (Assert.Single(own.Context.Objects).ConversationId, own.Context.ApprovalId));
+        // The policy was asked once per proposal, as before; each proposal records its own reminder.
+        var askedToRemind = questions.Asked.Where(context => context.Kind == NhAssistantAgentNotificationKind.ProposalExpiring).ToArray();
+        Assert.Equal(approvals.Select(approval => (Guid?)approval.Id).Order(), askedToRemind.Select(context => context.ApprovalId).Order());
+        foreach (var approval in approvals)
+        {
+            var stored = (await WithStoreAsync(app, store => store.FindApprovalAsync(approval.Id, CancellationToken.None)))!;
+            Assert.Equal((1, (DateTimeOffset?)null), (stored.RemindersSent, stored.NextReminderAt));
+        }
+
+        // At the end of their lifetime the three proposals escalate in one pass, again once per approver.
+        clock.Advance(TimeSpan.FromDays(1));
+        await maintenance.RunOnceAsync(CancellationToken.None);
+
+        var escalated = channel.Deliveries.Where(delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.RunProposalsEscalated).ToArray();
+        Assert.Equal(2, escalated.Length);
+        Assert.Equal(3, Assert.Single(escalated, delivery => delivery.Recipients.Contains(Approver)).Context.Objects.Count);
+        Assert.Single(Assert.Single(escalated, delivery => delivery.Recipients.Contains(Reviewer)).Context.Objects);
+        Assert.Equal(3, questions.Asked.Count(context => context.Kind == NhAssistantAgentNotificationKind.ProposalEscalated));
+        Assert.DoesNotContain(
+            channel.Deliveries,
+            delivery => delivery.Context.Kind is NhAssistantAgentNotificationKind.ProposalExpiring
+                or NhAssistantAgentNotificationKind.ProposalEscalated
+                or NhAssistantAgentNotificationKind.RunEndedWithProposals);
     }
 
     private static async Task<JsonElement> SummarizeAsync(HttpClient client)
@@ -435,7 +657,7 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         Assert.Equal(JsonValueKind.Null, status.GetProperty("subjectType").ValueKind);
     }
 
-    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, int maxPlaced = 20)
+    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, int maxPlaced = 20, TimeProvider? clock = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -443,6 +665,11 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
             limits: limits => limits.MaxPlacedProposalsPerRun = maxPlaced,
             configure: services =>
             {
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
+                services.AddSingleton<PolicyQuestions>();
                 services.AddSingleton<PlacementProjects>();
                 services.AddSingleton<TestRuleScript>();
                 services.AddSingleton<TestPlacementRecorder>();
@@ -456,17 +683,40 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator)));
             },
             assistantBuilder: assistant => assistant
-                .AddSubjectType<PlacementProjectResolver>(type => type.Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en"))
+                .AddSubjectType<PlacementProjectResolver>(type => type
+                    .Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en")
+                    .NamedPlural(new() { ["en"] = "Projects", ["nl"] = "Projecten" }))
                 .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()
                 .AddAgentNotificationChannel<RecordingChannelAdapter>()
+                .UseAgentNotificationPolicy<RecordingPolicy>()
                 .AddApprovalPolicy(PolicyId, policy => policy
                     .Lifetime(TimeSpan.FromDays(3))
                     .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver), NhAiApprovers.Initiator)
                     .Mode(NhAiApprovalMode.Deferred)
                     .BindTo(NhAiApprovalBinding.ToolContract))
+                // Reminded after a day and escalated after two, for the reminders and escalations of a run.
+                .AddApprovalPolicy(RemindedPolicyId, policy => policy
+                    .Lifetime(TimeSpan.FromDays(2))
+                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                    .Mode(NhAiApprovalMode.Deferred)
+                    .Reminders(TimeSpan.FromDays(1))
+                    .OnExpiry(NhAiApprovalExpiryAction.Escalate, EscalationPolicyId)
+                    .BindTo(NhAiApprovalBinding.ToolContract))
+                .AddApprovalPolicy(EscalationPolicyId, policy => policy
+                    .Lifetime(TimeSpan.FromDays(1))
+                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                    .Mode(NhAiApprovalMode.Deferred)
+                    .BindTo(NhAiApprovalBinding.ToolContract))
                 .AddAgent(AssistantTestData.Agent(ApplicationOnly))
                 .AddAgent(AssistantTestData.Agent(DivisionAgent))
                 .AddAgent(AssistantTestData.Agent(ResponsibleAgent))
+                .AddAgent(AssistantTestData.Agent(RemindedAgent))
+                .ConfigureAgent(RemindedAgent, run => run
+                    .WorksOn("project")
+                    .WorksOnApplication()
+                    .Grant("projects.*")
+                    .UseApprovalPolicy(RemindedPolicyId)
+                    .UseRuleHandler<TestRules>())
                 .ConfigureAgent(ResponsibleAgent, run => run
                     .WorksOn("project")
                     .Accountability(NhAiAgentAccountability.SubjectResponsible)
@@ -496,10 +746,11 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         AssistantWebApplication app,
         bool agentReads = true,
         Guid? division = null,
-        string? tenant = null)
+        string? tenant = null,
+        string? ownApprover = null)
     {
         var id = Guid.NewGuid();
-        app.Services.GetRequiredService<PlacementProjects>().Projects[id.ToString()] = new PlacementProject(division, tenant, agentReads);
+        app.Services.GetRequiredService<PlacementProjects>().Projects[id.ToString()] = new PlacementProject(division, tenant, agentReads, ownApprover);
         return id;
     }
 
@@ -615,9 +866,10 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
-    /// One project of the test: its division and tenant, and whether the agents' own accounts read it.
+    /// One project of the test: its division and tenant, whether the agents' own accounts read it, and
+    /// an approver of this project only.
     /// </summary>
-    private sealed record PlacementProject(Guid? DivisionId, string? TenantId, bool AgentReads);
+    private sealed record PlacementProject(Guid? DivisionId, string? TenantId, bool AgentReads, string? OwnApprover = null);
 
     private sealed class PlacementProjects
     {
@@ -625,8 +877,9 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
     }
 
     /// <summary>
-    /// Projects that exist only when the test added them. The approver approves every project, the
-    /// member and the runner take part, and the agents' accounts read the projects they may.
+    /// Projects that exist only when the test added them. The approver approves every project, a
+    /// project's own approver only that one, the member and the runner take part, and the agents'
+    /// accounts read the projects they may.
     /// </summary>
     private sealed class PlacementProjectResolver(PlacementProjects projects) : INhAiSubjectAccessResolver
     {
@@ -658,6 +911,7 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
             var role = actorId switch
             {
                 Approver => NhAiSubjectRole.Approver,
+                _ when actorId == project.OwnApprover => NhAiSubjectRole.Approver,
                 Member or Runner => NhAiSubjectRole.Participant,
                 _ when actorId.StartsWith("assistant-agent:", StringComparison.Ordinal) && project.AgentReads => NhAiSubjectRole.Reader,
                 _ => NhAiSubjectRole.None
@@ -671,8 +925,36 @@ public sealed class AssistantPlacedProposalTests(AssistantDatabaseFixture databa
         {
             await Task.Yield();
             yield return new NhAiSubjectMember(Approver, NhAiSubjectRole.Approver) { DisplayName = Approver };
+            if (projects.Projects.TryGetValue(subject.Id, out var project) && project.OwnApprover is { } ownApprover)
+            {
+                yield return new NhAiSubjectMember(ownApprover, NhAiSubjectRole.Approver) { DisplayName = ownApprover };
+            }
             yield return new NhAiSubjectMember(Member, NhAiSubjectRole.Participant) { DisplayName = Member };
             yield return new NhAiSubjectMember(Runner, NhAiSubjectRole.Participant) { DisplayName = Runner };
+        }
+    }
+
+    /// <summary>
+    /// What the notification policy was asked, in order.
+    /// </summary>
+    private sealed class PolicyQuestions
+    {
+        public ConcurrentQueue<NhAssistantAgentNotificationContext> Asked { get; } = new();
+    }
+
+    /// <summary>
+    /// The default notification policy, recording each question it is asked.
+    /// </summary>
+    private sealed class RecordingPolicy(PolicyQuestions questions) : INhAssistantAgentNotificationPolicy
+    {
+        private readonly NhAssistantDefaultAgentNotificationPolicy _default = new();
+
+        public ValueTask<IReadOnlyList<string>> SelectRecipientsAsync(
+            NhAssistantAgentNotificationContext context,
+            CancellationToken cancellationToken = default)
+        {
+            questions.Asked.Enqueue(context);
+            return _default.SelectRecipientsAsync(context, cancellationToken);
         }
     }
 
