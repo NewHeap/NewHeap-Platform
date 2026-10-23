@@ -225,7 +225,11 @@ application's, in chats and agent threads: a card with the sender, an "Applicati
 the Markdown text and a link that opens a route through the router or an `https` address and nothing
 else (`Message.application`, `ApplicationMessageDetails`, `ApplicationMessageLink`), and the label
 "Instruction for the assistant" for a message the assistant follows (`ApplicationMessageDetails.trusted`;
-`trusted` of `NhAssistantMockBackend.postApplicationMessage`). The composer gives
+`trusted` of `NhAssistantMockBackend.postApplicationMessage`). Its new optional input
+`writingMessageId`, which the panel fills from the new `NhAssistantStore.writingMessageId` (the answer
+of the turn the tab streams or follows live), keeps the working indicator under the answer a turn still
+writes, also when the application's or a colleague's message arrives after it; a custom layout that does
+not pass it shows the indicator at the end of the thread, as before. The composer gives
 a file without a usable type the accepted type of its extension by the server's rule, and its file
 picker offers the extensions of every accepted type it knows, so `.csv` files are listed for
 `text/csv`. With `grouped`, `nh-assistant-agent-inbox` describes the grouped order
