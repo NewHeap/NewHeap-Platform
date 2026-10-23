@@ -81,6 +81,19 @@ public sealed class AssistantRun
     /// </summary>
     public string? TriggerKind { get; set; }
 
+    /// <summary>
+    /// The version of the trigger defined as data that started the run, recorded when the run is
+    /// created; <see langword="null"/> for a trigger in code, a reserved trigger such as a start by
+    /// hand, and a run created before it was recorded.
+    /// </summary>
+    public int? TriggerVersion { get; set; }
+
+    /// <summary>
+    /// The run evaluates the candidate version <see cref="TriggerVersion"/> of its data trigger in the
+    /// agent's shadow thread, next to the live version, which keeps working.
+    /// </summary>
+    public bool TriggerCandidate { get; set; }
+
     public string? InitiatorActorId { get; set; }
 
     public string AccountableOwnerId { get; set; } = string.Empty;
@@ -454,6 +467,12 @@ public sealed class AssistantQueuedInput
     /// claims it.
     /// </summary>
     public bool SkillCandidate { get; set; }
+
+    /// <summary>
+    /// The input is for the candidate version of the data trigger <see cref="TriggerId"/>: only a run
+    /// of that candidate claims it, and such a run claims no other input.
+    /// </summary>
+    public bool TriggerCandidate { get; set; }
 
     public string? ClientMessageId { get; set; }
 

@@ -743,6 +743,14 @@ public sealed record NhAssistantAdminAgentInputDto(
     /// source fails. Omitted or <see langword="null"/> keeps or makes the instructions text.
     /// </summary>
     public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// On create only: the new agent starts in shadow, so once it has run settings, also when they are
+    /// saved right after, its runs work in its shadow threads until someone puts it live with
+    /// <c>POST admin/agents/{id}/shadow</c>. Omitted or <see langword="false"/> starts it live; ignored
+    /// on update.
+    /// </summary>
+    public bool? StartsInShadow { get; init; }
 }
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>

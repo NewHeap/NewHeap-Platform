@@ -121,7 +121,9 @@
                             @if (consultation.origin === 'code') {
                               <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
                             }
-                            @if (!consultation.inEffect) {
+                            @if (consultation.off) {
+                              <span class="badge warning" data-flow-consultation-off>{{ 'nh-assistant.admin.run-config.consultations.off-badge' | translate }}</span>
+                            } @else if (!consultation.inEffect) {
                               <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
                             }
                           </div>

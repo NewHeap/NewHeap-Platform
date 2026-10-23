@@ -66,6 +66,11 @@ export interface ConsultationRow {
   /** The agents whose tool selectors select its consult tool now. */
   askingAgents: string[];
   inEffect: boolean;
+  /**
+   * The consultation defined as data is switched off: it is not offered until an administrator switches
+   * it on. Its routes and tools are then those it was saved with, which it offers once it is on.
+   */
+  off: boolean;
   problems: string[];
   /**
    * The tools the consulted agent is offered: the selection in code, or the one of the data that the
@@ -89,6 +94,7 @@ export function consultationRows(configuration: AgentRunConfiguration): Consulta
     consultToolId: consultation.consultToolId,
     askingAgents: consultation.askingAgents,
     inEffect: true,
+    off: false,
     problems: [],
     toolSelectors: consultation.toolSelectors ? [...consultation.toolSelectors] : null,
     data: null,
@@ -98,14 +104,18 @@ export function consultationRows(configuration: AgentRunConfiguration): Consulta
     subjectType: consultation.subjectType,
     origin: 'data',
     description: consultation.description,
-    routes: [...consultation.routesInEffect],
+    // Off, nothing is in effect: show what it offers once it is switched on.
+    routes: consultation.off ? [...consultation.routes] : [...consultation.routesInEffect],
     requests: consultation.requestToolId !== null,
     mcp: consultation.inEffect && consultation.exposeToMcp && !consultation.problems.includes('mcp-not-allowed'),
     consultToolId: consultation.consultToolId,
     askingAgents: consultation.askingAgents,
     inEffect: consultation.inEffect,
+    off: consultation.off === true,
     problems: consultation.problems.length > 0 ? consultation.problems : consultation.problem ? [consultation.problem] : [],
-    toolSelectors: toolSelectionInEffect(consultation),
+    toolSelectors: consultation.off
+      ? consultation.toolSelectors ? [...consultation.toolSelectors] : null
+      : toolSelectionInEffect(consultation),
     data: consultation,
     code: null
   }));

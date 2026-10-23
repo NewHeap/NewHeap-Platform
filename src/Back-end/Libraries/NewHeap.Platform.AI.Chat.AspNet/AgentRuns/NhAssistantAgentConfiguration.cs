@@ -152,9 +152,16 @@ public interface INhAssistantAgentConfiguration
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Adds a data trigger, which starts in shadow, or changes one in the mode it has. An event
-    /// trigger may select named filters of its event (<see cref="NhAssistantDataTriggerRequest.Filters"/>);
-    /// a name the event does not register fails with <c>assistant-trigger-filter-not-found</c>.
+    /// Adds a data trigger, which starts in shadow, or stores the next version of one, as
+    /// <see cref="SaveSkillAsync"/> does for a skill. With <c>apply</c> <c>live</c> (default) the
+    /// version takes effect at once in the mode the trigger has; with <c>shadow</c> it becomes the
+    /// trigger's candidate, which fires next to the live version, for the trigger's own agent and into
+    /// its shadow threads, until it is promoted or discarded, while the live version keeps working. A
+    /// new version discards an earlier candidate. <c>expectedVersion</c> is the live version the change
+    /// was made on, <see langword="null"/> for a new trigger; otherwise the call fails with
+    /// <c>assistant-version-conflict</c>. An event trigger may select named filters of its event
+    /// (<see cref="NhAssistantDataTriggerRequest.Filters"/>); a name the event does not register fails
+    /// with <c>assistant-trigger-filter-not-found</c>.
     /// </summary>
     Task<TaskResult<NhAssistantDataTriggerDto>> SaveTriggerAsync(
         string agentId,
@@ -163,6 +170,58 @@ public interface INhAssistantAgentConfiguration
         string actorId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every version of a data trigger of the agent, newest first, with its definition; empty when
+    /// the agent has no such data trigger.
+    /// </summary>
+    Task<IReadOnlyList<NhAssistantDataTriggerVersionDto>> GetTriggerVersionsAsync(
+        string agentId,
+        string triggerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Makes the candidate of <paramref name="candidateVersion"/> the live version of its trigger, in
+    /// the mode the trigger has; the live version stays as history. Runs the candidate started finish
+    /// in shadow. Fails with <c>assistant-trigger-candidate-not-found</c> without a candidate and with
+    /// <c>assistant-version-conflict</c> when the candidate is another version.
+    /// </summary>
+    Task<TaskResult<NhAssistantDataTriggerDto>> PromoteTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Discards the candidate of <paramref name="candidateVersion"/>; it stays as history and fires no
+    /// more. Runs it started finish in shadow.
+    /// </summary>
+    Task<TaskResult> DiscardTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Compares the live version of a data trigger with its candidate on the runs they started in the
+    /// period: runs, outcomes, usage and proposals per tool, with what people decided about the live
+    /// version's proposals, and how many events both versions, or only one of them, started a run for.
+    /// Counts only, no content.
+    /// </summary>
+    Task<TaskResult<NhAssistantTriggerComparisonDto>> CompareTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes a data trigger out of effect; its versions stay as history and a candidate is discarded.
+    /// <paramref name="expectedVersion"/>, when given, must be the live version. Runs it started finish.
+    /// </summary>
     Task<TaskResult> RemoveTriggerAsync(
         string agentId,
         string triggerId,
@@ -186,7 +245,10 @@ public interface INhAssistantAgentConfiguration
     /// <summary>
     /// Adds or changes the consultation defined as data of an agent about one subject type, within
     /// the ceiling in code (<c>UseConsultationsAsData</c>, and <c>ConsultableAsData</c> for an agent in
-    /// code). It is in effect once saved; it answers when an asking agent selects its generated tool.
+    /// code). It is in effect once saved, unless it starts off
+    /// (<see cref="NhAssistantDataConsultationRequest.StartsOff"/>, or <c>StartOff()</c> of the ceiling)
+    /// until <see cref="SetConsultationStateAsync"/> switches it on; a change keeps whether it is on. It
+    /// answers when an asking agent selects its generated tool.
     /// An agent that may get none fails with <c>assistant-consultations-not-allowed</c>, an agent
     /// created in the administration without run settings with <c>assistant-agent-not-configured</c>,
     /// a subject type the agent allows consultation about in code with
@@ -202,6 +264,23 @@ public interface INhAssistantAgentConfiguration
         string subjectType,
         NhAssistantDataConsultationRequest request,
         string actorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Switches a consultation defined as data on (<see langword="true"/>) or off, without a new
+    /// version. Off, it is not offered: asking agents get none of its tools and a call of them fails
+    /// with <c>assistant-consult-agent-unavailable</c>, while its recorded proposals can still be
+    /// decided. A new consultation starts off when its request or the application's ceiling
+    /// (<c>StartOff()</c>) says so. Fails with <c>assistant-consultation-not-found</c> without one and
+    /// with <c>assistant-consultation-in-code</c> for a consultation in code. Audited as
+    /// <c>AdminAgentConsultationDefinitionChanged</c> with <c>on</c> or <c>off</c>.
+    /// </summary>
+    Task<TaskResult<NhAssistantDataConsultationDto>> SetConsultationStateAsync(
+        string agentId,
+        string subjectType,
+        bool on,
+        string actorId,
+        string? reason = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -476,6 +555,12 @@ public sealed record NhAssistantConsultationCeilingDto(
     /// </summary>
     public int MaxInstructionsLength { get; init; } = NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength;
 
+    /// <summary>
+    /// Every new consultation defined as data starts off until an administrator switches it on
+    /// (<c>StartOff()</c> in code).
+    /// </summary>
+    public bool StartsOff { get; init; }
+
     internal static NhAssistantConsultationCeilingDto? From(NhAssistantConsultationCeiling? ceiling)
     {
         return ceiling is null
@@ -487,7 +572,10 @@ public sealed record NhAssistantConsultationCeilingDto(
                 ceiling.MaxToolCalls,
                 (int)ceiling.MaxTimeout.TotalSeconds,
                 ceiling.MaxAnswerChars,
-                ceiling.MaxHistoryMessages);
+                ceiling.MaxHistoryMessages)
+            {
+                StartsOff = ceiling.StartsOff
+            };
     }
 }
 
@@ -540,8 +628,9 @@ public sealed record NhAssistantCodeConsultationDto(
 /// agent's.</param>
 /// <param name="DataClassification">The classification of its answers; <see langword="null"/> uses the
 /// agent's.</param>
-/// <param name="InEffect">Whether the consultation is in effect; <see langword="false"/> with
-/// <paramref name="Problem"/> when it no longer fits the code.</param>
+/// <param name="InEffect">Whether the consultation is in effect, so it is offered; <see langword="false"/>
+/// with <paramref name="Problem"/> when it no longer fits the code, and without one while it is
+/// <see cref="Off"/>.</param>
 /// <param name="Problem">The first problem, the reason it is out of effect when it is.</param>
 public sealed record NhAssistantDataConsultationDto(
     string SubjectType,
@@ -610,6 +699,12 @@ public sealed record NhAssistantDataConsultationDto(
     public DateTimeOffset CreatedAt { get; init; }
 
     public string CreatedBy { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The consultation is switched off: it is not offered until an administrator switches it on with
+    /// <see cref="INhAssistantAgentConfiguration.SetConsultationStateAsync"/>.
+    /// </summary>
+    public bool Off { get; init; }
 }
 
 /// <summary>
@@ -665,6 +760,30 @@ public sealed record NhAssistantDataConsultationRequest(
     /// offers every tool of the agent.
     /// </summary>
     public IReadOnlyList<string>? ToolSelectors { get; init; }
+
+    /// <summary>
+    /// For a new consultation only: it starts off, so it is not offered until an administrator switches
+    /// it on, as a new skill may start off. The application's ceiling may make every new consultation
+    /// start off (<see cref="NhAssistantConsultationCeilingDto.StartsOff"/>). A change of a consultation
+    /// keeps whether it is on and fails with a field error <c>startsOff</c>.
+    /// </summary>
+    public bool StartsOff { get; init; }
+}
+
+/// <param name="State"><c>on</c> or <c>off</c>, as <see cref="NhAssistantConsultationStates"/>.</param>
+/// <param name="Reason">Optional, at most 500 characters.</param>
+public sealed record NhAssistantConsultationStateRequest(string? State, string? Reason);
+
+/// <summary>
+/// The states of a consultation defined as data an administrator switches.
+/// </summary>
+public static class NhAssistantConsultationStates
+{
+    /// <summary>The consultation is offered.</summary>
+    public const string On = "on";
+
+    /// <summary>The consultation is not offered.</summary>
+    public const string Off = "off";
 }
 
 /// <summary>
@@ -792,6 +911,16 @@ public sealed record NhAssistantAgentRequest(
     /// <see cref="NhAssistantDataSkillRequest.InstructionsAsset"/> is.
     /// </summary>
     public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// The agent starts in shadow: once it has run settings, also when
+    /// <see cref="INhAssistantAgentConfiguration.SaveRunSettingsAsync"/> saves them right after in the
+    /// same request, its runs work in its shadow threads, where nobody is notified and nothing executes,
+    /// until an administrator puts it live with <c>INhAssistantAgentControl.SetShadowAsync</c>. Stored
+    /// as the agent's shadow override and audited as <c>AdminAgentShadowChanged</c> (<c>shadow</c>).
+    /// <see langword="false"/> (default) starts it live, as before.
+    /// </summary>
+    public bool StartsInShadow { get; init; }
 }
 
 /// <param name="Name">The building block's name.</param>
@@ -1173,7 +1302,69 @@ public sealed record NhAssistantDataTriggerDto(
     /// gives it the problem <c>unknown-filter</c>.
     /// </summary>
     public IReadOnlyList<string> Filters { get; init; } = [];
+
+    /// <summary>
+    /// The candidate version that fires in shadow next to this live version; <see langword="null"/>
+    /// without one. Its <see cref="InEffect"/> and <see cref="Problem"/> are the candidate's own (kind
+    /// <c>trigger-candidate</c>); its <see cref="Shadow"/> is always <see langword="true"/>.
+    /// </summary>
+    public NhAssistantDataTriggerDto? Candidate { get; init; }
+
+    /// <summary>
+    /// When the version was stored and by whom; <see cref="ChangedAt"/> follows its mode as well.
+    /// </summary>
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public string CreatedBy { get; init; } = string.Empty;
 }
+
+/// <summary>
+/// One version of a data trigger with its definition, for the history and the comparison of a
+/// candidate with the live version.
+/// </summary>
+/// <param name="Status"><c>live</c>, <c>candidate</c>, <c>superseded</c> or <c>discarded</c>.</param>
+/// <param name="Source"><c>event</c> or <c>schedule</c>.</param>
+/// <param name="Conflict"><c>coalesce</c>, <c>queue</c>, <c>supersede</c> or <c>ignore</c>.</param>
+/// <param name="CreatedAt">When the version was stored.</param>
+/// <param name="CreatedBy">Who stored it.</param>
+/// <param name="Reason">Why, as given with the version.</param>
+public sealed record NhAssistantDataTriggerVersionDto(
+    int Version,
+    string Status,
+    string? SkillId,
+    string Source,
+    string? Event,
+    IReadOnlyList<string> Filters,
+    string? Cron,
+    string? TimeZone,
+    string? SubjectSet,
+    string? Message,
+    string Conflict,
+    int DebounceSeconds,
+    DateTimeOffset CreatedAt,
+    string CreatedBy,
+    string? Reason);
+
+/// <summary>
+/// The live version of a data trigger next to its candidate, on the runs they started, with the
+/// version statistics of the skill comparison.
+/// </summary>
+/// <param name="PairedEvents">The events both versions started a run for.</param>
+/// <param name="LiveOnlyEvents">The events with a dedupe key only the live version started a run
+/// for, such as those a filter of the candidate refuses.</param>
+/// <param name="CandidateOnlyEvents">The events with a dedupe key only the candidate started a run
+/// for.</param>
+public sealed record NhAssistantTriggerComparisonDto(
+    string AgentId,
+    string TriggerId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    NhAssistantSkillVersionStatsDto Live,
+    NhAssistantSkillVersionStatsDto Candidate,
+    int PairedEvents,
+    int LiveOnlyEvents,
+    int CandidateOnlyEvents,
+    IReadOnlyList<NhAssistantSkillComparisonToolDto> Tools);
 
 /// <param name="Description">What the skill is for, at most 300 characters; triage and
 /// <c>use_skill</c> choose by it.</param>
@@ -1242,7 +1433,7 @@ public sealed record NhAssistantDataSkillRequest(
 }
 
 /// <summary>
-/// How a change of a data skill takes effect.
+/// How a change of a data skill, or of a data trigger, takes effect.
 /// </summary>
 public static class NhAssistantSkillApplyModes
 {
@@ -1290,7 +1481,16 @@ public sealed record NhAssistantDataTriggerRequest(
     int? DebounceSeconds = null,
     int? ExpectedVersion = null,
     string? Reason = null,
-    IReadOnlyList<string>? Filters = null);
+    IReadOnlyList<string>? Filters = null)
+{
+    /// <summary>
+    /// For a change of a trigger, the values of <see cref="NhAssistantSkillApplyModes"/>: <c>live</c>
+    /// (default) puts the version into effect at once in the trigger's mode; <c>shadow</c> makes it the
+    /// candidate that fires in shadow next to the live version. A new trigger has no live version to
+    /// evaluate a candidate next to (field error <c>apply</c>); it starts in shadow.
+    /// </summary>
+    public string? Apply { get; init; }
+}
 
 internal sealed class NhAssistantAgentConfiguration(
     NhAssistantRegistrationState registration,
@@ -1465,7 +1665,8 @@ internal sealed class NhAssistantAgentConfiguration(
                 string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
                 string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim(),
                 request.Metadata,
-                request.InstructionsAsset),
+                request.InstructionsAsset,
+                request.StartsInShadow),
             actorId,
             cancellationToken);
         if (!created.Success)
@@ -1529,8 +1730,16 @@ internal sealed class NhAssistantAgentConfiguration(
                     .FirstOrDefault()
             })
             .ToArray();
-        var triggers = (await store.ListTriggersAsync(agentId, cancellationToken))
-            .Select(item => ToDto(item, problems))
+        var triggerVersions = await store.ListTriggersAsync(agentId, cancellationToken);
+        var triggers = triggerVersions
+            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
+            .Select(item => ToDto(item, problems) with
+            {
+                Candidate = triggerVersions
+                    .Where(candidate => candidate.Id == item.Id && candidate.Status == NhAssistantSkillDefinitionStatuses.Candidate)
+                    .Select(candidate => ToDto(candidate, problems, NhAssistantRunConfigurationProblems.TriggerCandidateKind))
+                    .FirstOrDefault()
+            })
             .ToArray();
         var askers = await AskingAgentsAsync(agentId, cancellationToken);
         var dataConsultations = (await store.ListConsultationsAsync(agentId, cancellationToken))
@@ -2167,7 +2376,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 && filters.All(NhAssistantTriggerFilterNames.IsValid)
                 && (filters.Length == 0 || !schedule),
                 "filters",
-                NhAssistantFieldErrors.Invalid);
+                NhAssistantFieldErrors.Invalid)
+            .Require(request.Apply is null or NhAssistantSkillApplyModes.Live or NhAssistantSkillApplyModes.Shadow, "apply", NhAssistantFieldErrors.Invalid)
+            // A new trigger has no live version to evaluate a candidate next to; it starts in shadow.
+            .Require(request.Apply != NhAssistantSkillApplyModes.Shadow || request.ExpectedVersion is not null, "apply", NhAssistantFieldErrors.Invalid);
         if (request.Source == NhAssistantDataTriggerSources.Event)
         {
             errors.Require(!string.IsNullOrWhiteSpace(request.Event), "event", NhAssistantFieldErrors.Required);
@@ -2211,15 +2423,19 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult<NhAssistantDataTriggerDto>.Failed(TriggerFieldError(problem, schedule));
         }
 
-        var existing = await store.ListTriggersAsync(agentId, cancellationToken);
+        // Only triggers in effect count; their history does not.
+        var live = (await store.ListTriggersAsync(agentId, cancellationToken))
+            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
+            .ToArray();
         if (request.ExpectedVersion is null
-            && existing.All(item => item.Id != triggerId)
-            && existing.Count >= NhAssistantAgentConfigurationLimits.MaxTriggersPerAgent)
+            && live.All(item => item.Id != triggerId)
+            && live.Length >= NhAssistantAgentConfigurationLimits.MaxTriggersPerAgent)
         {
             return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many data triggers as allowed.");
         }
 
-        var saved = await store.SaveTriggerAsync(row, request.ExpectedVersion, cancellationToken);
+        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
+        var saved = await store.SaveTriggerAsync(row, request.ExpectedVersion, cancellationToken, asCandidate);
         if (saved.Outcome == NhAssistantStoreOutcome.Rejected)
         {
             // The id belongs to a data trigger of another agent; trigger ids are unique.
@@ -2235,11 +2451,169 @@ internal sealed class NhAssistantAgentConfiguration(
             triggerId,
             saved.Value!.SkillId,
             saved.Value.Version,
-            saved.Value.Version == 1 ? "created" : "changed",
+            asCandidate ? "candidate" : request.ExpectedVersion is null ? "created" : "changed",
             actorId,
             cancellationToken);
         await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataTriggerDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+        return TaskResult<NhAssistantDataTriggerDto>.Succeeded(asCandidate
+            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.TriggerCandidateKind)
+            : ToDto(saved.Value, configurations.Problems));
+    }
+
+    public async Task<IReadOnlyList<NhAssistantDataTriggerVersionDto>> GetTriggerVersionsAsync(
+        string agentId,
+        string triggerId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(triggerId);
+        return (await store.ListTriggersAsync(agentId, cancellationToken))
+            .Where(item => item.Id == triggerId)
+            .Select(item => new NhAssistantDataTriggerVersionDto(
+                item.Version,
+                item.Status,
+                item.SkillId,
+                item.Source,
+                item.EventName,
+                NhAssistantDataTriggerFilters.Read(item.FiltersJson) ?? [],
+                item.Cron,
+                item.TimeZone,
+                item.SubjectSetName,
+                item.Message,
+                item.Conflict,
+                item.DebounceSeconds,
+                item.CreatedAt,
+                item.CreatedBy,
+                item.Reason))
+            .ToArray();
+    }
+
+    public async Task<TaskResult<NhAssistantDataTriggerDto>> PromoteTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var changed = await ChangeTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, reason, promote: true, cancellationToken);
+        return changed.Failure is { } failure
+            ? TaskResult<NhAssistantDataTriggerDto>.Failed(failure)
+            : TaskResult<NhAssistantDataTriggerDto>.Succeeded(ToDto(changed.Definition!, configurations.Problems));
+    }
+
+    public async Task<TaskResult> DiscardTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var changed = await ChangeTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, reason, promote: false, cancellationToken);
+        return changed.Failure ?? TaskResult.Succeeded();
+    }
+
+    private async Task<(TaskResult? Failure, AssistantAgentTriggerDefinition? Definition)> ChangeTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        string? reason,
+        bool promote,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(triggerId);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return (invalid, null);
+        }
+
+        var changed = promote
+            ? await store.PromoteTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, cancellationToken)
+            : await store.DiscardTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, cancellationToken);
+        switch (changed.Outcome)
+        {
+            case NhAssistantStoreOutcome.NotFound:
+                return (TaskResult.Failed(NhAssistantErrorCodes.TriggerCandidateNotFound, "The trigger has no candidate."), null);
+            case NhAssistantStoreOutcome.Conflict:
+                return (TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The candidate changed in the meantime."), null);
+        }
+
+        await events.TriggerDefinitionChangedAsync(
+            agentId,
+            triggerId,
+            changed.Value!.SkillId,
+            changed.Value.Version,
+            promote ? "promoted" : "discarded",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return (null, changed.Value);
+    }
+
+    public async Task<TaskResult<NhAssistantTriggerComparisonDto>> CompareTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(triggerId);
+        var versions = (await store.ListTriggersAsync(agentId, cancellationToken)).Where(item => item.Id == triggerId).ToArray();
+        var candidate = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+        var live = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
+        if (candidate is null || live is null)
+        {
+            return TaskResult<NhAssistantTriggerComparisonDto>.Failed(NhAssistantErrorCodes.TriggerCandidateNotFound, "The trigger has no candidate.");
+        }
+
+        var until = to ?? DateTimeOffset.UtcNow;
+        var since = from ?? candidate.CreatedAt;
+        var triggerRuns = await runs.GetTriggerVersionRunsAsync(agentId, triggerId, [live.Version, candidate.Version], since, until, cancellationToken);
+        var liveRuns = triggerRuns.Where(run => run.TriggerVersion == live.Version && !run.TriggerCandidate).ToArray();
+        var candidateRuns = triggerRuns.Where(run => run.TriggerVersion == candidate.Version && run.TriggerCandidate).ToArray();
+        var proposals = await runs.GetProposalsOfRunsAsync(liveRuns.Concat(candidateRuns).Select(run => run.Id).ToArray(), cancellationToken);
+        var liveIds = liveRuns.Select(run => run.Id).ToHashSet();
+        var candidateIds = candidateRuns.Select(run => run.Id).ToHashSet();
+
+        // A candidate's run and the live run on the same event share the event's key, the candidate's
+        // with its version as suffix.
+        var liveKeys = liveRuns
+            .Where(run => run.TriggerEventKey is not null)
+            .Select(run => NhAssistantAgentTriggers.TriggerCandidateKey(run.TriggerEventKey, candidate.Version)!)
+            .ToHashSet(StringComparer.Ordinal);
+        var candidateKeys = candidateRuns
+            .Where(run => run.TriggerEventKey is not null)
+            .Select(run => run.TriggerEventKey!)
+            .ToHashSet(StringComparer.Ordinal);
+        var paired = candidateKeys.Count(liveKeys.Contains);
+        var tools = proposals
+            .GroupBy(item => item.ToolId, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new NhAssistantSkillComparisonToolDto(
+                group.Key,
+                group.Count(item => liveIds.Contains(item.RunId)),
+                group.Count(item => candidateIds.Contains(item.RunId)),
+                group.Count(item => liveIds.Contains(item.RunId)
+                    && item.Status is NhAssistantApprovalStatuses.Approved
+                        or NhAssistantApprovalStatuses.AwaitingApplication
+                        or NhAssistantApprovalStatuses.Executed),
+                group.Count(item => liveIds.Contains(item.RunId) && item.Status == NhAssistantApprovalStatuses.Rejected)))
+            .ToArray();
+        return TaskResult<NhAssistantTriggerComparisonDto>.Succeeded(new NhAssistantTriggerComparisonDto(
+            agentId,
+            triggerId,
+            since,
+            until,
+            Stats(live.Version, liveRuns, proposals, liveIds),
+            Stats(candidate.Version, candidateRuns, proposals, candidateIds),
+            paired,
+            liveKeys.Count - paired,
+            candidateKeys.Count - paired,
+            tools));
     }
 
     public async Task<TaskResult> RemoveTriggerAsync(
@@ -2261,7 +2635,7 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult.Failed(NhAssistantErrorCodes.TriggerInCode, "The trigger is registered in code.");
         }
 
-        var removed = await store.RemoveTriggerAsync(agentId, triggerId, expectedVersion, cancellationToken);
+        var removed = await store.RemoveTriggerAsync(agentId, triggerId, expectedVersion, actorId, cancellationToken);
         switch (removed.Outcome)
         {
             case NhAssistantStoreOutcome.NotFound:
@@ -2381,7 +2755,9 @@ internal sealed class NhAssistantAgentConfiguration(
                 && maxHistoryMessages is >= 0 and <= NhAssistantConsultationBounds.MaxHistoryMessages,
                 "limits",
                 NhAssistantFieldErrors.Invalid)
-            .Require(dataClassification is null || NhAssistantDataClassificationNames.TryParse(dataClassification, out _), "dataClassification", NhAssistantFieldErrors.Invalid);
+            .Require(dataClassification is null || NhAssistantDataClassificationNames.TryParse(dataClassification, out _), "dataClassification", NhAssistantFieldErrors.Invalid)
+            // Only a new consultation starts off; one that exists keeps whether it is on.
+            .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataConsultationDto>.Failed(errors.ToResult());
@@ -2408,6 +2784,9 @@ internal sealed class NhAssistantAgentConfiguration(
             AllowRequests = request.AllowRequests,
             ExposeToMcp = request.ExposeToMcp,
             DataClassification = dataClassification,
+            // A new consultation starts off when its administrator or the application's ceiling says
+            // so; the store keeps the state of one that exists.
+            Off = request.ExpectedVersion is null && (request.StartsOff || ceiling!.StartsOff),
             UpdatedAt = now,
             UpdatedBy = actorId,
             Reason = reason
@@ -2448,9 +2827,64 @@ internal sealed class NhAssistantAgentConfiguration(
             saved.Value.Version == 1 ? "created" : "changed",
             actorId,
             cancellationToken);
+        if (saved.Value.Version == 1 && saved.Value.Off)
+        {
+            // As a skill that starts off: the state is audited next to the definition.
+            await events.ConsultationDefinitionChangedAsync(agentId, subjectType, 1, saved.Value.InstructionsHash, NhAssistantConsultationStates.Off, actorId, cancellationToken);
+        }
+
         await configurations.ReloadAsync(cancellationToken);
         return TaskResult<NhAssistantDataConsultationDto>.Succeeded(
             ToDto(saved.Value, configurations.Problems, await AskingAgentsAsync(agentId, cancellationToken)));
+    }
+
+    public async Task<TaskResult<NhAssistantDataConsultationDto>> SetConsultationStateAsync(
+        string agentId,
+        string subjectType,
+        bool on,
+        string actorId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectType);
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(invalid);
+        }
+        if (registration.CodeAgentRuns.TryGetValue(agentId, out var code)
+            && code.Consultations.Any(item => string.Equals(item.SubjectType, subjectType, StringComparison.Ordinal)))
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
+        }
+
+        var before = (await store.ListConsultationsAsync(agentId, cancellationToken))
+            .FirstOrDefault(item => item.SubjectType == subjectType);
+        var changed = await store.SetConsultationOffAsync(agentId, subjectType, !on, actorId, reason, cancellationToken);
+        if (changed.Outcome == NhAssistantStoreOutcome.NotFound)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConsultationNotFound, "The agent has no such consultation defined as data.");
+        }
+        if (!changed.Succeeded)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The consultation changed in the meantime.");
+        }
+
+        if (before?.Off != changed.Value!.Off)
+        {
+            await events.ConsultationDefinitionChangedAsync(
+                agentId,
+                subjectType,
+                changed.Value.Version,
+                changed.Value.InstructionsHash,
+                on ? NhAssistantConsultationStates.On : NhAssistantConsultationStates.Off,
+                actorId,
+                cancellationToken);
+            await configurations.ReloadAsync(cancellationToken);
+        }
+
+        return TaskResult<NhAssistantDataConsultationDto>.Succeeded(
+            ToDto(changed.Value, configurations.Problems, await AskingAgentsAsync(agentId, cancellationToken)));
     }
 
     public async Task<TaskResult> RemoveConsultationAsync(
@@ -2622,7 +3056,8 @@ internal sealed class NhAssistantAgentConfiguration(
             RequestToolId = inEffect is { AllowRequests: true } ? inEffect.RequestToolId : null,
             AskingAgents = consultToolId.Length == 0 ? [] : AskersOf(item.AgentId, consultToolId, askers),
             CreatedAt = item.CreatedAt,
-            CreatedBy = item.CreatedBy
+            CreatedBy = item.CreatedBy,
+            Off = item.Off
         };
     }
 
@@ -2858,11 +3293,13 @@ internal sealed class NhAssistantAgentConfiguration(
 
     private static NhAssistantDataTriggerDto ToDto(
         AssistantAgentTriggerDefinition item,
-        IReadOnlyList<NhAssistantRunConfigurationProblem> problems)
+        IReadOnlyList<NhAssistantRunConfigurationProblem> problems,
+        string kind = NhAssistantRunConfigurationProblems.TriggerKind)
     {
         var problem = problems.FirstOrDefault(entry => entry.AgentId == item.AgentId
-                                                       && entry.Kind == NhAssistantRunConfigurationProblems.TriggerKind
+                                                       && entry.Kind == kind
                                                        && entry.Id == item.Id)?.Code;
+        var candidate = kind == NhAssistantRunConfigurationProblems.TriggerCandidateKind;
         return new NhAssistantDataTriggerDto(
             item.Id,
             item.SkillId,
@@ -2874,7 +3311,8 @@ internal sealed class NhAssistantAgentConfiguration(
             item.Message,
             item.Conflict,
             item.DebounceSeconds,
-            item.Shadow,
+            // A candidate always fires in shadow.
+            candidate || item.Shadow,
             item.Version,
             item.UpdatedAt,
             item.UpdatedBy,
@@ -2882,7 +3320,9 @@ internal sealed class NhAssistantAgentConfiguration(
             problem is null,
             problem)
         {
-            Filters = NhAssistantDataTriggerFilters.Read(item.FiltersJson) ?? []
+            Filters = NhAssistantDataTriggerFilters.Read(item.FiltersJson) ?? [],
+            CreatedAt = item.CreatedAt,
+            CreatedBy = item.CreatedBy
         };
     }
 }

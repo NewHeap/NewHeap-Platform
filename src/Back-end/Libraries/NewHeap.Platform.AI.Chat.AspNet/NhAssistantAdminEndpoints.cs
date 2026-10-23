@@ -1018,7 +1018,8 @@ internal static class NhAssistantAdminEndpoints
             string.IsNullOrWhiteSpace(body.Profile) ? null : body.Profile.Trim(),
             string.IsNullOrWhiteSpace(body.DataClassification) ? null : body.DataClassification.Trim(),
             body.Metadata,
-            body.InstructionsAsset), errors);
+            body.InstructionsAsset,
+            body.StartsInShadow == true), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(

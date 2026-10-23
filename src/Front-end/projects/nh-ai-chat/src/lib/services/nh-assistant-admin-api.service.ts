@@ -27,9 +27,11 @@ import {
   DataSkillVersion,
   DataConsultation,
   DataConsultationRequest,
+  DataConsultationStateRequest,
   DataTrigger,
   DataTriggerRequest,
   DataTriggerShadowRequest,
+  DataTriggerVersion,
   ApplicationContextVersion,
   McpAuthorizationStart,
   McpAuthorizeRequest,
@@ -56,6 +58,8 @@ import {
   SkillComparison,
   SkillComparisonFilter,
   ToolCatalogEntry,
+  TriggerCandidateRequest,
+  TriggerComparison,
   UpdateAdminAgentRequest,
   UpdateApplicationContextRequest,
   UpdateMcpToolRequest
@@ -477,9 +481,33 @@ export class NhAssistantAdminApiService {
     return this.request<SkillComparison>('GET', withQuery(`${skillPath(agentId, skillId)}/candidate/comparison`, filter));
   }
 
-  /** Adds a trigger defined as data, which starts in shadow, or changes one in the mode it has. */
+  /**
+   * Adds a trigger defined as data, which starts in shadow, or stores its next version: with `apply`
+   * `live` (default) it takes effect at once in the trigger's mode; with `shadow` it becomes the
+   * candidate that fires next to the live version until it is promoted or discarded.
+   */
   saveDataTrigger(agentId: string, triggerId: string, request: DataTriggerRequest): Observable<DataTrigger> {
     return this.request<DataTrigger>('PUT', triggerPath(agentId, triggerId), request);
+  }
+
+  /** Every version of a trigger defined as data, newest first, with its definition. */
+  getDataTriggerVersions(agentId: string, triggerId: string): Observable<DataTriggerVersion[]> {
+    return this.request<DataTriggerVersion[]>('GET', `${triggerPath(agentId, triggerId)}/versions`);
+  }
+
+  /** Makes the candidate the live version of its trigger, in the trigger's mode. */
+  promoteTriggerCandidate(agentId: string, triggerId: string, request: TriggerCandidateRequest): Observable<DataTrigger> {
+    return this.request<DataTrigger>('POST', `${triggerPath(agentId, triggerId)}/candidate/promote`, request);
+  }
+
+  /** Discards the candidate of a trigger; it stays as history and fires no more. */
+  discardTriggerCandidate(agentId: string, triggerId: string, request: TriggerCandidateRequest): Observable<void> {
+    return this.request<void>('POST', `${triggerPath(agentId, triggerId)}/candidate/discard`, request);
+  }
+
+  /** Compares the trigger's candidate with its live version on the runs they started in the period. */
+  compareTriggerCandidate(agentId: string, triggerId: string, filter: SkillComparisonFilter = {}): Observable<TriggerComparison> {
+    return this.request<TriggerComparison>('GET', withQuery(`${triggerPath(agentId, triggerId)}/candidate/comparison`, filter));
   }
 
   removeDataTrigger(agentId: string, triggerId: string, removal: RunConfigurationRemoval = {}): Observable<void> {
@@ -503,6 +531,15 @@ export class NhAssistantAdminApiService {
    */
   saveDataConsultation(agentId: string, subjectType: string, request: DataConsultationRequest): Observable<DataConsultation> {
     return this.request<DataConsultation>('PUT', consultationPath(agentId, subjectType), request);
+  }
+
+  /**
+   * Switches a consultation defined as data on or off, without a new version. Off, it is not offered,
+   * while its recorded proposals can still be decided. Fails with `assistant-consultation-not-found`
+   * without one and with `assistant-consultation-in-code` for a consultation in code.
+   */
+  setDataConsultationState(agentId: string, subjectType: string, request: DataConsultationStateRequest): Observable<DataConsultation> {
+    return this.request<DataConsultation>('POST', `${consultationPath(agentId, subjectType)}/state`, request);
   }
 
   /**

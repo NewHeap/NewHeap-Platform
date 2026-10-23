@@ -339,3 +339,64 @@ and changes them with `NhAssistantMockBackend.setInstructionAsset` and `removeIn
 | Breaking change | Required action |
 |---|---|
 | The texts under `nh-assistant.admin.instruction-assets`, the problems `asset-*` and `no-asset-source` under `nh-assistant.admin.run-config.problems.code`, and the errors `assistant-instructions-asset-not-found`, `assistant-instructions-asset-unavailable` and `assistant-agent-instructions-unavailable` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: trigger versions and candidates, and start states
+
+Triggers defined as data have append-only versions, as data skills do. A change is the trigger's next
+version, and `Apply` of `NhAssistantDataTriggerRequest` chooses how it takes effect: `live` (the default,
+as a change took effect before) replaces the live version at once in the mode the trigger has; `shadow`
+makes it the trigger's candidate, which fires next to the live version on its own definition, for the
+trigger's own agent and always into the agent's shadow threads, with its own filters, dedupe, conflict,
+debounce and daily limit, so it never refuses, queues or deduplicates the live version's work.
+`PromoteTriggerCandidateAsync` and `DiscardTriggerCandidateAsync` (`POST
+admin/agents/{id}/triggers/{triggerId}/candidate/promote` and `.../discard`) end the evaluation,
+`CompareTriggerCandidateAsync` (`GET .../candidate/comparison`, `NhAssistantTriggerComparisonDto`) counts
+both versions' runs, outcomes, usage and proposals per tool with the events both, only the live version
+or only the candidate started a run for, and `GetTriggerVersionsAsync` (`GET .../versions`,
+`NhAssistantDataTriggerVersionDto`) lists the history, which stays after the trigger is removed; a
+trigger added again under a removed id continues its version numbers. `NhAssistantDataTriggerDto`
+reports its `Candidate`, `CreatedAt` and `CreatedBy`, runs and `NhAssistantRunDto` record
+`TriggerVersion` and `TriggerCandidate`, and `AgentRunEnded` carries `TriggerVersion` next to `Shadow`:
+a candidate's runs are shadow runs of its version. Triggers saved before keep their current version as
+the live one.
+
+An agent created at runtime may start in shadow (`NhAssistantAgentRequest.StartsInShadow`,
+`startsInShadow` of `POST admin/agents`): the shadow override is stored with its first row and audited as
+`AdminAgentShadowChanged`, so it applies as soon as the agent has run settings, also when they and its
+triggers are saved in the same request. A new consultation defined as data may start off
+(`NhAssistantDataConsultationRequest.StartsOff`, or `StartOff()` on the ceiling of
+`UseConsultationsAsData` for every new one): it is saved and checked but offers no tools until
+`SetConsultationStateAsync` (`POST admin/agents/{id}/consultations/{subjectType}/state` with
+`NhAssistantConsultationStateRequest`) switches it on; `NhAssistantDataConsultationDto.Off` and
+`NhAssistantConsultationCeilingDto.StartsOff` report it. Both start states are opt-in: agents start
+live and consultations on unless asked, and consultations saved before stay on.
+
+| Breaking change | Required action |
+|---|---|
+| The `TriggerVersions` migrations change the primary key of `AssistantAgentTriggerDefinition` from `Id` to `(Id, Version)`, add its column `Status` (default `live`) with indexes on `(AgentId, Status)` and `(Id, Status)`, the column `Off` (default `false`) to `AssistantAgentConsultationDefinition`, the nullable column `TriggerVersion` and the column `TriggerCandidate` (default `false`) to `AssistantRun`, and the column `TriggerCandidate` (default `false`) to `AssistantQueuedInput` on SQL Server and PostgreSQL. Existing triggers become their current version, live. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step), and stop hosts of the previous version before administrators save trigger changes: those hosts read one row per trigger. |
+| `INhAssistantAgentConfiguration` has the new members `GetTriggerVersionsAsync`, `PromoteTriggerCandidateAsync`, `DiscardTriggerCandidateAsync`, `CompareTriggerCandidateAsync` and `SetConsultationStateAsync`. | Implement them in a class of your own that implements the interface, or delegate to the registered one. |
+| `NhAssistantRunConfigurationProblem.Kind` has the new value `trigger-candidate`, and `NhAssistantErrorCodes` the new code `assistant-trigger-candidate-not-found` (HTTP 404). | Let code that maps run configuration problems and assistant codes handle values it does not know. |
+| `AgentRunEnded` carries the new property `TriggerVersion`; `AdminAgentTriggerDefinitionChanged` has the new result codes `candidate`, `promoted` and `discarded` and reports `created` for every trigger saved without an expected version, also one added again under a removed id; `AdminAgentConsultationDefinitionChanged` has the new result codes `on` and `off`. | Let audit sinks that store every property, or map result codes, expect the new values. |
+| A removed data trigger keeps its versions as history instead of being deleted, and `RemoveTriggerAsync` discards its candidate. | None, unless the application counts the rows of `AssistantAgentTriggerDefinition`; then count rows with `Status` `live`. |
+
+## @newheap/platform-ai-chat: trigger candidates and start states in the administration
+
+The trigger form of `@newheap/platform-ai-chat/admin` asks how a change of a saved trigger takes effect:
+"Apply at once" (the default) or "Evaluate in shadow next to the live version first" (`apply: 'shadow'`).
+The run configuration then shows the trigger's candidate with what it changes against the live version,
+its problem when it no longer fits the code, the comparison of both versions and their shared events,
+promote and discard after a confirmation, and every trigger's history.
+`NhAssistantAdminApiService.getDataTriggerVersions`, `promoteTriggerCandidate`, `discardTriggerCandidate`
+and `compareTriggerCandidate`, `DataTriggerVersion`, `TriggerCandidateRequest`, `TriggerComparison`,
+`DataTrigger.candidate`, `createdAt` and `createdBy`, `DataTriggerRequest.apply`, and `triggerVersion` and
+`triggerCandidate` of a run complete the client. The agent editor offers "Start in shadow" for a new
+agent that runs on its own (`startsInShadow`), and the consultation form "Start off" (`startsOff`, or a
+note when the ceiling reports `startsOff`); the Consultations section marks a consultation that is off and
+switches it on and off with `setDataConsultationState` (`DataConsultationState`,
+`DataConsultationStateRequest`, `DataConsultation.off`). The texts have English and Dutch versions, and
+the mock API keeps trigger versions, candidates, their history and the consultation state as the server
+does.
+
+| Breaking change | Required action |
+|---|---|
+| `RunConfigurationProblemKind` has the new value `trigger-candidate`. | Let code that switches over the kinds of run configuration problems handle it. |
+| The texts `nh-assistant.admin.agent-editor.starts-in-shadow` and `starts-in-shadow-hint`, `nh-assistant.admin.run-config.problems.kind.trigger-candidate`, the texts under `nh-assistant.admin.run-config.triggers` for `saved-candidate`, `apply`, `apply-live`, `apply-shadow`, `versions` and `candidate`, the texts under `nh-assistant.admin.run-config.consultations` for `off-badge`, `off-explain`, `switch-on`, `switch-off`, `switched-on` and `switched-off` and their named variants, `form.starts-off`, `form.starts-off-hint` and `form.starts-off-ceiling`, and the error `assistant-trigger-candidate-not-found` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |

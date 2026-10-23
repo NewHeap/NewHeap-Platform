@@ -317,7 +317,7 @@
           [skills]="skillOptions()"
           [trigger]="editingTrigger()"
           [takenIds]="triggerIds()"
-          (saved)="onTriggerSaved($event.added)"
+          (saved)="onTriggerSaved($event)"
           (cancelled)="cancel()" />
       }
 
@@ -350,6 +350,9 @@
                 @if (!trigger.inEffect) {
                   <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
                 }
+                @if (trigger.candidate) {
+                  <span class="badge warning" data-trigger-candidate-badge>{{ 'nh-assistant.admin.run-config.candidate.badge' | translate: { version: trigger.candidate.version } }}</span>
+                }
               </div>
               <div class="meta">
                 @if (trigger.source === 'event') {
@@ -370,9 +373,80 @@
                 <span>{{ 'nh-assistant.admin.run-config.triggers.conflicts.' + trigger.conflict | translate }}</span>
                 <span>{{ 'nh-assistant.admin.agents.version' | translate: { version: trigger.version } }}</span>
               </div>
+              @if (trigger.candidate; as candidate) {
+                <!-- The candidate fires in shadow next to the live version, which keeps working. -->
+                <div class="subsection" data-trigger-candidate>
+                  <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.candidate.explain' | translate: { version: candidate.version } }}</p>
+                  @if (!candidate.inEffect) {
+                    <p class="message warning" data-trigger-candidate-problem>
+                      <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.triggers.candidate.out-of-effect' | translate: { problem: candidate.problem } }}
+                    </p>
+                  }
+                  @if (triggerChanges(trigger); as changes) {
+                    @if (changes.length === 0) {
+                      <p class="muted" data-trigger-changes-none>{{ 'nh-assistant.admin.run-config.triggers.candidate.no-changes' | translate }}</p>
+                    } @else {
+                      <dl class="review" data-trigger-changes [attr.aria-label]="'nh-assistant.admin.run-config.triggers.candidate.changes' | translate">
+                        @for (change of changes; track change.field) {
+                          <dt [attr.data-trigger-change]="change.field">{{ triggerFieldKeys[change.field] | translate }}</dt>
+                          <dd>{{ 'nh-assistant.admin.run-config.triggers.candidate.change' | translate: { candidate: changeValue(change, change.candidate), live: changeValue(change, change.live) } }}</dd>
+                        }
+                      </dl>
+                    }
+                  }
+                  <div class="card-actions">
+                    <button class="secondary" type="button" [attr.aria-expanded]="triggerComparison()?.triggerId === trigger.triggerId" (click)="toggleTriggerComparison(trigger)">
+                      <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.candidate.compare' | translate }}
+                    </button>
+                    @if (isConfirming('promote-trigger', trigger.triggerId)) {
+                      <button class="primary" type="button" [disabled]="busy()" (click)="promoteTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-promote' | translate }}</button>
+                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    } @else if (isConfirming('discard-trigger', trigger.triggerId)) {
+                      <button class="danger" type="button" [disabled]="busy()" (click)="discardTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-discard' | translate }}</button>
+                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    } @else {
+                      <button class="secondary" type="button" data-promote-trigger [disabled]="busy()" (click)="confirm('promote-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.promote' | translate }}</button>
+                      <button class="danger" type="button" data-discard-trigger [disabled]="busy()" (click)="confirm('discard-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.discard' | translate }}</button>
+                    }
+                  </div>
+                  @if (triggerComparison(); as shown) {
+                    @if (shown.triggerId === trigger.triggerId) {
+                      @if (shown.failed) {
+                        <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                      } @else if (shown.result; as result) {
+                        <div class="table-scroll">
+                          <table class="summary-table" data-trigger-comparison>
+                            <caption class="visually-hidden">{{ 'nh-assistant.admin.run-config.triggers.candidate.comparison' | translate: { trigger: trigger.triggerId } }}</caption>
+                            <thead>
+                              <tr>
+                                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
+                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.live-column' | translate: { version: result.live.version } }}</th>
+                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.candidate-column' | translate: { version: result.candidate.version } }}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.runs' | translate }}</th><td>{{ result.live.runs | number }}</td><td>{{ result.candidate.runs | number }}</td></tr>
+                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.completed' | translate }}</th><td>{{ result.live.completed | number }}</td><td>{{ result.candidate.completed | number }}</td></tr>
+                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.failed' | translate }}</th><td>{{ result.live.failed | number }}</td><td>{{ result.candidate.failed | number }}</td></tr>
+                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.proposals' | translate }}</th><td>{{ result.live.proposals | number }}</td><td>{{ result.candidate.proposals | number }}</td></tr>
+                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.tokens' | translate }}</th><td>{{ result.live.tokens | number }}</td><td>{{ result.candidate.tokens | number }}</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <p class="muted" data-trigger-paired>{{ 'nh-assistant.admin.run-config.triggers.candidate.paired' | translate: { count: result.pairedEvents, liveOnly: result.liveOnlyEvents, candidateOnly: result.candidateOnlyEvents, date: (result.from | date: 'medium') } }}</p>
+                      } @else {
+                        <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                      }
+                    }
+                  }
+                </div>
+              }
               <div class="card-actions">
                 <button class="secondary" type="button" [disabled]="busy()" (click)="editTrigger(trigger)">
                   <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                </button>
+                <button class="secondary" type="button" data-trigger-versions [attr.aria-expanded]="triggerVersions()?.triggerId === trigger.triggerId" (click)="toggleTriggerVersions(trigger)">
+                  <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.triggers.versions' | translate }}
                 </button>
                 <button class="secondary" type="button" [attr.data-trigger-shadow]="trigger.shadow ? 'live' : 'shadow'" [disabled]="busy()" (click)="setTriggerShadow(trigger, !trigger.shadow)">
                   {{ (trigger.shadow ? 'nh-assistant.admin.agents.shadow.action.live' : 'nh-assistant.admin.agents.shadow.action.shadow') | translate }}
@@ -388,6 +462,29 @@
               </div>
               @if (failed('trigger:' + trigger.triggerId)) {
                 <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+              }
+              @if (triggerVersions(); as shown) {
+                @if (shown.triggerId === trigger.triggerId) {
+                  @if (shown.failed) {
+                    <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                  } @else if (shown.items; as items) {
+                    <ul class="history" data-trigger-history>
+                      @for (version of items; track version.version) {
+                        <li [attr.data-trigger-version]="version.version">
+                          <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
+                          <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
+                          <span class="mono">{{ versionSummary(version) }}</span>
+                          <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
+                          @if (version.reason) {
+                            <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                  }
+                }
               }
             </li>
           }
@@ -454,7 +551,9 @@
                   } @else {
                     <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
                   }
-                  @if (!row.inEffect) {
+                  @if (row.off) {
+                    <span class="badge warning" data-consultation-off>{{ 'nh-assistant.admin.run-config.consultations.off-badge' | translate }}</span>
+                  } @else if (!row.inEffect) {
                     <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
                   }
                   @if (row.requests) {
@@ -465,6 +564,11 @@
                   }
                 </div>
                 <p class="muted">{{ row.description ?? ('nh-assistant.admin.run-config.consultations.no-description' | translate) }}</p>
+                @if (row.off) {
+                  <p class="message warning" data-consultation-off-explain>
+                    <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.consultations.off-explain' | translate }}
+                  </p>
+                }
                 @if (askSentence(row); as sentence) {
                   <p class="summary" data-consultation-ask>{{ sentence }}</p>
                 }
@@ -524,6 +628,16 @@
                         <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
                       </button>
                     }
+                    <!-- Off, it is not offered; on, asking agents get its tools. -->
+                    <button
+                      class="secondary"
+                      type="button"
+                      [attr.data-consultation-switch]="data.off ? 'on' : 'off'"
+                      [attr.aria-label]="(data.off ? 'nh-assistant.admin.run-config.consultations.switch-on-named' : 'nh-assistant.admin.run-config.consultations.switch-off-named') | translate: { type: typeName(row.subjectType) }"
+                      [disabled]="busy()"
+                      (click)="setConsultationState(data, data.off === true)">
+                      {{ (data.off ? 'nh-assistant.admin.run-config.consultations.switch-on' : 'nh-assistant.admin.run-config.consultations.switch-off') | translate }}
+                    </button>
                     @if (isConfirming('remove-consultation', row.subjectType)) {
                       <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.remove-explain' | translate }}</span>
                       <button class="danger" type="button" [disabled]="busy()" (click)="removeConsultation(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>

@@ -112,8 +112,11 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .ToListAsync(cancellationToken);
         var triggers = await context.AgentTriggerDefinitions
             .AsNoTracking()
+            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live
+                           || item.Status == NhAssistantSkillDefinitionStatuses.Candidate)
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.Id)
+            .ThenBy(item => item.Version)
             .ToListAsync(cancellationToken);
         var consultations = await context.AgentConsultationDefinitions
             .AsNoTracking()
@@ -223,7 +226,9 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         {
             return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
         }
-        if (await context.AgentTriggerDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
+        if (await context.AgentTriggerDefinitions.AnyAsync(
+                item => item.AgentId == agentId && item.Status == NhAssistantSkillDefinitionStatuses.Live,
+                cancellationToken)
             || await context.AgentConsultationDefinitions.AnyAsync(item => item.AgentId == agentId, cancellationToken)
             || await context.AgentSkillDefinitions.AnyAsync(
                 item => item.AgentId == agentId && item.Status != NhAssistantSkillDefinitionStatuses.Superseded,
@@ -267,6 +272,10 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Every version of the agent's data triggers, by trigger id and newest version first; a trigger
+    /// in effect has a live version.
+    /// </summary>
     public async Task<IReadOnlyList<AssistantAgentTriggerDefinition>> ListTriggersAsync(string agentId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
@@ -274,15 +283,21 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             .AsNoTracking()
             .Where(item => item.AgentId == agentId)
             .OrderBy(item => item.Id)
+            .ThenByDescending(item => item.Version)
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The live version of a data trigger, or <see langword="null"/>.
+    /// </summary>
     public async Task<AssistantAgentTriggerDefinition?> FindTriggerAsync(string triggerId, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.AgentTriggerDefinitions
             .AsNoTracking()
-            .SingleOrDefaultAsync(item => item.Id == triggerId, cancellationToken);
+            .SingleOrDefaultAsync(
+                item => item.Id == triggerId && item.Status == NhAssistantSkillDefinitionStatuses.Live,
+                cancellationToken);
     }
 
     /// <summary>
@@ -368,7 +383,13 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         {
             return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
-        if (await context.AgentTriggerDefinitions.AnyAsync(item => item.AgentId == agentId && item.SkillId == skillId, cancellationToken))
+        // The history of a trigger keeps naming the skill; only a version in effect or a candidate holds it.
+        if (await context.AgentTriggerDefinitions.AnyAsync(
+                item => item.AgentId == agentId
+                        && item.SkillId == skillId
+                        && (item.Status == NhAssistantSkillDefinitionStatuses.Live
+                            || item.Status == NhAssistantSkillDefinitionStatuses.Candidate),
+                cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Rejected);
         }
@@ -482,55 +503,73 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
     }
 
     /// <summary>
-    /// Adds a data trigger, or changes one when <paramref name="expectedVersion"/> is its current
-    /// version. A new trigger starts in shadow; a change keeps the trigger's mode.
+    /// Adds the next version of a data trigger, as <see cref="AddSkillVersionAsync"/> does for a skill.
+    /// A new trigger starts in shadow as its version 1, or the next number of an id whose versions are
+    /// all history. Live, the version replaces the live version, which becomes history, and keeps the
+    /// trigger's mode; as a <paramref name="candidate"/>, it fires in shadow next to the live version
+    /// until it is promoted or discarded. Either way an earlier candidate is discarded.
+    /// <paramref name="expectedVersion"/> is the live version the change was made on, or
+    /// <see langword="null"/> for a new trigger, which has no candidate. Fails with
+    /// <see cref="NhAssistantStoreOutcome.Rejected"/> when the trigger id is in effect for another
+    /// agent, or for a candidate without a live version. The row's <c>UpdatedAt</c> and
+    /// <c>UpdatedBy</c> say when and by whom the version was stored.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> SaveTriggerAsync(
         AssistantAgentTriggerDefinition trigger,
         int? expectedVersion,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool candidate = false)
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        var existing = await context.AgentTriggerDefinitions.SingleOrDefaultAsync(item => item.Id == trigger.Id, cancellationToken);
-        if (existing is not null && existing.AgentId != trigger.AgentId)
+        var current = await context.AgentTriggerDefinitions
+            .Where(item => item.Id == trigger.Id
+                           && (item.Status == NhAssistantSkillDefinitionStatuses.Live
+                               || item.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+            .ToListAsync(cancellationToken);
+        if (current.Any(item => item.AgentId != trigger.AgentId))
         {
+            // Trigger ids are unique among the triggers in effect.
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Rejected);
         }
-        if (existing?.Version != expectedVersion)
+
+        var live = current.SingleOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
+        if (live?.Version != expectedVersion)
         {
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
-
-        if (existing is null)
+        if (candidate && live is null)
         {
-            trigger.Version = 1;
-            trigger.Shadow = true;
-            trigger.CreatedAt = trigger.UpdatedAt;
-            trigger.CreatedBy = trigger.UpdatedBy;
-            trigger.ConcurrencyStamp = Guid.NewGuid();
-            context.AgentTriggerDefinitions.Add(trigger);
-            existing = trigger;
-        }
-        else
-        {
-            existing.SkillId = trigger.SkillId;
-            existing.Source = trigger.Source;
-            existing.EventName = trigger.EventName;
-            existing.FiltersJson = trigger.FiltersJson;
-            existing.Cron = trigger.Cron;
-            existing.TimeZone = trigger.TimeZone;
-            existing.SubjectSetName = trigger.SubjectSetName;
-            existing.Message = trigger.Message;
-            existing.Conflict = trigger.Conflict;
-            existing.DebounceSeconds = trigger.DebounceSeconds;
-            existing.Version++;
-            existing.UpdatedAt = trigger.UpdatedAt;
-            existing.UpdatedBy = trigger.UpdatedBy;
-            existing.Reason = trigger.Reason;
-            existing.ConcurrencyStamp = Guid.NewGuid();
+            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Rejected);
         }
 
+        var latest = await context.AgentTriggerDefinitions
+            .Where(item => item.Id == trigger.Id)
+            .MaxAsync(item => (int?)item.Version, cancellationToken) ?? 0;
+        if (live is not null && !candidate)
+        {
+            live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
+            live.UpdatedAt = trigger.UpdatedAt;
+            live.UpdatedBy = trigger.UpdatedBy;
+            live.ConcurrencyStamp = Guid.NewGuid();
+        }
+
+        foreach (var earlier in current.Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+        {
+            earlier.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+            earlier.UpdatedAt = trigger.UpdatedAt;
+            earlier.UpdatedBy = trigger.UpdatedBy;
+            earlier.ConcurrencyStamp = Guid.NewGuid();
+        }
+
+        trigger.Version = latest + 1;
+        trigger.Status = candidate ? NhAssistantSkillDefinitionStatuses.Candidate : NhAssistantSkillDefinitionStatuses.Live;
+        // A new trigger starts in shadow; a new version keeps the trigger's mode.
+        trigger.Shadow = live?.Shadow ?? true;
+        trigger.CreatedAt = trigger.UpdatedAt;
+        trigger.CreatedBy = trigger.UpdatedBy;
+        trigger.ConcurrencyStamp = Guid.NewGuid();
+        context.AgentTriggerDefinitions.Add(trigger);
         if (!await TrySaveAsync(context, cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
@@ -542,11 +581,98 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         }
 
         await transaction.CommitAsync(cancellationToken);
-        return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(existing);
+        return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(trigger);
     }
 
     /// <summary>
-    /// Puts a data trigger in shadow or live.
+    /// Makes the candidate of <paramref name="candidateVersion"/> the live version of its trigger, in
+    /// the trigger's mode; the live version becomes history. Fails with
+    /// <see cref="NhAssistantStoreOutcome.NotFound"/> without a candidate and with
+    /// <see cref="NhAssistantStoreOutcome.Conflict"/> for another version.
+    /// </summary>
+    public Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> PromoteTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return ChangeTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, promote: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Discards the candidate of <paramref name="candidateVersion"/>; it stays as history.
+    /// </summary>
+    public Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> DiscardTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return ChangeTriggerCandidateAsync(agentId, triggerId, candidateVersion, actorId, promote: false, cancellationToken);
+    }
+
+    private async Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> ChangeTriggerCandidateAsync(
+        string agentId,
+        string triggerId,
+        int candidateVersion,
+        string actorId,
+        bool promote,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var versions = await context.AgentTriggerDefinitions
+            .Where(item => item.Id == triggerId
+                           && item.AgentId == agentId
+                           && (item.Status == NhAssistantSkillDefinitionStatuses.Live
+                               || item.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+            .ToListAsync(cancellationToken);
+        var candidate = versions.SingleOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+        if (candidate is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+        if (candidate.Version != candidateVersion)
+        {
+            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (promote)
+        {
+            foreach (var live in versions.Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live))
+            {
+                // The promoted version keeps working in the trigger's mode.
+                candidate.Shadow = live.Shadow;
+                live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
+                live.UpdatedAt = now;
+                live.UpdatedBy = actorId;
+                live.ConcurrencyStamp = Guid.NewGuid();
+            }
+
+            candidate.Status = NhAssistantSkillDefinitionStatuses.Live;
+        }
+        else
+        {
+            candidate.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+        }
+
+        candidate.UpdatedAt = now;
+        candidate.UpdatedBy = actorId;
+        candidate.ConcurrencyStamp = Guid.NewGuid();
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(candidate);
+    }
+
+    /// <summary>
+    /// Puts a data trigger in shadow or live: the mode of its live version.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> SetTriggerShadowAsync(
         string agentId,
@@ -559,7 +685,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var existing = await context.AgentTriggerDefinitions.SingleOrDefaultAsync(
-            item => item.Id == triggerId && item.AgentId == agentId,
+            item => item.Id == triggerId && item.AgentId == agentId && item.Status == NhAssistantSkillDefinitionStatuses.Live,
             cancellationToken);
         if (existing is null)
         {
@@ -589,17 +715,27 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
         return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(existing);
     }
 
+    /// <summary>
+    /// Takes a data trigger out of effect: its live version becomes history and a candidate is
+    /// discarded; its versions stay as history. <paramref name="expectedVersion"/>, when given, must be
+    /// the live version.
+    /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> RemoveTriggerAsync(
         string agentId,
         string triggerId,
         int? expectedVersion,
+        string actorId,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        var existing = await context.AgentTriggerDefinitions.SingleOrDefaultAsync(
-            item => item.Id == triggerId && item.AgentId == agentId,
-            cancellationToken);
+        var versions = await context.AgentTriggerDefinitions
+            .Where(item => item.Id == triggerId
+                           && item.AgentId == agentId
+                           && (item.Status == NhAssistantSkillDefinitionStatuses.Live
+                               || item.Status == NhAssistantSkillDefinitionStatuses.Candidate))
+            .ToListAsync(cancellationToken);
+        var existing = versions.SingleOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
         if (existing is null)
         {
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.NotFound);
@@ -609,7 +745,17 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        context.AgentTriggerDefinitions.Remove(existing);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var version in versions)
+        {
+            version.Status = version.Status == NhAssistantSkillDefinitionStatuses.Live
+                ? NhAssistantSkillDefinitionStatuses.Superseded
+                : NhAssistantSkillDefinitionStatuses.Discarded;
+            version.UpdatedAt = now;
+            version.UpdatedBy = actorId;
+            version.ConcurrencyStamp = Guid.NewGuid();
+        }
+
         if (!await TrySaveAsync(context, cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
@@ -637,7 +783,7 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
     /// <summary>
     /// Adds a consultation defined as data, or changes one when <paramref name="expectedVersion"/> is
     /// its current version; <see langword="null"/> for a new consultation. A change is its next
-    /// version.
+    /// version. A new consultation is off when <c>Off</c> says so; a change keeps whether it is on.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgentConsultationDefinition>> SaveConsultationAsync(
         AssistantAgentConsultationDefinition consultation,
@@ -688,6 +834,46 @@ internal sealed class NhAssistantRunConfigurationStore(NhAssistantDbContextFacto
             existing.ConcurrencyStamp = Guid.NewGuid();
         }
 
+        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
+    }
+
+    /// <summary>
+    /// Switches a consultation defined as data on or off, without a new version, as a trigger is put
+    /// in shadow or live. Returns it unchanged when it already is.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentConsultationDefinition>> SetConsultationOffAsync(
+        string agentId,
+        string subjectType,
+        bool off,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await context.AgentConsultationDefinitions.SingleOrDefaultAsync(
+            item => item.AgentId == agentId && item.SubjectType == subjectType,
+            cancellationToken);
+        if (existing is null)
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+        if (existing.Off == off)
+        {
+            return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
+        }
+
+        existing.Off = off;
+        existing.UpdatedAt = DateTimeOffset.UtcNow;
+        existing.UpdatedBy = actorId;
+        existing.Reason = reason;
+        existing.ConcurrencyStamp = Guid.NewGuid();
         if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);

@@ -74,7 +74,8 @@ interface RouteChoice {
  * tool of the agent), its limits within the ceiling, the request tool, MCP and the classification of
  * its answers. Routes and options the ceiling or the agent rule out are shown disabled with the
  * reason, and a saved tool the agent no longer has can only be cleared. A consultation is in effect
- * once saved.
+ * once saved, unless it starts off: by the administrator's choice, or for every new one when the ceiling
+ * says so; it is then offered once it is switched on in the list.
  */
 @Component({
   selector: 'nh-assistant-consultation-form',
@@ -137,6 +138,10 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly exposeToMcp = signal(false);
   readonly dataClassification = signal('');
   readonly reason = signal('');
+  /** A new consultation starts off, so it is offered only once it is switched on in the list. */
+  readonly startsOff = signal(false);
+  /** The application lets every new consultation start off; the form then offers no choice. */
+  readonly ceilingStartsOff = computed(() => this.ceiling().startsOff === true);
   /** Advanced is open: the administrator opened it, or one of its fields has an error to show. */
   readonly advancedOpen = signal(false);
 
@@ -343,7 +348,9 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
       exposeToMcp: ceiling.allowMcp && this.exposeToMcp(),
       dataClassification: blank(this.dataClassification()) as AssistantDataClassification | null,
       expectedVersion: editing?.version ?? null,
-      reason: blank(this.reason())
+      reason: blank(this.reason()),
+      // Only a new consultation starts off; one that exists keeps whether it is on.
+      ...(!editing && this.startsOff() && !this.ceilingStartsOff() ? { startsOff: true } : {})
     };
     this.openAdvancedFor(Object.keys(errors));
     this.submit(

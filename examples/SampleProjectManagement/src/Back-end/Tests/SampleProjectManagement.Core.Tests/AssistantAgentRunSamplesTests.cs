@@ -1260,6 +1260,115 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_316_a_changed_trigger_fires_as_a_candidate_in_shadow_next_to_the_live_trigger_and_is_discarded()
+    {
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string triggerId = SampleAgentConfigurationService.StatusFollowUpTriggerId;
+        var project = await host.CreateProjectAsync("TRIGGER-CANDIDATE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The status follow-up is live and skips the planner's own changes; the change that drops
+            // the filter is saved for shadow, as the trigger's candidate.
+            var added = await ConfigureAgentsAsync(service => service.AddStatusFollowUpAsync(host.OwnerId, CancellationToken.None));
+            Assert.True(added.Success);
+            Assert.True((await ConfigureAgentsAsync(service => service.PutStatusFollowUpLiveAsync(host.OwnerId, "Follow up status changes", CancellationToken.None))).Success);
+            var candidate = await ConfigureAgentsAsync(service => service.EvaluateStatusFollowUpWithoutFilterAsync(host.OwnerId, CancellationToken.None));
+            Assert.True(candidate.Success);
+            Assert.Equal((added.Data!.Version + 1, true), (candidate.Data!.Version, candidate.Data.Shadow));
+            Assert.Empty(candidate.Data.Filters);
+            var configured = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{planner}/configuration", Json))!;
+            var trigger = Assert.Single(configured.DataTriggers, item => item.TriggerId == triggerId);
+            Assert.Equal((added.Data.Version, false, candidate.Data.Version), (trigger.Version, trigger.Shadow, trigger.Candidate!.Version));
+
+            // The planner's own change: the live trigger skips it, its receipt says so, and only the
+            // candidate starts a run, in the planner's shadow thread of the project.
+            var own = await host.ChangeStatusAsAgentAsync(project, ProjectStatus.OnHold, planner, ProjectSubjects.For(project));
+            var ignored = Assert.Single(await host.PublishAsync(own), receipt => receipt.TriggerId == triggerId);
+            Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered), (ignored.Outcome, ignored.ReasonCode));
+            var shadowThread = await WaitForShadowThreadAsync(administrator, project, planner);
+            var candidateRun = await WaitForRunWithTriggerAsync(administrator, shadowThread, triggerId);
+            Assert.Equal((true, true, (int?)candidate.Data.Version), (candidateRun.Shadow, candidateRun.TriggerCandidate, candidateRun.TriggerVersion));
+
+            // A person's change starts both: the live trigger in the live thread, as before.
+            var byPerson = await host.SetStatusByHandAsync(project, ProjectStatus.Active, host.OwnerId);
+            var live = Assert.Single(await host.PublishAsync(byPerson), receipt => receipt.TriggerId == triggerId);
+            Assert.NotNull(live.RunId);
+            var liveRun = await WaitForRunWithTriggerAsync(administrator, live.ConversationId!.Value, triggerId);
+            Assert.Equal((false, false, (int?)added.Data.Version), (liveRun.Shadow, liveRun.TriggerCandidate, liveRun.TriggerVersion));
+            await WaitForRunCountAsync(administrator, shadowThread, 2);
+
+            // The comparison: one event both versions started a run for, one only the candidate did.
+            var comparison = await ConfigureAgentsAsync(service => service.CompareStatusFollowUpAsync(CancellationToken.None));
+            Assert.Equal((1, 2, 1, 0, 1), (
+                comparison.Data!.Live.Runs,
+                comparison.Data.Candidate.Runs,
+                comparison.Data.PairedEvents,
+                comparison.Data.LiveOnlyEvents,
+                comparison.Data.CandidateOnlyEvents));
+
+            // The team keeps the filter: the candidate is discarded and stays as history.
+            Assert.True((await ConfigureAgentsAsync(service => service.DiscardStatusFollowUpCandidateAsync(host.OwnerId, "Keep skipping own changes", CancellationToken.None))).Success);
+            var versions = (await administrator.GetFromJsonAsync<NhAssistantDataTriggerVersionDto[]>($"/api/assistant/admin/agents/{planner}/triggers/{triggerId}/versions", Json))!;
+            Assert.Equal(
+                [
+                    (candidate.Data.Version, NewHeap.Platform.AI.Chat.Entities.NhAssistantSkillDefinitionStatuses.Discarded),
+                    (added.Data.Version, NewHeap.Platform.AI.Chat.Entities.NhAssistantSkillDefinitionStatuses.Live)
+                ],
+                versions.Take(2).Select(item => (item.Version, item.Status)));
+        }
+        finally
+        {
+            // Other samples share the host and its planner.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveStatusFollowUpAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_317_an_agent_created_to_start_in_shadow_works_in_shadow_and_its_consultation_is_offered_only_once_switched_on()
+    {
+        const string agentId = SampleAgentConfigurationService.ShadowStarterAgentId;
+        const string consultToolId = "assistant.consult." + agentId + ".project";
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // One call creates the agent with its run settings and a live trigger; the agent starts in
+            // shadow, which applies as soon as its run settings exist.
+            Assert.True((await ConfigureAgentsAsync(service => service.CreateShadowStarterAsync(host.OperationsAccountId, host.OwnerId, CancellationToken.None))).Success);
+            var shadow = (await administrator.GetFromJsonAsync<JsonElement>("/api/assistant/admin/agents", Json)).EnumerateArray()
+                .Single(agent => agent.GetProperty("id").GetString() == agentId)
+                .GetProperty("shadow");
+            Assert.Equal((true, true), (shadow.GetProperty("shadow").GetBoolean(), shadow.GetProperty("override").GetBoolean()));
+
+            // A created project starts it at once, in its shadow thread, where nobody is notified and
+            // nothing it proposes executes.
+            var project = await host.CreateProjectAsync("SHADOWSTART", ownerId: host.OwnerId);
+            var receipt = Assert.Single(
+                await host.PublishAsync(new ProjectCreatedEvent { ProjectId = project, ProjectKey = "SHADOWSTART", CreatedByUserId = host.OwnerId }),
+                item => item.TriggerId == SampleAgentConfigurationService.ShadowStarterTriggerId);
+            Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
+            var run = await WaitForRunWithTriggerAsync(administrator, receipt.ConversationId!.Value, SampleAgentConfigurationService.ShadowStarterTriggerId);
+            Assert.True(run.Shadow);
+
+            // Its consultation starts off: asking agents get no tool until an administrator switches it on.
+            var off = await ConfigureAgentsAsync(service => service.MakeShadowStarterConsultableAsync(host.OwnerId, CancellationToken.None));
+            Assert.True(off.Success);
+            Assert.Equal((true, false, (string?)null), (off.Data!.Off, off.Data.InEffect, off.Data.Problem));
+            Assert.DoesNotContain(await ToolIdsAsync(administrator), id => id == consultToolId);
+            var on = await ConfigureAgentsAsync(service => service.SwitchShadowStarterConsultationAsync(true, host.OwnerId, CancellationToken.None));
+            Assert.Equal((false, true, 1), (on.Data!.Off, on.Data.InEffect, on.Data.Version));
+            Assert.Contains(await ToolIdsAsync(administrator), id => id == consultToolId);
+        }
+        finally
+        {
+            // Other samples share the host.
+            Assert.True((await ConfigureAgentsAsync(service => service.RemoveShadowStarterAsync(host.OwnerId, CancellationToken.None))).Success);
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{agentId}");
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task An_administrator_creates_a_project_starter_that_proposes_with_the_rights_of_its_technical_account()
     {
         // SPM-296

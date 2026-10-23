@@ -657,9 +657,14 @@ public sealed class NhAssistantDbContext : DbContext
         modelBuilder.Entity<AssistantAgentTriggerDefinition>(trigger =>
         {
             trigger.ToTable("AssistantAgentTriggerDefinition");
-            trigger.HasKey(item => item.Id);
+            // One row per version; a trigger stored before versions existed is its live version.
+            trigger.HasKey(item => new { item.Id, item.Version });
             trigger.Property(item => item.Id).HasMaxLength(64);
             trigger.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            trigger.Property(item => item.Status)
+                .HasMaxLength(16)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantSkillDefinitionStatuses.Live);
             trigger.Property(item => item.SkillId).HasMaxLength(64);
             trigger.Property(item => item.Source).HasMaxLength(16).IsRequired();
             trigger.Property(item => item.EventName).HasMaxLength(NhAssistantBlockNames.MaxLength);
@@ -674,6 +679,8 @@ public sealed class NhAssistantDbContext : DbContext
             trigger.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             trigger.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             trigger.HasIndex(item => item.AgentId);
+            trigger.HasIndex(item => new { item.AgentId, item.Status });
+            trigger.HasIndex(item => new { item.Id, item.Status });
             trigger.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
