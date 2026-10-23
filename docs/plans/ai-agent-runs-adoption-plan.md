@@ -17,8 +17,10 @@ Decided by Lars on 2026-10-23, every choice as recommended except S11 (b). Train
 and S10 on 2026-10-23 (`feature/single-tenant-mode`, `feature/agent-metadata` with the `AgentMetadata`
 migrations, `feature/proposal-decision-service`, `feature/run-facts` with the `RunTriggerKinds` migrations,
 `fix/guidance-ai-router-links`); Lars decided ST4 (a) during the train and kept every other choice of the lanes (ST3,
-ST5 to ST14, MD4 to MD15, DA3 to DA10, RF2 to RF10, GR1 to GR5) on 2026-10-23. Trains 18 to 20
-are not built yet.
+ST5 to ST14, MD4 to MD15, DA3 to DA10, RF2 to RF10, GR1 to GR5) on 2026-10-23. Train 18 built S5, S6
+and S11 on 2026-10-23 (`feature/application-execution` with the `ApplicationExecutions` migrations,
+`feature/access-source-principals`, `feature/mcp-message-format`); the lanes' own choices AE1 to AE15, AS1
+to AS10 and MF1 to MF8 are for Lars to review. Trains 19 and 20 are not built yet.
 Delivery: train 17 builds items 1 to 4 and S10, train 18 S5, S6 and S11, train 19 S8, S9 and S7-1, train
 20 S7-2.
 
