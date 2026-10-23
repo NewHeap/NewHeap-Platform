@@ -237,6 +237,10 @@ public sealed class AssistantRegistrationTests
                     or "ConsultationRoute" or "ConsultationRefusalReason"
                     // Where a consultation comes from: a code of NhAssistantConsultationSources.
                     or "ConsultationSource"
+                    // Through which channel a proposal was decided (a dash-case code such as web)
+                    // and the application's idempotency key of that decision: printable characters
+                    // without white space, at most 100 (DA1 and DA2 of the agent runs adoption plan).
+                    or "Channel" or "IdempotencyKey"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

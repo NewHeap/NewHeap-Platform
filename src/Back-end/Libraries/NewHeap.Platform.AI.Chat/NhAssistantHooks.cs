@@ -512,6 +512,24 @@ public sealed record NhAssistantAuditEvent(
     public bool? ApplicationMessageTrusted { get; init; }
 
     /// <summary>
+    /// Through which channel a person decided a proposal of an agent thread, on its
+    /// <see cref="NhAssistantAuditEventKind.ApprovalApproved"/> or
+    /// <see cref="NhAssistantAuditEventKind.ApprovalRejected"/> event: <c>web</c> for the decision
+    /// endpoints, or the dash-case code the application passed to the proposal decision service
+    /// (<c>INhAssistantProposalDecisionService.DecideAsync</c>), such as <c>messaging-reply</c>. Null
+    /// for other events.
+    /// </summary>
+    public string? Channel { get; init; }
+
+    /// <summary>
+    /// The application's idempotency key of a decision through the proposal decision service, such as
+    /// the id of the delivered reply that decided it: at most 100 printable characters without white
+    /// space. The audit is the only place that records it. Null for other events and for decisions
+    /// without a key.
+    /// </summary>
+    public string? IdempotencyKey { get; init; }
+
+    /// <summary>
     /// The most characters of <see cref="FileName"/>.
     /// </summary>
     public const int MaxFileNameLength = 256;
