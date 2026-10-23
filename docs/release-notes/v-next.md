@@ -198,3 +198,4 @@ are in English and Dutch.
 | Breaking change | Required action |
 |---|---|
 | `Message.role` also allows `'application'` and `MessageAuthorKind` also allows `'application'`. | Add the new values to an exhaustive `switch` over these types. |
+| A tab that streams a turn now shows the live `message.created` of the application's and other people's messages instead of ignoring them until the conversation loads again, and `applyNhAssistantLiveEvent` puts a message where its `sequence` puts it, after the answer a turn is still writing, instead of last. | Nothing for `NhAssistantStore` and the panel; a custom view that applies live events itself does so with `applyNhAssistantLiveEvent` while it streams, too, and leaves out the turn's own events and message. |

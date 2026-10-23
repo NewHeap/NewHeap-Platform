@@ -246,7 +246,12 @@ is the current page with `#nh-assistant-join=<id>.<token>`; the panel joins when
 page opens with it and removes the fragment. Pass `buildShareLink` when invitations
 must open a specific route. In a shared conversation the thread names other people's
 messages, the composer says who is working, and an approval of someone else's turn
-shows who decides instead of the buttons.
+shows who decides instead of the buttons. A tab that streams a turn takes the turn's events
+and its own message from its stream and ignores their live copies, but shows the messages the
+application and other people store meanwhile (`message.created`). `applyNhAssistantLiveEvent` puts a
+message where its `sequence` puts it, so it sits where the conversation shows it when loaded again:
+the server numbers a turn's answer when the turn starts, so a message stored during the turn follows
+the answer that is still being written. A custom view that applies live events itself does the same.
 
 Show the work of agents that run on their own with the components of
 `@newheap/platform-ai-chat/agent-runs`, a separate entry point that stays out of the
@@ -299,7 +304,8 @@ a participant. A message the application posted (`role: 'application'`, SPM-312)
 application's in chats and threads alike: a card with the application's mark, the sender with an
 "Application" tag, the title, the text as Markdown and the link (`Message.application`,
 `ApplicationMessageDetails`), which opens a route through the router or an `https` address and
-nothing else; it arrives live like a colleague's message. The mock API posts one with
+nothing else; it arrives live like a colleague's message, also in a tab that streams a turn of the
+conversation, after the answer that is still being written. The mock API posts one with
 `NhAssistantMockBackend.postApplicationMessage`. A custom layout passes `[approvalRights]="store.approvalRights()"` to
 `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
@@ -759,7 +765,8 @@ streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
 the page-context tooltip and opt-out on a simulated project page, the preferences and the
 administration tabs at desktop and mobile width in light
 and dark mode. The collaboration tests run two conversations at once, mark only a
-viewed conversation as read, show a colleague's turn live with a name, refuse a
+viewed conversation as read, show a colleague's turn live with a name, show an application
+message that arrives while the tab streams a turn where loading the conversation again puts it, refuse a
 decision about another participant's approval, create, revoke and join links, invite
 from the directory and forget a conversation removed elsewhere (SPM-265). In the
 playground, start a second prompt while the first still answers, watch the chip row
