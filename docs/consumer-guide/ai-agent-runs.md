@@ -350,6 +350,22 @@ its conversation; administrators open every run. `GET admin/agents/{id}/runs` is
 for administrators: every run, live and shadow (marked), with the same filters and an exact total. The
 migration `AgentRunResults` adds `Result`, `ResultTruncated` and an index of threads by agent.
 
+Count what runs did from the business audit sink alone (run facts). `AgentRunEnded` carries, next to
+the run, agent, version, trigger, subject, initiator and skill, the content-free facts an application's
+usage report or billing needs: `TriggerKind`, what started the run as one of `NhAssistantTriggerKinds`
+(`event`, `schedule`, `webhook`, `manual`, `message` for a person's message that waited for the run,
+`request`, `hand-off`, `follow-up` for a decided or executed proposal or an ended hand-off, and `replay`),
+recorded on the run when it is created (`AssistantRun.TriggerKind`, migration `RunTriggerKinds`) so
+removing or changing its trigger later does not change it; `Shadow`; `SkillVersion`, the version of a
+skill defined as data; `ModelCallCount`, every governed model call of the run across its turns and
+attempts, triage included, which the run counts when the call's budget is reserved, so a failed,
+cancelled or retried turn keeps its calls and a run by rules alone stays 0; and `RunStatus` and
+`RunFailureCode` apart, while `ResultCode` keeps `status:code`. Count runs, runs without a model call
+(`ModelCallCount` 0) and shadow runs per `AgentId` and `SkillId` from these events in an
+`INhAssistantBusinessAuditSink` instead of querying the assistant's tables, and match a run's model
+calls to usage records by the run id in `NhAiUsageRecord.CorrelationId`, each call named by its
+`ModelCallId`. A consultation is no run: its usage stays on `AgentConsulted`.
+
 An agent's thread of the whole application is never readable more widely than its results: reading it,
 its conversation, its proposals and its files needs the read role of the whole application (the read
 policy of `UseSystemSubject`) and the agent's view policy, by default its required policy, evaluated as
@@ -1242,6 +1258,9 @@ profile and instructions that answer questions about the rules' proposals from t
   `Done(culture => ...)` with the application's localized texts.
 - Listing runs for people straight from the database, or reading a run's answer from its summary; use
   `GET runs` and `GET runs/{id}`, which decide per object and per view policy who sees a run.
+- Counting runs for usage or billing by querying the assistant's tables or by parsing `ResultCode`; read
+  `TriggerKind`, `Shadow`, `SkillVersion`, `ModelCallCount`, `RunStatus` and `RunFailureCode` of
+  `AgentRunEnded` in a business audit sink.
 - Granting the read policy of the whole application to people who should not see one agent's work
   there; the agent's thread of the whole application also needs its view policy, so give the agent a
   `ViewPolicy` (by default its required policy decides).
@@ -1498,7 +1517,12 @@ required policy), never another object's or shadow work, that `GET runs/{id}` an
 the caller may not see, lists the proposals placed at objects the caller reads and counts the others,
 and serves the run's own files, that `GET admin/agents/{id}/runs` lists every run with shadow marked
 for administrators only, and that the filters, the paging and `assistant-run-filter-invalid` behave the
-same on SQL Server and PostgreSQL. Assert that the migrations leave no pending model changes. On both
+same on SQL Server and PostgreSQL. On both providers end runs started by an event, a schedule, a person
+and a trigger defined as data, a shadow variant's run, a run in a skill defined as data and a run that
+fails after a retry, and assert that each `AgentRunEnded` carries the stored trigger kind, shadow, skill
+version, model calls (those of both attempts, 0 for rules), status and failure code, that the model
+calls equal the run's usage records, and that runs, runs without a model call and shadow runs per agent
+and skill follow from the events alone. Assert that the migrations leave no pending model changes. On both
 providers assert that an agent's thread of the whole application, its conversation, proposals, runs and
 files answer `404` to a reader of the whole application who does not pass the agent's view policy, also
 after an invitation, that such a person neither finds the agent in the subject's work nor starts it,

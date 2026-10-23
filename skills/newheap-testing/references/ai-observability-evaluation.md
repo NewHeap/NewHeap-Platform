@@ -26,7 +26,11 @@ cancellation remains cancellation.
 Keep operational telemetry, application audit and usage accounting in separate
 sinks. Usage records may include stable versions and hashes, bounded scope
 identifiers, token counts, character counts, duration, finish reason and a model
-identifier hash. They must not include prompts, responses, tool arguments,
+identifier hash. Count and correlate model calls by `NhAiUsageRecord.ModelCallId`:
+every governed model call gets its own id, which its retries, its budget
+reservation (`NhAiBudgetRequest.ModelCallId`), its `ai.model.invoke` activity
+(`newheap.ai.model_call_id`) and its usage record share. `InvocationId` names the
+invocation context, which several calls of one turn share. They must not include prompts, responses, tool arguments,
 retrieved documents, credentials or provider error bodies. Applications map the
 retention categories to their own duration, residency, legal-hold and deletion
 policies.
@@ -49,6 +53,8 @@ document, and a change the model then asks for waits for approval without runnin
 
 - Logging or tagging message text, model output, retrieved content or provider exception bodies.
 - Combining business audit history and usage allocation into one universal platform database.
+- Counting model calls by distinct `InvocationId`; one invocation context serves several calls, so
+  count `ModelCallId`.
 - Treating an inconclusive evaluation as a pass.
 - Recommending a model upgrade based only on compilation or a single live demonstration.
 - Keeping a streaming provider call alive after the consumer cancels enumeration.
@@ -58,6 +64,8 @@ document, and a change the model then asks for waits for approval without runnin
 Capture activities, metrics, usage and reports and serialize them in tests.
 Assert that protected fixture strings are absent while profile versions, hashes,
 tokens, latency, time to first token, finish and cancellation outcomes remain.
+Assert that two calls in one invocation context get two `ModelCallId`s while a
+retried call keeps one, shared with its budget reservation.
 Also force a provider exception during stream enumeration and assert that the
 stream ends with a safe failed completion rather than leaking provider details.
 Run the deterministic dataset on every relevant change, and run controlled live
