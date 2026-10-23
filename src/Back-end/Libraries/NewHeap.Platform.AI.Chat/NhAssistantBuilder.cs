@@ -366,6 +366,38 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Registers a named entry of agent metadata: the application's own typed data about an agent, such
+    /// as a cost center or a team, which NewHeap stores per agent and name, checks on every save as
+    /// startup checks the values in code, and never interprets; it never widens what an agent may do.
+    /// <typeparamref name="TValue"/> is the value's JSON shape (camelCase). Agents in code set a value
+    /// in <see cref="ConfigureAgent"/> with <see cref="NhAssistantAgentRunBuilder.Metadata{TValue}"/>,
+    /// which administrators may override only when the entry is
+    /// <see cref="NhAssistantAgentMetadataBuilder{TValue}.Editable"/>; agents created at runtime get
+    /// values through <c>POST</c> and <c>PUT admin/agents</c>, <c>PUT admin/agents/{id}/metadata/{name}</c>
+    /// and <c>INhAssistantAgentConfiguration</c>, versioned with the agent. Read them with
+    /// <see cref="INhAssistantAgentMetadata"/>. The name is dash-case, at most 64 characters, outside
+    /// the platform's <c>nh-</c> prefix; registering a name twice is refused.
+    /// </summary>
+    public NhAssistantBuilder AddAgentMetadata<TValue>(
+        string name,
+        Action<NhAssistantAgentMetadataBuilder<TValue>>? configure = null)
+        where TValue : notnull
+    {
+        NhAssistantAgentMetadataEntry.ValidateName(name, nameof(name));
+        if (name.StartsWith(NhAssistantAgentMetadataLimits.ReservedNamePrefix, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Agent metadata names starting with '{NhAssistantAgentMetadataLimits.ReservedNamePrefix}' are reserved for the platform. Rename the entry.",
+                nameof(name));
+        }
+
+        var entry = new NhAssistantAgentMetadataEntry(name, typeof(TValue));
+        configure?.Invoke(new NhAssistantAgentMetadataBuilder<TValue>(entry));
+        _state.AddAgentMetadata(entry);
+        return this;
+    }
+
+    /// <summary>
     /// Lets administrators define consultations of agents as data, within this ceiling: which agent
     /// may be consulted about which object type, with which description and instructions, by whom,
     /// read-only or with proposals by the routes the ceiling names, and within its limits. Agents
@@ -836,6 +868,8 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantRuleHandlerDefinition> _ruleHandlers = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantAgentPolicyDefinition> _agentPolicies = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantAgentGroupDefinition> _agentGroups = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAgentMetadataEntry> _agentMetadata = new(StringComparer.Ordinal);
+    private IReadOnlyDictionary<string, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck>>? _codeMetadata;
     private readonly Dictionary<Type, NhAssistantSubjectTypeOptions> _subjectTypes = [];
     private NhAssistantRunSnapshot? _snapshot;
     private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
@@ -1009,6 +1043,91 @@ internal sealed class NhAssistantRegistrationState
         }
 
         _agentGroups.Add(group.Id, group);
+    }
+
+    /// <summary>
+    /// The entries of agent metadata registered with <c>AddAgentMetadata</c>, by name.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentMetadataEntry> AgentMetadata => _agentMetadata;
+
+    /// <summary>
+    /// Registers an entry of agent metadata once; a name registered twice is refused, because two
+    /// registrations cannot be compared.
+    /// </summary>
+    public void AddAgentMetadata(NhAssistantAgentMetadataEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (_agentMetadata.ContainsKey(entry.Name))
+        {
+            throw new InvalidOperationException($"Agent metadata '{entry.Name}' is already registered.");
+        }
+        if (_agentMetadata.Count >= NhAssistantAgentMetadataLimits.MaxEntries)
+        {
+            throw new InvalidOperationException(
+                $"An application registers at most {NhAssistantAgentMetadataLimits.MaxEntries} agent metadata entries.");
+        }
+
+        _agentMetadata.Add(entry.Name, entry);
+    }
+
+    /// <summary>
+    /// The checked metadata values that an agent in code sets in <c>ConfigureAgent</c>, by name; empty
+    /// for an agent without any. Checked once, at startup or on first use.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck> CodeMetadataOf(string agentId)
+    {
+        var all = Volatile.Read(ref _codeMetadata);
+        if (all is null)
+        {
+            all = CheckCodeMetadata();
+            Volatile.Write(ref _codeMetadata, all);
+        }
+
+        return all.TryGetValue(agentId, out var values)
+            ? values
+            : new Dictionary<string, NhAssistantAgentMetadataCheck>(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks every metadata value in code as a save checks data: the entry is registered for the type
+    /// the agent sets, fits its size limit and every validator accepts it. Fails startup otherwise.
+    /// </summary>
+    private Dictionary<string, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck>> CheckCodeMetadata()
+    {
+        var checkedValues = new Dictionary<string, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck>>(StringComparer.Ordinal);
+        foreach (var (agentId, options) in _agentRuns)
+        {
+            var values = new Dictionary<string, NhAssistantAgentMetadataCheck>(StringComparer.Ordinal);
+            foreach (var (name, value) in options.CodeMetadata)
+            {
+                if (!_agentMetadata.TryGetValue(name, out var entry))
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' sets metadata '{name}', which is not registered. Register it with AddAgentMetadata.");
+                }
+                if (entry.ValueType != value.Type)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' sets metadata '{name}' as {value.Type.Name}, but the entry holds {entry.ValueType.Name}.");
+                }
+
+                var check = entry.CheckValue(value.Value);
+                if (!check.Valid)
+                {
+                    throw new InvalidOperationException(
+                        $"The metadata '{name}' of agent '{agentId}' is invalid: {check.Describe()}.");
+                }
+
+                values.Add(name, check);
+            }
+
+            if (values.Count > 0)
+            {
+                checkedValues.Add(agentId, values);
+            }
+        }
+
+        return checkedValues;
     }
 
     /// <summary>
@@ -1353,6 +1472,9 @@ internal sealed class NhAssistantRegistrationState
         {
             ValidatePolicyReference(policy.EscalationPolicyId!, $"approval policy '{policy.Id}'");
         }
+
+        // The metadata values in code pass the checks a save applies to data.
+        Volatile.Write(ref _codeMetadata, CheckCodeMetadata());
     }
 
     /// <summary>

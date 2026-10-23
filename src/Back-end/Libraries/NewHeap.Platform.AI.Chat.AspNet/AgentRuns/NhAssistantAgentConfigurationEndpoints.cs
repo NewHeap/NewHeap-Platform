@@ -125,6 +125,28 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapGet("agents/{id}/metadata", GetMetadataAsync)
+            .WithName("NhAssistantAdminGetAgentMetadata")
+            .WithSummary("Get the metadata of an agent")
+            .WithDescription("Returns every entry of agent metadata the application registers with AddAgentMetadata, ordered by name, with the agent's value in effect and where it comes from (code, override or data), the value in code next to an override, whether the entry changes here (always for an agent created at runtime, for an agent in code only when the entry is editable), its size limit and the version a change sends as expectedVersion. NewHeap never interprets metadata. An unknown agent answers 404.")
+            .Produces<NhAssistantAgentMetadataDto[]>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPut("agents/{id}/metadata/{name}", SaveMetadataAsync)
+            .WithName("NhAssistantAdminSaveAgentMetadata")
+            .WithSummary("Save one entry of an agent's metadata")
+            .WithDescription("Stores value after the checks startup applies to values in code: it fits the entry's type exactly (value invalid), its size limit (value too-long) and every validator (field errors value or value.<field> with the validator's codes). For an agent created at runtime the change makes the agent's next version and expectedVersion, the agent's version, is required (400); for an agent in code only an editable entry changes, as an override with a version of its own (expectedVersion null for a new override), otherwise 409 assistant-metadata-read-only. A stale expectedVersion answers 409 assistant-version-conflict, an entry that is not registered 404 assistant-metadata-entry-not-found and an unknown agent 404. The audit names the entry, never its value.")
+            .Produces<NhAssistantAgentMetadataDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapDelete("agents/{id}/metadata/{name}", RemoveMetadataAsync)
+            .WithName("NhAssistantAdminRemoveAgentMetadata")
+            .WithSummary("Remove one entry of an agent's metadata")
+            .WithDescription("Removes the stored value: of an agent created at runtime as its next version, of an agent in code its override, so the value in code applies again; returns the entry as it is now. Without a stored value nothing changes; otherwise expectedVersion is required (400) and must be current (409). A read-only entry of an agent in code answers 409, an unknown entry or agent 404.")
+            .Produces<NhAssistantAgentMetadataDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/triggers/{triggerId}/shadow", SetTriggerShadowAsync)
             .WithName("NhAssistantAdminSetDataTriggerShadow")
             .WithSummary("Put a trigger defined as data in shadow or live")
@@ -417,6 +439,60 @@ internal static class NhAssistantAgentConfigurationEndpoints
 
         var result = await configuration.RemoveConsultationAsync(id, subjectType, expectedVersion, actor, reason, httpContext.RequestAborted);
         return result.Success ? TypedResults.NoContent() : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> GetMetadataAsync(string id, HttpContext httpContext, INhAssistantAgentConfiguration configuration)
+    {
+        var result = await configuration.GetMetadataAsync(id, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(
+                result.Data!.ToArray(),
+                NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentMetadataDtoArray)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> SaveMetadataAsync(
+        string id,
+        string name,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+        var body = await NhAssistantAdminEndpoints.ReadAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentMetadataRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+
+        var result = await configuration.SaveMetadataAsync(id, name, body, actor, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentMetadataDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> RemoveMetadataAsync(
+        string id,
+        string name,
+        int? expectedVersion,
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration)
+    {
+        var actor = await NhAssistantAdminEndpoints.ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return NhAssistantAdminEndpoints.ContextUnavailable();
+        }
+
+        var result = await configuration.RemoveMetadataAsync(id, name, expectedVersion, actor, httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(result.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentMetadataDto)
+            : NhAssistantAdminEndpoints.Failure(result);
     }
 
     private static async Task<IResult> SetTriggerShadowAsync(

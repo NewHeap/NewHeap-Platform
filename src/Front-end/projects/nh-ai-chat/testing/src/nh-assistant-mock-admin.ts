@@ -141,6 +141,16 @@ export class NhAssistantMockAdmin {
     return this.agents.all();
   }
 
+  /** One agent of the administration, or `undefined`. */
+  findAgent(agentId: string): AdminAgent | undefined {
+    return this.agents.find(agentId);
+  }
+
+  /** Makes the next version of an agent, as a change of its metadata does. */
+  nextAgentVersion(agentId: string): AdminAgent {
+    return this.agents.nextVersion(agentId);
+  }
+
   handlePreferences(method: string, body: unknown): NhAssistantMockResult {
     if (method === 'GET') {
       return { status: 200, body: this.preferences };

@@ -5181,6 +5181,34 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-messages.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
       ]
+    },
+    {
+      "id": "SPM-313",
+      "categoryId": "18",
+      "title": "The project planner's cost center is agent metadata: set in code, overridden and shown in the assistant administration through the portal's own editor, and found by its code",
+      "surface": "`NhAssistantBuilder.AddAgentMetadata<T>` with `NhAssistantAgentMetadataBuilder<T>` (`MaxBytes`, `Validate` with `NhAssistantAgentMetadataErrors`, `IndexBy`, `Editable`) and `NhAssistantAgentMetadataLimits`; `NhAssistantAgentRunBuilder.Metadata` checked at startup; `INhAssistantAgentMetadata` (`ListEntries`, `GetAgentAsync`, `ListAgentsAsync`) with `NhAssistantAgentWithMetadata` (`Get<T>`), `NhAssistantAgentMetadataValue`, `NhAssistantAgentMetadataEntryDto` and `NhAssistantAgentMetadataSources`; `INhAssistantAgentConfiguration.GetMetadataAsync`, `SaveMetadataAsync` and `RemoveMetadataAsync` with `NhAssistantAgentMetadataDto` and `NhAssistantAgentMetadataRequest`; `NhAssistantAgentRequest.Metadata` and `metadata` of `POST` and `PUT admin/agents` (`NhAssistantAdminAgentInputDto.Metadata`); `GET admin/agents/{id}/metadata`, `PUT` and `DELETE admin/agents/{id}/metadata/{name}`; `NhAssistantRunCatalogDto.AgentMetadata`; the codes `assistant-metadata-entry-not-found` and `assistant-metadata-read-only`; `NhAssistantAuditEventKind.AdminAgentMetadataChanged` with `NhAssistantAuditEvent.MetadataEntry`; the AgentMetadata migrations (`AssistantAgentMetadata`) for SQL Server and PostgreSQL; `NhAssistantAgentMetadataComponent` (`nh-assistant-agent-metadata`) below the form of `NhAssistantAdminAgentEditorComponent` in `@newheap/platform-ai-chat/admin` with `provideNhAssistantAgentMetadataEditors`, `NhAssistantAgentMetadataEditor`, `NH_ASSISTANT_AGENT_METADATA_EDITORS` and `NhAssistantAgentMetadataSlot`; `NhAssistantAdminApiService.getAgentMetadata`, `saveAgentMetadata` and `removeAgentMetadata` with `AgentMetadata`, `AgentMetadataEntry`, `AgentMetadataRequest`, `AgentMetadataSource`, `RunCatalog.agentMetadata` and `AdminAgentInput.metadata`; `agentMetadata` of the mock scenario's administration (`NhAssistantMockAgentMetadataEntry`) and `metadata` of its agents",
+      "outcome": "The project planner's work is booked on a cost center, the application's own data about its agents. The sample registers the cost center as an entry of agent metadata with its JSON shape, at most 512 bytes, a validator that accepts only codes such as CC-4100, the code as its searchable value, and editable on agents in code; the planner sets CC-4100 in ConfigureAgent, which startup checks as a save checks data. The run catalog lists the entry, and the administration shows the planner's cost center from code. In the portal's assistant administration, and in its playground on the mock API, the planner's editor shows an Application fields section below its form with a slot per entry: the portal's own editor shows the cost center with where it comes from, refuses a code that is no cost center at its field, and saves an override, which wins over code with a version of its own until \"Use the cost center from code\" removes it. An entry of an agent in code that is not editable is read-only, and a new agent shows its fields once it is saved. An agent created in the administration gets its cost center with its definition or in the slot, each change the agent's next version, which the editor's next save continues on. The application finds the agents of a cost center by its code with INhAssistantAgentMetadata.ListAgentsAsync, whatever its case, on SQL Server and PostgreSQL alike; values are removed with their agent. People who do not administer neither read nor change it, the audit names the entry and never its value, and NewHeap never reads the cost center to decide anything.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentCostCenterComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-administration/assistant-cost-center-editor.component.ts",
+        "src/Front-end/projects/management/src/app/assistant-administration/sample-agent-metadata-editors.ts",
+        "src/Front-end/projects/management/src/app/assistant-administration/assistant-administration.routes.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentMetadata.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentMetadataService.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentMetadataStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentMetadataTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata-slot.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-metadata.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts"
+      ]
     }
   ]
 }

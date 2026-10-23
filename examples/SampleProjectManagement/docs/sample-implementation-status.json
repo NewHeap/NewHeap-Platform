@@ -308,7 +308,8 @@
     "SPM-308",
     "SPM-310",
     "SPM-311",
-    "SPM-312"
+    "SPM-312",
+    "SPM-313"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2920,6 +2921,26 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-message-link.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-messages.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
+    ],
+    "SPM-313": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentCostCenterComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-administration/assistant-cost-center-editor.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-administration/sample-agent-metadata-editors.ts",
+      "src/Front-end/projects/management/src/app/assistant-administration/assistant-administration.routes.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentMetadata.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentMetadataService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentMetadataStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfigurationEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentMetadataTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata-slot.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-metadata.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts"
     ]
   }
 }

@@ -33,6 +33,7 @@ import { mockFailure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockFiles } from './nh-assistant-mock-files';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
+import { NhAssistantMockAgentMetadata } from './nh-assistant-mock-agent-metadata';
 import { NhAssistantMockProposals } from './nh-assistant-mock-proposals';
 import { NhAssistantMockSubjects, divisionSubjectId } from './nh-assistant-mock-subjects';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
@@ -139,6 +140,14 @@ export class NhAssistantMockBackend {
     {
       agents: () => this.admin.allAgents(),
       administers: () => this.admin.administers
+    },
+    () => new Date().toISOString());
+  private readonly agentMetadata = new NhAssistantMockAgentMetadata(
+    this.scenario,
+    {
+      agent: agentId => this.admin.findAgent(agentId),
+      administers: () => this.admin.administers,
+      nextVersion: agentId => this.admin.nextAgentVersion(agentId)
     },
     () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
@@ -389,17 +398,26 @@ export class NhAssistantMockBackend {
     if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'groups' && segments.length === 4) {
       return this.result(this.boards.handleAdminGroups(method, segments[2], body));
     }
+    if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'metadata' && segments.length <= 5) {
+      return this.result(this.agentMetadata.handle(method, segments[2], segments[4], query, body));
+    }
     if (segments[0] === 'admin') {
       const result = this.admin.handleAdmin(method, segments, body, query);
       if (method === 'DELETE' && segments[1] === 'agents' && segments.length === 3 && result.status === 204) {
         this.boards.forget(segments[2]);
+        this.agentMetadata.forget(segments[2]);
       }
       // The run catalog lists the subject types and the groups in the request's language, as the
       // server does; agents carry their groups.
       if (method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200) {
         return this.result({
           ...result,
-          body: { ...(result.body as object), subjectTypes: this.subjects.catalog(language), agentGroups: this.boards.catalog(language) }
+          body: {
+            ...(result.body as object),
+            subjectTypes: this.subjects.catalog(language),
+            agentGroups: this.boards.catalog(language),
+            agentMetadata: this.agentMetadata.catalog()
+          }
         });
       }
       return this.result(segments[1] === 'agents' && result.status >= 200 && result.status < 300 ? this.withGroups(result) : result);

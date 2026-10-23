@@ -3,6 +3,8 @@ import { Observable, forkJoin, map, of } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentGroups,
+  AgentMetadata,
+  AgentMetadataRequest,
   AdminAgentInput,
   AgentRunConfiguration,
   AgentRunSettings,
@@ -182,6 +184,32 @@ export class NhAssistantAdminApiService {
    */
   setAgentGroups(agentId: string, groups: readonly string[]): Observable<AdminAgentGroups> {
     return this.request<AdminAgentGroups>('PUT', `admin/agents/${encodeURIComponent(agentId)}/groups`, { groups });
+  }
+
+  /**
+   * Every entry of agent metadata the application registers, with the agent's value in effect, where
+   * it comes from and whether it changes here (`GET admin/agents/{id}/metadata`).
+   */
+  getAgentMetadata(agentId: string): Observable<AgentMetadata[]> {
+    return this.request<AgentMetadata[]>('GET', `${agentPath(agentId)}/metadata`);
+  }
+
+  /**
+   * Saves the agent's value of one metadata entry after the checks in code: field errors `value` or
+   * `value.<field>`. For an agent created here it makes the agent's next version (`expectedVersion` is
+   * the agent's version); for an agent in code only an editable entry changes, as an override with a
+   * version of its own (`assistant-metadata-read-only` otherwise).
+   */
+  saveAgentMetadata(agentId: string, name: string, request: AgentMetadataRequest): Observable<AgentMetadata> {
+    return this.request<AgentMetadata>('PUT', metadataPath(agentId, name), request);
+  }
+
+  /**
+   * Removes the agent's stored value of one metadata entry, so an agent in code uses its value in code
+   * again; answers the entry as it is now.
+   */
+  removeAgentMetadata(agentId: string, name: string, expectedVersion: number | null): Observable<AgentMetadata> {
+    return this.request<AgentMetadata>('DELETE', withQuery(metadataPath(agentId, name), { expectedVersion }));
   }
 
   /** Deletes an admin agent. Code agents cannot be deleted; stop them instead. */
@@ -495,6 +523,10 @@ function triggerPath(agentId: string, triggerId: string): string {
 
 function consultationPath(agentId: string, subjectType: string): string {
   return `${agentPath(agentId)}/consultations/${encodeURIComponent(subjectType)}`;
+}
+
+function metadataPath(agentId: string, name: string): string {
+  return `${agentPath(agentId)}/metadata/${encodeURIComponent(name)}`;
 }
 
 /** Appends the filter values that are set as query parameters. */

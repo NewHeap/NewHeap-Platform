@@ -217,7 +217,106 @@ public interface INhAssistantAgentConfiguration
         string actorId,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every entry of agent metadata registered with <c>AddAgentMetadata</c>, ordered by name, with the
+    /// agent's value in effect, where it comes from and whether it changes here. Fails with
+    /// <c>assistant-agent-not-found</c> for an agent that does not exist.
+    /// </summary>
+    Task<TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>> GetMetadataAsync(
+        string agentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stores the agent's value of one entry of agent metadata after the checks startup applies to
+    /// values in code: the value fits the entry's type exactly (<c>value: invalid</c> otherwise), its
+    /// size limit (<c>value: too-long</c>) and every validator (field errors <c>value</c> or
+    /// <c>value.&lt;field&gt;</c> with the validator's codes). For an agent created at runtime it makes the
+    /// agent's next version: <see cref="NhAssistantAgentMetadataRequest.ExpectedVersion"/> is the
+    /// agent's version (required). For an agent in code only an entry registered with
+    /// <c>Editable()</c> changes (<c>assistant-metadata-read-only</c> otherwise), as an override with a
+    /// version of its own: <see langword="null"/> for a new override. A stale version fails with
+    /// <c>assistant-version-conflict</c>, an entry that is not registered with
+    /// <c>assistant-metadata-entry-not-found</c>. The audit names the entry, never the value.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentMetadataDto>> SaveMetadataAsync(
+        string agentId,
+        string name,
+        NhAssistantAgentMetadataRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes the agent's stored value of one entry: of an agent created at runtime as its next
+    /// version, of an agent in code its override, so the value in code applies again. Without a stored
+    /// value nothing changes; otherwise <paramref name="expectedVersion"/> is required, as for
+    /// <see cref="SaveMetadataAsync"/>. Returns the entry as it is now.
+    /// </summary>
+    Task<TaskResult<NhAssistantAgentMetadataDto>> RemoveMetadataAsync(
+        string agentId,
+        string name,
+        int? expectedVersion,
+        string actorId,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// One entry of agent metadata of one agent, as the administration's slot for it shows it.
+/// </summary>
+/// <param name="Name">The entry's name, as registered with <c>AddAgentMetadata</c>.</param>
+/// <param name="Editable">Whether the entry of this agent changes at runtime: always for an agent
+/// created at runtime, for an agent in code only when the entry is registered with <c>Editable()</c>.</param>
+/// <param name="MaxBytes">The largest value in bytes of its JSON.</param>
+/// <param name="Source">Where the value in effect comes from: <c>code</c>, <c>override</c> or
+/// <c>data</c>; <see langword="null"/> without a value.</param>
+/// <param name="Value">The value in effect, in the shape of the entry's type; <see langword="null"/>
+/// without one.</param>
+/// <param name="Version">The version a change sends as <c>expectedVersion</c>: the agent's version for an
+/// agent created at runtime, the override's version for an agent in code, <see langword="null"/> while
+/// it has no override.</param>
+/// <param name="AgentVersion">The version of the agent's definition; a change of an entry of an agent
+/// created at runtime makes its next version.</param>
+public sealed record NhAssistantAgentMetadataDto(
+    string Name,
+    bool Editable,
+    int MaxBytes,
+    string? Source,
+    JsonElement? Value,
+    int? Version,
+    int AgentVersion)
+{
+    /// <summary>
+    /// The value in code of an agent in code, next to an administrator's override; <see langword="null"/>
+    /// without one.
+    /// </summary>
+    public JsonElement? CodeValue { get; init; }
+
+    /// <summary>
+    /// Whether the entry declares a searchable value with <c>IndexBy</c>.
+    /// </summary>
+    public bool Indexed { get; init; }
+
+    /// <summary>
+    /// The searchable value of the value in effect, trimmed and in lowercase.
+    /// </summary>
+    public string? IndexValue { get; init; }
+
+    /// <summary>
+    /// When the stored value was saved; <see langword="null"/> for a value in code or none.
+    /// </summary>
+    public DateTimeOffset? ChangedAt { get; init; }
+
+    /// <summary>
+    /// Who saved the stored value.
+    /// </summary>
+    public string? ChangedBy { get; init; }
+}
+
+/// <param name="Value">The value in the shape of the entry's type (camelCase JSON); required.</param>
+/// <param name="ExpectedVersion">The <see cref="NhAssistantAgentMetadataDto.Version"/> the change was
+/// made on: the agent's version for an agent created at runtime (required), the override's version for
+/// an agent in code, <see langword="null"/> for a new override.</param>
+public sealed record NhAssistantAgentMetadataRequest(JsonElement? Value, int? ExpectedVersion);
 
 /// <param name="TriggerEvents">The events a data trigger can start a skill on.</param>
 /// <param name="SubjectSets">The subjects a data schedule can start a skill for; a schedule without
@@ -282,6 +381,12 @@ public sealed record NhAssistantRunCatalogDto(
     /// <see langword="null"/> while consultations exist in code only.
     /// </summary>
     public NhAssistantConsultationCeilingDto? ConsultationCeiling { get; init; }
+
+    /// <summary>
+    /// The entries of agent metadata the application registers with <c>AddAgentMetadata</c>, ordered by
+    /// name: the slots of the agent editor, where the application shows its own editor per entry.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAgentMetadataEntryDto> AgentMetadata { get; init; } = [];
 }
 
 /// <summary>
@@ -614,7 +719,16 @@ public sealed record NhAssistantAgentRequest(
     string? ViewPolicy = null,
     bool StartsOff = false,
     string? Profile = null,
-    string? DataClassification = null);
+    string? DataClassification = null)
+{
+    /// <summary>
+    /// Values of entries of agent metadata registered with <c>AddAgentMetadata</c>, by entry name, in
+    /// the shape of each entry's type; stored with the agent's first version after the checks of
+    /// <see cref="INhAssistantAgentConfiguration.SaveMetadataAsync"/>, as field errors
+    /// <c>metadata.&lt;name&gt;</c> (<c>not-found</c> for an entry that is not registered).
+    /// </summary>
+    public IReadOnlyDictionary<string, JsonElement>? Metadata { get; init; }
+}
 
 /// <param name="Name">The building block's name.</param>
 /// <param name="Description">What it means, for the administration.</param>
@@ -1147,7 +1261,76 @@ internal sealed class NhAssistantAgentConfiguration(
                 registration.Limits.MaxFilePages,
                 registration.Limits.MaxFilesPerTurn,
                 registration.Limits.MaxFileTokensPerTurn),
-            ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData)
+            ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData),
+            AgentMetadata = services.GetRequiredService<INhAssistantAgentMetadata>().ListEntries()
+        };
+    }
+
+    public async Task<TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>> GetMetadataAsync(
+        string agentId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        var states = await services.GetRequiredService<NhAssistantAgentMetadataService>().StatesAsync(agentId, cancellationToken);
+        return states is null
+            ? TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.")
+            : TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Succeeded((IReadOnlyList<NhAssistantAgentMetadataDto>)states.Select(ToDto).ToArray());
+    }
+
+    public async Task<TaskResult<NhAssistantAgentMetadataDto>> SaveMetadataAsync(
+        string agentId,
+        string name,
+        NhAssistantAgentMetadataRequest request,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var saved = await services.GetRequiredService<NhAssistantAgentMetadataService>().SaveAsync(
+            agentId,
+            name,
+            request.Value,
+            request.ExpectedVersion,
+            actorId,
+            cancellationToken);
+        return saved.Success
+            ? TaskResult<NhAssistantAgentMetadataDto>.Succeeded(ToDto(saved.Data!))
+            : TaskResult<NhAssistantAgentMetadataDto>.Failed(saved);
+    }
+
+    public async Task<TaskResult<NhAssistantAgentMetadataDto>> RemoveMetadataAsync(
+        string agentId,
+        string name,
+        int? expectedVersion,
+        string actorId,
+        CancellationToken cancellationToken = default)
+    {
+        var removed = await services.GetRequiredService<NhAssistantAgentMetadataService>().RemoveAsync(
+            agentId,
+            name,
+            expectedVersion,
+            actorId,
+            cancellationToken);
+        return removed.Success
+            ? TaskResult<NhAssistantAgentMetadataDto>.Succeeded(ToDto(removed.Data!))
+            : TaskResult<NhAssistantAgentMetadataDto>.Failed(removed);
+    }
+
+    private static NhAssistantAgentMetadataDto ToDto(NhAssistantAgentMetadataState state)
+    {
+        return new NhAssistantAgentMetadataDto(
+            state.Entry.Name,
+            state.Editable,
+            state.Entry.MaxBytes,
+            state.Source,
+            state.Json is null ? null : NhAssistantAgentMetadataService.Parse(state.Json),
+            state.Version,
+            state.AgentVersion)
+        {
+            CodeValue = state.CodeJson is null ? null : NhAssistantAgentMetadataService.Parse(state.CodeJson),
+            Indexed = state.Entry.Indexed,
+            IndexValue = state.IndexValue,
+            ChangedAt = state.ChangedAt,
+            ChangedBy = state.ChangedBy
         };
     }
 
@@ -1186,7 +1369,8 @@ internal sealed class NhAssistantAgentConfiguration(
                     request.ViewPolicy),
                 request.StartsOff,
                 string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
-                string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim()),
+                string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim(),
+                request.Metadata),
             actorId,
             cancellationToken);
         if (!created.Success)

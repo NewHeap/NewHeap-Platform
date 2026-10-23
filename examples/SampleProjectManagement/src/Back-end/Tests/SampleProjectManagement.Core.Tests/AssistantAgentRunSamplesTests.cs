@@ -1976,6 +1976,97 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_313_the_planners_cost_center_is_set_in_code_overridden_in_the_administration_and_found_by_its_code()
+    {
+        // SPM-313: the cost center is the application's own data about its agents, an entry of agent
+        // metadata. The planner sets CC-4100 in code; administrators override it in the administration,
+        // where the portal's editor shows it, and give agents created there their own; the application
+        // finds the agents of a cost center by its code. NewHeap never reads it to decide anything.
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string entry = SampleAgentCostCenterComposition.Entry;
+        const string created = "spm-313-cost-reporter";
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        try
+        {
+            var catalog = (await administrator.GetFromJsonAsync<NhAssistantRunCatalogDto>("/api/assistant/admin/run-catalog", Json))!;
+            Assert.Equal(new NhAssistantAgentMetadataEntryDto(entry, true, 512, true), Assert.Single(catalog.AgentMetadata));
+            var inCode = Assert.Single((await administrator.GetFromJsonAsync<NhAssistantAgentMetadataDto[]>($"/api/assistant/admin/agents/{planner}/metadata", Json))!);
+            Assert.Equal((NhAssistantAgentMetadataSources.Code, true, (int?)null), (inCode.Source, inCode.Editable, inCode.Version));
+            Assert.Equal("CC-4100", inCode.Value!.Value.GetProperty("code").GetString());
+
+            // The validator refuses a code that is no cost center, as startup would refuse it in code.
+            using (var refused = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{planner}/metadata/{entry}",
+                new { value = new { code = "4100" } },
+                Json))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+                var errors = (await refused.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("errors");
+                Assert.Equal("unknown-cost-center", errors.GetProperty("value.code")[0].GetString());
+            }
+
+            // An administrator books the planner on another cost center: an override over the code.
+            using (var saved = await administrator.PutAsJsonAsync(
+                $"/api/assistant/admin/agents/{planner}/metadata/{entry}",
+                new { value = new { code = "CC-4200", owner = "Operations" } },
+                Json))
+            {
+                Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+                var overridden = (await saved.Content.ReadFromJsonAsync<NhAssistantAgentMetadataDto>(Json))!;
+                Assert.Equal((NhAssistantAgentMetadataSources.Override, (int?)1), (overridden.Source, overridden.Version));
+                Assert.Equal("CC-4100", overridden.CodeValue!.Value.GetProperty("code").GetString());
+            }
+
+            // An agent created in the administration carries its cost center with its first version.
+            using (var agent = await administrator.PostAsJsonAsync(
+                "/api/assistant/admin/agents",
+                new
+                {
+                    id = created,
+                    displayName = "Cost reporter",
+                    description = "Reports what the projects of a cost center cost.",
+                    instructions = "Report the costs of the projects briefly.",
+                    toolSelectors = new[] { ProjectAiTools.ChangeStatusToolId },
+                    mcpServerIds = Array.Empty<string>(),
+                    autonomy = "propose",
+                    offeredInChat = false,
+                    metadata = new Dictionary<string, object> { [entry] = new { code = "CC-4200" } }
+                },
+                Json))
+            {
+                Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+            }
+
+            // The application finds the agents of a cost center by its code, whatever its case.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var metadata = scope.ServiceProvider.GetRequiredService<INhAssistantAgentMetadata>();
+                var booked = await metadata.ListAgentsAsync(entry, "cc-4200");
+                Assert.Equal([planner, created], booked.Select(item => item.AgentId).Order(StringComparer.Ordinal).ToArray());
+                Assert.Equal("Operations", booked.Single(item => item.AgentId == planner).Get<SampleAgentCostCenter>(entry)!.Owner);
+                Assert.DoesNotContain(await metadata.ListAgentsAsync(entry, "CC-4100"), item => item.AgentId == planner);
+            }
+
+            // People who do not administer neither read nor change it.
+            Assert.Equal(HttpStatusCode.Forbidden, (await colleague.GetAsync($"/api/assistant/admin/agents/{planner}/metadata")).StatusCode);
+        }
+        finally
+        {
+            await administrator.DeleteAsync($"/api/assistant/admin/agents/{created}");
+            var restored = await administrator.DeleteAsync($"/api/assistant/admin/agents/{planner}/metadata/{entry}?expectedVersion=1");
+            Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        }
+
+        // Without the override the code decides again.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var planned = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentMetadata>().GetAgentAsync(planner))!;
+            Assert.Equal("CC-4100", planned.Get<SampleAgentCostCenter>(entry)!.Code);
+        }
+    }
+
+    [Fact]
     public async Task The_project_management_board_shows_the_follow_ups_latest_result_what_is_new_and_its_history()
     {
         // SPM-304: groups and boards. The project management group is registered in code with English

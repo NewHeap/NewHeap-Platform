@@ -13,7 +13,10 @@ namespace NewHeap.Platform.AI.Chat;
 /// apply to agents created in the administration; <see langword="null"/> keeps them, a new agent is
 /// offered in the chat, works on all object types, uses the application's chat profile and has no
 /// classification of its own, so its model calls are <see cref="NhAiDataClassification.Internal"/>.
-/// Agents in code take them from their code.
+/// Agents in code take them from their code. <paramref name="Metadata"/> sets values of agent
+/// metadata entries of an agent created in the administration by name, a JSON <c>null</c> removing
+/// one, with the same version as the definition; entries left out keep their values. An agent in code
+/// changes its editable entries one by one.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -28,7 +31,8 @@ internal sealed record NhAssistantAgentInput(
     NhAssistantAgentWorksOn? WorksOn = null,
     bool StartsOff = false,
     string? ProfileName = null,
-    string? DataClassification = null);
+    string? DataClassification = null,
+    IReadOnlyDictionary<string, JsonElement>? Metadata = null);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -44,7 +48,8 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantRunConfigurations runConfigurations,
     NhAssistantWorksOnRule worksOnRule,
     Runs.NhAssistantSubjectAccessService subjects,
-    NhAssistantRunConfigurationValidator validator)
+    NhAssistantRunConfigurationValidator validator,
+    NhAssistantAgentMetadataService metadata)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -55,7 +60,7 @@ internal sealed class NhAssistantAgentAdministration(
         string actorId,
         CancellationToken cancellationToken)
     {
-        var validation = await ValidateAsync(input, cancellationToken);
+        var (validation, values) = await ValidateAsync(input, cancellationToken);
         if (!validation.Success)
         {
             return TaskResult<NhAssistantAgent>.Failed(validation);
@@ -86,11 +91,18 @@ internal sealed class NhAssistantAgentAdministration(
             UpdatedBy = actorId
         };
         ApplyInput(row, input, 1);
-        if (!await store.AddAgentAsync(row, input.McpServerIds, cancellationToken))
+        // The agent's metadata starts with its first version.
+        var rows = NhAssistantAgentMetadataStore.NewRows(row.Id, values, actorId, now);
+        if (!await store.AddAgentAsync(row, input.McpServerIds, cancellationToken, rows))
         {
             return Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists.");
         }
         await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row.Id, actorId, cancellationToken);
+        await metadata.AuditAsync(
+            row.Id,
+            rows.Select(item => new NhAssistantAgentMetadataChange(item.Name, NhAssistantAgentMetadataStore.Created, 1)).ToArray(),
+            actorId,
+            cancellationToken);
         return TaskResult<NhAssistantAgent>.Succeeded(catalog.ToAgent((await store.FindAgentAsync(row.Id, cancellationToken))!));
     }
 
@@ -100,12 +112,13 @@ internal sealed class NhAssistantAgentAdministration(
         string actorId,
         CancellationToken cancellationToken)
     {
-        var validation = await ValidateAsync(input, cancellationToken);
+        var (validation, values) = await ValidateAsync(input, cancellationToken);
         if (!validation.Success)
         {
             return TaskResult<NhAssistantAgent>.Failed(validation);
         }
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        var metadataChanges = new List<NhAssistantAgentMetadataChange>();
         var updated = await store.UpdateAgentAsync(
             input.Id,
             expectedVersion,
@@ -125,13 +138,21 @@ internal sealed class NhAssistantAgentAdministration(
                 }
             },
             input.McpServerIds,
-            cancellationToken);
+            cancellationToken,
+            values,
+            metadataChanges);
         if (updated.Succeeded && updated.Value!.Source == NhAssistantAgentSources.Admin)
         {
             await RunConfigurationChangedAsync(cancellationToken);
         }
 
-        return await CompleteAsync(updated, NhAssistantAuditEventKind.AdminAgentUpdated, actorId, cancellationToken);
+        var completed = await CompleteAsync(updated, NhAssistantAuditEventKind.AdminAgentUpdated, actorId, cancellationToken);
+        if (completed.Success)
+        {
+            await metadata.AuditAsync(input.Id, metadataChanges, actorId, cancellationToken);
+        }
+
+        return completed;
     }
 
     /// <summary>
@@ -222,7 +243,9 @@ internal sealed class NhAssistantAgentAdministration(
             catalog.ToAgent((await store.FindAgentAsync(updated.Value.Id, cancellationToken))!));
     }
 
-    private async Task<TaskResult> ValidateAsync(NhAssistantAgentInput input, CancellationToken cancellationToken)
+    private async Task<(TaskResult Result, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> Metadata)> ValidateAsync(
+        NhAssistantAgentInput input,
+        CancellationToken cancellationToken)
     {
         var errors = new NhAssistantValidationErrors()
             .Require(NhAssistantNames.IsSegment(input.Id), "id", NhAssistantFieldErrors.Invalid)
@@ -269,17 +292,22 @@ internal sealed class NhAssistantAgentAdministration(
                 "dataClassification",
                 NhAssistantFieldErrors.Invalid);
         }
+        // The agent's metadata is checked as every save of one entry checks it (MD1).
+        var values = metadata.CheckDefinition(
+            input.Metadata ?? new Dictionary<string, JsonElement>(StringComparer.Ordinal),
+            inCode: !adminAgent,
+            errors);
         if (!errors.IsEmpty)
         {
-            return errors.ToResult();
+            return (errors.ToResult(), values);
         }
         var serverIds = input.McpServerIds.Distinct(StringComparer.Ordinal).ToArray();
         var existing = await store.FindExistingMcpServerIdsAsync(serverIds, cancellationToken);
         if (existing.Count != serverIds.Length)
         {
-            return TaskResult.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "An assigned MCP server does not exist.");
+            return (TaskResult.Failed(NhAssistantAdminErrorCodes.McpServerNotFound, "An assigned MCP server does not exist."), values);
         }
-        return TaskResult.Succeeded();
+        return (TaskResult.Succeeded(), values);
     }
 
     private static void ApplyInput(AssistantAgent row, NhAssistantAgentInput input, int assetVersion)

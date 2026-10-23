@@ -355,6 +355,9 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             services.AddScoped<NhAssistantAdminStore>();
             services.AddScoped<NhAssistantAgentCatalog>();
             services.AddScoped<NhAssistantAgentAdministration>();
+            // An agent created in the administration carries its metadata with its definition.
+            services.AddScoped<NhAssistantAgentMetadataStore>();
+            services.AddScoped<NhAssistantAgentMetadataService>();
             // What an agent works on is checked against the registered subject types.
             services.AddSingleton<NhAssistantWorksOnRule>();
             services.AddScoped<NhAssistantRunStore>();

@@ -172,6 +172,32 @@ export interface NhAssistantMockMcpServer extends McpServerInput {
 }
 
 /**
+ * An entry of agent metadata as the application registers it with `AddAgentMetadata`: its name,
+ * whether administrators may override it on agents in code, its size limit, its searchable value and
+ * its checks.
+ */
+export interface NhAssistantMockAgentMetadataEntry {
+  /** The entry's dash-case name. */
+  name: string;
+  /** Administrators may override it on agents in code, as `Editable()`. */
+  editable?: boolean;
+  /** The largest value in bytes of its JSON; 4,096 by default. */
+  maxBytes?: number;
+  /** The field of the value whose text is its searchable value, as `IndexBy`. */
+  indexBy?: string;
+  /**
+   * The fields of the entry's type: a value with another field is refused with `value: invalid`, as
+   * the server refuses JSON that does not fit the type. Without it every field is accepted.
+   */
+  fields?: string[];
+  /**
+   * Checks a value as the application's validators do: codes by field path, `''` for the whole value,
+   * such as `{ code: ['unknown-code'] }`; `null` or an empty record accepts it.
+   */
+  validate?: (value: Record<string, unknown>) => Record<string, string[]> | null;
+}
+
+/**
  * A preconfigured agent. Code agents default to the scenario's chat agents. `startsOff` starts it
  * off, as `StartsOff()` in code does for an agent in code.
  */
@@ -332,6 +358,12 @@ export interface NhAssistantMockAdminScenario {
    * administration work per division, as an application that lists its divisions does.
    */
   runCatalog?: Partial<RunCatalog>;
+  /**
+   * The entries of agent metadata the application registers in code with `AddAgentMetadata`, which
+   * the run catalog lists as `agentMetadata`; the scenario's agents give their values in
+   * `metadata`, in code for an agent in code and stored for an agent created as data. Default none.
+   */
+  agentMetadata?: NhAssistantMockAgentMetadataEntry[];
   /**
    * Lets administrators define consultations as data within this ceiling, as `UseConsultationsAsData`
    * in code: agents created in the administration with run settings get it, and code agents with

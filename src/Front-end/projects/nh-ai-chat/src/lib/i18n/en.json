@@ -471,7 +471,9 @@
       "assistant-file-scan-refused": "The file did not pass the scan for harmful content and was not stored.",
       "assistant-consultation-in-code": "The agent allows consultation about this kind of object in code; it cannot change here.",
       "assistant-consultation-not-found": "The consultation was not found.",
-      "assistant-consultations-not-allowed": "The application does not let administrators add consultations to this agent."
+      "assistant-consultations-not-allowed": "The application does not let administrators add consultations to this agent.",
+      "assistant-metadata-entry-not-found": "The application does not register this field of agents.",
+      "assistant-metadata-read-only": "The application sets this field of the agent in its code; it cannot change here."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -854,6 +856,23 @@
           "hint": "Pages of the application show the agents of a group on a board, with their latest results. Your choice wins over the code.",
           "in-code": "In this group in code",
           "shadow-variant": "A shadow variant works for administrators only and joins no group."
+        },
+        "metadata": {
+          "title": "Application fields",
+          "hint": "The application keeps its own data about agents here. Each field has an editor of the application, which saves it on its own.",
+          "save-first": "Save the agent first; then its fields appear here.",
+          "loading": "Loading the fields",
+          "load-failed": "The fields of this agent could not be loaded.",
+          "no-editor": "The application shows no editor for this field.",
+          "read-only": "Set in the application's code; it cannot change here.",
+          "saved": "Saved.",
+          "removed": "Removed.",
+          "source": {
+            "code": "From code",
+            "override": "Changed here, over the value in code",
+            "data": "Stored with the agent",
+            "none": "No value"
+          }
         },
         "catalog-unavailable": "The building blocks of agent runs could not be read, so what this agent works on and its groups cannot be changed now. Saving keeps them as they are."
       },

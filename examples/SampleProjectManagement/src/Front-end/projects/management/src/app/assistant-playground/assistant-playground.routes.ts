@@ -7,6 +7,7 @@ import {
   PROJECT_ASSISTANT_ID
 } from './assistant-playground.scenario';
 import { provideSampleAssistant } from './sample-assistant.config';
+import { provideSampleAgentMetadataEditors } from '../assistant-administration/sample-agent-metadata-editors';
 import { inject } from '@angular/core';
 import { SampleAuthService } from 'sample-project-management-common';
 
@@ -41,6 +42,8 @@ export const ASSISTANT_PLAYGROUND_ROUTES: Routes = [
         // The same scope as the playground, so administration changes show up in its panel.
         path: 'admin',
         title: 'Assistant administration',
+        // SPM-313: the same editor of the cost center as the real administration, on the mock API.
+        providers: [provideSampleAgentMetadataEditors()],
         loadComponent: () => import('./assistant-admin-page.component')
           .then(module => module.AssistantAdminPageComponent)
       }

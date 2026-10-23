@@ -398,6 +398,40 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
         return document.RootElement.Clone();
     }
 
+    [Fact]
+    public void Agent_metadata_keeps_its_json_names()
+    {
+        var entry = new NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentMetadataDto(
+            "cost-center",
+            Editable: true,
+            MaxBytes: 200,
+            Source: "override",
+            Value: JsonSerializer.SerializeToElement(new { code = "CC-2000" }),
+            Version: 2,
+            AgentVersion: 1)
+        {
+            CodeValue = JsonSerializer.SerializeToElement(new { code = "CC-1000" }),
+            Indexed = true,
+            IndexValue = "cc-2000",
+            ChangedAt = DateTimeOffset.UnixEpoch,
+            ChangedBy = "admin-1"
+        };
+        var context = NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default;
+
+        var json = JsonSerializer.SerializeToElement(entry, context.NhAssistantAgentMetadataDto);
+        var request = JsonSerializer.SerializeToElement(
+            new NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentMetadataRequest(json.GetProperty("value"), 2),
+            context.NhAssistantAgentMetadataRequest);
+        var catalogEntry = JsonSerializer.SerializeToElement(
+            new NhAssistantAgentMetadataEntryDto("cost-center", true, 200, true),
+            context.NhAssistantRunCatalogDto.Options);
+
+        AssertNames(json, "name", "editable", "maxBytes", "source", "value", "version", "agentVersion", "codeValue", "indexed", "indexValue", "changedAt", "changedBy");
+        AssertNames(request, "value", "expectedVersion");
+        AssertNames(catalogEntry, "name", "editable", "maxBytes", "indexed");
+        Assert.Equal("CC-2000", json.GetProperty("value").GetProperty("code").GetString());
+    }
+
     private static Endpoint FindEndpoint(EndpointDataSource source, string name)
     {
         return source.Endpoints.Single(endpoint =>

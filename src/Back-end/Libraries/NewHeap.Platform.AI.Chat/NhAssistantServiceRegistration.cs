@@ -64,6 +64,11 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantRunConfigurationValidator>();
         services.TryAddSingleton<NhAssistantRunConfigurations>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
+        // Agent metadata: the application's own entries about agents, stored and checked, never read
+        // by NewHeap itself.
+        services.TryAddScoped<NhAssistantAgentMetadataStore>();
+        services.TryAddScoped<NhAssistantAgentMetadataService>();
+        services.TryAddScoped<INhAssistantAgentMetadata>(provider => provider.GetRequiredService<NhAssistantAgentMetadataService>());
         services.TryAddSingleton<NhAssistantWorksOnRule>();
         services.TryAddScoped<NhAssistantAgentKnownSubjectTypes>();
         services.TryAddScoped<NhAssistantPersonalization>();

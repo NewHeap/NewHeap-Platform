@@ -98,10 +98,15 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         }
     }
 
+    /// <summary>
+    /// Adds an agent with its MCP assignments and, for an agent created at runtime, the values of its
+    /// metadata, in one save.
+    /// </summary>
     public async Task<bool> AddAgentAsync(
         AssistantAgent agent,
         IReadOnlyCollection<string> mcpServerIds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<AssistantAgentMetadata>? metadata = null)
     {
         await using var context = contextFactory.CreateDbContext();
         if (await context.Agents.AnyAsync(item => item.Id == agent.Id, cancellationToken))
@@ -113,6 +118,7 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
             .Select(serverId => new AssistantAgentMcpServer { AgentId = agent.Id, McpServerId = serverId })
             .ToList();
         context.Agents.Add(agent);
+        context.AgentMetadata.AddRange(metadata ?? []);
         try
         {
             await context.SaveChangesAsync(cancellationToken);
@@ -127,13 +133,17 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     /// <summary>
     /// Applies a change when the stored version equals <paramref name="expectedVersion"/>, then
     /// increments the version. <paramref name="mcpServerIds"/> replaces the assignments when given.
+    /// <paramref name="metadata"/> stores or removes values of an agent created at runtime with the
+    /// new version, in the same save, and adds what changed to <paramref name="metadataChanges"/>.
     /// </summary>
     public async Task<NhAssistantStoreResult<AssistantAgent>> UpdateAgentAsync(
         string id,
         int? expectedVersion,
         Action<AssistantAgent> apply,
         IReadOnlyCollection<string>? mcpServerIds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?>? metadata = null,
+        ICollection<NhAssistantAgentMetadataChange>? metadataChanges = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var agent = await context.Agents
@@ -158,6 +168,16 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
                 agent.McpServers.Add(new AssistantAgentMcpServer { AgentId = agent.Id, McpServerId = serverId });
             }
         }
+        var changes = metadata is { Count: > 0 } && agent.Source == NhAssistantAgentSources.Admin
+            ? await NhAssistantAgentMetadataStore.ApplyDataAsync(
+                context,
+                agent.Id,
+                agent.Version,
+                metadata,
+                agent.UpdatedBy ?? string.Empty,
+                agent.UpdatedAt,
+                cancellationToken)
+            : [];
         try
         {
             await context.SaveChangesAsync(cancellationToken);
@@ -165,6 +185,10 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         catch (DbUpdateConcurrencyException)
         {
             return NhAssistantStoreResult<AssistantAgent>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+        foreach (var change in changes)
+        {
+            metadataChanges?.Add(change);
         }
         return NhAssistantStoreResult<AssistantAgent>.Ok(agent);
     }

@@ -321,7 +321,18 @@ public enum NhAssistantAuditEventKind
     /// name its subject. The text, title, link and sender are never recorded. A repeated post with the
     /// same idempotency key records nothing.
     /// </summary>
-    ApplicationMessagePosted = 70
+    ApplicationMessagePosted = 70,
+
+    /// <summary>
+    /// An administrator or the application stored or removed the value of an agent metadata entry
+    /// (<c>AddAgentMetadata</c>). <see cref="NhAssistantAuditEvent.AgentId"/> is the agent,
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> and <see cref="NhAssistantAuditEvent.MetadataEntry"/>
+    /// the entry's name, <see cref="NhAssistantAuditEvent.AgentVersion"/> the agent's new version for an
+    /// agent created at runtime or the override's version for an agent in code, and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>created</c>, <c>changed</c> or <c>removed</c>.
+    /// Never the value.
+    /// </summary>
+    AdminAgentMetadataChanged = 71
 }
 
 /// <summary>
@@ -520,6 +531,13 @@ public sealed record NhAssistantAuditEvent(
     /// for a consultation in code and other events.
     /// </summary>
     public int? ConsultationVersion { get; init; }
+
+    /// <summary>
+    /// The name of the agent metadata entry (<c>AddAgentMetadata</c>) an
+    /// <see cref="NhAssistantAuditEventKind.AdminAgentMetadataChanged"/> event concerns; never its value.
+    /// <see langword="null"/> for other events.
+    /// </summary>
+    public string? MetadataEntry { get; init; }
 
     /// <summary>
     /// The run of the agent that handed work off.

@@ -275,6 +275,21 @@ editor, and the switches that turn a route off for all of the starter's consulta
 add, change and remove consultations there with only the routes, requests and limits the ceiling and
 the agent allow, and the flow's "When it runs" step names the consultation with its problems.
 
+The application keeps its own data about agents as agent metadata (SPM-313). The project planner's
+composition registers the cost center with `AddAgentMetadata<SampleAgentCostCenter>`: its JSON shape,
+at most 512 bytes, a validator that accepts only codes such as CC-4100 (`value.code:
+unknown-cost-center` otherwise), the code as its searchable value and `Editable()`. The planner sets
+CC-4100 in `ConfigureAgent`, which startup checks as a save checks data. In the portal's assistant
+administration, and in the playground on the mock API, the planner's editor shows an Application fields
+section below its form with a slot for the cost center, where the portal's own editor
+(`AssistantCostCenterEditorComponent`, registered with `provideNhAssistantAgentMetadataEditors`) shows
+the value from code and saves an override; "Use the cost center from code" removes it again. An agent
+created in the administration gets its cost center with its definition or in the slot, each change its
+next version. `AssistantAgentRunSamplesTests` overrides the planner's cost center, creates an agent with
+one, finds both with `INhAssistantAgentMetadata.ListAgentsAsync` whatever the code's case, and proves
+that people who do not administer neither read nor change it; NewHeap itself never reads the cost
+center.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server
