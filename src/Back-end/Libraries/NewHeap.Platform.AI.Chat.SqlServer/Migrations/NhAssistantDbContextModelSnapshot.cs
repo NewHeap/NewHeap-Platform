@@ -87,6 +87,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("InstructionsAssetVersion")
                         .HasColumnType("int");
 
+                    b.Property<bool>("InstructionsFromAsset")
+                        .HasColumnType("bit");
+
                     b.Property<string>("InstructionsHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -271,9 +274,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
-
-                    b.Property<bool>("Off")
-                        .HasColumnType("bit");
 
                     b.Property<string>("ProposalPolicyId")
                         .HasMaxLength(128)
@@ -614,6 +614,13 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(20000)
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("InstructionsAssetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("InstructionsAssetVersion")
+                        .HasColumnType("int");
+
                     b.Property<string>("InstructionsHash")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
@@ -724,9 +731,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<int>("Version")
-                        .HasColumnType("int");
-
                     b.Property<string>("AgentId")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -784,13 +788,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
-                        .HasDefaultValue("live");
-
                     b.Property<string>("SubjectSetName")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -807,13 +804,12 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.HasKey("Id", "Version");
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("AgentId");
-
-                    b.HasIndex("AgentId", "Status");
-
-                    b.HasIndex("Id", "Status");
 
                     b.ToTable("AssistantAgentTriggerDefinition", "nhai");
                 });
@@ -2356,9 +2352,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(8000)
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("TriggerCandidate")
-                        .HasColumnType("bit");
-
                     b.Property<string>("TriggerId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -2496,9 +2489,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<int>("ToolCalls")
                         .HasColumnType("int");
 
-                    b.Property<bool>("TriggerCandidate")
-                        .HasColumnType("bit");
-
                     b.Property<string>("TriggerEventKey")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -2511,9 +2501,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<string>("TriggerKind")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
-
-                    b.Property<int?>("TriggerVersion")
-                        .HasColumnType("int");
 
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uniqueidentifier");

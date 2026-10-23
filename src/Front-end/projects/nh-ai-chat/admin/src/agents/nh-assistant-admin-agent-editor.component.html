@@ -255,22 +255,33 @@
     <input type="text" [id]="id + '-description'" [value]="description()" (input)="description.set(value($event))" />
   </div>
 
-  <div class="field">
-    <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}</label>
-    <textarea
-      rows="8"
-      [id]="id + '-instructions'"
-      [value]="instructions()"
-      [attr.aria-describedby]="id + '-instructions-hint'"
-      [attr.aria-invalid]="tooLong() ? true : null"
-      (input)="instructions.set(value($event))"></textarea>
-    <p class="hint" [id]="id + '-instructions-hint'">
-      <span [class.error-text]="tooLong()">
-        {{ (tooLong() ? 'nh-assistant.admin.too-long' : 'nh-assistant.admin.agent-editor.instructions-hint') | translate }}
-      </span>
-      <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: max } }}</span>
-    </p>
-  </div>
+  @if (choosesUse()) {
+    <nh-assistant-instructions-asset
+      [idPrefix]="id + '-instructions'"
+      [available]="assetsAvailable()"
+      [(source)]="instructionsSource"
+      [(reference)]="instructionsAsset"
+      [problem]="assetProblem()"
+      [error]="assetError()" />
+  }
+  @if (instructionsSource() === 'inline') {
+    <div class="field">
+      <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}</label>
+      <textarea
+        rows="8"
+        [id]="id + '-instructions'"
+        [value]="instructions()"
+        [attr.aria-describedby]="id + '-instructions-hint'"
+        [attr.aria-invalid]="tooLong() ? true : null"
+        (input)="instructions.set(value($event))"></textarea>
+      <p class="hint" [id]="id + '-instructions-hint'">
+        <span [class.error-text]="tooLong()">
+          {{ (tooLong() ? 'nh-assistant.admin.too-long' : 'nh-assistant.admin.agent-editor.instructions-hint') | translate }}
+        </span>
+        <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: max } }}</span>
+      </p>
+    </div>
+  }
 
   <div class="grid">
     <div class="field">

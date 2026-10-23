@@ -26,6 +26,7 @@ import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations'
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 import { mockClassificationWarnings, mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 
 /** A mock response: status plus optional JSON body. */
 interface MockResult {
@@ -108,7 +109,8 @@ export class NhAssistantMockRunConfiguration {
     scenario: NhAssistantMockAdminScenario,
     private readonly agents: NhAssistantMockRunAgents,
     private readonly now: () => string,
-    private readonly accounts: NhAssistantMockAccounts = new NhAssistantMockAccounts(scenario)
+    private readonly accounts: NhAssistantMockAccounts = new NhAssistantMockAccounts(scenario),
+    private readonly instructionAssets: NhAssistantMockInstructionAssets = new NhAssistantMockInstructionAssets(scenario.instructionAssets)
   ) {
     const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
     this.consultations = new NhAssistantMockConsultations(scenario.consultationsAsData, scenario.agents ?? [], {
@@ -142,7 +144,8 @@ export class NhAssistantMockRunConfiguration {
       divisions: scenario.runCatalog?.divisions ?? false,
       // The platform's default file limits, unless the scenario's application chose its own.
       fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits,
-      consultationCeiling: this.consultations.applicationCeiling
+      consultationCeiling: this.consultations.applicationCeiling,
+      instructionAssets: instructionAssets.supported
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
       ...trigger,
@@ -255,6 +258,10 @@ export class NhAssistantMockRunConfiguration {
       codeTriggers: this.codeTriggers.filter(trigger => trigger.agentId === agent.id).map(({ agentId, ...trigger }) => trigger),
       dataTriggers,
       problems: [
+        ...dataSkills
+          .flatMap(skill => [{ kind: 'skill' as const, skill }, ...(skill.candidate ? [{ kind: 'candidate' as const, skill: skill.candidate }] : [])])
+          .filter(entry => entry.skill.instructionsAsset && entry.skill.problem !== null)
+          .map(entry => ({ agentId: agent.id, kind: entry.kind, id: entry.skill.skillId, code: entry.skill.problem! })),
         ...dataTriggers
           .filter(trigger => trigger.problem !== null)
           .map(trigger => ({ agentId: agent.id, kind: 'trigger' as const, id: trigger.triggerId, code: trigger.problem! })),
@@ -439,6 +446,14 @@ export class NhAssistantMockRunConfiguration {
     if ((request.instructions ?? '').length > maxInstructions) {
       errors['instructions'] = ['too-long'];
     }
+    // A version takes its instructions from an asset of the application or has text of its own.
+    const instructionsAsset = request.instructionsAsset ?? null;
+    if (instructionsAsset !== null) {
+      if (text(request.instructions) !== null) {
+        errors['instructions'] = ['not-allowed'];
+      }
+      this.instructionAssets.check(instructionsAsset, errors);
+    }
     if ((request.tools ?? []).some(tool => !agent.toolSelectors.some(selector => covers(selector, tool)))) {
       errors['tools'] = ['invalid'];
     }
@@ -478,14 +493,17 @@ export class NhAssistantMockRunConfiguration {
         version.status = 'superseded';
       }
     }
-    const instructions = text(request.instructions);
+    const instructions = instructionsAsset === null ? text(request.instructions) : null;
     const saved: StoredSkillVersion = {
       skillId,
       version: versions.reduce((latest, version) => Math.max(latest, version.version), 0) + 1,
       status: candidate ? 'candidate' : 'live',
       description: description!,
       instructions,
-      instructionsHash: instructions === null ? null : hashText(instructions),
+      instructionsHash: instructionsAsset?.hash ?? (instructions === null ? null : hashText(instructions)),
+      instructionsAsset: instructionsAsset === null
+        ? null
+        : { assetId: instructionsAsset.assetId, version: instructionsAsset.version, hash: instructionsAsset.hash },
       tools: [...new Set(request.tools ?? [])],
       profile: text(request.profile),
       dataClassification: classification as AssistantDataClassification | null,
@@ -567,7 +585,8 @@ export class NhAssistantMockRunConfiguration {
         instructionsHash: version.instructionsHash,
         createdAt: version.changedAt,
         createdBy: version.changedBy,
-        reason: version.reason
+        reason: version.reason,
+        instructionsAsset: version.instructionsAsset ?? null
       }));
   }
 
@@ -858,8 +877,11 @@ export class NhAssistantMockRunConfiguration {
    * that its profile, or else its agent's, does not permit.
    */
   private withWarnings(agent: AdminAgent | undefined, skill: DataSkill): DataSkill {
+    // A version whose asset no longer resolves to its hash is out of effect, as after the server's load.
+    const assetProblem = skill.instructionsAsset ? this.instructionAssets.problemOf(skill.instructionsAsset) : null;
     return {
       ...skill,
+      ...(assetProblem !== null ? { inEffect: false, problem: assetProblem } : {}),
       warnings: mockClassificationWarnings(
         this.profileClassifications,
         skill.profile ?? agent?.profile,

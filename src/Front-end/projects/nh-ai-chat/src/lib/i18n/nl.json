@@ -475,7 +475,10 @@
       "assistant-consultation-not-found": "De raadpleging is niet gevonden.",
       "assistant-consultations-not-allowed": "De applicatie laat beheerders geen raadplegingen aan deze agent toevoegen.",
       "assistant-metadata-entry-not-found": "De applicatie kent dit veld van agents niet.",
-      "assistant-metadata-read-only": "De applicatie zet dit veld van de agent in haar code; het kan hier niet veranderen."
+      "assistant-metadata-read-only": "De applicatie zet dit veld van de agent in haar code; het kan hier niet veranderen.",
+      "assistant-instructions-asset-not-found": "De applicatie heeft deze tekst niet in deze versie.",
+      "assistant-instructions-asset-unavailable": "De teksten van de applicatie zijn nu niet te lezen. Er is niets opgeslagen; probeer het zo opnieuw.",
+      "assistant-agent-instructions-unavailable": "Deze agent kan nu niet werken: de tekst van de applicatie met zijn instructies is niet beschikbaar. Een beheerder controleert de agent."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -1266,7 +1269,12 @@
             "limit-above-ceiling": "een grens ligt boven wat de applicatie toestaat, dus die van de applicatie geldt.",
             "requests-not-allowed": "de applicatie staat geen verzoeken meer toe, dus ze neemt er geen aan.",
             "mcp-not-allowed": "de applicatie biedt raadplegingen niet meer aan MCP-clients aan, dus die zien haar niet.",
-            "tools-not-allowed": "een gekozen tool hoort niet meer bij de eigen tools van de agent en valt weg; zonder tools krijgt de agent er geen enkele tool."
+            "tools-not-allowed": "een gekozen tool hoort niet meer bij de eigen tools van de agent en valt weg; zonder tools krijgt de agent er geen enkele tool.",
+            "no-asset-source": "de instructies komen uit de teksten van de applicatie, die de applicatie niet meer aanbiedt.",
+            "asset-missing": "de applicatie heeft de tekst met de instructies niet meer in deze versie.",
+            "asset-changed": "de tekst met de instructies is veranderd sinds hij is opgeslagen en wordt daarom niet gebruikt. Lees de tekst opnieuw en sla hem op als volgende versie.",
+            "asset-invalid": "de tekst van de applicatie is niet te gebruiken als instructies.",
+            "asset-unavailable": "de teksten van de applicatie waren niet te lezen; ze worden zo opnieuw gelezen."
           }
         },
         "field-errors": {
@@ -1940,6 +1948,46 @@
         "id": "Account-ID {{id}}",
         "copy-id": "Account-ID van {{name}} kopiëren",
         "id-copied": "Account-ID gekopieerd"
+      },
+      "instruction-assets": {
+        "source": "Waar komen de instructies vandaan?",
+        "source-inline": "Hier geschreven",
+        "source-inline-hint": "Typ de instructies in dit formulier.",
+        "source-asset": "Tekst van de applicatie",
+        "source-asset-hint": "Instructies die de applicatie meelevert of bewaart, in een vaste versie. Een nieuwe versie wordt pas gebruikt als je hem opslaat.",
+        "not-offered": "De applicatie biedt haar teksten niet meer aan; schrijf de instructies hier zodat dit blijft werken.",
+        "loading": "De teksten van de applicatie laden…",
+        "asset": "Tekst",
+        "asset-hint": "De applicatie toont de teksten die je kunt kiezen, elk in een vaste versie.",
+        "choose": "Kies een tekst",
+        "option": "{{asset}}, versie {{version}}",
+        "deprecated": "Vervangen door de applicatie",
+        "deprecated-by": "Vervangen door {{asset}}",
+        "none-listed": "De applicatie toont geen teksten; vul de id en versie in die je van haar kreeg.",
+        "asset-id": "Id van de tekst",
+        "version": "Versie",
+        "read": "Tekst lezen",
+        "reading": "De tekst lezen…",
+        "reference": "Gebruikt {{asset}}, versie {{version}}.",
+        "hash": "Hash {{hash}}",
+        "newer": "Versie {{version}} van deze tekst is beschikbaar. Kies hem en sla op om hem te gebruiken; tot dan blijft de huidige versie in gebruik.",
+        "text": "Tekst van de instructies",
+        "text-hint": "Alleen lezen: deze tekst is van de applicatie. Opslaan bewaart welke tekst en versie, nooit een kopie.",
+        "agent-problem": "De agent werkt niet:",
+        "problems": {
+          "no-asset-source": "De applicatie biedt haar teksten niet meer aan; de instructies zijn niet beschikbaar.",
+          "asset-missing": "De applicatie heeft deze tekst niet meer in deze versie.",
+          "asset-changed": "De tekst is veranderd sinds hij is opgeslagen en wordt daarom niet gebruikt. Lees hem opnieuw en sla op om de nieuwe tekst te gebruiken.",
+          "asset-invalid": "Deze tekst is niet te gebruiken als instructies.",
+          "asset-unavailable": "De teksten van de applicatie waren niet te lezen; ze worden zo opnieuw gelezen."
+        },
+        "errors": {
+          "required": "Kies een tekst en lees hem eerst.",
+          "not-found": "De applicatie heeft deze tekst niet in deze versie.",
+          "changed": "De tekst is veranderd sinds je hem las. Lees hem opnieuw voordat je opslaat.",
+          "invalid": "Vul een id in met kleine letters, cijfers en streepjes, en een versie van 1 of hoger. Mogelijk staat de applicatie deze tekst ook niet toe als instructies.",
+          "not-allowed": "De applicatie biedt haar teksten hier niet aan."
+        }
       }
     },
     "page-context": {

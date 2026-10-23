@@ -18,6 +18,7 @@ import {
   AdminAgentInput,
   AssistantAutonomy,
   AssistantDataClassification,
+  InstructionAssetReference,
   McpServer,
   ɵNH_ASSISTANT_DASH_CASE as NH_ASSISTANT_DASH_CASE,
   NhAssistantAdminApiService,
@@ -32,6 +33,8 @@ import {
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
 import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
+import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './run-config/nh-assistant-instructions-asset.component';
+import { RunConfigFieldError } from './run-config/run-config-shared';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -74,7 +77,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentMetadataComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentMetadataComponent, NhAssistantInstructionsAssetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agent-editor.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -115,6 +118,10 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly displayName = signal('');
   readonly description = signal('');
   readonly instructions = signal('');
+  /** Whether the instructions of an agent created here are written here or come from an asset of the application. */
+  readonly instructionsSource = signal<InstructionsSource>('inline');
+  /** The application's asset the agent names, once chosen and read. */
+  readonly instructionsAsset = signal<InstructionAssetReference | null>(null);
   readonly autonomy = signal<AssistantAutonomy>('explain');
   /** How the agent is used: in the chat, on its own, or both. */
   readonly use = signal<AgentUse>('chat');
@@ -169,7 +176,31 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly choosesUse = computed(() => this.agent()?.source !== 'code');
   readonly idInvalid = computed(() => this.isNew() && !NH_ASSISTANT_DASH_CASE.test(this.agentId()));
   readonly nameMissing = computed(() => this.displayName().trim().length === 0);
-  readonly tooLong = computed(() => this.instructions().length > this.max);
+  readonly tooLong = computed(() => this.instructionsSource() === 'inline' && this.instructions().length > this.max);
+  /**
+   * Only an agent created here takes its instructions from an asset, when the application offers its
+   * assets; one that names an asset keeps showing it.
+   */
+  readonly assetsAvailable = computed(() => this.choosesUse() && this.catalog()?.instructionAssets === true);
+  /** An asset is the source, but none is chosen and read yet. */
+  readonly assetMissing = computed(() => this.instructionsSource() === 'asset' && this.instructionsAsset() === null);
+  /** The problem of the asset the saved agent names, while it is still the choice. */
+  readonly assetProblem = computed(() => {
+    const agent = this.agent();
+    return agent?.instructionsProblem && sameInstructionAsset(agent.instructionsAsset, this.instructionsAsset()) ? agent.instructionsProblem : null;
+  });
+  /** The error of the asset choice: chosen none, or the save's refusal of the reference. */
+  readonly assetError = computed<RunConfigFieldError | null>(() => {
+    const errors = this.error()?.fieldErrors;
+    if (errors?.['instructionsAsset.hash']?.length) {
+      return { code: 'changed' };
+    }
+    const code = errors?.['instructionsAsset']?.[0];
+    if (code) {
+      return { code };
+    }
+    return this.submitted() && this.assetMissing() ? { code: 'required' } : null;
+  });
   readonly selectorInvalid = computed(() => this.newSelector().trim().length > 0 && !selectorPattern.test(this.newSelector().trim()));
   /**
    * The application's own object types, by name; the platform's types, such as the whole
@@ -219,7 +250,7 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly warningKeys = warningKeys;
   /** The warnings of the agent as it was saved, until this editor saves it again. */
   readonly warnings = computed(() => this.agent()?.warnings ?? []);
-  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong() && !this.worksOnMissing() && !this.tooManyTypes());
+  readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.tooLong() && !this.assetMissing() && !this.worksOnMissing() && !this.tooManyTypes());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly filteredTools = computed(() => {
     const filter = this.catalogFilter().trim().toLowerCase();
@@ -311,11 +342,14 @@ export class NhAssistantAdminAgentEditorComponent {
     }
 
     const policy = this.requiredPolicy().trim();
+    const fromAsset = this.instructionsSource() === 'asset';
     const input: AdminAgentInput = {
       id: this.isNew() ? this.agentId() : this.editing()!.id,
       displayName: keyOrText(this.displayName(), this.keyedName),
       description: keyOrText(this.description(), this.keyedDescription),
-      instructions: this.instructions(),
+      // An agent that names an asset stores no text; omitted, the instructions are text again.
+      instructions: fromAsset ? '' : this.instructions(),
+      ...(fromAsset ? { instructionsAsset: this.instructionsAsset() } : {}),
       toolSelectors: this.toolSelectors(),
       mcpServerIds: this.mcpServerIds(),
       requiredPolicy: policy.length > 0 ? policy : null,
@@ -392,7 +426,10 @@ export class NhAssistantAdminAgentEditorComponent {
     this.keyedDescription = agent?.source === 'code' ? this.keyed(agent.description) : null;
     this.displayName.set(this.keyedName?.shown ?? agent?.displayName ?? '');
     this.description.set(this.keyedDescription?.shown ?? agent?.description ?? '');
+    // The asset's text, read-only while the agent names it, is where text written here starts from.
     this.instructions.set(agent?.instructions ?? '');
+    this.instructionsSource.set(agent?.source === 'admin' && agent.instructionsAsset ? 'asset' : 'inline');
+    this.instructionsAsset.set(agent?.source === 'admin' ? agent.instructionsAsset ?? null : null);
     this.autonomy.set(agent?.autonomy ?? 'explain');
     this.use.set(agent?.offeredInChat === false ? 'background' : 'chat');
     this.switchOnNow.set(true);

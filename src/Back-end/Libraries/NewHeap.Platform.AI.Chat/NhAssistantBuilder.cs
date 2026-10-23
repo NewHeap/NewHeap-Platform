@@ -790,6 +790,26 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets a data skill version and an agent created in the administration take their instructions
+    /// from the application's own text assets instead of text an administrator writes: they store the
+    /// asset's id, version and content hash (<see cref="NhAssistantInstructionAssetReference"/>), and the
+    /// source supplies the text. A save asks the source and refuses an asset that is missing or whose
+    /// hash differs; every load of the run configuration asks again, and an asset that is missing, no
+    /// longer has the saved hash or cannot be read is a problem the administration shows: the skill is
+    /// out of effect and the agent does not run. A new version of an asset takes effect only when an
+    /// administrator saves it as the next version of the skill or agent. Inline instructions stay
+    /// possible next to it. The source is registered scoped, unless the application registered it
+    /// already, for example as a singleton.
+    /// </summary>
+    public NhAssistantBuilder UseTextAssetSource<TSource>()
+        where TSource : class, INhAiTextAssetSource
+    {
+        Services.TryAddScoped<TSource>();
+        Services.Replace(ServiceDescriptor.Scoped<INhAiTextAssetSource>(provider => provider.GetRequiredService<TSource>()));
+        return this;
+    }
+
+    /// <summary>
     /// Configures how people upload files to a conversation with
     /// <c>POST {prefix}/conversations/{id}/files</c>: the media types they may upload (PDF, PNG,
     /// JPEG, Word and Excel by default), the extensions it maps to its own types

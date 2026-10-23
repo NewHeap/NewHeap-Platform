@@ -466,6 +466,63 @@ public sealed record NhAssistantRunCatalogDto(
     /// name: the slots of the agent editor, where the application shows its own editor per entry.
     /// </summary>
     public IReadOnlyList<NhAssistantAgentMetadataEntryDto> AgentMetadata { get; init; } = [];
+
+    /// <summary>
+    /// Whether the application registered a text asset source (<c>UseTextAssetSource</c>), so a data
+    /// skill version and an agent created in the administration may take their instructions from its
+    /// assets (<c>instructionsAsset</c>); <c>GET admin/instruction-assets</c> lists the ones it offers.
+    /// </summary>
+    public bool InstructionAssets { get; init; }
+}
+
+/// <summary>
+/// The application's text assets an administrator may choose as instructions
+/// (<c>GET admin/instruction-assets</c>).
+/// </summary>
+/// <param name="Supported">Whether the application registered a text asset source.</param>
+/// <param name="Assets">The trusted system instructions it lists, in its order; empty when it lists
+/// none, so an administrator names the id and version.</param>
+public sealed record NhAssistantInstructionAssetListDto(
+    bool Supported,
+    IReadOnlyList<NhAssistantInstructionAssetDto> Assets);
+
+/// <summary>
+/// One asset of the application, without its content.
+/// </summary>
+/// <param name="AssetId">The asset's id.</param>
+/// <param name="Version">The asset's version.</param>
+/// <param name="Hash">The SHA-256 of its content as its manifest states it; a save checks it against
+/// the content.</param>
+public sealed record NhAssistantInstructionAssetDto(string AssetId, int Version, string Hash)
+{
+    /// <summary>
+    /// The asset that replaces it, when the application deprecated it.
+    /// </summary>
+    public string? ReplacedByAssetId { get; init; }
+
+    /// <summary>
+    /// When the application deprecated it; <see langword="null"/> for an asset in use.
+    /// </summary>
+    public DateTimeOffset? DeprecatedAt { get; init; }
+}
+
+/// <summary>
+/// The text of one asset of the application, for an administrator to read before choosing it
+/// (<c>GET admin/instruction-assets/{id}/versions/{version}</c>).
+/// </summary>
+/// <param name="AssetId">The asset's id.</param>
+/// <param name="Version">The asset's version.</param>
+/// <param name="Hash">The SHA-256 of <paramref name="Content"/>, lowercase hex: the hash a reference
+/// stores.</param>
+/// <param name="Content">The asset's text, read-only.</param>
+public sealed record NhAssistantInstructionAssetTextDto(string AssetId, int Version, string Hash, string Content)
+{
+    /// <summary>
+    /// <c>asset-invalid</c> when the asset cannot be instructions (not trusted system instructions of
+    /// the application, or a manifest whose hash is not the hash of its content), so a save refuses
+    /// it; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? Problem { get; init; }
 }
 
 /// <summary>
@@ -849,6 +906,13 @@ public sealed record NhAssistantAgentRequest(
     public IReadOnlyDictionary<string, JsonElement>? Metadata { get; init; }
 
     /// <summary>
+    /// The asset of the application the agent takes its instructions from, instead of
+    /// <see cref="Instructions"/>, which is then empty; checked as
+    /// <see cref="NhAssistantDataSkillRequest.InstructionsAsset"/> is.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
     /// The agent starts in shadow: once it has run settings, also when
     /// <see cref="INhAssistantAgentConfiguration.SaveRunSettingsAsync"/> saves them right after in the
     /// same request, its runs work in its shadow threads, where nobody is notified and nothing executes,
@@ -1150,6 +1214,14 @@ public sealed record NhAssistantDataSkillDto(
     /// The most estimated file tokens of one turn; <see langword="null"/> keeps the agent's.
     /// </summary>
     public int? MaxFileTokensPerTurn { get; init; }
+
+    /// <summary>
+    /// The asset of the application the version takes its instructions from; <see langword="null"/>
+    /// for inline <see cref="Instructions"/> or none. Read its text with
+    /// <c>GET admin/instruction-assets/{id}/versions/{version}</c>; <see cref="Problem"/> says when it no
+    /// longer resolves to <see cref="InstructionsHash"/>.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -1194,7 +1266,14 @@ public sealed record NhAssistantDataSkillVersionDto(
     string? InstructionsHash,
     DateTimeOffset CreatedAt,
     string CreatedBy,
-    string? Reason);
+    string? Reason)
+{
+    /// <summary>
+    /// The asset of the application the version takes its instructions from; <see langword="null"/>
+    /// for inline instructions or none.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+}
 
 /// <param name="Source"><c>event</c> or <c>schedule</c>.</param>
 /// <param name="Conflict"><c>coalesce</c>, <c>queue</c>, <c>supersede</c> or <c>ignore</c>.</param>
@@ -1337,7 +1416,21 @@ public sealed record NhAssistantDataSkillRequest(
     int? MaxFileBytes = null,
     int? MaxFilePages = null,
     int? MaxFilesPerTurn = null,
-    int? MaxFileTokensPerTurn = null);
+    int? MaxFileTokensPerTurn = null)
+{
+    /// <summary>
+    /// The asset of the application the version takes its instructions from, instead of
+    /// <see cref="Instructions"/> (<c>instructions: not-allowed</c> next to it): its id, exact version
+    /// and the SHA-256 of its content. The save asks the application's text asset source:
+    /// <c>instructionsAsset: not-allowed</c> without a source (<c>UseTextAssetSource</c>),
+    /// <c>instructionsAsset: invalid</c> for a malformed reference or an asset that cannot be
+    /// instructions, <c>instructionsAsset: not-found</c> for an asset or version the source does not
+    /// have, <c>instructionsAsset.hash: invalid</c> for another hash, and
+    /// <c>503 assistant-instructions-asset-unavailable</c> when the source fails. A new version of the
+    /// asset is the skill's next version, saved like any change.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+}
 
 /// <summary>
 /// How a change of a data skill, or of a data trigger, takes effect.
@@ -1462,7 +1555,8 @@ internal sealed class NhAssistantAgentConfiguration(
                 registration.Limits.MaxFilesPerTurn,
                 registration.Limits.MaxFileTokensPerTurn),
             ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData),
-            AgentMetadata = services.GetRequiredService<INhAssistantAgentMetadata>().ListEntries()
+            AgentMetadata = services.GetRequiredService<INhAssistantAgentMetadata>().ListEntries(),
+            InstructionAssets = services.GetRequiredService<NhAssistantInstructionAssets>().Supported
         };
     }
 
@@ -1571,6 +1665,7 @@ internal sealed class NhAssistantAgentConfiguration(
                 string.IsNullOrWhiteSpace(request.Profile) ? null : request.Profile.Trim(),
                 string.IsNullOrWhiteSpace(request.DataClassification) ? null : request.DataClassification.Trim(),
                 request.Metadata,
+                request.InstructionsAsset,
                 request.StartsInShadow),
             actorId,
             cancellationToken);
@@ -1902,7 +1997,10 @@ internal sealed class NhAssistantAgentConfiguration(
         ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
         return (await store.ListSkillsAsync(agentId, cancellationToken))
             .Where(item => item.SkillId == skillId)
-            .Select(item => new NhAssistantDataSkillVersionDto(item.Version, item.Status, item.Description, item.InstructionsHash, item.CreatedAt, item.CreatedBy, item.Reason))
+            .Select(item => new NhAssistantDataSkillVersionDto(item.Version, item.Status, item.Description, item.InstructionsHash, item.CreatedAt, item.CreatedBy, item.Reason)
+            {
+                InstructionsAsset = NhAssistantInstructionAssets.ReferenceOf(item)
+            })
             .ToArray();
     }
 
@@ -1933,12 +2031,15 @@ internal sealed class NhAssistantAgentConfiguration(
 
         var description = request.Description?.Trim();
         var instructions = string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim();
+        var instructionsAsset = request.InstructionsAsset;
         var tools = (request.Tools ?? []).Select(tool => tool?.Trim() ?? string.Empty).Distinct(StringComparer.Ordinal).ToArray();
         var errors = new NhAssistantValidationErrors()
             .Require(NhAiSubjectRef.IsValidType(skillId), "skillId", NhAssistantFieldErrors.Invalid)
             .Require(!string.IsNullOrEmpty(description), "description", NhAssistantFieldErrors.Required)
             .Require(description is null || description.Length <= NhAssistantSkillBuilder.MaxDescriptionLength, "description", NhAssistantFieldErrors.TooLong)
             .Require(instructions is null || instructions.Length <= NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength, "instructions", NhAssistantFieldErrors.TooLong)
+            // A version takes its instructions from an asset of the application or has text of its own.
+            .Require(instructionsAsset is null || instructions is null, "instructions", NhAssistantFieldErrors.NotAllowed)
             .Require(request.MaxTokensPerRun is null or >= 1, "maxTokensPerRun", NhAssistantFieldErrors.Invalid)
             .Require((request.DailyToolCalls is null) == (request.DailyTokens is null) && request.DailyToolCalls is null or >= 1 && request.DailyTokens is null or >= 1, "dailyBudget", NhAssistantFieldErrors.Invalid)
             .Require(request.Apply is null or NhAssistantSkillApplyModes.Live or NhAssistantSkillApplyModes.Shadow, "apply", NhAssistantFieldErrors.Invalid)
@@ -1952,6 +2053,16 @@ internal sealed class NhAssistantAgentConfiguration(
                 "dataClassification",
                 NhAssistantFieldErrors.Invalid);
         RequireFileLimits(errors, request.AcceptsFiles, request.MaxFileBytes, request.MaxFilePages, request.MaxFilesPerTurn, request.MaxFileTokensPerTurn);
+        // The save asks the application's source: the asset must exist and have the hash it names.
+        if (instructionsAsset is not null
+            && await services.GetRequiredService<NhAssistantInstructionAssets>().ValidateForSaveAsync(
+                instructionsAsset,
+                NhAssistantAgentConfigurationLimits.MaxSkillInstructionsLength,
+                errors,
+                cancellationToken) is { } unavailable)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(unavailable);
+        }
         if (!errors.IsEmpty)
         {
             return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
@@ -1964,7 +2075,9 @@ internal sealed class NhAssistantAgentConfiguration(
             SkillId = skillId,
             Description = description!,
             Instructions = instructions,
-            InstructionsHash = instructions is null ? null : NhAssistantAgentCatalog.ComputeHash(instructions),
+            InstructionsHash = instructionsAsset?.Hash ?? (instructions is null ? null : NhAssistantAgentCatalog.ComputeHash(instructions)),
+            InstructionsAssetId = instructionsAsset?.AssetId,
+            InstructionsAssetVersion = instructionsAsset?.Version,
             ToolSelectorsJson = JsonSerializer.Serialize(tools),
             ProfileName = Blank(request.Profile),
             DataClassification = Blank(request.DataClassification),
@@ -2015,7 +2128,8 @@ internal sealed class NhAssistantAgentConfiguration(
             saved.Value.InstructionsHash,
             asCandidate ? "candidate" : saved.Value.Version == 1 || request.ExpectedVersion is null ? "created" : "changed",
             actorId,
-            cancellationToken);
+            cancellationToken,
+            NhAssistantInstructionAssets.ReferenceOf(saved.Value)?.InstructionsVersion);
         await configurations.ReloadAsync(cancellationToken);
         // The save succeeds also when no profile permits the skill's classification; the warning
         // tells the administrator that its model calls will be refused.
@@ -2166,7 +2280,8 @@ internal sealed class NhAssistantAgentConfiguration(
             changed.Value.InstructionsHash,
             promote ? "promoted" : "discarded",
             actorId,
-            cancellationToken);
+            cancellationToken,
+            NhAssistantInstructionAssets.ReferenceOf(changed.Value)?.InstructionsVersion);
         await configurations.ReloadAsync(cancellationToken);
         return (null, changed.Value);
     }
@@ -2206,7 +2321,15 @@ internal sealed class NhAssistantAgentConfiguration(
                 return TaskResult.Failed(NhAssistantErrorCodes.SkillInUse, "A data trigger names the skill.");
         }
 
-        await events.SkillDefinitionChangedAsync(agentId, skillId, removed.Value!.Version, removed.Value.InstructionsHash, "removed", actorId, cancellationToken);
+        await events.SkillDefinitionChangedAsync(
+            agentId,
+            skillId,
+            removed.Value!.Version,
+            removed.Value.InstructionsHash,
+            "removed",
+            actorId,
+            cancellationToken,
+            NhAssistantInstructionAssets.ReferenceOf(removed.Value)?.InstructionsVersion);
         await configurations.ReloadAsync(cancellationToken);
         return TaskResult.Succeeded();
     }
@@ -3163,7 +3286,8 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxFileBytes = item.MaxFileBytes,
             MaxFilePages = item.MaxFilePages,
             MaxFilesPerTurn = item.MaxFilesPerTurn,
-            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn
+            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn,
+            InstructionsAsset = NhAssistantInstructionAssets.ReferenceOf(item)
         };
     }
 

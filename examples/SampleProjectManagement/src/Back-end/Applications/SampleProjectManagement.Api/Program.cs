@@ -333,6 +333,8 @@ builder.Services.AddSampleStatusAdvisor();
 builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectCloserComposition.ServiceAccountKey]);
 builder.Services.AddSampleProjectPlanner();
 builder.Services.AddSampleProjectPlannerVariant();
+// SPM-320: skills defined as data may take their instructions from the sample's own text assets.
+builder.Services.AddSampleInstructionAssets();
 builder.Services.AddSampleProjectStarterBlocks();
 // SPM-305: assistant turns read files of the media library: chat uploads and project documents.
 builder.Services.AddSampleAssistantFiles();
@@ -374,6 +376,7 @@ builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
+builder.Services.AddScoped<SampleInstructionAssetService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();

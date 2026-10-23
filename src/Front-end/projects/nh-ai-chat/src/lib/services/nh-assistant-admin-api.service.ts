@@ -46,6 +46,8 @@ import {
   McpServerTestResult,
   McpTool,
   AssistantAccount,
+  InstructionAssetList,
+  InstructionAssetText,
   RunCatalog,
   RunConfigurationRemoval,
   SetAgentConsultationRoutesRequest,
@@ -362,6 +364,26 @@ export class NhAssistantAdminApiService {
   /** The building blocks in code that run settings, skills and triggers defined as data can name. */
   getRunCatalog(): Observable<RunCatalog> {
     return this.request<RunCatalog>('GET', 'admin/run-catalog');
+  }
+
+  /**
+   * The application's assets an administrator may choose as instructions, without their content
+   * (`GET admin/instruction-assets`). Fails with `assistant-instructions-asset-unavailable` when the
+   * application's source fails.
+   */
+  listInstructionAssets(): Observable<InstructionAssetList> {
+    return this.request<InstructionAssetList>('GET', 'admin/instruction-assets');
+  }
+
+  /**
+   * The text of one asset, read-only, with the hash a reference stores. Fails with
+   * `assistant-instructions-asset-not-found` for an asset or version the application does not have.
+   */
+  getInstructionAsset(assetId: string, version: number): Observable<InstructionAssetText> {
+    return this.request<InstructionAssetText>(
+      'GET',
+      `admin/instruction-assets/${encodeURIComponent(assetId)}/versions/${encodeURIComponent(String(version))}`
+    );
   }
 
   /**

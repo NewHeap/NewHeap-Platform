@@ -228,8 +228,10 @@ public sealed class AssistantTriggerVersionTests(AssistantDatabaseFixture databa
             Assert.True((await configuration.SaveTriggerAsync(Follower, "follower-changed", Trigger() with { Skill = null }, Admin)).Success);
             Assert.True((await configuration.SetTriggerShadowAsync(Follower, "follower-changed", false, Admin)).Success);
 
-            var receipt = Assert.Single((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>()
-                .PublishAsync(new ProjectChanged(Guid.NewGuid(), project, "data first"))).Where(item => item.TriggerId == "follower-changed"));
+            var receipt = Assert.Single(
+                await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>()
+                    .PublishAsync(new ProjectChanged(Guid.NewGuid(), project, "data first")),
+                item => item.TriggerId == "follower-changed");
             var run = (await Runs(host).FindRunAsync(receipt.RunId!.Value, CancellationToken.None))!;
             Assert.True(run.Shadow);
         }

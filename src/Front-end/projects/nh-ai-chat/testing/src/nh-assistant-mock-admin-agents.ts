@@ -9,9 +9,12 @@ import {
   AgentSummary,
   AssistantAutonomy,
   AssistantDataClassification,
+  InstructionAssetProblem,
+  InstructionAssetReference,
   NhAssistantConsultationRoute
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 import {
   NhAssistantMockResult,
   mockClassificationWarnings,
@@ -68,6 +71,8 @@ export interface NhAssistantMockAgentRules {
    * count for its route switches as consultations in code do.
    */
   dataConsultations(agentId: string): { subjectType: string; routes: NhAssistantConsultationRoute[] }[];
+  /** The application's text assets, which an agent created here may take its instructions from. */
+  instructionAssets?(): NhAssistantMockInstructionAssets;
 }
 
 /** The profile of an agent that did not choose one, as the application's chat profile. */
@@ -200,7 +205,7 @@ export class NhAssistantMockAdminAgents {
   agentsEndpoint(method: string, id: string | undefined, action: string | undefined, body: unknown, length: number): NhAssistantMockResult {
     if (id === undefined) {
       if (method === 'GET') {
-        return { status: 200, body: [...this.agents.values()].map(stored => stored.agent) };
+        return { status: 200, body: [...this.agents.values()].map(stored => this.withInstructions(stored.agent)) };
       }
       if (method !== 'POST') {
         return { status: 405 };
@@ -720,6 +725,21 @@ export class NhAssistantMockAdminAgents {
     if (typeof input?.instructions === 'string' && input.instructions.length > maxInstructions) {
       return failure('assistant-instructions-too-long');
     }
+    // Only an agent created here takes its instructions from an asset, never next to inline text.
+    if (input?.instructionsAsset) {
+      const errors: Record<string, string[]> = {};
+      if (source !== 'admin' || !this.rules.instructionAssets) {
+        errors['instructionsAsset'] = ['not-allowed'];
+      } else {
+        this.rules.instructionAssets().check(input.instructionsAsset, errors);
+      }
+      if (typeof input.instructions === 'string' && input.instructions.trim().length > 0) {
+        errors['instructions'] = ['not-allowed'];
+      }
+      if (Object.keys(errors).length > 0) {
+        return failure('assistant-validation', errors);
+      }
+    }
     if (!this.validAgent(input)) {
       return validationFailure();
     }
@@ -778,10 +798,13 @@ export class NhAssistantMockAdminAgents {
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
     // Metadata is not part of the definition; its values live with the mock's agent metadata.
-    const { isEnabled, startsOff, startsInShadow, profile, dataClassification, metadata, ...definition } = structuredClone(input);
+    const { isEnabled, startsOff, startsInShadow, profile, dataClassification, metadata, instructionsAsset, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
     // Only a new agent created here starts in shadow, as an override that applies once it has run settings.
     const createdInShadow = previous === undefined && source === 'admin' && startsInShadow === true;
+    // The agent shows the asset's text read-only, or none while it does not resolve.
+    const reference = source === 'admin' && instructionsAsset ? instructionsAsset : null;
+    const assetProblem = reference ? this.instructionsProblemOf(reference) : null;
     const chosenProfile = source === 'admin' && typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : null;
     const classification = chosenClassification(dataClassification) as AssistantDataClassification | null;
     return this.withWarnings({
@@ -796,7 +819,10 @@ export class NhAssistantMockAdminAgents {
       version,
       source,
       isOverridden,
-      instructionsHash: hashText(input.instructions),
+      instructions: reference ? this.rules.instructionAssets?.().textOf(reference) ?? '' : definition.instructions,
+      instructionsHash: reference ? reference.hash : hashText(input.instructions),
+      instructionsAsset: reference,
+      instructionsProblem: assetProblem,
       updatedAt: this.now(),
       runState: previous?.runState ?? (createdOff ? 'off' : 'active'),
       stateChangedAt: previous?.stateChangedAt ?? (createdOff && source === 'admin' ? this.now() : null),
@@ -820,6 +846,28 @@ export class NhAssistantMockAdminAgents {
         : mockWorksOnFromInput(input) ?? (previous ? pickWorksOn(previous) : { ...mockUndeclaredWorksOn, worksOnDeclared: true })),
       knownSubjectTypes: previous?.knownSubjectTypes ?? []
     });
+  }
+
+  /** Why the asset an agent created here names does not resolve now, or `null` when it does. */
+  private instructionsProblemOf(reference: InstructionAssetReference): InstructionAssetProblem | null {
+    const assets = this.rules.instructionAssets?.();
+    return assets ? assets.problemOf(reference) : 'no-asset-source';
+  }
+
+  /**
+   * The agent as a read finds it now: the text of the asset it names and the problem when that no
+   * longer resolves, as the server checks it at every load.
+   */
+  private withInstructions(agent: AdminAgent): AdminAgent {
+    if (!agent.instructionsAsset) {
+      return agent;
+    }
+    const problem = this.instructionsProblemOf(agent.instructionsAsset);
+    return {
+      ...agent,
+      instructions: problem === null ? this.rules.instructionAssets?.().textOf(agent.instructionsAsset) ?? '' : '',
+      instructionsProblem: problem
+    };
   }
 
   /** The agent with the warnings the server reports for it, from its profile and classification. */

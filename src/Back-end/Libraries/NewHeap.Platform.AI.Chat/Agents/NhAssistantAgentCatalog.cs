@@ -88,6 +88,19 @@ internal sealed record NhAssistantAgent(
     /// <see langword="null"/> for <see cref="NhAiDataClassification.Internal"/>. A skill's own wins.
     /// </summary>
     public NhAiDataClassification? DataClassification { get; init; }
+
+    /// <summary>
+    /// The asset of the application an agent created in the administration takes its instructions
+    /// from; <see langword="null"/> when they are text.
+    /// </summary>
+    public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// Why the instructions of <see cref="InstructionsAsset"/> are not available, one of the asset
+    /// problems of <see cref="NhAssistantRunConfigurationProblems"/>: the agent then starts no model turn
+    /// and its definition holds no usable instructions. <see langword="null"/> when they resolve.
+    /// </summary>
+    public string? InstructionsProblem { get; init; }
 }
 
 /// <summary>
@@ -100,7 +113,8 @@ internal sealed class NhAssistantAgentCatalog(
     NhAssistantAdminStore store,
     NhAssistantAgentRegistry registry,
     NhAssistantSeeder seeder,
-    NhAssistantRegistrationState registration)
+    NhAssistantRegistrationState registration,
+    NhAssistantInstructionAssets instructionAssets)
 {
     public async Task<IReadOnlyList<NhAssistantAgent>> ListAsync(
         bool includeDisabled,
@@ -108,10 +122,17 @@ internal sealed class NhAssistantAgentCatalog(
     {
         await seeder.EnsureSeededAsync(cancellationToken);
         var rows = await store.ListAgentsAsync(cancellationToken);
-        return rows
-            .Select(ToAgent)
-            .Where(agent => includeDisabled || IsWorking(agent))
-            .ToArray();
+        var agents = new List<NhAssistantAgent>(rows.Count);
+        foreach (var row in rows)
+        {
+            var agent = await ToAgentAsync(row, cancellationToken);
+            if (includeDisabled || IsWorking(agent))
+            {
+                agents.Add(agent);
+            }
+        }
+
+        return agents;
     }
 
     public async Task<NhAssistantAgent?> FindAsync(
@@ -125,8 +146,23 @@ internal sealed class NhAssistantAgentCatalog(
         {
             return null;
         }
-        var agent = ToAgent(row);
+        var agent = await ToAgentAsync(row, cancellationToken);
         return includeDisabled || IsWorking(agent) ? agent : null;
+    }
+
+    /// <summary>
+    /// The agent of <paramref name="row"/>, with the instructions of the application's asset it names
+    /// resolved first: from what the last load verified, otherwise from the source.
+    /// </summary>
+    public async Task<NhAssistantAgent> ToAgentAsync(AssistantAgent row, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (NhAssistantInstructionAssets.ReferenceOf(row) is { } reference && row.Source == NhAssistantAgentSources.Admin)
+        {
+            await instructionAssets.ResolveAsync(reference, NhAssistantAgentAdministration.MaxInstructionsLength, cancellationToken);
+        }
+
+        return ToAgent(row);
     }
 
     /// <summary>
@@ -153,8 +189,19 @@ internal sealed class NhAssistantAgentCatalog(
     {
         ArgumentNullException.ThrowIfNull(row);
         var selectors = JsonSerializer.Deserialize<string[]>(row.ToolSelectorsJson) ?? [];
+        var reference = row.Source == NhAssistantAgentSources.Admin ? NhAssistantInstructionAssets.ReferenceOf(row) : null;
+        string? instructionsProblem = null;
         NhAiTextAsset instructions;
-        if (row.Source == NhAssistantAgentSources.Code
+        if (reference is not null)
+        {
+            // An agent that names an asset of the application uses its verified text; without it the
+            // agent holds a placeholder that never reaches a model, because its turns are refused.
+            var resolved = instructionAssets.Find(reference, NhAssistantAgentAdministration.MaxInstructionsLength)
+                           ?? NhAssistantResolvedInstructions.Of(NhAssistantRunConfigurationProblems.AssetUnavailable);
+            instructionsProblem = resolved.Problem;
+            instructions = resolved.Asset ?? NhAssistantInstructionAssets.Unavailable(reference, row.Id);
+        }
+        else if (row.Source == NhAssistantAgentSources.Code
             && !row.IsOverridden
             && registry.TryGet(row.Id, out var code)
             && string.Equals(code.Instructions.Manifest.ContentHash, row.InstructionsHash, StringComparison.Ordinal))
@@ -212,7 +259,9 @@ internal sealed class NhAssistantAgentCatalog(
             WorksOn = row.Source == NhAssistantAgentSources.Code
                 ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
                 : NhAssistantAgentWorksOn.FromRow(row),
-            DataClassification = ClassificationOf(row)
+            DataClassification = ClassificationOf(row),
+            InstructionsAsset = reference,
+            InstructionsProblem = instructionsProblem
         };
     }
 

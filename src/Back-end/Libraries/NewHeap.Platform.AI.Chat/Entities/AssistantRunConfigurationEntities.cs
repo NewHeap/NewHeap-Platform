@@ -22,14 +22,29 @@ public sealed class AssistantAgentSkillDefinition
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// The instructions appended to the agent's own, as the application stored them.
+    /// The instructions appended to the agent's own, as the application stored them;
+    /// <see langword="null"/> when the version takes them from an asset of the application
+    /// (<see cref="InstructionsAssetId"/>).
     /// </summary>
     public string? Instructions { get; set; }
 
     /// <summary>
-    /// The SHA-256 of <see cref="Instructions"/>, lowercase hex.
+    /// The SHA-256 of <see cref="Instructions"/>, lowercase hex, or of the asset's content when the
+    /// version takes its instructions from an asset.
     /// </summary>
     public string? InstructionsHash { get; set; }
+
+    /// <summary>
+    /// The id of the application's text asset the version takes its instructions from, with
+    /// <see cref="InstructionsAssetVersion"/> and <see cref="InstructionsHash"/>; <see langword="null"/>
+    /// for inline instructions or none.
+    /// </summary>
+    public string? InstructionsAssetId { get; set; }
+
+    /// <summary>
+    /// The version of the asset <see cref="InstructionsAssetId"/> names.
+    /// </summary>
+    public int? InstructionsAssetVersion { get; set; }
 
     public string ToolSelectorsJson { get; set; } = "[]";
 

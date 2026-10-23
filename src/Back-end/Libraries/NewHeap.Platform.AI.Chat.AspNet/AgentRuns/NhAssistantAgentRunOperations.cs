@@ -752,6 +752,7 @@ internal sealed class NhAssistantAgentRunOperation(
                 or NhAssistantErrorCodes.Disabled => NhAssistantRunFailureClasses.Policy,
             NhAssistantErrorCodes.SubjectNotFound
                 or NhAssistantErrorCodes.AgentNotConfigured
+                or NhAssistantErrorCodes.AgentInstructionsUnavailable
                 or NhAssistantErrorCodes.SkillNotFound => NhAssistantRunFailureClasses.Validation,
             NhAssistantErrorCodes.ProposalStale => NhAssistantRunFailureClasses.Stale,
             _ => NhAssistantRunFailureClasses.Internal

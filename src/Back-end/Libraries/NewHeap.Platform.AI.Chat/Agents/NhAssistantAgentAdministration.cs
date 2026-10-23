@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -16,9 +17,11 @@ namespace NewHeap.Platform.AI.Chat;
 /// Agents in code take them from their code. <paramref name="Metadata"/> sets values of agent
 /// metadata entries of an agent created in the administration by name, a JSON <c>null</c> removing
 /// one, with the same version as the definition; entries left out keep their values. An agent in code
-/// changes its editable entries one by one. <paramref name="StartsInShadow"/> lets a new agent created
-/// in the administration start in shadow: its runs work in its shadow threads once it has run settings,
-/// until an administrator puts it live.
+/// changes its editable entries one by one. <paramref name="InstructionsAsset"/> lets an agent created
+/// in the administration take its instructions from an asset of the application instead of
+/// <paramref name="Instructions"/>, which is then empty. <paramref name="StartsInShadow"/> lets a new
+/// agent created in the administration start in shadow: its runs work in its shadow threads once it has
+/// run settings, until an administrator puts it live.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -35,6 +38,7 @@ internal sealed record NhAssistantAgentInput(
     string? ProfileName = null,
     string? DataClassification = null,
     IReadOnlyDictionary<string, JsonElement>? Metadata = null,
+    NhAssistantInstructionAssetReference? InstructionsAsset = null,
     bool StartsInShadow = false);
 
 /// <summary>
@@ -52,7 +56,8 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantWorksOnRule worksOnRule,
     Runs.NhAssistantSubjectAccessService subjects,
     NhAssistantRunConfigurationValidator validator,
-    NhAssistantAgentMetadataService metadata)
+    NhAssistantAgentMetadataService metadata,
+    NhAssistantInstructionAssets instructionAssets)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -105,17 +110,23 @@ internal sealed class NhAssistantAgentAdministration(
         {
             return Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists.");
         }
-        await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row.Id, actorId, cancellationToken);
+        await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row, actorId, cancellationToken);
         if (input.StartsInShadow)
         {
             await AuditShadowAsync(row.Id, actorId, cancellationToken);
         }
+        if (row.InstructionsFromAsset)
+        {
+            // Every host checks the asset of the new agent at its next load.
+            await RunConfigurationChangedAsync(cancellationToken);
+        }
+
         await metadata.AuditAsync(
             row.Id,
             rows.Select(item => new NhAssistantAgentMetadataChange(item.Name, NhAssistantAgentMetadataStore.Created, 1)).ToArray(),
             actorId,
             cancellationToken);
-        return TaskResult<NhAssistantAgent>.Succeeded(catalog.ToAgent((await store.FindAgentAsync(row.Id, cancellationToken))!));
+        return TaskResult<NhAssistantAgent>.Succeeded(await catalog.ToAgentAsync((await store.FindAgentAsync(row.Id, cancellationToken))!, cancellationToken));
     }
 
     public async Task<TaskResult<NhAssistantAgent>> UpdateAsync(
@@ -231,7 +242,7 @@ internal sealed class NhAssistantAgentAdministration(
                 NhAssistantAdminErrorCodes.CodeAgentNotDeletable,
                 "Code agents cannot be deleted; disable them instead.");
         }
-        await AuditAsync(NhAssistantAuditEventKind.AdminAgentDeleted, agentId, actorId, cancellationToken);
+        await NhAssistantAdminAudit.RecordAsync(_auditSinks, NhAssistantAuditEventKind.AdminAgentDeleted, agentId, actorId, cancellationToken);
         await RunConfigurationChangedAsync(cancellationToken);
         return TaskResult.Succeeded();
     }
@@ -250,9 +261,10 @@ internal sealed class NhAssistantAgentAdministration(
         {
             return Failed(NhAssistantAdminErrorCodes.VersionConflict, "The agent was changed by someone else.");
         }
-        await AuditAsync(eventName, updated.Value!.Id, actorId, cancellationToken);
+        var row = updated.Value!;
+        await AuditAsync(eventName, row, actorId, cancellationToken);
         return TaskResult<NhAssistantAgent>.Succeeded(
-            catalog.ToAgent((await store.FindAgentAsync(updated.Value.Id, cancellationToken))!));
+            await catalog.ToAgentAsync((await store.FindAgentAsync(row.Id, cancellationToken))!, cancellationToken));
     }
 
     private async Task<(TaskResult Result, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> Metadata)> ValidateAsync(
@@ -265,7 +277,9 @@ internal sealed class NhAssistantAgentAdministration(
             .Require(input.DisplayName is not { Length: > 256 }, "displayName", NhAssistantFieldErrors.TooLong)
             .Require(!string.IsNullOrWhiteSpace(input.Description), "description", NhAssistantFieldErrors.Required)
             .Require(input.Description is not { Length: > 512 }, "description", NhAssistantFieldErrors.TooLong)
-            .Require(!string.IsNullOrWhiteSpace(input.Instructions), "instructions", NhAssistantFieldErrors.Required)
+            // The instructions are text or an asset of the application, never both.
+            .Require(input.InstructionsAsset is not null || !string.IsNullOrWhiteSpace(input.Instructions), "instructions", NhAssistantFieldErrors.Required)
+            .Require(input.InstructionsAsset is null || string.IsNullOrWhiteSpace(input.Instructions), "instructions", NhAssistantFieldErrors.NotAllowed)
             .Require(input.Instructions is not { Length: > MaxInstructionsLength }, "instructions", NhAssistantFieldErrors.TooLong)
             .Require(input.ToolSelectors.Count <= state.Limits.MaxToolSelectorsPerAgent, "toolSelectors", NhAssistantFieldErrors.TooLong)
             .Require(
@@ -304,6 +318,20 @@ internal sealed class NhAssistantAgentAdministration(
                 "dataClassification",
                 NhAssistantFieldErrors.Invalid);
         }
+        // Only an agent created in the administration takes its instructions from an asset; the save
+        // asks the application's source and refuses an asset that is missing or has another hash.
+        if (input.InstructionsAsset is { } reference)
+        {
+            if (!adminAgent)
+            {
+                errors.Add(NhAssistantInstructionAssets.AssetField, NhAssistantFieldErrors.NotAllowed);
+            }
+            else if (await instructionAssets.ValidateForSaveAsync(reference, MaxInstructionsLength, errors, cancellationToken) is { } unavailable)
+            {
+                return (unavailable, new Dictionary<string, NhAssistantAgentMetadataCheck?>(StringComparer.Ordinal));
+            }
+        }
+
         // The agent's metadata is checked as every save of one entry checks it (MD1).
         var values = metadata.CheckDefinition(
             input.Metadata ?? new Dictionary<string, JsonElement>(StringComparer.Ordinal),
@@ -346,9 +374,21 @@ internal sealed class NhAssistantAgentAdministration(
         {
             row.DataClassification = classification;
         }
-        var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
-        if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))
+        if (input.InstructionsAsset is { } reference && row.Source == NhAssistantAgentSources.Admin)
         {
+            // The reference is stored, never the text: every load asks the application's source.
+            row.InstructionsFromAsset = true;
+            row.Instructions = string.Empty;
+            row.InstructionsAssetId = reference.AssetId;
+            row.InstructionsAssetVersion = reference.Version;
+            row.InstructionsHash = reference.Hash;
+            return;
+        }
+
+        var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
+        if (row.InstructionsFromAsset || !string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))
+        {
+            row.InstructionsFromAsset = false;
             row.Instructions = instructions;
             row.InstructionsHash = hash;
             row.InstructionsAssetId = row.Id + "-instructions";
@@ -376,9 +416,20 @@ internal sealed class NhAssistantAgentAdministration(
         return state.ChatProfileName ?? registry.Agents.FirstOrDefault()?.ProfileName;
     }
 
-    private async Task AuditAsync(NhAssistantAuditEventKind kind, string objectId, string actorId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The content-free event of a change of the agent, with the identity of its instructions:
+    /// <c>&lt;asset-id&gt;@&lt;version&gt;</c> and the hash, never the text.
+    /// </summary>
+    private async Task AuditAsync(NhAssistantAuditEventKind kind, AssistantAgent row, string actorId, CancellationToken cancellationToken)
     {
-        await NhAssistantAdminAudit.RecordAsync(_auditSinks, kind, objectId, actorId, cancellationToken);
+        await NhAssistantAdminAudit.RecordAsync(
+            _auditSinks,
+            kind,
+            row.Id,
+            actorId,
+            cancellationToken,
+            row.InstructionsAssetId + "@" + row.InstructionsAssetVersion.ToString(CultureInfo.InvariantCulture),
+            row.InstructionsHash);
     }
 
     /// <summary>
@@ -415,12 +466,17 @@ internal sealed class NhAssistantAgentAdministration(
 /// </summary>
 internal static class NhAssistantAdminAudit
 {
+    /// <param name="instructionsVersion">For a change of an agent: the identity of its instructions,
+    /// <c>&lt;asset-id&gt;@&lt;version&gt;</c>.</param>
+    /// <param name="instructionsHash">For a change of an agent: the hash of its instructions.</param>
     public static async Task RecordAsync(
         IReadOnlyList<INhAssistantBusinessAuditSink> sinks,
         NhAssistantAuditEventKind kind,
         string objectId,
         string actorId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? instructionsVersion = null,
+        string? instructionsHash = null)
     {
         var evt = new NhAssistantAuditEvent(
             kind,
@@ -431,7 +487,9 @@ internal static class NhAssistantAdminAudit
             0,
             DateTimeOffset.UtcNow)
         {
-            ObjectId = objectId
+            ObjectId = objectId,
+            InstructionsVersion = instructionsVersion,
+            InstructionsHash = instructionsHash
         };
         foreach (var sink in sinks)
         {

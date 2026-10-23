@@ -62,6 +62,9 @@ internal static class NhAssistantServiceRegistration
         // The run configuration defined as data and the snapshot that puts it into effect.
         services.TryAddSingleton<NhAssistantRunConfigurationStore>();
         services.TryAddSingleton<NhAssistantRunConfigurationValidator>();
+        // Instructions from the application's text assets (UseTextAssetSource), verified and kept per
+        // asset id and version.
+        services.TryAddSingleton<NhAssistantInstructionAssets>();
         services.TryAddSingleton<NhAssistantRunConfigurations>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
         // Agent metadata: the application's own entries about agents, stored and checked, never read

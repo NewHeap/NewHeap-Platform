@@ -167,6 +167,66 @@ export interface AdminAgentInput {
    * Agents in code take it from their code.
    */
   dataClassification?: AssistantDataClassification | null;
+  /**
+   * For an agent created in the administration, when the run catalog reports `instructionAssets`:
+   * the application's asset its instructions come from instead of `instructions`, which is then
+   * empty. The save checks it with the application (`instructionsAsset: not-found`,
+   * `instructionsAsset.hash: invalid`). Omitted or `null` keeps or makes the instructions text.
+   */
+  instructionsAsset?: InstructionAssetReference | null;
+}
+
+/**
+ * The asset of the application a skill version or an agent created in the administration takes its
+ * instructions from: its id, exact version and the SHA-256 of its content. A new version of the asset
+ * takes effect only when an administrator saves it as the next version.
+ */
+export interface InstructionAssetReference {
+  assetId: string;
+  version: number;
+  /** The SHA-256 of the asset's content, lowercase hex. */
+  hash: string;
+}
+
+/**
+ * Why instructions from an asset are not available: the application no longer has a source, the asset
+ * is missing, its text changed since it was saved, it cannot be instructions, or the source failed.
+ */
+export type InstructionAssetProblem =
+  | 'no-asset-source'
+  | 'asset-missing'
+  | 'asset-changed'
+  | 'asset-invalid'
+  | 'asset-unavailable';
+
+/** One of the application's assets, without its content (`GET admin/instruction-assets`). */
+export interface InstructionAssetSummary {
+  assetId: string;
+  version: number;
+  /** The hash its manifest states; a save checks it against the content. */
+  hash: string;
+  /** The asset that replaces it, when the application deprecated it. */
+  replacedByAssetId?: string | null;
+  deprecatedAt?: string | null;
+}
+
+/** The application's assets an administrator may choose as instructions. */
+export interface InstructionAssetList {
+  /** Whether the application registered a text asset source. */
+  supported: boolean;
+  /** The assets it lists, in its order; empty when it lists none, so the id and version are typed. */
+  assets: InstructionAssetSummary[];
+}
+
+/** The text of one asset, read-only (`GET admin/instruction-assets/{id}/versions/{version}`). */
+export interface InstructionAssetText {
+  assetId: string;
+  version: number;
+  /** The SHA-256 of `content`: the hash a reference stores. */
+  hash: string;
+  content: string;
+  /** `asset-invalid` when the asset cannot be instructions, so a save refuses it. */
+  problem?: InstructionAssetProblem | null;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
@@ -249,6 +309,12 @@ export interface AdminAgent extends AdminAgentInput {
    * its classification. A warning never refuses a save; missing on older servers.
    */
   warnings?: AssistantConfigurationWarning[];
+  /**
+   * Why the instructions of `instructionsAsset` are not available: the agent then starts no model
+   * turn and `instructions` is empty. `null` when they resolve; missing on older servers. With an
+   * asset that resolves, `instructions` is its text, read-only.
+   */
+  instructionsProblem?: InstructionAssetProblem | null;
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */
@@ -998,6 +1064,11 @@ export interface RunCatalog {
    * the slots of the agent editor; missing on older servers.
    */
   agentMetadata?: AgentMetadataEntry[];
+  /**
+   * Whether the application registered a text asset source, so skills and agents created here may take
+   * their instructions from its assets; missing on older servers.
+   */
+  instructionAssets?: boolean;
 }
 
 /** An entry of agent metadata registered in code with `AddAgentMetadata`. */
@@ -1355,6 +1426,12 @@ export interface DataSkill extends LowerFileLimits {
    * classification, or else its agent's. A warning never refuses a save; missing on older servers.
    */
   warnings?: AssistantConfigurationWarning[];
+  /**
+   * The application's asset the version takes its instructions from; `null` for inline instructions
+   * or none, missing on older servers. `problem` says when it no longer resolves to
+   * `instructionsHash`; read its text with `getInstructionAsset`.
+   */
+  instructionsAsset?: InstructionAssetReference | null;
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */
@@ -1391,6 +1468,13 @@ export interface DataSkillRequest extends LowerFileLimits {
   dataClassification?: AssistantDataClassification | null;
   /** A run in the skill reads files when its agent accepts them too; `false` by default. */
   acceptsFiles?: boolean;
+  /**
+   * The application's asset the version takes its instructions from, instead of `instructions`
+   * (`instructions: not-allowed` next to it), when the run catalog reports `instructionAssets`. The
+   * save checks it with the application: `instructionsAsset: not-found`, `instructionsAsset.hash:
+   * invalid` and `instructionsAsset: invalid`.
+   */
+  instructionsAsset?: InstructionAssetReference | null;
 }
 
 export type DataSkillVersionStatus = 'live' | 'candidate' | 'superseded' | 'discarded';
@@ -1404,6 +1488,8 @@ export interface DataSkillVersion {
   createdAt: string;
   createdBy: string;
   reason: string | null;
+  /** The application's asset the version takes its instructions from; missing on older servers. */
+  instructionsAsset?: InstructionAssetReference | null;
 }
 
 /** Body of `POST admin/agents/{id}/skills/{skillId}/candidate/promote` and `.../discard`. */

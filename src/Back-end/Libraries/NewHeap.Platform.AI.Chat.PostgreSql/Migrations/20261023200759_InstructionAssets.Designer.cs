@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    [Migration("20261023201146_TriggerVersions")]
-    partial class TriggerVersions
+    [Migration("20261023200759_InstructionAssets")]
+    partial class InstructionAssets
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -89,6 +89,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<int>("InstructionsAssetVersion")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("InstructionsFromAsset")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("InstructionsHash")
                         .IsRequired()
@@ -274,9 +277,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
-
-                    b.Property<bool>("Off")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("ProposalPolicyId")
                         .HasMaxLength(128)
@@ -617,6 +617,13 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(20000)
                         .HasColumnType("character varying(20000)");
 
+                    b.Property<string>("InstructionsAssetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("InstructionsAssetVersion")
+                        .HasColumnType("integer");
+
                     b.Property<string>("InstructionsHash")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -727,9 +734,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<int>("Version")
-                        .HasColumnType("integer");
-
                     b.Property<string>("AgentId")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -787,13 +791,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasDefaultValue("live");
-
                     b.Property<string>("SubjectSetName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -810,13 +807,12 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.HasKey("Id", "Version");
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("AgentId");
-
-                    b.HasIndex("AgentId", "Status");
-
-                    b.HasIndex("Id", "Status");
 
                     b.ToTable("AssistantAgentTriggerDefinition", "nhai");
                 });
@@ -2359,9 +2355,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(8000)
                         .HasColumnType("character varying(8000)");
 
-                    b.Property<bool>("TriggerCandidate")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("TriggerId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -2499,9 +2492,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<int>("ToolCalls")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("TriggerCandidate")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("TriggerEventKey")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -2514,9 +2504,6 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<string>("TriggerKind")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
-
-                    b.Property<int?>("TriggerVersion")
-                        .HasColumnType("integer");
 
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uuid");

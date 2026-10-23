@@ -293,3 +293,49 @@ proposals of its scenario and serves `POST approvals/{id}/resolve` as the server
 |---|---|
 | `AgentProposalStatus` and `ApprovalStatus` have the new value `awaiting-application`, and `AgentExecutionResolution` the value `hand-to-application`. | Let exhaustive switches and status maps of your own handle them. |
 | The texts `nh-assistant.approval.status.awaiting-application`, `nh-assistant.agent-runs.proposal.status.awaiting-application`, `nh-assistant.agent-runs.proposal.hand-to-application`, `nh-assistant.agent-runs.proposal.unknown-application-hint`, `nh-assistant.agent-runs.proposal.awaiting-application-hint` and `nh-assistant.agent-runs.proposal.report-due` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: instructions from the application's text assets
+
+`INhAiTextAssetSource` in `NewHeap.Platform.AI.Common` supplies the application's own text assets by id
+and version (`GetAsync`, `null` when it has none) and lists the ones administrators may choose
+(`ListAsync`, manifests without content); `UseTextAssetSource<TSource>()` registers it with the
+assistant. A data skill version (`NhAssistantDataSkillRequest.InstructionsAsset`) and an agent created in
+the administration (`NhAssistantAgentRequest.InstructionsAsset`, `instructionsAsset` of `POST` and
+`PUT admin/agents`) may then store an `NhAssistantInstructionAssetReference` (asset id, exact version,
+SHA-256 of the content) instead of inline instructions; inline instructions stay possible, never next to
+a reference. A save asks the source and refuses a missing asset (`instructionsAsset: not-found`) and
+another hash (`instructionsAsset.hash: invalid`); every load of the run configuration asks again and
+reports `no-asset-source`, `asset-missing`, `asset-changed`, `asset-invalid` or `asset-unavailable`: the
+skill version is out of effect, and the agent starts no model turn
+(`assistant-agent-instructions-unavailable`) while its approved proposals still execute. A new version
+of an asset is used only once an administrator saves it as the next version. `GET admin/instruction-assets`
+and `GET admin/instruction-assets/{id}/versions/{version}` list and read the texts for administrators;
+the run catalog reports `InstructionAssets`, the skill and agent DTOs `InstructionsAsset`, and
+`NhAssistantAdminAgentDto` `InstructionsProblem`. The audit names the asset as `InstructionsVersion` with
+`InstructionsHash`, never the text. Without `UseTextAssetSource` nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| The `InstructionAssets` migrations add the nullable columns `InstructionsAssetId` and `InstructionsAssetVersion` to `AssistantAgentSkillDefinition` and the column `InstructionsFromAsset` (default `false`) to `AssistantAgent` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `NhAssistantRunConfigurationProblems` has the new codes `no-asset-source`, `asset-missing`, `asset-changed`, `asset-invalid` and `asset-unavailable`, also for the kind `agent`. | Let code that maps run configuration problems handle values it does not know. |
+| `NhAssistantErrorCodes` has the new code `assistant-agent-instructions-unavailable` (HTTP 409), and `NhAssistantAdminErrorCodes` the codes `assistant-instructions-asset-not-found` (HTTP 404) and `assistant-instructions-asset-unavailable` (HTTP 503). | Let code that maps assistant codes handle values it does not know. |
+| `AdminAgentCreated`, `AdminAgentUpdated` and `AdminAgentReset` now carry `InstructionsVersion` (`<asset-id>@<version>`) and `InstructionsHash`, and `AdminAgentSkillDefinitionChanged` carries `InstructionsVersion` for a version that names an asset. | Let audit sinks that store every property expect values where these were `null`. |
+
+## @newheap/platform-ai-chat: instructions from the application's text assets
+
+When the run catalog reports `instructionAssets`, the skill form and the agent editor of
+`@newheap/platform-ai-chat/admin` ask where the instructions come from: "Written here" or "The
+application's text". With the application's text an administrator picks one of the listed texts, or
+types its id and version when the application lists none, reads it read-only with its hash and saves
+the reference; a newer version of the same text is pointed out and used only once saved. A saved
+reference that no longer resolves shows its problem in the form, in the skill's card and, for an agent,
+in the agent list. `NhAssistantAdminApiService.listInstructionAssets` and `getInstructionAsset`,
+`InstructionAssetReference`, `InstructionAssetProblem`, `InstructionAssetSummary`, `InstructionAssetList`,
+`InstructionAssetText`, `instructionsAsset` of `DataSkill`, `DataSkillRequest`, `DataSkillVersion` and
+`AdminAgentInput`, `AdminAgent.instructionsProblem` and `RunCatalog.instructionAssets` complete the client.
+The texts have English and Dutch versions. The mock API takes `admin.instructionAssets` of its scenario
+and changes them with `NhAssistantMockBackend.setInstructionAsset` and `removeInstructionAsset`.
+
+| Breaking change | Required action |
+|---|---|
+| The texts under `nh-assistant.admin.instruction-assets`, the problems `asset-*` and `no-asset-source` under `nh-assistant.admin.run-config.problems.code`, and the errors `assistant-instructions-asset-not-found`, `assistant-instructions-asset-unavailable` and `assistant-agent-instructions-unavailable` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |

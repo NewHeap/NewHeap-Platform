@@ -273,6 +273,14 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.FileUploadFailed,
             NhAssistantRunStore.OrphanedRunCode,
             NhAssistantAdminErrorCodes.McpSecretUnavailable);
+        // Instructions from the application's text assets (UseTextAssetSource): an asset the source does
+        // not have, an agent whose asset does not resolve, and a source that failed.
+        Add(statuses, StatusCodes.Status404NotFound,
+            NhAssistantAdminErrorCodes.InstructionsAssetNotFound);
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantErrorCodes.AgentInstructionsUnavailable);
+        Add(statuses, StatusCodes.Status503ServiceUnavailable,
+            NhAssistantAdminErrorCodes.InstructionsAssetUnavailable);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 
