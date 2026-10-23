@@ -250,6 +250,9 @@ public sealed class AssistantRegistrationTests
                     // code of at most 64 characters, checked when it reports; never the summary (S5
                     // of the agent runs adoption plan).
                     or "ExecutionOutcome" or "ExecutionCode"
+                    // The live agent of a data shadow variant that was created, an agent id (S9 of
+                    // the agent runs adoption plan).
+                    or "LiveAgentId"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
