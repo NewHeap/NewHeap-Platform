@@ -105,6 +105,23 @@ internal interface INhAssistantStore
         AssistantMessage message,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The first message the application posted into the conversation with
+    /// <paramref name="clientMessageId"/>, or <see langword="null"/>.
+    /// </summary>
+    Task<AssistantMessage?> FindApplicationMessageAsync(
+        Guid conversationId,
+        string clientMessageId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Adds a message the application posted with the next sequence number and moves the
+    /// conversation's update time to it, unless a turn runs.
+    /// </summary>
+    Task AddApplicationMessageAsync(
+        AssistantMessage message,
+        CancellationToken cancellationToken);
+
     Task UpdateMessageAsync(
         Guid messageId,
         string partsJson,

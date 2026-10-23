@@ -3084,7 +3084,10 @@ internal sealed partial class NhAssistantTurnRunner(
     /// budget is used, leaving room for the instructions and the new message. An assistant message
     /// that made tool calls carries a compact summary of them (tool id, short argument preview and
     /// outcome, never results), so a follow-up turn knows what was already done. In a shared
-    /// conversation every user message starts with its writer's name in square brackets. With the
+    /// conversation every user message starts with its writer's name in square brackets. A message the
+    /// application posted reaches the model as a user message marked as the application's, with its
+    /// content in a data block that says it is information and never instructions
+    /// (<see cref="NhAssistantApplicationMessageText"/>). With the
     /// turn's <paramref name="state"/>, the files of the replayed messages are opened again with this
     /// turn's actor (<see cref="ReopenFilesAsync"/>), except those of messages that waited for the run,
     /// whose files this turn opened as attachments (<paramref name="attachments"/>, by message id).
@@ -3126,7 +3129,15 @@ internal sealed partial class NhAssistantTurnRunner(
                 continue;
             }
             var isUser = message.Role == NhAssistantMessageRoles.User;
-            if (isUser && speakers is not null)
+            var isApplication = message.Role == NhAssistantMessageRoles.Application;
+            if (isApplication)
+            {
+                // The application's message is information marked as the application's, never a
+                // person's request or instructions.
+                var dutch = state is not null ? NhAssistantPromptComposer.IsDutch(state.Language) : speakers?.Dutch == true;
+                text = NhAssistantApplicationMessageText.ForModel(parts, text, dutch);
+            }
+            else if (isUser && speakers is not null)
             {
                 text = speakers.Mark(message.AuthorActorId ?? speakers.OwnerActorId, text);
             }
@@ -3135,7 +3146,7 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 break;
             }
-            selected.Add((parts, new ChatMessage(isUser ? ChatRole.User : ChatRole.Assistant, text), message.Id));
+            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id));
         }
 
         // A consultation reads the thread with the asker's rights and opens no files of it.

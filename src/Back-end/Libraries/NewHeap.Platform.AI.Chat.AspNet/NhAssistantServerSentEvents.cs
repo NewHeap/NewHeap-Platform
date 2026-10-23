@@ -229,7 +229,15 @@ internal static class NhAssistantDtoMapper
             message.Sequence,
             // An agent message names no person; a rule message says so through its author kind.
             message.Role == NhAssistantMessageRoles.User ? message.AuthorActorId : null,
-            message.AuthorKind);
+            message.AuthorKind)
+        {
+            Application = message.Application is { } application
+                ? new NhAssistantApplicationMessageDto(
+                    application.Title,
+                    application.SenderName,
+                    application.LinkUrl is { } url ? new NhAssistantApplicationMessageLinkDto(url, application.LinkLabel) : null)
+                : null
+        };
     }
 
     public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part)

@@ -290,7 +290,19 @@ public enum NhAssistantAuditEventKind
     /// <c>on</c>, <c>off</c> or <c>code</c>, such as
     /// <c>asker-decides=on;subject-agent-rights=off;subject-asker-rights=code</c>.
     /// </summary>
-    AdminAgentConsultationRoutesChanged = 65
+    AdminAgentConsultationRoutesChanged = 65,
+
+    /// <summary>
+    /// The application posted a message into a conversation with
+    /// <see cref="INhAssistantConversationMessages.PostAsync"/>. <see cref="NhAssistantAuditEvent.ActorId"/>
+    /// is <c>application</c>, <see cref="NhAssistantAuditEvent.ObjectId"/> the message and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>posted</c>, or <c>notified</c> when the
+    /// conversation's people were notified too; for an agent thread
+    /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.SubjectId"/>
+    /// name its subject. The text, title, link and sender are never recorded. A repeated post with the
+    /// same idempotency key records nothing.
+    /// </summary>
+    ApplicationMessagePosted = 70
 }
 
 /// <summary>

@@ -91,6 +91,16 @@ internal sealed class NhAssistantSpeakers
     public const string RuleActorPrefix = "rule:";
 
     /// <summary>
+    /// The author of a message the application posted into the conversation.
+    /// </summary>
+    public const string ApplicationActorId = "application";
+
+    /// <summary>
+    /// Whether the model reads the conversation's markers in Dutch.
+    /// </summary>
+    public bool Dutch => _dutch;
+
+    /// <summary>
     /// The name of a person; people who left the conversation get a neutral label, and messages of a
     /// trigger are marked as events.
     /// </summary>

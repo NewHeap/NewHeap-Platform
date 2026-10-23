@@ -1,0 +1,230 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AI.Chat.Notifications;
+using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.Common.Models;
+
+namespace NewHeap.Platform.AI.Chat.Collaboration;
+
+/// <summary>
+/// Posts the application's messages into conversations (<see cref="INhAssistantConversationMessages"/>):
+/// checks the message and the conversation, stores the message with the next sequence number under
+/// the <see cref="NhAssistantMessageRoles.Application"/> role, shows it to the conversation's people
+/// through the live updates, notifies them when the application asks for it and records a
+/// content-free audit event. Nothing here logs the message.
+/// </summary>
+internal sealed class NhAssistantConversationMessages(
+    INhAssistantStore store,
+    NhAssistantRunStore runs,
+    NhAssistantLivePublisher live,
+    INhAssistantNotifier notifier,
+    NhAssistantRegistrationState registration,
+    IOptionsMonitor<NhAssistantOptions> options,
+    IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
+    ILogger<NhAssistantConversationMessages> logger) : INhAssistantConversationMessages
+{
+    /// <summary>
+    /// The client message id under which a message with an idempotency key is stored.
+    /// </summary>
+    internal const string IdempotencyPrefix = "application:";
+
+    private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
+
+    public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync(
+        Guid conversationId,
+        NhAssistantApplicationMessage message,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        if (message.ReadableBy is { } reader)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(reader.ActorId, nameof(message));
+        }
+
+        if (!options.CurrentValue.Enabled)
+        {
+            return Failed(NhAssistantErrorCodes.Disabled, "The assistant is disabled.");
+        }
+        if (Validate(message) is { } invalid)
+        {
+            return invalid;
+        }
+
+        var conversation = message.ReadableBy is { } person
+            ? (await store.FindAccessAsync(conversationId, person.ActorId, person.TenantId, cancellationToken))?.Conversation
+            : await store.FindShareableConversationAsync(conversationId, cancellationToken);
+        if (conversation is null)
+        {
+            return Failed(NhAssistantErrorCodes.ConversationNotFound, "The conversation does not exist or is archived.");
+        }
+
+        var clientMessageId = string.IsNullOrWhiteSpace(message.IdempotencyKey)
+            ? null
+            : IdempotencyPrefix + message.IdempotencyKey.Trim();
+        if (clientMessageId is not null
+            && await store.FindApplicationMessageAsync(conversation.Id, clientMessageId, cancellationToken) is { } earlier)
+        {
+            return TaskResult<NhAssistantApplicationMessageReceipt>.Succeeded(
+                new NhAssistantApplicationMessageReceipt(earlier.Id, earlier.Sequence, Duplicate: true));
+        }
+
+        var text = message.Text.Trim();
+        var details = new NhAssistantStoredPart(
+            NhAssistantStoredPart.ApplicationType,
+            Title: Optional(message.Title),
+            LinkUrl: message.Link?.Url.Trim(),
+            LinkLabel: Optional(message.Link?.Label),
+            Sender: Optional(message.SenderName));
+        var stored = new AssistantMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversation.Id,
+            Role = NhAssistantMessageRoles.Application,
+            AuthorActorId = NhAssistantSpeakers.ApplicationActorId,
+            PartsJson = NhAssistantContent.SerializeParts([details, new NhAssistantStoredPart(NhAssistantStoredPart.TextType, text)]),
+            ClientMessageId = clientMessageId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        await store.AddApplicationMessageAsync(stored, cancellationToken);
+
+        // Live updates are best effort: people who are not connected read the message from the snapshot.
+        var view = new NhAssistantMessageView(
+            stored.Id,
+            stored.Role,
+            stored.CreatedAt,
+            [new NhAssistantTextPartView(text)])
+        {
+            Sequence = stored.Sequence,
+            AuthorActorId = stored.AuthorActorId,
+            Application = new NhAssistantApplicationMessageView(details.Title, details.LinkUrl, details.LinkLabel, details.Sender)
+        };
+        await live.PublishAsync(
+            new NhAssistantLiveMessageCreated(conversation.Id, NhAssistantSpeakers.ApplicationActorId, view),
+            CancellationToken.None);
+        await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
+
+        var thread = string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal)
+            ? await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken)
+            : null;
+        // A shadow thread holds work only administrators see; nobody is notified about it.
+        var notified = message.Notify && thread?.Shadow != true;
+        if (notified)
+        {
+            await notifier.ApplicationMessageAsync(conversation.Id, CancellationToken.None);
+        }
+
+        await AuditAsync(conversation, thread, stored.Id, notified ? "notified" : "posted", cancellationToken);
+        logger.LogInformation(
+            "The application posted message {MessageId} into conversation {ConversationId}.",
+            stored.Id,
+            conversation.Id);
+        return TaskResult<NhAssistantApplicationMessageReceipt>.Succeeded(
+            new NhAssistantApplicationMessageReceipt(stored.Id, stored.Sequence, Duplicate: false));
+    }
+
+    /// <summary>
+    /// The refusal of a message that is empty or too long, or whose title, sender, link or
+    /// idempotency key is not usable; <see langword="null"/> when it may be posted.
+    /// </summary>
+    private TaskResult<NhAssistantApplicationMessageReceipt>? Validate(NhAssistantApplicationMessage message)
+    {
+        if (string.IsNullOrWhiteSpace(message.Text))
+        {
+            return Failed(NhAssistantErrorCodes.MessageInvalid, "An application message needs a text.");
+        }
+        if (message.Text.Trim().Length > registration.Limits.MaxMessageChars)
+        {
+            return Failed(NhAssistantErrorCodes.MessageTooLong, "The application message is longer than the assistant accepts.");
+        }
+
+        var valid = IsLabel(message.Title, NhAssistantApplicationMessage.MaxTitleLength)
+            && IsLabel(message.SenderName, NhAssistantApplicationMessage.MaxSenderNameLength)
+            && IsLabel(message.IdempotencyKey, NhAssistantApplicationMessage.MaxIdempotencyKeyLength)
+            && (message.Link is null
+                || (IsLink(message.Link.Url) && IsLabel(message.Link.Label, NhAssistantApplicationMessageLink.MaxLabelLength)));
+        return valid
+            ? null
+            : Failed(NhAssistantErrorCodes.MessageInvalid, "The title, sender, link or idempotency key of the application message is not valid.");
+    }
+
+    /// <summary>
+    /// Whether an optional single-line value fits: absent or blank, or at most
+    /// <paramref name="maximum"/> characters without control characters.
+    /// </summary>
+    private static bool IsLabel(string? value, int maximum)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maximum && !trimmed.Any(char.IsControl);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="url"/> is a path within the application or an absolute <c>https</c>
+    /// address, the links the chat opens, as it does for subject links.
+    /// </summary>
+    internal static bool IsLink(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        var trimmed = url.Trim();
+        if (trimmed.Length > NhAssistantApplicationMessageLink.MaxUrlLength || trimmed.Any(character => char.IsControl(character) || char.IsWhiteSpace(character)))
+        {
+            return false;
+        }
+        if (trimmed.StartsWith('/'))
+        {
+            return !trimmed.StartsWith("//", StringComparison.Ordinal) && !trimmed.StartsWith("/\\", StringComparison.Ordinal);
+        }
+
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out var address)
+            && address.Scheme == Uri.UriSchemeHttps
+            && !string.IsNullOrEmpty(address.Host);
+    }
+
+    private static string? Optional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task AuditAsync(
+        AssistantConversation conversation,
+        AssistantThread? thread,
+        Guid messageId,
+        string resultCode,
+        CancellationToken cancellationToken)
+    {
+        var evt = new NhAssistantAuditEvent(
+            NhAssistantAuditEventKind.ApplicationMessagePosted,
+            conversation.Id,
+            Guid.Empty,
+            NhAssistantSpeakers.ApplicationActorId,
+            conversation.AgentId,
+            conversation.AgentVersion,
+            DateTimeOffset.UtcNow)
+        {
+            ObjectId = messageId.ToString(),
+            ResultCode = resultCode,
+            SubjectType = thread?.SubjectType,
+            SubjectId = thread?.SubjectId
+        };
+        foreach (var sink in _auditSinks)
+        {
+            await sink.RecordAsync(evt, cancellationToken);
+        }
+    }
+
+    private static TaskResult<NhAssistantApplicationMessageReceipt> Failed(string code, string message)
+    {
+        return TaskResult<NhAssistantApplicationMessageReceipt>.Failed(code, message);
+    }
+}

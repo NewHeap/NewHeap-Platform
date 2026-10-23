@@ -129,13 +129,24 @@ internal sealed record NhAssistantMessageView(
     public string? AuthorActorId { get; init; }
 
     /// <summary>
-    /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message or an
-    /// agent message a rule run wrote, or <see langword="null"/> for the model's messages.
+    /// The title, link and sender of a message the application posted; <see langword="null"/> for
+    /// other messages.
+    /// </summary>
+    public NhAssistantApplicationMessageView? Application { get; init; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message, an
+    /// agent message a rule run wrote or a message the application posted, or
+    /// <see langword="null"/> for the model's messages.
     /// </summary>
     public string? AuthorKind
     {
         get
         {
+            if (string.Equals(Role, NhAssistantMessageRoles.Application, StringComparison.Ordinal))
+            {
+                return NhAssistantMessageAuthorKinds.Application;
+            }
             if (!string.Equals(Role, NhAssistantMessageRoles.User, StringComparison.Ordinal))
             {
                 return AuthorActorId?.StartsWith(NhAssistantSpeakers.RuleActorPrefix, StringComparison.Ordinal) == true
@@ -147,6 +158,27 @@ internal sealed record NhAssistantMessageView(
                 ? NhAssistantMessageAuthorKinds.Trigger
                 : NhAssistantMessageAuthorKinds.Person;
         }
+    }
+}
+
+/// <summary>
+/// What the application said about a message it posted, besides its text: an optional title, link
+/// and name of the sender.
+/// </summary>
+internal sealed record NhAssistantApplicationMessageView(
+    string? Title,
+    string? LinkUrl,
+    string? LinkLabel,
+    string? SenderName)
+{
+    /// <summary>
+    /// The view of the stored application part of a message, or <see langword="null"/> without one.
+    /// </summary>
+    public static NhAssistantApplicationMessageView? From(IEnumerable<NhAssistantStoredPart> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        var part = parts.FirstOrDefault(item => item.Type == NhAssistantStoredPart.ApplicationType);
+        return part is null ? null : new NhAssistantApplicationMessageView(part.Title, part.LinkUrl, part.LinkLabel, part.Sender);
     }
 }
 

@@ -33,6 +33,12 @@ public static class NhAssistantMessageAuthorKinds
     /// The agent's message about what its rules did, written by a rule run without a model.
     /// </summary>
     public const string Rule = "rule";
+
+    /// <summary>
+    /// A message the application posted with <see cref="INhAssistantConversationMessages"/>; its role
+    /// is <see cref="NhAssistantMessageRoles.Application"/>.
+    /// </summary>
+    public const string Application = "application";
 }
 
 /// <summary>
@@ -265,6 +271,14 @@ public static class NhAssistantMessageRoles
     public const string User = "user";
     public const string Assistant = "assistant";
     public const string Tool = "tool";
+
+    /// <summary>
+    /// A message the application posted into the conversation with
+    /// <see cref="INhAssistantConversationMessages"/>, such as the result of a long-running export.
+    /// People see it as the application's; a later turn gives it to the model as information from
+    /// the application, never as a person's request or as instructions.
+    /// </summary>
+    public const string Application = "application";
 }
 
 /// <summary>

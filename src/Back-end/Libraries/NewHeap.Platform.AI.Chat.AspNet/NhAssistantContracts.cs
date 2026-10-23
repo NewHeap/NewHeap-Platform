@@ -163,11 +163,14 @@ public sealed record NhAssistantThreadDecisionDto(
     bool CanDecide,
     string? ReasonCode);
 
+/// <param name="Role"><c>user</c>, <c>assistant</c>, or <c>application</c> for a message the application
+/// posted (see <see cref="NhAssistantMessageRoles"/>).</param>
 /// <param name="Sequence">Position of the message in the conversation.</param>
 /// <param name="AuthorActorId">The writer of a user message; <see langword="null"/> for assistant messages.</param>
 /// <param name="AuthorKind">
 /// <c>person</c> for a user message a person wrote, <c>trigger</c> for one a trigger wrote into an agent
-/// thread, <c>rule</c> for the agent's message about what its rules did without a model (see
+/// thread, <c>rule</c> for the agent's message about what its rules did without a model,
+/// <c>application</c> for a message the application posted (see
 /// <see cref="NhAssistantMessageAuthorKinds"/>); <see langword="null"/> for the model's messages.
 /// </param>
 public sealed record NhAssistantMessageDto(
@@ -177,7 +180,31 @@ public sealed record NhAssistantMessageDto(
     IReadOnlyList<NhAssistantMessagePartDto> Parts,
     int Sequence = 0,
     string? AuthorActorId = null,
-    string? AuthorKind = null);
+    string? AuthorKind = null)
+{
+    /// <summary>
+    /// The title, sender and link of a message the application posted; left out for other messages.
+    /// Its text is the message's <c>text</c> part.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantApplicationMessageDto? Application { get; init; }
+}
+
+/// <summary>
+/// What the application said about a message it posted, besides its text.
+/// </summary>
+/// <param name="Title">A short heading above the text.</param>
+/// <param name="SenderName">Who in the application posted it; the chat shows the message as the
+/// application's either way.</param>
+/// <param name="Link">Where people continue: a path within the application or an <c>https</c> address.</param>
+public sealed record NhAssistantApplicationMessageDto(
+    string? Title,
+    string? SenderName,
+    NhAssistantApplicationMessageLinkDto? Link);
+
+/// <param name="Url">A path within the application, such as <c>/exports/42</c>, or an <c>https</c> address.</param>
+/// <param name="Label">The text of the link; the chat shows its own text without one.</param>
+public sealed record NhAssistantApplicationMessageLinkDto(string Url, string? Label);
 
 /// <summary>
 /// The owner or a participant of a shared conversation. <paramref name="DisplayName"/> is

@@ -121,7 +121,10 @@ internal sealed class NhAssistantConversationReader(
                 // An agent message keeps its author only to tell a rule's message from the model's.
                 AuthorActorId = message.Role == NhAssistantMessageRoles.User
                     ? message.AuthorActorId ?? conversation.OwnerActorId
-                    : message.AuthorActorId
+                    : message.AuthorActorId,
+                Application = message.Role == NhAssistantMessageRoles.Application
+                    ? NhAssistantApplicationMessageView.From(storedParts[message.Id])
+                    : null
             });
         }
 

@@ -14,9 +14,20 @@ internal sealed record NhAssistantStoredPart(
     string? ServerId = null,
     string? DisplayName = null,
     string? Reason = null,
-    NhAssistantStoredFile? File = null)
+    NhAssistantStoredFile? File = null,
+    string? Title = null,
+    string? LinkUrl = null,
+    string? LinkLabel = null,
+    string? Sender = null)
 {
     public const string TextType = "text";
+
+    /// <summary>
+    /// What the application said about a message it posted, besides its text: the
+    /// <see cref="Title"/>, the link (<see cref="LinkUrl"/>, <see cref="LinkLabel"/>) and the name of
+    /// the <see cref="Sender"/>, each optional.
+    /// </summary>
+    public const string ApplicationType = "application";
     public const string ToolCallType = "tool-call";
     public const string ApprovalType = "approval";
 

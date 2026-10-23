@@ -299,6 +299,41 @@ internal sealed class NhAssistantStore(
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<AssistantMessage?> FindApplicationMessageAsync(
+        Guid conversationId,
+        string clientMessageId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientMessageId);
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Messages
+            .AsNoTracking()
+            .Where(message => message.ConversationId == conversationId
+                && message.Role == NhAssistantMessageRoles.Application
+                && message.ClientMessageId == clientMessageId)
+            .OrderBy(message => message.Sequence)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task AddApplicationMessageAsync(
+        AssistantMessage message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        await AddMessageAsync(message, cancellationToken);
+
+        // The conversation moves up in its people's lists. A running turn keeps its own update time,
+        // which tells an abandoned turn from a live one.
+        await using var context = contextFactory.CreateDbContext();
+        await context.Conversations
+            .Where(conversation => conversation.Id == message.ConversationId
+                && conversation.Status != NhAssistantConversationStatuses.Running
+                && conversation.UpdatedAt < message.CreatedAt)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(conversation => conversation.UpdatedAt, message.CreatedAt),
+                cancellationToken);
+    }
+
     public async Task UpdateMessageAsync(
         Guid messageId,
         string partsJson,
