@@ -25,7 +25,8 @@ internal sealed record NhAssistantUploadInput(
 
 /// <summary>
 /// Accepts a person's upload to a conversation (F-3): the media type must be accepted and match the
-/// content, the file must fit the agent's limits, the application's
+/// content (a missing or generic type takes the accepted type of the file name's extension, see
+/// <see cref="NhAssistantUploadMediaTypes"/>), the file must fit the agent's limits, the application's
 /// <see cref="INhAssistantUploadScanner"/>, when it registered one, must let it pass (A5), and only then
 /// does the application's <see cref="INhAssistantFileSource.StoreUploadAsync"/> store it with the
 /// default classification (F5). The refusals of the scanner and the source pass through as the upload
@@ -86,8 +87,10 @@ internal sealed class NhAssistantUploads(
         {
             return Failed(NhAssistantErrorCodes.FileUploadInvalid, "The upload has no valid name or no content.");
         }
-        var mediaType = NhAiMediaTypes.Normalize(input.MediaType);
-        if (mediaType is null || !rules.AcceptedMediaTypes.Contains(mediaType, StringComparer.Ordinal))
+        // A device that gives no type or a generic one has the file name's extension name it, only as
+        // a type the application accepts; the content check and the scanner below still apply.
+        var mediaType = NhAssistantUploadMediaTypes.Resolve(name, input.MediaType, rules.AcceptedMediaTypes);
+        if (mediaType is null)
         {
             return Failed(NhAssistantErrorCodes.FileTypeNotAccepted, "Files of this type cannot be uploaded.");
         }
@@ -272,5 +275,115 @@ internal sealed class NhAssistantUploads(
     private static TaskResult<NhAiFileReference> Failed(string code, string message)
     {
         return TaskResult<NhAiFileReference>.Failed(code, message);
+    }
+}
+
+/// <summary>
+/// The media type an upload is checked and stored as. Browsers send no type, or a generic one, for
+/// files their system does not know, and Windows names some extensions after the program that opens
+/// them, such as <c>application/vnd.ms-excel</c> for a <c>.csv</c> file. For such a type the file
+/// name's extension names the type, but only a type the application accepts. A specific type the
+/// application does not accept stays refused: the extension never overrides it. The chat composer of
+/// <c>@newheap/platform-ai-chat</c> applies the same table before it uploads.
+/// </summary>
+internal static class NhAssistantUploadMediaTypes
+{
+    /// <summary>
+    /// Types that say nothing about the content, whatever the file's extension.
+    /// </summary>
+    private static readonly HashSet<string> Generic = new(StringComparer.Ordinal)
+    {
+        "application/octet-stream",
+        "binary/octet-stream",
+        "application/unknown"
+    };
+
+    /// <summary>
+    /// The media type of each extension the platform knows.
+    /// </summary>
+    private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".pdf"] = NhAiMediaTypes.Pdf,
+        [".png"] = NhAiMediaTypes.Png,
+        [".jpg"] = NhAiMediaTypes.Jpeg,
+        [".jpeg"] = NhAiMediaTypes.Jpeg,
+        [".gif"] = "image/gif",
+        [".webp"] = "image/webp",
+        [".docx"] = NhAiMediaTypes.Docx,
+        [".xlsx"] = NhAiMediaTypes.Xlsx,
+        [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        [".doc"] = "application/msword",
+        [".xls"] = "application/vnd.ms-excel",
+        [".csv"] = "text/csv",
+        [".tsv"] = "text/tab-separated-values",
+        [".txt"] = "text/plain",
+        [".md"] = "text/markdown",
+        [".markdown"] = "text/markdown",
+        [".json"] = "application/json",
+        [".xml"] = "application/xml"
+    };
+
+    /// <summary>
+    /// The types devices commonly send for an extension instead of its own type: the program that
+    /// opens it, an outdated name or the container format.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> Aliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".csv"] =
+        [
+            "application/vnd.ms-excel",
+            "application/csv",
+            "application/x-csv",
+            "text/x-csv",
+            "text/comma-separated-values",
+            "text/x-comma-separated-values"
+        ],
+        [".md"] = ["text/x-markdown"],
+        [".markdown"] = ["text/x-markdown"],
+        [".jpg"] = ["image/jpg", "image/pjpeg"],
+        [".jpeg"] = ["image/jpg", "image/pjpeg"],
+        [".png"] = ["image/x-png"],
+        [".docx"] = ["application/zip", "application/x-zip-compressed"],
+        [".xlsx"] = ["application/zip", "application/x-zip-compressed"],
+        [".pptx"] = ["application/zip", "application/x-zip-compressed"]
+    };
+
+    /// <summary>
+    /// The accepted media type of an upload named <paramref name="fileName"/> that the device gave
+    /// <paramref name="declared"/>, or <see langword="null"/> when no accepted type applies. A
+    /// missing or generic declared type is replaced by the extension's type when
+    /// <paramref name="accepted"/> lists it; otherwise the declared type counts as it is.
+    /// </summary>
+    public static string? Resolve(string fileName, string? declared, IReadOnlyList<string> accepted)
+    {
+        ArgumentNullException.ThrowIfNull(fileName);
+        ArgumentNullException.ThrowIfNull(accepted);
+
+        var normalized = NhAiMediaTypes.Normalize(declared);
+        var extension = Path.GetExtension(fileName);
+        if (normalized is null || IsGeneric(normalized, extension))
+        {
+            if (ByExtension.TryGetValue(extension, out var derived) && accepted.Contains(derived, StringComparer.Ordinal))
+            {
+                return derived;
+            }
+        }
+
+        return normalized is not null && accepted.Contains(normalized, StringComparer.Ordinal)
+            ? normalized
+            : null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="mediaType"/> says nothing about a file with <paramref name="extension"/>.
+    /// </summary>
+    private static bool IsGeneric(string mediaType, string extension)
+    {
+        if (Generic.Contains(mediaType))
+        {
+            return true;
+        }
+
+        return Aliases.TryGetValue(extension, out var aliases) && aliases.Contains(mediaType, StringComparer.Ordinal);
     }
 }

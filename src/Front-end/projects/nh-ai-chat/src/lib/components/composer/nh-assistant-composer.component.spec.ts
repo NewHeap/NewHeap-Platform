@@ -79,6 +79,15 @@ describe('NhAssistantComposerComponent attachments', () => {
     expect(fileInput().getAttribute('aria-hidden')).toBe('true');
   });
 
+  it('offers the extensions of every accepted type it knows, so a picker shows .csv files for text/csv', () => {
+    set('uploads', { ...uploads, acceptedMediaTypes: ['text/csv', 'application/x-sample'] });
+
+    // A system that names .csv after Excel still lists the files; an unknown type stays as it is.
+    expect(fileInput().accept).toBe('text/csv,.csv,application/x-sample');
+    const hint = element.querySelector(`#${attachButton()!.getAttribute('aria-describedby')}`)!.textContent!.trim();
+    expect(hint).toBe('CSV, X-SAMPLE, up to 2 MB each, at most 3 files per message');
+  });
+
   it('opens the file picker from the button and hands the chosen files over', () => {
     set('uploads', uploads);
     const chosen: File[][] = [];

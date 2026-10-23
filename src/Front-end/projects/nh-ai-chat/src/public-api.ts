@@ -60,6 +60,8 @@ export {
 } from './lib/internal/nh-assistant-picker.component';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
+// The upload media type rule, shared with the mock API of the testing entry point.
+export { nhAssistantMediaTypeOf as ɵnhAssistantMediaTypeOf } from './lib/internal/nh-assistant-files';
 export {
   NH_ASSISTANT_DASH_CASE as ɵNH_ASSISTANT_DASH_CASE,
   nhAssistantCodeKeys as ɵnhAssistantCodeKeys,

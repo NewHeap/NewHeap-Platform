@@ -163,6 +163,44 @@ describe('Chat attachments', () => {
     expect(uploadRequests()).toBe(2);
   });
 
+  it('gives a file without a usable type the accepted type of its extension, as the server does', async () => {
+    const withCsv: AgentUploads = { ...uploads, acceptedMediaTypes: [...uploads.acceptedMediaTypes, 'text/csv'], maxFiles: 5 };
+    await setup(scenario({
+      agents: [{ id: 'documents', version: 1, displayNameKey: 'agents.documents', descriptionKey: 'agents.documents', canMutate: false, uploads: withCsv }]
+    }));
+
+    await store.attach([
+      // The browser knows no type, gives the generic one, or the one Windows names after Excel.
+      new File(['project;status'], 'Projects.csv'),
+      new File(['project;status'], 'Status.csv', { type: 'application/octet-stream' }),
+      new File(['project;status'], 'Export.csv', { type: 'application/vnd.ms-excel' }),
+      // A specific type that is not accepted stays refused; an extension names only an accepted type.
+      new File(['project;status'], 'Notes.csv', { type: 'text/plain' }),
+      new File(['notes'], 'Notes.txt')
+    ]);
+    await until(() => !store.uploading());
+
+    expect(store.attachments().map(item => [item.name, item.mediaType, item.state, item.error?.code ?? null])).toEqual([
+      ['Projects.csv', 'text/csv', 'uploaded', null],
+      ['Status.csv', 'text/csv', 'uploaded', null],
+      ['Export.csv', 'text/csv', 'uploaded', null],
+      ['Notes.csv', 'text/plain', 'failed', 'assistant-file-type-not-accepted'],
+      ['Notes.txt', 'application/octet-stream', 'failed', 'assistant-file-type-not-accepted']
+    ]);
+    // The upload declares the type the check accepted, so the server stores text/csv.
+    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual([
+      ['Projects.csv', 'text/csv'],
+      ['Status.csv', 'text/csv'],
+      ['Export.csv', 'text/csv']
+    ]);
+
+    // The mock, like the server, applies the rule to an upload that arrives without a type, and
+    // still checks the content of the type the extension named.
+    const conversationId = store.activeConversation()!.id;
+    expect(await upload(conversationId, new Blob(['project;status']), 'Direct.csv')).toEqual({ status: 200, code: null });
+    expect(await upload(conversationId, new Blob(['<script>']), 'Fake.pdf')).toEqual({ status: 415, code: 'assistant-file-type-not-accepted' });
+  });
+
   it('stops an upload that is removed and offers no attachments for an agent that takes none', async () => {
     await setup();
     await store.attach([pdf('First.pdf')]);

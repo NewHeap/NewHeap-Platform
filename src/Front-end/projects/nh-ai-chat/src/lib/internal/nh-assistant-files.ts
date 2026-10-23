@@ -5,34 +5,97 @@ export const NH_ASSISTANT_MAX_FILE_NAME_LENGTH = 256;
 
 const unknownMediaType = 'application/octet-stream';
 
-/** The media types the platform names, with the extensions a file picker offers and a short label. */
+const zipAliases = ['application/zip', 'application/x-zip-compressed'];
+
+/**
+ * The media types the platform names, with the extensions a file picker offers and a short label.
+ * The extensions are the same as the server's table of upload media types.
+ */
 const knownTypes: Record<string, { extensions: string[]; label: string }> = {
   'application/pdf': { extensions: ['.pdf'], label: 'PDF' },
   'image/png': { extensions: ['.png'], label: 'PNG' },
   'image/jpeg': { extensions: ['.jpg', '.jpeg'], label: 'JPEG' },
+  'image/gif': { extensions: ['.gif'], label: 'GIF' },
+  'image/webp': { extensions: ['.webp'], label: 'WebP' },
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { extensions: ['.docx'], label: 'Word' },
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { extensions: ['.xlsx'], label: 'Excel' }
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { extensions: ['.xlsx'], label: 'Excel' },
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': { extensions: ['.pptx'], label: 'PowerPoint' },
+  'application/msword': { extensions: ['.doc'], label: 'Word' },
+  'application/vnd.ms-excel': { extensions: ['.xls'], label: 'Excel' },
+  'text/csv': { extensions: ['.csv'], label: 'CSV' },
+  'text/tab-separated-values': { extensions: ['.tsv'], label: 'TSV' },
+  'text/plain': { extensions: ['.txt'], label: 'Text' },
+  'text/markdown': { extensions: ['.md', '.markdown'], label: 'Markdown' },
+  'application/json': { extensions: ['.json'], label: 'JSON' },
+  'application/xml': { extensions: ['.xml'], label: 'XML' }
 };
 
-/**
- * The media type of a chosen file, lowercase and without parameters. A browser that does not know
- * the type, as happens for Office documents, gives none; the extension of a known type then names
- * it. Otherwise `application/octet-stream`.
- */
-export function nhAssistantMediaTypeOf(file: Pick<File, 'name' | 'type'>): string {
-  const declared = file.type.split(';')[0].trim().toLowerCase();
-  if (declared.length > 0 && declared !== unknownMediaType) {
-    return declared;
-  }
+/** Types that say nothing about the content, whatever the file's extension. */
+const genericTypes = new Set([unknownMediaType, 'binary/octet-stream', 'application/unknown']);
 
-  const name = file.name.toLowerCase();
+/**
+ * The types browsers commonly give a file of an extension instead of its own type: the program
+ * that opens it, as Windows does with `application/vnd.ms-excel` for `.csv`, an outdated name or
+ * the container format.
+ */
+const aliasesByExtension: Record<string, string[]> = {
+  '.csv': [
+    'application/vnd.ms-excel',
+    'application/csv',
+    'application/x-csv',
+    'text/x-csv',
+    'text/comma-separated-values',
+    'text/x-comma-separated-values'
+  ],
+  '.md': ['text/x-markdown'],
+  '.markdown': ['text/x-markdown'],
+  '.jpg': ['image/jpg', 'image/pjpeg'],
+  '.jpeg': ['image/jpg', 'image/pjpeg'],
+  '.png': ['image/x-png'],
+  '.docx': zipAliases,
+  '.xlsx': zipAliases,
+  '.pptx': zipAliases
+};
+
+/** The extension of a file name in lowercase, such as `.csv`; empty without one. */
+function extensionOf(name: string): string {
+  const base = name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
+  const dot = base.lastIndexOf('.');
+  return dot > 0 || (dot === 0 && base.length > 1) ? base.slice(dot).toLowerCase() : '';
+}
+
+function mediaTypeOfExtension(extension: string): string | null {
+  if (extension.length === 0) {
+    return null;
+  }
   for (const [mediaType, known] of Object.entries(knownTypes)) {
-    if (known.extensions.some(extension => name.endsWith(extension))) {
+    if (known.extensions.includes(extension)) {
       return mediaType;
     }
   }
 
-  return unknownMediaType;
+  return null;
+}
+
+/**
+ * The media type a chosen file uploads as, lowercase and without parameters, by the same rule as the
+ * server. A browser gives no type, or a generic one, for a file its system does not know, and some
+ * systems name an extension after the program that opens it, such as `application/vnd.ms-excel` for
+ * a `.csv` file; the file name's extension then names the type, but only a type of
+ * `acceptedMediaTypes`. A specific type stays as it is, so a type that is not accepted is refused
+ * whatever the extension. Without a type and an accepted extension, `application/octet-stream`.
+ */
+export function nhAssistantMediaTypeOf(file: Pick<File, 'name' | 'type'>, acceptedMediaTypes: readonly string[]): string {
+  const declared = file.type.split(';')[0].trim().toLowerCase();
+  const extension = extensionOf(file.name);
+  if (declared.length === 0 || genericTypes.has(declared) || (aliasesByExtension[extension] ?? []).includes(declared)) {
+    const derived = mediaTypeOfExtension(extension);
+    if (derived && acceptedMediaTypes.includes(derived)) {
+      return derived;
+    }
+  }
+
+  return declared.length > 0 ? declared : unknownMediaType;
 }
 
 /**

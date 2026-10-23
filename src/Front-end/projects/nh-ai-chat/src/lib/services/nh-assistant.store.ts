@@ -1242,7 +1242,7 @@ export class NhAssistantStore {
     const added: NhAssistantAttachment[] = [];
     const pending: { attachment: NhAssistantAttachment; content: Blob }[] = [];
     for (const file of files) {
-      const mediaType = nhAssistantMediaTypeOf(file);
+      const mediaType = nhAssistantMediaTypeOf(file, uploads.acceptedMediaTypes);
       const problem = nhAssistantFileProblem(file, mediaType, uploads, attached);
       const attachment: NhAssistantAttachment = {
         id: createClientMessageId(),
