@@ -162,6 +162,12 @@ internal sealed class NhAiToolOutcomeCapture
     public string? EvidenceReference { get; private set; }
 
     /// <summary>
+    /// The one message <see cref="Message"/> was rendered from, when it is a single message; a
+    /// protocol adapter publishes its format and arguments next to the text.
+    /// </summary>
+    public FormattableString? MessageSource { get; private set; }
+
+    /// <summary>
     /// Starts capturing for the calling asynchronous flow. The capture is visible to every
     /// awaited call below the caller and ends when the calling method returns.
     /// </summary>
@@ -186,6 +192,7 @@ internal sealed class NhAiToolOutcomeCapture
         {
             capture.Code = null;
             capture.Message = null;
+            capture.MessageSource = null;
             capture.EvidenceReference = null;
             return;
         }
@@ -193,6 +200,7 @@ internal sealed class NhAiToolOutcomeCapture
         // The same code and message the caller receives in the shared tool result.
         capture.Code = NhAiToolResult.GetCode(result);
         capture.Message = NhAiToolResult.GetMessage(result);
+        capture.MessageSource = NhAiToolResult.GetMessageSource(result);
         capture.EvidenceReference = evidenceReference;
     }
 }

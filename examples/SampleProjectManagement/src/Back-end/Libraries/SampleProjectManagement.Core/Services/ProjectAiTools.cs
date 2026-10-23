@@ -25,6 +25,17 @@ public sealed class ProjectAiTools(
     public const string DivisionScopeMissingCode = "project-division-scope-missing";
 
     /// <summary>
+    /// The stable code of a search whose query is longer than <see cref="MaxSearchQueryLength"/>.
+    /// Its message keeps its format and arguments, which the MCP export publishes next to the text.
+    /// </summary>
+    public const string SearchQueryTooLongCode = "project-search-query-too-long";
+
+    /// <summary>
+    /// The longest query, in characters, that <c>projects.search</c> accepts.
+    /// </summary>
+    public const int MaxSearchQueryLength = 200;
+
+    /// <summary>
     /// The policy a person needs to change a project status, and so to approve an agent's status
     /// proposal. The API registers it as active-division access with the manage permission.
     /// </summary>
@@ -56,6 +67,16 @@ public sealed class ProjectAiTools(
             return TaskResult<IReadOnlyList<ProjectAiSearchItem>>.Failed(
                 DivisionScopeMissingCode,
                 "The authorized AI invocation context has no active division.");
+        }
+        if (input.Query is { Length: > MaxSearchQueryLength } query)
+        {
+            // Declared as a FormattableString, the message keeps its format and arguments: an MCP
+            // client receives "A project search query has at most {0} characters; this one has {1}."
+            // with both numbers next to the text and can translate it. An interpolated string passed
+            // straight to Failed would bind to its string overload and stay a text of its own.
+            FormattableString tooLong =
+                $"A project search query has at most {MaxSearchQueryLength} characters; this one has {query.Length}.";
+            return TaskResult<IReadOnlyList<ProjectAiSearchItem>>.Failed(SearchQueryTooLongCode, tooLong);
         }
 
         var projects = await projectReadService.SearchForAiAsync(

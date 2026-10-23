@@ -289,21 +289,44 @@ public static class NhAiToolResult
     internal static string? GetMessage(TaskResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
+        var messages = GetMessageParts(result)
+            .Select(part => part.Text)
+            .Where(message => !string.IsNullOrWhiteSpace(message));
+
+        var text = string.Join(" ", messages);
+        return text.Length == 0 ? null : text;
+    }
+
+    /// <summary>
+    /// The one message whose rendering is the whole text <see cref="GetMessage"/> returns, so a
+    /// protocol adapter can publish its format and arguments next to that text. Returns
+    /// <see langword="null"/> when the text joins several messages, starts with the field name of a
+    /// result without a code, or is empty.
+    /// </summary>
+    internal static FormattableString? GetMessageSource(TaskResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var parts = GetMessageParts(result)
+            .Where(part => !string.IsNullOrWhiteSpace(part.Text))
+            .Take(2)
+            .ToArray();
+
+        return parts is [{ Named: false } single] ? single.Source : null;
+    }
+
+    private static IEnumerable<MessagePart> GetMessageParts(TaskResult result)
+    {
         var coded = FindCodedItem(result);
-        IEnumerable<string> messages;
         if (coded is not null)
         {
-            messages = coded.ErrorMessages.Select(Format);
-        }
-        else
-        {
-            // Without a code, keep every message and the field it belongs to.
-            messages = result.GetResultItems().SelectMany(item => item.ErrorMessages.Select(message =>
-                string.IsNullOrWhiteSpace(item.Name) ? Format(message) : item.Name + ": " + Format(message)));
+            return coded.ErrorMessages.Select(message => new MessagePart(Format(message), message, false));
         }
 
-        var text = string.Join(" ", messages.Where(message => !string.IsNullOrWhiteSpace(message)));
-        return text.Length == 0 ? null : text;
+        // Without a code, keep every message and the field it belongs to.
+        return result.GetResultItems().SelectMany(item => item.ErrorMessages.Select(message =>
+            string.IsNullOrWhiteSpace(item.Name)
+                ? new MessagePart(Format(message), message, false)
+                : new MessagePart(item.Name + ": " + Format(message), message, true)));
     }
 
     private static TaskResult.ResultItem? FindCodedItem(TaskResult result)
@@ -369,4 +392,10 @@ public static class NhAiToolResult
         using var document = JsonDocument.Parse(buffer.WrittenMemory, new JsonDocumentOptions { MaxDepth = maxDepth });
         return document.RootElement.Clone();
     }
+
+    /// <summary>
+    /// One message of a failed result as it appears in the failure text, with the message it was
+    /// rendered from and whether the text puts the field name of a result without a code before it.
+    /// </summary>
+    private sealed record MessagePart(string Text, FormattableString Source, bool Named);
 }
