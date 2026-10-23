@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -31,6 +32,7 @@ public sealed record NhAssistantInstructionAssetReference(string AssetId, int Ve
     /// <see cref="MaxAssetIdLength"/> characters, a version of 1 or higher and a lowercase SHA-256 hex
     /// hash. It says nothing about whether the application has the asset.
     /// </summary>
+    [JsonIgnore]
     public bool IsWellFormed => NhAssistantNames.IsSegment(AssetId)
                                 && AssetId.Length <= MaxAssetIdLength
                                 && Version >= 1
@@ -39,6 +41,7 @@ public sealed record NhAssistantInstructionAssetReference(string AssetId, int Ve
     /// <summary>
     /// The identity the audit records for the reference: <c>&lt;asset-id&gt;@&lt;version&gt;</c>.
     /// </summary>
+    [JsonIgnore]
     public string InstructionsVersion => AssetId + "@" + Version.ToString(CultureInfo.InvariantCulture);
 }
 
