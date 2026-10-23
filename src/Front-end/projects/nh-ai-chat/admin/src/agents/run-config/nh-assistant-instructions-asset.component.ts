@@ -236,6 +236,11 @@ export class NhAssistantInstructionsAssetComponent implements OnInit {
   }
 }
 
+/** Whether two references name the same asset, version and hash. */
+export function sameInstructionAsset(left: InstructionAssetReference | null | undefined, right: InstructionAssetReference | null | undefined): boolean {
+  return !!left && !!right && left.assetId === right.assetId && left.version === right.version && left.hash === right.hash;
+}
+
 function valueOf(assetId: string, version: number): string {
   return `${assetId}@${version}`;
 }

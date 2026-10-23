@@ -44,6 +44,14 @@
           (valueChange)="pick($event)" />
         <p class="hint" [id]="idPrefix() + '-asset-hint'">{{ 'nh-assistant.admin.instruction-assets.asset-hint' | translate }}</p>
       </div>
+      @if (chosen()) {
+        <!-- The chosen text is read again, for example after the application changed it. -->
+        <div class="actions start">
+          <button class="secondary" type="button" data-read-asset [disabled]="reading()" (click)="read()">
+            {{ (reading() ? 'nh-assistant.admin.instruction-assets.reading' : 'nh-assistant.admin.instruction-assets.read') | translate }}
+          </button>
+        </div>
+      }
     } @else {
       @if (listError()) {
         <p class="field-error" role="alert">

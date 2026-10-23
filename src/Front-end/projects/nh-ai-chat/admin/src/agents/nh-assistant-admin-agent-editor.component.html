@@ -251,7 +251,7 @@
       [available]="assetsAvailable()"
       [(source)]="instructionsSource"
       [(reference)]="instructionsAsset"
-      [problem]="agent()?.instructionsProblem ?? null"
+      [problem]="assetProblem()"
       [error]="assetError()" />
   }
   @if (instructionsSource() === 'inline') {

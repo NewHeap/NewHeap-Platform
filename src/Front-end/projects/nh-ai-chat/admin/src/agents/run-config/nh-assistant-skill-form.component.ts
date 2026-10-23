@@ -14,7 +14,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
-import { InstructionsSource, NhAssistantInstructionsAssetComponent } from './nh-assistant-instructions-asset.component';
+import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './nh-assistant-instructions-asset.component';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -122,10 +122,10 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly editing = computed(() => this.skill() !== null);
   /** Whether the application offers its text assets as instructions. */
   readonly assetsAvailable = computed(() => this.catalog()?.instructionAssets === true);
-  /** The problem of the asset the saved version names, such as `asset-changed`. */
+  /** The problem of the asset the saved version names, such as `asset-changed`, while it is still the choice. */
   readonly assetProblem = computed(() => {
     const skill = this.skill();
-    return skill?.instructionsAsset && isAssetProblem(skill.problem) ? skill.problem : null;
+    return isAssetProblem(skill?.problem) && sameInstructionAsset(skill!.instructionsAsset, this.instructionsAsset()) ? skill!.problem : null;
   });
   /** The warnings of the skill as it was saved, until this form saves it again. */
   readonly warnings = computed(() => this.skill()?.warnings ?? []);

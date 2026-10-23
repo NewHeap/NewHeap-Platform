@@ -33,7 +33,7 @@ import {
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
 import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
-import { InstructionsSource, NhAssistantInstructionsAssetComponent } from './run-config/nh-assistant-instructions-asset.component';
+import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './run-config/nh-assistant-instructions-asset.component';
 import { RunConfigFieldError } from './run-config/run-config-shared';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
@@ -179,6 +179,11 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly assetsAvailable = computed(() => this.choosesUse() && this.catalog()?.instructionAssets === true);
   /** An asset is the source, but none is chosen and read yet. */
   readonly assetMissing = computed(() => this.instructionsSource() === 'asset' && this.instructionsAsset() === null);
+  /** The problem of the asset the saved agent names, while it is still the choice. */
+  readonly assetProblem = computed(() => {
+    const agent = this.agent();
+    return agent?.instructionsProblem && sameInstructionAsset(agent.instructionsAsset, this.instructionsAsset()) ? agent.instructionsProblem : null;
+  });
   /** The error of the asset choice: chosen none, or the save's refusal of the reference. */
   readonly assetError = computed<RunConfigFieldError | null>(() => {
     const errors = this.error()?.fieldErrors;

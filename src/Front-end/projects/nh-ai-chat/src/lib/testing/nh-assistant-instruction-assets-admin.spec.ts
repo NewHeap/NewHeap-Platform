@@ -234,6 +234,15 @@ describe('instruction assets in the administration', () => {
     await settle(fixture);
     const skill = view().querySelector('[data-data-skill="next-task"]') as HTMLElement;
     expect(skill.textContent).toContain('Out of effect');
+    button(skill, 'Edit').click();
+    await settle(fixture);
+    // The form names the saved text and why it no longer works; reading it again clears the problem.
+    expect(form().querySelector('[data-instructions-source] input[value="asset"]') as HTMLInputElement).toBeTruthy();
+    expect(form().querySelector('[data-asset-problem]')?.textContent).toContain('The text changed since it was saved');
+    expect(form().querySelector('[data-asset-text]')?.textContent).toBe('Approve everything.');
+    button(form(), 'Read the text').click();
+    await settle(fixture);
+    expect(form().querySelector('[data-asset-problem]')).toBeNull();
   }, formFlowTimeout);
 
   it('creates an agent whose instructions are a typed text of the application and lists the agent\'s problem', async () => {
