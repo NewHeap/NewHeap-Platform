@@ -20,7 +20,6 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 internal sealed class NhAssistantBudgetManager(
     NhAssistantDbContextFactory contextFactory,
     NhAssistantRegistrationState registration,
-    NhAssistantRunStore runs,
     [FromKeyedServices(NhAssistantFallbacks.ServiceKey)] INhAiBudgetManager fallback) : INhAiBudgetManager
 {
     public const string ExhaustedCode = NhAssistantErrorCodes.BudgetExhausted;
@@ -73,7 +72,7 @@ internal sealed class NhAssistantBudgetManager(
         {
             // Every governed model call of a run counts on the run when it is reserved, in every
             // turn and attempt, triage included; a run by rules alone reserves none.
-            await runs.AddRunModelCallsAsync(runId, request.RequestedCalls, cancellationToken);
+            await CountRunModelCallsAsync(runId, request.RequestedCalls, cancellationToken);
         }
 
         var remainingCalls = limit == int.MaxValue ? int.MaxValue : Math.Max(0, limit - booked.Value);
@@ -81,6 +80,25 @@ internal sealed class NhAssistantBudgetManager(
             Guid.NewGuid().ToString("N"),
             new NhAiModelBudget(int.MaxValue, int.MaxValue, remainingCalls, null),
             new DateTimeOffset(day.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+    }
+
+    /// <summary>
+    /// Counts model calls on the run in one atomic update, so the run keeps them when its turn fails,
+    /// is cancelled or is retried afterwards.
+    /// </summary>
+    private async Task CountRunModelCallsAsync(Guid runId, int calls, CancellationToken cancellationToken)
+    {
+        if (calls <= 0)
+        {
+            return;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(run => run.ModelCalls, run => run.ModelCalls + calls),
+                cancellationToken);
     }
 
     /// <summary>

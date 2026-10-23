@@ -237,6 +237,9 @@ public sealed class AssistantRegistrationTests
                     or "ConsultationRoute" or "ConsultationRefusalReason"
                     // Where a consultation comes from: a code of NhAssistantConsultationSources.
                     or "ConsultationSource"
+                    // What started an ended run, its status and its failure code: codes of
+                    // NhAssistantTriggerKinds, NhAssistantRunStatuses and the failure codes.
+                    or "TriggerKind" or "RunStatus" or "RunFailureCode"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

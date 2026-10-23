@@ -1012,8 +1012,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Adds what a turn of the run used. Its model calls are not among them: each counts on the run
-    /// when its budget is reserved (<see cref="AddRunModelCallsAsync"/>).
+    /// Adds what a turn of the run used. Its model calls are not among them: the assistant's budget
+    /// manager counts each on the run when its budget is reserved.
     /// </summary>
     public async Task RecordRunUsageAsync(
         Guid runId,
@@ -1043,25 +1043,6 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 .Where(run => run.Id == runId)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.UsedRestrictedResults, true), cancellationToken);
         }
-    }
-
-    /// <summary>
-    /// Counts governed model calls on the run as their budget is reserved, in one atomic update, so
-    /// the run keeps them when its turn fails, is cancelled or is retried afterwards.
-    /// </summary>
-    public async Task AddRunModelCallsAsync(Guid runId, int calls, CancellationToken cancellationToken)
-    {
-        if (calls <= 0)
-        {
-            return;
-        }
-
-        await using var context = contextFactory.CreateDbContext();
-        await context.Runs
-            .Where(run => run.Id == runId)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(run => run.ModelCalls, run => run.ModelCalls + calls),
-                cancellationToken);
     }
 
     /// <summary>
