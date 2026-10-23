@@ -232,11 +232,6 @@ internal sealed record NhAssistantAgentTurnResult(
     public bool UsedRestrictedResults { get; init; }
 
     /// <summary>
-    /// The model calls of the turn, including triage.
-    /// </summary>
-    public int ModelCalls { get; init; }
-
-    /// <summary>
     /// The answer of a rule turn in each supported UI culture, by culture name, for the run's result
     /// per culture; <see langword="null"/> for a model's answer.
     /// </summary>

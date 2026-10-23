@@ -62,7 +62,13 @@ public enum NhAssistantAuditEventKind
     AgentTriggerRejected = 31,
 
     /// <summary>
-    /// An agent run ended. <c>ResultCode</c> is the run status, followed by the failure code.
+    /// An agent run ended. <c>ResultCode</c> is the run status, followed by the failure code as
+    /// <c>status:code</c>; <see cref="NhAssistantAuditEvent.RunStatus"/> and
+    /// <see cref="NhAssistantAuditEvent.RunFailureCode"/> carry them apart. The run facts
+    /// <see cref="NhAssistantAuditEvent.TriggerKind"/>, <see cref="NhAssistantAuditEvent.Shadow"/>,
+    /// <see cref="NhAssistantAuditEvent.SkillVersion"/> and
+    /// <see cref="NhAssistantAuditEvent.ModelCallCount"/> let an audit sink count runs, runs without a
+    /// model call and shadow runs per agent and skill without reading the assistant's tables.
     /// </summary>
     AgentRunEnded = 32,
 
@@ -427,6 +433,48 @@ public sealed record NhAssistantAuditEvent(
     /// The skill of the agent a trigger, run or state change concerns.
     /// </summary>
     public string? SkillId { get; init; }
+
+    /// <summary>
+    /// What started the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event, one of
+    /// <see cref="NhAssistantTriggerKinds"/>; <see langword="null"/> for other events and for a run
+    /// whose trigger is no longer registered.
+    /// </summary>
+    public string? TriggerKind { get; init; }
+
+    /// <summary>
+    /// The version of the skill defined as data that the run of an
+    /// <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event worked in; <see langword="null"/>
+    /// for a skill in code, a run without a skill and other events.
+    /// </summary>
+    public int? SkillVersion { get; init; }
+
+    /// <summary>
+    /// Whether the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event worked in the
+    /// agent's shadow thread, where nothing it proposes executes; <see langword="null"/> for other
+    /// events.
+    /// </summary>
+    public bool? Shadow { get; init; }
+
+    /// <summary>
+    /// The governed model calls the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/>
+    /// event made across its turns and attempts, triage included: 0 for a run by rules alone and for
+    /// a run that ended before its first call. <see langword="null"/> for other events.
+    /// </summary>
+    public int? ModelCallCount { get; init; }
+
+    /// <summary>
+    /// The status the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event ended
+    /// with, one of <see cref="NhAssistantRunStatuses"/>, without its failure code;
+    /// <see langword="null"/> for other events.
+    /// </summary>
+    public string? RunStatus { get; init; }
+
+    /// <summary>
+    /// The failure code the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event
+    /// ended with, such as <c>assistant-approval-expired</c>; <see langword="null"/> when it ended
+    /// without one and for other events.
+    /// </summary>
+    public string? RunFailureCode { get; init; }
 
     /// <summary>
     /// The consultation the event belongs to: the consultation itself, or a tool call or proposal of

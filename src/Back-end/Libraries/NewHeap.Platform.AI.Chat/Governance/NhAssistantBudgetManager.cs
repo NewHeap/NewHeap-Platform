@@ -14,12 +14,13 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// <see cref="NhAssistantLimits.DailyModelCallBudgetPerActor"/>. With
 /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/> a booked reservation is then also
 /// reserved with the budget manager that was registered before the assistant, naming the turn's
-/// agent, skill, run and purpose. Outside an assistant turn the request is delegated to that manager
-/// as it is.
+/// agent, skill, run and purpose. A model call of an agent run's turn counts on the run once it is
+/// reserved. Outside an assistant turn the request is delegated to that manager as it is.
 /// </summary>
 internal sealed class NhAssistantBudgetManager(
     NhAssistantDbContextFactory contextFactory,
     NhAssistantRegistrationState registration,
+    NhAssistantRunStore runs,
     [FromKeyedServices(NhAssistantFallbacks.ServiceKey)] INhAiBudgetManager fallback) : INhAiBudgetManager
 {
     public const string ExhaustedCode = NhAssistantErrorCodes.BudgetExhausted;
@@ -68,9 +69,11 @@ internal sealed class NhAssistantBudgetManager(
             }
         }
 
-        if (!isToolCall)
+        if (!isToolCall && turn.RunId is { } runId)
         {
-            turn.AddModelCalls(request.RequestedCalls);
+            // Every governed model call of a run counts on the run when it is reserved, in every
+            // turn and attempt, triage included; a run by rules alone reserves none.
+            await runs.AddRunModelCallsAsync(runId, request.RequestedCalls, cancellationToken);
         }
 
         var remainingCalls = limit == int.MaxValue ? int.MaxValue : Math.Max(0, limit - booked.Value);

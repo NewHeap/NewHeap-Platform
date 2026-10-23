@@ -512,6 +512,7 @@ internal sealed class NhAssistantWaitingShare(NhAssistantAgentNotificationContex
 /// </summary>
 internal sealed class NhAssistantAgentEvents(
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
+    NhAssistantRegistrationState registration,
     ILogger<NhAssistantAgentEvents> logger)
 {
     internal const string AgentActorPrefix = "assistant-agent:";
@@ -553,6 +554,12 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Records that a run ended, with its content-free facts: what started it, whether it was a
+    /// shadow run, its skill and skill version, how many model calls it made and its status apart
+    /// from its failure code. <c>ResultCode</c> keeps <c>status:code</c> as before. A run created
+    /// before its trigger kind was recorded takes the kind of its trigger as registered now.
+    /// </summary>
     public Task RunEndedAsync(AssistantThread thread, AssistantRun run, string status, string? failureCode, CancellationToken cancellationToken)
     {
         return RecordAsync(
@@ -566,12 +573,18 @@ internal sealed class NhAssistantAgentEvents(
                 DateTimeOffset.UtcNow)
             {
                 ResultCode = failureCode is null ? status : status + ":" + failureCode,
+                RunStatus = status,
+                RunFailureCode = failureCode,
                 RunId = run.Id,
                 TriggerId = run.TriggerId,
+                TriggerKind = run.TriggerKind ?? NhAssistantTriggerKinds.Of(run.TriggerId, run.ReplayOfRunId, registration.Triggers),
                 SubjectType = thread.SubjectType,
                 SubjectId = thread.SubjectId,
                 InitiatorActorId = run.InitiatorActorId,
-                SkillId = run.SkillId
+                SkillId = run.SkillId,
+                SkillVersion = run.SkillVersion,
+                Shadow = run.Shadow,
+                ModelCallCount = run.ModelCalls
             },
             cancellationToken);
     }

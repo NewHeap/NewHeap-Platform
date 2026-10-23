@@ -1011,6 +1011,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return updated == 1;
     }
 
+    /// <summary>
+    /// Adds what a turn of the run used. Its model calls are not among them: each counts on the run
+    /// when its budget is reserved (<see cref="AddRunModelCallsAsync"/>).
+    /// </summary>
     public async Task RecordRunUsageAsync(
         Guid runId,
         int toolCalls,
@@ -1019,8 +1023,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         int proposals,
         CancellationToken cancellationToken,
         string? kind = null,
-        bool usedRestrictedResults = false,
-        int modelCalls = 0)
+        bool usedRestrictedResults = false)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -1028,7 +1031,6 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(run => run.ToolCalls, run => run.ToolCalls + toolCalls)
-                    .SetProperty(run => run.ModelCalls, run => run.ModelCalls + modelCalls)
                     .SetProperty(run => run.InputTokens, run => run.InputTokens + inputTokens)
                     .SetProperty(run => run.OutputTokens, run => run.OutputTokens + outputTokens)
                     .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals)
@@ -1041,6 +1043,25 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 .Where(run => run.Id == runId)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.UsedRestrictedResults, true), cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Counts governed model calls on the run as their budget is reserved, in one atomic update, so
+    /// the run keeps them when its turn fails, is cancelled or is retried afterwards.
+    /// </summary>
+    public async Task AddRunModelCallsAsync(Guid runId, int calls, CancellationToken cancellationToken)
+    {
+        if (calls <= 0)
+        {
+            return;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        await context.Runs
+            .Where(run => run.Id == runId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(run => run.ModelCalls, run => run.ModelCalls + calls),
+                cancellationToken);
     }
 
     /// <summary>

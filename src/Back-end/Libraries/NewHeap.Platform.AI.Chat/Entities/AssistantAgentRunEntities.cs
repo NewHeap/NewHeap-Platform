@@ -75,6 +75,12 @@ public sealed class AssistantRun
 
     public string? TriggerEventKey { get; set; }
 
+    /// <summary>
+    /// What started the run: one of the values in <see cref="NhAssistantTriggerKinds"/>, recorded
+    /// when the run is created; <see langword="null"/> for a run created before it was recorded.
+    /// </summary>
+    public string? TriggerKind { get; set; }
+
     public string? InitiatorActorId { get; set; }
 
     public string AccountableOwnerId { get; set; } = string.Empty;
@@ -146,7 +152,9 @@ public sealed class AssistantRun
     public int ToolCalls { get; set; }
 
     /// <summary>
-    /// The model calls of the run's turns, including triage.
+    /// The governed model calls of the run, across its turns and attempts, triage included: each is
+    /// counted when its budget is reserved, so a turn that fails, is cancelled or retried keeps the
+    /// calls it made. A run by rules alone makes none.
     /// </summary>
     public int ModelCalls { get; set; }
 
