@@ -346,6 +346,78 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
     }
 
     [Fact]
+    public async Task An_extension_the_application_mapped_names_its_type_and_the_agents_give_the_mappings_to_clients()
+    {
+        await using var app = await StartAsync(configureUploads: uploads => uploads
+            .AcceptMediaTypes(NhAiMediaTypes.Pdf, "application/acad")
+            .MapExtension(".dwg", "application/acad")
+            .MapExtension(".DXF", "application/acad")
+            // Not accepted: the mapping names nothing and clients never see it.
+            .MapExtension(".ifc", "application/x-step"));
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+        var store = app.Services.GetRequiredService<TestUploads>();
+        var drawing = Encoding.ASCII.GetBytes("AC1032 drawing");
+
+        using var untyped = await UploadAsync(client, id, "Floor plan.dwg", null, drawing);
+        using var generic = await UploadAsync(client, id, "Section.DXF", "application/octet-stream", drawing);
+
+        Assert.Equal([HttpStatusCode.OK, HttpStatusCode.OK], [untyped.StatusCode, generic.StatusCode]);
+        Assert.Equal(
+            [("Floor plan.dwg", "application/acad"), ("Section.DXF", "application/acad")],
+            store.Stored.Values
+                .Select(item => (item.Upload.Name, item.Upload.MediaType))
+                .OrderBy(item => item.Name, StringComparer.Ordinal)
+                .ToArray());
+        // A specific type the application does not accept stays refused, and so does a mapping to one.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Floor plan.dwg", "image/vnd.dwg", drawing),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Model.ifc", null, drawing),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+
+        var uploadsOfAgent = (await ReadJsonAsync(await client.GetAsync("/api/assistant/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == FileAgent)
+            .GetProperty("uploads");
+        Assert.Equal(
+            [(".dwg", "application/acad"), (".dxf", "application/acad")],
+            uploadsOfAgent.GetProperty("mappedExtensions").EnumerateArray()
+                .Select(item => (item.GetProperty("extension").GetString(), item.GetProperty("mediaType").GetString()))
+                .ToArray());
+        Assert.Equal(2, store.Stored.Count);
+    }
+
+    [Fact]
+    public async Task Text_whose_content_starts_as_a_binary_format_is_refused_while_utf16_text_passes()
+    {
+        await using var app = await StartAsync(configureUploads: uploads => uploads.AcceptMediaTypes("text/csv", "text/plain"));
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+        var store = app.Services.GetRequiredService<TestUploads>();
+        byte[] workbook = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0x00, 0x00, 0x00, 0x00];
+        var unicodeText = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes("project\tstatus\r\nApollo\tactive\r\n")).ToArray();
+
+        // An .xls workbook renamed to .csv, sent as the type Windows names after Excel.
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Export.csv", "application/vnd.ms-excel", workbook),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        await AssertRefusedAsync(
+            await UploadAsync(client, id, "Notes.txt", "text/plain", Png),
+            HttpStatusCode.UnsupportedMediaType,
+            NhAssistantErrorCodes.FileTypeNotAccepted);
+        // Excel's "Unicode text" export is UTF-16 with a byte order mark and passes as text.
+        using var unicode = await UploadAsync(client, id, "Projects.txt", "text/plain", unicodeText);
+
+        Assert.Equal(HttpStatusCode.OK, unicode.StatusCode);
+        var stored = Assert.Single(store.Stored.Values);
+        Assert.Equal(("Projects.txt", "text/plain"), (stored.Upload.Name, stored.Upload.MediaType));
+    }
+
+    [Fact]
     public async Task Without_a_scanner_nothing_is_scanned()
     {
         await using var app = await StartAsync();
@@ -514,10 +586,51 @@ public sealed class AssistantUploadRuleTests
     [InlineData(NhAiMediaTypes.Pdf, "<html>", false)]
     [InlineData(NhAiMediaTypes.Docx, "PK\u0003\u0004word/", true)]
     [InlineData(NhAiMediaTypes.Xlsx, "%PDF-1.7", false)]
+    // A PowerPoint presentation is a ZIP package as Word and Excel documents are.
+    [InlineData("application/vnd.openxmlformats-officedocument.presentationml.presentation", "PK\u0003\u0004ppt/", true)]
+    [InlineData("application/vnd.openxmlformats-officedocument.presentationml.presentation", "<html>", false)]
     [InlineData("text/csv", "anything", true)]
+    [InlineData("application/acad", "ÐÏ\u0011à¡±\u001Aá", true)]
     public void The_content_must_start_as_files_of_its_declared_type_do(string mediaType, string head, bool matches)
     {
         Assert.Equal(matches, Runtime.NhAssistantUploads.MatchesSignature(Encoding.Latin1.GetBytes(head), mediaType));
+    }
+
+    [Theory]
+    // An .xls workbook renamed to .csv: an OLE2 compound file.
+    [InlineData("text/csv", "ÐÏ\u0011à¡±\u001Aá\u0000\u0000")]
+    // A ZIP package, also an empty one, a PDF and images.
+    [InlineData("text/plain", "PK\u0003\u0004word/")]
+    [InlineData("text/plain", "PK\u0005\u0006\u0000\u0000")]
+    [InlineData("text/markdown", "%PDF-1.7\n")]
+    [InlineData("application/json", "\u0089PNG\r\n\u001A\n")]
+    [InlineData("application/xml", "ÿØÿà")]
+    [InlineData("text/xml", "GIF89a")]
+    [InlineData("text/tab-separated-values", "GIF87a")]
+    // Types with a structured syntax suffix are JSON or XML text too.
+    [InlineData("application/ld+json", "PK\u0003\u0004")]
+    [InlineData("image/svg+xml", "\u0089PNG\r\n\u001A\n")]
+    public void Text_that_starts_as_a_binary_format_is_refused(string mediaType, string head)
+    {
+        Assert.False(Runtime.NhAssistantUploads.MatchesSignature(Encoding.Latin1.GetBytes(head), mediaType));
+    }
+
+    [Fact]
+    public void Text_passes_in_utf8_and_in_utf16_with_its_byte_order_mark()
+    {
+        var utf8 = Encoding.UTF8.GetBytes("project;status\nApollo;active\n");
+        // Excel's "Unicode text" export: UTF-16LE with a byte order mark, so every other byte is NUL.
+        var utf16 = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes("project\tstatus\r\nApollo\tactive\r\n")).ToArray();
+        var utf16BigEndian = Encoding.BigEndianUnicode.GetPreamble().Concat(Encoding.BigEndianUnicode.GetBytes("{\"a\":1}")).ToArray();
+        var utf8WithMark = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("<root/>")).ToArray();
+
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature(utf8, "text/csv"));
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature(utf16, "text/tab-separated-values"));
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature(utf16BigEndian, "application/json"));
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature(utf8WithMark, "application/xml"));
+        // A text that only mentions a signature further on is text.
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature(Encoding.UTF8.GetBytes("See %PDF-1.7 and PK\u0003\u0004"), "text/plain"));
+        Assert.True(Runtime.NhAssistantUploads.MatchesSignature([], "text/plain"));
     }
 
     [Theory]
@@ -555,6 +668,101 @@ public sealed class AssistantUploadRuleTests
 
         Assert.Equal("application/vnd.ms-excel", Runtime.NhAssistantUploadMediaTypes.Resolve("Export.csv", "application/vnd.ms-excel", accepted));
         Assert.Equal("application/vnd.ms-excel", Runtime.NhAssistantUploadMediaTypes.Resolve("Sheet.xls", null, accepted));
+    }
+
+    [Theory]
+    // Browsers send text/xml for .xml; the platform's table names application/xml.
+    [InlineData("Feed.xml", "text/xml", new[] { "application/xml" }, "application/xml")]
+    [InlineData("Feed.XML", "text/xml; charset=utf-8", new[] { "application/xml", "text/xml" }, "application/xml")]
+    [InlineData("Feed.xml", null, new[] { "application/xml" }, "application/xml")]
+    // An application that accepts text/xml itself, but not application/xml, keeps receiving text/xml.
+    [InlineData("Feed.xml", "text/xml", new[] { "text/xml" }, "text/xml")]
+    [InlineData("Feed.xml", null, new[] { "text/xml" }, null)]
+    // text/xml is an alias for .xml only.
+    [InlineData("Feed.txt", "text/xml", new[] { "application/xml", "text/plain" }, null)]
+    public void Text_xml_is_an_alias_of_xml(string fileName, string? declared, string[] accepted, string? expected)
+    {
+        Assert.Equal(expected, Runtime.NhAssistantUploadMediaTypes.Resolve(fileName, declared, accepted));
+    }
+
+    [Theory]
+    // The application's extension names its own type, exactly as the platform's table does.
+    [InlineData("Floor plan.dwg", null, "application/acad")]
+    [InlineData("Floor plan.DWG", "application/octet-stream", "application/acad")]
+    [InlineData("Floor plan.dwg", "application/acad", "application/acad")]
+    // A specific type is never replaced, and an accepted one counts as it is.
+    [InlineData("Floor plan.dwg", "image/vnd.dwg", null)]
+    [InlineData("Floor plan.dwg", "application/pdf", "application/pdf")]
+    // A mapping to a type the application does not accept names nothing.
+    [InlineData("Model.ifc", null, null)]
+    // The mapping takes precedence over the platform's type of the same extension.
+    [InlineData("Feed.xml", null, "text/xml")]
+    [InlineData("Feed.xml", "text/xml", "text/xml")]
+    [InlineData("Plan.pdf", null, "application/pdf")]
+    public void The_extensions_the_application_mapped_name_its_accepted_types(string fileName, string? declared, string? expected)
+    {
+        string[] accepted = [NhAiMediaTypes.Pdf, "application/acad", "text/xml", "application/xml"];
+        var mapped = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [".dwg"] = "application/acad",
+            [".ifc"] = "application/x-step",
+            [".xml"] = "text/xml"
+        };
+
+        Assert.Equal(expected, Runtime.NhAssistantUploadMediaTypes.Resolve(fileName, declared, accepted, mapped));
+    }
+
+    [Fact]
+    public void A_mapping_to_a_type_that_is_not_accepted_leaves_the_platforms_type_of_the_extension()
+    {
+        var mapped = new Dictionary<string, string>(StringComparer.Ordinal) { [".xml"] = "text/xml" };
+
+        Assert.Equal("application/xml", Runtime.NhAssistantUploadMediaTypes.Resolve("Feed.xml", null, ["application/xml"], mapped));
+    }
+
+    [Fact]
+    public void The_application_maps_valid_lowercase_extensions_to_valid_media_types()
+    {
+        var options = new NhAssistantUploadOptions();
+        Assert.Empty(options.MappedExtensions);
+
+        options
+            .MapExtension(".DWG", "Application/ACAD; version=2018")
+            .MapExtension(" .step ", "application/x-step")
+            .MapExtension(".c++", "text/x-c")
+            .MapExtension(".step", "model/step");
+
+        // Lowercase, without parameters, and a later mapping of an extension replaces the earlier one.
+        Assert.Equal(
+            new Dictionary<string, string> { [".dwg"] = "application/acad", [".step"] = "model/step", [".c++"] = "text/x-c" },
+            options.MappedExtensions);
+        Assert.Throws<ArgumentException>(() => options.MapExtension("dwg", "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension(".", "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension("", "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension(".tar.gz", "application/gzip"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension("./x", "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension(".d wg", "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension("." + new string('a', 32), "application/acad"));
+        Assert.Throws<ArgumentException>(() => options.MapExtension(".dwg", "not a type"));
+        Assert.Throws<ArgumentNullException>(() => options.MapExtension(null!, "application/acad"));
+        Assert.Throws<ArgumentNullException>(() => options.MapExtension(".dwg", null!));
+        Assert.Equal(3, options.MappedExtensions.Count);
+        options.MapExtension("." + new string('a', 31), "application/x-long");
+    }
+
+    [Fact]
+    public void An_application_maps_at_most_the_most_extensions()
+    {
+        var options = new NhAssistantUploadOptions();
+        for (var index = 0; index < NhAssistantUploadOptions.MaxMappedExtensions; index++)
+        {
+            options.MapExtension($".x{index}", "application/x-sample");
+        }
+
+        Assert.Throws<ArgumentException>(() => options.MapExtension(".another", "application/x-sample"));
+        // Mapping an extension again replaces it and stays within the bound.
+        options.MapExtension(".x0", "application/x-other");
+        Assert.Equal(NhAssistantUploadOptions.MaxMappedExtensions, options.MappedExtensions.Count);
     }
 
     [Fact]

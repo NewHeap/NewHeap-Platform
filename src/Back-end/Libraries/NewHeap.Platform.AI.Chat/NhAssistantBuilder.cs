@@ -673,9 +673,11 @@ public sealed class NhAssistantBuilder
     /// <summary>
     /// Configures how people upload files to a conversation with
     /// <c>POST {prefix}/conversations/{id}/files</c>: the media types they may upload (PDF, PNG,
-    /// JPEG, Word and Excel by default), the classification an upload gets (<c>Confidential</c> by
-    /// default) and an optional scanner (<see cref="NhAssistantUploadOptions.UseScanner{TScanner}"/>)
-    /// that every upload passes before the file source stores it. Uploads need a file source
+    /// JPEG, Word and Excel by default), the extensions it maps to its own types
+    /// (<see cref="NhAssistantUploadOptions.MapExtension"/>), the classification an upload gets
+    /// (<c>Confidential</c> by default) and an optional scanner
+    /// (<see cref="NhAssistantUploadOptions.UseScanner{TScanner}"/>) that every upload passes before the
+    /// file source stores it. Uploads need a file source
     /// (<see cref="UseFileSource{TSource}"/>) and an agent that accepts files;
     /// <see cref="NhAssistantLimits.MaxFileBytes"/> and the agent's lower limits bound every upload.
     /// </summary>

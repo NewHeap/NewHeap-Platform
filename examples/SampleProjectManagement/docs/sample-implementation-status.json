@@ -2766,7 +2766,10 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-server-editor.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-readers.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-files.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-files.ts"
     ],
     "SPM-306": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",

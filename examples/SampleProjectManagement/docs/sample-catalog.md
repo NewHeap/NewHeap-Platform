@@ -176,7 +176,9 @@ The assistant reads files of the sample's media library (SPM-305). `ProjectMedia
 implements the assistant's file source: a person attaches a PDF, an image, or a Word or Excel
 document in the chat panel, the upload endpoint checks it and the source stores it in a media
 library folder of that conversation, with the `Confidential` classification the assistant gives
-every upload. A turn opens each file through the source for its own person or agent: an upload
+every upload. The sample maps its own extension `.jfif` to JPEG with `MapExtension`, so a photo
+that arrives without a type uploads as `image/jpeg`, still checked as a JPEG, and the panel's file
+picker offers `.jfif` files. A turn opens each file through the source for its own person or agent: an upload
 opens only in its conversation, a project document for the people who see the project's agent work
 and for an agent on that project, and the media library's own endpoints never serve the uploads.
 Confidential files move the model call to the chat profile's fallback, which permits them. The

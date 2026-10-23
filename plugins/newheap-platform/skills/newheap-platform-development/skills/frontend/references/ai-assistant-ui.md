@@ -169,11 +169,11 @@ Use a compact localized approval status; do not show the old sending-unavailable
 
 People attach files to a message when the server offers uploads for the agent
 (`AgentSummary.uploads`, read as `NhAssistantStore.uploads()`): the panel's composer then shows a
-labelled attach button that opens the file picker for the accepted types. `NhAssistantStore.attach`
+labelled attach button that opens the file picker for the accepted types and their extensions. `NhAssistantStore.attach`
 checks every chosen file before it uploads it (the agent's `maxFiles`, the accepted media types,
 content and `maxFileBytes`; a file the browser gives no type, the generic
 `application/octet-stream` or a type its system names after a program, such as
-`application/vnd.ms-excel` for `.csv`, takes the type its extension names when the agent accepts
+`application/vnd.ms-excel` for `.csv` or `text/xml` for `.xml`, takes the type its extension names when the agent accepts
 that type, as on the server, while a specific type that is not accepted stays refused), creates the conversation first in a new chat, because an upload belongs to one,
 and uploads with progress (`NhAssistantApiService.uploadFile`, `multipart/form-data` with the
 `X-NH-Assistant-Upload` header). `attachments()` lists them as `uploading` with `progress`,
@@ -183,10 +183,15 @@ control, with its remove button, and keeps sending disabled while a file uploads
 keeps them and the panel's queue names them, and once the message is accepted its attachments, and the failed ones, leave the
 composer. `removeAttachment` stops an upload in progress. In a custom layout, bind the composer's
 `uploads` and `attachments` inputs and its `attach` and `removeAttachment` outputs to the store. The
-thread shows a person's files by name, type and size (`FilePart`), never their content. Uploads
+thread shows a person's files by name, type and size (`FilePart`), never their content. The
+extensions the application maps on the server (`NhAssistantUploadOptions.MapExtension`) reach the
+client as `AgentUploads.mappedExtensions` (`AgentUploadExtension`, only those of accepted types): the
+store derives a file's type with them before the platform's table and the picker offers them, as the
+sample's `.jfif` mapping shows (SPM-305). Uploads
 use `NH_ASSISTANT_UPLOAD`, `XMLHttpRequest` by default because `fetch` reports no upload progress;
-the mock API replaces it, answers with the server's checks and codes, and refuses an upload with
-`refuseUpload` of the scenario. Give an agent of the scenario `uploads` to offer attachments. A file the
+the mock API replaces it, answers with the server's checks and codes, including the refusal of text
+whose content starts as a binary format such as an `.xls` workbook renamed to `.csv`, and refuses an upload with
+`refuseUpload` of the scenario. Give an agent of the scenario `uploads`, with `mappedExtensions` when the server maps any, to offer attachments. A file the
 application's upload scanner refuses fails at the control with `assistant-file-scan-refused`, one it
 could not scan with `assistant-file-upload-failed`; the scenario's `scanUpload` simulates the scanner.
 A message to an agent's thread whose run works waits on the server for the next run, with its files:

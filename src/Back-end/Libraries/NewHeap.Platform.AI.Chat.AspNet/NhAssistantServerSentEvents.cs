@@ -158,11 +158,22 @@ internal static class NhAssistantDtoMapper
     public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgentDefinition agent, NhAssistantUploads uploads)
     {
         var rules = uploads.RulesOf(agent.Id);
+        if (rules is null)
+        {
+            return ToDto(agent);
+        }
+
+        // The client derives a file's type with the same mappings as the server.
+        var mapped = rules.MappedExtensions
+            .OrderBy(mapping => mapping.Key, StringComparer.Ordinal)
+            .Select(mapping => new NhAssistantUploadExtensionDto(mapping.Key, mapping.Value))
+            .ToArray();
         return ToDto(agent) with
         {
-            Uploads = rules is null
-                ? null
-                : new NhAssistantAgentUploadsDto(rules.AcceptedMediaTypes, rules.MaxFileBytes, rules.MaxFiles)
+            Uploads = new NhAssistantAgentUploadsDto(rules.AcceptedMediaTypes, rules.MaxFileBytes, rules.MaxFiles)
+            {
+                MappedExtensions = mapped
+            }
         };
     }
 

@@ -674,9 +674,31 @@ names some extensions after the program that opens them, such as `application/vn
 the type its file name's extension names, but only a type the application accepts; the content check
 and the scanner then run as for any upload. A specific type the application does not accept stays
 refused (`assistant-file-type-not-accepted`): the extension never overrides it, and an extension of a
-type the application does not accept names nothing. Accept `text/csv` to take CSV exports; the
+type the application does not accept names nothing. `text/xml` counts as such a type for `.xml`, whose
+type is `application/xml`; an application that accepts `text/xml` but not `application/xml` keeps
+receiving `text/xml`. Accept `text/csv` to take CSV exports; when the application also accepts
+`application/vnd.ms-excel`, a `.csv` sent with that type still becomes `text/csv`. The
 composer of `@newheap/platform-ai-chat` applies the same table before it uploads and declares the
 type it derived.
+
+The platform's table knows `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.docx`, `.xlsx`,
+`.pptx`, `.doc`, `.xls`, `.csv`, `.tsv`, `.txt`, `.md`, `.markdown`, `.json` and `.xml`. Map the
+application's own extensions with `NhAssistantUploadOptions.MapExtension(extension, mediaType)`, such
+as `.dwg` to `application/acad`: the derivation then uses the mapping exactly like the table, only while
+the application accepts the mapped type, and a mapping of an extension the table knows takes
+precedence over the table. `MapExtension` throws for an extension that is not a dot with letters,
+digits, `_`, `+` or `-` (at most 32 characters), a value that is not a media type, or more than
+`MaxMappedExtensions` (100) extensions. The agents' upload rules carry the mappings of accepted types
+(`NhAssistantAgentUploadsDto.MappedExtensions`), so the composer derives alike and its file picker
+offers the extensions. The sample maps `.jfif` to JPEG (SPM-305).
+
+The content check also covers text: an upload whose type resolves to `text/*`, `application/json`,
+`application/xml` or a `+json` or `+xml` type is refused (`assistant-file-type-not-accepted`) when its
+content starts with the signature of an OLE2 compound file (Word, Excel or PowerPoint 97 to 2003), a
+ZIP package, a PDF, or a PNG, JPEG or GIF image, such as an `.xls` workbook renamed to `.csv`. There is
+no NUL-byte check, so UTF-16 text, such as Excel's "Unicode text" export, passes. A `.pptx` must start as
+a ZIP package, as a `.docx` and an `.xlsx` must. Check the rest of the content of the text types the
+application accepts in its scanner or file source.
 
 ```csharp
 services.AddNewHeapAssistant(assistant => assistant
@@ -686,6 +708,8 @@ services.AddNewHeapAssistant(assistant => assistant
     {
         // PDF, PNG, JPEG, Word and Excel by default; no types switches uploads off.
         uploads.AcceptMediaTypes(NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg);
+        // An extension the platform's table does not know names an accepted type.
+        uploads.MapExtension(".jfif", NhAiMediaTypes.Jpeg);
         // Confidential by default: the profile, or a fallback, must permit it.
         uploads.DefaultClassification = NhAiDataClassification.Confidential;
         // Every upload passes the application's scanner before the file source stores it.

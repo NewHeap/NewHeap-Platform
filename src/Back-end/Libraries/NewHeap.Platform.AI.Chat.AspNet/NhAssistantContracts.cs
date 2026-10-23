@@ -53,7 +53,25 @@ public sealed record NhAssistantAgentSummaryDto(
 public sealed record NhAssistantAgentUploadsDto(
     IReadOnlyList<string> AcceptedMediaTypes,
     int MaxFileBytes,
-    int MaxFiles);
+    int MaxFiles)
+{
+    /// <summary>
+    /// The file name extensions the application mapped to one of <see cref="AcceptedMediaTypes"/>
+    /// (<c>NhAssistantUploadOptions.MapExtension</c>), ordered by extension. A client derives the type
+    /// of a file without a usable type from them before the platform's table, as the server does, and
+    /// offers them in its file picker.
+    /// </summary>
+    public IReadOnlyList<NhAssistantUploadExtensionDto> MappedExtensions { get; init; } = [];
+}
+
+/// <summary>
+/// A file name extension the application mapped to an accepted media type for uploads.
+/// </summary>
+/// <param name="Extension">The extension in lowercase with its dot, such as <c>.dwg</c>.</param>
+/// <param name="MediaType">The accepted media type it names, such as <c>application/acad</c>.</param>
+public sealed record NhAssistantUploadExtensionDto(
+    string Extension,
+    string MediaType);
 
 /// <param name="Role">The caller's relation: <c>owner</c> or <c>participant</c>.</param>
 /// <param name="ParticipantCount">People the owner shared the conversation with.</param>

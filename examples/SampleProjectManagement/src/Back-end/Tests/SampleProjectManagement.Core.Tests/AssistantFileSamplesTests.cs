@@ -222,6 +222,41 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
     }
 
     [Fact]
+    public async Task SPM_305_a_photo_with_the_extension_the_sample_maps_uploads_as_jpeg_and_the_panel_receives_the_mapping()
+    {
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await host.CreateConversationAsync(owner);
+        byte[] photo = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01];
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
+
+        // The device sent no type or the generic one: the sample's mapping of .jfif names JPEG.
+        var untyped = await UploadAsync(owner, conversationId, "Site photo.jfif", null, photo);
+        var generic = await UploadAsync(owner, conversationId, "Crane.JFIF", "application/octet-stream", photo);
+        // The content must still be a JPEG.
+        using var disguised = await PostUploadAsync(owner, conversationId, "Fake.jfif", null, png);
+
+        Assert.Equal(
+            [NhAiMediaTypes.Jpeg, NhAiMediaTypes.Jpeg],
+            [untyped.GetProperty("mediaType").GetString(), generic.GetProperty("mediaType").GetString()]);
+        var stored = await MediaFileAsync(untyped.GetProperty("id").GetString()!);
+        Assert.Equal(NhAiMediaTypes.Jpeg, ProjectMediaMetadata.MediaTypeOf(stored));
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, disguised.StatusCode);
+        Assert.Equal(
+            NhAssistantErrorCodes.FileTypeNotAccepted,
+            (await AssistantSampleHost.ReadJsonAsync(disguised)).GetProperty("code").GetString());
+
+        // The panel's composer derives with the same mapping and offers .jfif files in its picker.
+        var chat = (await owner.GetFromJsonAsync<JsonElement>("/api/assistant/agents", Json, TestContext.Current.CancellationToken))
+            .EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == SampleAssistantComposition.AgentId)
+            .GetProperty("uploads");
+        var mapping = Assert.Single(chat.GetProperty("mappedExtensions").EnumerateArray());
+        Assert.Equal(
+            (SampleAssistantFilesComposition.SitePhotoExtension, NhAiMediaTypes.Jpeg),
+            (mapping.GetProperty("extension").GetString(), mapping.GetProperty("mediaType").GetString()));
+    }
+
+    [Fact]
     public async Task SPM_306_the_document_reader_reads_a_new_project_document_through_a_tool_result_that_names_the_media_item()
     {
         var model = new RecordingChatClient(new SampleAssistantChatClient());
@@ -458,7 +493,7 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
         Assert.DoesNotContain(Injection, JsonSerializer.Serialize(report), StringComparison.Ordinal);
     }
 
-    private async Task<JsonElement> UploadAsync(HttpClient client, Guid conversationId, string name, string mediaType, byte[] content)
+    private async Task<JsonElement> UploadAsync(HttpClient client, Guid conversationId, string name, string? mediaType, byte[] content)
     {
         using var response = await PostUploadAsync(client, conversationId, name, mediaType, content);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -467,12 +502,16 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
 
     /// <summary>
     /// Uploads one file as the chat panel does: one file part named <c>file</c> and the upload header,
-    /// which a cross-site form cannot send.
+    /// which a cross-site form cannot send. Without <paramref name="mediaType"/> the part has no
+    /// Content-Type, as a browser sends a file whose type its system does not know.
     /// </summary>
-    private static async Task<HttpResponseMessage> PostUploadAsync(HttpClient client, Guid conversationId, string name, string mediaType, byte[] content)
+    private static async Task<HttpResponseMessage> PostUploadAsync(HttpClient client, Guid conversationId, string name, string? mediaType, byte[] content)
     {
         var part = new ByteArrayContent(content);
-        part.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        if (mediaType is not null)
+        {
+            part.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        }
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/assistant/conversations/{conversationId}/files")
         {
             Content = new MultipartFormDataContent { { part, "file", name } }

@@ -14,11 +14,17 @@ namespace SampleProjectManagement.Api.Composition;
 /// file for the actor of the turn, the chat profile's fallback permits the <c>Confidential</c>
 /// classification uploads get, the model reads PDFs and images itself and
 /// <see cref="OfficeDocumentReader"/> turns Word and Excel documents into text. Every upload passes
-/// <see cref="EicarUploadScanner"/> before it is stored. Call it after <c>AddSampleAssistant</c> and
-/// the media library.
+/// <see cref="EicarUploadScanner"/> before it is stored, and a photo saved as <c>.jfif</c> uploads as
+/// JPEG through the sample's own extension mapping. Call it after <c>AddSampleAssistant</c> and the
+/// media library.
 /// </summary>
 public static class SampleAssistantFilesComposition
 {
+    /// <summary>
+    /// The extension the sample maps to JPEG with <see cref="NhAssistantUploadOptions.MapExtension"/>.
+    /// </summary>
+    public const string SitePhotoExtension = ".jfif";
+
     public static IServiceCollection AddSampleAssistantFiles(this IServiceCollection services)
     {
         // SPM-306: the tool that names a project's documents for agents that accept files.
@@ -38,6 +44,10 @@ public static class SampleAssistantFilesComposition
                     NhAiMediaTypes.Jpeg,
                     NhAiMediaTypes.Docx,
                     NhAiMediaTypes.Xlsx);
+                // An extension the platform's table does not know: a JPEG photo saved as .jfif, which
+                // some systems upload without a type, takes image/jpeg and still passes the JPEG
+                // content check. The panel's composer receives the mapping and offers .jfif files.
+                uploads.MapExtension(SitePhotoExtension, NhAiMediaTypes.Jpeg);
                 // The default, stated for readers of the sample: the profile's fallback permits it.
                 uploads.DefaultClassification = NhAiDataClassification.Confidential;
                 // Every upload passes the example scanner before the media library stores it.

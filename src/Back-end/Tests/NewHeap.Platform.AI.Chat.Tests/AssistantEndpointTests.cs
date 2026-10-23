@@ -318,9 +318,22 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
         AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate", "uploads");
         Assert.Equal(JsonValueKind.Null, status.GetProperty("agents")[0].GetProperty("uploads").ValueKind);
         var agents = JsonSerializer.SerializeToElement(
-            new[] { new NhAssistantAgentSummaryDto("a", 1, "n", "d", true) { Uploads = new NhAssistantAgentUploadsDto([NhAiMediaTypes.Pdf], 1_024, 2) } },
+            new[]
+            {
+                new NhAssistantAgentSummaryDto("a", 1, "n", "d", true)
+                {
+                    Uploads = new NhAssistantAgentUploadsDto([NhAiMediaTypes.Pdf, "application/acad"], 1_024, 2)
+                    {
+                        MappedExtensions = [new NhAssistantUploadExtensionDto(".dwg", "application/acad")]
+                    }
+                }
+            },
             context.NhAssistantAgentSummaryDtoArray);
-        AssertNames(agents[0].GetProperty("uploads"), "acceptedMediaTypes", "maxFileBytes", "maxFiles");
+        AssertNames(agents[0].GetProperty("uploads"), "acceptedMediaTypes", "maxFileBytes", "maxFiles", "mappedExtensions");
+        AssertNames(agents[0].GetProperty("uploads").GetProperty("mappedExtensions")[0], "extension", "mediaType");
+        // Without mappings the list is empty, never missing, so a client can read it as it is.
+        var withoutMappings = JsonSerializer.SerializeToElement(new NhAssistantAgentUploadsDto([NhAiMediaTypes.Pdf], 1_024, 2), context.NhAssistantAgentUploadsDto);
+        Assert.Equal(0, withoutMappings.GetProperty("mappedExtensions").GetArrayLength());
         AssertNames(status.GetProperty("limits"), "maxMessageChars", "maxToolCallsPerTurn");
         AssertNames(summary, "items", "total");
         AssertNames(

@@ -57,6 +57,21 @@ export interface AgentUploads {
   maxFileBytes: number;
   /** The most files of one message. */
   maxFiles: number;
+  /**
+   * The file name extensions the application mapped to one of `acceptedMediaTypes`
+   * (`NhAssistantUploadOptions.MapExtension` on the server). A file without a usable type takes the
+   * type of its extension from them before the platform's table, as on the server, and the file picker
+   * offers them. Empty, or missing from an older server, when the application maps none.
+   */
+  mappedExtensions?: AgentUploadExtension[] | null;
+}
+
+/** A file name extension the application mapped to an accepted media type for uploads. */
+export interface AgentUploadExtension {
+  /** The extension in lowercase with its dot, for example `.dwg`. */
+  extension: string;
+  /** The accepted media type it names, for example `application/acad`. */
+  mediaType: string;
 }
 
 /**

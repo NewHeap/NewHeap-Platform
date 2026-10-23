@@ -99,8 +99,11 @@ export class NhAssistantComposerComponent {
   readonly uploading = computed(() => this.attachments().some(attachment => attachment.state === 'uploading'));
   readonly canSend = computed(() =>
     !this.disabled() && !this.sendDisabled() && this.length() > 0 && !this.tooLong() && !this.uploading());
-  /** The `accept` attribute of the file input. */
-  readonly accept = computed(() => nhAssistantAcceptAttribute(this.uploads()?.acceptedMediaTypes ?? []));
+  /** The `accept` attribute of the file input, with the extensions the application mapped. */
+  readonly accept = computed(() => {
+    const uploads = this.uploads();
+    return nhAssistantAcceptAttribute(uploads?.acceptedMediaTypes ?? [], uploads?.mappedExtensions);
+  });
   /** The values the attachment texts name: the accepted types, the largest size and the most files. */
   readonly uploadParams = computed(() => {
     const uploads = this.uploads();
