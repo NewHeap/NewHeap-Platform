@@ -17,7 +17,12 @@ interface StoredProposal {
   canDecide: boolean;
   reasonCode: string | null;
   divisionId: string | null;
+  /** The application executes the proposal's tool (`ExecuteInApplication`). */
+  executedByApplication: boolean;
 }
+
+/** How long the application may take to report after a hand-off in the mock. */
+const reportWithinMs = 4 * 60 * 60 * 1000;
 
 const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const maxReason = 500;
@@ -44,7 +49,10 @@ const fourEyesCode = 'assistant-four-eyes-required';
  * answers `404` and deciding it `404 assistant-approval-not-found`. A consultation's proposal that the
  * person who asked decides in their own chat (`asker-decides`) waits inline and is refused here with
  * `assistant-consult-asker-decides`; one that runs with the agent's own rights refuses its asker with
- * `assistant-four-eyes-required`.
+ * `assistant-four-eyes-required`. A proposal of a tool the application executes (`executedByApplication`)
+ * waits as `awaiting-application` once approved, and `POST approvals/{id}/resolve` resolves an
+ * `execution-unknown` proposal as the server does: `hand-to-application` for one the application
+ * executes, `re-execute` for any other, `mark-resolved` for both.
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
@@ -73,6 +81,9 @@ export class NhAssistantMockProposals {
       const route = item.consultationRoute ?? null;
       const refusal = consultationRefusal(route, item.initiatorActorId ?? null, actorId());
       const canDecide = item.canDecide ?? refusal === null;
+      const executedByApplication = item.executedByApplication ?? false;
+      const handedOff = executedByApplication && (item.status === 'awaiting-application' || item.status === 'execution-unknown');
+      const madeAt = item.createdAt ?? new Date(created).toISOString();
       this.proposals.set(item.approvalId, {
         proposal: {
           approvalId: item.approvalId,
@@ -100,8 +111,11 @@ export class NhAssistantMockProposals {
           initiatorActorId: item.initiatorActorId ?? null,
           decidedByActorId: null,
           decidedAt: null,
-          executionResultCode: null,
+          executionResultCode: item.executionResultCode ?? null,
           executedAt: null,
+          executionReportDueAt: handedOff
+            ? item.executionReportDueAt ?? new Date(Date.parse(madeAt) + reportWithinMs).toISOString()
+            : null,
           rationale: item.rationale ?? null,
           placedBy: item.placedBy ?? null,
           parent: item.parent ?? null,
@@ -111,7 +125,8 @@ export class NhAssistantMockProposals {
         },
         divisionId: item.divisionId ?? null,
         canDecide,
-        reasonCode: canDecide ? null : item.reasonCode ?? refusal ?? 'assistant-approval-policy-denied'
+        reasonCode: canDecide ? null : item.reasonCode ?? refusal ?? 'assistant-approval-policy-denied',
+        executedByApplication
       });
     }
   }
@@ -135,6 +150,9 @@ export class NhAssistantMockProposals {
     }
     if (segments.length === 3 && segments[2] === 'decisions') {
       return method === 'POST' ? this.decideOne(segments[1], body) : { status: 405 };
+    }
+    if (segments.length === 3 && segments[2] === 'resolve') {
+      return method === 'POST' ? this.resolve(segments[1], body) : { status: 405 };
     }
     return null;
   }
@@ -328,15 +346,60 @@ export class NhAssistantMockProposals {
     }
 
     const now = this.now();
+    // A proposal the application executes is handed to it and waits for its report.
+    const handedOff = approve && stored.executedByApplication;
     stored.proposal = {
       ...stored.proposal,
-      status: approve ? 'executed' : 'rejected',
+      status: approve ? (handedOff ? 'awaiting-application' : 'executed') : 'rejected',
       decidedByActorId: this.actorId(),
       decidedAt: now,
-      executedAt: approve ? now : null
+      executedAt: approve && !handedOff ? now : null,
+      executionReportDueAt: handedOff ? new Date(Date.parse(now) + reportWithinMs).toISOString() : null
     };
     this.decided(stored.proposal);
     return { code: null };
+  }
+
+  /**
+   * `POST approvals/{id}/resolve` as the server answers it: only an `execution-unknown` proposal, which
+   * a proposal the application executes resolves with `hand-to-application` or `mark-resolved` and
+   * every other one with `re-execute` or `mark-resolved`. Handed to the application again, it waits
+   * for its report once more; run again, it executes at once.
+   */
+  private resolve(approvalId: string, body: unknown): NhAssistantMockResult {
+    const request = body as { action?: unknown; reason?: unknown } | undefined;
+    const action = request?.action;
+    if (action !== 're-execute' && action !== 'hand-to-application' && action !== 'mark-resolved') {
+      return failure('assistant-approval-decision-invalid');
+    }
+    const stored = this.find(approvalId);
+    if (!stored) {
+      return failure('assistant-approval-not-found');
+    }
+    if (stored.proposal.status !== 'execution-unknown') {
+      return failure('assistant-execution-not-uncertain');
+    }
+    if (!stored.canDecide) {
+      return failure(stored.reasonCode ?? 'assistant-approval-policy-denied');
+    }
+    const handedOff = !!stored.proposal.executionReportDueAt;
+    if ((action === 'hand-to-application' && !handedOff) || (action === 're-execute' && handedOff)) {
+      return failure('assistant-approval-decision-invalid');
+    }
+
+    const now = this.now();
+    stored.proposal = {
+      ...stored.proposal,
+      status: action === 'mark-resolved' ? 'resolved' : action === 'hand-to-application' ? 'awaiting-application' : 'executed',
+      decidedByActorId: this.actorId(),
+      executedAt: action === 're-execute' ? now : stored.proposal.executedAt,
+      executionResultCode: action === 'mark-resolved' ? 'resolved-by-approver' : null,
+      executionReportDueAt: action === 'hand-to-application'
+        ? new Date(Date.parse(now) + reportWithinMs).toISOString()
+        : stored.proposal.executionReportDueAt
+    };
+    this.decided(stored.proposal);
+    return { status: 200, body: stored.proposal };
   }
 
   private withRight(item: StoredProposal): AgentSubjectWorkProposal {

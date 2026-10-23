@@ -289,7 +289,8 @@ export interface ToolCallPart {
 /**
  * Chat approvals are `pending`, `approved`, `rejected` or `expired`; proposals of agents that run on
  * their own continue through execution (`executing`, `executed`, `execution-failed`,
- * `execution-unknown`, `resolved`) or end as `withdrawn`, `stale` or `shadow`.
+ * `execution-unknown`, `resolved`, and `awaiting-application` while the application executes the
+ * proposal of a tool it declared with `ExecuteInApplication`) or end as `withdrawn`, `stale` or `shadow`.
  */
 export type ApprovalStatus =
   | 'pending'
@@ -299,6 +300,7 @@ export type ApprovalStatus =
   | 'withdrawn'
   | 'stale'
   | 'executing'
+  | 'awaiting-application'
   | 'executed'
   | 'execution-failed'
   | 'execution-unknown'

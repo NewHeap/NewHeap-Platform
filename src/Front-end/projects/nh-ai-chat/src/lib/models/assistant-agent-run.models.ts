@@ -18,6 +18,7 @@ export type AgentProposalStatus =
   | 'withdrawn'
   | 'stale'
   | 'executing'
+  | 'awaiting-application'
   | 'executed'
   | 'execution-failed'
   | 'execution-unknown'
@@ -492,6 +493,14 @@ export interface AgentProposal {
   executionResultCode: string | null;
   executedAt: string | null;
   /**
+   * For a proposal the application executes (`ExecuteInApplication`), until when its report of the
+   * latest hand-off is due: while it is `awaiting-application` the moment it becomes
+   * `execution-unknown`, afterwards the sign that an approver resolves it with `hand-to-application`
+   * instead of `re-execute`. `null` for a proposal never handed to the application; missing on older
+   * servers.
+   */
+  executionReportDueAt?: string | null;
+  /**
    * The consultation that proposed it, when another assistant consulted the agent for
    * `initiatorActorId`; `consultationRoute` says who decides it and whose rights execute it.
    */
@@ -806,8 +815,12 @@ export interface AgentArtifact {
 /** `resume` continues the run from its last checkpoint; `restart` starts a new run in the thread. */
 export type AgentRunRetryMode = 'resume' | 'restart';
 
-/** `re-execute` runs the proposal again; `mark-resolved` confirms its outcome without running it. */
-export type AgentExecutionResolution = 're-execute' | 'mark-resolved';
+/**
+ * `re-execute` runs the proposal again; `hand-to-application` hands a proposal the application
+ * executes (one with `executionReportDueAt`) to the application again; `mark-resolved` confirms its
+ * outcome without running it.
+ */
+export type AgentExecutionResolution = 're-execute' | 'hand-to-application' | 'mark-resolved';
 
 /** A board of a group of agents the caller may open (`getBoards`). */
 export interface AgentBoardSummary {

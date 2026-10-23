@@ -419,6 +419,14 @@ export class NhAssistantAgentProposalsComponent {
     this.run(this.api.resolve(proposal.approvalId, action));
   }
 
+  /**
+   * Whether the application executes the proposal: it was handed to the application, so an approver
+   * resolves an unknown outcome by handing it to the application again instead of running it.
+   */
+  executedByApplication(proposal: AgentProposal): boolean {
+    return !!proposal.executionReportDueAt;
+  }
+
   /** Opens the feedback question in the card of a closed proposal, with the caller's own feedback. */
   giveFeedback(proposal: AgentProposal): void {
     this.feedback.set({

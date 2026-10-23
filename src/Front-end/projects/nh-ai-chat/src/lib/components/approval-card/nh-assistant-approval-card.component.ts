@@ -152,7 +152,7 @@ export class NhAssistantApprovalCardComponent {
     this.effectiveStatus() === 'stale' ? this.approval().staleExplanation ?? null : null);
   readonly actionable = computed(() => this.effectiveStatus() === 'pending');
   readonly succeeded = computed(() =>
-    ['approved', 'executing', 'executed', 'resolved'].includes(this.effectiveStatus()));
+    ['approved', 'executing', 'awaiting-application', 'executed', 'resolved'].includes(this.effectiveStatus()));
   readonly disabled = computed(() => !this.actionable() || !this.canDecide() || this.deciding() || this.submitted());
   /** The route at the subject the pending proposal may be left for; `null` when it can only be approved or rejected. */
   readonly leaveRoute = computed(() => this.actionable() ? this.consultation()?.leaveRoute ?? null : null);

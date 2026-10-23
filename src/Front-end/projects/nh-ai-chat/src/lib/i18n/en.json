@@ -186,6 +186,7 @@
         "withdrawn": "Withdrawn",
         "stale": "Outdated",
         "executing": "Running",
+        "awaiting-application": "With the application",
         "executed": "Done",
         "execution-failed": "Failed",
         "execution-unknown": "Outcome unknown",
@@ -2042,6 +2043,10 @@
         "re-execute": "Run again",
         "mark-resolved": "Mark as resolved",
         "unknown-hint": "The execution stopped without a known outcome. Check whether it happened before you run it again.",
+        "hand-to-application": "Hand to the application again",
+        "unknown-application-hint": "The application did not confirm that it carried this out. Check in the application whether it happened before you hand it over again.",
+        "awaiting-application-hint": "The application carries out this approved proposal and reports back when it is done.",
+        "report-due": "Report due {{date}}",
         "mode": {
           "inline": "The run waits",
           "deferred": "Decide later"
@@ -2054,6 +2059,7 @@
           "withdrawn": "Withdrawn",
           "stale": "Outdated",
           "executing": "Running",
+          "awaiting-application": "With the application",
           "executed": "Done",
           "execution-failed": "Failed",
           "execution-unknown": "Outcome unknown",

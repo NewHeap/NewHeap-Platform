@@ -186,6 +186,7 @@
         "withdrawn": "Ingetrokken",
         "stale": "Verouderd",
         "executing": "Wordt uitgevoerd",
+        "awaiting-application": "Bij de applicatie",
         "executed": "Uitgevoerd",
         "execution-failed": "Mislukt",
         "execution-unknown": "Uitkomst onbekend",
@@ -2042,6 +2043,10 @@
         "re-execute": "Opnieuw uitvoeren",
         "mark-resolved": "Als afgehandeld markeren",
         "unknown-hint": "De uitvoering stopte zonder bekende uitkomst. Controleer of het gebeurd is voordat je het opnieuw uitvoert.",
+        "hand-to-application": "Opnieuw aan de applicatie geven",
+        "unknown-application-hint": "De applicatie heeft niet bevestigd dat ze dit heeft uitgevoerd. Controleer in de applicatie of het gebeurd is voordat je het opnieuw overdraagt.",
+        "awaiting-application-hint": "De applicatie voert dit goedgekeurde voorstel uit en meldt zich als het klaar is.",
+        "report-due": "Melding verwacht {{date}}",
         "mode": {
           "inline": "De run wacht",
           "deferred": "Later beslissen"
@@ -2054,6 +2059,7 @@
           "withdrawn": "Ingetrokken",
           "stale": "Verouderd",
           "executing": "Wordt uitgevoerd",
+          "awaiting-application": "Bij de applicatie",
           "executed": "Uitgevoerd",
           "execution-failed": "Mislukt",
           "execution-unknown": "Uitkomst onbekend",
