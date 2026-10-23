@@ -512,7 +512,7 @@ var posted = await messages.PostAsync(conversationId, new NhAssistantApplication
   number, so it is unread for the conversation's people and moves the conversation up in their lists.
   They see it at once through the live `message.created` event and in every snapshot, with
   `authorKind: application` and `application` (`NhAssistantApplicationMessageDto`: title, sender
-  name and link).
+  name, link and `trusted`).
 - `Notify` adds a Web Push notification of kind `application-message` to the owner and participants
   of a chat, or the participants of an agent thread; it carries the conversation's title and a fixed
   text, never the message. When the application turned on `UseInAppAgentNotifications`, the same
@@ -533,15 +533,18 @@ var posted = await messages.PostAsync(conversationId, new NhAssistantApplication
   Conversation snapshots for reviewed MCP tools leave every application message out.
 - `Trusted = true` makes the model follow the message as the application's instruction: the same
   marker and block, with a sentence that the application, not the people in the conversation, gives
-  this instruction. The flag is stored with the message (no migration) and audited; clients do not
-  see it. **Never put user-generated data into a trusted message**: no names, descriptions, comments,
+  this instruction. The flag is stored with the message (no migration) and audited, and people see
+  it: `NhAssistantApplicationMessageDto.Trusted` (JSON `trusted`, `false` for any other message) in
+  snapshots and the live `message.created` event, which `nh-assistant-thread` shows as the label
+  "Instruction for the assistant". **Never put user-generated data into a trusted message**: no names, descriptions, comments,
   file names or anything else people or other systems entered, not even escaped with
   `NhAssistantMarkdown.Escape`, because the model would follow instructions hidden in it. Write
   trusted text entirely in code or from the application's own configuration.
 
 SampleProjectManagement's portfolio analysis tells the conversation that started it when it
 finished (SPM-312, `ProjectAnalysisAssistantNotices`): `ReadableBy` the person who started it, the
-division's name escaped, untrusted because of that name, by Web Push and in its test host's inbox.
+division's name escaped, untrusted because of that name, by Web Push and in its test host's inbox,
+followed by a trusted instruction for the assistant in fixed text without people's data.
 
 ## Files in model turns
 

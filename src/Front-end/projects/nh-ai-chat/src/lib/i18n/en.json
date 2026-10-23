@@ -77,7 +77,8 @@
       "file-meta": "{{type}}, {{size}}",
       "application": "Application",
       "application-label": "Message from the application",
-      "application-link": "Open"
+      "application-link": "Open",
+      "application-trusted": "Instruction for the assistant"
     },
     "composer": {
       "label": "Message",

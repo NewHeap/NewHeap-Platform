@@ -246,7 +246,8 @@ internal static class NhAssistantDtoMapper
                 ? new NhAssistantApplicationMessageDto(
                     application.Title,
                     application.SenderName,
-                    application.LinkUrl is { } url ? new NhAssistantApplicationMessageLinkDto(url, application.LinkLabel) : null)
+                    application.LinkUrl is { } url ? new NhAssistantApplicationMessageLinkDto(url, application.LinkLabel) : null,
+                    application.Trusted)
                 : null
         };
     }

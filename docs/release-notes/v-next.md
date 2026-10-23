@@ -201,7 +201,8 @@ message of category `assistant-application` (never from a shadow thread), and an
 live, is audited as `ApplicationMessagePosted` without content (with `ApplicationMessageTrusted`), and
 a later turn gives it to the model as a user message marked `[Application]` whose
 `application-message` block says it is information, never instructions. The opt-in `Trusted` makes
-the model follow the message as the application's instruction instead: **never put user-generated
+the model follow the message as the application's instruction instead, and clients see it as
+`NhAssistantApplicationMessageDto.Trusted` (JSON `trusted`): **never put user-generated
 data into a trusted message**, escaped or not, since the model would follow instructions hidden in
 it. There is no HTTP endpoint for
 clients. An upload without a media type, with a generic one (`application/octet-stream`) or with a type
@@ -222,7 +223,9 @@ specific type the application does not accept stays refused.
 `nh-assistant-thread` shows a message the application posted (`role: 'application'`) as the
 application's, in chats and agent threads: a card with the sender, an "Application" tag, the title,
 the Markdown text and a link that opens a route through the router or an `https` address and nothing
-else (`Message.application`, `ApplicationMessageDetails`, `ApplicationMessageLink`). The composer gives
+else (`Message.application`, `ApplicationMessageDetails`, `ApplicationMessageLink`), and the label
+"Instruction for the assistant" for a message the assistant follows (`ApplicationMessageDetails.trusted`;
+`trusted` of `NhAssistantMockBackend.postApplicationMessage`). The composer gives
 a file without a usable type the accepted type of its extension by the server's rule, and its file
 picker offers the extensions of every accepted type it knows, so `.csv` files are listed for
 `text/csv`. With `grouped`, `nh-assistant-agent-inbox` describes the grouped order

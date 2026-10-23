@@ -19,10 +19,9 @@ internal static class NhAssistantApplicationMessageText
         ArgumentNullException.ThrowIfNull(text);
 
         var details = NhAssistantApplicationMessageView.From(parts);
-        var trusted = parts.Any(part => part.Type == NhAssistantStoredPart.ApplicationType && part.Trusted == true);
         var builder = new StringBuilder()
             .Append(dutch ? "[Applicatie] " : "[Application] ")
-            .Append(Sentence(trusted, dutch))
+            .Append(Sentence(details?.Trusted == true, dutch))
             .Append("<application-message>\n");
         if (details?.SenderName is { } sender)
         {

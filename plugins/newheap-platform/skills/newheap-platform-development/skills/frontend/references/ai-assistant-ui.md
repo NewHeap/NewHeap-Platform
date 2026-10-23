@@ -258,7 +258,9 @@ and its own message from its stream and ignores their live copies, but shows the
 application and other people store meanwhile (`message.created`). `applyNhAssistantLiveEvent` puts a
 message where its `sequence` puts it, so it sits where the conversation shows it when loaded again:
 the server numbers a turn's answer when the turn starts, so a message stored during the turn follows
-the answer that is still being written. A custom view that applies live events itself does the same.
+the answer that is still being written. `nh-assistant-thread` keeps its working indicator directly
+under that answer, above the messages that arrived after it, and shows it exactly when it would
+without them. A custom view that applies live events itself does the same.
 
 Show the work of agents that run on their own with the components of
 `@newheap/platform-ai-chat/agent-runs`, a separate entry point that stays out of the
@@ -312,8 +314,12 @@ application's in chats and threads alike: a card with the application's mark, th
 "Application" tag, the title, the text as Markdown and the link (`Message.application`,
 `ApplicationMessageDetails`), which opens a route through the router or an `https` address and
 nothing else; it arrives live like a colleague's message, also in a tab that streams a turn of the
-conversation, after the answer that is still being written. The mock API posts one with
-`NhAssistantMockBackend.postApplicationMessage`. A custom layout passes `[approvalRights]="store.approvalRights()"` to
+conversation, after the answer that is still being written. A message the assistant follows as the
+application's instruction (`ApplicationMessageDetails.trusted`) carries the label "Instruction for
+the assistant" ("Instructie voor de assistent", `nh-assistant.thread.application-trusted`) next to
+its sender, so people see what the assistant was told; a custom layout that renders application
+messages itself shows it too. The mock API posts one with
+`NhAssistantMockBackend.postApplicationMessage`, with `trusted` for an instruction. A custom layout passes `[approvalRights]="store.approvalRights()"` to
 `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
 

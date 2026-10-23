@@ -77,7 +77,8 @@
       "file-meta": "{{type}}, {{size}}",
       "application": "Applicatie",
       "application-label": "Bericht van de applicatie",
-      "application-link": "Openen"
+      "application-link": "Openen",
+      "application-trusted": "Instructie voor de assistent"
     },
     "composer": {
       "label": "Bericht",

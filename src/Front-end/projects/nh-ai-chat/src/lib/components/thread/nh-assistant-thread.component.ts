@@ -44,9 +44,11 @@ const stickToBottomDistance = 120;
  * Markdown, consecutive tool calls as one collapsible group that counts along, and
  * approvals as cards. The files a person attached show by name, type and size. Messages a
  * trigger wrote into an agent thread read as events, not as a person, and a message the application
- * posted reads as the application's, with its sender, title, Markdown text and link. While a turn runs
- * without visible progress, a working indicator shows the elapsed time. The thread follows
- * new content while the user is at the bottom.
+ * posted reads as the application's, with its sender, title, Markdown text and link, and a label when
+ * the assistant follows it as an instruction. While a turn runs without visible progress, a working
+ * indicator shows the elapsed time, directly under the answer the turn writes, also when the
+ * application's or another person's message arrived after it. The thread follows new content while
+ * the user is at the bottom.
  */
 @Component({
   selector: 'nh-assistant-thread',
@@ -132,14 +134,16 @@ export class NhAssistantThreadComponent {
   /**
    * True while the turn runs and nothing else shows progress: before the first part and
    * between tool calls while the model decides what to do next. Streaming text and a
-   * running tool group show their own progress; an approval waits for the user.
+   * running tool group show their own progress; an approval waits for the user. When messages
+   * arrived after the answer the turn still writes, the answer decides, as if they were not there.
    */
   readonly working = computed(() => {
     if (!this.streaming()) {
       return false;
     }
 
-    const last = this.messages()[this.messages().length - 1];
+    const messages = this.messages();
+    const last = this.answerBeingWritten() ?? messages[messages.length - 1];
     if (!last || last.role === 'user' || last.role === 'application' || last.parts.length === 0) {
       return true;
     }
@@ -148,6 +152,32 @@ export class NhAssistantThreadComponent {
     return lastPart.type === 'tool-call'
       && lastPart.status !== 'running'
       && lastPart.status !== 'awaiting-approval';
+  });
+  /**
+   * The message the working indicator follows when it is not the last one: the answer the turn
+   * still writes, after which messages arrived during the turn. `null` puts the indicator at the end.
+   */
+  readonly workingAfterId = computed(() => this.answerBeingWritten()?.id ?? null);
+  /**
+   * While a turn runs: its answer, when messages that arrived during the turn (the application's or
+   * other people's, which sit after the answer by their sequence number) follow it at the end of the
+   * thread; `null` when nothing arrived after an answer.
+   */
+  private readonly answerBeingWritten = computed<Message | null>(() => {
+    if (!this.streaming()) {
+      return null;
+    }
+
+    const messages = this.messages();
+    let index = messages.length - 1;
+    while (index >= 0 && this.arrivedDuringTurn(messages[index])) {
+      index--;
+    }
+    if (index < 0 || index === messages.length - 1) {
+      return null;
+    }
+
+    return messages[index].role === 'assistant' ? messages[index] : null;
   });
   /** Whole seconds since the running turn started. */
   readonly elapsedSeconds = computed(() => {
@@ -216,6 +246,11 @@ export class NhAssistantThreadComponent {
       && !!message.authorActorId
       && !!this.currentActorId()
       && message.authorActorId !== this.currentActorId();
+  }
+
+  /** True for a message that can arrive while a turn runs: the application's or another person's. */
+  private arrivedDuringTurn(message: Message): boolean {
+    return this.isApplication(message) || this.isOthers(message);
   }
 
   /** Whether and why the current user may decide an approval card. */
