@@ -163,7 +163,8 @@ internal sealed class NhAssistantDataHandOffs(
     NhAssistantRunConfigurationValidator validator,
     NhAssistantAgentCatalog agents,
     NhAssistantAgentEvents events,
-    NhAssistantPackageLockCheck locks) : INhAssistantDataHandOffs
+    NhAssistantPackageLockCheck locks,
+    NhAssistantAgentPackageLinks packageLinks) : INhAssistantDataHandOffs
 {
     private const int MaxActorIdLength = 256;
 
@@ -178,8 +179,12 @@ internal sealed class NhAssistantDataHandOffs(
         await configurations.EnsureCurrentAsync(cancellationToken);
         var code = registration.CodeAgentRuns.GetValueOrDefault(agentId);
         var problems = configurations.Problems;
+        var links = await packageLinks.PartsOfAsync(agentId, cancellationToken);
         var data = (await store.ListHandOffsAsync(agentId, cancellationToken))
-            .Select(item => ToDto(item, problems))
+            .Select(item => ToDto(item, problems) with
+            {
+                Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.HandOff, item.SubjectType))
+            })
             .ToArray();
         return new NhAssistantAgentHandOffsDto(
             agentId,
