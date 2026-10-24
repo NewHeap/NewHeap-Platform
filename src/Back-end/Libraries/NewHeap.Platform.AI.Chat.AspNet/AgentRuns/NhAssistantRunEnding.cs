@@ -8,8 +8,9 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
-/// The one path that ends an agent run. The run's status compare-and-set records the end once, and
-/// only the call that wins it writes the run's summary, its <c>AgentRunEnded</c> event and work
+/// The one path that ends an agent run. The run's status compare-and-set records the end once,
+/// together with the run's summary, so a reader that sees the run ended also reads its summary; only
+/// the call that wins it stores that summary, writes the run's <c>AgentRunEnded</c> event and work
 /// update, tells the agents that handed it work how it ended and notifies the people who wait for
 /// it. The run's own background operation ends its run here, and so does the maintenance job for a
 /// run whose operation ended without it (<see cref="EndAfterOperationEndedAsync"/>). The job also
@@ -49,8 +50,8 @@ internal sealed class NhAssistantRunEnding(
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     /// <summary>
-    /// Ends the run once and records the end; a run that already ended stays as it was. Returns
-    /// whether this call ended it.
+    /// Ends the run once and records the end with the run's summary; a run that already ended stays
+    /// as it was. Returns whether this call ended it.
     /// </summary>
     public async Task<bool> EndAsync(
         AssistantRun run,
@@ -60,19 +61,28 @@ internal sealed class NhAssistantRunEnding(
         string? failureCode,
         Guid? turnId = null)
     {
+        // The next runs of the thread start from this summary instead of the full history. It is
+        // composed before the end and stored in the same write, so the run never reads as ended
+        // without it; a call that loses the end composed it for nothing and stores nothing.
+        var summary = thread is null
+            ? null
+            : await summaries.ComposeAsync(
+                run,
+                failureCode is null ? status : status + " (" + failureCode + ")",
+                turnId,
+                CancellationToken.None);
         var ended = await runs.TrySetRunStatusAsync(
             run.Id,
             OpenStatuses,
             status,
             CancellationToken.None,
             failureClass,
-            failureCode);
+            failureCode,
+            summary: summary);
         if (ended && thread is not null)
         {
             // The skill may have changed while the run worked.
             run = await runs.FindRunAsync(run.Id, CancellationToken.None) ?? run;
-            // The next runs of the thread start from this summary instead of the full history.
-            await summaries.WriteAsync(run, failureCode is null ? status : status + " (" + failureCode + ")", turnId, CancellationToken.None);
             await events.RunEndedAsync(thread, run, status, failureCode, CancellationToken.None);
             await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
             await NotifyHandOffSourcesAsync(run, thread);

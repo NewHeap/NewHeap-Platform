@@ -165,12 +165,12 @@ public sealed class AssistantRunNowTests(AssistantDatabaseFixture database) : IC
         Assert.Equal(JsonValueKind.Null, queued.GetProperty("latestRun").GetProperty("result").ValueKind);
 
         var summary = "2026-10-20 07:00 UTC, trigger manual, completed. " + new string('x', 400);
-        Assert.True(await WithRunsAsync(app, runs => runs.TrySetRunStatusAsync(runId, [NhAssistantRunStatuses.Queued], NhAssistantRunStatuses.Completed, CancellationToken.None)));
-        await WithRunsAsync(app, async runs =>
-        {
-            await runs.SetRunSummaryAsync(runId, summary, CancellationToken.None);
-            return true;
-        });
+        Assert.True(await WithRunsAsync(app, runs => runs.TrySetRunStatusAsync(
+            runId,
+            [NhAssistantRunStatuses.Queued],
+            NhAssistantRunStatuses.Completed,
+            CancellationToken.None,
+            summary: summary)));
         await AddPendingProposalAsync(app, conversationId, runId);
         await AddPendingProposalAsync(app, conversationId, runId);
         await AddPendingProposalAsync(app, conversationId, runId, expired: true);

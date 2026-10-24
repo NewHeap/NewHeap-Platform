@@ -20,6 +20,11 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// </summary>
     public const string OrphanedRunCode = "assistant-trigger-rolled-back";
 
+    /// <summary>
+    /// The most characters of a run's summary the store keeps: the length of its column.
+    /// </summary>
+    public const int MaxRunSummaryLength = 4_000;
+
     private static readonly string[] ActiveRunStatuses =
     [
         NhAssistantRunStatuses.Queued,
@@ -1020,7 +1025,11 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Moves a run to <paramref name="status"/> when it is in one of <paramref name="expected"/>.
+    /// Moves a run to <paramref name="status"/> when it is in one of <paramref name="expected"/>. A
+    /// <paramref name="summary"/> is stored in the same update, at most
+    /// <see cref="MaxRunSummaryLength"/> characters: the run's end writes its summary with the end
+    /// itself, so a reader that sees the run ended also reads its summary, and only the call that
+    /// wins the end writes one.
     /// </summary>
     public async Task<bool> TrySetRunStatusAsync(
         Guid runId,
@@ -1029,11 +1038,13 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         CancellationToken cancellationToken,
         string? failureClass = null,
         string? failureCode = null,
-        Guid? turnId = null)
+        Guid? turnId = null,
+        string? summary = null)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
         var terminal = NhAssistantRunStatuses.IsTerminal(status);
+        var bounded = summary is { Length: > MaxRunSummaryLength } ? summary[..MaxRunSummaryLength] : summary;
         var updated = await context.Runs
             .Where(run => run.Id == runId && expected.Contains(run.Status))
             .ExecuteUpdateAsync(
@@ -1044,6 +1055,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(run => run.TurnId, run => turnId ?? run.TurnId)
                     .SetProperty(run => run.StartedAt, run => run.StartedAt ?? now)
                     .SetProperty(run => run.EndedAt, run => terminal ? now : run.EndedAt)
+                    .SetProperty(run => run.Summary, run => bounded ?? run.Summary)
                     .SetProperty(run => run.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         return updated == 1;
@@ -1223,15 +1235,6 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(thread => thread.UpdatedAt, now),
                 cancellationToken);
         return updated == 1;
-    }
-
-    public async Task SetRunSummaryAsync(Guid runId, string summary, CancellationToken cancellationToken)
-    {
-        await using var context = contextFactory.CreateDbContext();
-        var bounded = summary.Length > 4_000 ? summary[..4_000] : summary;
-        await context.Runs
-            .Where(run => run.Id == runId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(run => run.Summary, bounded), cancellationToken);
     }
 
     /// <summary>

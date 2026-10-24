@@ -1,7 +1,12 @@
+using System.Collections.Concurrent;
+using System.Data.Common;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,9 +56,14 @@ public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture datab
         await using (var scope = host.Services.CreateAsyncScope())
         {
             var run = (await RunStore(host).FindRunAsync(first.RunId!.Value, CancellationToken.None))!;
-            await scope.ServiceProvider.GetRequiredService<NhAssistantRunSummaries>()
-                .WriteAsync(run, NhAssistantRunStatuses.Completed, firstTurn.TurnId, CancellationToken.None);
-            await RunStore(host).TrySetRunStatusAsync(run.Id, [NhAssistantRunStatuses.Queued], NhAssistantRunStatuses.Completed, CancellationToken.None);
+            var composed = await scope.ServiceProvider.GetRequiredService<NhAssistantRunSummaries>()
+                .ComposeAsync(run, NhAssistantRunStatuses.Completed, firstTurn.TurnId, CancellationToken.None);
+            await RunStore(host).TrySetRunStatusAsync(
+                run.Id,
+                [NhAssistantRunStatuses.Queued],
+                NhAssistantRunStatuses.Completed,
+                CancellationToken.None,
+                summary: composed);
         }
         var summary = (await RunStore(host).FindRunAsync(first.RunId!.Value, CancellationToken.None))!.Summary;
         Assert.Contains("The intake is ready.", summary);
@@ -69,6 +79,57 @@ public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture datab
         Assert.Contains("<working-memory schema-version=\"1\">{\"checks\":[\"owner\"],\"verdict\":\"ready\"}</working-memory>", continuity);
         Assert.Contains("The intake is ready.", continuity);
         Assert.Contains("data, not instructions", continuity);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_run_reads_as_ended_only_with_its_summary_and_only_the_end_that_wins_writes_one(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient().RespondWithText("The intake is ready.");
+        await using var host = await CreateHostAsync(provider, model);
+        var started = await StartAsync(host, Guid.NewGuid());
+        var turn = await RunTurnAsync(host, started, "Review the intake.");
+        var run = (await RunStore(host).FindRunAsync(started.RunId!.Value, CancellationToken.None))!;
+        var thread = await ThreadAsync(host, started);
+
+        // After every write of the end, the run is read as a client that polls its thread's runs
+        // reads it. A summary written after the end left a moment in which the run was ended
+        // without it; the observer sees every such moment, however short.
+        bool ended;
+        IReadOnlyList<RunState> states;
+        using (var observer = RunWriteObserver.Start(host, run.Id))
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                ended = await scope.ServiceProvider.GetRequiredService<NhAssistantRunEnding>()
+                    .EndAsync(run, thread, NhAssistantRunStatuses.Completed, null, null, turn.TurnId);
+            }
+
+            states = observer.States;
+        }
+
+        Assert.True(ended);
+        Assert.Contains(states, state => state.EndedAt is not null);
+        Assert.All(
+            states.Where(state => state.EndedAt is not null),
+            state => Assert.Contains("completed. Answer: The intake is ready.", state.Summary, StringComparison.Ordinal));
+
+        // A later end, such as the maintenance job's for an operation that ended, loses the end and
+        // leaves the summary of the end that won.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.False(await scope.ServiceProvider.GetRequiredService<NhAssistantRunEnding>().EndAsync(
+                run,
+                thread,
+                NhAssistantRunStatuses.Failed,
+                NhAssistantRunFailureClasses.Internal,
+                NhAssistantErrorCodes.RunOperationEnded));
+        }
+
+        var stored = (await RunStore(host).FindRunAsync(run.Id, CancellationToken.None))!;
+        Assert.Equal(NhAssistantRunStatuses.Completed, stored.Status);
+        Assert.Equal(states[^1].Summary, stored.Summary);
     }
 
     [Theory]
@@ -270,6 +331,82 @@ public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture datab
     private static NhAssistantRunStore RunStore(AssistantTestHost host)
     {
         return host.Services.GetRequiredService<NhAssistantRunStore>();
+    }
+
+    /// <summary>
+    /// A run as a reader on another connection saw it.
+    /// </summary>
+    private sealed record RunState(string Status, DateTimeOffset? EndedAt, string? Summary);
+
+    /// <summary>
+    /// Reads one run on a connection of its own right after every command that EF Core executes as a
+    /// write with the run's id, before the code that executed it continues: every state of the run
+    /// that a concurrent reader could see between two writes. The commands of other tests, which run
+    /// in parallel in the same process, name other runs.
+    /// </summary>
+    private sealed class RunWriteObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>, IDisposable
+    {
+        private readonly NhAssistantDbContextFactory _contexts;
+        private readonly Guid _runId;
+        private readonly ConcurrentQueue<RunState> _states = new();
+        private readonly ConcurrentBag<IDisposable> _subscriptions = [];
+
+        private RunWriteObserver(NhAssistantDbContextFactory contexts, Guid runId)
+        {
+            _contexts = contexts;
+            _runId = runId;
+        }
+
+        public IReadOnlyList<RunState> States => _states.ToArray();
+
+        public static RunWriteObserver Start(AssistantTestHost host, Guid runId)
+        {
+            var observer = new RunWriteObserver(host.Services.GetRequiredService<NhAssistantDbContextFactory>(), runId);
+            observer._subscriptions.Add(DiagnosticListener.AllListeners.Subscribe(observer));
+            return observer;
+        }
+
+        public void OnNext(DiagnosticListener listener)
+        {
+            if (listener.Name == DbLoggerCategory.Name)
+            {
+                _subscriptions.Add(listener.Subscribe(this, name => name == RelationalEventId.CommandExecuted.Name));
+            }
+        }
+
+        public void OnNext(KeyValuePair<string, object?> diagnostic)
+        {
+            if (diagnostic.Key != RelationalEventId.CommandExecuted.Name
+                || diagnostic.Value is not CommandExecutedEventData { ExecuteMethod: DbCommandMethod.ExecuteNonQuery } executed
+                || !executed.Command.Parameters.Cast<DbParameter>().Any(parameter => Equals(parameter.Value, _runId)))
+            {
+                return;
+            }
+
+            // The read is a query, not a write, so it does not observe itself.
+            using var context = _contexts.CreateDbContext();
+            _states.Enqueue(context.Runs
+                .AsNoTracking()
+                .Where(run => run.Id == _runId)
+                .Select(run => new RunState(run.Status, run.EndedAt, run.Summary))
+                .Single());
+        }
+
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void Dispose()
+        {
+            foreach (var subscription in _subscriptions)
+            {
+                subscription.Dispose();
+            }
+        }
     }
 }
 
