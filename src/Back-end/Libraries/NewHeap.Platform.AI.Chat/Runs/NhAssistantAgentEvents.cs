@@ -1088,6 +1088,62 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Agents were exported as a package: its id, version, hash and number of agents, never its
+    /// content.
+    /// </summary>
+    public Task PackageExportedAsync(string packageId, int version, string hash, int agentCount, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentPackageExported, Guid.Empty, Guid.Empty, actorId, string.Empty, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = packageId,
+                PackageId = packageId,
+                PackageVersion = version,
+                PackageHash = hash,
+                PackageAgentCount = agentCount,
+                ResultCode = "exported"
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// A package was imported, after every part was audited as its save: <paramref name="result"/> is
+    /// <c>created</c> or <c>upgraded</c>.
+    /// </summary>
+    public Task PackageImportedAsync(string packageId, int version, string hash, int agentCount, string result, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentPackageImported, Guid.Empty, Guid.Empty, actorId, string.Empty, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = packageId,
+                PackageId = packageId,
+                PackageVersion = version,
+                PackageHash = hash,
+                PackageAgentCount = agentCount,
+                ResultCode = result
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// An agent, or one part of it (<paramref name="part"/>, <c>*</c> for the whole agent), was taken
+    /// out of its package: <paramref name="result"/> is <c>unlinked</c> or <c>left-behind</c>.
+    /// </summary>
+    public Task PackageUnlinkedAsync(string agentId, string part, string packageId, int version, string result, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentPackageUnlinked, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = part,
+                PackagePart = part,
+                PackageId = packageId,
+                PackageVersion = version,
+                ResultCode = result
+            },
+            cancellationToken);
+    }
+
     private async Task RecordAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken)
     {
         foreach (var sink in _businessSinks)

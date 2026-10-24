@@ -952,6 +952,37 @@ public static class NhAssistantErrorCodes
     public const string ShadowVariantsNotAllowed = "assistant-shadow-variants-not-allowed";
 
     /// <summary>
+    /// The agent package is not one this host reads: its <c>format</c> is not
+    /// <c>newheap.assistant.agent-package</c>, its <c>formatVersion</c> is newer than the host knows,
+    /// it has a property the format does not define or it misses one the format requires. Nothing is
+    /// dropped unnoticed, so nothing was imported.
+    /// </summary>
+    public const string PackageFormatUnsupported = "assistant-package-format-unsupported";
+
+    /// <summary>
+    /// The agent package is larger than 1 MB or holds more than 20 agents.
+    /// </summary>
+    public const string PackageTooLarge = "assistant-package-too-large";
+
+    /// <summary>
+    /// The check of the whole package against the host refused one or more of its parts; nothing was
+    /// imported. The answer carries the field error <c>parts: invalid</c>; the preview of the package
+    /// reports every refused part with its code and field errors.
+    /// </summary>
+    public const string PackageRefused = "assistant-package-refused";
+
+    /// <summary>
+    /// The part is locked by the agent package it was imported from: it cannot be removed and its
+    /// agent cannot be deleted or reset until an administrator unlinks it.
+    /// </summary>
+    public const string PackageLocked = "assistant-package-locked";
+
+    /// <summary>
+    /// The agent, or the named part of it, is not linked to an agent package.
+    /// </summary>
+    public const string PackageNotLinked = "assistant-package-not-linked";
+
+    /// <summary>
     /// The skill has no candidate version to promote, discard or compare.
     /// </summary>
     public const string SkillCandidateNotFound = "assistant-skill-candidate-not-found";
@@ -1681,6 +1712,12 @@ public static class NhAssistantFieldErrors
     /// that <c>UseConsultationsAsData</c> does not name.
     /// </summary>
     public const string NotAllowed = "not-allowed";
+
+    /// <summary>
+    /// The field belongs to a part an agent package locks (<see cref="NhAssistantPackageLockFields"/>):
+    /// it keeps the package's value until an administrator unlinks the part.
+    /// </summary>
+    public const string Locked = "locked";
 }
 
 /// <summary>

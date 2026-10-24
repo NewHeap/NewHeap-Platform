@@ -922,6 +922,13 @@ public sealed record NhAssistantAdminAgentDto(
     /// <see langword="null"/> when they resolve.
     /// </summary>
     public string? InstructionsProblem { get; init; }
+
+    /// <summary>
+    /// The agent package the agent belongs to, with every linked part and its locked fields, which the
+    /// administration shows read-only; left out for an agent that belongs to none.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageLinkDto? Package { get; init; }
 }
 
 /// <summary>

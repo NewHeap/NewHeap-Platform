@@ -468,3 +468,33 @@ in its `<agent-continuity>` block. Only the call that wins the end stores a summ
 | Breaking change | Required action |
 |---|---|
 | None; a run that reads as ended always carries its `Summary`. | None. Remove waits or retries that poll an ended run until its summary appears. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: agent packages
+
+`INhAssistantAgentPackages` moves agents and their configuration as data between hosts as one versioned
+package (`NhAssistantAgentPackage`, format `newheap.assistant.agent-package`, `formatVersion` 1): several
+agents, each created in the administration whole or in code as an overlay of its data, without history,
+candidates, runs, run state, shadow overrides, MCP servers, the technical account or secrets.
+`ExportAsync` (`POST admin/agent-packages/export`, a JSON download) sets the package id, version and locks
+and warns about references outside the selection in the header `X-NewHeap-Package-Warnings`, which a
+host that serves the administration from another origin exposes in its CORS policy;
+`NhAssistantAgentPackageFormat.Read` reads a package strictly. `PreviewImportAsync` (`POST admin/agent-packages/preview`) reports per part `created`,
+`changed`, `unchanged`, `kept-local`, `left-behind` or `refused` with the field errors of its save, after
+one check of the whole package against the host as it would be after the import; `ImportAsync`
+(`POST admin/agent-packages/import`) writes it in one transaction with one change of the run
+configuration, or nothing (`assistant-package-refused` with `parts: invalid`, the preview naming each
+refused part), names the technical account per agent and makes changed skills and triggers
+candidates with `Apply = "shadow"`. A package's `locks` keep named fields of its parts: every save path
+refuses another value (`{field}: locked`), and the removal of a locked part or the deletion or reset of a
+linked agent with `409 assistant-package-locked`, until `UnlinkAsync` (`POST
+admin/agents/{id}/package/unlink`) takes the part out; the next upgrade then keeps it as `kept-local`
+unless `Relink` names it. The administration's agent and part DTOs carry the link of a linked part
+(`Package`). Without a package nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| The `AgentPackages` migrations add the tables `AssistantAgentPackage` and `AssistantAgentPackageLink` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
+| `NhAssistantErrorCodes` has the new codes `assistant-package-format-unsupported` (HTTP 400), `assistant-package-too-large` (HTTP 413), `assistant-package-refused` and `assistant-package-locked` (HTTP 409) and `assistant-package-not-linked` (HTTP 404), and `NhAssistantFieldErrors` the value `locked`. | Let code that maps assistant codes and field errors handle values it does not know. |
+| `NhAssistantAuditEventKind` has the new values `AdminAgentPackageExported` (81), `AdminAgentPackageImported` (82) and `AdminAgentPackageUnlinked` (83), and `NhAssistantAuditEvent` the properties `PackageId`, `PackageVersion`, `PackageHash`, `PackagePart` and `PackageAgentCount`. | Let audit sinks with an exhaustive switch, or that store every property, record or ignore them. |
+| Once a package with locks is imported, saves of agents, run settings, skills, triggers, consultations, hand-offs and metadata, candidate promotes, and the deletion and reset of a linked agent can fail with `locked` or `assistant-package-locked`. | Handle these refusals where application code saves agent configuration, and unlink a part before changing it. |
+| `NhAssistantAdminAgentDto`, `NhAssistantAgentRunSettingsDto`, `NhAssistantDataSkillDto`, `NhAssistantDataTriggerDto`, `NhAssistantDataConsultationDto`, `NhAssistantDataHandOffDto` and `NhAssistantAgentMetadataDto` have the new property `package`, written only for a linked part. | Let clients that read these DTOs accept the new property. |

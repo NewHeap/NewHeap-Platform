@@ -106,6 +106,14 @@ public sealed record NhAssistantDataHandOffDto(
     public DateTimeOffset CreatedAt { get; init; }
 
     public string CreatedBy { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The link of the hand-off (part <c>handOff:{subjectType}</c>) to the agent package it was
+    /// imported from, with its locked fields, which the administration shows read-only; left out when
+    /// it is not linked.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <summary>
@@ -154,7 +162,9 @@ internal sealed class NhAssistantDataHandOffs(
     NhAssistantRunConfigurationStore store,
     NhAssistantRunConfigurationValidator validator,
     NhAssistantAgentCatalog agents,
-    NhAssistantAgentEvents events) : INhAssistantDataHandOffs
+    NhAssistantAgentEvents events,
+    NhAssistantPackageLockCheck locks,
+    NhAssistantAgentPackageLinks packageLinks) : INhAssistantDataHandOffs
 {
     private const int MaxActorIdLength = 256;
 
@@ -169,8 +179,12 @@ internal sealed class NhAssistantDataHandOffs(
         await configurations.EnsureCurrentAsync(cancellationToken);
         var code = registration.CodeAgentRuns.GetValueOrDefault(agentId);
         var problems = configurations.Problems;
+        var links = await packageLinks.PartsOfAsync(agentId, cancellationToken);
         var data = (await store.ListHandOffsAsync(agentId, cancellationToken))
-            .Select(item => ToDto(item, problems))
+            .Select(item => ToDto(item, problems) with
+            {
+                Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.HandOff, item.SubjectType))
+            })
             .ToArray();
         return new NhAssistantAgentHandOffsDto(
             agentId,
@@ -211,6 +225,77 @@ internal sealed class NhAssistantDataHandOffs(
         {
             return TaskResult<NhAssistantDataHandOffDto>.Failed(refused);
         }
+        if (Prepare(agentId, subjectType, request, actorId, out var row) is { } refusedRequest)
+        {
+            return TaskResult<NhAssistantDataHandOffDto>.Failed(refusedRequest);
+        }
+
+        // The same check as every load, refused here instead of left out of effect.
+        var check = validator.CheckHandOff(row!, registration.AgentRuns);
+        if (check.Problem is { } problem)
+        {
+            return TaskResult<NhAssistantDataHandOffDto>.Failed(FieldErrorOf(problem, agentId, subjectType));
+        }
+
+        var existing = await store.ListHandOffsAsync(agentId, cancellationToken);
+        if (request.ExpectedVersion is null
+            && existing.All(item => item.SubjectType != subjectType)
+            && existing.Count >= NhAssistantDataHandOffLimits.MaxHandOffsPerAgent)
+        {
+            return TaskResult<NhAssistantDataHandOffDto>.Failed(
+                NhAssistantErrorCodes.ConfigurationLimit,
+                "The agent accepts as many hand-offs defined as data as allowed.");
+        }
+
+        // A package's locks hold on a hand-off as on every part (PK9).
+        var current = existing.FirstOrDefault(item => item.SubjectType == subjectType);
+        if (await locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.HandOff,
+                subjectType,
+                current is null ? null : NhAssistantPackageFields.Of(current),
+                NhAssistantPackageFields.Of(row!),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantDataHandOffDto>.Failed(locked);
+        }
+
+        var saved = await store.SaveHandOffAsync(row!, request.ExpectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantDataHandOffDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The hand-off changed in the meantime.");
+        }
+
+        await events.HandOffDefinitionChangedAsync(
+            agentId,
+            subjectType,
+            saved.Value!.Version,
+            saved.Value.Version == 1 ? "created" : "changed",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantDataHandOffDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+    }
+
+    /// <summary>
+    /// The checks of a save of a hand-off defined as data that need nothing but the request and the
+    /// ceiling's limit, and the row it would store. Saving and importing a package share them; the
+    /// agent, the validator's checks against the run configuration, the limit and the locks are checked
+    /// apart.
+    /// </summary>
+    internal TaskResult? Prepare(
+        string agentId,
+        string subjectType,
+        NhAssistantDataHandOffRequest request,
+        string actorId,
+        out AssistantAgentHandOffDefinition? prepared)
+    {
+        prepared = null;
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
 
         var sources = (request.Sources ?? []).Select(source => source?.Trim() ?? string.Empty).ToArray();
         var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -231,10 +316,10 @@ internal sealed class NhAssistantDataHandOffs(
             .Require(maxPerSubjectPerDay is >= 1 and <= NhAssistantDataHandOffLimits.MaxPerSubjectPerDay, "maxPerSubjectPerDay", NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantDataHandOffDto>.Failed(errors.ToResult());
+            return errors.ToResult();
         }
 
-        var row = new AssistantAgentHandOffDefinition
+        prepared = new AssistantAgentHandOffDefinition
         {
             AgentId = agentId,
             SubjectType = subjectType,
@@ -246,39 +331,7 @@ internal sealed class NhAssistantDataHandOffs(
             UpdatedBy = actorId,
             Reason = reason
         };
-
-        // The same check as every load, refused here instead of left out of effect.
-        var check = validator.CheckHandOff(row, registration.AgentRuns);
-        if (check.Problem is { } problem)
-        {
-            return TaskResult<NhAssistantDataHandOffDto>.Failed(FieldErrorOf(problem, agentId, subjectType));
-        }
-
-        var existing = await store.ListHandOffsAsync(agentId, cancellationToken);
-        if (request.ExpectedVersion is null
-            && existing.All(item => item.SubjectType != subjectType)
-            && existing.Count >= NhAssistantDataHandOffLimits.MaxHandOffsPerAgent)
-        {
-            return TaskResult<NhAssistantDataHandOffDto>.Failed(
-                NhAssistantErrorCodes.ConfigurationLimit,
-                "The agent accepts as many hand-offs defined as data as allowed.");
-        }
-
-        var saved = await store.SaveHandOffAsync(row, request.ExpectedVersion, cancellationToken);
-        if (!saved.Succeeded)
-        {
-            return TaskResult<NhAssistantDataHandOffDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The hand-off changed in the meantime.");
-        }
-
-        await events.HandOffDefinitionChangedAsync(
-            agentId,
-            subjectType,
-            saved.Value!.Version,
-            saved.Value.Version == 1 ? "created" : "changed",
-            actorId,
-            cancellationToken);
-        await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataHandOffDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+        return null;
     }
 
     public async Task<TaskResult> RemoveAsync(
@@ -298,6 +351,10 @@ internal sealed class NhAssistantDataHandOffs(
         if (InCode(agentId, subjectType))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.HandOffInCode, "The agent accepts hand-offs about this subject type in code.");
+        }
+        if (await locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.HandOff, subjectType, cancellationToken) is { } locked)
+        {
+            return locked;
         }
 
         var removed = await store.RemoveHandOffAsync(agentId, subjectType, expectedVersion, cancellationToken);
@@ -355,7 +412,7 @@ internal sealed class NhAssistantDataHandOffs(
     /// <summary>
     /// The failure of a save whose hand-off would be out of effect, by the problem a load would have.
     /// </summary>
-    private TaskResult FieldErrorOf(string problem, string agentId, string subjectType)
+    internal TaskResult FieldErrorOf(string problem, string agentId, string subjectType)
     {
         switch (problem)
         {

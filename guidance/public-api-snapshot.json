@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "e0921d20373faf12975ae8513b870cec5716457ccf6cdfe4af9c1e6596ec952d",
-    "declarationCount": 10549,
+    "hash": "242d7d26d6f74c240ec99842c29e50198ab59d5c5b3bb71b3272ccf2d5b6c88d",
+    "declarationCount": 10783,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1891,6 +1891,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantAgentMetadataRequest(JsonElement? Value, int? ExpectedVersion);"
       },
       {
@@ -2043,6 +2047,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantDataConsultationRequest( string? Description, string? Instructions = null, string? MinimumRole = null, string? AskerPolicy = null, IReadOnlyList<string>? Routes = null, string? ProposalRole = null, string? ProposalPolicy = null, int? MaxToolCalls = null, int? TimeoutSeconds = null, int? MaxAnswerChars = null, int? MaxHistoryMessages = null, bool AllowRequests = false, bool ExposeToMcp = false, string? DataClassification = null, int? ExpectedVersion = null, string? Reason = null)"
       },
       {
@@ -2179,6 +2187,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantAgentRunSettingsRequest( string? Accountability, string? ServiceAccountActorId = null, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, int? ExpectedVersion = null, string? Reason = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null);"
       },
       {
@@ -2243,6 +2255,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantSkillCandidateRequest(int? Version, string? Reason = null);"
       },
       {
@@ -2284,6 +2300,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public string CreatedBy { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -2732,6 +2752,546 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentGroups.cs",
         "declaration": "public async Task<TaskResult<NhAssistantAgentGroupMembershipDto>> SetMembershipAsync( string agentId, IReadOnlyCollection<string> groupIds, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackage( string Format, int FormatVersion, NhAssistantAgentPackageInfo Package, IReadOnlyList<NhAssistantPackageAgent> Agents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageInfo(string Id, int Version, string? Description = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageAgent( string Id, string Source, NhAssistantPackageAgentDefinition? Definition = null, NhAssistantPackageRunSettings? RunSettings = null, IReadOnlyList<NhAssistantPackageSkill>? Skills = null, IReadOnlyList<NhAssistantPackageTrigger>? Triggers = null, IReadOnlyList<NhAssistantPackageConsultation>? Consultations = null, IReadOnlyList<NhAssistantPackageHandOff>? HandOffs = null, IReadOnlyDictionary<string, JsonElement>? Metadata = null, IReadOnlyList<string>? Groups = null, IReadOnlyDictionary<string, IReadOnlyList<string>>? Locks = null, IReadOnlyDictionary<string, string>? Hashes = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageAgentDefinition( string? DisplayName = null, string? Description = null, string? Instructions = null, NhAssistantInstructionAssetReference? InstructionsAsset = null, IReadOnlyList<string>? ToolSelectors = null, string? RequiredPolicy = null, string? Autonomy = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, string? Profile = null, string? DataClassification = null, bool? StartsOff = null, bool? StartsInShadow = null, string? ShadowOf = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageRunSettings( string Accountability, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageSkill( string Id, string Description, string? Instructions = null, NhAssistantInstructionAssetReference? InstructionsAsset = null, IReadOnlyList<string>? Tools = null, string? Profile = null, string? RuleHandler = null, long? MaxTokensPerRun = null, int? DailyToolCalls = null, long? DailyTokens = null, string? ApprovalPolicy = null, string? DataClassification = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null, bool? StartsOff = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageTrigger( string Id, string Source, string? Skill = null, string? Event = null, IReadOnlyList<string>? Filters = null, string? Cron = null, string? TimeZone = null, string? SubjectSet = null, string? Message = null, string? Conflict = null, int? DebounceSeconds = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageConsultation( string SubjectType, string Description, string? Instructions = null, string? MinimumRole = null, string? AskerPolicy = null, IReadOnlyList<string>? Routes = null, string? ProposalRole = null, string? ProposalPolicy = null, IReadOnlyList<string>? ToolSelectors = null, int? MaxToolCalls = null, int? TimeoutSeconds = null, int? MaxAnswerChars = null, int? MaxHistoryMessages = null, bool AllowRequests = false, bool ExposeToMcp = false, string? DataClassification = null, bool? StartsOff = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageHandOff( string SubjectType, IReadOnlyList<string> Sources, string? Description = null, bool NotifySource = false, int? MaxPerSubjectPerDay = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageExportOptions( string? PackageId = null, int? Version = null, string? Description = null, IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<string>>>? Locks = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageExportDto( NhAssistantAgentPackage Package, string Hash, IReadOnlyList<NhAssistantAgentPackageWarningDto> Warnings);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageWarningDto( string AgentId, string Part, string Code, string ReferencedAgentId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public static class NhAssistantAgentPackageWarnings {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string HandOffSource = \"hand-off-source\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string ShadowOf = \"shadow-of\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string ConsultationAsker = \"consultation-asker\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string ShadowVariant = \"shadow-variant\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageImportOptions( IReadOnlyDictionary<string, string>? ServiceAccounts = null, string? Apply = null, IReadOnlyList<NhAssistantPackagePartReference>? Relink = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackagePartReference(string AgentId, string? Part = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackagePartDto( string AgentId, string Part, string Outcome, bool ChangedLocally, string? Code, IReadOnlyDictionary<string, string[]>? Errors, IReadOnlyList<string> LockedFields) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public int? CandidateVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public static class NhAssistantPackagePartOutcomes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Created = \"created\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Changed = \"changed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Unchanged = \"unchanged\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string KeptLocal = \"kept-local\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string LeftBehind = \"left-behind\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Refused = \"refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackagePreviewDto( string PackageId, int PackageVersion, int? InstalledVersion, bool Importable, IReadOnlyList<NhAssistantAgentPackagePartDto> Parts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageImportDto( string PackageId, int PackageVersion, string Hash, IReadOnlyList<NhAssistantAgentPackagePartDto> Parts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageUnlinkDto( string AgentId, string PackageId, IReadOnlyList<string> Parts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackagePartLinkDto( string Part, string PackageId, int PackageVersion, IReadOnlyList<string> LockedFields, string Hash, bool ChangedLocally, DateTimeOffset LinkedAt, string LinkedBy);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageLinkDto( string PackageId, int PackageVersion, IReadOnlyList<NhAssistantPackagePartLinkDto> Parts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageExportRequest( IReadOnlyList<string>? AgentIds, NhAssistantAgentPackageExportOptions? Options = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageImportRequest( JsonElement? Package, NhAssistantAgentPackageImportOptions? Options = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantAgentPackageUnlinkRequest(string? Part = null, string? Reason = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public static class NhAssistantAgentPackageRoutes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Export = \"admin/agent-packages/export\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Preview = \"admin/agent-packages/preview\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Import = \"admin/agent-packages/import\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string Unlink = \"admin/agents/{id}/package/unlink\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public const string WarningsHeader = \"X-NewHeap-Package-Warnings\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "[JsonSerializable(typeof(NhAssistantAgentPackageExportRequest))] [JsonSerializable(typeof(NhAssistantAgentPackageImportRequest))] [JsonSerializable(typeof(NhAssistantAgentPackageUnlinkRequest))] [JsonSerializable(typeof(NhAssistantAgentPackagePreviewDto))] [JsonSerializable(typeof(NhAssistantAgentPackageImportDto))] [JsonSerializable(typeof(NhAssistantAgentPackageUnlinkDto))] [JsonSerializable(typeof(NhAssistantAgentPackageWarningDto[]))] [JsonSerializable(typeof(NhAssistantAgentPackageLinkDto))] public sealed partial class NhAssistantAgentPackageJsonSerializerContext : JsonSerializerContext;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static class NhAssistantAgentPackageFormat {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const string Name = \"newheap.assistant.agent-package\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const int Version = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const int MaxBytes = 1_048_576;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const int MaxAgents = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const int MaxIdLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public const int MaxDescriptionLength = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static TaskResult<NhAssistantAgentPackage> Read(ReadOnlySpan<byte> utf8Json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static TaskResult<NhAssistantAgentPackage> Read(string json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static TaskResult<NhAssistantAgentPackage> Read(JsonElement json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static TaskResult<NhAssistantAgentPackage> Check(NhAssistantAgentPackage? package) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static string Write(NhAssistantAgentPackage package) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static string HashOf(NhAssistantAgentPackage package) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static string HashOf<T>(T part) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "public static string HashOf(JsonElement json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+        "declaration": "[JsonSerializable(typeof(NhAssistantAgentPackage))] [JsonSerializable(typeof(NhAssistantPackageAgentDefinition))] [JsonSerializable(typeof(NhAssistantPackageRunSettings))] [JsonSerializable(typeof(NhAssistantPackageSkill))] [JsonSerializable(typeof(NhAssistantPackageTrigger))] [JsonSerializable(typeof(NhAssistantPackageConsultation))] [JsonSerializable(typeof(NhAssistantPackageHandOff))] [JsonSerializable(typeof(JsonElement))] public sealed partial class NhAssistantAgentPackageFormatJsonSerializerContext : JsonSerializerContext;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
+        "declaration": "public async Task<NhAssistantAgentPackageLinkDto?> OfAgentAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<string, NhAssistantAgentPackageLinkDto>> OfAgentsAsync( IReadOnlyCollection<string> agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<string, NhAssistantPackagePartLinkDto>> PartsOfAsync( string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageAgentDefinition? DefinitionOf(AssistantAgent row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageRunSettings RunSettingsOf(AssistantAgentRunConfiguration row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageSkill SkillOf(AssistantAgentSkillDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageTrigger TriggerOf(AssistantAgentTriggerDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageConsultation ConsultationOf(AssistantAgentConsultationDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageHandOff HandOffOf(AssistantAgentHandOffDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static JsonElement MetadataOf(string valueJson) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantAgentInput AdminInputOf( string agentId, NhAssistantPackageAgentDefinition definition, IReadOnlyDictionary<string, JsonElement>? metadata, bool autonomyValid, NhAiAutonomyLevel autonomy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantAgentInput CodeInputOf( AssistantAgent row, NhAssistantPackageAgentDefinition definition, bool autonomyValid, NhAiAutonomyLevel autonomy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static bool TryReadAutonomy(string? value, out NhAiAutonomyLevel autonomy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantAgentRunSettingsRequest RequestOf( NhAssistantPackageRunSettings part, string? serviceAccountActorId, int? expectedVersion, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantDataSkillRequest RequestOf( NhAssistantPackageSkill part, int? expectedVersion, bool asCandidate, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantDataTriggerRequest RequestOf( NhAssistantPackageTrigger part, int? expectedVersion, bool asCandidate, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantDataConsultationRequest RequestOf( NhAssistantPackageConsultation part, int? expectedVersion, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantDataHandOffRequest RequestOf( NhAssistantPackageHandOff part, int? expectedVersion, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public NhAssistantAgentPackage Package { get; } = package;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Hash { get; } = hash;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public AssistantAgentPackage? Installed { get; } = installed;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public List<NhAssistantPlannedAgent> Agents { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public List<NhAssistantPlannedPart> Parts { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public List<string> LeftBehindAgents { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool Importable => Parts.All(part => part.Outcome != NhAssistantPackagePartOutcomes.Refused);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IEnumerable<NhAssistantPlannedPart> PartsOf(string agentId, string kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public NhAssistantPackageAgent Source { get; } = source;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Id => Source.Id;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool InCode => Source.Source == NhAssistantAgentSources.Code;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public AssistantAgent? HostRow { get; } = hostRow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool Member { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public NhAssistantAgentInput? Input { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public AssistantAgent? Row { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyList<AssistantAgentMetadata> NewMetadataRows { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> MetadataValues { get; set; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyList<AssistantAgentMetadata> HostMetadata { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyList<AssistantAgentPackageLink> Links { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public AssistantAgent? UpdatedRow { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public List<Persistence.NhAssistantAgentMetadataChange> MetadataChanges { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string AgentId { get; } = agentId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Kind { get; } = kind;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Key { get; } = key;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Part => NhAssistantPackagePartKinds.PartOf(Kind, Key);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string Outcome { get; set; } = NhAssistantPackagePartOutcomes.Created;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool ChangedLocally { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string? Code { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public SortedDictionary<string, List<string>> Errors { get; } = new(StringComparer.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyList<string> LockedFields { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public AssistantAgentPackageLink? Link { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public object? Current { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public object? Row { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public int? ExpectedVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool AsCandidate { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool StartsOff { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string? ServiceAccount { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public int? SavedVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string? Hash { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public IReadOnlyDictionary<string, string>? Fields { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool Refused => Outcome == NhAssistantPackagePartOutcomes.Refused;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool Writes => Outcome is NhAssistantPackagePartOutcomes.Created or NhAssistantPackagePartOutcomes.Changed;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public bool Linked => Outcome is NhAssistantPackagePartOutcomes.Created"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public void Refuse(TaskResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public void Refuse(string field, string error) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public NhAssistantAgentPackagePartDto ToDto() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentPackageExportDto>> ExportAsync( IReadOnlyList<string> agentIds, NhAssistantAgentPackageExportOptions options, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentPackagePreviewDto>> PreviewImportAsync( NhAssistantAgentPackage package, NhAssistantAgentPackageImportOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentPackageImportDto>> ImportAsync( NhAssistantAgentPackage package, NhAssistantAgentPackageImportOptions options, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAgentPackageUnlinkDto>> UnlinkAsync( string agentId, string? part, string actorId, string? reason = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public Task<NhAssistantAgentPackageLinkDto?> GetLinkAsync(string agentId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public const string Exported = \"exported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public const string Created = \"created\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public const string Upgraded = \"upgraded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public const string Unlinked = \"unlinked\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public const string LeftBehind = \"left-behind\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackages.cs",
+        "declaration": "public interface INhAssistantAgentPackages {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -3716,6 +4276,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
         "declaration": "public string CreatedBy { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
+        "declaration": "[System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataHandOffs.cs",
@@ -5539,6 +6103,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpServerInputDto( string? Id, string? DisplayName, string? Url, string? AuthMode, string? HeaderName, string? Secret, string? RequiredPolicy, bool? IsEnabled) {"
       },
       {
@@ -6826,6 +7394,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261024072050_AgentPackages.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261024072050_AgentPackages.cs",
+        "declaration": "public partial class AgentPackages : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261024072050_AgentPackages.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261024072050_AgentPackages.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -7627,6 +8211,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261023211422_HandOffsAsData.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261024072041_AgentPackages.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261024072041_AgentPackages.cs",
+        "declaration": "public partial class AgentPackages : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261024072041_AgentPackages.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261024072041_AgentPackages.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -8656,6 +9256,94 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
         "declaration": "public ValueTask<IReadOnlyList<string>> SelectRecipientsAsync( NhAssistantAgentNotificationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static class NhAssistantPackagePartKinds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string Agent = \"agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string RunSettings = \"runSettings\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string Skill = \"skill\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string Trigger = \"trigger\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string HandOff = \"handOff\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string Metadata = \"metadata\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string WholeAgent = \"*\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> KeyedKinds { get; } = [Skill, Trigger, Consultation, HandOff, Metadata];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static string PartOf(string kind, string? key = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static bool TryParse(string? part, out string kind, out string key) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static class NhAssistantPackageLockFields {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string All = \"*\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Agent { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> RunSettings { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Skill { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Trigger { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Consultation { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> HandOff { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Metadata { get; } = [\"value\"];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> Of(string kind) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRegistry.cs",
@@ -10040,6 +10728,66 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
         "declaration": "public static bool IsHash(string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgent row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentRunConfiguration row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentSkillDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentTriggerDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentConsultationDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentHandOffDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> OfMetadata(string? valueJson) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static string Canonical(string json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public async Task<TaskResult?> CheckChangeAsync( string agentId, string partKind, string partKey, IReadOnlyDictionary<string, string>? before, IReadOnlyDictionary<string, string> after, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public static TaskResult? Check( AssistantAgentPackageLink link, IReadOnlyDictionary<string, string>? before, IReadOnlyDictionary<string, string> after) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public async Task<TaskResult?> CheckRemovalAsync( string agentId, string partKind, string partKey, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public async Task<TaskResult?> CheckDeletionAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public async Task<TaskResult?> CheckResetAsync( string agentId, IReadOnlyDictionary<string, string> before, IReadOnlyDictionary<string, string> after, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public Task<IReadOnlyList<AssistantAgentPackageLink>> LinksOfAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+        "declaration": "public static TaskResult Locked() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
@@ -11548,6 +12296,86 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
         "declaration": "public DateTimeOffset NotifiedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public sealed class AssistantAgentPackage {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string Id { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public int Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public int FormatVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string Hash { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string AgentIdsJson { get; set; } = \"[]\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public DateTimeOffset ImportedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string ImportedBy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public Guid ConcurrencyStamp { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public sealed class AssistantAgentPackageLink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string PartKind { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string PartKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string PackageId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public int PackageVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string Hash { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string? LockedFieldsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string? LockedValuesJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public DateTimeOffset LinkedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+        "declaration": "public string LinkedBy { get; set; } = string.Empty;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
@@ -15283,6 +16111,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PackageFormatUnsupported = \"assistant-package-format-unsupported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PackageTooLarge = \"assistant-package-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PackageRefused = \"assistant-package-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PackageLocked = \"assistant-package-locked\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PackageNotLinked = \"assistant-package-not-linked\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SkillCandidateNotFound = \"assistant-skill-candidate-not-found\";"
       },
       {
@@ -16015,6 +16863,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Locked = \"locked\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FieldPrefix = \"field:\";"
       },
       {
@@ -16512,6 +17364,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public bool? FileTextCached { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? PackageId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public int? PackageVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? PackageHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? PackagePart { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public int? PackageAgentCount { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -17542,6 +18414,50 @@
         "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentMetadata?>> RemoveOverrideAsync( string agentId, string name, int? expectedVersion, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<AssistantAgentPackage?> FindPackageAsync(string packageId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<AssistantAgentPackage?> FindPackageOfAgentAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentPackageLink>> ListLinksAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentPackageLink>> ListLinksAsync( IReadOnlyCollection<string> agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<AssistantAgentPackageLink?> FindLinkAsync( string agentId, string partKind, string partKey, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<bool> IsLinkedAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<(string PackageId, int PackageVersion, IReadOnlyList<AssistantAgentPackageLink> Links)>> UnlinkAsync( string agentId, string? partKind, string? partKey, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<NhAssistantStoreOutcome> ImportAsync( Func<NhAssistantDbContext, CancellationToken, Task<bool>> writes, AssistantAgentPackage package, IReadOnlyCollection<string> agentIds, IReadOnlyList<AssistantAgentPackageLink> links, IReadOnlyCollection<(string AgentId, string PartKind, string PartKey)> unlinked, int? expectedVersion, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public static IReadOnlyList<string> AgentIdsOf(AssistantAgentPackage package) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public static IReadOnlyList<string> LockedFieldsOf(AssistantAgentPackageLink link) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> LockedValuesOf(AssistantAgentPackageLink link) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantAgentGroupMember>> ListMembershipsAsync( string? groupId, CancellationToken cancellationToken) {"
       },
@@ -17736,6 +18652,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAgentPackage> AgentPackages => Set<AssistantAgentPackage>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAgentPackageLink> AgentPackageLinks => Set<AssistantAgentPackageLink>();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
@@ -19232,6 +20156,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task FeedbackExportedAsync(string agentId, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task PackageExportedAsync(string packageId, int version, string hash, int agentCount, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task PackageImportedAsync(string packageId, int version, string hash, int agentCount, string result, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task PackageUnlinkedAsync(string agentId, string part, string packageId, int version, string result, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
@@ -46079,7 +47015,39 @@
       "NhAssistantShadowVariantCeilingBuilder",
       "NhAssistantShadowVariantSources",
       "NhAssistantShadowVariantsDto",
-      "NhAssistantShadowVariantDto"
+      "NhAssistantShadowVariantDto",
+      "INhAssistantAgentPackages",
+      "NhAssistantAgentPackage",
+      "NhAssistantAgentPackageInfo",
+      "NhAssistantPackageAgent",
+      "NhAssistantPackageAgentDefinition",
+      "NhAssistantPackageRunSettings",
+      "NhAssistantPackageSkill",
+      "NhAssistantPackageTrigger",
+      "NhAssistantPackageConsultation",
+      "NhAssistantPackageHandOff",
+      "NhAssistantAgentPackageFormat",
+      "NhAssistantAgentPackageFormatJsonSerializerContext",
+      "NhAssistantAgentPackageJsonSerializerContext",
+      "NhAssistantAgentPackageExportOptions",
+      "NhAssistantAgentPackageExportDto",
+      "NhAssistantAgentPackageWarningDto",
+      "NhAssistantAgentPackageWarnings",
+      "NhAssistantAgentPackageImportOptions",
+      "NhAssistantPackagePartReference",
+      "NhAssistantAgentPackagePartDto",
+      "NhAssistantPackagePartOutcomes",
+      "NhAssistantAgentPackagePreviewDto",
+      "NhAssistantAgentPackageImportDto",
+      "NhAssistantAgentPackageUnlinkDto",
+      "NhAssistantPackagePartLinkDto",
+      "NhAssistantAgentPackageLinkDto",
+      "NhAssistantAgentPackageExportRequest",
+      "NhAssistantAgentPackageImportRequest",
+      "NhAssistantAgentPackageUnlinkRequest",
+      "NhAssistantAgentPackageRoutes",
+      "NhAssistantPackagePartKinds",
+      "NhAssistantPackageLockFields"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

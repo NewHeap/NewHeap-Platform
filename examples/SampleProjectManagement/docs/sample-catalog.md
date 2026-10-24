@@ -353,6 +353,17 @@ In the assistant administration, and in the playground on the mock API, the run 
 agent lists its hand-offs and shadow variants below the flow. `AssistantAgentRunSamplesTests` runs both
 cases.
 
+The two desks of SPM-318 travel as one agent package (SPM-321). `SampleAgentPackagesComposition` names
+the package and what it locks: the kickoff desk's instructions and those of its review skill. The test
+exports both desks with `POST admin/agent-packages/export`, a JSON download without the operations
+account they answer to, and imports it again with both desks relinked, so they belong to the package. A
+changed copy with new review instructions is an upgrade: the preview shows the skill as changed, the
+import in shadow makes the new instructions a candidate next to the live version and the promote puts
+them live, while the hand-off between the desks stays in effect. A change of the kickoff desk's locked
+instructions is refused with `instructions: locked`; once the administrator unlinks the desk's
+definition with `POST admin/agents/{id}/package/unlink`, they change, and the next upgrade keeps them as
+`kept-local`. `AssistantAgentRunSamplesTests` runs the case.
+
 A skill defined as data may take its instructions from the application's own text assets instead of
 text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
 `SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published

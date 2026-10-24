@@ -65,7 +65,9 @@ internal sealed class NhAssistantAgentAdministration(
     Runs.NhAssistantSubjectAccessService subjects,
     NhAssistantRunConfigurationValidator validator,
     NhAssistantAgentMetadataService metadata,
-    NhAssistantInstructionAssets instructionAssets)
+    NhAssistantInstructionAssets instructionAssets,
+    NhAssistantPackageLockCheck locks,
+    NhAssistantAgentMetadataStore metadataStore)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -76,23 +78,91 @@ internal sealed class NhAssistantAgentAdministration(
         string actorId,
         CancellationToken cancellationToken)
     {
+        var (failure, row, rows) = await PrepareNewAgentAsync(input, actorId, checkShadowVariant: true, cancellationToken);
+        if (failure is not null)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(failure);
+        }
+
+        if (!await store.AddAgentAsync(row!, input.McpServerIds, cancellationToken, rows))
+        {
+            return Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists.");
+        }
+
+        await AuditCreatedAsync(row!, rows, actorId, cancellationToken);
+        if (row!.InstructionsFromAsset)
+        {
+            // Every host checks the asset of the new agent at its next load.
+            await RunConfigurationChangedAsync(cancellationToken);
+        }
+
+        return TaskResult<NhAssistantAgent>.Succeeded(await catalog.ToAgentAsync((await store.FindAgentAsync(row.Id, cancellationToken))!, cancellationToken));
+    }
+
+    /// <summary>
+    /// The audit of a new agent: its creation, its shadow when it starts in shadow, and every value of
+    /// its metadata, as a save of the agent records them.
+    /// </summary>
+    internal async Task AuditCreatedAsync(
+        AssistantAgent row,
+        IReadOnlyList<AssistantAgentMetadata> metadataRows,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row, actorId, cancellationToken);
+        if (row.ShadowOverride == true)
+        {
+            await AuditShadowAsync(row.Id, actorId, cancellationToken);
+        }
+
+        await metadata.AuditAsync(
+            row.Id,
+            metadataRows.Select(item => new NhAssistantAgentMetadataChange(item.Name, NhAssistantAgentMetadataStore.Created, 1)).ToArray(),
+            actorId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The audit of a changed agent and the metadata the change stored, as an update records them.
+    /// </summary>
+    internal async Task AuditUpdatedAsync(
+        AssistantAgent row,
+        IReadOnlyList<NhAssistantAgentMetadataChange> metadataChanges,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        await AuditAsync(NhAssistantAuditEventKind.AdminAgentUpdated, row, actorId, cancellationToken);
+        await metadata.AuditAsync(row.Id, metadataChanges, actorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The checks and the first row of a new agent created in the administration, with the rows of its
+    /// metadata, as <see cref="CreateAsync"/> stores them. An import of a package checks a shadow variant
+    /// against the whole package instead (<paramref name="checkShadowVariant"/>).
+    /// </summary>
+    internal async Task<(TaskResult? Failure, AssistantAgent? Row, IReadOnlyList<AssistantAgentMetadata> MetadataRows)> PrepareNewAgentAsync(
+        NhAssistantAgentInput input,
+        string actorId,
+        bool checkShadowVariant,
+        CancellationToken cancellationToken)
+    {
         var (validation, values) = await ValidateAsync(input, cancellationToken);
         if (!validation.Success)
         {
-            return TaskResult<NhAssistantAgent>.Failed(validation);
+            return (validation, null, []);
         }
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
         var profileName = input.ProfileName ?? DefaultProfileName();
         if (profileName is null)
         {
-            return TaskResult<NhAssistantAgent>.Failed(
+            return (TaskResult.Failed(
                 NhAssistantAdminErrorCodes.ValidationFailed,
-                "Administrator agents require UseChatProfile.");
+                "Administrator agents require UseChatProfile."), null, []);
         }
         var shadowOf = string.IsNullOrWhiteSpace(input.ShadowOf) ? null : input.ShadowOf.Trim();
-        if (shadowOf is not null && await CheckShadowVariantAsync(input.Id, shadowOf, cancellationToken) is { } refused)
+        if (checkShadowVariant && shadowOf is not null && await CheckShadowVariantAsync(input.Id, shadowOf, cancellationToken) is { } refused)
         {
-            return TaskResult<NhAssistantAgent>.Failed(refused);
+            return (refused, null, []);
         }
         if (shadowOf is not null)
         {
@@ -127,27 +197,39 @@ internal sealed class NhAssistantAgentAdministration(
         ApplyInput(row, input, 1);
         // The agent's metadata starts with its first version.
         var rows = NhAssistantAgentMetadataStore.NewRows(row.Id, values, actorId, now);
-        if (!await store.AddAgentAsync(row, input.McpServerIds, cancellationToken, rows))
-        {
-            return Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists.");
-        }
-        await AuditAsync(NhAssistantAuditEventKind.AdminAgentCreated, row, actorId, cancellationToken);
-        if (input.StartsInShadow)
-        {
-            await AuditShadowAsync(row.Id, actorId, cancellationToken);
-        }
-        if (row.InstructionsFromAsset)
-        {
-            // Every host checks the asset of the new agent at its next load.
-            await RunConfigurationChangedAsync(cancellationToken);
-        }
+        return (null, row, rows);
+    }
 
-        await metadata.AuditAsync(
-            row.Id,
-            rows.Select(item => new NhAssistantAgentMetadataChange(item.Name, NhAssistantAgentMetadataStore.Created, 1)).ToArray(),
-            actorId,
-            cancellationToken);
-        return TaskResult<NhAssistantAgent>.Succeeded(await catalog.ToAgentAsync((await store.FindAgentAsync(row.Id, cancellationToken))!, cancellationToken));
+    /// <summary>
+    /// The checks of a change of an agent's definition, with the checked values of its metadata, as
+    /// <see cref="UpdateAsync"/> applies them; an import of a package writes them in its transaction.
+    /// </summary>
+    internal async Task<(TaskResult Result, IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> Metadata)> PrepareChangeAsync(
+        NhAssistantAgentInput input,
+        CancellationToken cancellationToken)
+    {
+        return await ValidateAsync(input, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a change of an agent's definition to its row as <see cref="UpdateAsync"/> does, for an
+    /// import of a package that writes it in its transaction; the store raises the version.
+    /// </summary>
+    internal void ApplyChange(AssistantAgent row, NhAssistantAgentInput input, string actorId)
+    {
+        ApplyInput(row, input, row.Version + 1);
+        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedBy = actorId;
+        if (row.Source == NhAssistantAgentSources.Code)
+        {
+            // The import keeps the agent's MCP assignments, which never travel.
+            row.IsOverridden = !MatchesCode(row, row.McpServers.Select(server => server.McpServerId).ToArray());
+            if (!row.IsOverridden && registry.TryGet(row.Id, out var code))
+            {
+                // Back to the exact code definition: keep the code asset identity.
+                NhAssistantAdminStore.ApplyCodeDefinition(row, NhAssistantAgentCatalog.ToCodeRow(code, row.UpdatedAt));
+            }
+        }
     }
 
     public async Task<TaskResult<NhAssistantAgent>> UpdateAsync(
@@ -162,6 +244,12 @@ internal sealed class NhAssistantAgentAdministration(
             return TaskResult<NhAssistantAgent>.Failed(validation);
         }
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        // A package's locks hold on every save of the definition and its metadata (PK9).
+        if (await CheckLocksAsync(input, values, cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(locked);
+        }
+
         var metadataChanges = new List<NhAssistantAgentMetadataChange>();
         var updated = await store.UpdateAgentAsync(
             input.Id,
@@ -200,6 +288,67 @@ internal sealed class NhAssistantAgentAdministration(
     }
 
     /// <summary>
+    /// The refusal of an update that changes a field an agent package locks on the definition, or a
+    /// locked metadata entry the definition carries: <c>{field}: locked</c> for the definition,
+    /// <c>metadata.{name}: locked</c> for an entry, and <c>409 assistant-package-locked</c> for an entry
+    /// the update removes. <see langword="null"/> when nothing locked changes.
+    /// </summary>
+    private async Task<TaskResult?> CheckLocksAsync(
+        NhAssistantAgentInput input,
+        IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> values,
+        CancellationToken cancellationToken)
+    {
+        var links = await locks.LinksOfAsync(input.Id, cancellationToken);
+        if (links.Count == 0)
+        {
+            return null;
+        }
+
+        var before = await store.FindAgentAsync(input.Id, cancellationToken);
+        var after = await store.FindAgentAsync(input.Id, cancellationToken);
+        if (before is null || after is null)
+        {
+            return null;
+        }
+
+        ApplyInput(after, input, after.Version + 1);
+        var definitionLink = links.FirstOrDefault(link => link.PartKind == NhAssistantPackagePartKinds.Agent);
+        if (definitionLink is not null
+            && NhAssistantPackageLockCheck.Check(definitionLink, NhAssistantPackageFields.Of(before), NhAssistantPackageFields.Of(after)) is { } refused)
+        {
+            return refused;
+        }
+
+        var stored = values.Count == 0 ? [] : await metadataStore.ListAsync(input.Id, cancellationToken);
+        var errors = new NhAssistantValidationErrors();
+        foreach (var (name, value) in values.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            var link = links.FirstOrDefault(item => item.PartKind == NhAssistantPackagePartKinds.Metadata && item.PartKey == name);
+            if (link is null)
+            {
+                continue;
+            }
+            if (value is null)
+            {
+                if (NhAssistantAgentPackageStore.LockedFieldsOf(link).Count > 0)
+                {
+                    return NhAssistantPackageLockCheck.Locked();
+                }
+
+                continue;
+            }
+
+            var current = stored.FirstOrDefault(row => row.Name == name)?.ValueJson;
+            if (NhAssistantPackageLockCheck.Check(link, NhAssistantPackageFields.OfMetadata(current), NhAssistantPackageFields.OfMetadata(value.Json)) is not null)
+            {
+                errors.Add("metadata." + name, NhAssistantFieldErrors.Locked);
+            }
+        }
+
+        return errors.IsEmpty ? null : errors.ToResult();
+    }
+
+    /// <summary>
     /// The run configuration defined as data checks data skills against an administration agent's
     /// tool selectors and loses an agent that is deleted: every host reloads it.
     /// </summary>
@@ -233,6 +382,14 @@ internal sealed class NhAssistantAgentAdministration(
             return Failed(NhAssistantAdminErrorCodes.NotCodeAgent, "Only code agents can be reset.");
         }
 
+        // A reset that would give a field a package locks another value waits for an unlink.
+        var reset = (await store.FindAgentAsync(agentId, cancellationToken))!;
+        NhAssistantAdminStore.ApplyCodeDefinition(reset, NhAssistantAgentCatalog.ToCodeRow(code, DateTimeOffset.UtcNow));
+        if (await locks.CheckResetAsync(agentId, NhAssistantPackageFields.Of(existing), NhAssistantPackageFields.Of(reset), cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(locked);
+        }
+
         var updated = await store.UpdateAgentAsync(
             agentId,
             null,
@@ -252,6 +409,12 @@ internal sealed class NhAssistantAgentAdministration(
     public async Task<TaskResult> DeleteAsync(string agentId, string actorId, CancellationToken cancellationToken)
     {
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        // An agent that belongs to a package stays until an administrator unlinks it (PK9).
+        if (await locks.CheckDeletionAsync(agentId, cancellationToken) is { } locked)
+        {
+            return locked;
+        }
+
         var outcome = await store.DeleteAdminAgentAsync(agentId, cancellationToken);
         if (outcome == NhAssistantStoreOutcome.NotFound)
         {

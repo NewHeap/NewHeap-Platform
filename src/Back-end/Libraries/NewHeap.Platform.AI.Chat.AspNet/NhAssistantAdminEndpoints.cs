@@ -160,6 +160,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantHandOffsAsDataEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantAgentPackageEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantBoardEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
@@ -407,10 +408,13 @@ internal static class NhAssistantAdminEndpoints
         var known = await KnownSubjectTypesAsync(httpContext, null);
         var groups = await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentGroups>()
             .MembershipsAsync(agents.Select(agent => agent.Id).ToArray(), httpContext.RequestAborted);
+        // The packages of the agents that belong to one, read for those agents only.
+        var packages = await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentPackageLinks>()
+            .OfAgentsAsync(agents.Select(agent => agent.Id).ToArray(), httpContext.RequestAborted);
         var dtos = new List<NhAssistantAdminAgentDto>(agents.Count);
         foreach (var agent in agents)
         {
-            dtos.Add(await ToDtoAsync(agent, httpContext, known, groups));
+            dtos.Add(await ToDtoAsync(agent, httpContext, known, groups, packages));
         }
         return Json(dtos.ToArray(), Context.NhAssistantAdminAgentDtoArray);
     }
@@ -1090,15 +1094,20 @@ internal static class NhAssistantAdminEndpoints
         NhAssistantAgent agent,
         HttpContext httpContext,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? known = null,
-        IReadOnlyDictionary<string, AgentRuns.NhAssistantAgentGroupMembershipDto>? groups = null)
+        IReadOnlyDictionary<string, AgentRuns.NhAssistantAgentGroupMembershipDto>? groups = null,
+        IReadOnlyDictionary<string, AgentRuns.NhAssistantAgentPackageLinkDto>? packages = null)
     {
         var control = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentControl>();
         known ??= await KnownSubjectTypesAsync(httpContext, [agent.Id]);
         groups ??= await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentGroups>()
             .MembershipsAsync([agent.Id], httpContext.RequestAborted);
+        var package = packages is null
+            ? await httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentPackageLinks>().OfAgentAsync(agent.Id, httpContext.RequestAborted)
+            : packages.GetValueOrDefault(agent.Id);
         var membership = groups.GetValueOrDefault(agent.Id);
         return ToDto(agent, await control.StateOfAsync(agent, httpContext.RequestAborted)) with
         {
+            Package = package,
             KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? [],
             Groups = membership?.Groups ?? [],
             CodeGroups = membership?.CodeGroups ?? [],
