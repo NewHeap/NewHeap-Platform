@@ -280,15 +280,17 @@ internal sealed partial class NhAssistantAgentPackageService
                 part.Refuse(failure);
                 return;
             }
-            if (part.Refused)
-            {
-                return;
-            }
 
+            // The row takes part in the check of the whole package also when the part is refused, so
+            // its other parts are checked against it.
             agent.Row = row;
             agent.NewMetadataRows = metadataRows;
             part.Row = row;
-            part.Outcome = NhAssistantPackagePartOutcomes.Created;
+            if (!part.Refused)
+            {
+                part.Outcome = NhAssistantPackagePartOutcomes.Created;
+            }
+
             return;
         }
 
@@ -299,10 +301,7 @@ internal sealed partial class NhAssistantAgentPackageService
         if (!validation.Success)
         {
             part.Refuse(validation);
-            return;
-        }
-        if (part.Refused)
-        {
+            agent.Row = hostRow;
             return;
         }
 
