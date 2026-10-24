@@ -12,7 +12,7 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockConsultationCeiling } from './nh-assistant-mock.models';
-import { NhAssistantMockResult, mockFailure as failure, mockHashText as hashText, mockMaxStateReason as maxReason } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockResult, mockFailure as failure, mockHashText as hashText, mockMaxStateReason as maxReason, mockSnapshot } from './nh-assistant-mock-admin-shared';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** What the consultations read of the mock's agents, their run configuration and the run catalog. */
@@ -241,6 +241,14 @@ export class NhAssistantMockConsultations {
   }
 
   /** `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`, and `POST .../state`. */
+  /**
+   * A copy of the consultations defined as data; the returned function puts it back, for an agent package import that fails
+   * as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    return mockSnapshot(this.stored);
+  }
+
   handle(method: string, agent: AdminAgent, subjectType: string, body: unknown, query: URLSearchParams, action?: string): NhAssistantMockResult {
     if (action === 'state') {
       return method === 'POST' ? this.setState(agent, subjectType, body) : { status: 405 };

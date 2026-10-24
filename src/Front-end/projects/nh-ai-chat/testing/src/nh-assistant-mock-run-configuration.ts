@@ -25,7 +25,7 @@ import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
-import { mockClassificationWarnings, mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { mockClassificationWarnings, mockFailure as failure, mockSnapshot } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 
 /** A mock response: status plus optional JSON body. */
@@ -179,6 +179,19 @@ export class NhAssistantMockRunConfiguration {
    * The agent's consultations defined as data in effect with their routes in effect, which count for
    * its route switches.
    */
+  /**
+   * A copy of the run settings, skills, triggers and consultations; the returned function puts it back, for an agent package import that fails
+   * as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    const restoreOwn = mockSnapshot(this.settings, this.skills, this.triggers, this.triggerVersions);
+    const restoreConsultations = this.consultations.snapshot();
+    return () => {
+      restoreOwn();
+      restoreConsultations();
+    };
+  }
+
   consultationsInEffect(agentId: string): { subjectType: string; routes: NhAssistantConsultationRoute[] }[] {
     return this.consultations.inEffect(agentId);
   }

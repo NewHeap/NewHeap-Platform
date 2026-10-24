@@ -1,6 +1,6 @@
 import { AdminAgent, AgentMetadata, AgentMetadataEntry, AgentMetadataSource } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAgentMetadataEntry, NhAssistantMockScenario } from './nh-assistant-mock.models';
-import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockResult, mockFailure as failure, mockSnapshot } from './nh-assistant-mock-admin-shared';
 
 /** What the metadata reads of the mock's agents and caller. */
 export interface NhAssistantMockAgentMetadataContext {
@@ -83,6 +83,14 @@ export class NhAssistantMockAgentMetadata {
   }
 
   /** Forgets the values of an agent that was deleted, as the server removes them with it. */
+  /**
+   * A copy of the stored values; the returned function puts it back, for an agent package import that fails
+   * as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    return mockSnapshot(this.stored);
+  }
+
   forget(agentId: string): void {
     this.stored.delete(agentId);
   }

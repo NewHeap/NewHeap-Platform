@@ -58,7 +58,9 @@ export const SAMPLE_ASSISTANT_ICONS: Record<NhAssistantIconName, string> = {
   leave: 'ph ph-sign-out',
   // SPM-305: the composer's attach control and the files of a message.
   attach: 'ph ph-paperclip',
-  file: 'ph ph-file'
+  file: 'ph ph-file',
+  // The parts of an agent that an agent package locks show read-only with a lock.
+  lock: 'ph ph-lock-simple'
 };
 
 /** The bearer token of the NewHeap session; runs in the assistant's injection context. */
