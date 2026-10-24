@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.82",
   "backEnd": {
-    "hash": "9cd066df1dc289ed04201182fab375d3be12ee0503311155940d87f7680f2ff4",
+    "hash": "e0921d20373faf12975ae8513b870cec5716457ccf6cdfe4af9c1e6596ec952d",
     "declarationCount": 10549,
     "declarations": [
       {
@@ -18195,6 +18195,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public const int MaxRunSummaryLength = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<AssistantThread?> FindThreadAsync( string scopeKey, string agentId, NhAiSubjectRef subject, CancellationToken cancellationToken, bool shadow = false)"
       },
       {
@@ -18379,7 +18383,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<bool> TrySetRunStatusAsync( Guid runId, IReadOnlyCollection<string> expected, string status, CancellationToken cancellationToken, string? failureClass = null, string? failureCode = null, Guid? turnId = null)"
+        "declaration": "public async Task<bool> TrySetRunStatusAsync( Guid runId, IReadOnlyCollection<string> expected, string status, CancellationToken cancellationToken, string? failureClass = null, string? failureCode = null, Guid? turnId = null, string? summary = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -18408,10 +18412,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<bool> TryUpdateMemoryAsync( Guid conversationId, Guid expectedStamp, string? memoryJson, int schemaVersion, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task SetRunSummaryAsync(Guid runId, string summary, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -19647,7 +19647,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunSummaries.cs",
-        "declaration": "public async Task WriteAsync(AssistantRun run, string status, Guid? turnId, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<string> ComposeAsync(AssistantRun run, string status, Guid? turnId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
