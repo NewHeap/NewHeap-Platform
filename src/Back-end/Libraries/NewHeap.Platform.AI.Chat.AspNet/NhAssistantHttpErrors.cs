@@ -285,6 +285,17 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.AgentInstructionsUnavailable);
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantAdminErrorCodes.InstructionsAssetUnavailable);
+        // Agent packages (S7-2): a format this host does not read, a package that is too large, a
+        // package whose check refused a part, a locked part and an agent or part without a link.
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantErrorCodes.PackageFormatUnsupported);
+        Add(statuses, StatusCodes.Status413PayloadTooLarge,
+            NhAssistantErrorCodes.PackageTooLarge);
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantErrorCodes.PackageRefused,
+            NhAssistantErrorCodes.PackageLocked);
+        Add(statuses, StatusCodes.Status404NotFound,
+            NhAssistantErrorCodes.PackageNotLinked);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

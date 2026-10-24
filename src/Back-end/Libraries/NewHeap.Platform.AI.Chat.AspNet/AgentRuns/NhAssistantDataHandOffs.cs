@@ -106,6 +106,14 @@ public sealed record NhAssistantDataHandOffDto(
     public DateTimeOffset CreatedAt { get; init; }
 
     public string CreatedBy { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The link of the hand-off (part <c>handOff:{subjectType}</c>) to the agent package it was
+    /// imported from, with its locked fields, which the administration shows read-only; left out when
+    /// it is not linked.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <summary>

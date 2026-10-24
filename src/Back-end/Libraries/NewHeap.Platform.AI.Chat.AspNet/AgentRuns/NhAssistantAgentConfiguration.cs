@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Actors;
@@ -389,6 +390,13 @@ public sealed record NhAssistantAgentMetadataDto(
     /// Who saved the stored value.
     /// </summary>
     public string? ChangedBy { get; init; }
+
+    /// <summary>
+    /// The link of the entry (part <c>metadata:{name}</c>) to the agent package it was imported from,
+    /// with its locked fields, which the administration shows read-only; left out when it is not linked.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <param name="Value">The value in the shape of the entry's type (camelCase JSON); required.</param>
@@ -705,6 +713,14 @@ public sealed record NhAssistantDataConsultationDto(
     /// <see cref="INhAssistantAgentConfiguration.SetConsultationStateAsync"/>.
     /// </summary>
     public bool Off { get; init; }
+
+    /// <summary>
+    /// The link of the consultation (part <c>consultation:{subjectType}</c>) to the agent package it was
+    /// imported from, with its locked fields, which the administration shows read-only; left out when
+    /// it is not linked.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <summary>
@@ -1076,6 +1092,14 @@ public sealed record NhAssistantAgentRunSettingsDto(
     /// The most estimated file tokens of one turn; <see langword="null"/> keeps the application's.
     /// </summary>
     public int? MaxFileTokensPerTurn { get; init; }
+
+    /// <summary>
+    /// The link of the run settings (part <c>runSettings</c>) to the agent package they were imported
+    /// from, with their locked fields, which the administration shows read-only; left out when they
+    /// are not linked.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or <c>service-account</c>.
@@ -1234,6 +1258,14 @@ public sealed record NhAssistantDataSkillDto(
     /// longer resolves to <see cref="InstructionsHash"/>.
     /// </summary>
     public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// The link of the skill (part <c>skill:{id}</c>) to the agent package it was imported from, with
+    /// its locked fields, which the administration shows read-only; left out when it is not linked, and
+    /// on a candidate.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <param name="Version">The candidate version the change is for.</param>
@@ -1328,6 +1360,14 @@ public sealed record NhAssistantDataTriggerDto(
     public DateTimeOffset CreatedAt { get; init; }
 
     public string CreatedBy { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The link of the trigger (part <c>trigger:{id}</c>) to the agent package it was imported from,
+    /// with its locked fields, which the administration shows read-only; left out when it is not
+    /// linked, and on a candidate.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantPackagePartLinkDto? Package { get; init; }
 }
 
 /// <summary>
