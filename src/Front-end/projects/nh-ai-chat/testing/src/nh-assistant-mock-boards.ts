@@ -9,7 +9,7 @@ import {
   AgentSubjectType
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAgentGroup, NhAssistantMockScenario } from './nh-assistant-mock.models';
-import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockResult, mockFailure as failure, mockSnapshot } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockDescribedSubject, NhAssistantMockSubjects, mockPickText } from './nh-assistant-mock-subjects';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
@@ -89,6 +89,14 @@ export class NhAssistantMockBoards {
       }
     }
     return { agentId, groups: [...groups].sort(), codeGroups };
+  }
+
+  /**
+   * A copy of the administrators' group choices; the returned function puts it back, for an import
+   * of an agent package that fails as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    return mockSnapshot(this.choices);
   }
 
   /** Forgets the choices about an agent that was deleted. */

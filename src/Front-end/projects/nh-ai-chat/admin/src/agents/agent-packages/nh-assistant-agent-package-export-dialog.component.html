@@ -1,0 +1,182 @@
+<dialog #dialog class="dialog" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="downloading()" (close)="onClosed()">
+  <div class="dialog-body">
+    <header class="dialog-header">
+      <h2 [id]="id + '-title'">{{ 'nh-assistant.admin.packages.export-dialog.title' | translate }}</h2>
+      <button class="icon-button" type="button" [attr.aria-label]="'nh-assistant.admin.packages.export-dialog.close' | translate" (click)="close()">
+        <nh-assistant-icon name="close" />
+      </button>
+    </header>
+
+    <form class="stack" novalidate (submit)="$event.preventDefault(); download()">
+      <fieldset class="field" data-export-agents [attr.aria-describedby]="id + '-agents-hint' + (selectionError() ? ' ' + id + '-agents-error' : '')">
+        <legend>{{ 'nh-assistant.admin.packages.export-dialog.agents' | translate }}</legend>
+        <p class="hint" [id]="id + '-agents-hint'">{{ 'nh-assistant.admin.packages.export-dialog.agents-hint' | translate }}</p>
+        <div class="checks">
+          @for (agent of agents(); track agent.id) {
+            <label class="check described" [attr.data-export-agent]="agent.id">
+              <input
+                type="checkbox"
+                [checked]="isChosen(agent.id)"
+                [disabled]="!isChosen(agent.id) && selected().length >= maxAgents"
+                (change)="toggleAgent(agent.id, checked($event))" />
+              <span>
+                <strong>{{ agentName(agent.id) }}</strong>
+                <span class="mono muted">{{ agent.id }}</span>
+                @if (agent.package; as linked) {
+                  <span class="muted"><nh-assistant-icon name="lock" /> {{ 'nh-assistant.admin.packages.linked-badge' | translate: { package: linked.packageId, version: linked.packageVersion } }}</span>
+                }
+              </span>
+            </label>
+          }
+        </div>
+        @if (selectionError(); as key) {
+          <p class="field-error" data-export-agents-error [id]="id + '-agents-error'"><nh-assistant-icon name="warning" />{{ key | translate: { max: maxAgents } }}</p>
+        }
+      </fieldset>
+
+      @if (references().length > 0) {
+        <section class="message warning references" role="status" data-export-references [attr.aria-labelledby]="id + '-references-title'">
+          <strong [id]="id + '-references-title'"><nh-assistant-icon name="warning" /> {{ 'nh-assistant.admin.packages.export-dialog.references' | translate }}</strong>
+          <span class="muted">{{ 'nh-assistant.admin.packages.export-dialog.references-hint' | translate }}</span>
+          @for (warning of references(); track warning.agentId + warning.part + warning.code + warning.referencedAgentId) {
+            <div class="reference" [attr.data-export-reference]="warning.code" [attr.data-referenced-agent]="warning.referencedAgentId">
+              <span>{{ referenceText(warning) }}</span>
+              @if (canAdd(warning.referencedAgentId)) {
+                <button class="secondary" type="button" [attr.data-export-add]="warning.referencedAgentId" (click)="add(warning.referencedAgentId)">
+                  <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.packages.export-dialog.add' | translate: { agent: agentName(warning.referencedAgentId) } }}
+                </button>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      <div class="grid">
+        <div class="field">
+          <label [for]="id + '-package-id'">{{ 'nh-assistant.admin.packages.export-dialog.package-id' | translate }}</label>
+          <input
+            type="text"
+            class="mono"
+            autocomplete="off"
+            data-export-package-id
+            [id]="id + '-package-id'"
+            [value]="packageId()"
+            [attr.placeholder]="defaultPackageId()"
+            [attr.aria-invalid]="packageIdError() ? true : null"
+            [attr.aria-describedby]="id + '-package-id-hint'"
+            (input)="packageId.set(value($event))" />
+          <p class="hint" [id]="id + '-package-id-hint'">
+            @if (packageIdError(); as key) {
+              <span class="error-text">{{ key | translate }}</span>
+            } @else {
+              <span>{{ 'nh-assistant.admin.packages.export-dialog.package-id-hint' | translate }} {{ 'nh-assistant.admin.packages.export-dialog.package-id-default' | translate: { id: defaultPackageId() } }}</span>
+            }
+          </p>
+        </div>
+        <div class="field">
+          <label [for]="id + '-version'">{{ 'nh-assistant.admin.packages.export-dialog.version' | translate }}</label>
+          <input
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            data-export-version
+            [id]="id + '-version'"
+            [value]="version()"
+            [attr.placeholder]="defaultVersion()"
+            [attr.aria-invalid]="versionError() ? true : null"
+            [attr.aria-describedby]="id + '-version-hint'"
+            (input)="version.set(value($event))" />
+          <p class="hint" [id]="id + '-version-hint'">
+            @if (versionError(); as key) {
+              <span class="error-text">{{ key | translate }}</span>
+            } @else {
+              <span>{{ 'nh-assistant.admin.packages.export-dialog.version-hint' | translate }}</span>
+            }
+          </p>
+        </div>
+      </div>
+      <div class="field">
+        <label [for]="id + '-description'">{{ 'nh-assistant.admin.packages.export-dialog.description' | translate }}</label>
+        <input
+          type="text"
+          autocomplete="off"
+          [id]="id + '-description'"
+          [maxLength]="maxDescription"
+          [value]="description()"
+          [attr.aria-invalid]="descriptionError() ? true : null"
+          [attr.aria-describedby]="id + '-description-hint'"
+          (input)="description.set(value($event))" />
+        <p class="hint" [id]="id + '-description-hint'">
+          @if (descriptionError(); as key) {
+            <span class="error-text">{{ key | translate }}</span>
+          } @else {
+            <span>{{ 'nh-assistant.admin.packages.export-dialog.description-hint' | translate }}</span>
+          }
+        </p>
+      </div>
+
+      <section class="stack" data-export-locks [attr.aria-labelledby]="id + '-locks-title'">
+        <h3 [id]="id + '-locks-title'">{{ 'nh-assistant.admin.packages.export-dialog.locks' | translate }}</h3>
+        <p class="muted">{{ 'nh-assistant.admin.packages.export-dialog.locks-hint' | translate }}</p>
+        @if (locksError(); as key) {
+          <p class="field-error" data-export-locks-error><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+        }
+        @for (entry of chosenAgents(); track entry.agent.id) {
+          <div class="subsection" [attr.data-export-agent-locks]="entry.agent.id">
+            <h4>{{ entry.name }}</h4>
+            @if (entry.loading) {
+              <p class="muted" role="status">{{ 'nh-assistant.admin.packages.export-dialog.loading-parts' | translate }}</p>
+            } @else if (entry.parts.length === 0) {
+              <p class="muted">{{ (failed().has(entry.agent.id) ? 'nh-assistant.admin.packages.export-dialog.parts-failed' : 'nh-assistant.admin.packages.export-dialog.no-parts') | translate }}</p>
+            } @else {
+              @for (item of entry.parts; track item.part.key) {
+                <div class="lock-part" [attr.data-export-part]="item.part.key">
+                  <div class="lock-row">
+                    <strong [id]="id + '-' + entry.agent.id + '-' + item.part.key">{{ item.label }}</strong>
+                    <select
+                      data-lock-mode
+                      [attr.aria-label]="'nh-assistant.admin.packages.export-dialog.lock-choice' | translate: { part: item.label }"
+                      (change)="setLockMode(entry.agent.id, item.part.key, lockModeOf($event))">
+                      @for (mode of lockModes; track mode) {
+                        <option [value]="mode" [selected]="item.choice.mode === mode">{{ 'nh-assistant.admin.packages.export-dialog.lock-' + mode | translate }}</option>
+                      }
+                    </select>
+                  </div>
+                  @if (item.choice.mode === 'fields') {
+                    <div class="checks" role="group" [attr.aria-label]="'nh-assistant.admin.packages.export-dialog.lock-fields-of' | translate: { part: item.label }">
+                      @for (field of item.fields; track field.field) {
+                        <label class="check" [attr.data-lock-field]="field.field">
+                          <input
+                            type="checkbox"
+                            [checked]="item.choice.fields.includes(field.field)"
+                            (change)="toggleLockField(entry.agent.id, item.part.key, field.field, checked($event))" />
+                          <span>{{ field.label }}</span>
+                        </label>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+        }
+      </section>
+
+      @if (downloaded(); as done) {
+        <p class="message success" role="status" tabindex="-1" data-export-done>{{ 'nh-assistant.admin.packages.export-dialog.downloaded' | translate: { file: done.file } }}</p>
+      }
+      @if (error(); as failure) {
+        <p class="form-error" role="alert" data-export-error>
+          <nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}
+        </p>
+      }
+
+      <div class="actions">
+        <button class="secondary" type="button" (click)="close()">{{ 'nh-assistant.admin.packages.export-dialog.close' | translate }}</button>
+        <button class="primary" type="submit" data-export-download [disabled]="downloading()">
+          <nh-assistant-icon name="file" />{{ (downloading() ? 'nh-assistant.admin.packages.export-dialog.downloading' : 'nh-assistant.admin.packages.export-dialog.download') | translate }}
+        </button>
+      </div>
+    </form>
+  </div>
+</dialog>

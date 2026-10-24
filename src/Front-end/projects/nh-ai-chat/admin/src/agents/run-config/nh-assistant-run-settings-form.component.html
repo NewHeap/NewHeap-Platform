@@ -1,13 +1,16 @@
 <form class="stack card" data-form="settings" novalidate (submit)="$event.preventDefault(); save()">
   <h5>{{ (settings() ? 'nh-assistant.admin.run-config.settings.edit-title' : 'nh-assistant.admin.run-config.settings.add-title') | translate }}</h5>
+  @if (settings()) {
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" part="runSettings" [unlinkable]="false" />
+  }
 
   <fieldset class="group" [attr.aria-describedby]="id + '-who-explain'">
-    <legend>{{ 'nh-assistant.admin.run-config.settings.who.title' | translate }}</legend>
+    <legend>{{ 'nh-assistant.admin.run-config.settings.who.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('accountability')" /></legend>
     <p class="muted" [id]="id + '-who-explain'">{{ 'nh-assistant.admin.run-config.settings.who.explain' | translate }}</p>
     <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.settings.who.title' | translate">
       @for (option of accountabilities; track option) {
         <label class="choice" [class.selected]="accountability() === option">
-          <input type="radio" [name]="id + '-accountability'" [value]="option" [checked]="accountability() === option" (change)="setAccountability(option)" />
+          <input type="radio" [name]="id + '-accountability'" [value]="option" [disabled]="locked('accountability')" [checked]="accountability() === option" (change)="setAccountability(option)" />
           <span>
             <strong>{{ 'nh-assistant.admin.run-config.settings.accountability.' + option | translate }}</strong>
             <span class="muted">{{ 'nh-assistant.admin.run-config.settings.accountability-explain.' + option | translate }}</span>
@@ -41,9 +44,10 @@
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.settings.how.title' | translate }}</legend>
     <div class="field">
-      <label [for]="id + '-rule-handler'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</label>
+      <label [for]="id + '-rule-handler'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('ruleHandler')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-rule-handler'"
+        [disabled]="locked('ruleHandler')"
         [options]="rules()"
         [value]="ruleHandler()"
         [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
@@ -55,30 +59,33 @@
         <p class="field-error" [id]="id + '-rule-handler-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
       }
     </div>
-    <label class="check" data-accepts-files>
-      <input type="checkbox" [checked]="acceptsFiles()" (change)="acceptsFiles.set(checked($event))" />
-      <span>
-        {{ 'nh-assistant.admin.run-config.files.label' | translate }}
-        <span class="muted block">{{ 'nh-assistant.admin.run-config.files.agent-hint' | translate }}</span>
-      </span>
-    </label>
-    @if (acceptsFiles()) {
-      <nh-assistant-file-limits-fields
-        [draft]="fileLimits"
-        [application]="catalog()?.fileLimits"
-        [errors]="fieldErrors()"
-        [idPrefix]="id"
-        hintKey="nh-assistant.admin.run-config.files.agent-limits-hint"
-        (touched)="touch($event)" />
-    }
+    <fieldset class="stack" data-locked-scope="files" [disabled]="locked('files')">
+      <label class="check" data-accepts-files>
+        <input type="checkbox" [checked]="acceptsFiles()" (change)="acceptsFiles.set(checked($event))" />
+        <span>
+          {{ 'nh-assistant.admin.run-config.files.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('files')" />
+          <span class="muted block">{{ 'nh-assistant.admin.run-config.files.agent-hint' | translate }}</span>
+        </span>
+      </label>
+      @if (acceptsFiles()) {
+        <nh-assistant-file-limits-fields
+          [draft]="fileLimits"
+          [application]="catalog()?.fileLimits"
+          [errors]="fieldErrors()"
+          [idPrefix]="id"
+          hintKey="nh-assistant.admin.run-config.files.agent-limits-hint"
+          (touched)="touch($event)" />
+      }
+    </fieldset>
   </fieldset>
 
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
-      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
+      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-policy'"
+        [disabled]="locked('approvalPolicy')"
         [options]="policies()"
         [value]="approvalPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.settings.approval.default' | translate"
@@ -97,8 +104,8 @@
     <p class="muted" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.budget-hint' | translate }}</p>
     <div class="grid">
       <div class="field">
-        <label [for]="id + '-run-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-run-tokens'" [value]="maxTokensPerRun()"
+        <label [for]="id + '-run-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('maxTokensPerRun')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-run-tokens'" [disabled]="locked('maxTokensPerRun')" [value]="maxTokensPerRun()"
           [attr.aria-invalid]="fieldError('maxTokensPerRun') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'maxTokensPerRun', id + '-run-tokens-error')"
           (input)="maxTokensPerRun.set(value($event)); touch('maxTokensPerRun')" />
@@ -107,8 +114,8 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-daily-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-calls'" [value]="dailyToolCalls()"
+        <label [for]="id + '-daily-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dailyBudget')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-calls'" [disabled]="locked('dailyBudget')" [value]="dailyToolCalls()"
           [attr.aria-invalid]="fieldError('dailyToolCalls') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyToolCalls', id + '-daily-calls-error')"
           (input)="dailyToolCalls.set(value($event)); touch('dailyToolCalls'); touch('dailyTokens')" />
@@ -117,8 +124,8 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-tokens'" [value]="dailyTokens()"
+        <label [for]="id + '-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dailyBudget')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-daily-tokens'" [disabled]="locked('dailyBudget')" [value]="dailyTokens()"
           [attr.aria-invalid]="fieldError('dailyTokens') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyTokens', id + '-daily-tokens-error')"
           (input)="dailyTokens.set(value($event)); touch('dailyTokens'); touch('dailyToolCalls')" />
@@ -135,8 +142,8 @@
       <p class="muted">{{ 'nh-assistant.admin.run-config.advanced.explain' | translate }}</p>
       <div class="grid">
         <div class="field">
-          <label [for]="id + '-retries'">{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}</label>
-          <input type="number" min="0" max="10" inputmode="numeric" [id]="id + '-retries'" [value]="retryCount()"
+          <label [for]="id + '-retries'">{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('retryCount')" /></label>
+          <input type="number" min="0" max="10" inputmode="numeric" [id]="id + '-retries'" [disabled]="locked('retryCount')" [value]="retryCount()"
             [attr.aria-invalid]="fieldError('retryCount') ? true : null"
             [attr.aria-describedby]="describedBy(id + '-retries-hint', 'retryCount', id + '-retries-error')"
             (input)="retryCount.set(value($event)); touch('retryCount')" />
@@ -146,8 +153,8 @@
           }
         </div>
         <div class="field">
-          <label [for]="id + '-concurrent'">{{ 'nh-assistant.admin.run-config.settings.max-concurrent' | translate }}</label>
-          <input type="number" min="1" max="100" inputmode="numeric" [id]="id + '-concurrent'" [value]="maxConcurrentRuns()"
+          <label [for]="id + '-concurrent'">{{ 'nh-assistant.admin.run-config.settings.max-concurrent' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('maxConcurrentRuns')" /></label>
+          <input type="number" min="1" max="100" inputmode="numeric" [id]="id + '-concurrent'" [disabled]="locked('maxConcurrentRuns')" [value]="maxConcurrentRuns()"
             [attr.aria-invalid]="fieldError('maxConcurrentRuns') ? true : null"
             [attr.aria-describedby]="describedBy(id + '-concurrent-hint', 'maxConcurrentRuns', id + '-concurrent-error')"
             (input)="maxConcurrentRuns.set(value($event)); touch('maxConcurrentRuns')" />
@@ -157,8 +164,8 @@
           }
         </div>
         <div class="field">
-          <label [for]="id + '-per-subject'">{{ 'nh-assistant.admin.run-config.settings.max-per-subject' | translate }}</label>
-          <input type="number" min="1" max="1000" inputmode="numeric" [id]="id + '-per-subject'" [value]="maxRunsPerSubjectPerDay()"
+          <label [for]="id + '-per-subject'">{{ 'nh-assistant.admin.run-config.settings.max-per-subject' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('maxRunsPerSubjectPerDay')" /></label>
+          <input type="number" min="1" max="1000" inputmode="numeric" [id]="id + '-per-subject'" [disabled]="locked('maxRunsPerSubjectPerDay')" [value]="maxRunsPerSubjectPerDay()"
             [attr.aria-invalid]="fieldError('maxRunsPerSubjectPerDay') ? true : null"
             [attr.aria-describedby]="describedBy(id + '-per-subject-hint', 'maxRunsPerSubjectPerDay', id + '-per-subject-error')"
             (input)="maxRunsPerSubjectPerDay.set(value($event)); touch('maxRunsPerSubjectPerDay')" />
@@ -169,9 +176,10 @@
         </div>
       </div>
       <div class="field">
-        <label [for]="id + '-triage'">{{ 'nh-assistant.admin.run-config.settings.triage' | translate }}</label>
+        <label [for]="id + '-triage'">{{ 'nh-assistant.admin.run-config.settings.triage' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('triageProfile')" /></label>
         <nh-assistant-picker
           [inputId]="id + '-triage'"
+          [disabled]="locked('triageProfile')"
           [options]="profiles()"
           [value]="triageProfile()"
           [noneLabel]="'nh-assistant.admin.run-config.settings.no-triage' | translate"
@@ -183,8 +191,8 @@
           <p class="field-error" [id]="id + '-triage-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('triageProfile')?.params }}</p>
         }
       </div>
-      <fieldset class="field">
-        <legend>{{ 'nh-assistant.admin.run-config.settings.elevated-reads' | translate }}</legend>
+      <fieldset class="field" [disabled]="locked('elevatedReads')">
+        <legend>{{ 'nh-assistant.admin.run-config.settings.elevated-reads' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('elevatedReads')" /></legend>
         <p class="hint">{{ 'nh-assistant.admin.run-config.settings.elevated-reads-hint' | translate }}</p>
         @for (mode of elevatedReadModes; track mode) {
           <label class="check">
@@ -197,9 +205,9 @@
         }
       </fieldset>
       <label class="check">
-        <input type="checkbox" [checked]="allowGatewayReads()" [attr.aria-invalid]="fieldError('allowGatewayReads') ? true : null" (change)="allowGatewayReads.set(checked($event)); touch('allowGatewayReads')" />
+        <input type="checkbox" [disabled]="locked('allowGatewayReads')" [checked]="allowGatewayReads()" [attr.aria-invalid]="fieldError('allowGatewayReads') ? true : null" (change)="allowGatewayReads.set(checked($event)); touch('allowGatewayReads')" />
         <span>
-          {{ 'nh-assistant.admin.run-config.settings.gateway-reads' | translate }}
+          {{ 'nh-assistant.admin.run-config.settings.gateway-reads' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('allowGatewayReads')" />
           <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.gateway-reads-hint' | translate }}</span>
         </span>
       </label>
@@ -207,9 +215,9 @@
         <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('allowGatewayReads')?.params }}</p>
       }
       <label class="check">
-        <input type="checkbox" [checked]="delegateFromInitiator()" (change)="delegateFromInitiator.set(checked($event))" />
+        <input type="checkbox" [disabled]="locked('delegateFromInitiator')" [checked]="delegateFromInitiator()" (change)="delegateFromInitiator.set(checked($event))" />
         <span>
-          {{ 'nh-assistant.admin.run-config.settings.delegate' | translate }}
+          {{ 'nh-assistant.admin.run-config.settings.delegate' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('delegateFromInitiator')" />
           <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.delegate-hint' | translate }}</span>
         </span>
       </label>

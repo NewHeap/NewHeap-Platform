@@ -1,4 +1,4 @@
-import { ClientContext } from '@newheap/platform-ai-chat';
+import { AgentPackage, ClientContext } from '@newheap/platform-ai-chat';
 import { NhAssistantMockPerson, NhAssistantMockRemoteTool, NhAssistantMockScenario } from '@newheap/platform-ai-chat/testing';
 
 export const PROJECT_ASSISTANT_ID = 'sample-project-assistant';
@@ -20,6 +20,58 @@ export const PLAYGROUND_CHANGED_REMOTE_TOOLS: NhAssistantMockRemoteTool[] = PLAY
 export const CATALOG_GUIDE_ID = 'sample-catalog-guide';
 /** SPM-295: the planner whose skills and triggers the administration adds as data. */
 export const PROJECT_PLANNER_ID = 'sample-project-planner';
+
+/** The operations account the playground's agents that work on their own answer to. */
+const OPERATIONS_ACCOUNT_ID = '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11';
+
+/**
+ * The agent package the playground's host imported: the intake desk, which hands new projects to the
+ * kickoff desk, and the kickoff desk, whose instructions and hand-off the package locks. The
+ * administration shows both with their package, the locked fields read-only, and exports and imports
+ * packages with the same rules as the API.
+ */
+export const PLAYGROUND_DESKS_PACKAGE: AgentPackage = {
+  format: 'newheap.assistant.agent-package',
+  formatVersion: 1,
+  package: { id: 'project-desks', version: 1, description: 'The intake and kickoff desks of new projects.' },
+  agents: [
+    {
+      id: 'project-intake-desk',
+      source: 'admin',
+      definition: {
+        displayName: 'Project intake desk',
+        description: 'Reviews new projects before they start.',
+        instructions: 'Review each new project. When its scope and deadline are clear, hand it to the kickoff desk.',
+        toolSelectors: ['sample-api.project.*', 'assistant.handoff.*'],
+        autonomy: 'propose',
+        offeredInChat: false,
+        worksOnSubjectTypes: ['project'],
+        worksOnAllSubjects: false,
+        worksOnApplication: false
+      },
+      runSettings: { accountability: 'service-account', approvalPolicy: 'project-intake', maxRunsPerSubjectPerDay: 2 },
+      locks: { agent: ['toolSelectors'] }
+    },
+    {
+      id: 'project-kickoff-desk',
+      source: 'admin',
+      definition: {
+        displayName: 'Project kickoff desk',
+        description: 'Starts the projects the intake desk hands over.',
+        instructions: 'Start the project the intake desk handed over: propose to make it active and explain why in one sentence.',
+        toolSelectors: ['projects.change-status'],
+        autonomy: 'propose',
+        offeredInChat: false,
+        worksOnSubjectTypes: ['project'],
+        worksOnAllSubjects: false,
+        worksOnApplication: false
+      },
+      runSettings: { accountability: 'service-account', approvalPolicy: 'project-intake', maxRunsPerSubjectPerDay: 2 },
+      handOffs: [{ subjectType: 'project', sources: ['project-intake-desk'], description: 'Projects whose intake is complete.', notifySource: true }],
+      locks: { agent: ['instructions'], 'handOff:project': ['*'] }
+    }
+  ]
+};
 
 /** Projects the playground can open as a simulated project page. */
 export const PLAYGROUND_PROJECT_PAGES: readonly ClientContext[] = [
@@ -330,9 +382,17 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         ].join('\n')
       }
     ],
+    // The agent packages the host imported, linked and locked as the API keeps them; the technical
+    // account never travels, so the import names it.
+    agentPackages: [
+      {
+        package: PLAYGROUND_DESKS_PACKAGE,
+        serviceAccounts: { 'project-intake-desk': OPERATIONS_ACCOUNT_ID, 'project-kickoff-desk': OPERATIONS_ACCOUNT_ID }
+      }
+    ],
     // The accounts the API's account search finds; agents that work on their own answer to one.
     accounts: [
-      { actorId: '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11', displayName: 'operations@example.test', detail: 'operations@example.test' },
+      { actorId: OPERATIONS_ACCOUNT_ID, displayName: 'operations@example.test', detail: 'operations@example.test' },
       { actorId: '0b5e3a7e-5c1d-4b0f-8f7e-6a2d9e4c3b21', displayName: 'project-lead@example.test', detail: 'project-lead@example.test' }
     ],
     // SPM-298: the flow view names what each trigger in code runs for: the project of a completed task,

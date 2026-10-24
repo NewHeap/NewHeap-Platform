@@ -25,7 +25,8 @@ export type NhAssistantIconName =
   | 'bell'
   | 'leave'
   | 'attach'
-  | 'file';
+  | 'file'
+  | 'lock';
 
 /**
  * Optional icon classes of the host's icon library, for example `{ close: 'ph ph-x' }`.
@@ -58,7 +59,8 @@ const builtInPaths: Record<NhAssistantIconName, string> = {
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
   leave: 'M10 4H5v16h5M14 8l4 4-4 4M18 12H9',
   attach: 'M19 11.5l-7.6 7.6a4.6 4.6 0 0 1-6.5-6.5l8.3-8.3a3 3 0 0 1 4.3 4.3l-8.2 8.2a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4',
-  file: 'M6 3h8l4 4v14H6zM14 3v4h4'
+  file: 'M6 3h8l4 4v14H6zM14 3v4h4',
+  lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3M12 15v2'
 };
 
 /** Decorative icon. The surrounding control provides the accessible name. */

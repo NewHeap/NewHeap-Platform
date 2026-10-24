@@ -35,6 +35,9 @@ import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
 import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './run-config/nh-assistant-instructions-asset.component';
 import { RunConfigFieldError } from './run-config/run-config-shared';
+import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from './agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView, agentDefinitionLockOf, isPackageFieldLocked } from './agent-packages/package-parts';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -72,12 +75,22 @@ let nextId = 0;
  * agent stays translated; what it works on comes from its code and is not edited here. Below the form,
  * an existing agent shows the application's fields (`nh-assistant-agent-metadata`): one slot per entry
  * of agent metadata, where the application's own editor saves the value; a change of a field of an
- * agent created here is its next version, which the next save of the definition continues on.
+ * agent created here is its next version, which the next save of the definition continues on. Fields
+ * of the definition that the agent's package locks show read-only with a lock and the package's id and
+ * version, with "Unlink" for the definition; a save keeps their values.
  */
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentMetadataComponent, NhAssistantInstructionsAssetComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantAgentMetadataComponent,
+    NhAssistantInstructionsAssetComponent,
+    NhAssistantPackageLockComponent,
+    NhAssistantPackageLockedMarkComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agent-editor.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -166,6 +179,10 @@ export class NhAssistantAdminAgentEditorComponent {
    * `null` while no field changed.
    */
   private readonly fieldsVersion = signal<number | null>(null);
+  /** The definition was unlinked from its package here, so it no longer locks. */
+  private readonly unlinked = signal(false);
+  /** What the agent's package locks of its definition (part `agent`); `null` without a link. */
+  readonly lock = computed(() => this.unlinked() ? null : agentDefinitionLockOf(this.agent()));
   /** The agent whose application fields show below the form; `null` for a new agent. */
   readonly metadataAgent = computed(() => this.editing());
   /** The entries of agent metadata the application registers, for a new agent. */
@@ -324,6 +341,21 @@ export class NhAssistantAdminAgentEditorComponent {
     return (event.target as HTMLInputElement).checked;
   }
 
+  /** Whether the agent's package locks a field of its definition, which then shows read-only. */
+  locked(field: string): boolean {
+    return isPackageFieldLocked(this.lock(), field);
+  }
+
+  /** The lock the mark next to a field's label shows; `null` for a field that changes here. */
+  lockOf(field: string): PackageLockView | null {
+    return this.locked(field) ? this.lock() : null;
+  }
+
+  /** The definition was unlinked from its package: its fields change here again. */
+  onUnlinked(): void {
+    this.unlinked.set(true);
+  }
+
   /** The first error the server reported for a field, as a translation key. */
   fieldError(field: string): string | null {
     const code = this.error()?.fieldErrors?.[field]?.[0];
@@ -448,6 +480,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.viewPolicy.set(worksOn.viewPolicy ?? '');
     this.groups.set([...(agent?.groups ?? [])]);
     this.created.set(null);
+    this.unlinked.set(false);
     this.fieldsVersion.set(null);
     this.submitted.set(false);
     this.error.set(null);

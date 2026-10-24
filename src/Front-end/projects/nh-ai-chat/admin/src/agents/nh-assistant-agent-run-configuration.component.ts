@@ -39,6 +39,8 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
+import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
+import { isPackageLocked, packageLockOf } from './agent-packages/package-parts';
 import { NhAssistantAgentConsultationRoutesComponent } from './nh-assistant-agent-consultation-routes.component';
 import { AgentFlowEntry, flowAccountability, typeName } from './run-config/agent-flow';
 import { ConsultationRow, agentApprovalPolicy, consultationRows, consultationsClosed, showsConsultations } from './run-config/consultations';
@@ -99,7 +101,8 @@ interface Confirmation {
     NhAssistantConsultationFormComponent,
     NhAssistantAccountNamesErrorComponent,
     NhAssistantAccountLabelComponent,
-    NhAssistantAgentConsultationRoutesComponent
+    NhAssistantAgentConsultationRoutesComponent,
+    NhAssistantPackageLockComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',
@@ -277,6 +280,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   ngOnInit(): void {
     this.load(this.startSetup());
   }
+
+  /** The lock a part's package link shows, for the lists and the forms. */
+  readonly packageLockOf = packageLockOf;
+  /** Whether a part's package locks it, so it cannot be removed until it is unlinked. */
+  readonly isPackageLocked = isPackageLocked;
 
   load(openSetup = false): void {
     this.loading.set(true);

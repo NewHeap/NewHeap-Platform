@@ -61,6 +61,12 @@ export function nhAssistantCodeForStatus(status: number): string {
 /** Status-specific codes that replace the generic mapping for one endpoint. */
 export type NhAssistantStatusCodes = Partial<Record<number, string>>;
 
+/** A file the assistant API answered, as its text with the response's headers (internal). */
+export interface NhAssistantFileResponse {
+  text: string;
+  headers: Headers;
+}
+
 const safeCode = /^[a-z0-9][a-z0-9.-]{0,79}$/;
 const safeField = /^[a-zA-Z][a-zA-Z0-9.]{0,63}$/;
 /** A field of one item of a list, such as `readers[0].toolName`. */
@@ -93,6 +99,23 @@ export class NhAssistantTransport {
       const abort = new AbortController();
 
       void this.executeJson<T>(method, path, body, statusCodes, abort.signal, subscriber);
+
+      return () => abort.abort();
+    });
+  }
+
+  /**
+   * A cold request with a JSON body that answers the response's text and headers, for an endpoint that
+   * answers a file with details in a header, such as the export of an agent package. It aborts on
+   * unsubscribe and errors as `json` does: with the code and field errors of a refused request's error
+   * body, the endpoint's status mapping without one, and `assistant-network` when the request did not
+   * reach the server.
+   */
+  file(method: string, path: string, body: unknown, accept: string, statusCodes: NhAssistantStatusCodes = {}): Observable<NhAssistantFileResponse> {
+    return new Observable<NhAssistantFileResponse>(subscriber => {
+      const abort = new AbortController();
+
+      void this.executeFile(method, path, body, accept, statusCodes, abort.signal, subscriber);
 
       return () => abort.abort();
     });
@@ -199,6 +222,42 @@ export class NhAssistantTransport {
     }
 
     return { code: statusCodes[response.status] ?? nhAssistantCodeForStatus(response.status), fieldErrors };
+  }
+
+  private async executeFile(
+    method: string,
+    path: string,
+    body: unknown,
+    accept: string,
+    statusCodes: NhAssistantStatusCodes,
+    signal: AbortSignal,
+    subscriber: Subscriber<NhAssistantFileResponse>
+  ): Promise<void> {
+    let response: Response;
+    try {
+      response = await this.fetch(method, path, accept, body, signal);
+    } catch {
+      if (!signal.aborted) {
+        subscriber.error(createApiError(0, nhAssistantCodeForStatus(0)));
+      }
+      return;
+    }
+
+    if (!response.ok) {
+      const failure = await this.failure(response, statusCodes);
+      subscriber.error(createApiError(response.status, failure.code, failure.fieldErrors));
+      return;
+    }
+
+    try {
+      const text = await response.text();
+      subscriber.next({ text, headers: response.headers });
+      subscriber.complete();
+    } catch {
+      if (!signal.aborted) {
+        subscriber.error(createApiError(response.status, NhAssistantClientErrorCodes.streamInterrupted));
+      }
+    }
   }
 
   private async executeJson<T>(

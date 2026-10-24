@@ -29,7 +29,8 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
-import { mockFailure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockResult, mockFailure } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockAgentPackages } from './nh-assistant-mock-agent-packages';
 import { NhAssistantMockFiles } from './nh-assistant-mock-files';
 import { NhAssistantMockAgentRuns } from './nh-assistant-mock-agent-runs';
 import { NhAssistantMockBoards } from './nh-assistant-mock-boards';
@@ -151,6 +152,20 @@ export class NhAssistantMockBackend {
       nextVersion: agentId => this.admin.nextAgentVersion(agentId)
     },
     () => new Date().toISOString());
+  /** Agent packages: their endpoints, and the locks and links of every other administration request. */
+  private readonly agentPackages = new NhAssistantMockAgentPackages({
+    call: (method, path, body) => this.adminCall(method, path, body),
+    codeDefinition: agentId => this.admin.codeDefinition(agentId),
+    snapshot: () => {
+      const restores = [this.admin.snapshot(), this.agentMetadata.snapshot(), this.boards.snapshot()];
+      return () => {
+        for (const restore of restores) {
+          restore();
+        }
+      };
+    },
+    now: () => new Date().toISOString()
+  });
   private readonly canAdministerState = signal(this.admin.administers);
   private readonly members = new Map<string, ConversationMember[]>();
   private readonly readPositions = new Map<string, number>();
@@ -174,6 +189,8 @@ export class NhAssistantMockBackend {
       this.conversations.set(copy.id, copy);
       this.readPositions.set(copy.id, lastSequence(copy));
     }
+    // The packages the host imported before, once its agents and run configurations are in place.
+    this.agentPackages.importPresets(this.scenario.admin?.agentPackages ?? []);
   }
 
   /**
@@ -409,32 +426,15 @@ export class NhAssistantMockBackend {
     if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'runs' && segments.length === 4) {
       return this.result(this.agentRuns.handleAgentRuns(method, segments[2], query, language));
     }
-    if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'groups' && segments.length === 4) {
-      return this.result(this.boards.handleAdminGroups(method, segments[2], body));
-    }
-    if (segments[0] === 'admin' && segments[1] === 'agents' && segments[3] === 'metadata' && segments.length <= 5) {
-      return this.result(this.agentMetadata.handle(method, segments[2], segments[4], query, body));
-    }
     if (segments[0] === 'admin') {
-      const result = this.admin.handleAdmin(method, segments, body, query);
-      if (method === 'DELETE' && segments[1] === 'agents' && segments.length === 3 && result.status === 204) {
-        this.boards.forget(segments[2]);
-        this.agentMetadata.forget(segments[2]);
+      // Agent packages have endpoints of their own; every other save runs under their locks, and
+      // every read of the administration carries the links of the parts.
+      const packaged = this.agentPackages.handle(method, segments, body);
+      if (packaged) {
+        return this.result(packaged);
       }
-      // The run catalog lists the subject types and the groups in the request's language, as the
-      // server does; agents carry their groups.
-      if (method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200) {
-        return this.result({
-          ...result,
-          body: {
-            ...(result.body as object),
-            subjectTypes: this.subjects.catalog(language),
-            agentGroups: this.boards.catalog(language),
-            agentMetadata: this.agentMetadata.catalog()
-          }
-        });
-      }
-      return this.result(segments[1] === 'agents' && result.status >= 200 && result.status < 300 ? this.withGroups(result) : result);
+      const result = this.agentPackages.guard(method, segments, () => this.adminResult(method, segments, query, body, language));
+      return this.result(this.agentPackages.decorate(method, segments, result));
     }
     if (segments[0] === 'boards') {
       return this.result(this.boards.handle(method, segments, query, language) ?? { status: 404 });
@@ -1132,6 +1132,47 @@ export class NhAssistantMockBackend {
     return `00000000-0000-4000-8000-${suffix}`;
   }
 
+  /**
+   * The answer of an administration endpoint (`admin/...`) as its area gives it, with the groups of
+   * agents and the run catalog in the request's language, without the package locks and links.
+   */
+  private adminResult(method: string, segments: string[], query: URLSearchParams, body: unknown, language: string | null): NhAssistantMockResult {
+    if (segments[1] === 'agents' && segments[3] === 'groups' && segments.length === 4) {
+      return this.boards.handleAdminGroups(method, segments[2], body);
+    }
+    if (segments[1] === 'agents' && segments[3] === 'metadata' && segments.length <= 5) {
+      return this.agentMetadata.handle(method, segments[2], segments[4], query, body);
+    }
+
+    const result = this.admin.handleAdmin(method, segments, body, query);
+    if (method === 'DELETE' && segments[1] === 'agents' && segments.length === 3 && result.status === 204) {
+      this.boards.forget(segments[2]);
+      this.agentMetadata.forget(segments[2]);
+      this.agentPackages.forget(segments[2]);
+    }
+    // The run catalog lists the subject types and the groups in the request's language, as the
+    // server does; agents carry their groups.
+    if (method === 'GET' && segments.length === 2 && segments[1] === 'run-catalog' && result.status === 200) {
+      return {
+        ...result,
+        body: {
+          ...(result.body as object),
+          subjectTypes: this.subjects.catalog(language),
+          agentGroups: this.boards.catalog(language),
+          agentMetadata: this.agentMetadata.catalog()
+        }
+      };
+    }
+    return segments[1] === 'agents' && result.status >= 200 && result.status < 300 ? this.withGroups(result) : result;
+  }
+
+  /** An administration request of the agent packages, as `adminResult` answers it, for a path with its query. */
+  private adminCall(method: string, path: string, body?: unknown): NhAssistantMockResult {
+    const url = new URL(path, 'http://mock.local/');
+    const segments = url.pathname.slice(1).split('/').map(segment => decodeURIComponent(segment));
+    return this.adminResult(method, segments, url.searchParams, body, null);
+  }
+
   /** An administration answer about agents with each agent's groups, as the server answers it. */
   private withGroups(result: { status: number; body?: unknown }): { status: number; body?: unknown } {
     const enrich = (item: unknown): unknown => {
@@ -1148,7 +1189,10 @@ export class NhAssistantMockBackend {
     return { groups: membership.groups, codeGroups: membership.codeGroups };
   }
 
-  private result(result: { status: number; body?: unknown }): Response {
+  private result(result: NhAssistantMockResult): Response {
+    if (result.text !== undefined) {
+      return new Response(result.text, { status: result.status, headers: { 'content-type': 'application/json', ...result.headers } });
+    }
     return result.body === undefined ? this.empty(result.status) : this.json(result.status, result.body);
   }
 

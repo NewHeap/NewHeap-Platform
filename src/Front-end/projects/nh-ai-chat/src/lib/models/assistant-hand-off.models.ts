@@ -2,6 +2,7 @@
  * Hand-offs defined as data and the shadow variants of an agent, as the administration reads and
  * changes them (`admin/agents/{id}/hand-offs` and `admin/agents/{id}/shadow-variants`).
  */
+import { PackagePartLink } from './assistant-agent-package.models';
 
 /** A hand-off the agent accepts in code (`AcceptHandOffs`), read only. */
 export interface CodeHandOff {
@@ -32,6 +33,11 @@ export interface DataHandOff extends CodeHandOff {
   problem: string | null;
   createdAt: string;
   createdBy: string;
+  /**
+   * The link of the hand-off (part `handOff:{subjectType}`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** The agents the ceiling lets hand work about one subject type to the agent. */

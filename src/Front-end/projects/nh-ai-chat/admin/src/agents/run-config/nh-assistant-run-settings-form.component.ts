@@ -13,6 +13,9 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView } from '../agent-packages/package-parts';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -48,7 +51,9 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
     NhAssistantAccountPickerComponent,
-    NhAssistantFileLimitsFieldsComponent
+    NhAssistantFileLimitsFieldsComponent,
+    NhAssistantPackageLockComponent,
+    NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-run-settings-form.component.html',
@@ -61,6 +66,11 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   readonly catalog = input<RunCatalog | null>(null);
   /** The current run settings; `null` adds them. */
   readonly settings = input<AgentRunSettings | null>(null);
+  /**
+   * What the run settings' agent package locks (part `runSettings`); `null` without a link. The
+   * technical account never locks.
+   */
+  override readonly lock = input<PackageLockView | null>(null);
   readonly saved = output<AgentRunSettings>();
   readonly cancelled = output<void>();
 

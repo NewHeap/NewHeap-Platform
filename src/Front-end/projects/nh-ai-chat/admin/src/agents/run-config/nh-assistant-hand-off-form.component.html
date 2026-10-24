@@ -6,6 +6,9 @@
       {{ 'nh-assistant.admin.hand-offs.form.new-title' | translate }}
     }
   </h5>
+  @if (handOff(); as current) {
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" [part]="'handOff:' + current.subjectType" [unlinkable]="false" />
+  }
 
   @if (!editing()) {
     <div class="field">
@@ -32,9 +35,10 @@
   <fieldset
     class="group"
     data-hand-off-sources
+    [disabled]="locked('sources')"
     [attr.aria-invalid]="fieldError('sources') ? true : null"
     [attr.aria-describedby]="describedBy(id + '-sources-hint', 'sources', id + '-sources-error')">
-    <legend>{{ 'nh-assistant.admin.hand-offs.form.sources' | translate }}</legend>
+    <legend>{{ 'nh-assistant.admin.hand-offs.form.sources' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('sources')" /></legend>
     @if (sourceOptions().length === 0) {
       <p class="muted" data-hand-off-no-sources>{{ 'nh-assistant.admin.hand-offs.form.no-sources' | translate }}</p>
     } @else {
@@ -70,8 +74,8 @@
   </fieldset>
 
   <div class="field">
-    <label [for]="id + '-description'">{{ 'nh-assistant.admin.hand-offs.form.description' | translate }}</label>
-    <textarea rows="2" [id]="id + '-description'" [value]="description()"
+    <label [for]="id + '-description'">{{ 'nh-assistant.admin.hand-offs.form.description' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('description')" /></label>
+    <textarea rows="2" [id]="id + '-description'" [disabled]="locked('description')" [value]="description()"
       [attr.aria-invalid]="fieldError('description') ? true : null"
       [attr.aria-describedby]="describedBy(id + '-description-hint', 'description', id + '-description-error')"
       (input)="description.set(value($event)); touch('description')"></textarea>
@@ -86,18 +90,19 @@
 
   <div class="field">
     <label class="choice" [class.selected]="notifySource()">
-      <input type="checkbox" data-hand-off-notify [checked]="notifySource()" [attr.aria-describedby]="id + '-notify-hint'" (change)="notifySource.set(checked($event)); touch('notifySource')" />
+      <input type="checkbox" data-hand-off-notify [disabled]="locked('notifySource')" [checked]="notifySource()" [attr.aria-describedby]="id + '-notify-hint'" (change)="notifySource.set(checked($event)); touch('notifySource')" />
       <span>
-        <strong>{{ 'nh-assistant.admin.hand-offs.form.notify' | translate }}</strong>
+        <strong>{{ 'nh-assistant.admin.hand-offs.form.notify' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('notifySource')" /></strong>
         <span class="muted" [id]="id + '-notify-hint'">{{ 'nh-assistant.admin.hand-offs.form.notify-hint' | translate }}</span>
       </span>
     </label>
   </div>
 
   <div class="field">
-    <label [for]="id + '-limit'">{{ 'nh-assistant.admin.hand-offs.form.limit' | translate }}</label>
+    <label [for]="id + '-limit'">{{ 'nh-assistant.admin.hand-offs.form.limit' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('maxPerSubjectPerDay')" /></label>
     <input
       type="number"
+      [disabled]="locked('maxPerSubjectPerDay')"
       inputmode="numeric"
       min="1"
       [max]="maxLimit()"

@@ -25,7 +25,7 @@ import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
-import { mockClassificationWarnings, mockFailure as failure } from './nh-assistant-mock-admin-shared';
+import { mockClassificationWarnings, mockFailure as failure, mockSnapshot } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 
 /** A mock response: status plus optional JSON body. */
@@ -173,6 +173,19 @@ export class NhAssistantMockRunConfiguration {
   /** The profiles the run catalog offers to data skills and to agents created in the administration. */
   get profileNames(): string[] {
     return [...this.catalog.profiles];
+  }
+
+  /**
+   * A copy of the run settings, skills, triggers and consultations; the returned function puts it
+   * back, for an import of an agent package that fails as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    const restoreOwn = mockSnapshot(this.settings, this.skills, this.triggers, this.triggerVersions);
+    const restoreConsultations = this.consultations.snapshot();
+    return () => {
+      restoreOwn();
+      restoreConsultations();
+    };
   }
 
   /**

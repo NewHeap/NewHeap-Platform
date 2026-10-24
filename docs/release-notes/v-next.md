@@ -498,3 +498,34 @@ unless `Relink` names it. The administration's agent and part DTOs carry the lin
 | `NhAssistantAuditEventKind` has the new values `AdminAgentPackageExported` (81), `AdminAgentPackageImported` (82) and `AdminAgentPackageUnlinked` (83), and `NhAssistantAuditEvent` the properties `PackageId`, `PackageVersion`, `PackageHash`, `PackagePart` and `PackageAgentCount`. | Let audit sinks with an exhaustive switch, or that store every property, record or ignore them. |
 | Once a package with locks is imported, saves of agents, run settings, skills, triggers, consultations, hand-offs and metadata, candidate promotes, and the deletion and reset of a linked agent can fail with `locked` or `assistant-package-locked`. | Handle these refusals where application code saves agent configuration, and unlink a part before changing it. |
 | `NhAssistantAdminAgentDto`, `NhAssistantAgentRunSettingsDto`, `NhAssistantDataSkillDto`, `NhAssistantDataTriggerDto`, `NhAssistantDataConsultationDto`, `NhAssistantDataHandOffDto` and `NhAssistantAgentMetadataDto` have the new property `package`, written only for a linked part. | Let clients that read these DTOs accept the new property. |
+
+## @newheap/platform-ai-chat: agent packages
+
+The agents page of `NhAssistantAdminAgentsComponent` in `@newheap/platform-ai-chat/admin` imports and
+exports agent packages. "Export as package" on an agent opens a dialog with that agent chosen: the
+agents to export, the package id, version and description (empty for the server's defaults), per part
+of each agent whether the package locks it as a whole or by its lockable fields, and every reference to
+an agent outside the selection with "Add"; "Download package" saves `agent-package-{id}.json`.
+"Import package" takes a file or pasted JSON, checks it per agent and part (`created`, `changed` with
+"changed locally", `unchanged`, `kept-local`, `left-behind` or `refused` with its code and field errors),
+asks the technical account of each agent whose run settings answer to one, applies changed skills and
+triggers live or as candidates in shadow, relinks kept-local parts on request and imports all or
+nothing. A linked agent shows its package on its card with "Unlink the agent"; the agent editor, the
+forms of run settings, skills, triggers, consultations and hand-offs and the metadata slots show the
+fields a package locks read-only with a lock and the package's id and version, the lists offer "Unlink"
+per part with a reason, and removing a locked part, deleting a linked agent and resetting a locked
+definition are disabled with the reason. `NhAssistantAdminApiService.exportAgentPackage`,
+`previewAgentPackageImport`, `importAgentPackage` and `unlinkAgentPackage` with `AgentPackage` and its
+part records, `AgentPackageExport`, `AgentPackagePreview`, `AgentPackageImport`, `AgentPackagePart`,
+`AgentPackageUnlink`, `PackagePartLink`, `AgentPackageLink`, `NH_ASSISTANT_PACKAGE_LOCK_FIELDS` and the
+`package` link on `AdminAgent`, `AgentRunSettings`, `DataSkill`, `DataTrigger`, `DataConsultation`,
+`DataHandOff` and `AgentMetadata` complete the client. The texts have English and Dutch versions. The
+mock API exports, previews and imports packages with the server's rules, refuses locked fields in every
+save path and takes `admin.agentPackages` as packages its host imported.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantIconName` has the new icon `lock`. | Add a class for it to complete `Record<NhAssistantIconName, string>` maps of `NH_ASSISTANT_ICONS`. |
+| `NH_ASSISTANT_SERVER_ERROR_CODES` has `assistant-package-format-unsupported`, `assistant-package-too-large`, `assistant-package-refused`, `assistant-package-locked` and `assistant-package-not-linked`, and the field errors have `locked`. | Let code that maps assistant codes handle them; add their texts when your application overrides the library's texts (`translations: 'host'`). |
+| The texts under `nh-assistant.admin.packages` are new. | Add them to your application's translations when it overrides the library's texts. |
+| `NhAssistantAgentMetadataSlot.readOnly` is also `true` while the agent's package locks the entry's value. | Keep your editor of agent metadata read-only while `readOnly` is `true`. |

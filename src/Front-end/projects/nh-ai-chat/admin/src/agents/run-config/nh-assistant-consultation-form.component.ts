@@ -30,6 +30,9 @@ import {
   maxConsultationDescription,
   subjectRoutes
 } from './consultations';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView } from '../agent-packages/package-parts';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -80,7 +83,14 @@ interface RouteChoice {
 @Component({
   selector: 'nh-assistant-consultation-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPickerComponent,
+    NhAssistantPackageLockComponent,
+    NhAssistantPackageLockedMarkComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-consultation-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -105,6 +115,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
   readonly toolCatalog = input<readonly ToolCatalogEntry[]>([]);
   /** The consultation to change; `null` adds one. */
   readonly consultation = input<DataConsultation | null>(null);
+  /** What the consultation's agent package locks (part `consultation:{subjectType}`); `null` without a link. */
+  override readonly lock = input<PackageLockView | null>(null);
   /** The subject types the agent already has a consultation about, in code or as data. */
   readonly takenTypes = input<readonly string[]>([]);
   readonly saved = output<ConsultationFormSaved>();

@@ -48,7 +48,10 @@ export abstract class NhAssistantAgentMetadataSlot {
   abstract readonly agentId: string;
   /** The entry with its value in effect, where it comes from and its version. */
   abstract readonly entry: Signal<AgentMetadata>;
-  /** Whether the value is read-only here: an entry of an agent in code that is not editable. */
+  /**
+   * Whether the value is read-only here: an entry of an agent in code that is not editable, or one
+   * whose value the agent's package locks until an administrator unlinks it.
+   */
   abstract readonly readOnly: Signal<boolean>;
   /** Whether a change is being saved. */
   abstract readonly saving: Signal<boolean>;

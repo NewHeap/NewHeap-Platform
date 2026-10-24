@@ -23,6 +23,7 @@ import {
   mockHashText as hashText,
   mockMaxInstructions as maxInstructions,
   mockMaxStateReason as maxStateReason,
+  mockSnapshot,
   mockValidationFailure as validationFailure
 } from './nh-assistant-mock-admin-shared';
 import { mockUndeclaredWorksOn, mockWorksOnErrors, mockWorksOnFromInput } from './nh-assistant-mock-works-on';
@@ -150,6 +151,20 @@ export class NhAssistantMockAdminAgents {
 
   find(agentId: string): AdminAgent | undefined {
     return this.agents.get(agentId)?.agent;
+  }
+
+  /**
+   * A copy of the agents and their replays; the returned function puts it back, for an import of an
+   * agent package that fails as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    return mockSnapshot(this.agents, this.replays);
+  }
+
+  /** The definition in code of an agent in code, as `reset` restores it; `null` for an agent created here. */
+  codeDefinition(agentId: string): AdminAgentInput | null {
+    const definition = this.agents.get(agentId)?.codeDefinition;
+    return definition ? structuredClone(definition) : null;
   }
 
   has(agentId: string): boolean {

@@ -1,0 +1,190 @@
+<dialog #dialog class="dialog" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="busy()" (close)="onClosed()">
+  <div class="dialog-body">
+    <header class="dialog-header">
+      <h2 [id]="id + '-title'">{{ 'nh-assistant.admin.packages.import-dialog.title' | translate }}</h2>
+      <button class="icon-button" type="button" [attr.aria-label]="'nh-assistant.admin.packages.import-dialog.close' | translate" (click)="close()">
+        <nh-assistant-icon name="close" />
+      </button>
+    </header>
+
+    @if (result(); as done) {
+      <!-- The import applied every part in one transaction: what it did per agent and part. -->
+      <div class="stack" data-import-result>
+        <p class="message success" role="status" tabindex="-1" data-import-done>{{ 'nh-assistant.admin.packages.import-dialog.imported' | translate }}</p>
+        <h3>{{ 'nh-assistant.admin.packages.import-dialog.result-title' | translate }}</h3>
+        <p class="muted">{{ 'nh-assistant.admin.packages.import-dialog.summary' | translate: { package: done.packageId, version: done.version } }}</p>
+        <ng-container *ngTemplateOutlet="outcomes; context: { $implicit: done, choose: false }" />
+        <div class="actions">
+          <button class="primary" type="button" data-import-close (click)="close()">{{ 'nh-assistant.admin.packages.import-dialog.done' | translate }}</button>
+        </div>
+      </div>
+    } @else {
+      <form class="stack" novalidate (submit)="$event.preventDefault(); preview()">
+        <div class="field">
+          <label [for]="id + '-file'">{{ 'nh-assistant.admin.packages.import-dialog.file' | translate }}</label>
+          <input
+            type="file"
+            accept=".json,application/json"
+            data-package-file
+            [id]="id + '-file'"
+            [attr.aria-describedby]="id + '-file-hint'"
+            (change)="onFile($event)" />
+          <p class="hint" [id]="id + '-file-hint'">
+            @if (fileName(); as name) {
+              <span data-file-name>{{ 'nh-assistant.admin.packages.import-dialog.file-chosen' | translate: { name: name } }}</span>
+            } @else {
+              <span>{{ 'nh-assistant.admin.packages.import-dialog.file-hint' | translate }}</span>
+            }
+          </p>
+        </div>
+        <div class="field">
+          <label [for]="id + '-text'">{{ 'nh-assistant.admin.packages.import-dialog.paste' | translate }}</label>
+          <textarea
+            rows="6"
+            class="mono"
+            data-package-text
+            [id]="id + '-text'"
+            [value]="text()"
+            [attr.aria-invalid]="sourceError() ? true : null"
+            [attr.aria-describedby]="id + '-text-hint' + (sourceError() ? ' ' + id + '-text-error' : '')"
+            (input)="onText($event)"></textarea>
+          <p class="hint" [id]="id + '-text-hint'">{{ 'nh-assistant.admin.packages.import-dialog.paste-hint' | translate }}</p>
+          @if (sourceError(); as key) {
+            <p class="field-error" data-package-source-error [id]="id + '-text-error'"><nh-assistant-icon name="warning" />{{ key | translate }}</p>
+          }
+        </div>
+
+        <fieldset class="field" data-import-apply>
+          <legend [id]="id + '-apply-label'">{{ 'nh-assistant.admin.packages.import-dialog.apply' | translate }}</legend>
+          <div class="choices" role="radiogroup" [attr.aria-labelledby]="id + '-apply-label'">
+            @for (mode of applyModes; track mode) {
+              <label class="choice" [attr.data-apply]="mode">
+                <input type="radio" [name]="id + '-apply'" [value]="mode" [checked]="apply() === mode" (change)="apply.set(mode)" />
+                <span>
+                  {{ 'nh-assistant.admin.packages.import-dialog.apply-' + mode | translate }}
+                  <small>{{ 'nh-assistant.admin.packages.import-dialog.apply-' + mode + '-hint' | translate }}</small>
+                </span>
+              </label>
+            }
+          </div>
+          <p class="hint">{{ 'nh-assistant.admin.packages.import-dialog.apply-new-hint' | translate }}</p>
+        </fieldset>
+
+        @if (checked(); as view) {
+          <section class="stack" data-import-preview [attr.aria-labelledby]="id + '-preview-title'">
+            <h3 [id]="id + '-preview-title'" tabindex="-1">{{ 'nh-assistant.admin.packages.import-dialog.preview-title' | translate }}</h3>
+            <p class="muted">{{ 'nh-assistant.admin.packages.import-dialog.summary' | translate: { package: view.packageId, version: view.version } }}</p>
+            <ng-container *ngTemplateOutlet="outcomes; context: { $implicit: view, choose: true }" />
+            <!-- Changed choices outdate the check, also a refusal of it. -->
+            @if (stale()) {
+              <p class="message info" role="status" data-import-stale>{{ 'nh-assistant.admin.packages.import-dialog.options-changed' | translate }}</p>
+            } @else if (view.refused > 0) {
+              <p class="message warning" role="status" data-import-refused>
+                <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.packages.import-dialog.refused' | translate: { count: view.refused } }}
+              </p>
+            }
+          </section>
+        }
+
+        @if (error(); as failure) {
+          <p class="form-error" role="alert" data-import-error>
+            <nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}
+          </p>
+        }
+
+        <div class="actions">
+          <button class="secondary" type="button" (click)="close()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+          <button class="secondary" type="submit" data-import-preview-action [disabled]="busy()">
+            {{ previewLabelKey() | translate }}
+          </button>
+          <button class="primary" type="button" data-import-apply-action [disabled]="!canImport()" (click)="import()">
+            {{ (importing() ? 'nh-assistant.admin.packages.import-dialog.importing' : 'nh-assistant.admin.packages.import-dialog.import') | translate }}
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+</dialog>
+
+<!-- The outcome of every part per agent: of the check, with the choices of the import, or of the import. -->
+<ng-template #outcomes let-view let-choose="choose">
+  @for (agent of view.agents; track agent.agentId) {
+    <section class="subsection" [attr.data-import-agent]="agent.agentId" [attr.aria-labelledby]="id + '-agent-' + agent.agentId">
+      <h4 [id]="id + '-agent-' + agent.agentId">{{ 'nh-assistant.admin.packages.import-dialog.agent-heading' | translate: { agent: agentName(agent.agentId) } }}</h4>
+      @if (choose && agent.needsAccount) {
+        <div class="field" data-import-account>
+          <label [for]="id + '-account-' + agent.agentId">{{ 'nh-assistant.admin.packages.import-dialog.account' | translate: { agent: agentName(agent.agentId) } }}</label>
+          <nh-assistant-account-picker
+            [inputId]="id + '-account-' + agent.agentId"
+            [value]="accountOf(agent.agentId)"
+            [searchable]="accountSearch()"
+            [invalid]="agent.accountRefused"
+            [describedBy]="id + '-account-hint-' + agent.agentId"
+            (valueChange)="setAccount(agent.agentId, $event)" />
+          <p class="hint" [id]="id + '-account-hint-' + agent.agentId">{{ 'nh-assistant.admin.packages.import-dialog.account-hint' | translate }}</p>
+        </div>
+      }
+      <div class="table-container">
+        <table class="summary-table" data-import-parts>
+          <caption class="visually-hidden">{{ 'nh-assistant.admin.packages.import-dialog.agent-heading' | translate: { agent: agentName(agent.agentId) } }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'nh-assistant.admin.packages.import-dialog.column-part' | translate }}</th>
+              <th scope="col">{{ 'nh-assistant.admin.packages.import-dialog.column-outcome' | translate }}</th>
+              <th scope="col">{{ 'nh-assistant.admin.packages.import-dialog.column-details' | translate }}</th>
+              @if (choose && agent.relinkable) {
+                <th scope="col">{{ 'nh-assistant.admin.packages.import-dialog.column-relink' | translate }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of agent.parts; track row.key) {
+              <tr [attr.data-import-part]="row.key" [attr.data-outcome]="row.outcome">
+                <th scope="row" [attr.data-label]="'nh-assistant.admin.packages.import-dialog.column-part' | translate">{{ row.label }}</th>
+                <td [attr.data-label]="'nh-assistant.admin.packages.import-dialog.column-outcome' | translate">
+                  <span
+                    class="badge"
+                    [class.success]="row.outcome === 'created' || row.outcome === 'changed'"
+                    [class.warning]="row.outcome === 'kept-local' || row.outcome === 'left-behind'"
+                    [class.danger]="row.outcome === 'refused'">{{ 'nh-assistant.admin.packages.outcomes.' + row.outcome | translate }}</span>
+                </td>
+                <td [attr.data-label]="'nh-assistant.admin.packages.import-dialog.column-details' | translate">
+                  <span class="details">
+                    <span class="muted">{{ 'nh-assistant.admin.packages.outcome-explain.' + row.outcome | translate }}</span>
+                    @if (row.changedLocally) {
+                      <span><span class="badge warning" data-changed-locally>{{ 'nh-assistant.admin.packages.changed-locally' | translate }}</span> <span class="muted">{{ 'nh-assistant.admin.packages.changed-locally-hint' | translate }}</span></span>
+                    }
+                    @if (row.locked) {
+                      <span class="muted" data-part-locks><nh-assistant-icon name="lock" /> {{ row.locked }}</span>
+                    }
+                    @if (row.code; as code) {
+                      <span class="error-text" data-part-code>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
+                    }
+                    @for (field of row.fields; track field.field) {
+                      <span class="error-text" [attr.data-part-field-error]="field.field">
+                        <code class="mono">{{ field.field }}</code> {{ fieldErrorKeys(field.codes) | nhAssistantTranslate: field.codes.join(', ') }}
+                      </span>
+                    }
+                  </span>
+                </td>
+                @if (choose && agent.relinkable) {
+                  <td [attr.data-label]="'nh-assistant.admin.packages.import-dialog.column-relink' | translate">
+                    @if (row.outcome === 'kept-local') {
+                      <label class="check" [attr.data-relink]="row.key">
+                        <input type="checkbox" [checked]="isRelinked(agent.agentId, row.key)" (change)="toggleRelink(agent.agentId, row.key, checkedOf($event))" />
+                        <span>{{ 'nh-assistant.admin.packages.import-dialog.relink' | translate: { part: row.label } }}</span>
+                      </label>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (choose && agent.relinkable) {
+        <p class="hint">{{ 'nh-assistant.admin.packages.import-dialog.relink-hint' | translate }}</p>
+      }
+    </section>
+  }
+</ng-template>

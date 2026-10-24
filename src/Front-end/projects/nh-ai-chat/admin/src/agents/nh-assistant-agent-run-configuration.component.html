@@ -65,6 +65,7 @@
             [agentId]="config.agentId"
             [catalog]="catalog()"
             [settings]="config.runSettings"
+            [lock]="packageLockOf(config.runSettings?.package)"
             (saved)="onSettingsSaved()"
             (cancelled)="cancel()" />
         } @else if (config.runSettings; as settings) {
@@ -96,6 +97,7 @@
             </dd>
           </dl>
           <p class="muted">{{ 'nh-assistant.admin.run-config.settings.rights' | translate }}</p>
+          <nh-assistant-package-lock [lock]="packageLockOf(settings.package)" [agentId]="config.agentId" [part]="'runSettings'" (unlinked)="load()" />
           <div class="card-actions">
             <button class="secondary" type="button" data-open-form="settings" [disabled]="busy()" (click)="editSettings()">
               <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.run-config.settings.edit' | translate }}
@@ -105,9 +107,12 @@
               <button class="danger" type="button" [disabled]="busy()" (click)="removeSettings()">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
               <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
             } @else {
-              <button class="danger" type="button" [disabled]="busy()" (click)="confirm('remove-settings', config.agentId)">
+              <button class="danger" type="button" [disabled]="busy() || isPackageLocked(packageLockOf(settings.package))" (click)="confirm('remove-settings', config.agentId)">
                 <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.run-config.settings.remove' | translate }}
               </button>
+              @if (isPackageLocked(packageLockOf(settings.package))) {
+                <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: settings.package?.packageId } }}</span>
+              }
             }
           </div>
           @if (failed('settings')) {
@@ -150,6 +155,7 @@
           [toolSelectors]="config.toolSelectors"
           [toolCatalog]="tools()"
           [skill]="editingSkill()"
+          [lock]="packageLockOf(editingSkill()?.package)"
           [takenIds]="skillIds()"
           (saved)="onSkillSaved($event)"
           (cancelled)="cancel()" />
@@ -183,6 +189,7 @@
                 }
               </div>
               <p class="muted">{{ skill.description }}</p>
+              <nh-assistant-package-lock [lock]="packageLockOf(skill.package)" [agentId]="config.agentId" [part]="'skill:' + skill.skillId" (unlinked)="load()" />
               @for (warning of skill.warnings ?? []; track warning) {
                 <p class="message warning" [attr.data-skill-warning]="warning">
                   <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
@@ -261,9 +268,12 @@
                   <button class="danger" type="button" [disabled]="busy()" (click)="removeSkill(skill)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
                   <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                 } @else {
-                  <button class="danger" type="button" [disabled]="busy()" (click)="confirm('remove-skill', skill.skillId)">
+                  <button class="danger" type="button" data-remove-skill [disabled]="busy() || isPackageLocked(packageLockOf(skill.package))" (click)="confirm('remove-skill', skill.skillId)">
                     <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
                   </button>
+                  @if (isPackageLocked(packageLockOf(skill.package))) {
+                    <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: skill.package?.packageId } }}</span>
+                  }
                 }
               </div>
               @if (failed('skill:' + skill.skillId)) {
@@ -316,6 +326,7 @@
           [worksOn]="agent()"
           [skills]="skillOptions()"
           [trigger]="editingTrigger()"
+          [lock]="packageLockOf(editingTrigger()?.package)"
           [takenIds]="triggerIds()"
           (saved)="onTriggerSaved($event)"
           (cancelled)="cancel()" />
@@ -373,6 +384,7 @@
                 <span>{{ 'nh-assistant.admin.run-config.triggers.conflicts.' + trigger.conflict | translate }}</span>
                 <span>{{ 'nh-assistant.admin.agents.version' | translate: { version: trigger.version } }}</span>
               </div>
+              <nh-assistant-package-lock [lock]="packageLockOf(trigger.package)" [agentId]="config.agentId" [part]="'trigger:' + trigger.triggerId" (unlinked)="load()" />
               @if (trigger.candidate; as candidate) {
                 <!-- The candidate fires in shadow next to the live version, which keeps working. -->
                 <div class="subsection" data-trigger-candidate>
@@ -455,9 +467,12 @@
                   <button class="danger" type="button" [disabled]="busy()" (click)="removeTrigger(trigger)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
                   <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
                 } @else {
-                  <button class="danger" type="button" [disabled]="busy()" (click)="confirm('remove-trigger', trigger.triggerId)">
+                  <button class="danger" type="button" data-remove-trigger [disabled]="busy() || isPackageLocked(packageLockOf(trigger.package))" (click)="confirm('remove-trigger', trigger.triggerId)">
                     <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
                   </button>
+                  @if (isPackageLocked(packageLockOf(trigger.package))) {
+                    <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: trigger.package?.packageId } }}</span>
+                  }
                 }
               </div>
               @if (failed('trigger:' + trigger.triggerId)) {
@@ -531,6 +546,7 @@
               [toolSelectors]="config.toolSelectors"
               [toolCatalog]="tools()"
               [consultation]="editingConsultation()"
+              [lock]="packageLockOf(editingConsultation()?.package)"
               [takenTypes]="consultationTypes()"
               (saved)="onConsultationSaved($event)"
               (cancelled)="cancel()" />
@@ -612,6 +628,7 @@
                   </p>
                 }
                 @if (row.data; as data) {
+                  <nh-assistant-package-lock [lock]="packageLockOf(data.package)" [agentId]="config.agentId" [part]="'consultation:' + row.subjectType" (unlinked)="load()" />
                   <div class="meta">
                     <span>{{ 'nh-assistant.admin.run-config.consultations.limits-value' | translate: { calls: data.maxToolCalls, seconds: data.timeoutSeconds, chars: data.maxAnswerChars, history: data.maxHistoryMessages } }}</span>
                     <span [attr.title]="accountTitle(data.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(data.changedBy), date: (data.changedAt | date: 'medium') } }}</span>
@@ -646,11 +663,15 @@
                       <button
                         class="danger"
                         type="button"
+                        data-remove-consultation
                         [attr.aria-label]="'nh-assistant.admin.run-config.consultations.remove-named' | translate: { type: typeName(row.subjectType) }"
-                        [disabled]="busy()"
+                        [disabled]="busy() || isPackageLocked(packageLockOf(data.package))"
                         (click)="confirm('remove-consultation', row.subjectType)">
                         <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
                       </button>
+                      @if (isPackageLocked(packageLockOf(data.package))) {
+                        <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: data.package?.packageId } }}</span>
+                      }
                     }
                   </div>
                   @if (failed('consultation:' + row.subjectType)) {

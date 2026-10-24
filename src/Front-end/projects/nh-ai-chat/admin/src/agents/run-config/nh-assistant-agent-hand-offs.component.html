@@ -49,6 +49,7 @@
           [subjectTypes]="subjectTypes()"
           [agentNames]="agentNames()"
           [handOff]="editing() ?? null"
+          [lock]="packageLockOf(editing()?.package)"
           (saved)="onSaved($event)"
           (cancelled)="cancel()" />
       }
@@ -95,6 +96,7 @@
               </p>
             }
             @if (row.data; as data) {
+              <nh-assistant-package-lock [lock]="packageLockOf(data.package)" [agentId]="agent().id" [part]="'handOff:' + row.subjectType" (unlinked)="load()" />
               <div class="meta">
                 <span>{{ 'nh-assistant.admin.hand-offs.changed' | translate: { user: data.changedBy, date: (data.changedAt | date: 'medium') } }}</span>
               </div>
@@ -120,10 +122,13 @@
                     type="button"
                     data-remove-hand-off
                     [attr.aria-label]="'nh-assistant.admin.hand-offs.remove-named' | translate: { type: typeName(row.subjectType) }"
-                    [disabled]="busy()"
+                    [disabled]="busy() || isPackageLocked(packageLockOf(data.package))"
                     (click)="confirm(row.subjectType)">
                     <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
                   </button>
+                  @if (isPackageLocked(packageLockOf(data.package))) {
+                    <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: data.package?.packageId } }}</span>
+                  }
                 }
               </div>
               @if (failedType() === row.subjectType && error(); as failure) {

@@ -16,6 +16,8 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { agentDisplayName } from '../agent-texts';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { isPackageLocked, packageLockOf } from '../agent-packages/package-parts';
 import { HandOffFormSaved, NhAssistantHandOffFormComponent } from './nh-assistant-hand-off-form.component';
 
 let nextId = 0;
@@ -47,7 +49,7 @@ interface HandOffRow {
 @Component({
   selector: 'nh-assistant-agent-hand-offs',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantHandOffFormComponent],
+  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantHandOffFormComponent, NhAssistantPackageLockComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-hand-offs.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -136,6 +138,11 @@ export class NhAssistantAgentHandOffsComponent {
       });
     });
   }
+
+  /** The lock a hand-off's package link shows. */
+  readonly packageLockOf = packageLockOf;
+  /** Whether a hand-off's package locks it, so it cannot be removed until it is unlinked. */
+  readonly isPackageLocked = isPackageLocked;
 
   load(agentId = this.agent().id): void {
     this.loading.set(true);

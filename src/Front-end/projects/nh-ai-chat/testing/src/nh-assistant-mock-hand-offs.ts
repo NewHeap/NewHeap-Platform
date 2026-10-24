@@ -9,7 +9,7 @@ import {
   HandOffCeiling
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminScenario, NhAssistantMockHandOffRule } from './nh-assistant-mock.models';
-import { NhAssistantMockResult, mockDashCase, mockFailure as failure, mockMaxStateReason as maxReason } from './nh-assistant-mock-admin-shared';
+import { NhAssistantMockResult, mockDashCase, mockFailure as failure, mockMaxStateReason as maxReason, mockSnapshot } from './nh-assistant-mock-admin-shared';
 import { mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** What the hand-offs and variants read of the mock's agents and their run configuration. */
@@ -42,6 +42,14 @@ export class NhAssistantMockHandOffs {
     private readonly agents: NhAssistantMockHandOffAgents,
     private readonly now: () => string
   ) {
+  }
+
+  /**
+   * A copy of the hand-offs defined as data; the returned function puts it back, for an import of
+   * an agent package that fails as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    return mockSnapshot(this.stored);
   }
 
   /**

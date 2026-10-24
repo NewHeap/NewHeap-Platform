@@ -489,6 +489,23 @@ definition with `createAgent` and `shadowOf`, never offered in the chat, and the
 variant's run configuration to give it run settings. The mock API plays the same rules with
 `handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
 
+Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
+card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id
+and version (empty for the server's defaults: the linked package's id and next version, otherwise the
+first agent's id and 1), per part whether the package locks it whole or by fields of
+`NH_ASSISTANT_PACKAGE_LOCK_FIELDS`, and the references to agents outside the selection with "Add";
+choosing reads the administration and exports nothing, and "Download package" calls
+`exportAgentPackage` and saves its `json` as `agent-package-{id}.json`. "Import package" checks a file
+or pasted JSON with `previewAgentPackageImport` per agent and part, names the technical account of each
+agent whose run settings answer to one (accounts never travel), applies changed skills and triggers
+`live` or as candidates in `shadow`, relinks kept-local parts on request and imports with
+`importAgentPackage`, all or nothing. Every part a package links carries its `package`
+(`PackagePartLink`, and `AgentPackageLink` on the agent): the forms show its locked fields read-only
+with the package's lock, the lists offer "Unlink" with a reason (`unlinkAgentPackage`), removing a
+locked part and deleting a linked agent are disabled, and `NhAssistantAgentMetadataSlot.readOnly` is
+true for a locked value. The mock API plays the same rules and starts with the packages of
+`admin.agentPackages` imported.
+
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
 belongs to, and the inbox, the thread view and the open panel session reload after a short
@@ -684,6 +701,9 @@ generic form: an entry without an editor says that the application shows none. I
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.
+- Letting an application's editor of agent metadata save while `NhAssistantAgentMetadataSlot.readOnly`
+  is true, or changing a field an agent package locks through your own screens; unlink the part first,
+  as every save refuses the change with `{field}: locked`.
 - Registering the metadata editors in the application's root providers, which loads the administration
   with the first page; register them on the administration route.
 

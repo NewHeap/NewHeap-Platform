@@ -4,6 +4,10 @@ import { mockStatusOf } from './nh-assistant-mock-status';
 export interface NhAssistantMockResult {
   status: number;
   body?: unknown;
+  /** A body written as text instead of `body`, such as a download. */
+  text?: string;
+  /** Response headers next to the content type. */
+  headers?: Record<string, string>;
 }
 
 /** Ids of agents and MCP servers. */
@@ -28,6 +32,23 @@ export function mockFailure(code: string, errors?: Record<string, string[]>): Nh
 
 export function mockValidationFailure(field?: string): NhAssistantMockResult {
   return mockFailure('assistant-validation', field ? { [field]: ['invalid'] } : undefined);
+}
+
+/**
+ * Copies the stored state of a mock area: the returned function puts every map back as it was, so
+ * an agent package import that one part refuses leaves nothing behind, as the server's one
+ * transaction does, and a preview tries the import without keeping it.
+ */
+export function mockSnapshot(...maps: Map<unknown, unknown>[]): () => void {
+  const copies = maps.map(map => structuredClone(map));
+  return () => {
+    maps.forEach((map, index) => {
+      map.clear();
+      for (const [key, value] of copies[index]) {
+        map.set(key, value);
+      }
+    });
+  };
 }
 
 /** A stable, non-cryptographic fingerprint; the mock only needs change detection. */

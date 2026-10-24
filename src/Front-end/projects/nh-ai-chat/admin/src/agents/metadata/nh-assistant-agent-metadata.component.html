@@ -30,7 +30,9 @@
                 {{ sourceKey(entry) | translate }}
               </span>
             </div>
-            @if (view.slot.readOnly()) {
+            @if (view.slot.lock(); as lock) {
+              <nh-assistant-package-lock [lock]="lock" [agentId]="view.slot.agentId" [part]="'metadata:' + view.name" (unlinked)="load()" />
+            } @else if (view.slot.readOnly()) {
               <p class="muted" data-metadata-read-only>{{ 'nh-assistant.admin.agent-editor.metadata.read-only' | translate }}</p>
             }
             @if (view.component) {
