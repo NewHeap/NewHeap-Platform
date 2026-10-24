@@ -7,15 +7,21 @@ using NewHeap.Platform.AI.Chat.Runtime;
 namespace NewHeap.Platform.AI.Chat.Runs;
 
 /// <summary>
-/// Writes the bounded summary every agent run ends with: when it ran, why, what the agent
+/// Composes the bounded summary every agent run ends with: when it ran, why, what the agent
 /// answered and which proposals it left. The next runs of the thread start with the latest
-/// summaries instead of the full history.
+/// summaries instead of the full history. The run's end stores the summary in the same write that
+/// ends the run (<see cref="NhAssistantRunStore.TrySetRunStatusAsync"/>), so a reader never sees an
+/// ended run without it.
 /// </summary>
 internal sealed class NhAssistantRunSummaries(INhAssistantStore store, NhAssistantRunStore runs)
 {
     internal const int MaxAnswerCharacters = 600;
 
-    public async Task WriteAsync(AssistantRun run, string status, Guid? turnId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The summary of <paramref name="run"/> as it ends with <paramref name="status"/>, with the answer
+    /// of <paramref name="turnId"/> when the run answered.
+    /// </summary>
+    public async Task<string> ComposeAsync(AssistantRun run, string status, Guid? turnId, CancellationToken cancellationToken)
     {
         var summary = new StringBuilder()
             .Append(run.CreatedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))
@@ -63,6 +69,6 @@ internal sealed class NhAssistantRunSummaries(INhAssistantStore store, NhAssista
             }
         }
 
-        await runs.SetRunSummaryAsync(run.Id, summary.ToString(), cancellationToken);
+        return summary.ToString();
     }
 }

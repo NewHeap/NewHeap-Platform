@@ -399,7 +399,9 @@ Read what runs did from their results and history (K13, K14). A run keeps its wh
 in `AssistantRun.Result`, at most `NhAssistantLimits.MaxRunResultCharacters` (20,000) characters with
 `ResultTruncated` when it was cut: the final answer of each of its turns that completed, separated by a
 thematic break, the rules' summary of a rule run included, while `NhAssistantRunSummaries` keeps writing
-the small summary the agent's next runs start from. Files the run saved stay artifacts. The result is
+the small summary the agent's next runs start from. The run's end stores that summary in the same write
+that ends the run, so a run that reads as ended always has it: wait for a run's end, never for its
+summary after it. Files the run saved stay artifacts. The result is
 model output, MCP tool output included: render it only with a safe Markdown renderer, never as HTML.
 It lives with the run, so it follows the thread's retention. A run works in the application's default
 culture, so a result the rules write once reads in that language for everyone; let rule handlers write

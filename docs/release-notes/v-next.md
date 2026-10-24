@@ -456,3 +456,15 @@ client. The texts have English and Dutch versions. The mock API takes `admin.han
 | `RunConfigurationProblemKind` has the new value `hand-off`. | Let exhaustive switches and maps of your own handle it. |
 | The texts under `nh-assistant.admin.hand-offs` and `nh-assistant.admin.shadow-variants`, the kind `hand-off` and the codes `outside-ceiling`, `unknown-source`, `unknown-live-agent`, `live-agent-not-live` and `too-many-variants` under `nh-assistant.admin.run-config.problems`, and the errors `assistant-handoffs-not-allowed`, `assistant-handoff-in-code`, `assistant-handoff-not-found` and `assistant-shadow-variants-not-allowed` are new. | Add them to your application's translations when it overrides the library's texts (`translations: 'host'`). |
 | The text `nh-assistant.errors.assistant-run-settings-in-use` now names hand-offs among what keeps an agent's run settings in use, and the mock API refuses to remove the run settings of an agent that accepts a hand-off defined as data. | Update the text in your application's translations when it overrides the library's texts. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: an ended run has its summary
+
+An agent run stores its summary in the same write that ends it. Before, the end set the run's status and
+`EndedAt` first and wrote the summary in a second update, so a client that polled a thread's runs, the
+run history or `GET runs/{id}` in between read a run that had ended without its `Summary`, and did not
+read it again because the run had ended; a person's turn that started at that moment missed the summary
+in its `<agent-continuity>` block. Only the call that wins the end stores a summary, as before.
+
+| Breaking change | Required action |
+|---|---|
+| None; a run that reads as ended always carries its `Summary`. | None. Remove waits or retries that poll an ended run until its summary appears. |

@@ -2399,10 +2399,6 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
-    /// Reads a run with its result until it ended: its status is terminal and its summary, which
-    /// the run writes right after its status, is there (see <see cref="HasEnded"/>).
-    /// </summary>
-    /// <summary>
     /// The run facts of an agent and skill once the sample's audit sink counted at least
     /// <paramref name="runs"/> ended runs; the event follows the run's end.
     /// </summary>
@@ -2420,6 +2416,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return counts;
     }
 
+    /// <summary>
+    /// Reads a run with its result until it ended (see <see cref="HasEnded"/>): its status is
+    /// terminal, and the run stored its summary in the same write.
+    /// </summary>
     private static async Task<NhAssistantRunResultDto> WaitForRunResultAsync(HttpClient client, Guid runId)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
@@ -2430,7 +2430,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             if (response.IsSuccessStatusCode)
             {
                 read = await response.Content.ReadFromJsonAsync<NhAssistantRunResultDto>(Json);
-                if (read is not null && NhAssistantRunStatuses.IsTerminal(read.Run.Status) && read.Summary is not null)
+                if (read is not null && NhAssistantRunStatuses.IsTerminal(read.Run.Status))
                 {
                     return read;
                 }
@@ -2441,8 +2441,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
         throw new TimeoutException(
             $"Run {runId} did not end within 90 seconds; last read {read?.Run.Status ?? "nothing"}"
-            + (read?.Run.FailureCode is { } code ? $" ({code})" : string.Empty)
-            + (read is not null && read.Summary is null ? " without summary." : "."));
+            + (read?.Run.FailureCode is { } code ? $" ({code})." : "."));
     }
 
     /// <summary>
@@ -4874,12 +4873,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     /// <summary>
-    /// A run writes its summary after its status became terminal, and the next run of the thread
-    /// starts from that summary; a run has ended once both are there.
+    /// A run has ended once its status is terminal: it records its kind and usage when its turn
+    /// ended, before its end, and stores the summary the next run of the thread starts from in the
+    /// same write as its end.
     /// </summary>
     private static bool HasEnded(NhAssistantRunDto run)
     {
-        return NhAssistantRunStatuses.IsTerminal(run.Status) && run.Summary is not null;
+        return NhAssistantRunStatuses.IsTerminal(run.Status);
     }
 
     /// <summary>

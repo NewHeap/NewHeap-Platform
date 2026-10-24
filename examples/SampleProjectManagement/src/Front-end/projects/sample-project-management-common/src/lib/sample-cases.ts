@@ -4089,7 +4089,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Working memory, run summaries, files and redaction of an agent thread",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantAgentRunBuilder.Memory<TMemory>, the internal memory_get and memory_update functions with JSON Merge Patch, INhAssistantAgentMemoryMigrator and NhAssistantBuilder.UseAgentMemoryMigrator, NhAssistantLimits.MaxRunSummaries and MaxArtifactBytes, INhAiArtifacts.SaveAsync, ListAsync and GetAsync, GET threads/{id}/memory, GET threads/{id}/artifacts, GET threads/{id}/artifacts/{artifactId}/content, NhAssistantThreadMemoryDto, NhAssistantArtifactDto, the grantSource and restricted fields of tool parts and INhAiSubjectRetention.ForgetSubjectAsync",
-    "outcome": "The intake reviewer keeps its checks and last verdict per project in a working memory that must fit `ProjectIntakeMemory`; a patch that does not fit, is larger than 16 KB or lost a race is refused without changing the memory. The `projects.draft-intake-note` tool saves an intake note as a versioned Markdown file of the thread. The next run starts with the memory, the summaries of the last three runs and the names and versions of the files in an `<agent-continuity>` block. Results the agent obtained with its own grant are shown only to people who satisfy the tool's policy; others see that a result is restricted. Deleting a project cancels the open runs of its thread and deletes the thread with its memory, summaries and files.",
+    "outcome": "The intake reviewer keeps its checks and last verdict per project in a working memory that must fit `ProjectIntakeMemory`; a patch that does not fit, is larger than 16 KB or lost a race is refused without changing the memory. The `projects.draft-intake-note` tool saves an intake note as a versioned Markdown file of the thread. The next run starts with the memory, the summaries of the last three runs and the names and versions of the files in an `<agent-continuity>` block; a run stores its summary in the same write that ends it, so a run that reads as ended always has one. Results the agent obtained with its own grant are shown only to people who satisfy the tool's policy; others see that a result is restricted. Deleting a project cancels the open runs of its thread and deletes the thread with its memory, summaries and files.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs",
@@ -4099,6 +4099,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantRunSummaries.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantArtifacts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
