@@ -359,7 +359,39 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>created</c>, <c>changed</c> or <c>removed</c>.
     /// Never its description.
     /// </summary>
-    AdminAgentHandOffDefinitionChanged = 80
+    AdminAgentHandOffDefinitionChanged = 80,
+
+    /// <summary>
+    /// An administrator or the application exported agents as an agent package.
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> and <see cref="NhAssistantAuditEvent.PackageId"/> are
+    /// the package, <see cref="NhAssistantAuditEvent.PackageVersion"/> its version,
+    /// <see cref="NhAssistantAuditEvent.PackageHash"/> the SHA-256 of its canonical JSON and
+    /// <see cref="NhAssistantAuditEvent.PackageAgentCount"/> the number of agents in it;
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>exported</c>. Never its content.
+    /// </summary>
+    AdminAgentPackageExported = 81,
+
+    /// <summary>
+    /// An administrator or the application imported an agent package, after every part was audited as
+    /// its own save. <see cref="NhAssistantAuditEvent.ObjectId"/> and
+    /// <see cref="NhAssistantAuditEvent.PackageId"/> are the package,
+    /// <see cref="NhAssistantAuditEvent.PackageVersion"/> its version,
+    /// <see cref="NhAssistantAuditEvent.PackageHash"/> the SHA-256 of its canonical JSON and
+    /// <see cref="NhAssistantAuditEvent.PackageAgentCount"/> the number of agents in it;
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>created</c> for a package the host did not
+    /// have and <c>upgraded</c> otherwise. Never its content.
+    /// </summary>
+    AdminAgentPackageImported = 82,
+
+    /// <summary>
+    /// An administrator or the application unlinked an agent, or one part of it, from its agent
+    /// package, so its locks no longer hold. <see cref="NhAssistantAuditEvent.AgentId"/> is the agent,
+    /// <see cref="NhAssistantAuditEvent.PackagePart"/> and <see cref="NhAssistantAuditEvent.ObjectId"/> the
+    /// part key (<c>*</c> for the whole agent), <see cref="NhAssistantAuditEvent.PackageId"/> and
+    /// <see cref="NhAssistantAuditEvent.PackageVersion"/> the package; <see cref="NhAssistantAuditEvent.ResultCode"/>
+    /// is <c>unlinked</c>, or <c>left-behind</c> when an upgrade no longer contains it.
+    /// </summary>
+    AdminAgentPackageUnlinked = 83
 }
 
 /// <summary>
@@ -701,6 +733,37 @@ public sealed record NhAssistantAuditEvent(
     /// the reader made it now. Null when the model read the file itself and for a refusal.
     /// </summary>
     public bool? FileTextCached { get; init; }
+
+    /// <summary>
+    /// The agent package an <see cref="NhAssistantAuditEventKind.AdminAgentPackageExported"/>,
+    /// <see cref="NhAssistantAuditEventKind.AdminAgentPackageImported"/> or
+    /// <see cref="NhAssistantAuditEventKind.AdminAgentPackageUnlinked"/> event concerns: a dash-case
+    /// package id. Null for other events.
+    /// </summary>
+    public string? PackageId { get; init; }
+
+    /// <summary>
+    /// The version of the agent package of a package event. Null for other events.
+    /// </summary>
+    public int? PackageVersion { get; init; }
+
+    /// <summary>
+    /// The SHA-256 of the canonical JSON of the agent package of an export or import event, lowercase
+    /// hex; never the package. Null for other events.
+    /// </summary>
+    public string? PackageHash { get; init; }
+
+    /// <summary>
+    /// The part key of an <see cref="NhAssistantAuditEventKind.AdminAgentPackageUnlinked"/> event, a
+    /// code such as <c>skill:triage</c> (<see cref="NhAssistantPackagePartKinds"/>), or <c>*</c> for the
+    /// whole agent. Null for other events.
+    /// </summary>
+    public string? PackagePart { get; init; }
+
+    /// <summary>
+    /// The number of agents in the agent package of an export or import event. Null for other events.
+    /// </summary>
+    public int? PackageAgentCount { get; init; }
 }
 
 /// <summary>

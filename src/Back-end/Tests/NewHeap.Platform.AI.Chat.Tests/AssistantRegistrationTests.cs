@@ -253,6 +253,10 @@ public sealed class AssistantRegistrationTests
                     // The live agent of a data shadow variant that was created, an agent id (S9 of
                     // the agent runs adoption plan).
                     or "LiveAgentId"
+                    // The agent package of an export, import or unlink: its dash-case id, the
+                    // SHA-256 of its canonical JSON and a part key such as skill:triage (S7-2 of
+                    // the agent runs adoption plan); never the package's content.
+                    or "PackageId" or "PackageHash" or "PackagePart"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
