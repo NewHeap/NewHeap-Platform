@@ -168,11 +168,12 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
  * agents with the references to agents outside them, a preview per part (`created`, `changed`,
  * `unchanged`, `kept-local`, `left-behind`, `refused`) after one check of the whole package against
  * the host as it would be after the import, and an import that applies every part through the mock's
- * own endpoints in dependency order, or nothing. Linked parts carry their link in every read; every
- * save path refuses a change of a locked field with `{field}: locked`, and removing a locked part or
- * deleting or resetting a linked agent answers `409 assistant-package-locked`. Unlinking makes a part
- * local: the next upgrade keeps it as `kept-local` unless the import relinks it. Hashes are the SHA-256
- * of each part's canonical JSON; a hash a package gives is not checked.
+ * own endpoints in dependency order, or nothing: a refused part answers `409 assistant-package-refused`
+ * with the plain field error `parts: invalid`, and the preview says why. Linked parts carry their link
+ * in every read; every save path refuses a change of a locked field with `{field}: locked`, and removing
+ * a locked part or deleting or resetting a linked agent answers `409 assistant-package-locked`.
+ * Unlinking makes a part local: the next upgrade keeps it as `kept-local` unless the import relinks it.
+ * Hashes are the SHA-256 of each part's canonical JSON; a hash a package gives is not checked.
  */
 export class NhAssistantMockAgentPackages {
   private readonly links = new Map<string, AgentLink>();
@@ -462,7 +463,8 @@ export class NhAssistantMockAgentPackages {
   /**
    * `POST admin/agent-packages/preview` (`keep` false) and `.../import`: the package read strictly, its
    * parts applied in dependency order on a copy of the host, and, for an import without a refused part,
-   * applied for real with the links of its parts.
+   * applied for real with the links of its parts. An import with a refused part answers
+   * `assistant-package-refused` with `parts: invalid`, as the server does; the preview names each reason.
    */
   private importPackage(body: unknown, keep: boolean): NhAssistantMockResult {
     const request = (body ?? {}) as { package?: unknown; options?: AgentPackageImportOptions | null };
@@ -496,7 +498,7 @@ export class NhAssistantMockAgentPackages {
       return { status: 200, body: preview };
     }
     if (!preview.importable) {
-      return failure('assistant-package-refused', refusedErrors(planned));
+      return failure('assistant-package-refused', refusedErrors);
     }
 
     // The import applies the package for real, with the chosen mode, and links its parts.
@@ -506,7 +508,7 @@ export class NhAssistantMockAgentPackages {
       for (const restore of restoreAll) {
         restore();
       }
-      return failure('assistant-package-refused', refusedErrors(applied));
+      return failure('assistant-package-refused', refusedErrors);
     }
     this.link(agentPackage, options, planned);
     return {
@@ -1364,20 +1366,11 @@ function refusalOf(agentId: string, part: string, result: NhAssistantMockResult,
   };
 }
 
-/** The field errors of `assistant-package-refused`: `{agentId}/{part}/{field}`, or `{agentId}/{part}` with the code. */
-function refusedErrors(parts: readonly PlannedPart[]): Record<string, string[]> {
-  const errors: Record<string, string[]> = {};
-  for (const part of parts.filter(item => item.outcome === 'refused')) {
-    if (part.errors) {
-      for (const [field, codes] of Object.entries(part.errors)) {
-        errors[`${part.agentId}/${part.part}/${field}`] = [...codes];
-      }
-    } else {
-      errors[`${part.agentId}/${part.part}`] = [part.code ?? 'assistant-validation'];
-    }
-  }
-  return errors;
-}
+/**
+ * The field errors of `assistant-package-refused`, as the server answers them: one plain field, since
+ * the preview's part outcomes say why each part was refused.
+ */
+const refusedErrors: Readonly<Record<string, string[]>> = { parts: ['invalid'] };
 
 function publicPart({ hashAfter: _, viewAfter: __, ...part }: PlannedPart): AgentPackagePart {
   return part;

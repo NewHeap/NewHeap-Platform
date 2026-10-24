@@ -646,7 +646,8 @@ export class NhAssistantAdminApiService {
   /**
    * Imports the package in one transaction (`POST admin/agent-packages/import`): every agent and part
    * of it, or nothing. Fails as `previewAgentPackageImport` does, and with `assistant-package-refused`
-   * when the check refuses a part; preview again to see which. Every part is audited as its save.
+   * and the field error `parts: invalid` when the check refuses a part; preview again to see which part
+   * and why. Every part is audited as its save.
    */
   importAgentPackage(agentPackage: AgentPackage, options: AgentPackageImportOptions = {}): Observable<AgentPackageImport> {
     return this.request<AgentPackageImport>('POST', 'admin/agent-packages/import', { package: agentPackage, options });

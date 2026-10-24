@@ -274,6 +274,32 @@ describe('The import dialog of agent packages', () => {
     expect(text(card(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
   }, formFlowTimeout);
 
+  it('checks again when the import refuses a part after the check, and shows why per part', async () => {
+    await configure(scenario([planner]));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await click(fixture, element.querySelector('[data-import-package]'));
+    type(page, '[data-package-text]', JSON.stringify(desksPackage()));
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    type(page, '[data-import-agent="intake-desk"] [data-import-account] input', 'ops');
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    expect((page.querySelector('[data-import-apply-action]') as HTMLButtonElement).disabled).toBeFalse();
+
+    // Someone creates an agent with the package's id after the check.
+    const created = await call('POST', 'admin/agents', {
+      id: 'kickoff-desk', displayName: 'Kickoff desk', description: '', instructions: 'Start.', toolSelectors: [], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose'
+    });
+    expect(created.status).toBe(201);
+    page = await click(fixture, page.querySelector('[data-import-apply-action]'));
+
+    expect(text(page.querySelector('[data-import-error]'))).toContain('The check refused parts of the package, so nothing was imported.');
+    expect(requestBodies('POST', 'admin/agent-packages/preview').length).toBe(3);
+    const agent = page.querySelector('[data-import-agent="kickoff-desk"] [data-import-part="agent"]') as HTMLElement;
+    expect(agent.dataset['outcome']).toBe('refused');
+    expect(text(agent.querySelector('[data-part-code]'))).toBe('An agent with this id already exists. Choose another id.');
+    expect((page.querySelector('[data-import-apply-action]') as HTMLButtonElement).disabled).toBeTrue();
+    expect(page.querySelector('[data-import-result]')).toBeNull();
+  }, formFlowTimeout);
+
   it('reads a package file and refuses one above 1 MB before it asks the server', async () => {
     await configure(scenario([planner]));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
