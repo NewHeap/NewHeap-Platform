@@ -20,7 +20,10 @@ migrations, `feature/proposal-decision-service`, `feature/run-facts` with the `R
 ST5 to ST14, MD4 to MD15, DA3 to DA10, RF2 to RF10, GR1 to GR5) on 2026-10-23. Train 18 built S5, S6
 and S11 on 2026-10-23 (`feature/application-execution` with the `ApplicationExecutions` migrations,
 `feature/access-source-principals`, `feature/mcp-message-format`); Lars kept the lanes' own choices AE1 to AE15,
-AS1 to AS10 and MF1 to MF8 on 2026-10-23. Trains 19 and 20 are not built yet.
+AS1 to AS10 and MF1 to MF8 on 2026-10-23. Train 19 built S8, S9 and S7-1 on 2026-10-24
+(`feature/trigger-versions` with the `TriggerVersions` migrations, `feature/handoffs-as-data` with the
+`HandOffsAsData` migrations, `feature/instruction-assets` with the `InstructionAssets` migrations); the
+lanes' own choices TV1 to TV15, HD1 to HD15 and IA1 to IA12 are for Lars to review. Train 20 is not built yet.
 Delivery: train 17 builds items 1 to 4 and S10, train 18 S5, S6 and S11, train 19 S8, S9 and S7-1, train
 20 S7-2.
 
