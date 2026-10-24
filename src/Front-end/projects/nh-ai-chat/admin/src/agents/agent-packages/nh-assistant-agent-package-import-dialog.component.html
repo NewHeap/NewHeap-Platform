@@ -75,12 +75,13 @@
             <h3 [id]="id + '-preview-title'" tabindex="-1">{{ 'nh-assistant.admin.packages.import-dialog.preview-title' | translate }}</h3>
             <p class="muted">{{ 'nh-assistant.admin.packages.import-dialog.summary' | translate: { package: view.packageId, version: view.version } }}</p>
             <ng-container *ngTemplateOutlet="outcomes; context: { $implicit: view, choose: true }" />
-            @if (view.refused > 0) {
+            <!-- Changed choices outdate the check, also a refusal of it. -->
+            @if (stale()) {
+              <p class="message info" role="status" data-import-stale>{{ 'nh-assistant.admin.packages.import-dialog.options-changed' | translate }}</p>
+            } @else if (view.refused > 0) {
               <p class="message warning" role="status" data-import-refused>
                 <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.packages.import-dialog.refused' | translate: { count: view.refused } }}
               </p>
-            } @else if (stale()) {
-              <p class="message info" role="status" data-import-stale>{{ 'nh-assistant.admin.packages.import-dialog.options-changed' | translate }}</p>
             }
           </section>
         }

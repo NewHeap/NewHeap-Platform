@@ -96,6 +96,8 @@ export class NhAssistantAgentPackageExportDialogComponent {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly reads = new Map<string, Subscription>();
   private subscription?: Subscription;
+  /** The dialog closed and said so. */
+  private ended = false;
 
   /** Every agent of the host, to choose from. */
   readonly agents = input<readonly AdminAgent[]>([]);
@@ -332,13 +334,17 @@ export class NhAssistantAgentPackageExportDialogComponent {
     const dialog = this.dialog().nativeElement;
     if (dialog.open) {
       dialog.close();
-    } else {
-      this.onClosed();
     }
+    this.onClosed();
   }
 
-  /** The native dialog closed, by a button or by Escape. */
+  /** The dialog closed, by a button or by Escape; the host hears it once. */
   onClosed(): void {
+    if (this.ended) {
+      return;
+    }
+
+    this.ended = true;
     this.subscription?.unsubscribe();
     this.closed.emit();
   }
