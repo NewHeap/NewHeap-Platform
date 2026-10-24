@@ -509,8 +509,9 @@ an agent outside the selection with "Add"; "Download package" saves `agent-packa
 "Import package" takes a file or pasted JSON, checks it per agent and part (`created`, `changed` with
 "changed locally", `unchanged`, `kept-local`, `left-behind` or `refused` with its code and field errors),
 asks the technical account of each agent whose run settings answer to one, applies changed skills and
-triggers live or as candidates in shadow, relinks kept-local parts on request and imports all or
-nothing. A linked agent shows its package on its card with "Unlink the agent"; the agent editor, the
+triggers live or as candidates in shadow, relinks kept-local parts on request, offers to take over an
+agent the host has with a package agent's id and no package (`relink` of the whole agent) instead of
+refusing it, and imports all or nothing. A linked agent shows its package on its card with "Unlink the agent"; the agent editor, the
 forms of run settings, skills, triggers, consultations and hand-offs and the metadata slots show the
 fields a package locks read-only with a lock and the package's id and version, the lists offer "Unlink"
 per part with a reason, and removing a locked part, deleting a linked agent and resetting a locked

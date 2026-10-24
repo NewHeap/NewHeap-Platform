@@ -46,9 +46,17 @@ interface ImportRow {
   outcome: AgentPackagePart['outcome'];
   changedLocally: boolean;
   code: string | null;
+  /** The translation keys of the refusal's code, the import's own text first, with its parameters. */
+  codeKeys: string[];
+  codeParams: Record<string, unknown> | null;
   fields: { field: string; codes: string[] }[];
   /** What the package locks on the part, in the reader's language; `null` without locks. */
   locked: string | null;
+  /**
+   * The import may take over the host's agent with the package's id (`relink` naming the whole
+   * agent): it is created here and belongs to no package, or the import takes it over already.
+   */
+  takeOver: boolean;
 }
 
 /** The parts of one agent, with what the import still needs of it. */
@@ -70,6 +78,9 @@ interface ImportView {
   agents: ImportAgentView[];
   refused: number;
 }
+
+/** The refusal of an agent the host has with the package's id. */
+const agentExists = 'assistant-agent-exists';
 
 /** The codes of a refused technical account. */
 const accountRefusals = new Set(['assistant-service-account-not-found']);
@@ -174,14 +185,20 @@ export class NhAssistantAgentPackageImportDialogComponent {
   });
 
   /** The options as the import sends them. */
+  /**
+   * The options as the import sends them, for the agents of the package as it is now: an account or a
+   * relink of an agent a changed package no longer holds is left out, as the server refuses it.
+   */
   readonly options = computed<AgentPackageImportOptions>(() => {
+    const agentIds = new Set((this.source().package?.agents ?? []).map(agent => agent?.id));
     const accounts = Object.fromEntries(Object.entries(this.accounts())
       .map(([agentId, actorId]) => [agentId, actorId.trim()] as const)
-      .filter(([, actorId]) => actorId.length > 0));
+      .filter(([agentId, actorId]) => actorId.length > 0 && agentIds.has(agentId)));
+    const relink = this.relink().filter(item => agentIds.has(item.agentId));
     return {
       serviceAccounts: Object.keys(accounts).length > 0 ? accounts : null,
       apply: this.apply(),
-      relink: this.relink().length > 0 ? [...this.relink()] : null
+      relink: relink.length > 0 ? relink : null
     };
   });
 
@@ -212,8 +229,6 @@ export class NhAssistantAgentPackageImportDialogComponent {
     }
     return this.previewed() ? 'nh-assistant.admin.packages.import-dialog.preview-again' : 'nh-assistant.admin.packages.import-dialog.preview';
   });
-
-  readonly codeKeys = nhAssistantCodeKeys;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
@@ -265,11 +280,12 @@ export class NhAssistantAgentPackageImportDialogComponent {
     this.accounts.update(accounts => ({ ...accounts, [agentId]: actorId }));
   }
 
-  isRelinked(agentId: string, part: string): boolean {
+  /** Whether the import takes the package's version of a part again; `part` `null` takes over the whole agent. */
+  isRelinked(agentId: string, part: string | null): boolean {
     return this.relink().some(item => item.agentId === agentId && item.part === part);
   }
 
-  toggleRelink(agentId: string, part: string, checked: boolean): void {
+  toggleRelink(agentId: string, part: string | null, checked: boolean): void {
     this.relink.update(items => checked
       ? [...items.filter(item => item.agentId !== agentId || item.part !== part), { agentId, part }]
       : items.filter(item => item.agentId !== agentId || item.part !== part));
@@ -382,24 +398,50 @@ export class NhAssistantAgentPackageImportDialogComponent {
         && (part.errors?.['serviceAccountActorId'] !== undefined || accountRefusals.has(part.code ?? ''))) {
         agent.accountRefused = true;
       }
-      if (part.outcome === 'kept-local') {
+      const row = this.rowOf(packageId, part);
+      if (part.outcome === 'kept-local' || row.takeOver) {
         agent.relinkable = true;
       }
-      agent.parts.push(this.rowOf(part));
+      agent.parts.push(row);
     }
     return { packageId, version, agents, refused: parts.filter(part => part.outcome === 'refused').length };
   }
 
-  private rowOf(part: AgentPackagePart): ImportRow {
+  private rowOf(packageId: string, part: AgentPackagePart): ImportRow {
+    const refusal = part.part === 'agent' ? this.agentRefusal(packageId, part) : null;
     return {
       key: part.part,
       label: this.partLabel(part.part),
       outcome: part.outcome,
       changedLocally: part.changedLocally,
       code: part.code,
+      codeKeys: [...(refusal?.keys ?? []), ...nhAssistantCodeKeys(part.code)],
+      codeParams: refusal?.params ?? null,
       fields: Object.entries(part.errors ?? {}).map(([field, codes]) => ({ field, codes: [...codes] })),
-      locked: this.lockedText(part.lockedFields)
+      locked: this.lockedText(part.lockedFields),
+      takeOver: part.part === 'agent' && (this.isRelinked(part.agentId, null) || refusal?.takeOver === true)
     };
+  }
+
+  /**
+   * What the refusal of an agent the host has with the package's id means here: an agent created here
+   * that belongs to no package can be taken over (PL7) or removed first; one of another package must
+   * be unlinked from it first; one in code cannot be replaced. The import never chooses another id.
+   */
+  private agentRefusal(packageId: string, part: AgentPackagePart): { keys: string[]; params: Record<string, unknown>; takeOver: boolean } | null {
+    if (part.outcome !== 'refused' || part.code !== agentExists) {
+      return null;
+    }
+
+    const host = this.agents().find(agent => agent.id === part.agentId);
+    const prefix = 'nh-assistant.admin.packages.import-dialog.agent-exists';
+    if (host?.source === 'code') {
+      return { keys: [`${prefix}-in-code`], params: {}, takeOver: false };
+    }
+    if (host?.package && host.package.packageId !== packageId) {
+      return { keys: [`${prefix}-other-package`], params: { package: host.package.packageId }, takeOver: false };
+    }
+    return { keys: [prefix], params: {}, takeOver: true };
   }
 
   private partLabel(key: string): string {
