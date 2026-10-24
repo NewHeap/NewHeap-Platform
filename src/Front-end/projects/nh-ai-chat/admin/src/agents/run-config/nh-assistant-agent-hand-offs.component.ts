@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { Subscription, map, merge } from 'rxjs';
 import {
   AdminAgent,
   AgentHandOffs,
@@ -14,6 +15,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { agentDisplayName } from '../agent-texts';
 import { HandOffFormSaved, NhAssistantHandOffFormComponent } from './nh-assistant-hand-off-form.component';
 
 let nextId = 0;
@@ -52,6 +54,11 @@ interface HandOffRow {
 })
 export class NhAssistantAgentHandOffsComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly translate = inject(TranslateService);
+  /** Changes with the language and with translations that load later, so the names follow them. */
+  private readonly translations = toSignal(
+    merge(this.translate.onLangChange, this.translate.onTranslationChange).pipe(map((_, index) => index)),
+    { initialValue: -1 });
   private loadSubscription?: Subscription;
   private actionSubscription?: Subscription;
 
@@ -75,7 +82,14 @@ export class NhAssistantAgentHandOffsComponent {
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly loadErrorKeys = computed(() => nhAssistantErrorKeys(this.loadError()));
 
-  readonly agentNames = computed<ReadonlyMap<string, string>>(() => new Map(this.agents().map(agent => [agent.id, agent.displayName])));
+  /**
+   * The agents' names as the agent list shows them, by id: an agent in code in the reader's language,
+   * for the sources of every hand-off and the form's sources.
+   */
+  readonly agentNames = computed<ReadonlyMap<string, string>>(() => {
+    this.translations();
+    return new Map(this.agents().map(agent => [agent.id, agentDisplayName(this.translate, agent)]));
+  });
   readonly rows = computed<HandOffRow[]>(() => {
     const handOffs = this.handOffs();
     if (!handOffs) {

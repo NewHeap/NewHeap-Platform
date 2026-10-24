@@ -7,11 +7,13 @@ import {
   AgentShadowVariants,
   NhAssistantAdminApiService,
   NhAssistantError,
+  ShadowVariant,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { agentDisplayName } from '../agent-texts';
 import { RunConfigForm } from './run-config-form';
 import { RunConfigErrors, dashCase, requireText, runConfigLimits } from './run-config-shared';
 
@@ -107,7 +109,7 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
   /** Opens the form, filled in from the live agent: a variant tries what this agent does differently. */
   startCreate(): void {
     const live = this.agent();
-    const name = this.textOf(live.source, live.displayName);
+    const name = agentDisplayName(this.translate, live);
     this.variantId.set(`${live.id}-variant`.slice(0, maxId));
     this.displayName.set(this.t('nh-assistant.admin.shadow-variants.form.default-name', { name }));
     this.description.set(this.textOf(live.source, live.description));
@@ -166,7 +168,15 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
       });
   }
 
-  /** The text of an agent's name or description: a key of the application for an agent in code. */
+  /**
+   * A variant's name as the agent list shows it: a variant in code is an agent in code, which names
+   * itself with a key of the application.
+   */
+  variantName(variant: ShadowVariant): string {
+    return agentDisplayName(this.translate, { source: variant.source === 'code' ? 'code' : 'admin', displayName: variant.displayName });
+  }
+
+  /** The text of an agent's description: a key of the application for an agent in code. */
   private textOf(source: string, text: string): string {
     if (source !== 'code') {
       return text;
