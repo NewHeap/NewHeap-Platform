@@ -1557,6 +1557,11 @@ internal sealed class NhAssistantAgentConfiguration(
     private const int MaxActorIdLength = 256;
     private const int DefaultDebounceSeconds = 120;
 
+    /// <summary>
+    /// The locks of agent packages, which every save path of this service enforces (PK9).
+    /// </summary>
+    private NhAssistantPackageLockCheck Locks => services.GetRequiredService<NhAssistantPackageLockCheck>();
+
     public NhAssistantRunCatalogDto GetCatalog()
     {
         var profiles = services.GetService(typeof(INhAiModelProfileRegistry)) is INhAiModelProfileRegistry registry
@@ -1923,6 +1928,67 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantErrorCodes.RunSettingsInCode, "The agent is registered in code.");
         }
+        if (PrepareRunSettings(agentId, request, actorId, out var settings) is { } refused)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(refused);
+        }
+
+        // A package's locks hold on run settings as on every part (PK9); the technical account is free.
+        var before = await store.FindRunSettingsAsync(agentId, cancellationToken);
+        if (await Locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.RunSettings,
+                string.Empty,
+                before is null ? null : NhAssistantPackageFields.Of(before),
+                NhAssistantPackageFields.Of(settings!),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(locked);
+        }
+
+        var serviceAccount = settings!.ServiceAccountActorId;
+        if (serviceAccount is not null && !await AccountExistsAsync(agentId, serviceAccount, cancellationToken))
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(
+                NhAssistantErrorCodes.ServiceAccountNotFound,
+                "No account that may sign in exists with that id.");
+        }
+
+        var saved = await store.SaveRunSettingsAsync(settings, request.ExpectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
+        }
+        if (serviceAccount is not null)
+        {
+            // The agent's threads answer to the account, unless an administrator replaced it at runtime.
+            await runs.SetServiceAccountOfThreadsAsync(agentId, agent.ServiceAccountOverride ?? serviceAccount, cancellationToken);
+        }
+
+        await events.RunSettingsChangedAsync(agentId, saved.Value!.Version, saved.Value.Version == 1 ? "created" : "changed", actorId, cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantAgentRunSettingsDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+    }
+
+    /// <summary>
+    /// The checks of a save of run settings that need nothing but the request and the code, and the
+    /// row it would store: the request's fields, the gateway reads the host can issue, and the
+    /// approval policy, triage profile and rule handler the code registers. Saving and importing a
+    /// package share them; the agent, its locks and its technical account are checked apart.
+    /// </summary>
+    internal TaskResult? PrepareRunSettings(
+        string agentId,
+        NhAssistantAgentRunSettingsRequest request,
+        string actorId,
+        out AssistantAgentRunConfiguration? prepared)
+    {
+        prepared = null;
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
+
         var accountabilityKnown = NhAssistantAccountabilities.TryParse(request.Accountability, out var accountability);
         var serviceAccount = Blank(request.ServiceAccountActorId);
         var elevatedReads = Blank(request.ElevatedReads) ?? NhAssistantElevatedReadNames.Restricted;
@@ -1948,7 +2014,7 @@ internal sealed class NhAssistantAgentConfiguration(
         }
         if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(errors.ToResult());
+            return errors.ToResult();
         }
 
         var settings = new AssistantAgentRunConfiguration
@@ -1979,35 +2045,25 @@ internal sealed class NhAssistantAgentConfiguration(
         };
         if (validator.ValidateRunSettings(settings) is { } problem)
         {
-            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(problem switch
-            {
-                NhAssistantRunConfigurationProblems.UnknownPolicy => NhAssistantValidationErrors.Failed("approvalPolicy", NhAssistantFieldErrors.NotFound),
-                NhAssistantRunConfigurationProblems.UnknownProfile => NhAssistantValidationErrors.Failed("triageProfile", NhAssistantFieldErrors.NotFound),
-                NhAssistantRunConfigurationProblems.UnknownRuleHandler => NhAssistantValidationErrors.Failed("ruleHandler", NhAssistantFieldErrors.NotFound),
-                _ => NhAssistantValidationErrors.Failed("accountability", NhAssistantFieldErrors.Invalid)
-            });
-        }
-        if (serviceAccount is not null && !await AccountExistsAsync(agentId, serviceAccount, cancellationToken))
-        {
-            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(
-                NhAssistantErrorCodes.ServiceAccountNotFound,
-                "No account that may sign in exists with that id.");
+            return RunSettingsFieldError(problem);
         }
 
-        var saved = await store.SaveRunSettingsAsync(settings, request.ExpectedVersion, cancellationToken);
-        if (!saved.Succeeded)
-        {
-            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The run settings changed in the meantime.");
-        }
-        if (serviceAccount is not null)
-        {
-            // The agent's threads answer to the account, unless an administrator replaced it at runtime.
-            await runs.SetServiceAccountOfThreadsAsync(agentId, agent.ServiceAccountOverride ?? serviceAccount, cancellationToken);
-        }
+        prepared = settings;
+        return null;
+    }
 
-        await events.RunSettingsChangedAsync(agentId, saved.Value!.Version, saved.Value.Version == 1 ? "created" : "changed", actorId, cancellationToken);
-        await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantAgentRunSettingsDto>.Succeeded(ToDto(saved.Value, configurations.Problems));
+    /// <summary>
+    /// The field error of a problem of run settings that do not fit the code.
+    /// </summary>
+    internal static TaskResult RunSettingsFieldError(string problem)
+    {
+        return problem switch
+        {
+            NhAssistantRunConfigurationProblems.UnknownPolicy => NhAssistantValidationErrors.Failed("approvalPolicy", NhAssistantFieldErrors.NotFound),
+            NhAssistantRunConfigurationProblems.UnknownProfile => NhAssistantValidationErrors.Failed("triageProfile", NhAssistantFieldErrors.NotFound),
+            NhAssistantRunConfigurationProblems.UnknownRuleHandler => NhAssistantValidationErrors.Failed("ruleHandler", NhAssistantFieldErrors.NotFound),
+            _ => NhAssistantValidationErrors.Failed("accountability", NhAssistantFieldErrors.Invalid)
+        };
     }
 
     public async Task<TaskResult> RemoveRunSettingsAsync(
@@ -2025,6 +2081,10 @@ internal sealed class NhAssistantAgentConfiguration(
         if (registration.CodeAgentRuns.ContainsKey(agentId))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.RunSettingsInCode, "The agent is registered in code.");
+        }
+        if (await Locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.RunSettings, string.Empty, cancellationToken) is { } locked)
+        {
+            return locked;
         }
 
         var removed = await store.RemoveRunSettingsAsync(agentId, expectedVersion, cancellationToken);
@@ -2084,6 +2144,90 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code.");
         }
 
+        var (prepared, definition, tools) = await PrepareSkillAsync(agentId, skillId, request, actorId, cancellationToken);
+        if (prepared is not null)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(prepared);
+        }
+        if (validator.ValidateSkill(definition!, tools, runAgent) is { } problem)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(SkillFieldError(problem));
+        }
+
+        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
+        var live = await LiveSkillsAsync(agentId, cancellationToken);
+        if (request.ExpectedVersion is null
+            && !live.ContainsKey(skillId)
+            && runAgent.CodeSkillIds.Count + live.Count >= NhAssistantAgentRunOptions.MaxSkills)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed.");
+        }
+
+        // A package's locks hold on every version of the skill, a candidate included (PK9).
+        if (await Locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.Skill,
+                skillId,
+                live.TryGetValue(skillId, out var current) ? NhAssistantPackageFields.Of(current) : null,
+                NhAssistantPackageFields.Of(definition!),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(locked);
+        }
+
+        var saved = await store.AddSkillVersionAsync(definition!, request.ExpectedVersion, cancellationToken, asCandidate);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime.");
+        }
+        if (request.StartsOff)
+        {
+            // Off before the configuration reloads, so no trigger reaches the new skill first.
+            await services.GetRequiredService<NhAssistantAdminStore>()
+                .SetSkillStateAsync(agentId, skillId, NhAssistantAgentRunStates.Off, actorId, definition!.Reason, cancellationToken);
+            await events.AgentStateChangedAsync(agentId, actorId, NhAssistantAgentRunStates.Off, 0, cancellationToken, skillId);
+        }
+
+        await events.SkillDefinitionChangedAsync(
+            agentId,
+            skillId,
+            saved.Value!.Version,
+            saved.Value.InstructionsHash,
+            asCandidate ? "candidate" : saved.Value.Version == 1 || request.ExpectedVersion is null ? "created" : "changed",
+            actorId,
+            cancellationToken,
+            NhAssistantInstructionAssets.ReferenceOf(saved.Value)?.InstructionsVersion);
+        await configurations.ReloadAsync(cancellationToken);
+        // The save succeeds also when no profile permits the skill's classification; the warning
+        // tells the administrator that its model calls will be refused.
+        var dto = asCandidate
+            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.CandidateKind)
+            : ToDto(saved.Value, configurations.Problems);
+        return TaskResult<NhAssistantDataSkillDto>.Succeeded(dto with
+        {
+            Warnings = await WarningsOfAsync(saved.Value, cancellationToken)
+        });
+    }
+
+    /// <summary>
+    /// The checks of a save of a data skill that need nothing but the request, the code and the
+    /// application's text assets, and the version it would store with its tool selectors: the
+    /// request's fields and the asset its instructions name. Saving and importing a package share
+    /// them; the agent, the validator's checks against it and the locks are checked apart.
+    /// </summary>
+    internal async Task<(TaskResult? Failure, AssistantAgentSkillDefinition? Definition, IReadOnlyList<string> Tools)> PrepareSkillAsync(
+        string agentId,
+        string skillId,
+        NhAssistantDataSkillRequest request,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return (invalid, null, []);
+        }
+
         var description = request.Description?.Trim();
         var instructions = string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim();
         var instructionsAsset = request.InstructionsAsset;
@@ -2116,14 +2260,13 @@ internal sealed class NhAssistantAgentConfiguration(
                 errors,
                 cancellationToken) is { } unavailable)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(unavailable);
+            return (unavailable, null, []);
         }
         if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(errors.ToResult());
+            return (errors.ToResult(), null, []);
         }
 
-        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
         var definition = new AssistantAgentSkillDefinition
         {
             AgentId = agentId,
@@ -2150,51 +2293,7 @@ internal sealed class NhAssistantAgentConfiguration(
             CreatedBy = actorId,
             Reason = reason
         };
-        if (validator.ValidateSkill(definition, tools, runAgent) is { } problem)
-        {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(SkillFieldError(problem));
-        }
-
-        var live = await LiveSkillsAsync(agentId, cancellationToken);
-        if (request.ExpectedVersion is null
-            && !live.ContainsKey(skillId)
-            && runAgent.CodeSkillIds.Count + live.Count >= NhAssistantAgentRunOptions.MaxSkills)
-        {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed.");
-        }
-
-        var saved = await store.AddSkillVersionAsync(definition, request.ExpectedVersion, cancellationToken, asCandidate);
-        if (!saved.Succeeded)
-        {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime.");
-        }
-        if (request.StartsOff)
-        {
-            // Off before the configuration reloads, so no trigger reaches the new skill first.
-            await services.GetRequiredService<NhAssistantAdminStore>()
-                .SetSkillStateAsync(agentId, skillId, NhAssistantAgentRunStates.Off, actorId, reason, cancellationToken);
-            await events.AgentStateChangedAsync(agentId, actorId, NhAssistantAgentRunStates.Off, 0, cancellationToken, skillId);
-        }
-
-        await events.SkillDefinitionChangedAsync(
-            agentId,
-            skillId,
-            saved.Value!.Version,
-            saved.Value.InstructionsHash,
-            asCandidate ? "candidate" : saved.Value.Version == 1 || request.ExpectedVersion is null ? "created" : "changed",
-            actorId,
-            cancellationToken,
-            NhAssistantInstructionAssets.ReferenceOf(saved.Value)?.InstructionsVersion);
-        await configurations.ReloadAsync(cancellationToken);
-        // The save succeeds also when no profile permits the skill's classification; the warning
-        // tells the administrator that its model calls will be refused.
-        var dto = asCandidate
-            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.CandidateKind)
-            : ToDto(saved.Value, configurations.Problems);
-        return TaskResult<NhAssistantDataSkillDto>.Succeeded(dto with
-        {
-            Warnings = await WarningsOfAsync(saved.Value, cancellationToken)
-        });
+        return (null, definition, tools);
     }
 
     public async Task<TaskResult<NhAssistantDataSkillDto>> PromoteSkillCandidateAsync(
@@ -2317,6 +2416,25 @@ internal sealed class NhAssistantAgentConfiguration(
             return (invalid, null);
         }
 
+        if (promote)
+        {
+            // A promote is a change of the live version: a package's locks hold on it (PK9).
+            var versions = (await store.ListSkillsAsync(agentId, cancellationToken)).Where(item => item.SkillId == skillId).ToArray();
+            var candidate = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate && item.Version == candidateVersion);
+            var live = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
+            if (candidate is not null
+                && await Locks.CheckChangeAsync(
+                    agentId,
+                    NhAssistantPackagePartKinds.Skill,
+                    skillId,
+                    live is null ? null : NhAssistantPackageFields.Of(live),
+                    NhAssistantPackageFields.Of(candidate),
+                    cancellationToken) is { } locked)
+            {
+                return (locked, null);
+            }
+        }
+
         var changed = promote
             ? await store.PromoteCandidateAsync(agentId, skillId, candidateVersion, cancellationToken)
             : await store.DiscardCandidateAsync(agentId, skillId, candidateVersion, cancellationToken);
@@ -2363,6 +2481,10 @@ internal sealed class NhAssistantAgentConfiguration(
         if (runAgent!.CodeSkillIds.Contains(skillId, StringComparer.Ordinal))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code.");
+        }
+        if (await Locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.Skill, skillId, cancellationToken) is { } locked)
+        {
+            return locked;
         }
 
         var removed = await store.RemoveSkillAsync(agentId, skillId, expectedVersion, cancellationToken);
@@ -2413,6 +2535,86 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.TriggerInCode, "The trigger is registered in code.");
         }
+        if (PrepareTrigger(agentId, triggerId, request, actorId, out var row) is { } refusedRequest)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(refusedRequest);
+        }
+
+        var schedule = row!.Source == NhAssistantDataTriggerSources.Schedule;
+        await configurations.EnsureCurrentAsync(cancellationToken);
+        if (validator.ValidateTrigger(row, registration.AgentRuns) is { } problem)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(TriggerFieldError(problem, schedule));
+        }
+
+        // Only triggers in effect count; their history does not.
+        var live = (await store.ListTriggersAsync(agentId, cancellationToken))
+            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
+            .ToArray();
+        if (request.ExpectedVersion is null
+            && live.All(item => item.Id != triggerId)
+            && live.Length >= NhAssistantAgentConfigurationLimits.MaxTriggersPerAgent)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many data triggers as allowed.");
+        }
+
+        // A package's locks hold on every version of the trigger, a candidate included (PK9).
+        var current = live.FirstOrDefault(item => item.Id == triggerId);
+        if (await Locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.Trigger,
+                triggerId,
+                current is null ? null : NhAssistantPackageFields.Of(current),
+                NhAssistantPackageFields.Of(row),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(locked);
+        }
+
+        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
+        var saved = await store.SaveTriggerAsync(row, request.ExpectedVersion, cancellationToken, asCandidate);
+        if (saved.Outcome == NhAssistantStoreOutcome.Rejected)
+        {
+            // The id belongs to a data trigger of another agent; trigger ids are unique.
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantValidationErrors.Failed("triggerId", NhAssistantFieldErrors.Invalid));
+        }
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The trigger changed in the meantime.");
+        }
+
+        await events.TriggerDefinitionChangedAsync(
+            agentId,
+            triggerId,
+            saved.Value!.SkillId,
+            saved.Value.Version,
+            asCandidate ? "candidate" : request.ExpectedVersion is null ? "created" : "changed",
+            actorId,
+            cancellationToken);
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantDataTriggerDto>.Succeeded(asCandidate
+            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.TriggerCandidateKind)
+            : ToDto(saved.Value, configurations.Problems));
+    }
+
+    /// <summary>
+    /// The checks of a save of a data trigger that need nothing but the request, and the version it
+    /// would store: the request's fields. Saving and importing a package share them; the agent, the
+    /// validator's checks against the run configuration, the limits and the locks are checked apart.
+    /// </summary>
+    internal TaskResult? PrepareTrigger(
+        string agentId,
+        string triggerId,
+        NhAssistantDataTriggerRequest request,
+        string actorId,
+        out AssistantAgentTriggerDefinition? prepared)
+    {
+        prepared = null;
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
 
         var schedule = request.Source == NhAssistantDataTriggerSources.Schedule;
         var conflict = Blank(request.Conflict) ?? (schedule ? NhAssistantTriggerConflictNames.Ignore : NhAssistantTriggerConflictNames.Coalesce);
@@ -2450,11 +2652,11 @@ internal sealed class NhAssistantAgentConfiguration(
         }
         if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(errors.ToResult());
+            return errors.ToResult();
         }
 
         var now = DateTimeOffset.UtcNow;
-        var row = new AssistantAgentTriggerDefinition
+        prepared = new AssistantAgentTriggerDefinition
         {
             Id = triggerId,
             AgentId = agentId,
@@ -2472,47 +2674,7 @@ internal sealed class NhAssistantAgentConfiguration(
             UpdatedBy = actorId,
             Reason = reason
         };
-        await configurations.EnsureCurrentAsync(cancellationToken);
-        if (validator.ValidateTrigger(row, registration.AgentRuns) is { } problem)
-        {
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(TriggerFieldError(problem, schedule));
-        }
-
-        // Only triggers in effect count; their history does not.
-        var live = (await store.ListTriggersAsync(agentId, cancellationToken))
-            .Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live)
-            .ToArray();
-        if (request.ExpectedVersion is null
-            && live.All(item => item.Id != triggerId)
-            && live.Length >= NhAssistantAgentConfigurationLimits.MaxTriggersPerAgent)
-        {
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many data triggers as allowed.");
-        }
-
-        var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
-        var saved = await store.SaveTriggerAsync(row, request.ExpectedVersion, cancellationToken, asCandidate);
-        if (saved.Outcome == NhAssistantStoreOutcome.Rejected)
-        {
-            // The id belongs to a data trigger of another agent; trigger ids are unique.
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantValidationErrors.Failed("triggerId", NhAssistantFieldErrors.Invalid));
-        }
-        if (!saved.Succeeded)
-        {
-            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The trigger changed in the meantime.");
-        }
-
-        await events.TriggerDefinitionChangedAsync(
-            agentId,
-            triggerId,
-            saved.Value!.SkillId,
-            saved.Value.Version,
-            asCandidate ? "candidate" : request.ExpectedVersion is null ? "created" : "changed",
-            actorId,
-            cancellationToken);
-        await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataTriggerDto>.Succeeded(asCandidate
-            ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.TriggerCandidateKind)
-            : ToDto(saved.Value, configurations.Problems));
+        return null;
     }
 
     public async Task<IReadOnlyList<NhAssistantDataTriggerVersionDto>> GetTriggerVersionsAsync(
@@ -2583,6 +2745,25 @@ internal sealed class NhAssistantAgentConfiguration(
         if (ValidateChange(actorId, ref reason) is { } invalid)
         {
             return (invalid, null);
+        }
+
+        if (promote)
+        {
+            // A promote is a change of the live version: a package's locks hold on it (PK9).
+            var versions = (await store.ListTriggersAsync(agentId, cancellationToken)).Where(item => item.Id == triggerId).ToArray();
+            var candidate = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate && item.Version == candidateVersion);
+            var live = versions.FirstOrDefault(item => item.Status == NhAssistantSkillDefinitionStatuses.Live);
+            if (candidate is not null
+                && await Locks.CheckChangeAsync(
+                    agentId,
+                    NhAssistantPackagePartKinds.Trigger,
+                    triggerId,
+                    live is null ? null : NhAssistantPackageFields.Of(live),
+                    NhAssistantPackageFields.Of(candidate),
+                    cancellationToken) is { } locked)
+            {
+                return (locked, null);
+            }
         }
 
         var changed = promote
@@ -2689,6 +2870,10 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult.Failed(NhAssistantErrorCodes.TriggerInCode, "The trigger is registered in code.");
         }
+        if (await Locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.Trigger, triggerId, cancellationToken) is { } locked)
+        {
+            return locked;
+        }
 
         var removed = await store.RemoveTriggerAsync(agentId, triggerId, expectedVersion, actorId, cancellationToken);
         switch (removed.Outcome)
@@ -2776,6 +2961,90 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
         }
+        if (PrepareConsultation(agentId, subjectType, request, actorId, ceiling!, out var row) is { } refusedRequest)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(refusedRequest);
+        }
+
+        // The same check as every load, refused here instead of degraded (AC11).
+        var check = validator.CheckConsultation(row!, runOptions, agent!.Definition.RequiredPolicy, agent.Definition.ToolSelectors);
+        if (check.Problems.Count > 0)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(ConsultationFieldErrors(check.Problems));
+        }
+        if (services.GetService<INhAssistantReservedToolNames>() is { } reserved
+            && (reserved.IsReserved(check.Options!.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, agentId, subjectType))
+                || (row!.AllowRequests && reserved.IsReserved(check.Options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, agentId, subjectType)))))
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantValidationErrors.Failed("subjectType", NhAssistantFieldErrors.Invalid));
+        }
+
+        var existing = await store.ListConsultationsAsync(agentId, cancellationToken);
+        if (request.ExpectedVersion is null
+            && existing.All(item => item.SubjectType != subjectType)
+            && existing.Count >= NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many consultations defined as data as allowed.");
+        }
+
+        // A package's locks hold on a consultation as on every part (PK9); whether it is on is free.
+        var current = existing.FirstOrDefault(item => item.SubjectType == subjectType);
+        if (await Locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.Consultation,
+                subjectType,
+                current is null ? null : NhAssistantPackageFields.Of(current),
+                NhAssistantPackageFields.Of(row!),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(locked);
+        }
+
+        var saved = await store.SaveConsultationAsync(row!, request.ExpectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The consultation changed in the meantime.");
+        }
+
+        await events.ConsultationDefinitionChangedAsync(
+            agentId,
+            subjectType,
+            saved.Value!.Version,
+            saved.Value.InstructionsHash,
+            saved.Value.Version == 1 ? "created" : "changed",
+            actorId,
+            cancellationToken);
+        if (saved.Value.Version == 1 && saved.Value.Off)
+        {
+            // As a skill that starts off: the state is audited next to the definition.
+            await events.ConsultationDefinitionChangedAsync(agentId, subjectType, 1, saved.Value.InstructionsHash, NhAssistantConsultationStates.Off, actorId, cancellationToken);
+        }
+
+        await configurations.ReloadAsync(cancellationToken);
+        return TaskResult<NhAssistantDataConsultationDto>.Succeeded(
+            ToDto(saved.Value, configurations.Problems, await AskingAgentsAsync(agentId, cancellationToken)));
+    }
+
+    /// <summary>
+    /// The checks of a save of a consultation defined as data that need nothing but the request and
+    /// the ceiling, and the row it would store, with the ceiling's defaults. Saving and importing a
+    /// package share them; the agent, the validator's checks against it, the limit and the locks are
+    /// checked apart.
+    /// </summary>
+    internal TaskResult? PrepareConsultation(
+        string agentId,
+        string subjectType,
+        NhAssistantDataConsultationRequest request,
+        string actorId,
+        NhAssistantConsultationCeiling ceiling,
+        out AssistantAgentConsultationDefinition? prepared)
+    {
+        prepared = null;
+        var reason = request.Reason;
+        if (ValidateChange(actorId, ref reason) is { } invalid)
+        {
+            return invalid;
+        }
 
         var description = Blank(request.Description);
         var instructions = Blank(request.Instructions);
@@ -2815,11 +3084,11 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid);
         if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantDataConsultationDto>.Failed(errors.ToResult());
+            return errors.ToResult();
         }
 
         var now = DateTimeOffset.UtcNow;
-        var row = new AssistantAgentConsultationDefinition
+        prepared = new AssistantAgentConsultationDefinition
         {
             AgentId = agentId,
             SubjectType = subjectType,
@@ -2846,51 +3115,7 @@ internal sealed class NhAssistantAgentConfiguration(
             UpdatedBy = actorId,
             Reason = reason
         };
-
-        // The same check as every load, refused here instead of degraded (AC11).
-        var check = validator.CheckConsultation(row, runOptions, agent!.Definition.RequiredPolicy, agent.Definition.ToolSelectors);
-        if (check.Problems.Count > 0)
-        {
-            return TaskResult<NhAssistantDataConsultationDto>.Failed(ConsultationFieldErrors(check.Problems));
-        }
-        if (services.GetService<INhAssistantReservedToolNames>() is { } reserved
-            && (reserved.IsReserved(check.Options!.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, agentId, subjectType))
-                || (row.AllowRequests && reserved.IsReserved(check.Options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, agentId, subjectType)))))
-        {
-            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantValidationErrors.Failed("subjectType", NhAssistantFieldErrors.Invalid));
-        }
-
-        var existing = await store.ListConsultationsAsync(agentId, cancellationToken);
-        if (request.ExpectedVersion is null
-            && existing.All(item => item.SubjectType != subjectType)
-            && existing.Count >= NhAssistantAgentConfigurationLimits.MaxConsultationsPerAgent)
-        {
-            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many consultations defined as data as allowed.");
-        }
-
-        var saved = await store.SaveConsultationAsync(row, request.ExpectedVersion, cancellationToken);
-        if (!saved.Succeeded)
-        {
-            return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The consultation changed in the meantime.");
-        }
-
-        await events.ConsultationDefinitionChangedAsync(
-            agentId,
-            subjectType,
-            saved.Value!.Version,
-            saved.Value.InstructionsHash,
-            saved.Value.Version == 1 ? "created" : "changed",
-            actorId,
-            cancellationToken);
-        if (saved.Value.Version == 1 && saved.Value.Off)
-        {
-            // As a skill that starts off: the state is audited next to the definition.
-            await events.ConsultationDefinitionChangedAsync(agentId, subjectType, 1, saved.Value.InstructionsHash, NhAssistantConsultationStates.Off, actorId, cancellationToken);
-        }
-
-        await configurations.ReloadAsync(cancellationToken);
-        return TaskResult<NhAssistantDataConsultationDto>.Succeeded(
-            ToDto(saved.Value, configurations.Problems, await AskingAgentsAsync(agentId, cancellationToken)));
+        return null;
     }
 
     public async Task<TaskResult<NhAssistantDataConsultationDto>> SetConsultationStateAsync(
@@ -2961,6 +3186,10 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult.Failed(NhAssistantErrorCodes.ConsultationInCode, "The agent allows consultation about this subject type in code.");
         }
+        if (await Locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.Consultation, subjectType, cancellationToken) is { } locked)
+        {
+            return locked;
+        }
 
         var removed = await store.RemoveConsultationAsync(agentId, subjectType, expectedVersion, cancellationToken);
         switch (removed.Outcome)
@@ -3017,7 +3246,7 @@ internal sealed class NhAssistantAgentConfiguration(
     /// <summary>
     /// The field error of each problem a consultation would have.
     /// </summary>
-    private static TaskResult ConsultationFieldErrors(IReadOnlyList<string> problems)
+    internal static TaskResult ConsultationFieldErrors(IReadOnlyList<string> problems)
     {
         if (problems.Contains(NhAssistantRunConfigurationProblems.NotConsultable, StringComparer.Ordinal))
         {
@@ -3164,7 +3393,7 @@ internal sealed class NhAssistantAgentConfiguration(
     /// Whether the account exists and may sign in, as the principal factory that rebuilds it for the
     /// agent's runs decides.
     /// </summary>
-    private async Task<bool> AccountExistsAsync(string agentId, string accountActorId, CancellationToken cancellationToken)
+    internal async Task<bool> AccountExistsAsync(string agentId, string accountActorId, CancellationToken cancellationToken)
     {
         if (services.GetService<INhAiPrincipalFactory>() is not { } principals)
         {
@@ -3225,7 +3454,7 @@ internal sealed class NhAssistantAgentConfiguration(
         errors.Require(acceptsFiles && limit >= 1 && limit <= applicationLimit, field, NhAssistantFieldErrors.Invalid);
     }
 
-    private static TaskResult SkillFieldError(string problem)
+    internal static TaskResult SkillFieldError(string problem)
     {
         return problem switch
         {
@@ -3237,7 +3466,7 @@ internal sealed class NhAssistantAgentConfiguration(
         };
     }
 
-    private static TaskResult TriggerFieldError(string problem, bool schedule)
+    internal static TaskResult TriggerFieldError(string problem, bool schedule)
     {
         return problem switch
         {

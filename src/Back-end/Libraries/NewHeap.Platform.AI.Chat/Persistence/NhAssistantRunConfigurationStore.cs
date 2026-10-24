@@ -169,6 +169,31 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await SaveRunSettingsAsync(context, settings, expectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return saved;
+        }
+
+        if (!await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="SaveRunSettingsAsync(AssistantAgentRunConfiguration, int?, CancellationToken)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentRunConfiguration>> SaveRunSettingsAsync(
+        NhAssistantDbContext context,
+        AssistantAgentRunConfiguration settings,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
         var existing = await context.AgentRunConfigurations.SingleOrDefaultAsync(item => item.AgentId == settings.AgentId, cancellationToken);
         if (existing?.Version != expectedVersion)
         {
@@ -217,12 +242,6 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
             return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        if (!await ChangeStampAsync(context, cancellationToken))
-        {
-            return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Failed(NhAssistantStoreOutcome.Conflict);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentRunConfiguration>.Ok(existing);
     }
 
@@ -337,6 +356,32 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await AddSkillVersionAsync(context, definition, expectedVersion, candidate, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return saved;
+        }
+
+        if (!await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="AddSkillVersionAsync(AssistantAgentSkillDefinition, int?, CancellationToken, bool)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddSkillVersionAsync(
+        NhAssistantDbContext context,
+        AssistantAgentSkillDefinition definition,
+        int? expectedVersion,
+        bool candidate,
+        CancellationToken cancellationToken)
+    {
         var live = await context.AgentSkillDefinitions
             .Where(item => item.AgentId == definition.AgentId
                            && item.SkillId == definition.SkillId
@@ -370,12 +415,6 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
             return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        if (!await ChangeStampAsync(context, cancellationToken))
-        {
-            return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentSkillDefinition>.Ok(definition);
     }
 
@@ -544,6 +583,32 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await SaveTriggerAsync(context, trigger, expectedVersion, candidate, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return saved;
+        }
+
+        if (!await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="SaveTriggerAsync(AssistantAgentTriggerDefinition, int?, CancellationToken, bool)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentTriggerDefinition>> SaveTriggerAsync(
+        NhAssistantDbContext context,
+        AssistantAgentTriggerDefinition trigger,
+        int? expectedVersion,
+        bool candidate,
+        CancellationToken cancellationToken)
+    {
         var current = await context.AgentTriggerDefinitions
             .Where(item => item.Id == trigger.Id
                            && (item.Status == NhAssistantSkillDefinitionStatuses.Live
@@ -597,12 +662,6 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
             return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        if (!await ChangeStampAsync(context, cancellationToken))
-        {
-            return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentTriggerDefinition>.Ok(trigger);
     }
 
@@ -814,6 +873,26 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await SaveConsultationAsync(context, consultation, expectedVersion, cancellationToken);
+        if (!saved.Succeeded || !await ChangeStampAsync(context, cancellationToken))
+        {
+            return saved.Succeeded ? NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict) : saved;
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="SaveConsultationAsync(AssistantAgentConsultationDefinition, int?, CancellationToken)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentConsultationDefinition>> SaveConsultationAsync(
+        NhAssistantDbContext context,
+        AssistantAgentConsultationDefinition consultation,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
         var existing = await context.AgentConsultationDefinitions.SingleOrDefaultAsync(
             item => item.AgentId == consultation.AgentId && item.SubjectType == consultation.SubjectType,
             cancellationToken);
@@ -856,12 +935,11 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
             existing.ConcurrencyStamp = Guid.NewGuid();
         }
 
-        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        if (!await TrySaveAsync(context, cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
     }
 
@@ -939,7 +1017,7 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
         return NhAssistantStoreResult<AssistantAgentConsultationDefinition>.Ok(existing);
     }
 
-    private static async Task<bool> TrySaveAsync(NhAssistantDbContext context, CancellationToken cancellationToken)
+    internal static async Task<bool> TrySaveAsync(NhAssistantDbContext context, CancellationToken cancellationToken)
     {
         try
         {
@@ -957,7 +1035,7 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     /// Gives the stamp a new value in the change's transaction. The first change of a database adds
     /// the row; when two first changes race, the later one fails as a conflict and is tried again.
     /// </summary>
-    private static async Task<bool> ChangeStampAsync(NhAssistantDbContext context, CancellationToken cancellationToken)
+    internal static async Task<bool> ChangeStampAsync(NhAssistantDbContext context, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
         var value = Guid.NewGuid();

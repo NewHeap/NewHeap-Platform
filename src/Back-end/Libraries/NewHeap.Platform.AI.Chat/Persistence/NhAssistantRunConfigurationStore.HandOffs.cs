@@ -34,6 +34,31 @@ internal sealed partial class NhAssistantRunConfigurationStore
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await SaveHandOffAsync(context, handOff, expectedVersion, cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return saved;
+        }
+
+        if (!await ChangeStampAsync(context, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantAgentHandOffDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="SaveHandOffAsync(AssistantAgentHandOffDefinition, int?, CancellationToken)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentHandOffDefinition>> SaveHandOffAsync(
+        NhAssistantDbContext context,
+        AssistantAgentHandOffDefinition handOff,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
         var existing = await context.AgentHandOffDefinitions.SingleOrDefaultAsync(
             item => item.AgentId == handOff.AgentId && item.SubjectType == handOff.SubjectType,
             cancellationToken);
@@ -64,12 +89,11 @@ internal sealed partial class NhAssistantRunConfigurationStore
             existing.ConcurrencyStamp = Guid.NewGuid();
         }
 
-        if (!await TrySaveAsync(context, cancellationToken) || !await ChangeStampAsync(context, cancellationToken))
+        if (!await TrySaveAsync(context, cancellationToken))
         {
             return NhAssistantStoreResult<AssistantAgentHandOffDefinition>.Failed(NhAssistantStoreOutcome.Conflict);
         }
 
-        await transaction.CommitAsync(cancellationToken);
         return NhAssistantStoreResult<AssistantAgentHandOffDefinition>.Ok(existing);
     }
 

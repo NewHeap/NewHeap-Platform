@@ -30,7 +30,8 @@ internal sealed class NhAssistantAgentMetadataService(
     NhAssistantRegistrationState registration,
     NhAssistantAgentCatalog agents,
     NhAssistantAgentMetadataStore store,
-    IEnumerable<INhAssistantBusinessAuditSink> auditSinks) : INhAssistantAgentMetadata
+    IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
+    NhAssistantPackageLockCheck locks) : INhAssistantAgentMetadata
 {
     private const int MaxActorIdLength = 256;
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
@@ -197,6 +198,20 @@ internal sealed class NhAssistantAgentMetadataService(
             return TaskResult<NhAssistantAgentMetadataState>.Failed(errors.ToResult());
         }
 
+        // A value an agent package locks keeps the value it has or takes the package's (PK9).
+        var current = (await store.ListAsync(agentId, cancellationToken)).FirstOrDefault(row => row.Name == name)?.ValueJson
+                      ?? (dataAgent ? null : registration.CodeMetadataOf(agentId).GetValueOrDefault(name)?.Json);
+        if (await locks.CheckChangeAsync(
+                agentId,
+                NhAssistantPackagePartKinds.Metadata,
+                name,
+                NhAssistantPackageFields.OfMetadata(current),
+                NhAssistantPackageFields.OfMetadata(check.Json),
+                cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgentMetadataState>.Failed(locked);
+        }
+
         var now = DateTimeOffset.UtcNow;
         if (dataAgent)
         {
@@ -257,6 +272,10 @@ internal sealed class NhAssistantAgentMetadataService(
         {
             return TaskResult<NhAssistantAgentMetadataState>.Failed(
                 NhAssistantValidationErrors.Failed("expectedVersion", NhAssistantFieldErrors.Required));
+        }
+        if (await locks.CheckRemovalAsync(agentId, NhAssistantPackagePartKinds.Metadata, name, cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgentMetadataState>.Failed(locked);
         }
 
         if (agent!.Source == NhAssistantAgentSources.Admin)

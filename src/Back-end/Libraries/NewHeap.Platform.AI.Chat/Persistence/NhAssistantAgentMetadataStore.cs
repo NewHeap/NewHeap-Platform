@@ -193,6 +193,23 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
+        return await SaveOverrideAsync(context, agentId, name, expectedVersion, value, actorId, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="SaveOverrideAsync(string, string, int?, NhAssistantAgentMetadataCheck, string, DateTimeOffset, CancellationToken)"/>:
+    /// saves in <paramref name="context"/>, inside the caller's transaction when it has one.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgentMetadata>> SaveOverrideAsync(
+        NhAssistantDbContext context,
+        string agentId,
+        string name,
+        int? expectedVersion,
+        NhAssistantAgentMetadataCheck value,
+        string actorId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var row = await context.AgentMetadata
             .SingleOrDefaultAsync(item => item.AgentId == agentId && item.Name == name, cancellationToken);
         if (row is null)

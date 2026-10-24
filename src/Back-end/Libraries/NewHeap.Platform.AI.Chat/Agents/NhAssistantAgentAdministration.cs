@@ -65,7 +65,9 @@ internal sealed class NhAssistantAgentAdministration(
     Runs.NhAssistantSubjectAccessService subjects,
     NhAssistantRunConfigurationValidator validator,
     NhAssistantAgentMetadataService metadata,
-    NhAssistantInstructionAssets instructionAssets)
+    NhAssistantInstructionAssets instructionAssets,
+    NhAssistantPackageLockCheck locks,
+    NhAssistantAgentMetadataStore metadataStore)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -162,6 +164,12 @@ internal sealed class NhAssistantAgentAdministration(
             return TaskResult<NhAssistantAgent>.Failed(validation);
         }
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        // A package's locks hold on every save of the definition and its metadata (PK9).
+        if (await CheckLocksAsync(input, values, cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(locked);
+        }
+
         var metadataChanges = new List<NhAssistantAgentMetadataChange>();
         var updated = await store.UpdateAgentAsync(
             input.Id,
@@ -200,6 +208,67 @@ internal sealed class NhAssistantAgentAdministration(
     }
 
     /// <summary>
+    /// The refusal of an update that changes a field an agent package locks on the definition, or a
+    /// locked metadata entry the definition carries: <c>{field}: locked</c> for the definition,
+    /// <c>metadata.{name}: locked</c> for an entry, and <c>409 assistant-package-locked</c> for an entry
+    /// the update removes. <see langword="null"/> when nothing locked changes.
+    /// </summary>
+    private async Task<TaskResult?> CheckLocksAsync(
+        NhAssistantAgentInput input,
+        IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?> values,
+        CancellationToken cancellationToken)
+    {
+        var links = await locks.LinksOfAsync(input.Id, cancellationToken);
+        if (links.Count == 0)
+        {
+            return null;
+        }
+
+        var before = await store.FindAgentAsync(input.Id, cancellationToken);
+        var after = await store.FindAgentAsync(input.Id, cancellationToken);
+        if (before is null || after is null)
+        {
+            return null;
+        }
+
+        ApplyInput(after, input, after.Version + 1);
+        var definitionLink = links.FirstOrDefault(link => link.PartKind == NhAssistantPackagePartKinds.Agent);
+        if (definitionLink is not null
+            && NhAssistantPackageLockCheck.Check(definitionLink, NhAssistantPackageFields.Of(before), NhAssistantPackageFields.Of(after)) is { } refused)
+        {
+            return refused;
+        }
+
+        var stored = values.Count == 0 ? [] : await metadataStore.ListAsync(input.Id, cancellationToken);
+        var errors = new NhAssistantValidationErrors();
+        foreach (var (name, value) in values.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            var link = links.FirstOrDefault(item => item.PartKind == NhAssistantPackagePartKinds.Metadata && item.PartKey == name);
+            if (link is null)
+            {
+                continue;
+            }
+            if (value is null)
+            {
+                if (NhAssistantAgentPackageStore.LockedFieldsOf(link).Count > 0)
+                {
+                    return NhAssistantPackageLockCheck.Locked();
+                }
+
+                continue;
+            }
+
+            var current = stored.FirstOrDefault(row => row.Name == name)?.ValueJson;
+            if (NhAssistantPackageLockCheck.Check(link, NhAssistantPackageFields.OfMetadata(current), NhAssistantPackageFields.OfMetadata(value.Json)) is not null)
+            {
+                errors.Add("metadata." + name, NhAssistantFieldErrors.Locked);
+            }
+        }
+
+        return errors.IsEmpty ? null : errors.ToResult();
+    }
+
+    /// <summary>
     /// The run configuration defined as data checks data skills against an administration agent's
     /// tool selectors and loses an agent that is deleted: every host reloads it.
     /// </summary>
@@ -233,6 +302,14 @@ internal sealed class NhAssistantAgentAdministration(
             return Failed(NhAssistantAdminErrorCodes.NotCodeAgent, "Only code agents can be reset.");
         }
 
+        // A reset that would give a field a package locks another value waits for an unlink.
+        var reset = (await store.FindAgentAsync(agentId, cancellationToken))!;
+        NhAssistantAdminStore.ApplyCodeDefinition(reset, NhAssistantAgentCatalog.ToCodeRow(code, DateTimeOffset.UtcNow));
+        if (await locks.CheckResetAsync(agentId, NhAssistantPackageFields.Of(existing), NhAssistantPackageFields.Of(reset), cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(locked);
+        }
+
         var updated = await store.UpdateAgentAsync(
             agentId,
             null,
@@ -252,6 +329,12 @@ internal sealed class NhAssistantAgentAdministration(
     public async Task<TaskResult> DeleteAsync(string agentId, string actorId, CancellationToken cancellationToken)
     {
         await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        // An agent that belongs to a package stays until an administrator unlinks it (PK9).
+        if (await locks.CheckDeletionAsync(agentId, cancellationToken) is { } locked)
+        {
+            return locked;
+        }
+
         var outcome = await store.DeleteAdminAgentAsync(agentId, cancellationToken);
         if (outcome == NhAssistantStoreOutcome.NotFound)
         {
