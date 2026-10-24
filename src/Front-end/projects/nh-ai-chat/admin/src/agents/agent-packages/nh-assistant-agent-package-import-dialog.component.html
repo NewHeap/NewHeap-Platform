@@ -80,7 +80,7 @@
               <p class="message info" role="status" data-import-stale>{{ 'nh-assistant.admin.packages.import-dialog.options-changed' | translate }}</p>
             } @else if (view.refused > 0) {
               <p class="message warning" role="status" data-import-refused>
-                <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.packages.import-dialog.refused' | translate: { count: view.refused } }}
+                <nh-assistant-icon name="warning" />{{ (view.refused === 1 ? 'nh-assistant.admin.packages.import-dialog.refused-one' : 'nh-assistant.admin.packages.import-dialog.refused') | translate: { count: view.refused } }}
               </p>
             }
           </section>
@@ -158,7 +158,7 @@
                       <span class="muted" data-part-locks><nh-assistant-icon name="lock" /> {{ row.locked }}</span>
                     }
                     @if (row.code; as code) {
-                      <span class="error-text" data-part-code>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
+                      <span class="error-text" data-part-code>{{ row.codeKeys | nhAssistantTranslate: code : row.codeParams ?? undefined }}</span>
                     }
                     @for (field of row.fields; track field.field) {
                       <span class="error-text" [attr.data-part-field-error]="field.field">
@@ -169,7 +169,16 @@
                 </td>
                 @if (choose && agent.relinkable) {
                   <td [attr.data-label]="'nh-assistant.admin.packages.import-dialog.column-relink' | translate">
-                    @if (row.outcome === 'kept-local') {
+                    @if (row.takeOver) {
+                      <!-- A relink of the whole agent takes over the host's agent with the package's id. -->
+                      <label class="check" data-take-over>
+                        <input type="checkbox" [checked]="isRelinked(agent.agentId, null)" (change)="toggleRelink(agent.agentId, null, checkedOf($event))" />
+                        <span>
+                          {{ 'nh-assistant.admin.packages.import-dialog.take-over' | translate }}
+                          <span class="muted block">{{ 'nh-assistant.admin.packages.import-dialog.take-over-hint' | translate }}</span>
+                        </span>
+                      </label>
+                    } @else if (row.outcome === 'kept-local') {
                       <label class="check" [attr.data-relink]="row.key">
                         <input type="checkbox" [checked]="isRelinked(agent.agentId, row.key)" (change)="toggleRelink(agent.agentId, row.key, checkedOf($event))" />
                         <span>{{ 'nh-assistant.admin.packages.import-dialog.relink' | translate: { part: row.label } }}</span>

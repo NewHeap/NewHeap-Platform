@@ -498,8 +498,9 @@ choosing reads the administration and exports nothing, and "Download package" ca
 `exportAgentPackage` and saves its `json` as `agent-package-{id}.json`. "Import package" checks a file
 or pasted JSON with `previewAgentPackageImport` per agent and part, names the technical account of each
 agent whose run settings answer to one (accounts never travel), applies changed skills and triggers
-`live` or as candidates in `shadow`, relinks kept-local parts on request and imports with
-`importAgentPackage`, all or nothing. Every part a package links carries its `package`
+`live` or as candidates in `shadow`, relinks kept-local parts on request, offers "Take over the
+existing agent" (a `relink` of the whole agent) for an agent the host has with the package's id and
+no package, and imports with `importAgentPackage`, all or nothing. Every part a package links carries its `package`
 (`PackagePartLink`, and `AgentPackageLink` on the agent): the forms show its locked fields read-only
 with the package's lock, the lists offer "Unlink" with a reason (`unlinkAgentPackage`), removing a
 locked part and deleting a linked agent are disabled, and `NhAssistantAgentMetadataSlot.readOnly` is

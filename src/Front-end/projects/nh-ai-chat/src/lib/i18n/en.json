@@ -2219,7 +2219,13 @@
           "importing": "Importing…",
           "imported": "The package was imported.",
           "result-title": "What the import did",
-          "done": "Done"
+          "done": "Done",
+          "agent-exists": "An agent with this id exists on this host and is not linked to this package. Take it over to let the package replace its configuration and link it, or remove it first.",
+          "agent-exists-other-package": "An agent with this id belongs to package {{package}} on this host. Unlink it from that package first, then take it over or remove it.",
+          "agent-exists-in-code": "An agent in code has this id on this host; the package's agent cannot replace it.",
+          "take-over": "Take over the existing agent",
+          "take-over-hint": "The package replaces its configuration and links it.",
+          "refused-one": "The import refuses {{count}} part. Fix the package or the host, then check again."
         },
         "fields": {
           "display-name": "Name",

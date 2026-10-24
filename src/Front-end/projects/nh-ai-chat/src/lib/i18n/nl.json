@@ -2219,7 +2219,13 @@
           "importing": "Importeren…",
           "imported": "Het pakket is geïmporteerd.",
           "result-title": "Wat de import deed",
-          "done": "Klaar"
+          "done": "Klaar",
+          "agent-exists": "Op deze host bestaat al een agent met dit id die niet aan dit pakket gekoppeld is. Neem hem over, zodat het pakket zijn configuratie vervangt en hem koppelt, of verwijder hem eerst.",
+          "agent-exists-other-package": "Een agent met dit id hoort op deze host bij pakket {{package}}. Ontkoppel hem eerst van dat pakket en neem hem daarna over of verwijder hem.",
+          "agent-exists-in-code": "Op deze host heeft een agent in code dit id; de agent van het pakket kan hem niet vervangen.",
+          "take-over": "De bestaande agent overnemen",
+          "take-over-hint": "Het pakket vervangt zijn configuratie en koppelt hem.",
+          "refused-one": "De import weigert {{count}} onderdeel. Herstel het pakket of de host en controleer opnieuw."
         },
         "fields": {
           "display-name": "Naam",

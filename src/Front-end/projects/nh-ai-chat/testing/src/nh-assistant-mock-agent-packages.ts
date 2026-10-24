@@ -173,6 +173,8 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
  * in every read; every save path refuses a change of a locked field with `{field}: locked`, and removing
  * a locked part or deleting or resetting a linked agent answers `409 assistant-package-locked`.
  * Unlinking makes a part local: the next upgrade keeps it as `kept-local` unless the import relinks it.
+ * An import takes over an agent the host has with a package agent's id and no package of its own when
+ * `relink` names that whole agent; otherwise the agent refuses the package (`assistant-agent-exists`).
  * Hashes are the SHA-256 of each part's canonical JSON; a hash a package gives is not checked.
  */
 export class NhAssistantMockAgentPackages {
@@ -479,6 +481,20 @@ export class NhAssistantMockAgentPackages {
     if (apply !== 'live' && apply !== 'shadow') {
       return failure('assistant-validation', { apply: ['invalid'] });
     }
+    // The accounts and the parts to relink name agents of the package, as the server checks them.
+    const ids = new Set(agentPackage.agents.map(agent => agent.id));
+    const optionErrors: Record<string, string[]> = {};
+    if (Object.entries(options.serviceAccounts ?? {}).some(([agentId, actorId]) =>
+      !ids.has(agentId) || typeof actorId !== 'string' || actorId.trim().length === 0 || actorId.trim().length > 256)) {
+      optionErrors['serviceAccounts'] = ['invalid'];
+    }
+    if ((options.relink ?? []).some(item => !item || !ids.has(item.agentId)
+      || (item.part !== null && item.part !== undefined && (typeof item.part !== 'string' || !validPartKey(item.part))))) {
+      optionErrors['relink'] = ['invalid'];
+    }
+    if (Object.keys(optionErrors).length > 0) {
+      return failure('assistant-validation', optionErrors);
+    }
 
     // The check tries every part on a copy of the host, in live mode, and puts the host back.
     const restoreHost = this.context.snapshot();
@@ -615,7 +631,10 @@ export class NhAssistantMockAgentPackages {
 
     const host = this.read(agent.id);
     if (part === 'agent') {
-      const refusal = agentRefusal(agent, host?.agent ?? null, linkedHere);
+      // A relink of the whole agent lets the import take over an agent the host has with its id.
+      const takenOver = (options.relink ?? []).some(item => item.agentId === agent.id && (item.part === null || item.part === undefined));
+      const otherPackage = !!link && !linkedHere && link.parts.size > 0;
+      const refusal = agentRefusal(agent, host?.agent ?? null, linkedHere || takenOver, otherPackage);
       if (refusal) {
         return { ...base(agent.id, part, lockedFields), outcome: 'refused', code: refusal };
       }
@@ -1059,8 +1078,15 @@ function lockProblem(agent: PackageAgent, part: string, fields: readonly string[
   return whole || fields.every(field => allowed.includes(field)) ? null : 'invalid';
 }
 
-/** Why the agent of a package may not be imported onto the host's agent with its id, or `null`. */
-function agentRefusal(agent: PackageAgent, host: AdminAgent | null, linkedToPackage: boolean): string | null {
+/**
+ * Why the agent of a package may not be imported onto the host's agent with its id, or `null`: an
+ * agent of another package, an agent in code for an agent created here, or an agent created here that
+ * the package neither linked nor takes over (`relink` naming the whole agent).
+ */
+function agentRefusal(agent: PackageAgent, host: AdminAgent | null, linkedToPackage: boolean, otherPackage: boolean): string | null {
+  if (otherPackage) {
+    return 'assistant-agent-exists';
+  }
   if (agent.source === 'code') {
     if (!host) {
       return 'assistant-agent-not-found';

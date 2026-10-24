@@ -165,6 +165,38 @@ describe('Agent packages in the mock API', () => {
     expect(canonicalJson({ b: 1, a: [true, null], c: null })).toBe('{"a":[true,null],"b":1}');
   });
 
+  it('takes over agents the host has with the package\'s ids when relink names them as a whole, never an agent of another package', async () => {
+    const agentPackage = await exportDesks();
+    // The host made both desks by hand; the first import takes them over.
+    const options = { serviceAccounts: { 'intake-desk': 'ops' }, relink: [{ agentId: 'intake-desk', part: null }, { agentId: 'kickoff-desk' }] };
+    const preview = (await call('POST', 'admin/agent-packages/preview', { package: agentPackage, options })).body as AgentPackagePreview;
+    expect(preview.importable).toBeTrue();
+    expect(new Set(preview.parts.map(part => part.outcome))).toEqual(new Set(['unchanged']));
+
+    // Relinking only a part takes over nothing.
+    const partOnly = (await call('POST', 'admin/agent-packages/preview', {
+      package: agentPackage,
+      options: { ...options, relink: [{ agentId: 'kickoff-desk', part: 'agent' }] }
+    })).body as AgentPackagePreview;
+    expect(partsOf(partOnly)['kickoff-desk/agent']).toBe('refused');
+
+    expect((await call('POST', 'admin/agent-packages/import', { package: agentPackage, options })).status).toBe(200);
+    const agents = (await call('GET', 'admin/agents')).body as AdminAgent[];
+    expect(agents.find(agent => agent.id === 'kickoff-desk')?.package?.packageId).toBe('intake-desk');
+
+    // An agent another package links stays refused, also when the import names it.
+    const other = structuredClone(agentPackage);
+    other.package.id = 'other-desks';
+    const refused = (await call('POST', 'admin/agent-packages/preview', { package: other, options })).body as AgentPackagePreview;
+    expect(refused.parts.find(part => part.agentId === 'kickoff-desk' && part.part === 'agent')?.code).toBe('assistant-agent-exists');
+
+    // The options name agents of the package only.
+    const outside = await call('POST', 'admin/agent-packages/preview', { package: agentPackage, options: { relink: [{ agentId: 'planner' }] } });
+    expect([outside.status, outside.body.errors]).toEqual([400, { relink: ['invalid'] }]);
+    const account = await call('POST', 'admin/agent-packages/preview', { package: agentPackage, options: { serviceAccounts: { planner: 'ops' } } });
+    expect(account.body.errors).toEqual({ serviceAccounts: ['invalid'] });
+  });
+
   it('refuses agents the host has but did not import from the package, and reads packages strictly', async () => {
     const agentPackage = await exportDesks();
     // The same host has both desks, created here and not from this package.

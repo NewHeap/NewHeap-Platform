@@ -295,9 +295,43 @@ describe('The import dialog of agent packages', () => {
     expect(requestBodies('POST', 'admin/agent-packages/preview').length).toBe(3);
     const agent = page.querySelector('[data-import-agent="kickoff-desk"] [data-import-part="agent"]') as HTMLElement;
     expect(agent.dataset['outcome']).toBe('refused');
-    expect(text(agent.querySelector('[data-part-code]'))).toBe('An agent with this id already exists. Choose another id.');
+    expect(text(agent.querySelector('[data-part-code]'))).toContain('exists on this host and is not linked to this package');
     expect((page.querySelector('[data-import-apply-action]') as HTMLButtonElement).disabled).toBeTrue();
     expect(page.querySelector('[data-import-result]')).toBeNull();
+  }, formFlowTimeout);
+
+  it('takes over an agent the host made by hand when the administrator chooses to', async () => {
+    await configure(scenario([planner, desks[1]]));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await click(fixture, element.querySelector('[data-import-package]'));
+    type(page, '[data-package-text]', JSON.stringify(desksPackage()));
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    type(page, '[data-import-agent="intake-desk"] [data-import-account] input', 'ops');
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+
+    // Only the kickoff desk is refused: the host has it, and the import never chooses another id.
+    expect(text(page.querySelector('[data-import-refused]'))).toContain('The import refuses 1 part.');
+    const refused = page.querySelector('[data-import-agent="kickoff-desk"] [data-import-part="agent"]') as HTMLElement;
+    expect(refused.dataset['outcome']).toBe('refused');
+    expect(text(refused.querySelector('[data-part-code]'))).toBe(
+      'An agent with this id exists on this host and is not linked to this package. Take it over to let the package replace its configuration and link it, or remove it first.');
+    expect(text(refused)).not.toContain('Choose another id');
+
+    refused.querySelector<HTMLInputElement>('[data-take-over] input')!.click();
+    page = await settle(fixture);
+    expect(page.querySelector('[data-import-stale]')).not.toBeNull();
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    const taken = page.querySelector('[data-import-agent="kickoff-desk"] [data-import-part="agent"]') as HTMLElement;
+    expect(taken.dataset['outcome']).not.toBe('refused');
+    expect((taken.querySelector('[data-take-over] input') as HTMLInputElement).checked).toBeTrue();
+    expect(page.querySelector('[data-import-refused]')).toBeNull();
+
+    page = await click(fixture, page.querySelector('[data-import-apply-action]'));
+    const imports = requestBodies('POST', 'admin/agent-packages/import') as { options: { relink: unknown } }[];
+    expect(imports.map(item => item.options.relink)).toEqual([[{ agentId: 'kickoff-desk', part: null }]]);
+    expect(page.querySelector('[data-import-done]')).not.toBeNull();
+    page = await click(fixture, page.querySelector('[data-import-close]'));
+    expect(text(card(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
   }, formFlowTimeout);
 
   it('reads a package file and refuses one above 1 MB before it asks the server', async () => {
