@@ -105,6 +105,10 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantBoardVisit> BoardVisits => Set<AssistantBoardVisit>();
 
+    public DbSet<AssistantAgentPackage> AgentPackages => Set<AssistantAgentPackage>();
+
+    public DbSet<AssistantAgentPackageLink> AgentPackageLinks => Set<AssistantAgentPackageLink>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -750,6 +754,36 @@ public sealed class NhAssistantDbContext : DbContext
             handOff.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             handOff.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             handOff.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentPackage>(package =>
+        {
+            package.ToTable("AssistantAgentPackage");
+            package.HasKey(item => item.Id);
+            package.Property(item => item.Id).HasMaxLength(128);
+            package.Property(item => item.Hash).HasMaxLength(64).IsRequired();
+            package.Property(item => item.AgentIdsJson).HasMaxLength(4_000).IsRequired();
+            package.Property(item => item.ImportedBy).HasMaxLength(256).IsRequired();
+            package.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<AssistantAgentPackageLink>(link =>
+        {
+            link.ToTable("AssistantAgentPackageLink");
+            link.HasKey(item => new { item.AgentId, item.PartKind, item.PartKey });
+            link.Property(item => item.AgentId).HasMaxLength(128);
+            link.Property(item => item.PartKind).HasMaxLength(16);
+            link.Property(item => item.PartKey).HasMaxLength(128);
+            link.Property(item => item.PackageId).HasMaxLength(128).IsRequired();
+            link.Property(item => item.Hash).HasMaxLength(64).IsRequired();
+            link.Property(item => item.LockedFieldsJson).HasMaxLength(1_000);
+            link.Property(item => item.LinkedBy).HasMaxLength(256).IsRequired();
+            link.HasIndex(item => item.PackageId);
+            // A link goes with its agent.
+            link.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);

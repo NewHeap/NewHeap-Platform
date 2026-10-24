@@ -66,6 +66,10 @@ internal static class NhAssistantServiceRegistration
         // asset id and version.
         services.TryAddSingleton<NhAssistantInstructionAssets>();
         services.TryAddSingleton<NhAssistantRunConfigurations>();
+        // Agent packages: the packages this host imported, the links of their parts and the locks
+        // every save path enforces.
+        services.TryAddSingleton<NhAssistantAgentPackageStore>();
+        services.TryAddSingleton<NhAssistantPackageLockCheck>();
         services.TryAddScoped<NhAssistantAgentAdministration>();
         // Agent metadata: the application's own entries about agents, stored and checked, never read
         // by NewHeap itself.

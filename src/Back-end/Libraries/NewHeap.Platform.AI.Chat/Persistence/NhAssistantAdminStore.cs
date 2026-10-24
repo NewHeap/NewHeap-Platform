@@ -109,6 +109,20 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         IReadOnlyList<AssistantAgentMetadata>? metadata = null)
     {
         await using var context = contextFactory.CreateDbContext();
+        return await AddAgentAsync(context, agent, mcpServerIds, metadata, cancellationToken);
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="AddAgentAsync(AssistantAgent, IReadOnlyCollection{string}, CancellationToken, IReadOnlyList{AssistantAgentMetadata}?)"/>:
+    /// adds in <paramref name="context"/>, inside the caller's transaction when it has one.
+    /// </summary>
+    internal static async Task<bool> AddAgentAsync(
+        NhAssistantDbContext context,
+        AssistantAgent agent,
+        IReadOnlyCollection<string> mcpServerIds,
+        IReadOnlyList<AssistantAgentMetadata>? metadata,
+        CancellationToken cancellationToken)
+    {
         if (await context.Agents.AnyAsync(item => item.Id == agent.Id, cancellationToken))
         {
             return false;
@@ -146,6 +160,23 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         ICollection<NhAssistantAgentMetadataChange>? metadataChanges = null)
     {
         await using var context = contextFactory.CreateDbContext();
+        return await UpdateAgentAsync(context, id, expectedVersion, apply, mcpServerIds, metadata, metadataChanges, cancellationToken);
+    }
+
+    /// <summary>
+    /// The transactional path of <see cref="UpdateAgentAsync(string, int?, Action{AssistantAgent}, IReadOnlyCollection{string}?, CancellationToken, IReadOnlyDictionary{string, NhAssistantAgentMetadataCheck?}?, ICollection{NhAssistantAgentMetadataChange}?)"/>:
+    /// changes in <paramref name="context"/>, inside the caller's transaction when it has one.
+    /// </summary>
+    internal static async Task<NhAssistantStoreResult<AssistantAgent>> UpdateAgentAsync(
+        NhAssistantDbContext context,
+        string id,
+        int? expectedVersion,
+        Action<AssistantAgent> apply,
+        IReadOnlyCollection<string>? mcpServerIds,
+        IReadOnlyDictionary<string, NhAssistantAgentMetadataCheck?>? metadata,
+        ICollection<NhAssistantAgentMetadataChange>? metadataChanges,
+        CancellationToken cancellationToken)
+    {
         var agent = await context.Agents
             .Include(item => item.McpServers)
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
