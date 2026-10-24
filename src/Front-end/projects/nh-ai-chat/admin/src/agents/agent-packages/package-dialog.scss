@@ -1,0 +1,247 @@
+// The export and import dialogs of agent packages, on top of the shared administration styles.
+@use '../../../../src/lib/styles/tokens';
+
+:host {
+  display: contents;
+}
+
+.dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 0;
+  overflow: auto;
+  color: var(--nha-text);
+  background: var(--nha-background);
+  box-shadow: var(--nha-shadow);
+  font-family: var(--nha-font);
+  font-size: 14px;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  h2 {
+    min-width: 0;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+}
+
+h3,
+h4 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+
+  input {
+    flex: none;
+    margin: 2px 0 0;
+    @include tokens.focus-ring;
+  }
+
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  small {
+    color: var(--nha-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  &:has(input:checked) {
+    border-color: var(--nha-accent);
+  }
+}
+
+// A part's lock choice: not locked, all of it, or chosen fields below it.
+.lock-part {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  border-bottom: 1px solid var(--nha-border);
+  padding: 8px 0;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.lock-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+
+  > strong {
+    min-width: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  select {
+    width: auto;
+    min-width: 160px;
+  }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+// The references to agents outside the selection: one under the other, each with its action.
+.references {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.table-container {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    border-bottom: 1px solid var(--nha-border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  thead th {
+    color: var(--nha-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  tbody th {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+// The table stacks into labelled rows when the dialog is narrow, so it never scrolls sideways.
+@container (max-width: 560px) {
+  .summary-table thead {
+    @include tokens.visually-hidden;
+  }
+
+  .summary-table,
+  .summary-table tbody,
+  .summary-table tr {
+    display: block;
+  }
+
+  .summary-table tr {
+    margin-bottom: 8px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+  }
+
+  .summary-table tbody th,
+  .summary-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 35%) minmax(0, 1fr);
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+
+    &::before {
+      content: attr(data-label);
+      color: var(--nha-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: nha-package-dialog-in .14s ease-out;
+  }
+}
+
+@keyframes nha-package-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

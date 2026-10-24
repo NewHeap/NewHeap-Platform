@@ -2174,7 +2174,13 @@
           "add": "Add {{agent}}",
           "download": "Download package",
           "downloading": "Exporting…",
-          "downloaded": "The package was downloaded as {{file}}."
+          "downloaded": "The package was downloaded as {{file}}.",
+          "reference": {
+            "hand-off-source": "{{referenced}} hands work to {{agent}} ({{part}}).",
+            "shadow-of": "{{agent}} is a shadow variant of {{referenced}}.",
+            "consultation-asker": "{{referenced}} consults {{agent}} ({{part}}).",
+            "shadow-variant": "{{referenced}} is a shadow variant of {{agent}} and receives its triggers."
+          }
         },
         "import-dialog": {
           "title": "Import an agent package",
@@ -2214,7 +2220,56 @@
           "imported": "The package was imported.",
           "result-title": "What the import did",
           "done": "Done"
-        }
+        },
+        "fields": {
+          "display-name": "Name",
+          "description": "Description",
+          "instructions": "Instructions",
+          "tool-selectors": "Tools",
+          "required-policy": "Required policy",
+          "autonomy": "Autonomy",
+          "offered-in-chat": "Use in the chat",
+          "works-on": "What it works on",
+          "profile": "Model profile",
+          "data-classification": "Data classification",
+          "accountability": "Answers to",
+          "delegate-from-initiator": "Rights of the person who starts a run",
+          "allow-gateway-reads": "Reads through the data gateway",
+          "elevated-reads": "Reads with the account's rights",
+          "approval-policy": "Approval policy",
+          "retry-count": "Retries after a failure",
+          "daily-budget": "Daily limits",
+          "max-concurrent-runs": "Runs at the same time",
+          "max-runs-per-subject-per-day": "Runs per subject per day",
+          "max-tokens-per-run": "Tokens per run",
+          "triage-profile": "Triage profile",
+          "rule-handler": "Way of working",
+          "files": "Files",
+          "tools": "Tools",
+          "skill": "Skill",
+          "source": "When it starts",
+          "event": "Event",
+          "filters": "Filters",
+          "cron": "Schedule",
+          "time-zone": "Time zone",
+          "subject-set": "Subjects",
+          "message": "Message to every run",
+          "conflict": "While a run is busy",
+          "debounce-seconds": "Wait for more events",
+          "minimum-role": "Role of the person who asks",
+          "asker-policy": "Policy of the person who asks",
+          "routes": "Routes",
+          "proposal-role": "Role before it proposes",
+          "proposal-policy": "Approval policy of its proposals",
+          "limits": "Limits",
+          "allow-requests": "Requests",
+          "expose-to-mcp": "MCP clients",
+          "sources": "Agents that may hand off",
+          "notify-source": "Tells the source how it ended",
+          "max-per-subject-per-day": "Hand-offs per source and object per day",
+          "value": "Value"
+        },
+        "reset-locked": "Package {{package}} locks fields of the definition. Unlink them first to reset the agent."
       }
     },
     "page-context": {

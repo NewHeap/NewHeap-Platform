@@ -2174,7 +2174,13 @@
           "add": "{{agent}} toevoegen",
           "download": "Pakket downloaden",
           "downloading": "Exporteren…",
-          "downloaded": "Het pakket is gedownload als {{file}}."
+          "downloaded": "Het pakket is gedownload als {{file}}.",
+          "reference": {
+            "hand-off-source": "{{referenced}} draagt werk over aan {{agent}} ({{part}}).",
+            "shadow-of": "{{agent}} is een schaduwvariant van {{referenced}}.",
+            "consultation-asker": "{{referenced}} raadpleegt {{agent}} ({{part}}).",
+            "shadow-variant": "{{referenced}} is een schaduwvariant van {{agent}} en krijgt zijn triggers."
+          }
         },
         "import-dialog": {
           "title": "Een agentpakket importeren",
@@ -2214,7 +2220,56 @@
           "imported": "Het pakket is geïmporteerd.",
           "result-title": "Wat de import deed",
           "done": "Klaar"
-        }
+        },
+        "fields": {
+          "display-name": "Naam",
+          "description": "Omschrijving",
+          "instructions": "Instructies",
+          "tool-selectors": "Tools",
+          "required-policy": "Vereiste policy",
+          "autonomy": "Autonomie",
+          "offered-in-chat": "Gebruik in de chat",
+          "works-on": "Waaraan hij werkt",
+          "profile": "Modelprofiel",
+          "data-classification": "Dataclassificatie",
+          "accountability": "Legt verantwoording af aan",
+          "delegate-from-initiator": "Rechten van de persoon die een run start",
+          "allow-gateway-reads": "Lezen via de datagateway",
+          "elevated-reads": "Lezen met de rechten van het account",
+          "approval-policy": "Goedkeuringsbeleid",
+          "retry-count": "Nieuwe pogingen na een fout",
+          "daily-budget": "Daglimieten",
+          "max-concurrent-runs": "Runs tegelijk",
+          "max-runs-per-subject-per-day": "Runs per onderwerp per dag",
+          "max-tokens-per-run": "Tokens per run",
+          "triage-profile": "Triageprofiel",
+          "rule-handler": "Werkwijze",
+          "files": "Bestanden",
+          "tools": "Tools",
+          "skill": "Vaardigheid",
+          "source": "Wanneer hij start",
+          "event": "Gebeurtenis",
+          "filters": "Filters",
+          "cron": "Schema",
+          "time-zone": "Tijdzone",
+          "subject-set": "Onderwerpen",
+          "message": "Bericht aan elke run",
+          "conflict": "Terwijl een run bezig is",
+          "debounce-seconds": "Wachten op meer gebeurtenissen",
+          "minimum-role": "Rol van de persoon die vraagt",
+          "asker-policy": "Policy van de persoon die vraagt",
+          "routes": "Routes",
+          "proposal-role": "Rol voordat hij voorstelt",
+          "proposal-policy": "Goedkeuringsbeleid van zijn voorstellen",
+          "limits": "Limieten",
+          "allow-requests": "Verzoeken",
+          "expose-to-mcp": "MCP-clients",
+          "sources": "Agents die mogen overdragen",
+          "notify-source": "Laat de bron weten hoe het afliep",
+          "max-per-subject-per-day": "Overdrachten per bron en object per dag",
+          "value": "Waarde"
+        },
+        "reset-locked": "Pakket {{package}} vergrendelt velden van de definitie. Ontkoppel ze eerst om de agent terug te zetten."
       }
     },
     "page-context": {

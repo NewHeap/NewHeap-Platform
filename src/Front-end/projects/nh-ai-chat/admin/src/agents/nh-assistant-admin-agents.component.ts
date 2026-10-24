@@ -58,6 +58,10 @@ import { NhAssistantAgentRunConfigurationComponent } from './nh-assistant-agent-
 import { NhAssistantAccountPickerComponent } from './run-config/nh-assistant-account-picker.component';
 import { NhAssistantAgentHandOffsComponent } from './run-config/nh-assistant-agent-hand-offs.component';
 import { NhAssistantAgentShadowVariantsComponent } from './run-config/nh-assistant-agent-shadow-variants.component';
+import { NhAssistantAgentPackageExportDialogComponent } from './agent-packages/nh-assistant-agent-package-export-dialog.component';
+import { NhAssistantAgentPackageImportDialogComponent } from './agent-packages/nh-assistant-agent-package-import-dialog.component';
+import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
+import { agentDefinitionLockOf, agentPackageOf, isPackageLocked } from './agent-packages/package-parts';
 
 let nextId = 0;
 
@@ -99,7 +103,11 @@ interface CatalogRead {
  * code and offers to read it again; until then it offers no "Run now" and the editor leaves what an
  * agent works on and its groups as they are. The run configuration opens with the agent's flow, whose
  * entry points open the editor, the runs and the technical account here and return to the run
- * configuration afterwards; `openMcpServers` asks the host to show the MCP servers.
+ * configuration afterwards; `openMcpServers` asks the host to show the MCP servers. "Import package"
+ * opens the import dialog of agent packages, and "Export as package" on an agent the export dialog
+ * with that agent chosen. An agent that belongs to a package says so on its card with "Unlink the
+ * agent"; it cannot be deleted until it is unlinked, nor reset while its package locks fields of
+ * its definition.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -118,7 +126,10 @@ interface CatalogRead {
     NhAssistantRunNowDialogComponent,
     NhAssistantAccountNamesErrorComponent,
     NhAssistantAgentHandOffsComponent,
-    NhAssistantAgentShadowVariantsComponent
+    NhAssistantAgentShadowVariantsComponent,
+    NhAssistantAgentPackageExportDialogComponent,
+    NhAssistantAgentPackageImportDialogComponent,
+    NhAssistantPackageLockComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -195,6 +206,11 @@ export class NhAssistantAdminAgentsComponent {
   readonly accountNames = computed(() => this.accountNameLookup.names());
   /** The agent whose last action failed, so its error shows on its card. */
   readonly errorAgentId = signal<string | null>(null);
+  /** The agent whose export dialog is open, chosen in it; `null` while it is closed. */
+  readonly exporting = signal<AdminAgent | null>(null);
+  /** Whether the import dialog of agent packages is open. */
+  readonly importing = signal(false);
+  readonly agentPackageOf = agentPackageOf;
   /** The agent the run-now dialog runs; `null` while it is closed. */
   readonly runningNow = signal<AdminAgent | null>(null);
   /** The agent of the run-now dialog as the dialog needs it: its name and what it works on. */
@@ -317,6 +333,38 @@ export class NhAssistantAdminAgentsComponent {
     return this.catalog() !== null
       && this.hasRunConfiguration(agent)
       && (agent.runState === 'active' || agent.runState === 'paused' || agent.runState === 'off');
+  }
+
+  /** Opens the export dialog with the agent chosen. */
+  exportPackage(agent: AdminAgent): void {
+    this.closeForms();
+    this.exporting.set(agent);
+  }
+
+  /** Opens the import dialog of agent packages. */
+  importPackage(): void {
+    this.closeForms();
+    this.importing.set(true);
+  }
+
+  /** A package was imported: its agents and their parts are read again. */
+  onPackageImported(): void {
+    this.refreshAgents();
+  }
+
+  /** The agent or a part of it was unlinked from its package. */
+  onPackageUnlinked(): void {
+    this.refreshAgents();
+  }
+
+  /** A package the agent belongs to keeps it from being deleted until it is unlinked. */
+  deleteLocked(agent: AdminAgent): boolean {
+    return agentPackageOf(agent) !== null;
+  }
+
+  /** A reset would give fields the package locks the code's values, which the server refuses. */
+  resetLocked(agent: AdminAgent): boolean {
+    return isPackageLocked(agentDefinitionLockOf(agent));
   }
 
   /** Opens the run-now dialog of the agent. */

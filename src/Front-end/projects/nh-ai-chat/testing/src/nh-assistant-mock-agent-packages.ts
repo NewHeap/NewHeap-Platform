@@ -224,10 +224,11 @@ export class NhAssistantMockAgentPackages {
   }
 
   /**
-   * Runs a save of the administration under the package locks: a change of a locked field is undone
-   * and refused with `{field}: locked`, removing a locked part or deleting or resetting a linked agent
-   * answers `409 assistant-package-locked`, and removing a linked part without locks drops its link.
-   * Other requests run as they are.
+   * Runs a save of the administration under the package locks: a save may keep a locked field's value
+   * or take the package's, never another; such a change is undone and refused with `{field}: locked`.
+   * Removing a part with locks and deleting a linked agent answer `409 assistant-package-locked`, as
+   * does a reset that would give a locked field of the definition another value; removing a linked
+   * part without locks drops its link. Other requests run as they are.
    */
   guard(method: string, segments: readonly string[], run: () => NhAssistantMockResult): NhAssistantMockResult {
     const target = guardedPart(method, segments);
@@ -237,6 +238,7 @@ export class NhAssistantMockAgentPackages {
     if (target.part === null) {
       return this.isLinked(target.agentId) ? failure('assistant-package-locked') : run();
     }
+    const reset = target.reset === true;
 
     const link = this.links.get(target.agentId)?.parts.get(target.part);
     if (!link) {
@@ -267,7 +269,7 @@ export class NhAssistantMockAgentPackages {
     const changed = lockedChanges(kind, link.lockedFields, before, this.lockView(target.agentId, target.part), link.view);
     if (changed.length > 0) {
       restore();
-      return failure('assistant-validation', Object.fromEntries(changed.map(field => [field, ['locked']])));
+      return reset ? failure('assistant-package-locked') : failure('assistant-validation', Object.fromEntries(changed.map(field => [field, ['locked']])));
     }
     return result;
   }
@@ -977,7 +979,7 @@ export class NhAssistantMockAgentPackages {
 }
 
 /** The part of the administration a request saves or removes, or the whole agent it deletes or resets. */
-function guardedPart(method: string, segments: readonly string[]): { agentId: string; part: string | null; removal: boolean } | null {
+function guardedPart(method: string, segments: readonly string[]): { agentId: string; part: string | null; removal: boolean; reset?: boolean } | null {
   if (segments[0] !== 'admin' || segments[1] !== 'agents' || segments[2] === undefined) {
     return null;
   }
@@ -985,8 +987,9 @@ function guardedPart(method: string, segments: readonly string[]): { agentId: st
   if (segments.length === 3) {
     return method === 'PUT' ? { agentId, part: 'agent', removal: false } : method === 'DELETE' ? { agentId, part: null, removal: true } : null;
   }
+  // A reset restores the code's definition, which the locks keep as the package has it.
   if (area === 'reset' && segments.length === 4) {
-    return method === 'POST' ? { agentId, part: null, removal: false } : null;
+    return method === 'POST' ? { agentId, part: 'agent', removal: false, reset: true } : null;
   }
   if (area === 'run-settings' && segments.length === 4) {
     return method === 'PUT' || method === 'DELETE' ? { agentId, part: 'runSettings', removal: method === 'DELETE' } : null;
