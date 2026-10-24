@@ -9,8 +9,9 @@ the guidance rules, the release notes and the sample cases are authoritative onc
 ## Status
 
 Decided by Lars on 2026-10-24: PK1 (b), several agents in one package, and PK2 to PK18 as advised. The
-decisions are summarized below; the sections under "Choices" keep the options that were weighed. Not built
-yet; delivery is train 20 (PK16).
+decisions are summarized below; the sections under "Choices" keep the options that were weighed. Built on
+2026-10-24 in merge train 20 (`feature/agent-packages` with the `AgentPackages` migrations,
+`feature/agent-packages-ui`); the lanes' own choices PL1 to PL15 and PU1 to PU10 are for Lars to review.
 
 ## Decisions
 
