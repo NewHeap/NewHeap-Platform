@@ -156,6 +156,10 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantDataHandOffs>();
             services.TryAddScoped<INhAssistantDataHandOffs>(provider => provider.GetRequiredService<NhAssistantDataHandOffs>());
             services.TryAddScoped<NhAssistantShadowVariants>();
+            // Agent packages: export, preview, import and unlink, and the links the administration shows.
+            services.TryAddScoped<NhAssistantAgentPackageLinks>();
+            services.TryAddScoped<NhAssistantAgentPackageService>();
+            services.TryAddScoped<INhAssistantAgentPackages>(provider => provider.GetRequiredService<NhAssistantAgentPackageService>());
             services.TryAddSingleton<NhAssistantDataScheduleSync>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantRunSnapshotListener, NhAssistantDataScheduleSync>(
                 provider => provider.GetRequiredService<NhAssistantDataScheduleSync>()));

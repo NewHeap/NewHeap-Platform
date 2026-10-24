@@ -1623,9 +1623,18 @@ internal sealed class NhAssistantAgentConfiguration(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         var states = await services.GetRequiredService<NhAssistantAgentMetadataService>().StatesAsync(agentId, cancellationToken);
-        return states is null
-            ? TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.")
-            : TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Succeeded((IReadOnlyList<NhAssistantAgentMetadataDto>)states.Select(ToDto).ToArray());
+        if (states is null)
+        {
+            return TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+
+        var links = await services.GetRequiredService<NhAssistantAgentPackageLinks>().PartsOfAsync(agentId, cancellationToken);
+        return TaskResult<IReadOnlyList<NhAssistantAgentMetadataDto>>.Succeeded((IReadOnlyList<NhAssistantAgentMetadataDto>)states
+            .Select(state => ToDto(state) with
+            {
+                Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.Metadata, state.Entry.Name))
+            })
+            .ToArray());
     }
 
     public async Task<TaskResult<NhAssistantAgentMetadataDto>> SaveMetadataAsync(
@@ -1802,8 +1811,19 @@ internal sealed class NhAssistantAgentConfiguration(
             })
             .ToArray();
         var askers = await AskingAgentsAsync(agentId, cancellationToken);
+        // The links to an agent package, which the administration shows read-only (PK9).
+        var links = await services.GetRequiredService<NhAssistantAgentPackageLinks>().PartsOfAsync(agentId, cancellationToken);
         var dataConsultations = (await store.ListConsultationsAsync(agentId, cancellationToken))
-            .Select(item => ToDto(item, problems, askers))
+            .Select(item => ToDto(item, problems, askers) with
+            {
+                Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.Consultation, item.SubjectType))
+            })
+            .ToArray();
+        skills = skills
+            .Select(item => item with { Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.Skill, item.SkillId)) })
+            .ToArray();
+        triggers = triggers
+            .Select(item => item with { Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.Trigger, item.TriggerId)) })
             .ToArray();
         return new NhAssistantAgentConfigurationDto(
             agentId,
@@ -1825,7 +1845,7 @@ internal sealed class NhAssistantAgentConfiguration(
             triggers,
             problems,
             code is null ? NhAssistantAgentSources.Admin : NhAssistantAgentSources.Code,
-            settings is null ? null : ToDto(settings, problems))
+            settings is null ? null : ToDto(settings, problems) with { Package = links.GetValueOrDefault(NhAssistantPackagePartKinds.RunSettings) })
         {
             CodeRunSettings = code is null ? null : ToCodeDto(code),
             CodeConsultations = code is null
