@@ -4,6 +4,10 @@ import { mockStatusOf } from './nh-assistant-mock-status';
 export interface NhAssistantMockResult {
   status: number;
   body?: unknown;
+  /** A body written as text instead of `body`, such as a download. */
+  text?: string;
+  /** Response headers next to the content type. */
+  headers?: Record<string, string>;
 }
 
 /** Ids of agents and MCP servers. */

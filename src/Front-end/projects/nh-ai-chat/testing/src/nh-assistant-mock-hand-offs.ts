@@ -45,18 +45,18 @@ export class NhAssistantMockHandOffs {
   }
 
   /**
-   * `GET admin/agents/{id}/hand-offs`, `PUT` and `DELETE admin/agents/{id}/hand-offs/{subjectType}`
-   * and `GET admin/agents/{id}/shadow-variants`; `segments` start after the agent id. `null` for
-   * another route.
-   */
-  /**
-   * A copy of the hand-offs defined as data; the returned function puts it back, for an agent package import that fails
-   * as a whole and for its preview.
+   * A copy of the hand-offs defined as data; the returned function puts it back, for an import of
+   * an agent package that fails as a whole and for its preview.
    */
   snapshot(): () => void {
     return mockSnapshot(this.stored);
   }
 
+  /**
+   * `GET admin/agents/{id}/hand-offs`, `PUT` and `DELETE admin/agents/{id}/hand-offs/{subjectType}`
+   * and `GET admin/agents/{id}/shadow-variants`; `segments` start after the agent id. `null` for
+   * another route.
+   */
   handle(method: string, agentId: string, segments: string[], body: unknown, query: URLSearchParams): NhAssistantMockResult | null {
     const [area, subjectType] = segments;
     if (area === 'shadow-variants' && segments.length === 1) {

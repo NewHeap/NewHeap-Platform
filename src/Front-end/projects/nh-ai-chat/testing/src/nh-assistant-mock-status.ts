@@ -82,6 +82,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-trigger-not-found',
     'assistant-consultation-not-found',
     'assistant-handoff-not-found',
+    'assistant-package-not-linked',
     'assistant-not-found',
     'assistant-context-not-found',
     'assistant-mcp-server-not-found',
@@ -133,6 +134,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-code-agent-not-deletable',
     'assistant-agent-not-code',
     'assistant-metadata-read-only',
+    'assistant-package-refused',
     'assistant-package-locked',
     'assistant-agent-instructions-unavailable',
     'assistant-mcp-server-exists',
@@ -148,6 +150,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   ],
   413: [
     'assistant-webhook-payload-too-large',
+    'assistant-package-too-large',
     'assistant-file-too-large'
   ],
   415: [

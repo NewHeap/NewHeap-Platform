@@ -1,5 +1,6 @@
 import {
   AdminAgent,
+  AdminAgentInput,
   AgentSummary,
   ApplicationContext,
   ApplicationContextVersion,
@@ -159,6 +160,24 @@ export class NhAssistantMockAdmin {
   /** One agent of the administration, or `undefined`. */
   findAgent(agentId: string): AdminAgent | undefined {
     return this.agents.find(agentId);
+  }
+
+  /** The definition in code of an agent in code; `null` for an agent created here. */
+  codeDefinition(agentId: string): AdminAgentInput | null {
+    return this.agents.codeDefinition(agentId);
+  }
+
+  /**
+   * A copy of the agents and their run configuration, consultations and hand-offs; the returned
+   * function puts it back, for an import of an agent package that fails as a whole and for its preview.
+   */
+  snapshot(): () => void {
+    const restores = [this.agents.snapshot(), this.runConfiguration.snapshot(), this.handOffs.snapshot()];
+    return () => {
+      for (const restore of restores) {
+        restore();
+      }
+    };
   }
 
   /** Makes the next version of an agent, as a change of its metadata does. */

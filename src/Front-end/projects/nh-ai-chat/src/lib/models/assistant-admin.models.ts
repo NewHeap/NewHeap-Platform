@@ -5,6 +5,7 @@
  * field names identical to the JSON the server returns.
  */
 import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus, AgentSubjectRole } from './assistant-agent-run.models';
+import { AgentPackageLink, PackagePartLink } from './assistant-agent-package.models';
 import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
 
 export type AssistantStyle = 'default' | 'direct' | 'personal' | 'detailed';
@@ -325,6 +326,12 @@ export interface AdminAgent extends AdminAgentInput {
    * asset that resolves, `instructions` is its text, read-only.
    */
   instructionsProblem?: InstructionAssetProblem | null;
+  /**
+   * The agent package the agent belongs to, with every linked part and its locked fields, which the
+   * administration shows read-only; missing for an agent that belongs to none. Its part `agent` locks
+   * fields of the definition.
+   */
+  package?: AgentPackageLink | null;
 }
 
 /** The groups one agent is in, as `setAgentGroups` answers. */
@@ -1126,6 +1133,11 @@ export interface AgentMetadata {
   indexValue?: string | null;
   changedAt?: string | null;
   changedBy?: string | null;
+  /**
+   * The link of the entry (part `metadata:{name}`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** Body of `PUT admin/agents/{id}/metadata/{name}`. */
@@ -1304,6 +1316,11 @@ export interface AgentRunSettings extends LowerFileLimits {
    * agent.
    */
   acceptsFiles?: boolean;
+  /**
+   * The link of the run settings (part `runSettings`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** Body of `PUT admin/agents/{id}/run-settings`. */
@@ -1442,6 +1459,11 @@ export interface DataSkill extends LowerFileLimits {
    * `instructionsHash`; read its text with `getInstructionAsset`.
    */
   instructionsAsset?: InstructionAssetReference | null;
+  /**
+   * The link of the skill (part `skill:{id}`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked, and on a candidate.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** How a change of a skill takes effect: at once, or as a candidate in shadow next to the live version. */
@@ -1590,6 +1612,11 @@ export interface DataTrigger {
   /** When the version was stored and by whom; missing on older servers. */
   createdAt?: string;
   createdBy?: string;
+  /**
+   * The link of the trigger (part `trigger:{id}`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked, and on a candidate.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** Body of `PUT admin/agents/{id}/triggers/{triggerId}`. */
@@ -1814,6 +1841,11 @@ export interface DataConsultation {
    * `setDataConsultationState`; `inEffect` is then `false` without a problem. Missing on older servers.
    */
   off?: boolean;
+  /**
+   * The link of the consultation (part `consultation:{subjectType}`) to the agent package it was imported from, with its locked
+   * fields, which the administration shows read-only; missing when it is not linked.
+   */
+  package?: PackagePartLink | null;
 }
 
 /** The state of a consultation defined as data an administrator switches. */

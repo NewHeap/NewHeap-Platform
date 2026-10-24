@@ -176,12 +176,8 @@ export class NhAssistantMockRunConfiguration {
   }
 
   /**
-   * The agent's consultations defined as data in effect with their routes in effect, which count for
-   * its route switches.
-   */
-  /**
-   * A copy of the run settings, skills, triggers and consultations; the returned function puts it back, for an agent package import that fails
-   * as a whole and for its preview.
+   * A copy of the run settings, skills, triggers and consultations; the returned function puts it
+   * back, for an import of an agent package that fails as a whole and for its preview.
    */
   snapshot(): () => void {
     const restoreOwn = mockSnapshot(this.settings, this.skills, this.triggers, this.triggerVersions);
@@ -192,6 +188,10 @@ export class NhAssistantMockRunConfiguration {
     };
   }
 
+  /**
+   * The agent's consultations defined as data in effect with their routes in effect, which count for
+   * its route switches.
+   */
   consultationsInEffect(agentId: string): { subjectType: string; routes: NhAssistantConsultationRoute[] }[] {
     return this.consultations.inEffect(agentId);
   }

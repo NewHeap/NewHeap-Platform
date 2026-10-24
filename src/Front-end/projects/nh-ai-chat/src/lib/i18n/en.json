@@ -484,7 +484,10 @@
       "assistant-instructions-asset-unavailable": "The application's text assets cannot be read right now. Nothing was saved; try again shortly.",
       "assistant-agent-instructions-unavailable": "This agent cannot work right now: the application's text with its instructions is not available. An administrator checks the agent.",
       "assistant-package-format-unsupported": "This is no agent package this version can read: its format, format version or a property is unknown.",
-      "assistant-package-locked": "An agent package locks this. Unlink it from the package first."
+      "assistant-package-locked": "An agent package locks this. Unlink it from the package first.",
+      "assistant-package-too-large": "An agent package is at most 1 MB and holds at most 20 agents.",
+      "assistant-package-refused": "The check refused parts of the package, so nothing was imported. Check the package again to see which.",
+      "assistant-package-not-linked": "This agent, or this part of it, is not linked to an agent package."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

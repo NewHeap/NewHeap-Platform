@@ -484,7 +484,10 @@
       "assistant-instructions-asset-unavailable": "De teksten van de applicatie zijn nu niet te lezen. Er is niets opgeslagen; probeer het zo opnieuw.",
       "assistant-agent-instructions-unavailable": "Deze agent kan nu niet werken: de tekst van de applicatie met zijn instructies is niet beschikbaar. Een beheerder controleert de agent.",
       "assistant-package-format-unsupported": "Dit is geen agentpakket dat deze versie kan lezen: het formaat, de formaatversie of een eigenschap is onbekend.",
-      "assistant-package-locked": "Een agentpakket vergrendelt dit. Ontkoppel het eerst van het pakket."
+      "assistant-package-locked": "Een agentpakket vergrendelt dit. Ontkoppel het eerst van het pakket.",
+      "assistant-package-too-large": "Een agentpakket is hoogstens 1 MB en bevat hoogstens 20 agents.",
+      "assistant-package-refused": "De controle weigerde onderdelen van het pakket, dus er is niets geïmporteerd. Controleer het pakket opnieuw om te zien welke.",
+      "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

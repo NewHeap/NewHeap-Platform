@@ -240,15 +240,15 @@ export class NhAssistantMockConsultations {
     return tools;
   }
 
-  /** `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`, and `POST .../state`. */
   /**
-   * A copy of the consultations defined as data; the returned function puts it back, for an agent package import that fails
-   * as a whole and for its preview.
+   * A copy of the consultations defined as data; the returned function puts it back, for an import
+   * of an agent package that fails as a whole and for its preview.
    */
   snapshot(): () => void {
     return mockSnapshot(this.stored);
   }
 
+  /** `PUT` and `DELETE admin/agents/{id}/consultations/{subjectType}`, and `POST .../state`. */
   handle(method: string, agent: AdminAgent, subjectType: string, body: unknown, query: URLSearchParams, action?: string): NhAssistantMockResult {
     if (action === 'state') {
       return method === 'POST' ? this.setState(agent, subjectType, body) : { status: 405 };

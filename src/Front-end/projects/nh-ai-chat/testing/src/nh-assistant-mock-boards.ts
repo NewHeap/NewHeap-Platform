@@ -91,15 +91,15 @@ export class NhAssistantMockBoards {
     return { agentId, groups: [...groups].sort(), codeGroups };
   }
 
-  /** Forgets the choices about an agent that was deleted. */
   /**
-   * A copy of the administrators' group choices; the returned function puts it back, for an agent package import that fails
-   * as a whole and for its preview.
+   * A copy of the administrators' group choices; the returned function puts it back, for an import
+   * of an agent package that fails as a whole and for its preview.
    */
   snapshot(): () => void {
     return mockSnapshot(this.choices);
   }
 
+  /** Forgets the choices about an agent that was deleted. */
   forget(agentId: string): void {
     this.choices.delete(agentId);
   }

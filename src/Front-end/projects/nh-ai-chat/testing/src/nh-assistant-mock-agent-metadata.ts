@@ -82,15 +82,15 @@ export class NhAssistantMockAgentMetadata {
     }));
   }
 
-  /** Forgets the values of an agent that was deleted, as the server removes them with it. */
   /**
-   * A copy of the stored values; the returned function puts it back, for an agent package import that fails
-   * as a whole and for its preview.
+   * A copy of the stored values; the returned function puts it back, for an import of an agent
+   * package that fails as a whole and for its preview.
    */
   snapshot(): () => void {
     return mockSnapshot(this.stored);
   }
 
+  /** Forgets the values of an agent that was deleted, as the server removes them with it. */
   forget(agentId: string): void {
     this.stored.delete(agentId);
   }

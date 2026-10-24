@@ -1,5 +1,6 @@
 import {
   AdminAgentInput,
+  AgentPackage,
   AgentConsultationStatus,
   AgentGrantSource,
   AgentProposalOrigin,
@@ -463,6 +464,20 @@ export interface NhAssistantMockAdminScenario {
    * `NhAssistantMockBackend.setInstructionAsset` and `removeInstructionAsset`.
    */
   instructionAssets?: NhAssistantMockInstructionAsset[];
+  /**
+   * Agent packages the host imported before the mock starts, in order, as `POST
+   * admin/agent-packages/import` imports them after the scenario's agents and run configurations:
+   * their parts are linked and the parts they lock show read-only. A package the import refuses fails
+   * the scenario at once.
+   */
+  agentPackages?: NhAssistantMockAgentPackage[];
+}
+
+/** An agent package the mock's host imported, with the options of its import. */
+export interface NhAssistantMockAgentPackage {
+  package: AgentPackage;
+  /** The technical account per agent whose run settings answer to one. */
+  serviceAccounts?: Record<string, string>;
 }
 
 /** One version of a text asset of the mock's application. */

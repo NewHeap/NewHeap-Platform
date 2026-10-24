@@ -165,7 +165,10 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-shadow-variants-not-allowed',
   // Agent packages: their format and the parts they lock
   'assistant-package-format-unsupported',
+  'assistant-package-too-large',
+  'assistant-package-refused',
   'assistant-package-locked',
+  'assistant-package-not-linked',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

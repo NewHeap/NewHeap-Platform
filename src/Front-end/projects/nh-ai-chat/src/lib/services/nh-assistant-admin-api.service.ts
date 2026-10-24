@@ -64,11 +64,22 @@ import {
   UpdateApplicationContextRequest,
   UpdateMcpToolRequest
 } from '../models/assistant-admin.models';
+import {
+  AgentPackage,
+  AgentPackageExport,
+  AgentPackageExportOptions,
+  AgentPackageImport,
+  AgentPackageImportOptions,
+  AgentPackagePreview,
+  AgentPackageUnlink,
+  AgentPackageUnlinkRequest,
+  AgentPackageWarning
+} from '../models/assistant-agent-package.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
 import { AgentHandOffs, AgentShadowVariants, DataHandOff, DataHandOffRequest } from '../models/assistant-hand-off.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
 import { NhAssistantApiService } from './nh-assistant-api.service';
-import { NhAssistantStatusCodes, NhAssistantTransport } from './nh-assistant-transport';
+import { NhAssistantApiError, NhAssistantStatusCodes, NhAssistantTransport, nhAssistantErrorMessageKey, nhAssistantIsSafeCode } from './nh-assistant-transport';
 
 /** In the admin endpoints a 409 means a stale `expectedVersion` or a forbidden state change. */
 const adminStatusCodes: NhAssistantStatusCodes = {
@@ -80,6 +91,9 @@ const maxAccountIds = 50;
 
 /** The longest account id the server reads; a longer id names no account. */
 const maxAccountIdLength = 256;
+
+/** The header of the agent package export that lists the references to agents outside the selection. */
+const packageWarningsHeader = 'X-NewHeap-Package-Warnings';
 
 /**
  * Client for the assistant administration endpoints (`admin/*`). The server requires the
@@ -592,6 +606,62 @@ export class NhAssistantAdminApiService {
     return this.request<AgentShadowVariants>('GET', `${agentPath(agentId)}/shadow-variants`);
   }
 
+  /**
+   * Exports exactly `agentIds` (1 to 20) as one agent package (`POST admin/agent-packages/export`):
+   * agents created here whole, agents in code as an overlay of what data changes on them; never
+   * history, candidates, runs, run state, shadow overrides, MCP servers, the technical account or
+   * secrets. The options set the package id, version and locks; left out, the id of the package the
+   * first agent is linked to and its next version, otherwise the first agent's id and 1. Answers the
+   * package, its JSON exactly as the server wrote it for the download, and every reference to an agent
+   * outside the selection, which must exist where the package is imported. Fails with
+   * `assistant-agent-not-found` for an unknown agent and with field errors for invalid options; the
+   * server audits the export.
+   */
+  exportAgentPackage(agentIds: readonly string[], options: AgentPackageExportOptions = {}): Observable<AgentPackageExport> {
+    return this.transport.file('POST', 'admin/agent-packages/export', { agentIds: [...agentIds], options }, 'application/json', adminStatusCodes).pipe(
+      map(file => {
+        let agentPackage: AgentPackage;
+        try {
+          agentPackage = JSON.parse(file.text) as AgentPackage;
+        } catch {
+          throw new NhAssistantApiError(200, NhAssistantClientErrorCodes.invalidResponse, nhAssistantErrorMessageKey(NhAssistantClientErrorCodes.invalidResponse));
+        }
+
+        return { package: agentPackage, json: file.text, warnings: packageWarnings(file.headers.get(packageWarningsHeader)) };
+      }));
+  }
+
+  /**
+   * What importing the package would do, per agent and part (`POST admin/agent-packages/preview`):
+   * `created`, `changed`, `unchanged`, `kept-local`, `left-behind` or `refused` with the field
+   * errors of the save validators, after one check of the whole package against this host as it would
+   * be after the import. Changes nothing. The server reads the package strictly: a package it does not
+   * read fails with `assistant-package-format-unsupported`, one above 1 MB or 20 agents with
+   * `assistant-package-too-large`.
+   */
+  previewAgentPackageImport(agentPackage: AgentPackage, options: AgentPackageImportOptions = {}): Observable<AgentPackagePreview> {
+    return this.request<AgentPackagePreview>('POST', 'admin/agent-packages/preview', { package: agentPackage, options });
+  }
+
+  /**
+   * Imports the package in one transaction (`POST admin/agent-packages/import`): every agent and part
+   * of it, or nothing. Fails as `previewAgentPackageImport` does, and with `assistant-package-refused`
+   * when the check refuses a part; preview again to see which. Every part is audited as its save.
+   */
+  importAgentPackage(agentPackage: AgentPackage, options: AgentPackageImportOptions = {}): Observable<AgentPackageImport> {
+    return this.request<AgentPackageImport>('POST', 'admin/agent-packages/import', { package: agentPackage, options });
+  }
+
+  /**
+   * Unlinks one part of the agent, or without `part` the whole agent, from its package
+   * (`POST admin/agents/{id}/package/unlink`): its locks no longer hold and the next upgrade keeps it as
+   * `kept-local` unless the import relinks it. Fails with `assistant-package-not-linked` for an agent
+   * or part without a link and with the field error `part: invalid` for an unknown part key.
+   */
+  unlinkAgentPackage(agentId: string, request: AgentPackageUnlinkRequest = {}): Observable<AgentPackageUnlink> {
+    return this.request<AgentPackageUnlink>('POST', `${agentPath(agentId)}/package/unlink`, request);
+  }
+
   private download(path: string): Promise<Blob> {
     return this.transport.download(path, 'application/x-ndjson', adminStatusCodes);
   }
@@ -631,6 +701,39 @@ function handOffPath(agentId: string, subjectType: string): string {
 
 function metadataPath(agentId: string, name: string): string {
   return `${agentPath(agentId)}/metadata/${encodeURIComponent(name)}`;
+}
+
+/**
+ * The references to agents outside an exported selection, from the export's header: a JSON array,
+ * of which only entries with a safe code and string ids are kept. Without the header, none.
+ */
+function packageWarnings(header: string | null): AgentPackageWarning[] {
+  if (!header) {
+    return [];
+  }
+
+  let items: unknown;
+  try {
+    items = JSON.parse(header);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  const warnings: AgentPackageWarning[] = [];
+  for (const item of items) {
+    const record = item && typeof item === 'object' ? item as Record<string, unknown> : null;
+    if (record
+      && typeof record['agentId'] === 'string'
+      && typeof record['part'] === 'string'
+      && typeof record['referencedAgentId'] === 'string'
+      && nhAssistantIsSafeCode(record['code'])) {
+      warnings.push({ agentId: record['agentId'], part: record['part'], code: record['code'], referencedAgentId: record['referencedAgentId'] });
+    }
+  }
+  return warnings;
 }
 
 /** Appends the filter values that are set as query parameters. */
