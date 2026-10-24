@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using Xunit;
@@ -138,6 +139,62 @@ public sealed class AssistantTriggerVersionEndpointTests(AssistantDatabaseFixtur
             await reader.GetAsync($"/api/assistant/admin/agents/{CodeAgent}/triggers/{TriggerId}/versions"),
             HttpStatusCode.Forbidden,
             NhAssistantAdminErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public void Trigger_versions_and_candidates_read_and_write_their_contract()
+    {
+        // The names the administration's models (DataTrigger, DataTriggerRequest, DataTriggerVersion,
+        // TriggerComparison, AgentRun) read and send.
+        var context = NhAssistantAgentRunJsonSerializerContext.Default;
+        var request = JsonSerializer.Deserialize(
+            """{"source":"event","skill":"follow-up","event":"project.changed","conflict":"queue","debounceSeconds":0,"expectedVersion":2,"reason":"Try without the filter","filters":[],"apply":"shadow"}""",
+            context.NhAssistantDataTriggerRequest)!;
+        var live = new NhAssistantDataTriggerDto(
+            TriggerId, "follow-up", "event", "project.changed", null, null, null, null, "queue", 0, false, 2,
+            DateTimeOffset.UnixEpoch, Admin, null, true, null)
+        {
+            Filters = ["not-own-change"],
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            CreatedBy = Admin
+        };
+        var trigger = JsonSerializer.SerializeToElement(
+            live with { Candidate = live with { Version = 3, Shadow = true, Filters = [] } },
+            context.NhAssistantDataTriggerDto);
+        var versions = JsonSerializer.SerializeToElement(
+            new[]
+            {
+                new NhAssistantDataTriggerVersionDto(3, "candidate", "follow-up", "event", "project.changed", [], null, null, null, null, "queue", 0, DateTimeOffset.UnixEpoch, Admin, "Try without the filter")
+            },
+            context.NhAssistantDataTriggerVersionDtoArray);
+        var stats = new NhAssistantSkillVersionStatsDto(2, 1, 1, 0, 0, 0, 0);
+        var comparison = JsonSerializer.SerializeToElement(
+            new NhAssistantTriggerComparisonDto(CodeAgent, TriggerId, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, stats, stats with { Version = 3 }, 1, 0, 1, []),
+            context.NhAssistantTriggerComparisonDto);
+        var run = JsonSerializer.SerializeToElement(
+            new NhAssistantRunDto(
+                Guid.NewGuid(), Guid.NewGuid(), TriggerId, "completed", null, null, null, "agent:project-follower", 1, 1, 0, 0, 0, 0, null, true,
+                DateTimeOffset.UnixEpoch, null, null, null)
+            {
+                TriggerVersion = 3,
+                TriggerCandidate = true
+            },
+            context.NhAssistantRunDto);
+
+        Assert.Equal((NhAssistantSkillApplyModes.Shadow, 2), (request.Apply, request.ExpectedVersion));
+        Assert.Null(JsonSerializer.Deserialize("""{"source":"event"}""", context.NhAssistantDataTriggerRequest)!.Apply);
+        Assert.Equal(
+            ["triggerId", "skillId", "source", "event", "cron", "timeZone", "subjectSet", "message", "conflict", "debounceSeconds", "shadow", "version", "changedAt", "changedBy", "reason", "inEffect", "problem", "filters", "candidate", "createdAt", "createdBy"],
+            trigger.EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal((3, true), (trigger.GetProperty("candidate").GetProperty("version").GetInt32(), trigger.GetProperty("candidate").GetProperty("shadow").GetBoolean()));
+        Assert.Equal(JsonValueKind.Null, trigger.GetProperty("candidate").GetProperty("candidate").ValueKind);
+        Assert.Equal(
+            ["version", "status", "skillId", "source", "event", "filters", "cron", "timeZone", "subjectSet", "message", "conflict", "debounceSeconds", "createdAt", "createdBy", "reason"],
+            versions[0].EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal(
+            ["agentId", "triggerId", "from", "to", "live", "candidate", "pairedEvents", "liveOnlyEvents", "candidateOnlyEvents", "tools"],
+            comparison.EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal((3, true), (run.GetProperty("triggerVersion").GetInt32(), run.GetProperty("triggerCandidate").GetBoolean()));
     }
 
     private static async Task<IReadOnlyList<HttpResponseMessage>> RequestsAsync(HttpClient client)

@@ -117,7 +117,7 @@ public sealed class AssistantConsultationContractTests
     public void Consultations_defined_as_data_read_and_write_their_contract()
     {
         var request = JsonSerializer.Deserialize(
-            """{"description":"Knows drafts.","instructions":"Be brief.","minimumRole":"participant","askerPolicy":"app.projects","routes":["asker-decides","subject-agent-rights"],"proposalRole":"approver","proposalPolicy":"project-review","toolSelectors":["projects.search"],"maxToolCalls":2,"timeoutSeconds":30,"maxAnswerChars":1000,"maxHistoryMessages":5,"allowRequests":true,"exposeToMcp":true,"dataClassification":"confidential","expectedVersion":3,"reason":"Pilot"}""",
+            """{"description":"Knows drafts.","instructions":"Be brief.","minimumRole":"participant","askerPolicy":"app.projects","routes":["asker-decides","subject-agent-rights"],"proposalRole":"approver","proposalPolicy":"project-review","toolSelectors":["projects.search"],"maxToolCalls":2,"timeoutSeconds":30,"maxAnswerChars":1000,"maxHistoryMessages":5,"allowRequests":true,"exposeToMcp":true,"dataClassification":"confidential","startsOff":true,"expectedVersion":3,"reason":"Pilot"}""",
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationRequest)!;
         var consultation = new NhAssistantDataConsultationDto(
             "project",
@@ -151,13 +151,14 @@ public sealed class AssistantConsultationContractTests
             RequestToolId = "assistant.request.project-starter.project",
             AskingAgents = ["project-assistant"],
             CreatedAt = DateTimeOffset.UnixEpoch,
-            CreatedBy = "admin-1"
+            CreatedBy = "admin-1",
+            Off = true
         };
         var configuration = new NhAssistantAgentConfigurationDto("project-starter", [], [], [], [], [], [], "admin", null)
         {
             CodeConsultations = [new NhAssistantCodeConsultationDto("order", "Knows orders.", ["asker-decides"], false, ["local", "agent"]) { ToolSelectors = ["orders.search"] }],
             DataConsultations = [consultation],
-            ConsultationCeiling = new NhAssistantConsultationCeilingDto(["asker-decides"], true, false, 8, 120, 8_000, 40)
+            ConsultationCeiling = new NhAssistantConsultationCeilingDto(["asker-decides"], true, false, 8, 120, 8_000, 40) { StartsOff = true }
         };
 
         var json = JsonSerializer.SerializeToElement(configuration, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentConfigurationDto);
@@ -169,13 +170,18 @@ public sealed class AssistantConsultationContractTests
         Assert.Equal((2, 30, 1_000, 5, true, true, 3), (request.MaxToolCalls, request.TimeoutSeconds, request.MaxAnswerChars, request.MaxHistoryMessages, request.AllowRequests, request.ExposeToMcp, request.ExpectedVersion));
         Assert.Equal(("participant", "approver", "app.projects", "project-review", "confidential"), (request.MinimumRole, request.ProposalRole, request.AskerPolicy, request.ProposalPolicy, request.DataClassification));
         Assert.Equal(["projects.search"], request.ToolSelectors);
+        Assert.True(request.StartsOff);
+        // Omitted, a new consultation starts on, as before.
+        Assert.False(JsonSerializer.Deserialize("""{"description":"Knows drafts."}""", NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationRequest)!.StartsOff);
         var data = json.GetProperty("dataConsultations")[0];
         Assert.Equal(
-            ["subjectType", "version", "description", "instructions", "instructionsHash", "minimumRole", "askerPolicy", "routes", "proposalRole", "proposalPolicy", "maxToolCalls", "timeoutSeconds", "maxAnswerChars", "maxHistoryMessages", "allowRequests", "exposeToMcp", "dataClassification", "changedAt", "changedBy", "reason", "inEffect", "problem", "problems", "routesInEffect", "toolSelectors", "toolSelectorsInEffect", "consultToolId", "requestToolId", "askingAgents", "createdAt", "createdBy"],
+            ["subjectType", "version", "description", "instructions", "instructionsHash", "minimumRole", "askerPolicy", "routes", "proposalRole", "proposalPolicy", "maxToolCalls", "timeoutSeconds", "maxAnswerChars", "maxHistoryMessages", "allowRequests", "exposeToMcp", "dataClassification", "changedAt", "changedBy", "reason", "inEffect", "problem", "problems", "routesInEffect", "toolSelectors", "toolSelectorsInEffect", "consultToolId", "requestToolId", "askingAgents", "createdAt", "createdBy", "off"],
             data.EnumerateObject().Select(property => property.Name).ToArray());
         Assert.Equal("agent-has-no-rights", data.GetProperty("problems")[0].GetString());
         Assert.Equal("orders.*", data.GetProperty("toolSelectors")[1].GetString());
         Assert.Equal(1, data.GetProperty("toolSelectorsInEffect").GetArrayLength());
+        Assert.True(data.GetProperty("off").GetBoolean());
+        Assert.False(JsonSerializer.SerializeToElement(consultation with { Off = false }, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantDataConsultationDto).GetProperty("off").GetBoolean());
         var code = json.GetProperty("codeConsultations")[0];
         Assert.Equal(
             ["subjectType", "description", "allowedRoutes", "allowRequests", "exposure", "consultToolId", "requestToolId", "askingAgents", "toolSelectors"],
@@ -187,9 +193,10 @@ public sealed class AssistantConsultationContractTests
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantCodeConsultationDto);
         Assert.Equal(JsonValueKind.Null, unselected.GetProperty("toolSelectors").ValueKind);
         Assert.Equal(
-            ["routes", "allowRequests", "allowMcp", "maxToolCalls", "maxTimeoutSeconds", "maxAnswerChars", "maxHistoryMessages", "maxConsultations", "maxInstructionsLength"],
+            ["routes", "allowRequests", "allowMcp", "maxToolCalls", "maxTimeoutSeconds", "maxAnswerChars", "maxHistoryMessages", "maxConsultations", "maxInstructionsLength", "startsOff"],
             json.GetProperty("consultationCeiling").EnumerateObject().Select(property => property.Name).ToArray());
         Assert.Equal(20, catalog.GetProperty("consultationCeiling").GetProperty("maxConsultations").GetInt32());
+        Assert.True(catalog.GetProperty("consultationCeiling").GetProperty("startsOff").GetBoolean());
     }
 
     [Fact]
@@ -212,5 +219,19 @@ public sealed class AssistantConsultationContractTests
         Assert.Equal(NhAssistantRouteSwitches.On, request.AskerDecides);
         Assert.Equal(NhAssistantRouteSwitches.Off, request.SubjectAgentRights);
         Assert.Equal(NhAssistantRouteSwitches.Code, request.SubjectAskerRights);
+    }
+
+    [Fact]
+    public void Switching_a_consultation_defined_as_data_on_or_off_reads_its_state_and_reason()
+    {
+        var off = JsonSerializer.Deserialize(
+            """{"state":"off","reason":"Review first"}""",
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantConsultationStateRequest)!;
+        var on = JsonSerializer.Deserialize(
+            """{"state":"on"}""",
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantConsultationStateRequest)!;
+
+        Assert.Equal((NhAssistantConsultationStates.Off, "Review first"), (off.State, off.Reason));
+        Assert.Equal((NhAssistantConsultationStates.On, (string?)null), (on.State, on.Reason));
     }
 }
