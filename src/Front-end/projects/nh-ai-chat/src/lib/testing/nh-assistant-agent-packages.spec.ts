@@ -242,16 +242,20 @@ describe('Agent packages in the mock API', () => {
     const refused = await call('POST', 'admin/agent-packages/import', { package: broken, options: { serviceAccounts: { 'intake-desk': 'ops' } } });
     expect(refused.status).toBe(409);
     expect(refused.body.code).toBe('assistant-package-refused');
+    // The refusal names one plain field; the preview says why each part was refused.
+    expect(refused.body.errors).toEqual({ parts: ['invalid'] });
+    const preview = (await call('POST', 'admin/agent-packages/preview', { package: broken, options: { serviceAccounts: { 'intake-desk': 'ops' } } })).body as AgentPackagePreview;
     // The trigger that names the refused skill is refused with it.
-    expect(refused.body.errors).toEqual({
-      'intake-desk/skill:intake/approvalPolicy': ['not-found'],
-      'intake-desk/trigger:intake-created/skill': ['not-found']
-    });
+    expect(preview.parts.filter(part => part.outcome === 'refused').map(part => [part.part, part.errors])).toEqual([
+      ['skill:intake', { approvalPolicy: ['not-found'] }],
+      ['trigger:intake-created', { skill: ['not-found'] }]
+    ]);
     expect(((await call('GET', 'admin/agents')).body as AdminAgent[]).map(agent => agent.id)).toEqual(['planner']);
 
     const api = TestBed.inject(NhAssistantAdminApiService);
     const failure = await firstValueFrom(api.importAgentPackage(broken, { serviceAccounts: { 'intake-desk': 'ops' } })).catch((error: unknown) => error);
     expect((failure as NhAssistantApiError).code).toBe('assistant-package-refused');
+    expect((failure as NhAssistantApiError).fieldErrors).toEqual({ parts: ['invalid'] });
   });
 
   it('refuses a change of a locked field in every save path and a removal of a locked part, and lets operations and unlocked fields change', async () => {
