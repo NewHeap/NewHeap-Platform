@@ -13,6 +13,9 @@ import {
   ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView } from '../agent-packages/package-parts';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -50,7 +53,14 @@ const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'
 @Component({
   selector: 'nh-assistant-trigger-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPickerComponent,
+    NhAssistantPackageLockComponent,
+    NhAssistantPackageLockedMarkComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-trigger-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -70,6 +80,8 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
   /** The trigger to change; `null` adds one. */
   readonly trigger = input<DataTrigger | null>(null);
   readonly takenIds = input<readonly string[]>([]);
+  /** What the trigger's agent package locks (part `trigger:{id}`); `null` without a link. */
+  override readonly lock = input<PackageLockView | null>(null);
   readonly saved = output<{ trigger: DataTrigger; added: boolean; candidate: boolean }>();
   readonly cancelled = output<void>();
 

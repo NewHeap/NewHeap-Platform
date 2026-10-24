@@ -6,6 +6,10 @@
       {{ 'nh-assistant.admin.agent-editor.new-title' | translate }}
     }
   </h3>
+  @if (agent(); as current) {
+    <!-- Fields the agent's package locks show read-only below; unlinking makes them change here. -->
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="current.id" part="agent" (unlinked)="onUnlinked()" />
+  }
 
   <div class="grid">
     <div class="field">
@@ -28,10 +32,11 @@
     </div>
 
     <div class="field">
-      <label [for]="id + '-name'">{{ 'nh-assistant.admin.agent-editor.display-name' | translate }}</label>
+      <label [for]="id + '-name'">{{ 'nh-assistant.admin.agent-editor.display-name' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('displayName')" /></label>
       <input
         type="text"
         [id]="id + '-name'"
+        [disabled]="locked('displayName')"
         [value]="displayName()"
         [attr.aria-invalid]="submitted() && nameMissing() ? true : null"
         [attr.aria-describedby]="id + '-name-hint'"
@@ -45,8 +50,8 @@
   </div>
 
   @if (choosesUse()) {
-    <fieldset class="subsection" data-agent-use>
-      <legend>{{ 'nh-assistant.admin.agent-editor.use.title' | translate }}</legend>
+    <fieldset class="subsection" data-agent-use [disabled]="locked('offeredInChat')">
+      <legend>{{ 'nh-assistant.admin.agent-editor.use.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('offeredInChat')" /></legend>
       <div class="uses">
         @for (option of uses; track option) {
           <label class="use" [class.selected]="use() === option">
@@ -91,9 +96,10 @@
       <fieldset
         class="subsection"
         data-works-on
+        [disabled]="locked('worksOn')"
         [attr.aria-describedby]="id + '-works-on-hint ' + id + '-works-on-error'"
         [attr.aria-invalid]="(submitted() && worksOnMissing()) || fieldError('worksOn') ? true : null">
-        <legend>{{ 'nh-assistant.admin.agent-editor.works-on.title' | translate }}</legend>
+        <legend>{{ 'nh-assistant.admin.agent-editor.works-on.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('worksOn')" /></legend>
         <p class="muted" [id]="id + '-works-on-hint'">{{ 'nh-assistant.admin.agent-editor.works-on.hint' | translate }}</p>
         <div class="uses">
           <label class="use" [class.selected]="worksOnScope() === 'all'">
@@ -251,42 +257,45 @@
   }
 
   <div class="field">
-    <label [for]="id + '-description'">{{ 'nh-assistant.admin.agent-editor.description' | translate }}</label>
-    <input type="text" [id]="id + '-description'" [value]="description()" (input)="description.set(value($event))" />
+    <label [for]="id + '-description'">{{ 'nh-assistant.admin.agent-editor.description' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('description')" /></label>
+    <input type="text" [id]="id + '-description'" [disabled]="locked('description')" [value]="description()" (input)="description.set(value($event))" />
   </div>
 
-  @if (choosesUse()) {
-    <nh-assistant-instructions-asset
-      [idPrefix]="id + '-instructions'"
-      [available]="assetsAvailable()"
-      [(source)]="instructionsSource"
-      [(reference)]="instructionsAsset"
-      [problem]="assetProblem()"
-      [error]="assetError()" />
-  }
-  @if (instructionsSource() === 'inline') {
-    <div class="field">
-      <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}</label>
-      <textarea
-        rows="8"
-        [id]="id + '-instructions'"
-        [value]="instructions()"
-        [attr.aria-describedby]="id + '-instructions-hint'"
-        [attr.aria-invalid]="tooLong() ? true : null"
-        (input)="instructions.set(value($event))"></textarea>
-      <p class="hint" [id]="id + '-instructions-hint'">
-        <span [class.error-text]="tooLong()">
-          {{ (tooLong() ? 'nh-assistant.admin.too-long' : 'nh-assistant.admin.agent-editor.instructions-hint') | translate }}
-        </span>
-        <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: max } }}</span>
-      </p>
-    </div>
-  }
+  <!-- The instructions, from text or an asset, lock together. -->
+  <fieldset class="stack" data-agent-instructions [disabled]="locked('instructions')">
+    @if (choosesUse()) {
+      <nh-assistant-instructions-asset
+        [idPrefix]="id + '-instructions'"
+        [available]="assetsAvailable()"
+        [(source)]="instructionsSource"
+        [(reference)]="instructionsAsset"
+        [problem]="assetProblem()"
+        [error]="assetError()" />
+    }
+    @if (instructionsSource() === 'inline') {
+      <div class="field">
+        <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('instructions')" /></label>
+        <textarea
+          rows="8"
+          [id]="id + '-instructions'"
+          [value]="instructions()"
+          [attr.aria-describedby]="id + '-instructions-hint'"
+          [attr.aria-invalid]="tooLong() ? true : null"
+          (input)="instructions.set(value($event))"></textarea>
+        <p class="hint" [id]="id + '-instructions-hint'">
+          <span [class.error-text]="tooLong()">
+            {{ (tooLong() ? 'nh-assistant.admin.too-long' : 'nh-assistant.admin.agent-editor.instructions-hint') | translate }}
+          </span>
+          <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: max } }}</span>
+        </p>
+      </div>
+    }
+  </fieldset>
 
   <div class="grid">
     <div class="field">
-      <label [for]="id + '-autonomy'">{{ 'nh-assistant.admin.agent-editor.autonomy' | translate }}</label>
-      <select [id]="id + '-autonomy'" [attr.aria-describedby]="id + '-autonomy-hint'" (change)="autonomy.set($any(value($event)))">
+      <label [for]="id + '-autonomy'">{{ 'nh-assistant.admin.agent-editor.autonomy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('autonomy')" /></label>
+      <select [id]="id + '-autonomy'" [disabled]="locked('autonomy')" [attr.aria-describedby]="id + '-autonomy-hint'" (change)="autonomy.set($any(value($event)))">
         @for (level of autonomyLevels; track level) {
           <option [value]="level" [selected]="autonomy() === level">{{ 'nh-assistant.admin.agents.autonomy.' + level | translate }}</option>
         }
@@ -295,12 +304,13 @@
     </div>
 
     <div class="field">
-      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.agent-editor.required-policy' | translate }}</label>
+      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.agent-editor.required-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('requiredPolicy')" /></label>
       <input
         type="text"
         class="mono"
         autocomplete="off"
         [id]="id + '-policy'"
+        [disabled]="locked('requiredPolicy')"
         [value]="requiredPolicy()"
         [attr.aria-describedby]="id + '-policy-hint'"
         (input)="requiredPolicy.set(value($event))" />
@@ -309,9 +319,10 @@
 
     @if (choosesProfile()) {
       <div class="field" data-agent-profile>
-        <label [for]="id + '-profile'">{{ 'nh-assistant.admin.agent-editor.profile' | translate }}</label>
+        <label [for]="id + '-profile'">{{ 'nh-assistant.admin.agent-editor.profile' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('profile')" /></label>
         <select
           [id]="id + '-profile'"
+          [disabled]="locked('profile')"
           [attr.aria-describedby]="id + '-profile-hint' + (fieldError('profile') ? ' ' + id + '-profile-error' : '')"
           [attr.aria-invalid]="fieldError('profile') ? true : null"
           (change)="profile.set(value($event))">
@@ -331,9 +342,10 @@
 
     @if (choosesUse()) {
       <div class="field" data-agent-classification>
-        <label [for]="id + '-classification'">{{ 'nh-assistant.admin.agent-editor.classification' | translate }}</label>
+        <label [for]="id + '-classification'">{{ 'nh-assistant.admin.agent-editor.classification' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dataClassification')" /></label>
         <select
           [id]="id + '-classification'"
+          [disabled]="locked('dataClassification')"
           [attr.aria-describedby]="id + '-classification-hint' + (fieldError('dataClassification') ? ' ' + id + '-classification-error' : '')"
           [attr.aria-invalid]="fieldError('dataClassification') ? true : null"
           (change)="dataClassification.set($any(value($event)))">
@@ -358,8 +370,8 @@
 
   <p class="hint">{{ 'nh-assistant.admin.agent-editor.state-hint' | translate }}</p>
 
-  <fieldset class="subsection">
-    <legend>{{ 'nh-assistant.admin.agent-editor.tool-selectors' | translate }}</legend>
+  <fieldset class="subsection" data-agent-tool-selectors [disabled]="locked('toolSelectors')">
+    <legend>{{ 'nh-assistant.admin.agent-editor.tool-selectors' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('toolSelectors')" /></legend>
     <p class="muted">{{ 'nh-assistant.admin.agent-editor.tool-selectors-hint' | translate }}</p>
 
     @if (toolSelectors().length === 0) {

@@ -26,6 +26,8 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { isPackageFieldLocked, packageLockOf } from '../agent-packages/package-parts';
 import {
   NH_ASSISTANT_AGENT_METADATA_EDITORS,
   NhAssistantAgentMetadataSlot,
@@ -44,7 +46,9 @@ class NhAssistantAgentMetadataSlotRef extends NhAssistantAgentMetadataSlot {
   readonly saving = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
   readonly status = signal<NhAssistantAgentMetadataStatus | null>(null);
-  readonly readOnly = computed(() => !this.entry().editable);
+  /** The lock of the entry's package link (part `metadata:{name}`); `null` without one. */
+  readonly lock = computed(() => packageLockOf(this.entry().package));
+  readonly readOnly = computed(() => !this.entry().editable || isPackageFieldLocked(this.lock(), 'value'));
 
   constructor(
     readonly agentId: string,
@@ -122,12 +126,13 @@ interface NhAssistantAgentMetadataSlotView {
  * `NhAssistantAgentMetadataSlot`. The frame names the entry, says where its value comes from, marks
  * an entry of an agent in code that only code changes, and shows what a save did. A change of an
  * agent created here is its next version: `agentVersionChanged` tells the agent editor. A new agent
- * shows its entries once it is saved.
+ * shows its entries once it is saved. An entry the agent's package locks is read-only for its editor,
+ * with the package's id and version and "Unlink".
  */
 @Component({
   selector: 'nh-assistant-agent-metadata',
   standalone: true,
-  imports: [NgComponentOutlet, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [NgComponentOutlet, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPackageLockComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-metadata.component.html',
   styleUrl: '../../nh-assistant-admin-shared.scss',

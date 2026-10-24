@@ -6,6 +6,9 @@
       {{ 'nh-assistant.admin.run-config.triggers.new-title' | translate }}
     }
   </h5>
+  @if (trigger(); as current) {
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" [part]="'trigger:' + current.triggerId" [unlinkable]="false" />
+  }
 
   @if (!editing()) {
     <div class="field">
@@ -22,17 +25,17 @@
   }
 
   <fieldset class="group">
-    <legend>{{ 'nh-assistant.admin.run-config.triggers.when.title' | translate }}</legend>
+    <legend>{{ 'nh-assistant.admin.run-config.triggers.when.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('source')" /></legend>
     <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.triggers.when.title' | translate">
       <label class="choice" [class.selected]="source() === 'event'">
-        <input type="radio" [name]="id + '-source'" value="event" [checked]="source() === 'event'" (change)="setSource('event')" />
+        <input type="radio" [name]="id + '-source'" value="event" [disabled]="locked('source')" [checked]="source() === 'event'" (change)="setSource('event')" />
         <span>
           <strong>{{ 'nh-assistant.admin.run-config.triggers.source-event' | translate }}</strong>
           <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.source-event-hint' | translate }}</span>
         </span>
       </label>
       <label class="choice" [class.selected]="source() === 'schedule'">
-        <input type="radio" [name]="id + '-source'" value="schedule" [checked]="source() === 'schedule'" (change)="setSource('schedule')" />
+        <input type="radio" [name]="id + '-source'" value="schedule" [disabled]="locked('source')" [checked]="source() === 'schedule'" (change)="setSource('schedule')" />
         <span>
           <strong>{{ 'nh-assistant.admin.run-config.triggers.source-schedule' | translate }}</strong>
           <span class="muted">{{ (offersApplication() ? 'nh-assistant.admin.run-config.triggers.source-schedule-application-hint' : 'nh-assistant.admin.run-config.triggers.source-schedule-hint') | translate }}</span>
@@ -42,9 +45,10 @@
 
     @if (source() === 'event') {
       <div class="field">
-        <label [for]="id + '-trigger-event'">{{ 'nh-assistant.admin.run-config.triggers.event' | translate }}</label>
+        <label [for]="id + '-trigger-event'">{{ 'nh-assistant.admin.run-config.triggers.event' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('event')" /></label>
         <nh-assistant-picker
           [inputId]="id + '-trigger-event'"
+          [disabled]="locked('event')"
           [options]="events()"
           [value]="event()"
           [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
@@ -56,8 +60,8 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-trigger-debounce'">{{ 'nh-assistant.admin.run-config.triggers.debounce' | translate }}</label>
-        <input type="number" min="0" max="3600" inputmode="numeric" [id]="id + '-trigger-debounce'" [value]="debounce()"
+        <label [for]="id + '-trigger-debounce'">{{ 'nh-assistant.admin.run-config.triggers.debounce' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('debounceSeconds')" /></label>
+        <input type="number" min="0" max="3600" inputmode="numeric" [id]="id + '-trigger-debounce'" [disabled]="locked('debounceSeconds')" [value]="debounce()"
           [attr.aria-invalid]="fieldError('debounceSeconds') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-trigger-debounce-hint', 'debounceSeconds', id + '-trigger-debounce-error')"
           (input)="debounce.set(value($event)); touch('debounceSeconds')" />
@@ -68,8 +72,8 @@
       </div>
       @if (event() !== '') {
         <!-- The filters of the chosen event; each one selected must let an event through. -->
-        <fieldset class="field" data-trigger-filters [attr.aria-describedby]="describedBy(id + '-trigger-filters-hint', 'filters', id + '-trigger-filters-error')">
-          <legend>{{ 'nh-assistant.admin.run-config.triggers.filters.title' | translate }}</legend>
+        <fieldset class="field" data-trigger-filters [disabled]="locked('filters')" [attr.aria-describedby]="describedBy(id + '-trigger-filters-hint', 'filters', id + '-trigger-filters-error')">
+          <legend>{{ 'nh-assistant.admin.run-config.triggers.filters.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('filters')" /></legend>
           <p class="hint" [id]="id + '-trigger-filters-hint'">{{ 'nh-assistant.admin.run-config.triggers.filters.hint' | translate }}</p>
           <!-- In their own block: a label right under the field would take the field's label style. -->
           <div class="checks">
@@ -104,15 +108,15 @@
     } @else {
       <div class="grid">
         <div class="field">
-          <label [for]="id + '-trigger-cron'">{{ 'nh-assistant.admin.run-config.triggers.cron' | translate }}</label>
-          <input type="text" class="mono" autocomplete="off" maxlength="128" [id]="id + '-trigger-cron'" [value]="cron()"
+          <label [for]="id + '-trigger-cron'">{{ 'nh-assistant.admin.run-config.triggers.cron' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('cron')" /></label>
+          <input type="text" class="mono" autocomplete="off" maxlength="128" [id]="id + '-trigger-cron'" [disabled]="locked('cron')" [value]="cron()"
             [attr.aria-invalid]="fieldError('cron') ? true : null"
             [attr.aria-describedby]="describedBy(id + '-trigger-cron-hint', 'cron', id + '-trigger-cron-error')"
             (input)="cron.set(value($event)); touch('cron')" />
           <p class="hint" [id]="id + '-trigger-cron-hint'">{{ 'nh-assistant.admin.run-config.triggers.cron-hint' | translate }}</p>
           <ul class="examples" [attr.aria-label]="'nh-assistant.admin.run-config.triggers.examples' | translate">
             @for (example of examples; track example.cron) {
-              <li><button type="button" (click)="useExample(example.cron)">{{ 'nh-assistant.admin.run-config.triggers.example.' + example.key | translate }}</button></li>
+              <li><button type="button" [disabled]="locked('cron')" (click)="useExample(example.cron)">{{ 'nh-assistant.admin.run-config.triggers.example.' + example.key | translate }}</button></li>
             }
           </ul>
           @if (errorKey('cron'); as key) {
@@ -120,9 +124,10 @@
           }
         </div>
         <div class="field">
-          <label [for]="id + '-trigger-zone'">{{ 'nh-assistant.admin.run-config.triggers.time-zone' | translate }}</label>
+          <label [for]="id + '-trigger-zone'">{{ 'nh-assistant.admin.run-config.triggers.time-zone' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('timeZone')" /></label>
           <nh-assistant-picker
             [inputId]="id + '-trigger-zone'"
+            [disabled]="locked('timeZone')"
             [options]="timeZones"
             [value]="timeZone()"
             [noneLabel]="'UTC'"
@@ -146,14 +151,14 @@
             [attr.aria-invalid]="target() === 'application' && fieldError('subjectSet') ? true : null"
             [attr.aria-describedby]="target() === 'application' ? describedBy(null, 'subjectSet', id + '-trigger-target-error') : null">
             <label class="choice" [class.selected]="target() === 'application'">
-              <input type="radio" [name]="id + '-target'" value="application" [checked]="target() === 'application'" (change)="setTarget('application')" />
+              <input type="radio" [name]="id + '-target'" value="application" [disabled]="locked('subjectSet')" [checked]="target() === 'application'" (change)="setTarget('application')" />
               <span>
                 <strong>{{ 'nh-assistant.admin.run-config.triggers.target.application' | translate }}</strong>
                 <span class="muted" data-target-hint>{{ (perDivision() ? 'nh-assistant.admin.run-config.triggers.target.application-per-division-hint' : 'nh-assistant.admin.run-config.triggers.target.application-hint') | translate }}</span>
               </span>
             </label>
             <label class="choice" [class.selected]="target() === 'set'">
-              <input type="radio" [name]="id + '-target'" value="set" [checked]="target() === 'set'" (change)="setTarget('set')" />
+              <input type="radio" [name]="id + '-target'" value="set" [disabled]="locked('subjectSet')" [checked]="target() === 'set'" (change)="setTarget('set')" />
               <span>
                 <strong>{{ 'nh-assistant.admin.run-config.triggers.target.set' | translate }}</strong>
                 <span class="muted">{{ 'nh-assistant.admin.run-config.triggers.target.set-hint' | translate }}</span>
@@ -167,9 +172,10 @@
       }
       @if (target() === 'set') {
         <div class="field">
-          <label [for]="id + '-trigger-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
+          <label [for]="id + '-trigger-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('subjectSet')" /></label>
           <nh-assistant-picker
             [inputId]="id + '-trigger-set'"
+            [disabled]="locked('subjectSet')"
             [options]="subjectSets()"
             [value]="subjectSet()"
             [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
@@ -185,8 +191,8 @@
         </div>
       }
       <div class="field">
-        <label [for]="id + '-trigger-message'">{{ 'nh-assistant.admin.run-config.triggers.message' | translate }}</label>
-        <textarea rows="2" [id]="id + '-trigger-message'" [value]="message()"
+        <label [for]="id + '-trigger-message'">{{ 'nh-assistant.admin.run-config.triggers.message' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('message')" /></label>
+        <textarea rows="2" [id]="id + '-trigger-message'" [disabled]="locked('message')" [value]="message()"
           [attr.aria-invalid]="fieldError('message') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-trigger-message-hint', 'message', id + '-trigger-message-error')"
           (input)="message.set(value($event)); touch('message')"></textarea>
@@ -202,9 +208,10 @@
     <legend>{{ 'nh-assistant.admin.run-config.triggers.then.title' | translate }}</legend>
     <div class="grid">
       <div class="field">
-        <label [for]="id + '-trigger-skill'">{{ 'nh-assistant.admin.run-config.triggers.skill' | translate }}</label>
+        <label [for]="id + '-trigger-skill'">{{ 'nh-assistant.admin.run-config.triggers.skill' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('skill')" /></label>
         <nh-assistant-picker
           [inputId]="id + '-trigger-skill'"
+          [disabled]="locked('skill')"
           [options]="skills()"
           [value]="skill()"
           [noneLabel]="'nh-assistant.admin.run-config.triggers.agent-routes' | translate"
@@ -216,9 +223,10 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-trigger-conflict'">{{ 'nh-assistant.admin.run-config.triggers.conflict' | translate }}</label>
+        <label [for]="id + '-trigger-conflict'">{{ 'nh-assistant.admin.run-config.triggers.conflict' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('conflict')" /></label>
         <nh-assistant-picker
           [inputId]="id + '-trigger-conflict'"
+          [disabled]="locked('conflict')"
           [options]="conflictOptions()"
           [value]="conflict()"
           [invalid]="fieldError('conflict') !== null"

@@ -9,6 +9,9 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView } from '../agent-packages/package-parts';
 import { RunConfigForm } from './run-config-form';
 import { RunConfigErrors, blank, checkWhole, numberText, runConfigLimits, toNumber } from './run-config-shared';
 
@@ -36,7 +39,7 @@ export interface HandOffSourceOption {
 @Component({
   selector: 'nh-assistant-hand-off-form',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPackageLockComponent, NhAssistantPackageLockedMarkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-hand-off-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -53,6 +56,8 @@ export class NhAssistantHandOffFormComponent extends RunConfigForm implements On
   readonly agentNames = input<ReadonlyMap<string, string>>(new Map());
   /** The hand-off to change; `null` adds one. */
   readonly handOff = input<DataHandOff | null>(null);
+  /** What the hand-off's agent package locks (part `handOff:{subjectType}`); `null` without a link. */
+  override readonly lock = input<PackageLockView | null>(null);
   readonly saved = output<HandOffFormSaved>();
   readonly cancelled = output<void>();
 

@@ -1,4 +1,4 @@
-import { DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
+import { DestroyRef, ElementRef, Injector, Signal, afterNextRender, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
 import { Observable, Subscription, map, startWith } from 'rxjs';
@@ -7,12 +7,14 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { PackageLockView, isPackageFieldLocked } from '../agent-packages/package-parts';
 import { RunConfigErrors, RunConfigFieldError, fieldErrorKey, focusFirstInvalid, serverFieldErrors } from './run-config-shared';
 
 /**
  * What the run configuration forms share: errors checked before sending and those the server
  * returns, each shown at its field, a form-level error next to the actions, and the focus on the
- * first invalid field after a refused save.
+ * first invalid field after a refused save. A field the part's agent package locks shows read-only with
+ * the package's lock next to its label.
  */
 export abstract class RunConfigForm {
   protected readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -35,6 +37,12 @@ export abstract class RunConfigForm {
   /** The fields this form shows; server errors of other fields are listed with the form's error. */
   protected abstract readonly fields: readonly string[];
 
+  /**
+   * What the part's agent package locks, by the lockable fields of its kind; `null` without a link. A
+   * form of a linked part overrides it with an input.
+   */
+  readonly lock: Signal<PackageLockView | null> = signal(null);
+
   readonly fieldErrors = computed<RunConfigErrors>(() => {
     const cleared = this.cleared();
     const server = Object.fromEntries(Object.entries(this.mapServerErrors(serverFieldErrors(this.serverError())))
@@ -50,6 +58,16 @@ export abstract class RunConfigForm {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+  }
+
+  /** Whether the part's package locks a field, which then shows read-only and keeps its value. */
+  locked(field: string): boolean {
+    return isPackageFieldLocked(this.lock(), field);
+  }
+
+  /** The lock the mark next to a field's label shows; `null` for a field that changes here. */
+  lockOf(field: string): PackageLockView | null {
+    return this.locked(field) ? this.lock() : null;
   }
 
   fieldError(field: string): RunConfigFieldError | null {

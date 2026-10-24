@@ -13,6 +13,9 @@ import {
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
+import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
+import { PackageLockView } from '../agent-packages/package-parts';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
 import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './nh-assistant-instructions-asset.component';
 import { RunConfigForm } from './run-config-form';
@@ -50,7 +53,7 @@ export interface SkillFormSaved {
 /**
  * Adds or changes a skill defined as data: what it is for, how it works (fixed rules or the model,
  * with instructions), its tools within the agent's own, and its approval and limits. A change is
- * evaluated in shadow by default.
+ * evaluated in shadow by default. Fields the skill's agent package locks show read-only.
  */
 @Component({
   selector: 'nh-assistant-skill-form',
@@ -61,7 +64,9 @@ export interface SkillFormSaved {
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
     NhAssistantFileLimitsFieldsComponent,
-    NhAssistantInstructionsAssetComponent
+    NhAssistantInstructionsAssetComponent,
+    NhAssistantPackageLockComponent,
+    NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-skill-form.component.html',
@@ -81,6 +86,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
   readonly skill = input<DataSkill | null>(null);
   /** Skill ids in use, to refuse a duplicate before sending. */
   readonly takenIds = input<readonly string[]>([]);
+  /** What the skill's agent package locks (part `skill:{id}`); `null` without a link. */
+  override readonly lock = input<PackageLockView | null>(null);
   readonly saved = output<SkillFormSaved>();
   readonly cancelled = output<void>();
 

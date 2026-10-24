@@ -11,6 +11,9 @@
         } @else if (part() !== null) {
           {{ 'nh-assistant.admin.packages.lock.nothing-locked' | translate }}
         }
+        @if (current.changedLocally) {
+          <span class="badge warning" data-lock-changed-locally [attr.title]="'nh-assistant.admin.packages.changed-locally-hint' | translate">{{ 'nh-assistant.admin.packages.changed-locally' | translate }}</span>
+        }
       </span>
       @if (unlinkable() && !asking()) {
         <button class="secondary" type="button" data-unlink [attr.aria-expanded]="asking()" (click)="ask()">

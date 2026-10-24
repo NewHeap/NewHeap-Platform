@@ -6,6 +6,9 @@
       {{ 'nh-assistant.admin.run-config.skills.new-title' | translate }}
     }
   </h5>
+  @if (skill(); as current) {
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" [part]="'skill:' + current.skillId" [unlinkable]="false" />
+  }
 
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.skills.what.title' | translate }}</legend>
@@ -23,8 +26,8 @@
       </div>
     }
     <div class="field">
-      <label [for]="id + '-skill-description'">{{ 'nh-assistant.admin.run-config.skills.description-label' | translate }}</label>
-      <input type="text" [id]="id + '-skill-description'" [value]="description()"
+      <label [for]="id + '-skill-description'">{{ 'nh-assistant.admin.run-config.skills.description-label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('description')" /></label>
+      <input type="text" [id]="id + '-skill-description'" [disabled]="locked('description')" [value]="description()"
         [attr.aria-invalid]="fieldError('description') ? true : null"
         [attr.aria-describedby]="describedBy(id + '-skill-description-hint', 'description', id + '-skill-description-error')"
         (input)="description.set(value($event)); touch('description')" />
@@ -41,9 +44,10 @@
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.skills.how.title' | translate }}</legend>
     <div class="field">
-      <label [for]="id + '-skill-rules'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</label>
+      <label [for]="id + '-skill-rules'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('ruleHandler')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-skill-rules'"
+        [disabled]="locked('ruleHandler')"
         [options]="rules()"
         [value]="ruleHandler()"
         [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
@@ -57,32 +61,34 @@
         <p class="field-error" [id]="id + '-skill-rules-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
       }
     </div>
-    <nh-assistant-instructions-asset
-      [idPrefix]="id + '-skill-instructions'"
-      [available]="assetsAvailable()"
-      [(source)]="instructionsSource"
-      [(reference)]="instructionsAsset"
-      [problem]="assetProblem()"
-      [error]="fieldError('instructionsAsset')"
-      (touched)="touch('instructionsAsset'); touch('instructions')" />
-    @if (instructionsSource() === 'inline') {
-      <div class="field">
-        <label [for]="id + '-skill-instructions'">{{ 'nh-assistant.admin.run-config.skills.instructions' | translate }}</label>
-        <textarea rows="5" [id]="id + '-skill-instructions'" [value]="instructions()"
-          [attr.aria-invalid]="fieldError('instructions') ? true : null"
-          [attr.aria-describedby]="describedBy(id + '-skill-instructions-hint', 'instructions', id + '-skill-instructions-error')"
-          (input)="instructions.set(value($event)); touch('instructions')"></textarea>
-        <p class="hint" [id]="id + '-skill-instructions-hint'">
-          <span>{{ 'nh-assistant.admin.run-config.skills.instructions-hint' | translate }} {{ 'nh-assistant.admin.run-config.skills.background-hint' | translate }}</span>
-          <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
-        </p>
-        @if (errorKey('instructions'); as key) {
-          <p class="field-error" [id]="id + '-skill-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
-        }
-      </div>
-    }
-    <fieldset class="field" [attr.aria-describedby]="id + '-tools-hint'">
-      <legend>{{ 'nh-assistant.admin.run-config.skills.tools' | translate }}</legend>
+    <fieldset class="stack" data-locked-scope="instructions" [disabled]="locked('instructions')">
+      <nh-assistant-instructions-asset
+        [idPrefix]="id + '-skill-instructions'"
+        [available]="assetsAvailable()"
+        [(source)]="instructionsSource"
+        [(reference)]="instructionsAsset"
+        [problem]="assetProblem()"
+        [error]="fieldError('instructionsAsset')"
+        (touched)="touch('instructionsAsset'); touch('instructions')" />
+      @if (instructionsSource() === 'inline') {
+        <div class="field">
+          <label [for]="id + '-skill-instructions'">{{ 'nh-assistant.admin.run-config.skills.instructions' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('instructions')" /></label>
+          <textarea rows="5" [id]="id + '-skill-instructions'" [value]="instructions()"
+            [attr.aria-invalid]="fieldError('instructions') ? true : null"
+            [attr.aria-describedby]="describedBy(id + '-skill-instructions-hint', 'instructions', id + '-skill-instructions-error')"
+            (input)="instructions.set(value($event)); touch('instructions')"></textarea>
+          <p class="hint" [id]="id + '-skill-instructions-hint'">
+            <span>{{ 'nh-assistant.admin.run-config.skills.instructions-hint' | translate }} {{ 'nh-assistant.admin.run-config.skills.background-hint' | translate }}</span>
+            <span class="counter" [class.error-text]="instructions().length > maxInstructions">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: maxInstructions } }}</span>
+          </p>
+          @if (errorKey('instructions'); as key) {
+            <p class="field-error" [id]="id + '-skill-instructions-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('instructions')?.params }}</p>
+          }
+        </div>
+      }
+    </fieldset>
+    <fieldset class="field" [disabled]="locked('tools')" [attr.aria-describedby]="id + '-tools-hint'">
+      <legend>{{ 'nh-assistant.admin.run-config.skills.tools' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('tools')" /></legend>
       <p class="hint" [id]="id + '-tools-hint'">{{ 'nh-assistant.admin.run-config.skills.tools-hint' | translate }}</p>
       @for (choice of toolChoices(); track choice.selector) {
         <label class="check">
@@ -104,9 +110,10 @@
       }
     </fieldset>
     <div class="field">
-      <label [for]="id + '-skill-profile'">{{ 'nh-assistant.admin.run-config.skills.profile' | translate }}</label>
+      <label [for]="id + '-skill-profile'">{{ 'nh-assistant.admin.run-config.skills.profile' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('profile')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-skill-profile'"
+        [disabled]="locked('profile')"
         [options]="profiles()"
         [value]="profile()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.agent-profile' | translate"
@@ -119,9 +126,10 @@
       }
     </div>
     <div class="field" data-classification>
-      <label [for]="id + '-skill-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}</label>
+      <label [for]="id + '-skill-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dataClassification')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-skill-classification'"
+        [disabled]="locked('dataClassification')"
         [options]="classifications()"
         [value]="dataClassification()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.classification.agent' | translate"
@@ -138,30 +146,33 @@
         <p class="field-error" [id]="id + '-skill-classification-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dataClassification')?.params }}</p>
       }
     </div>
-    <label class="check" data-accepts-files>
-      <input type="checkbox" [checked]="acceptsFiles()" (change)="acceptsFiles.set(checked($event))" />
-      <span>
-        {{ 'nh-assistant.admin.run-config.files.label' | translate }}
-        <span class="muted block">{{ 'nh-assistant.admin.run-config.files.skill-hint' | translate }}</span>
-      </span>
-    </label>
-    @if (acceptsFiles()) {
-      <nh-assistant-file-limits-fields
-        [draft]="fileLimits"
-        [application]="catalog()?.fileLimits"
-        [errors]="fieldErrors()"
-        [idPrefix]="id"
-        hintKey="nh-assistant.admin.run-config.files.skill-limits-hint"
-        (touched)="touch($event)" />
-    }
+    <fieldset class="stack" data-locked-scope="files" [disabled]="locked('files')">
+      <label class="check" data-accepts-files>
+        <input type="checkbox" [checked]="acceptsFiles()" (change)="acceptsFiles.set(checked($event))" />
+        <span>
+          {{ 'nh-assistant.admin.run-config.files.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('files')" />
+          <span class="muted block">{{ 'nh-assistant.admin.run-config.files.skill-hint' | translate }}</span>
+        </span>
+      </label>
+      @if (acceptsFiles()) {
+        <nh-assistant-file-limits-fields
+          [draft]="fileLimits"
+          [application]="catalog()?.fileLimits"
+          [errors]="fieldErrors()"
+          [idPrefix]="id"
+          hintKey="nh-assistant.admin.run-config.files.skill-limits-hint"
+          (touched)="touch($event)" />
+      }
+    </fieldset>
   </fieldset>
 
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
-      <label [for]="id + '-skill-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
+      <label [for]="id + '-skill-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-skill-policy'"
+        [disabled]="locked('approvalPolicy')"
         [options]="policies()"
         [value]="approvalPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.agent-policy' | translate"
@@ -179,8 +190,8 @@
     <p class="muted" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.budget-hint' | translate }}</p>
     <div class="grid">
       <div class="field">
-        <label [for]="id + '-skill-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-tokens'" [value]="maxTokens()"
+        <label [for]="id + '-skill-tokens'">{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('maxTokensPerRun')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-tokens'" [disabled]="locked('maxTokensPerRun')" [value]="maxTokens()"
           [attr.aria-invalid]="fieldError('maxTokensPerRun') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'maxTokensPerRun', id + '-skill-tokens-error')"
           (input)="maxTokens.set(value($event)); touch('maxTokensPerRun')" />
@@ -189,8 +200,8 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-skill-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-calls'" [value]="dailyToolCalls()"
+        <label [for]="id + '-skill-calls'">{{ 'nh-assistant.admin.run-config.daily-tool-calls' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dailyBudget')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-calls'" [disabled]="locked('dailyBudget')" [value]="dailyToolCalls()"
           [attr.aria-invalid]="fieldError('dailyToolCalls') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyToolCalls', id + '-skill-calls-error')"
           (input)="dailyToolCalls.set(value($event)); touch('dailyToolCalls'); touch('dailyTokens')" />
@@ -199,8 +210,8 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-skill-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}</label>
-        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-daily-tokens'" [value]="dailyTokens()"
+        <label [for]="id + '-skill-daily-tokens'">{{ 'nh-assistant.admin.run-config.daily-tokens' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dailyBudget')" /></label>
+        <input type="number" min="1" inputmode="numeric" [id]="id + '-skill-daily-tokens'" [disabled]="locked('dailyBudget')" [value]="dailyTokens()"
           [attr.aria-invalid]="fieldError('dailyTokens') ? true : null"
           [attr.aria-describedby]="describedBy(id + '-limits-hint', 'dailyTokens', id + '-skill-daily-tokens-error')"
           (input)="dailyTokens.set(value($event)); touch('dailyTokens'); touch('dailyToolCalls')" />

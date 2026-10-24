@@ -6,6 +6,9 @@
       {{ 'nh-assistant.admin.run-config.consultations.form.new-title' | translate }}
     }
   </h5>
+  @if (consultation(); as current) {
+    <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" [part]="'consultation:' + current.subjectType" [unlinkable]="false" />
+  }
 
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.consultations.form.what' | translate }}</legend>
@@ -27,8 +30,8 @@
       </div>
     }
     <div class="field">
-      <label [for]="id + '-description'">{{ 'nh-assistant.admin.run-config.consultations.form.description' | translate }}</label>
-      <textarea rows="2" [id]="id + '-description'" [value]="description()"
+      <label [for]="id + '-description'">{{ 'nh-assistant.admin.run-config.consultations.form.description' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('description')" /></label>
+      <textarea rows="2" [id]="id + '-description'" [disabled]="locked('description')" [value]="description()"
         [attr.aria-invalid]="fieldError('description') ? true : null"
         [attr.aria-describedby]="describedBy(id + '-description-hint', 'description', id + '-description-error')"
         (input)="description.set(value($event)); touch('description')"></textarea>
@@ -41,8 +44,8 @@
       }
     </div>
     <div class="field">
-      <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.run-config.consultations.form.instructions' | translate }}</label>
-      <textarea rows="4" [id]="id + '-instructions'" [value]="instructions()"
+      <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.run-config.consultations.form.instructions' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('instructions')" /></label>
+      <textarea rows="4" [id]="id + '-instructions'" [disabled]="locked('instructions')" [value]="instructions()"
         [attr.aria-invalid]="fieldError('instructions') ? true : null"
         [attr.aria-describedby]="describedBy(id + '-instructions-hint', 'instructions', id + '-instructions-error')"
         (input)="instructions.set(value($event)); touch('instructions')"></textarea>
@@ -59,7 +62,7 @@
   <fieldset class="group" data-consultation-askers>
     <legend>{{ 'nh-assistant.admin.run-config.consultations.form.who' | translate }}</legend>
     <div class="field">
-      <span class="label" [id]="id + '-minimum-role-label'">{{ 'nh-assistant.admin.run-config.consultations.form.minimum-role' | translate }}</span>
+      <span class="label" [id]="id + '-minimum-role-label'">{{ 'nh-assistant.admin.run-config.consultations.form.minimum-role' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('minimumRole')" /></span>
       <div
         class="choices"
         role="radiogroup"
@@ -68,7 +71,7 @@
         [attr.aria-describedby]="describedBy(null, 'minimumRole', id + '-minimum-role-error')">
         @for (role of roles; track role) {
           <label class="choice" [class.selected]="minimumRole() === role">
-            <input type="radio" [name]="id + '-minimum-role'" [value]="role" [checked]="minimumRole() === role" (change)="minimumRole.set(role); touch('minimumRole')" />
+            <input type="radio" [name]="id + '-minimum-role'" [value]="role" [disabled]="locked('minimumRole')" [checked]="minimumRole() === role" (change)="minimumRole.set(role); touch('minimumRole')" />
             <span>
               <strong>{{ 'nh-assistant.admin.run-config.consultations.roles.' + role | translate }}</strong>
               <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.form.role-hint.' + role | translate }}</span>
@@ -81,9 +84,10 @@
       }
     </div>
     <div class="field">
-      <label [for]="id + '-asker-policy'">{{ 'nh-assistant.admin.run-config.consultations.form.asker-policy' | translate }}</label>
+      <label [for]="id + '-asker-policy'">{{ 'nh-assistant.admin.run-config.consultations.form.asker-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('askerPolicy')" /></label>
       <nh-assistant-picker
         [inputId]="id + '-asker-policy'"
+        [disabled]="locked('askerPolicy')"
         [options]="askerPolicies()"
         [value]="askerPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.consultations.form.asker-policy-agent' | translate"
@@ -98,17 +102,17 @@
   </fieldset>
 
   <fieldset class="group" data-consultation-proposals>
-    <legend>{{ 'nh-assistant.admin.run-config.consultations.form.do' | translate }}</legend>
+    <legend>{{ 'nh-assistant.admin.run-config.consultations.form.do' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('routes')" /></legend>
     <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.consultations.form.do' | translate">
       <label class="choice" [class.selected]="mode() === 'answer'">
-        <input type="radio" [name]="id + '-mode'" value="answer" [checked]="mode() === 'answer'" (change)="setMode('answer')" />
+        <input type="radio" [name]="id + '-mode'" value="answer" [disabled]="locked('routes')" [checked]="mode() === 'answer'" (change)="setMode('answer')" />
         <span>
           <strong>{{ 'nh-assistant.admin.run-config.consultations.form.answer' | translate }}</strong>
           <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.form.answer-hint' | translate }}</span>
         </span>
       </label>
       <label class="choice" [class.selected]="mode() === 'propose'">
-        <input type="radio" [name]="id + '-mode'" value="propose" data-mode="propose" [checked]="mode() === 'propose'" [disabled]="!mayPropose()"
+        <input type="radio" [name]="id + '-mode'" value="propose" data-mode="propose" [checked]="mode() === 'propose'" [disabled]="!mayPropose() || locked('routes')"
           [attr.aria-describedby]="mayPropose() ? null : id + '-propose-closed'" (change)="setMode('propose')" />
         <span>
           <strong>{{ 'nh-assistant.admin.run-config.consultations.form.propose' | translate }}</strong>
@@ -122,7 +126,7 @@
 
     @if (mode() === 'propose') {
       <!-- The routes as explained choices; one the ceiling or the agent rules out stays disabled with the reason. -->
-      <fieldset class="field" data-consultation-routes [attr.aria-describedby]="describedBy(id + '-routes-hint', 'routes', id + '-routes-error')">
+      <fieldset class="field" data-consultation-routes [disabled]="locked('routes')" [attr.aria-describedby]="describedBy(id + '-routes-hint', 'routes', id + '-routes-error')">
         <legend>{{ 'nh-assistant.admin.run-config.consultations.form.routes' | translate }}</legend>
         <p class="hint" [id]="id + '-routes-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.routes-hint' | translate }}</p>
         <!-- In their own block: a label right under the field would take the field's label style. -->
@@ -153,8 +157,8 @@
 
       <div class="grid">
         <div class="field">
-          <label [for]="id + '-proposal-role'">{{ 'nh-assistant.admin.run-config.consultations.form.proposal-role' | translate }}</label>
-          <select [id]="id + '-proposal-role'"
+          <label [for]="id + '-proposal-role'">{{ 'nh-assistant.admin.run-config.consultations.form.proposal-role' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('proposalRole')" /></label>
+          <select [id]="id + '-proposal-role'" [disabled]="locked('proposalRole')"
             [attr.aria-invalid]="fieldError('proposalRole') ? true : null"
             [attr.aria-describedby]="describedBy(id + '-proposal-role-hint', 'proposalRole', id + '-proposal-role-error')"
             (change)="proposalRole.set($any(value($event))); touch('proposalRole')">
@@ -168,9 +172,10 @@
           }
         </div>
         <div class="field">
-          <label [for]="id + '-proposal-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
+          <label [for]="id + '-proposal-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('proposalPolicy')" /></label>
           <nh-assistant-picker
             [inputId]="id + '-proposal-policy'"
+            [disabled]="locked('proposalPolicy')"
             [options]="policies()"
             [value]="proposalPolicy()"
             [noneLabel]="'nh-assistant.admin.run-config.consultations.form.agent-policy' | translate"
@@ -194,8 +199,8 @@
     <summary>{{ 'nh-assistant.admin.run-config.consultations.form.advanced' | translate }}</summary>
     <div class="stack">
       <!-- The agent's own tools, as a skill offers them; none checked offers every tool of the agent. -->
-      <fieldset class="field" data-consultation-tools [attr.aria-describedby]="describedBy(id + '-tools-hint', 'toolSelectors', id + '-tools-error')">
-        <legend>{{ 'nh-assistant.admin.run-config.consultations.form.tools' | translate }}</legend>
+      <fieldset class="field" data-consultation-tools [disabled]="locked('toolSelectors')" [attr.aria-describedby]="describedBy(id + '-tools-hint', 'toolSelectors', id + '-tools-error')">
+        <legend>{{ 'nh-assistant.admin.run-config.consultations.form.tools' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('toolSelectors')" /></legend>
         <p class="hint" [id]="id + '-tools-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.tools-hint' | translate }}</p>
         <!-- In their own block: a label right under the field would take the field's label style. -->
         <div class="checks">
@@ -229,8 +234,8 @@
         }
       </fieldset>
 
-      <fieldset class="field" data-consultation-limits [attr.aria-describedby]="describedBy(id + '-limits-hint', 'limits', id + '-limits-error')">
-        <legend>{{ 'nh-assistant.admin.run-config.consultations.form.limits' | translate }}</legend>
+      <fieldset class="field" data-consultation-limits [disabled]="locked('limits')" [attr.aria-describedby]="describedBy(id + '-limits-hint', 'limits', id + '-limits-error')">
+        <legend>{{ 'nh-assistant.admin.run-config.consultations.form.limits' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('limits')" /></legend>
         <p class="hint" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.limits-hint' | translate }}</p>
         <div class="grid">
           @for (limit of limitFields(); track limit.field) {
@@ -258,11 +263,11 @@
           <!-- In its own block: a label right under the field would take the field's label style. -->
           <div class="checks">
             <label class="check described">
-              <input type="checkbox" [checked]="allowRequests()" [attr.aria-invalid]="fieldError('allowRequests') ? true : null"
+              <input type="checkbox" [disabled]="locked('allowRequests')" [checked]="allowRequests()" [attr.aria-invalid]="fieldError('allowRequests') ? true : null"
                 [attr.aria-describedby]="describedBy(null, 'allowRequests', id + '-requests-error')"
                 (change)="allowRequests.set(checked($event)); touch('allowRequests')" />
               <span>
-                <span>{{ 'nh-assistant.admin.run-config.consultations.form.requests' | translate }}</span>
+                <span>{{ 'nh-assistant.admin.run-config.consultations.form.requests' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('allowRequests')" /></span>
                 <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.form.requests-hint' | translate }}</span>
               </span>
             </label>
@@ -278,11 +283,11 @@
         @if (ceiling().allowMcp) {
           <div class="checks">
             <label class="check described">
-              <input type="checkbox" [checked]="exposeToMcp()" [attr.aria-invalid]="fieldError('exposeToMcp') ? true : null"
+              <input type="checkbox" [disabled]="locked('exposeToMcp')" [checked]="exposeToMcp()" [attr.aria-invalid]="fieldError('exposeToMcp') ? true : null"
                 [attr.aria-describedby]="describedBy(null, 'exposeToMcp', id + '-mcp-error')"
                 (change)="exposeToMcp.set(checked($event)); touch('exposeToMcp')" />
               <span>
-                <span>{{ 'nh-assistant.admin.run-config.consultations.form.mcp' | translate }}</span>
+                <span>{{ 'nh-assistant.admin.run-config.consultations.form.mcp' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('exposeToMcp')" /></span>
                 <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.form.mcp-hint' | translate }}</span>
               </span>
             </label>
@@ -295,9 +300,10 @@
         }
       </div>
       <div class="field">
-        <label [for]="id + '-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}</label>
+        <label [for]="id + '-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dataClassification')" /></label>
         <nh-assistant-picker
           [inputId]="id + '-classification'"
+          [disabled]="locked('dataClassification')"
           [options]="classifications()"
           [value]="dataClassification()"
           [noneLabel]="'nh-assistant.admin.run-config.skills.classification.agent' | translate"
