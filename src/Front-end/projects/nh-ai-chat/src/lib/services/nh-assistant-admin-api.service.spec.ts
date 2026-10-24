@@ -218,4 +218,41 @@ describe('NhAssistantAdminApiService', () => {
     expect((first as NhAssistantApiError).code).toBe('assistant-mcp-unreachable');
     expect((second as NhAssistantApiError).code).toBe('assistant-validation');
   });
+
+  it('exports an agent package with the JSON of its download and the safe warnings of its header', async () => {
+    const json = JSON.stringify({ format: 'newheap.assistant.agent-package', formatVersion: 1, package: { id: 'desks', version: 2 }, agents: [] }, null, 2);
+    const warnings = [
+      { agentId: 'kickoff-desk', part: 'handOff:project', code: 'hand-off-source', referencedAgentId: 'intake-desk' },
+      { agentId: 'kickoff-desk', part: 'agent', code: '<script>', referencedAgentId: 'x' }
+    ];
+    fetchSpy.and.resolveTo(new Response(json, { status: 200, headers: { 'content-type': 'application/json', 'X-NewHeap-Package-Warnings': JSON.stringify(warnings) } }));
+
+    const exported = await firstValueFrom(admin.exportAgentPackage(['kickoff-desk'], { version: 2, locks: { 'kickoff-desk': { agent: ['instructions'] } } }));
+
+    expect(lastCall()).toEqual(jasmine.objectContaining({
+      url: '/api/assistant/admin/agent-packages/export',
+      method: 'POST',
+      body: { agentIds: ['kickoff-desk'], options: { version: 2, locks: { 'kickoff-desk': { agent: ['instructions'] } } } }
+    }));
+    expect(exported.json).toBe(json);
+    expect(exported.package.package).toEqual({ id: 'desks', version: 2 });
+    expect(exported.warnings).toEqual([warnings[0]]);
+  });
+
+  it('previews, imports and unlinks agent packages with the package and its options', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
+    const agentPackage = { format: 'newheap.assistant.agent-package', formatVersion: 1, package: { id: 'desks', version: 1 }, agents: [] };
+    const options = { serviceAccounts: { 'intake-desk': 'ops' }, apply: 'shadow' as const, relink: [{ agentId: 'intake-desk', part: 'skill:intake' }] };
+
+    await firstValueFrom(admin.previewAgentPackageImport(agentPackage, options));
+    expect(lastCall()).toEqual(jasmine.objectContaining({ url: '/api/assistant/admin/agent-packages/preview', method: 'POST', body: { package: agentPackage, options } }));
+    await firstValueFrom(admin.importAgentPackage(agentPackage));
+    expect(lastCall()).toEqual(jasmine.objectContaining({ url: '/api/assistant/admin/agent-packages/import', method: 'POST', body: { package: agentPackage, options: {} } }));
+    await firstValueFrom(admin.unlinkAgentPackage('intake desk', { part: 'skill:intake', reason: 'Our wording.' }));
+    expect(lastCall()).toEqual(jasmine.objectContaining({ url: '/api/assistant/admin/agents/intake%20desk/package/unlink', method: 'POST', body: { part: 'skill:intake', reason: 'Our wording.' } }));
+
+    fetchSpy.and.resolveTo(jsonResponse({ code: 'assistant-package-locked' }, 409));
+    const locked = await firstValueFrom(admin.unlinkAgentPackage('intake-desk')).catch(caught => caught as NhAssistantApiError);
+    expect((locked as NhAssistantApiError).code).toBe('assistant-package-locked');
+  });
 });

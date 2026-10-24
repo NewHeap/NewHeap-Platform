@@ -119,6 +119,8 @@ export class NhAssistantAgentPackageImportDialogComponent {
   readonly fileName = signal<string | null>(null);
   /** The chosen file is larger than a package may be, so it was not read. */
   readonly fileTooLarge = signal(false);
+  /** The chosen file could not be read as text. */
+  readonly fileUnreadable = signal(false);
   readonly apply = signal<SkillApplyMode>('live');
   readonly accounts = signal<Readonly<Record<string, string>>>({});
   readonly relink = signal<readonly PackagePartReference[]>([]);
@@ -141,6 +143,9 @@ export class NhAssistantAgentPackageImportDialogComponent {
   readonly source = computed<{ package: AgentPackage | null; error: string | null }>(() => {
     if (this.fileTooLarge()) {
       return { package: null, error: 'too-large' };
+    }
+    if (this.fileUnreadable()) {
+      return { package: null, error: 'invalid-json' };
     }
     const text = this.text().trim();
     if (text.length === 0) {
@@ -225,6 +230,7 @@ export class NhAssistantAgentPackageImportDialogComponent {
     this.text.set((event.target as HTMLTextAreaElement).value);
     this.fileName.set(null);
     this.fileTooLarge.set(false);
+    this.fileUnreadable.set(false);
     this.error.set(null);
   }
 
@@ -237,8 +243,18 @@ export class NhAssistantAgentPackageImportDialogComponent {
 
     this.error.set(null);
     this.fileName.set(file.name);
+    this.fileUnreadable.set(false);
     this.fileTooLarge.set(file.size > NH_ASSISTANT_AGENT_PACKAGE_MAX_BYTES);
-    this.text.set(this.fileTooLarge() ? '' : await file.text());
+    if (this.fileTooLarge()) {
+      this.text.set('');
+      return;
+    }
+    try {
+      this.text.set(await file.text());
+    } catch {
+      this.text.set('');
+      this.fileUnreadable.set(true);
+    }
   }
 
   accountOf(agentId: string): string {

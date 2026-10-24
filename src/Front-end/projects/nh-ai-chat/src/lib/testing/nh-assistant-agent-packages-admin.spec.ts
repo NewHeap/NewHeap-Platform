@@ -274,6 +274,33 @@ describe('The import dialog of agent packages', () => {
     expect(text(card(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
   }, formFlowTimeout);
 
+  it('reads a package file and refuses one above 1 MB before it asks the server', async () => {
+    await configure(scenario([planner]));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await click(fixture, element.querySelector('[data-import-package]'));
+    const choose = async (file: File): Promise<HTMLElement> => {
+      const input = page.querySelector('[data-package-file]') as HTMLInputElement;
+      const files = new DataTransfer();
+      files.items.add(file);
+      input.files = files.files;
+      input.dispatchEvent(new Event('change'));
+      // Reading the file takes a task of its own.
+      await new Promise(resolve => setTimeout(resolve, 20));
+      return settle(fixture);
+    };
+
+    page = await choose(new File(['x'.repeat(1_048_577)], 'huge.json', { type: 'application/json' }));
+    expect(text(page.querySelector('[data-package-source-error]'))).toContain('A package is at most 1 MB.');
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    expect(requestBodies('POST', 'admin/agent-packages/preview')).toEqual([]);
+
+    page = await choose(new File([JSON.stringify(desksPackage())], 'desks.json', { type: 'application/json' }));
+    expect(text(page.querySelector('[data-file-name]'))).toBe('Read from desks.json.');
+    page = await click(fixture, page.querySelector('[data-import-preview-action]'));
+    expect(requestBodies('POST', 'admin/agent-packages/preview')).toEqual([{ package: desksPackage(), options: { serviceAccounts: null, apply: 'live', relink: null } }]);
+    expect(page.querySelectorAll('[data-import-part]').length).toBe(7);
+  }, formFlowTimeout);
+
   it('shows a package the host does not read with its code, and kept-local parts with their relink choice', async () => {
     await configure(scenario([planner], true));
     expect((await call('POST', 'admin/agents/kickoff-desk/package/unlink', { part: 'handOff:project' })).status).toBe(200);
