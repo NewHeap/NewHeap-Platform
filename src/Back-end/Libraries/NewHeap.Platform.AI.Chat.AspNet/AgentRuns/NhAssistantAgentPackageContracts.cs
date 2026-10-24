@@ -450,7 +450,10 @@ public static class NhAssistantAgentPackageRoutes
 
     /// <summary>
     /// The response header of the export download that lists the references to agents outside the
-    /// selection (<see cref="NhAssistantAgentPackageExportDto.Warnings"/>) as a JSON array.
+    /// selection (<see cref="NhAssistantAgentPackageExportDto.Warnings"/>) as a JSON array. A browser on
+    /// another origin reads it only when the host's CORS policy exposes it, for example with
+    /// <c>UseCors(cors =&gt; cors.WithExposedHeaders(NhAssistantAgentPackageRoutes.WarningsHeader))</c> of
+    /// NewHeap.Platform.AspNet.Common, which exposes <c>Content-Disposition</c> and the correlation id.
     /// </summary>
     public const string WarningsHeader = "X-NewHeap-Package-Warnings";
 }

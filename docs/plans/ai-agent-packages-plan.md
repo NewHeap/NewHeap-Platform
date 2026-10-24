@@ -358,3 +358,23 @@ takes.
   sign in.
 - A sample case with focused evidence, guidance rules (agent runs administration, packages), the consumer
   guide via regeneration, and release notes per release unit.
+
+## Lane choices
+
+| # | Choice |
+|---|---|
+| PL1 | Built by lane PL (2026-10-24): **the package lists its agents under `agents`, each with `id`, `source` (`admin` or `code`) and its definition under `definition`**, with the part key `agent` for it; PK3's single-agent fields move into each agent, for Lars to review. |
+| PL2 | Built by lane PL (2026-10-24): **strict reading uses a source-generated context that refuses unknown and missing properties, case differences and numbers as strings**; the HTTP preview and import take the package as raw JSON next to the options, so only the package is read strictly, for Lars to review. |
+| PL3 | Built by lane PL (2026-10-24): **a part's hash is the SHA-256 of its JSON without nulls, properties ordered by name and no white space**; the export writes `hashes` per agent, an import checks a hash that is given and accepts a package without them, and a link stores the hash of the part as the host has it after the import, for Lars to review. |
+| PL4 | Built by lane PL (2026-10-24): **a lock stores the package's value of every locked field, and a save may keep the value it has or take the package's**, so promoting a candidate an import made is allowed while another value is refused with `locked`; instructions are compared by hash or asset, never by text, for Lars to review. |
+| PL5 | Built by lane PL (2026-10-24): **a refused import answers `409 assistant-package-refused` with the plain field error `parts: invalid`**, because the client's field-name pattern refuses `{agentId}/{part}/{field}`; why each part was refused is in the preview's part outcomes, which the import dialog shows. This replaces the per-part field names of the contract commit, for Lars to review. |
+| PL6 | Built by lane PL (2026-10-24): **the export's warnings stay in the header `X-NewHeap-Package-Warnings`, so the download remains the package itself**; a host that serves the administration from another origin exposes it with `UseCors(cors => cors.WithExposedHeaders(NhAssistantAgentPackageRoutes.WarningsHeader))`, as the guidance says, and NewHeap.Platform.AspNet.Common keeps its default exposed headers, for Lars to review. |
+| PL7 | Built by lane PL (2026-10-24): **the first import of a package may take over agents a host already has when `relink` names them as a whole**, so the sample links the desks it created by hand; without it an agent of the same id refuses the package (`assistant-agent-exists`), for Lars to review. |
+| PL8 | Built by lane PL (2026-10-24): **an agent that is not yet in the package takes the package's version of the parts it already has (an overlay of an agent in code, or a relinked agent)**, while a member agent's part without a link stays `kept-local`, for Lars to review. |
+| PL9 | Built by lane PL (2026-10-24): **a part an earlier version linked and the new version no longer contains is `left-behind` like an agent**: it stays, unlinked, and is audited as `AdminAgentPackageUnlinked` with `left-behind`, for Lars to review. |
+| PL10 | Built by lane PL (2026-10-24): **groups are set only when the import creates an agent**; an upgrade and an overlay keep the host's groups, because groups stay free (PK9), for Lars to review. |
+| PL11 | Built by lane PL (2026-10-24): **an upgrade that names no technical account keeps the one the host's run settings have; another account named for an upgrade is a change of the run settings**, for Lars to review. |
+| PL12 | Built by lane PL (2026-10-24): **the transactional path is a set of static store methods that take the caller's context, which the normal saves call inside their own transaction**, and `NhAssistantAgentPackageStore.ImportAsync` runs them, replaces the links and changes the stamp once; audits and the one reload follow the commit, as after a save, for Lars to review. |
+| PL13 | Built by lane PL (2026-10-24): **a package is never imported at a lower version than the host has (`package.version: invalid`)**; the same version again is allowed and changes nothing, for Lars to review. |
+| PL14 | Built by lane PL (2026-10-24): **`ExportAsync` takes the actor as a parameter for its audit, and the interface has `GetLinkAsync(agentId)` next to the four members of PK12**, for Lars to review. |
+| PL15 | Built by lane PL (2026-10-24): **a package of more than 20 agents answers `413 assistant-package-too-large` like one above 1 MB, and the import options must name only agents of the package**, for Lars to review. |

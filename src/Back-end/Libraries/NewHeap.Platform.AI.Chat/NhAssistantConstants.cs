@@ -966,8 +966,8 @@ public static class NhAssistantErrorCodes
 
     /// <summary>
     /// The check of the whole package against the host refused one or more of its parts; nothing was
-    /// imported. The field errors are named <c>{agentId}/{part}/{field}</c>, or
-    /// <c>{agentId}/{part}</c> with the part's failure code.
+    /// imported. The answer carries the field error <c>parts: invalid</c>; the preview of the package
+    /// reports every refused part with its code and field errors.
     /// </summary>
     public const string PackageRefused = "assistant-package-refused";
 

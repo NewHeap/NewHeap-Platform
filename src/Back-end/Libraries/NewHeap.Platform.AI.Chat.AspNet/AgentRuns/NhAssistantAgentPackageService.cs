@@ -178,7 +178,7 @@ internal sealed partial class NhAssistantAgentPackageService(
         var plan = planned.Plan!;
         if (!plan.Importable)
         {
-            return TaskResult<NhAssistantAgentPackageImportDto>.Failed(RefusalOf(plan));
+            return TaskResult<NhAssistantAgentPackageImportDto>.Failed(Refusal());
         }
 
         var written = await WriteAsync(plan, actorId, cancellationToken);
@@ -440,28 +440,14 @@ internal sealed partial class NhAssistantAgentPackageService(
 
     /// <summary>
     /// The failure of an import whose check refused a part: <c>assistant-package-refused</c> with the
-    /// field errors <c>{agentId}/{part}/{field}</c>, and <c>{agentId}/{part}</c> with the part's code.
+    /// plain field error <c>parts: invalid</c>, which every client of the error answer reads. Why each
+    /// part was refused is what the preview of the same package reports per part.
     /// </summary>
-    private static TaskResult RefusalOf(NhAssistantPackagePlan plan)
+    private static TaskResult Refusal()
     {
-        var errors = new NhAssistantValidationErrors();
-        foreach (var part in plan.Parts.Where(item => item.Outcome == NhAssistantPackagePartOutcomes.Refused))
-        {
-            var prefix = part.AgentId + "/" + part.Part;
-            if (part.Code is { } code)
-            {
-                errors.Add(prefix, code);
-            }
-            foreach (var (field, codes) in part.Errors)
-            {
-                foreach (var value in codes)
-                {
-                    errors.Add(prefix + "/" + field, value);
-                }
-            }
-        }
-
-        return errors.ToResult(NhAssistantErrorCodes.PackageRefused, "The agent package was refused; nothing was imported.");
+        return new NhAssistantValidationErrors()
+            .Add("parts", NhAssistantFieldErrors.Invalid)
+            .ToResult(NhAssistantErrorCodes.PackageRefused, "The agent package was refused; nothing was imported.");
     }
 
     private static void ValidateActor(string actorId)

@@ -55,9 +55,19 @@ public sealed class AssistantAgentPackageEndpointTests(AssistantDatabaseFixture 
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
         var refusal = await ReadJsonAsync(refused);
         Assert.Equal(NhAssistantErrorCodes.PackageRefused, refusal.GetProperty("code").GetString());
+        // The error answer names a plain field every client reads; the preview says why per part.
         Assert.Equal(
-            NhAssistantErrorCodes.ServiceAccountNotFound,
-            refusal.GetProperty("errors").GetProperty(AssistantAgentPackageTests.Kickoff + "/runSettings")[0].GetString());
+            ["parts"],
+            refusal.GetProperty("errors").EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal(NhAssistantFieldErrors.Invalid, refusal.GetProperty("errors").GetProperty("parts")[0].GetString());
+        using var why = await admin.PostAsync(Base + NhAssistantAgentPackageRoutes.Preview, Json(new
+        {
+            package,
+            options = new { serviceAccounts = new Dictionary<string, string> { [AssistantAgentPackageTests.Kickoff] = PackagePrincipalFactory.CannotSignIn } }
+        }));
+        var refusedPart = (await ReadJsonAsync(why)).GetProperty("parts").EnumerateArray()
+            .Single(part => part.GetProperty("agentId").GetString() == AssistantAgentPackageTests.Kickoff && part.GetProperty("part").GetString() == "runSettings");
+        Assert.Equal(("refused", NhAssistantErrorCodes.ServiceAccountNotFound), (refusedPart.GetProperty("outcome").GetString(), refusedPart.GetProperty("code").GetString()));
 
         // A property the format does not define is refused before anything is checked.
         using var unknown = await admin.PostAsync(Base + NhAssistantAgentPackageRoutes.Preview, Json(new

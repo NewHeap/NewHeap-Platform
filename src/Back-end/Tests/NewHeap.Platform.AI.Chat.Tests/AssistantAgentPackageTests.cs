@@ -170,9 +170,10 @@ public sealed class AssistantAgentPackageTests(AssistantDatabaseFixture database
         var imported = await PackagesAsync(host, packages => packages.ImportAsync(package, Options(), Admin));
 
         Assert.Equal(NhAssistantErrorCodes.PackageRefused, Code(imported));
-        var errors = NhAssistantResults.FieldErrorsOf(imported);
-        Assert.Equal([NhAssistantFieldErrors.NotFound], errors[Kickoff + "/trigger:kickoff-on-change/event"]);
-        Assert.Equal([NhAssistantAdminErrorCodes.MetadataEntryNotFound], errors[Intake + "/metadata:unknown-entry"]);
+        // The answer names one plain field; the preview names each refused part.
+        var refusal = Assert.Single(NhAssistantResults.FieldErrorsOf(imported));
+        Assert.Equal("parts", refusal.Key);
+        Assert.Equal([NhAssistantFieldErrors.Invalid], refusal.Value);
         Assert.Null(await FindAgentAsync(host, Intake));
         Assert.Null(await FindAgentAsync(host, Kickoff));
         Assert.Null(await host.Services.GetRequiredService<NhAssistantAgentPackageStore>().FindPackageAsync(PackageId, CancellationToken.None));

@@ -5324,5 +5324,30 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-instruction-assets.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-instruction-assets-admin.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-321",
+    "title": "An operator exports the two desks of SPM-318 as one agent package, upgrades it in shadow and unlinks a locked part",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantAgentPackages (ExportAsync, PreviewImportAsync, ImportAsync, UnlinkAsync, GetLinkAsync) with NhAssistantAgentPackage, NhAssistantAgentPackageInfo, NhAssistantPackageAgent, NhAssistantPackageAgentDefinition, NhAssistantPackageRunSettings, NhAssistantPackageSkill, NhAssistantPackageTrigger, NhAssistantPackageConsultation and NhAssistantPackageHandOff; NhAssistantAgentPackageFormat (Read, Check, Write, HashOf) with strict reading; NhAssistantAgentPackageExportOptions, NhAssistantAgentPackageExportDto, NhAssistantAgentPackageWarningDto and NhAssistantAgentPackageWarnings; NhAssistantAgentPackageImportOptions (ServiceAccounts, Apply, Relink) with NhAssistantPackagePartReference; NhAssistantAgentPackagePreviewDto, NhAssistantAgentPackageImportDto, NhAssistantAgentPackagePartDto and NhAssistantPackagePartOutcomes (created, changed, unchanged, kept-local, left-behind, refused); NhAssistantAgentPackageUnlinkDto; NhAssistantPackagePartKinds and NhAssistantPackageLockFields with the field error locked; Package of NhAssistantAdminAgentDto (NhAssistantAgentPackageLinkDto) and of NhAssistantAgentRunSettingsDto, NhAssistantDataSkillDto, NhAssistantDataTriggerDto, NhAssistantDataConsultationDto, NhAssistantDataHandOffDto and NhAssistantAgentMetadataDto (NhAssistantPackagePartLinkDto); NhAssistantAgentPackageRoutes for POST admin/agent-packages/export, preview and import and POST admin/agents/{id}/package/unlink, with the header X-NewHeap-Package-Warnings; the codes assistant-package-format-unsupported, assistant-package-too-large, assistant-package-refused, assistant-package-locked and assistant-package-not-linked; AdminAgentPackageExported, AdminAgentPackageImported and AdminAgentPackageUnlinked with PackageId, PackageVersion, PackageHash, PackagePart and PackageAgentCount; the AgentPackages migrations (AssistantAgentPackage, AssistantAgentPackageLink) for SQL Server and PostgreSQL",
+    "outcome": "SampleAgentPackagesComposition names the package of the two desks of SPM-318 and what it locks: the kickoff desk's instructions and those of its review skill. An administrator creates the intake desk and the kickoff desk, connects them with the hand-off about projects and gives the kickoff desk a skill that reviews a project before it proposes to start it. The operator exports both desks as one package: the download agent-package-sample-project-desks.json carries both agents with their run settings, skill and hand-off, never the operations account they answer to, and no reference to an agent outside the package. Imported again with both desks relinked, the desks belong to the package and nothing changes. A changed copy of the package with new review instructions is an upgrade: the preview shows the skill as changed, the import in shadow makes the new instructions the skill's candidate next to the live version, and the promote puts them live, while the hand-off between the desks stays in effect, linked to the package. The administration shows the kickoff desk's instructions as locked, and a change of them is refused with the field error instructions: locked. Once the administrator unlinks the kickoff desk's definition, the instructions change, and the next upgrade keeps them as kept-local. The export, the upgrade and the unlink are audited with the package's id, version and hash, never its content. The library tests cover both providers, every refusal and the atomic rollback.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageLockCheck.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentPackageEntities.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackages.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageFormatTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageEndpointTests.cs"
+    ]
   }
 ] as const;

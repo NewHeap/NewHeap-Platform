@@ -42,9 +42,9 @@ public interface INhAssistantAgentPackages
     /// <summary>
     /// Imports the package in one database transaction with one change of the run configuration and one
     /// reload (PK6): every agent and part of it, or nothing. Fails as <see cref="PreviewImportAsync"/>
-    /// and with <c>assistant-package-refused</c> when a part is refused, with field errors
-    /// <c>{agentId}/{part}/{field}</c>. Every part is audited as its save, then the package as
-    /// <c>AdminAgentPackageImported</c>.
+    /// and with <c>assistant-package-refused</c> and the field error <c>parts: invalid</c> when a part is
+    /// refused; the preview of the package says why per part. Every part is audited as its save, then
+    /// the package as <c>AdminAgentPackageImported</c>.
     /// </summary>
     Task<TaskResult<NhAssistantAgentPackageImportDto>> ImportAsync(
         NhAssistantAgentPackage package,

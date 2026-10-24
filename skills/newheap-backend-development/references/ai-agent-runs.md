@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -1064,6 +1064,109 @@ variants in code and as data. A variant that no longer fits (`outside-ceiling`, 
 `live-agent-not-live`, `too-many-variants`) has its run settings out of effect and never runs, live or
 in shadow.
 
+Move agents and their configuration as data between hosts as one versioned agent package with
+`INhAssistantAgentPackages`, never as a series of saves an application calls one after the other. A
+package (`NhAssistantAgentPackage`, format `newheap.assistant.agent-package`, `formatVersion` 1)
+holds several agents: an agent created in the administration whole (definition, run settings without
+the technical account, live data skills and triggers, consultations, the hand-offs it accepts,
+metadata and groups by name), an agent in code as an overlay of what data may change on it (definition
+overrides, data skills, triggers, consultations, hand-offs and overrides of `Editable()` metadata),
+which the import applies only to the same agent in code. It never holds history, candidates, runs,
+run state, shadow overrides, MCP servers, the technical account or secrets. `ExportAsync(agentIds,
+options, actorId)` (`POST admin/agent-packages/export`, a JSON download `agent-package-{id}.json`)
+takes exactly the chosen agents, sets the package id (the linked package's, else the first agent's),
+the version (the next after the linked package's, else 1) and the locks, and warns about every
+reference to an agent outside the selection in the header `X-NewHeap-Package-Warnings`
+(`NhAssistantAgentPackageRoutes.WarningsHeader`); a host that serves the administration from another
+origin exposes it, for example with `UseCors(cors => cors.WithExposedHeaders(NhAssistantAgentPackageRoutes.WarningsHeader))`
+of NewHeap.Platform.AspNet.Common, whose policy exposes only `Content-Disposition` and the correlation id. Read a package a tool
+wrote with `NhAssistantAgentPackageFormat.Read`: an unknown property, a missing one, another format
+or a newer version is refused (`assistant-package-format-unsupported`), and a package above 1 MB or
+with more than 20 agents too (`assistant-package-too-large`). `PreviewImportAsync` (`POST
+admin/agent-packages/preview`) reports per part (`agent`, `runSettings`, `skill:{id}`,
+`trigger:{id}`, `consultation:{type}`, `handOff:{type}`, `metadata:{name}`) whether the import
+creates, changes or keeps it unchanged, keeps it local because an administrator unlinked it
+(`kept-local`), leaves it behind because the package no longer contains it (`left-behind`), or
+refuses it with the field errors of its save, after one check of the whole package against the host
+as it would be after the import, so hand-off sources, `shadowOf` and consultation askers may be other
+agents of the package, cycles included. `ImportAsync` (`POST admin/agent-packages/import`) writes
+every agent and part in one transaction with one change of the run configuration, or nothing
+(`assistant-package-refused` with the plain field error `parts: invalid`; the preview names every
+refused part with its code and field errors): an agent whose id is
+free is created, one the package linked is upgraded, any other agent with the id refuses the package
+(`assistant-agent-exists`). Name the technical account per agent in
+`NhAssistantAgentPackageImportOptions.ServiceAccounts` (an upgrade keeps the host's); it must be able
+to sign in. New skills and triggers start in shadow; with `Apply = "shadow"` a changed skill or
+trigger becomes the candidate next to its live version, to compare and promote. Every part is audited
+as its save, then `AdminAgentPackageImported` with the package's id, version and hash only.
+
+Lock what a package must keep with `locks` per agent and part, `*` or fields of
+`NhAssistantPackageLockFields` (for example a skill's `instructions`). Every save path refuses a
+change of a locked field with the field error `{field}: locked` and the removal of a locked part, and
+the deletion or reset of an agent that belongs to a package, with `409 assistant-package-locked`;
+a save may keep the value it has or take the package's. Run state, pauses, the kill switch, shadow
+modes, the technical account and groups stay free. `UnlinkAsync(agentId, part, actorId)` (`POST
+admin/agents/{id}/package/unlink`, without a part for the whole agent) takes a part out of the package,
+audited as `AdminAgentPackageUnlinked`; the next upgrade keeps it as `kept-local` unless the import's
+`Relink` names it, while an unlocked field the host changed is overwritten and shown as changed
+locally. The administration's DTOs carry the link of every linked part (`Package`, with its locked
+fields), and `AssistantAgentPackage` and `AssistantAgentPackageLink` store packages and links with the
+AgentPackages migrations for SQL Server and PostgreSQL.
+
+The schema of the format, which tools that write packages follow:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "newheap.assistant.agent-package 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "formatVersion", "package", "agents"],
+  "properties": {
+    "format": { "const": "newheap.assistant.agent-package" },
+    "formatVersion": { "const": 1 },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 128 },
+        "version": { "type": "integer", "minimum": 1 },
+        "description": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "source": { "enum": ["admin", "code"] },
+          "definition": { "type": "object", "description": "displayName, description, instructions or instructionsAsset, toolSelectors, requiredPolicy, autonomy, offeredInChat, worksOn*, perDivision, runPolicy, viewPolicy, profile, dataClassification, startsOff, startsInShadow, shadowOf" },
+          "runSettings": { "type": "object", "description": "the fields of NhAssistantAgentRunSettingsRequest without serviceAccountActorId, expectedVersion and reason" },
+          "skills": { "type": "array", "items": { "type": "object", "required": ["id", "description"] } },
+          "triggers": { "type": "array", "items": { "type": "object", "required": ["id", "source"] } },
+          "consultations": { "type": "array", "items": { "type": "object", "required": ["subjectType", "description"] } },
+          "handOffs": { "type": "array", "items": { "type": "object", "required": ["subjectType", "sources"] } },
+          "metadata": { "type": "object", "additionalProperties": true },
+          "groups": { "type": "array", "items": { "type": "string" } },
+          "locks": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+          "hashes": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+        }
+      }
+    }
+  }
+}
+```
+
+Every object of a part is read as strictly as the package itself. A part's hash is the SHA-256 of its
+canonical JSON: the part as the format writes it without null values, object properties ordered by
+name, no white space (`NhAssistantAgentPackageFormat.HashOf`).
+
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
 `memory_update` functions with JSON Merge Patch. Every version must deserialize into
@@ -1459,6 +1562,13 @@ entry's name and the version only.
   application means a few connections, or expecting a stored hand-off to keep working with fewer
   sources or a lower limit after a deploy narrowed the ceiling: it goes out of effect.
 - Expecting a data shadow variant to go live: its mode never changes; create the live agent separately.
+- Importing agents with a series of saves, or writing a package with a technical account, secrets or
+  MCP servers in it; import the package once with `INhAssistantAgentPackages` and name the account per
+  agent in the import options.
+- Locking whole parts to keep one field, or expecting a lock to stop an administrator for good: lock the
+  fields that must stay, and know that an administrator may unlink a part.
+- Reading a package leniently or dropping what a host does not know; read it with
+  `NhAssistantAgentPackageFormat.Read` and fix a refused package at its source.
 - Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
   on percentages of a few runs, or reading a replay as the past: it ran against today's state.
 - Requiring a reason before a person may reject a proposal, or counting `not-now` and
@@ -1859,6 +1969,15 @@ administration endpoints refuse people who do not administer and stay within the
 Assert that an agent created with `StartsInShadow` and run settings and a trigger in the same request
 runs its first event in its shadow thread, and that a consultation saved with `StartsOff` or under a
 ceiling with `StartOff()` offers no tool until `SetConsultationStateAsync` switches it on.
+For agent packages, on both providers, export agents and import the package on another host to the same
+parts and hashes, assert every outcome of the preview, that a refused part refuses the whole package and
+stores nothing, also when a write fails inside the transaction, that missing references are refused with
+the save validators' codes, that agents of one package refer to each other in a cycle, that the technical
+account is required, must be able to sign in and never travels, that `Apply = "shadow"` makes candidates a
+promote puts live, that every save path refuses a locked field and the removal or deletion of a locked part
+while operations stay free, that an unlinked part stays `kept-local` until `Relink` names it, that an agent
+in code takes the overlay, that the format is read strictly, and that the endpoints refuse people who do
+not administer. SPM-321 is the executable reference.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 
