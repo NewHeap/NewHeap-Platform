@@ -3209,6 +3209,164 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         };
     }
 
+    [Fact]
+    public async Task SPM_321_an_operator_exports_the_two_desks_as_one_package_upgrades_it_in_shadow_and_unlinks_a_locked_part()
+    {
+        // SPM-321
+        const string desk = SampleAgentPackagesComposition.IntakeDeskId;
+        const string kickoff = SampleAgentPackagesComposition.KickoffDeskId;
+        const string review = SampleAgentPackagesComposition.KickoffReviewSkillId;
+        var actor = host.OwnerId.ToString("D");
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The two desks of SPM-318, connected by a hand-off about projects; the kickoff desk reviews
+            // a project before it proposes to start it.
+            await CreateRuntimeAgentAsync(administrator, desk, "Intake desk", "Hand every draft project to the kickoff desk.", ["assistant.handoff.*"]);
+            await CreateRuntimeAgentAsync(administrator, kickoff, "Kickoff desk", "Explain why you proposed to start the project.", [ProjectAiTools.ChangeStatusToolId]);
+            await SaveRuntimeRunSettingsAsync(desk, ruleHandler: null);
+            await SaveRuntimeRunSettingsAsync(kickoff, SampleProjectStarterComposition.KickoffRules);
+            using (var connected = await administrator.PutAsJsonAsync(
+                       $"/api/assistant/admin/agents/{kickoff}/hand-offs/{ProjectSubjects.Type}",
+                       new NhAssistantDataHandOffRequest([desk], "Starts draft projects that are ready to start."),
+                       Json))
+            {
+                Assert.Equal(HttpStatusCode.OK, connected.StatusCode);
+            }
+            Assert.True((await ConfigureAsync(configuration => configuration.SaveSkillAsync(
+                kickoff,
+                review,
+                new NhAssistantDataSkillRequest("Reviews a project before it starts.", "Check that the plan is complete before you propose to start.", [ProjectAiTools.ChangeStatusToolId]),
+                actor))).Success);
+
+            // The operator exports both desks as one package with the kickoff desk's instructions locked.
+            using var export = await administrator.PostAsJsonAsync(
+                "/api/assistant/admin/agent-packages/export",
+                new NhAssistantAgentPackageExportRequest([desk, kickoff], SampleAgentPackagesComposition.ExportOptions()),
+                Json);
+            Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+            Assert.Equal(
+                "agent-package-" + SampleAgentPackagesComposition.PackageId + ".json",
+                export.Content.Headers.ContentDisposition!.FileNameStar ?? export.Content.Headers.ContentDisposition.FileName);
+            Assert.Equal("[]", Assert.Single(export.Headers.GetValues(NhAssistantAgentPackageRoutes.WarningsHeader)));
+            var package = NhAssistantAgentPackageFormat.Read(await export.Content.ReadAsStringAsync()).Data!;
+            Assert.Equal((SampleAgentPackagesComposition.PackageId, 1), (package.Package.Id, package.Package.Version));
+            // The technical account never travels.
+            Assert.DoesNotContain(host.OperationsAccountId.ToString("D"), NhAssistantAgentPackageFormat.Write(package), StringComparison.Ordinal);
+
+            // Imported with the desks relinked, the host's desks belong to the package and nothing changes.
+            var linked = await ImportPackageAsync(administrator, package, new NhAssistantAgentPackageImportOptions(Relink: [new(desk), new(kickoff)]));
+            Assert.All(linked.Parts, part => Assert.Equal(NhAssistantPackagePartOutcomes.Unchanged, part.Outcome));
+
+            // A changed copy of the package is an upgrade: the changed skill runs as a candidate in
+            // shadow next to the live version, until it is promoted.
+            var upgrade = package with
+            {
+                Package = package.Package with { Version = 2 },
+                Agents = package.Agents
+                    .Select(agent => agent.Id == kickoff
+                        ? agent with
+                        {
+                            Skills = [agent.Skills!.Single() with { Instructions = "Check that the plan and the budget are complete before you propose to start." }],
+                            Hashes = null
+                        }
+                        : agent)
+                    .ToArray()
+            };
+            var shadow = new NhAssistantAgentPackageImportOptions(Apply: NhAssistantSkillApplyModes.Shadow);
+            using (var preview = await administrator.PostAsJsonAsync(
+                       "/api/assistant/admin/agent-packages/preview",
+                       new { package = JsonSerializer.SerializeToElement(upgrade, NhAssistantAgentPackageFormatJsonSerializerContext.Default.NhAssistantAgentPackage), options = shadow },
+                       Json))
+            {
+                var previewed = (await preview.Content.ReadFromJsonAsync<NhAssistantAgentPackagePreviewDto>(Json))!;
+                Assert.Equal((true, (int?)1), (previewed.Importable, previewed.InstalledVersion));
+                Assert.Equal(NhAssistantPackagePartOutcomes.Changed, previewed.Parts.Single(part => part.AgentId == kickoff && part.Part == "skill:" + review).Outcome);
+            }
+            var upgraded = await ImportPackageAsync(administrator, upgrade, shadow);
+            var candidate = upgraded.Parts.Single(part => part.Part == "skill:" + review).CandidateVersion!.Value;
+            var promoted = await ConfigureAsync(configuration => configuration.PromoteSkillCandidateAsync(kickoff, review, candidate, actor, "The trial went well"));
+            Assert.True(promoted.Success, string.Join("; ", promoted.GetResultItems().Select(item => item.Name)));
+            Assert.Equal("Check that the plan and the budget are complete before you propose to start.", promoted.Data!.Instructions);
+            var handOffs = (await administrator.GetFromJsonAsync<NhAssistantAgentHandOffsDto>($"/api/assistant/admin/agents/{kickoff}/hand-offs", Json))!;
+            var handOff = Assert.Single(handOffs.DataHandOffs);
+            Assert.True(handOff.InEffect);
+            Assert.Equal(SampleAgentPackagesComposition.PackageId, handOff.Package!.PackageId);
+
+            // The administration shows the locked instructions read-only; a change of them is refused.
+            var agent = (await administrator.GetFromJsonAsync<NhAssistantAdminAgentDto[]>("/api/assistant/admin/agents", Json))!.Single(item => item.Id == kickoff);
+            Assert.Equal(["instructions"], agent.Package!.Parts.Single(part => part.Part == "agent").LockedFields);
+            var change = new
+            {
+                displayName = agent.DisplayName,
+                description = agent.Description,
+                instructions = "Start every draft project at once.",
+                toolSelectors = agent.ToolSelectors,
+                mcpServerIds = Array.Empty<string>(),
+                requiredPolicy = agent.RequiredPolicy,
+                autonomy = agent.Autonomy,
+                isEnabled = true,
+                expectedVersion = agent.Version
+            };
+            using (var refused = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{kickoff}", change, Json))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+                Assert.Equal(NhAssistantFieldErrors.Locked, (await refused.Content.ReadFromJsonAsync<NhAssistantErrorDto>(Json))!.Errors!["instructions"].Single());
+            }
+
+            // Unlinked, the instructions are the host's own, and the next upgrade keeps them.
+            using (var unlinked = await administrator.PostAsJsonAsync(
+                       $"/api/assistant/admin/agents/{kickoff}/package/unlink",
+                       new NhAssistantAgentPackageUnlinkRequest("agent", "Our own kickoff wording"),
+                       Json))
+            {
+                Assert.Equal(HttpStatusCode.OK, unlinked.StatusCode);
+            }
+            using (var changed = await administrator.PutAsJsonAsync($"/api/assistant/admin/agents/{kickoff}", change, Json))
+            {
+                Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+            }
+            var next = await ImportPackageAsync(administrator, upgrade with { Package = upgrade.Package with { Version = 3 } }, new NhAssistantAgentPackageImportOptions());
+            Assert.Equal(NhAssistantPackagePartOutcomes.KeptLocal, next.Parts.Single(part => part.AgentId == kickoff && part.Part == "agent").Outcome);
+            Assert.Equal(
+                "Start every draft project at once.",
+                (await administrator.GetFromJsonAsync<NhAssistantAdminAgentDto[]>("/api/assistant/admin/agents", Json))!.Single(item => item.Id == kickoff).Instructions);
+            var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageExported && evt.PackageId == SampleAgentPackagesComposition.PackageId);
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageImported && evt.PackageVersion == 2 && evt.ResultCode == "upgraded");
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageUnlinked && evt.AgentId == kickoff && evt.PackagePart == "agent");
+        }
+        finally
+        {
+            // Unlinked first: an agent that belongs to a package cannot be deleted.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+                await packages.UnlinkAsync(desk, null, actor);
+                await packages.UnlinkAsync(kickoff, null, actor);
+            }
+
+            await RemoveRuntimeAgentAsync(administrator, desk);
+            await RemoveRuntimeAgentAsync(administrator, kickoff);
+        }
+    }
+
+    /// <summary>
+    /// SPM-321: imports a package through the endpoint and answers what it did.
+    /// </summary>
+    private static async Task<NhAssistantAgentPackageImportDto> ImportPackageAsync(
+        HttpClient administrator,
+        NhAssistantAgentPackage package,
+        NhAssistantAgentPackageImportOptions options)
+    {
+        using var imported = await administrator.PostAsJsonAsync(
+            "/api/assistant/admin/agent-packages/import",
+            new { package = JsonSerializer.SerializeToElement(package, NhAssistantAgentPackageFormatJsonSerializerContext.Default.NhAssistantAgentPackage), options },
+            Json);
+        Assert.True(imported.StatusCode == HttpStatusCode.OK, await imported.Content.ReadAsStringAsync());
+        return (await imported.Content.ReadFromJsonAsync<NhAssistantAgentPackageImportDto>(Json))!;
+    }
+
     /// <summary>
     /// SPM-318: an agent created in the administration that works on projects and is not offered in the chat.
     /// </summary>
