@@ -357,7 +357,10 @@ export class NhAssistantMockAgentPackages {
     if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every(id => typeof id === 'string')) {
       return failure('assistant-validation', { agentIds: ['required'] });
     }
-    if (agentIds.length > NH_ASSISTANT_AGENT_PACKAGE_MAX_AGENTS || new Set(agentIds).size !== agentIds.length) {
+    if (agentIds.length > NH_ASSISTANT_AGENT_PACKAGE_MAX_AGENTS) {
+      return failure('assistant-validation', { agentIds: ['too-long'] });
+    }
+    if (new Set(agentIds).size !== agentIds.length) {
       return failure('assistant-validation', { agentIds: ['invalid'] });
     }
 
@@ -391,9 +394,10 @@ export class NhAssistantMockAgentPackages {
     for (const [agentId, locks] of Object.entries(options.locks ?? {})) {
       const agent = agents.find(item => item.id === agentId);
       for (const [part, fields] of Object.entries(locks ?? {})) {
+        // A lock of an agent or part the export does not hold, or of a field its kind does not lock.
         const problem = agent ? lockProblem(agent, part, fields) : 'not-found';
         if (problem) {
-          errors['locks'] = [problem];
+          errors['locks'] = ['invalid'];
         } else if (agent && fields.length > 0) {
           agent.locks = { ...(agent.locks ?? {}), [part]: [...fields] };
         }
