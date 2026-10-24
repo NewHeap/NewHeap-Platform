@@ -368,6 +368,9 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             services.AddSingleton<NhAssistantRunConfigurationValidator>();
             services.AddSingleton<NhAssistantInstructionAssets>();
             services.AddSingleton<NhAssistantRunConfigurations>();
+            // A save of an agent honours the locks of agent packages.
+            services.AddSingleton<NhAssistantAgentPackageStore>();
+            services.AddSingleton<NhAssistantPackageLockCheck>();
             services.AddSingleton<CapturedBusinessAuditSink>();
             services.AddScoped<INhAssistantBusinessAuditSink, CapturedBusinessAuditSinkAdapter>();
         });
