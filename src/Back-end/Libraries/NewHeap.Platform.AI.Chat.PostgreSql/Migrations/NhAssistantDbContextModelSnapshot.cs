@@ -461,6 +461,94 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantAgentMetadata", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentPackage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("AgentIdsJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("FormatVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImportedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AssistantAgentPackage", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentPackageLink", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PartKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("PartKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LinkedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("LockedFieldsJson")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("LockedValuesJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PackageId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("PackageVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AgentId", "PartKind", "PartKey");
+
+                    b.HasIndex("PackageId");
+
+                    b.ToTable("AssistantAgentPackageLink", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentReplay", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2922,6 +3010,15 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadata", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentPackageLink", b =>
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
                         .WithMany()
