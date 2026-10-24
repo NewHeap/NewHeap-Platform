@@ -163,6 +163,9 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-handoff-in-code',
   'assistant-handoff-not-found',
   'assistant-shadow-variants-not-allowed',
+  // Agent packages: their format and the parts they lock
+  'assistant-package-format-unsupported',
+  'assistant-package-locked',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

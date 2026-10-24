@@ -133,6 +133,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-code-agent-not-deletable',
     'assistant-agent-not-code',
     'assistant-metadata-read-only',
+    'assistant-package-locked',
     'assistant-agent-instructions-unavailable',
     'assistant-mcp-server-exists',
     'assistant-mcp-headless-not-allowed',
