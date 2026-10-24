@@ -12,6 +12,25 @@ export function codeTextKeys(source: string, text: string | null | undefined): s
   return source === 'code' && text ? [text] : [];
 }
 
+/**
+ * An agent's name as the agent list shows it: an agent in code names itself with a translation key,
+ * which reads in the reader's language with the key's text as fallback; an agent created in the
+ * administration shows what the administrator typed. For lists and maps built in code, where
+ * `nhAssistantTranslate` does not apply.
+ */
+export function agentDisplayName(
+  translate: { instant(key: string): unknown },
+  agent: { source: string; displayName: string }
+): string {
+  for (const key of codeTextKeys(agent.source, agent.displayName)) {
+    const translated = translate.instant(key);
+    if (typeof translated === 'string' && translated.length > 0 && translated !== key) {
+      return translated;
+    }
+  }
+  return agent.displayName;
+}
+
 /** The key an application may translate a skill's name with. */
 export function skillNameKeys(agentId: string, skillId: string): string[] {
   return [`nh-assistant.agents.${agentId}.skills.${skillId}.name`];

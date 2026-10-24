@@ -349,4 +349,38 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     expect(text(page.querySelector('[data-shadow-variants] h3'))).toBe('Schaduwvarianten');
     expect(text(page.querySelector('[data-hand-off="project"]'))).toContain('Hoogstens 3 per bron en object per dag');
   }, formFlowTimeout);
+
+  it('names agents in code in the reader\'s language, as the agent list does', async () => {
+    TestBed.resetTestingModule();
+    const script = scenario();
+    const agents = script.admin!.agents!;
+    // The planner and a variant of it in code name themselves with keys of the application.
+    agents[0] = { ...agents[0], displayName: 'nh-assistant.agents.planner.name' };
+    agents.push({
+      source: 'code', id: 'planner-strict', displayName: 'nh-assistant.agents.planner-strict.name', description: 'Plans strictly.',
+      instructions: 'Plan strictly.', toolSelectors: ['projects.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute',
+      isEnabled: true, shadowOf: 'planner'
+    });
+    await configure(script);
+    TestBed.inject(TranslateService).setTranslation('en', {
+      'nh-assistant': { agents: { planner: { name: 'Project planner' }, 'planner-strict': { name: 'Strict planner' } } }
+    }, true);
+
+    const closer = await render(NhAssistantAdminAgentsComponent);
+    let page = await openRunConfiguration(closer.fixture, closer.element, 'closer');
+    expect(text(page.querySelector('[data-hand-off="project"] [data-hand-off-sources]'))).toContain('Project planner');
+    (page.querySelector('[data-hand-offs] [data-open-form="hand-off"]') as HTMLButtonElement).click();
+    page = await settle(closer.fixture);
+    const source = page.querySelector('[data-form="hand-off"] [data-hand-off-source="planner"]')?.closest('label');
+    expect(text(source?.querySelector('strong'))).toBe('Project planner');
+    expect(page.querySelector('[data-hand-offs]')?.textContent).not.toContain('nh-assistant.agents.planner.name');
+
+    const planner = await render(NhAssistantAdminAgentsComponent);
+    page = await openRunConfiguration(planner.fixture, planner.element, 'planner');
+    const section = page.querySelector('[data-shadow-variants]') as HTMLElement;
+    expect(text(section.querySelector('[data-shadow-variant="planner-strict"] [data-shadow-variant-name]'))).toBe('Strict planner');
+    (section.querySelector('[data-open-form="shadow-variant"]') as HTMLButtonElement).click();
+    page = await settle(planner.fixture);
+    expect((page.querySelector('[data-shadow-variants] [data-variant-name]') as HTMLInputElement).value).toContain('Project planner');
+  }, formFlowTimeout);
 });

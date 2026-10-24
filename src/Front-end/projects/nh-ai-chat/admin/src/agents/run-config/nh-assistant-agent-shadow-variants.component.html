@@ -124,7 +124,7 @@
         @for (variant of variants()?.variants ?? []; track variant.agentId) {
           <li class="skill" [attr.data-shadow-variant]="variant.agentId" [attr.data-shadow-variant-source]="variant.source">
             <div class="card-header">
-              <strong>{{ variant.source === 'code' ? (variant.displayName | translate) : variant.displayName }}</strong>
+              <strong data-shadow-variant-name>{{ variantName(variant) }}</strong>
               <span class="mono muted">{{ variant.agentId }}</span>
               <span class="badge">{{ 'nh-assistant.admin.shadow-variants.source.' + variant.source | translate }}</span>
               @if (!variant.hasRunSettings) {
@@ -146,7 +146,7 @@
                   class="secondary"
                   type="button"
                   [attr.data-open-variant]="variant.agentId"
-                  [attr.aria-label]="'nh-assistant.admin.shadow-variants.open-named' | translate: { name: variant.displayName }"
+                  [attr.aria-label]="'nh-assistant.admin.shadow-variants.open-named' | translate: { name: variantName(variant) }"
                   (click)="openVariant.emit(variant.agentId)">
                   <nh-assistant-icon name="list" />{{ (variant.hasRunSettings ? 'nh-assistant.admin.shadow-variants.open' : 'nh-assistant.admin.shadow-variants.set-up') | translate }}
                 </button>
