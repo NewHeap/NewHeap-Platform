@@ -30,6 +30,20 @@ internal sealed record NhBackgroundOperationAttemptClaim(
     internal NhBackgroundOperationAttemptWriteGate WriteGate { get; } = new();
 }
 
+/// <summary>
+/// A write of an attempt found that the operation no longer belongs to that attempt: another
+/// attempt, a new dispatch generation or a recovery took it over. It stays an
+/// <see cref="InvalidOperationException"/> for callers, and lets the attempt's own unwinding tell a
+/// lost fence apart from a failure to write.
+/// </summary>
+internal sealed class NhBackgroundOperationOwnershipLostException : InvalidOperationException
+{
+    internal NhBackgroundOperationOwnershipLostException()
+        : base("The operation attempt lost its fencing token.")
+    {
+    }
+}
+
 internal enum NhBackgroundOperationHeartbeatResult
 {
     Continue,
@@ -935,7 +949,7 @@ internal sealed partial class NhBackgroundOperationPersistence
             .SingleAsync(x => x.Id == claim.OperationId, cancellationToken);
         if (operation.CurrentAttemptId != claim.AttemptId || operation.DispatchGeneration != claim.DispatchGeneration)
         {
-            throw new InvalidOperationException("The operation attempt lost its fencing token.");
+            throw new NhBackgroundOperationOwnershipLostException();
         }
 
         if (operation.Status == NhBackgroundOperationStatus.CancelRequested)

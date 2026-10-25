@@ -86,6 +86,16 @@ public enum NhBackgroundOperationOwnerKind
     Agent = 10
 }
 
+/// <summary>
+/// The lengths of the failure columns that a handler's failed result fills. The runner checks a
+/// returned code and message key against them before it writes them.
+/// </summary>
+internal static class NhBackgroundOperationColumnLimits
+{
+    internal const int FailureCode = 100;
+    internal const int FailureMessageKey = 300;
+}
+
 public sealed class NhBackgroundOperation : IdDbEntity
 {
     [Key]
@@ -287,13 +297,13 @@ public sealed class NhBackgroundOperation : IdDbEntity
         get; set;
     }
 
-    [StringLength(100)]
+    [StringLength(NhBackgroundOperationColumnLimits.FailureCode)]
     public string? FailureCode
     {
         get; set;
     }
 
-    [StringLength(300)]
+    [StringLength(NhBackgroundOperationColumnLimits.FailureMessageKey)]
     public string? FailureMessageKey
     {
         get; set;
@@ -381,7 +391,7 @@ public sealed class NhBackgroundOperationAttempt : IdDbEntity
         get; set;
     }
 
-    [StringLength(100)]
+    [StringLength(NhBackgroundOperationColumnLimits.FailureCode)]
     public string? FailureCode
     {
         get; set;
