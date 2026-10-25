@@ -87,6 +87,35 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         Assert.Equal(NhAiGrantSource.Agent, context.GrantSource);
         Assert.Equal(approval.ProposalId.ToString(), context.ProposalId);
         Assert.Equal(projectId.ToString(), Assert.Single(context.ExecutionScopes, scope => scope.Type == "project").Id);
+        // The approved proposal executes for the run that proposed it.
+        Assert.Equal(run.Run.Id, context.AgentRunId);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_tool_in_an_agent_run_reads_the_runs_id_while_run_id_stays_the_turn(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-search")
+            .RespondWithText("The roadmap project exists.");
+        await using var host = await CreateHostAsync(provider, model, NhAiApprovalMode.Deferred);
+        var run = await StartRunAsync(host, projectId);
+
+        var result = await RunTurnAsync(host, run, "Project PRJ-1 was created.");
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
+        var context = Assert.Single(host.Tools.Contexts);
+        var scope = Assert.Single(host.Tools.Scopes);
+        Assert.NotNull(scope);
+        // The tool reads the agent run on its invocation context and on the ambient scope.
+        Assert.Equal(run.Run.Id, context.AgentRunId);
+        Assert.Equal(run.Run.Id, scope.AgentRunId);
+        // RunId stays the turn and CorrelationId the run in N format, as proposals and usage use them.
+        Assert.Equal(scope.RunId, context.RunId);
+        Assert.NotEqual(run.Run.Id.ToString(), context.RunId);
+        Assert.Equal(run.Run.Id.ToString("N"), context.CorrelationId);
     }
 
     [Theory]

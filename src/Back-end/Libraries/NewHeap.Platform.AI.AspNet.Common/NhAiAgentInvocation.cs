@@ -387,6 +387,7 @@ internal sealed class NhAiAgentInvocationGate(
             RunId = scope.RunId,
             RunAttemptNumber = scope.RunAttemptNumber,
             CorrelationId = scope.CorrelationId ?? scope.RunId,
+            AgentRunId = scope.AgentRunId,
             ExecutionScopes = executionScopes,
             CapabilityGrants = capabilities,
             ModelProfileName = scope.ModelProfileName,
