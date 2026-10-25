@@ -322,6 +322,8 @@
     "SPM-324",
     "SPM-325",
     "SPM-326",
+    "SPM-327",
+    "SPM-328",
     "SPM-331"
   ],
   "gaps": {
@@ -3160,6 +3162,37 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationReservedConcurrencyProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventLookupTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScheduleHostTests.cs"
+    ],
+    "SPM-327": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDecisionDigestComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalDigest.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSystemMembers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInboxStatusTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSystemMembersTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-agent-run.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts"
+    ],
+    "SPM-328": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.ApplicationExecutions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantInlineHandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineApplicationExecutionTests.cs"
     ],
     "SPM-331": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
