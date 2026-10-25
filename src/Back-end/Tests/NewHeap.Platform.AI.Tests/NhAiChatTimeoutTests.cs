@@ -64,6 +64,22 @@ public sealed class NhAiChatTimeoutTests
     }
 
     [Fact]
+    public async Task A_cancellation_the_caller_did_not_request_counts_as_a_timeout()
+    {
+        // An HTTP client's own timeout cancels the provider request without the caller's token.
+        await using var provider = CreateServices(new ProviderTimeoutChatClient(), timeout: null).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiChatExecutor>()
+            .GetResponseAsync(CreateRequest());
+
+        Assert.False(result.Success);
+        Assert.Equal(NhAiModelFailureCodes.Timeout, Assert.Single(result.GetResultItems()).Name);
+        AssertSettledOnce(scope.ServiceProvider, NhAiOutcomeKind.TimedOut, NhAiModelFinishReasons.TimedOut);
+    }
+
+    [Fact]
     public async Task A_caller_cancellation_still_throws_and_settles_the_call()
     {
         var client = new UnansweredChatClient();
@@ -247,6 +263,34 @@ public sealed class NhAiChatTimeoutTests
             return serviceKey is null && serviceType.IsInstanceOfType(this)
                 ? this
                 : null;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class ProviderTimeoutChatClient : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new TaskCanceledException("The provider request timed out.", new TimeoutException());
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            return null;
         }
 
         public void Dispose()
