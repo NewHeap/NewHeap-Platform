@@ -71,6 +71,55 @@ public interface INhAiChatExecutor
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// The failure codes of <see cref="INhAiChatExecutor"/>: the name of the first result item of a failed
+/// call, a failed stream start or a failed <see cref="NhAiChatStream.Completion"/>.
+/// </summary>
+public static class NhAiModelFailureCodes
+{
+    /// <summary>
+    /// A governed deadline ended the model call before it answered: the profile's timeout or the
+    /// invocation context's deadline, after any retry the profile allows. The usage record has
+    /// outcome <see cref="NhAiOutcomeKind.TimedOut"/> and finish reason
+    /// <see cref="NhAiModelFinishReasons.TimedOut"/>. A caller's own cancellation still throws.
+    /// </summary>
+    public const string Timeout = "ai-model-timeout";
+
+    /// <summary>The provider failed, after any retry the profile allows.</summary>
+    public const string DependencyUnavailable = "ai-model-dependency-unavailable";
+
+    /// <summary>The stream ended before it completed, for example because its consumer stopped reading.</summary>
+    public const string StreamIncomplete = "ai-model-stream-incomplete";
+
+    /// <summary>The call needs more than its profile's budget allows; nothing reached the model.</summary>
+    public const string ProfileBudgetExceeded = "ai-model-profile-budget-exceeded";
+
+    /// <summary>The invocation context's deadline had passed before the call; nothing reached the model.</summary>
+    public const string RunDeadlineExpired = "ai-run-deadline-expired";
+
+    /// <summary>The call needs more than the run's remaining budget; nothing reached the model.</summary>
+    public const string RunBudgetExceeded = "ai-run-budget-exceeded";
+
+    /// <summary>The budget manager refused the reservation; nothing reached the model.</summary>
+    public const string RunBudgetReservationDenied = "ai-run-budget-reservation-denied";
+}
+
+/// <summary>
+/// The finish reasons <see cref="INhAiChatExecutor"/> records in <see cref="NhAiUsageRecord.FinishReason"/>
+/// for a call that did not finish with the provider's own reason.
+/// </summary>
+public static class NhAiModelFinishReasons
+{
+    /// <summary>A governed deadline ended the call (<see cref="NhAiOutcomeKind.TimedOut"/>).</summary>
+    public const string TimedOut = "timed-out";
+
+    /// <summary>The caller cancelled the call (<see cref="NhAiOutcomeKind.TerminalFailure"/>).</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>The provider failed (<see cref="NhAiOutcomeKind.DependencyUnavailable"/>).</summary>
+    public const string DependencyFailure = "dependency-failure";
+}
+
 internal sealed class NhAiChatExecutor(
     INhAiModelProfileResolver modelProfiles,
     INhAiBudgetManager budgetManager,
@@ -96,6 +145,9 @@ internal sealed class NhAiChatExecutor(
     /// profile. Each retry waits <see cref="RetryBaseDelay"/> times two to the attempt.
     /// </summary>
     internal const int MaxModelCallRetries = 2;
+
+    private const string TimeoutMessage = "The AI model call did not complete within its deadline.";
+    private const string DependencyUnavailableMessage = "The selected AI model dependency is unavailable.";
 
     internal static TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromMilliseconds(500);
 
@@ -147,6 +199,26 @@ internal sealed class NhAiChatExecutor(
                 activity?.AddEvent(new ActivityEvent("nh.ai.model.retry"));
                 await Task.Delay(RetryDelay(attempt), cancellationToken);
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // A governed deadline, not the caller, ended the call: an expected outcome.
+                var elapsed = Stopwatch.GetElapsedTime(startedAt);
+                await RecordCompletionAsync(
+                    request,
+                    state,
+                    null,
+                    elapsed,
+                    null,
+                    0,
+                    null,
+                    NhAiModelFinishReasons.TimedOut,
+                    NhAiOutcomeKind.TimedOut,
+                    activity,
+                    CancellationToken.None);
+                return TaskResult<NhAiChatResult>.Failed(
+                    NhAiModelFailureCodes.Timeout,
+                    TimeoutMessage);
+            }
             catch (OperationCanceledException)
             {
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
@@ -158,7 +230,7 @@ internal sealed class NhAiChatExecutor(
                     null,
                     0,
                     null,
-                    "cancelled",
+                    NhAiModelFinishReasons.Cancelled,
                     NhAiOutcomeKind.TerminalFailure,
                     activity,
                     CancellationToken.None);
@@ -183,13 +255,13 @@ internal sealed class NhAiChatExecutor(
                     null,
                     0,
                     null,
-                    "dependency-failure",
+                    NhAiModelFinishReasons.DependencyFailure,
                     NhAiOutcomeKind.DependencyUnavailable,
                     activity,
                     CancellationToken.None);
                 return TaskResult<NhAiChatResult>.Failed(
-                    "ai-model-dependency-unavailable",
-                    "The selected AI model dependency is unavailable.");
+                    NhAiModelFailureCodes.DependencyUnavailable,
+                    DependencyUnavailableMessage);
             }
         }
     }
@@ -230,6 +302,7 @@ internal sealed class NhAiChatExecutor(
         var outcome = NhAiOutcomeKind.Succeeded;
         var reachedEnd = false;
         var dependencyFailure = false;
+        var timedOut = false;
         using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
         var enumerator = state.Client.GetStreamingResponseAsync(
             state.Messages,
@@ -251,11 +324,20 @@ internal sealed class NhAiChatExecutor(
                     }
                     update = enumerator.Current;
                 }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // A governed deadline, not the caller, ended the stream: an expected outcome that
+                    // ends the enumeration and fails the completion.
+                    outcome = NhAiOutcomeKind.TimedOut;
+                    finishReason = NhAiModelFinishReasons.TimedOut;
+                    timedOut = true;
+                    break;
+                }
                 catch (OperationCanceledException)
                 {
                     outcome = NhAiOutcomeKind.TerminalFailure;
-                    finishReason = "cancelled";
-                    completion.TrySetCanceled(timeout.Token);
+                    finishReason = NhAiModelFinishReasons.Cancelled;
+                    completion.TrySetCanceled(cancellationToken);
                     throw;
                 }
                 catch (Exception exception) when (exception is not OutOfMemoryException
@@ -269,7 +351,7 @@ internal sealed class NhAiChatExecutor(
                 catch (Exception exception) when (exception is not OutOfMemoryException)
                 {
                     outcome = NhAiOutcomeKind.DependencyUnavailable;
-                    finishReason = "dependency-failure";
+                    finishReason = NhAiModelFinishReasons.DependencyFailure;
                     dependencyFailure = true;
                     activity?.SetTag("error.type", exception.GetType().FullName);
                     break;
@@ -278,7 +360,25 @@ internal sealed class NhAiChatExecutor(
                 if (update is null)
                 {
                     await enumerator.DisposeAsync();
-                    await Task.Delay(RetryDelay(attempt), timeout.Token);
+                    try
+                    {
+                        await Task.Delay(RetryDelay(attempt), timeout.Token);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        // The deadline passed while the stream waited to start again.
+                        outcome = NhAiOutcomeKind.TimedOut;
+                        finishReason = NhAiModelFinishReasons.TimedOut;
+                        timedOut = true;
+                        break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        outcome = NhAiOutcomeKind.TerminalFailure;
+                        finishReason = NhAiModelFinishReasons.Cancelled;
+                        completion.TrySetCanceled(cancellationToken);
+                        throw;
+                    }
                     attempt++;
                     enumerator = state.Client.GetStreamingResponseAsync(
                         state.Messages,
@@ -327,8 +427,15 @@ internal sealed class NhAiChatExecutor(
                 {
                     completion.TrySetResult(
                         TaskResult<NhAiChatStreamCompletion>.Failed(
-                            "ai-model-dependency-unavailable",
-                            "The selected AI model dependency is unavailable."));
+                            NhAiModelFailureCodes.DependencyUnavailable,
+                            DependencyUnavailableMessage));
+                }
+                else if (timedOut)
+                {
+                    completion.TrySetResult(
+                        TaskResult<NhAiChatStreamCompletion>.Failed(
+                            NhAiModelFailureCodes.Timeout,
+                            TimeoutMessage));
                 }
                 else if (reachedEnd)
                 {
@@ -340,7 +447,7 @@ internal sealed class NhAiChatExecutor(
                 {
                     completion.TrySetResult(
                         TaskResult<NhAiChatStreamCompletion>.Failed(
-                            "ai-model-stream-incomplete",
+                            NhAiModelFailureCodes.StreamIncomplete,
                             "The AI model stream ended before completion."));
                 }
             }
@@ -358,7 +465,7 @@ internal sealed class NhAiChatExecutor(
             && deadline <= DateTimeOffset.UtcNow)
         {
             return TaskResult<PreparedChat>.Failed(
-                "ai-run-deadline-expired",
+                NhAiModelFailureCodes.RunDeadlineExpired,
                 "The AI run deadline has expired.");
         }
         var requiredCapabilities = request.RequiredCapabilities | NhAiModelCapability.Chat;
@@ -396,7 +503,7 @@ internal sealed class NhAiChatExecutor(
                 && cost > maximumCost))
         {
             return TaskResult<PreparedChat>.Failed(
-                "ai-model-profile-budget-exceeded",
+                NhAiModelFailureCodes.ProfileBudgetExceeded,
                 "The requested AI model call exceeds its profile budget.");
         }
         if (request.InvocationContext.RemainingBudget is { } remaining)
@@ -409,7 +516,7 @@ internal sealed class NhAiChatExecutor(
                     && remainingCost > remainingMaximumCost))
             {
                 return TaskResult<PreparedChat>.Failed(
-                    "ai-run-budget-exceeded",
+                    NhAiModelFailureCodes.RunBudgetExceeded,
                     "The requested AI model call exceeds the remaining run budget.");
             }
         }
@@ -436,7 +543,7 @@ internal sealed class NhAiChatExecutor(
         if (!reservation.Success)
         {
             return TaskResult<PreparedChat>.Failed(
-                "ai-run-budget-reservation-denied",
+                NhAiModelFailureCodes.RunBudgetReservationDenied,
                 "The requested AI model budget could not be reserved.");
         }
         return TaskResult<PreparedChat>.Succeeded(new PreparedChat(

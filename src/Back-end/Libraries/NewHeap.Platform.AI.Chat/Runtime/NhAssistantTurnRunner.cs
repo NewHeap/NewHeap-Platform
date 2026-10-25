@@ -1048,6 +1048,11 @@ internal sealed partial class NhAssistantTurnRunner(
                 exception.GetType().Name);
             return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.BudgetExhausted);
         }
+        catch (NhAiAgentModelCallException exception) when (exception.Code == NhAiModelFailureCodes.Timeout)
+        {
+            // The governed deadline of a model call passed, as when the consultation's own timeout fires.
+            return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ConsultTimeout);
+        }
 
         if (state.Scope.BudgetExhausted && state.ToolCalls == 0)
         {
@@ -2378,6 +2383,16 @@ internal sealed partial class NhAssistantTurnRunner(
                 "Assistant turn {TurnId} stopped because the daily budget is exhausted ({ExceptionType}).",
                 state.Scope.TurnId,
                 exception.GetType().Name);
+        }
+        catch (NhAiAgentModelCallException exception) when (exception.Code == NhAiModelFailureCodes.Timeout)
+        {
+            // The governed deadline of a model call passed: the turn's deadline or the profile's timeout.
+            logger.LogInformation(
+                "Assistant turn {TurnId} of agent {AgentId} ended at the deadline of a model call.",
+                state.Scope.TurnId,
+                state.Scope.Agent.Id);
+            outcomeStatus = NhAssistantTurnStatuses.Failed;
+            errorCode = NhAssistantErrorCodes.TurnTimeout;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

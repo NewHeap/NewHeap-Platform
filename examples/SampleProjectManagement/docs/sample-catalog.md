@@ -579,6 +579,18 @@ see each other's rows. Hosts register `SampleTestClock` as their `TimeProvider`,
 and a test moves it past a debounce or a lifetime instead of waiting.
 `FastTestInfrastructureSamplesTests` proves both.
 
+SPM-335 tests structured output where a provider checks it. `ProjectAiStatusDigestService` asks the
+governed project model for a status digest whose two lists share one item type. The libraries pass
+the schema on unchanged, so `ProjectAiStructuredOutput`, the sample's own code, generates it with
+closed objects and every property required and moves the second list's reference into `$defs`.
+`AiStructuredOutputSamplesTests` sends it to `NhAiDeterministicChatClient` with
+`StrictStructuredOutput`, which refuses the schema as generated with HTTP 400, as a provider in
+strict mode does, and accepts the normalized one. A digest whose call passes the run's deadline
+returns the failed result `ai-model-timeout` instead of throwing. `AiAgentHistorySamplesTests`
+extends SPM-225: the project agent keeps its session in the `InMemoryChatHistoryProvider` that its
+request's `ChatHistoryProviderFactory` creates, and its second question reaches the model with the
+first exchange through the governed client.
+
 ## Filtering
 
 The frontend creates `ProjectCollectionRequestOptions` and adds only active

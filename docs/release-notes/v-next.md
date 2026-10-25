@@ -80,6 +80,62 @@ during startup or file handling. Which values are valid does not change.
 |---|---|
 | None; the media type check no longer throws `RegexMatchTimeoutException`. | None. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AgentFramework and NewHeap.Platform.AI.Chat: a model timeout is a failed result
+
+A governed deadline no longer throws. When the profile's timeout or the invocation context's
+`Deadline` ends a model call before it answers, after any retry the profile allows,
+`INhAiChatExecutor.GetResponseAsync` returns the failed result `ai-model-timeout`
+(`NhAiModelFailureCodes.Timeout`). A stream ends its enumeration without an exception, keeps the
+updates it delivered, and completes with that failed result. A cancellation the caller did not
+request, such as the provider HTTP client's own timeout, counts the same. The usage record and the
+`ai.model.invoke` activity carry the new outcome `NhAiOutcomeKind.TimedOut` and finish reason
+`timed-out`. The caller's own cancellation still throws `OperationCanceledException` and records
+`TerminalFailure` with `cancelled`; both keep one budget reservation and one usage record per call.
+`NhAiModelFailureCodes` and `NhAiModelFinishReasons` name the executor's codes and finish reasons.
+
+The Agent Framework adapter's governed chat client, which can only answer or throw, throws the new
+`NhAiAgentModelCallException` for a failed call, a stream that could not start and a failed stream
+completion. It is an `InvalidOperationException` with the unchanged message, and `Code` keeps the
+result's failure code. The assistant maps `ai-model-timeout` to the codes a timeout gave before: a
+turn ends with `assistant-turn-timeout` and a consultation with `assistant-consult-timeout`; a
+triage that times out stays undecided.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAiChatExecutor.GetResponseAsync` returns the failed result `ai-model-timeout` when a profile timeout, the invocation deadline or a cancellation the caller did not request ends the call, instead of throwing `OperationCanceledException`; a stream ends its enumeration and fails `Completion` with `ai-model-timeout` instead of throwing and cancelling `Completion`. | Handle `NhAiModelFailureCodes.Timeout` as a failed result where code caught `OperationCanceledException` for a timeout; keep catching it only for the caller's own cancellation, and await `Completion` after every stream. |
+| The usage record and `ai.model.invoke` activity of such a call have outcome `NhAiOutcomeKind.TimedOut` (9) and finish reason `timed-out` instead of `TerminalFailure` and `cancelled`. | Let usage sinks, reports and dashboards that map `NhAiOutcomeKind` or finish reasons handle `TimedOut` and `timed-out`. |
+| The Agent Framework adapter's chat client throws `NhAiAgentModelCallException` instead of `InvalidOperationException` for a failed governed call or stream, and so also for a timeout, which threw `OperationCanceledException` before. | Catch `NhAiAgentModelCallException` and read `Code`, such as `ai-model-timeout`; code that catches `InvalidOperationException` keeps working, but replace assertions of that exact type. |
+
+## NewHeap.Platform.AI.AgentFramework: chat history and AI context providers for agents
+
+`NhAiAgentCreateRequest` takes two optional factories that the adapter calls once per created agent
+with the service provider passed to `CreateAsync`: `ChatHistoryProviderFactory` creates the
+agent's Agent Framework `ChatHistoryProvider`, such as an `InMemoryChatHistoryProvider` or one over
+the application's own store, and `AIContextProvidersFactory` its `AIContextProvider`s, such as memory
+or compaction. Both go into the `ChatClientAgentOptions` the adapter builds. The governed client, the
+published tools and the invocation context stay NewHeap's: every model call still crosses
+`INhAiChatExecutor`, and a context provider that adds a tool fails the run with
+`InvalidOperationException` before the model is called.
+
+| Breaking change | Required action |
+|---|---|
+| None; both factories are optional, and an agent without them keeps Agent Framework's defaults. | None. Publish tools through a governed tool catalog, not through an AI context provider. |
+
+## NewHeap.Platform.AI.Test: strict structured output in the test clients
+
+`NhAiDeterministicChatClient.StrictStructuredOutput` and `NhAiScriptedChatClient.StrictStructuredOutput`,
+off by default, check the JSON schema of `ChatOptions.ResponseFormat` as a provider in strict mode does
+and refuse the request with an `HttpRequestException` of status 400 when a `$ref` names anything but the
+root or an entry of the root's `$defs`, an object does not set `additionalProperties` to `false`, or an
+object leaves a property out of `required`. `NhAiStrictStructuredOutput.Validate` returns every
+`NhAiStrictSchemaViolation` with its JSON pointer. NewHeap still passes schemas on unchanged; the
+guidance shows what Microsoft.Extensions.AI generates for repeated types, referenced arrays, nullable
+objects and recursive definitions, and the application normalizes its own schemas.
+
+| Breaking change | Required action |
+|---|---|
+| None; the check is opt-in. | None. Set `StrictStructuredOutput` in tests whose calls send a structured-output schema. |
+
 ## NewHeap.Platform.AspNet.Common: background-operation failures and cancellations
 
 Three fixes keep a background operation's outcome recordable and true to what stopped it.
@@ -124,6 +180,30 @@ which the process's Hangfire server serves on its own, and gives that queue its 
 | Breaking change | Required action |
 |---|---|
 | None; both are additive, and the assistant's operations stay on the default queue unless `Queue` is chosen. | None. A host that moves them to a queue keeps serving the old queue until the operations queued before have ended, and gives every process of its `ProcessorKey` the same reservations. |
+
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.Events.Cap: opening a transaction asynchronously
+
+`NhTransactionFactoryAsync` is a cancellation-aware transaction factory next to `NhTransactionFactory`:
+`(prev, dbContext, serviceProvider, cancellationToken) => Task<IDbContextTransaction>`, registered as a
+singleton. `StartTransactionAsync`, and with it `StartOrGetTransactionScopeAsync`, runs the synchronous
+factories first and then the asynchronous ones, each in registration order and each receiving the
+transaction the one before returned; without a factory it calls `BeginTransactionAsync` as before. A
+cancelled token now stops the call before any factory runs, and when a factory throws or is cancelled,
+the transaction an earlier factory returned is disposed, so the context no longer keeps a transaction
+that a later scope would join without owning it. `NhTransactionFactory` stays for compatibility.
+
+`AddCap` registers an asynchronous factory instead of its synchronous one. It opens the transaction with
+`BeginTransactionAsync` and the caller's token, or wraps the transaction an earlier factory returned, and
+sets `CapTransactionScope.Current` only once that transaction exists, so a cancelled open leaves neither a
+transaction nor a CAP transaction. `CapEFDbTransaction.DisposeAsync` disposes the EF transaction
+asynchronously, and both disposals also dispose it after a SQL Server commit, where CAP had released it
+without disposing it. The outbox still commits and rolls back with the data.
+
+| Breaking change | Required action |
+|---|---|
+| `AddCap` registers `NhTransactionFactoryAsync` instead of `NhTransactionFactory`, so `GetServices<NhTransactionFactory>()` no longer returns CAP's factory. | Open transactions through `StartTransactionAsync` or `StartOrGetTransactionScopeAsync`; resolve `NhTransactionFactoryAsync` where code called CAP's factory itself. |
+| An application's `NhTransactionFactory` runs before CAP's factory whatever the registration order: one registered after `AddCap` receives `null` instead of CAP's transaction, and CAP wraps the transaction it returns. | Let such a factory open the transaction when it receives `null` (`prev ?? dbContext.Database.BeginTransaction(...)`), or register it as an `NhTransactionFactoryAsync` after `AddCap` to receive CAP's transaction. |
+| `StartTransactionAsync` with an already cancelled token throws `OperationCanceledException` also when only synchronous factories are registered, where they opened a transaction before. | Handle the cancellation, or pass a token that is not cancelled. |
 
 ## NewHeap.Platform.AI.Chat: fixed patterns without a match timeout
 

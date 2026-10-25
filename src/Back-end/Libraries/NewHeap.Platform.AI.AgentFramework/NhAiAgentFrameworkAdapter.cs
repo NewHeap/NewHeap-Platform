@@ -26,6 +26,65 @@ public sealed record NhAiAgentCreateRequest(
     /// <see cref="InvalidOperationException"/> when no such scope is current.
     /// </summary>
     public bool EffectsAsProposals { get; init; }
+
+    /// <summary>
+    /// Creates the agent's <see cref="Microsoft.Agents.AI.ChatHistoryProvider"/>, which loads the
+    /// earlier messages of a session before each run and stores the new ones after it, for example an
+    /// <see cref="InMemoryChatHistoryProvider"/> with a chat reducer or a provider over the
+    /// application's own store. The adapter calls it once per created agent with the service provider
+    /// passed to <see cref="INhAiAgentFrameworkAdapter.CreateAsync"/>; a provider keeps per-session
+    /// state in the session's <see cref="AgentSession.StateBag"/>, not in its own fields. Without a
+    /// factory the agent keeps Agent Framework's default. Every model call still runs through the
+    /// governed client, whatever history the provider supplies.
+    /// </summary>
+    public Func<IServiceProvider, ChatHistoryProvider>? ChatHistoryProviderFactory { get; init; }
+
+    /// <summary>
+    /// Creates the agent's <see cref="AIContextProvider"/>s, which add instructions and messages before
+    /// each run and see its result after it, such as memory or compaction of the conversation. The
+    /// adapter calls it once per created agent with the service provider passed to
+    /// <see cref="INhAiAgentFrameworkAdapter.CreateAsync"/>. Tools stay NewHeap's: a run whose context
+    /// provider adds a tool fails with <see cref="InvalidOperationException"/> before the model is
+    /// called, because only tools the adapter published pass NewHeap's discovery, autonomy and invoker.
+    /// </summary>
+    public Func<IServiceProvider, IEnumerable<AIContextProvider>>? AIContextProvidersFactory { get; init; }
+}
+
+/// <summary>
+/// The failed result of a governed model call of an Agent Framework agent. The agent's chat client
+/// can only answer or throw, so the adapter throws this exception for a failed
+/// <see cref="INhAiChatExecutor"/> result, a stream that could not start or a stream whose completion
+/// failed. <see cref="Code"/> keeps the result's failure code, such as
+/// <see cref="NhAiModelFailureCodes.Timeout"/> when a governed deadline ended the call or
+/// <see cref="NhAiModelFailureCodes.DependencyUnavailable"/>. The caller's own cancellation still
+/// throws <see cref="OperationCanceledException"/>.
+/// </summary>
+public sealed class NhAiAgentModelCallException : InvalidOperationException
+{
+    /// <summary>
+    /// The code of a failed result that names none.
+    /// </summary>
+    public const string UnclassifiedCode = "ai-model-call-failed";
+
+    public NhAiAgentModelCallException(string message, string code)
+        : base(message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        Code = code;
+    }
+
+    /// <summary>
+    /// The failure code of the governed call's result.
+    /// </summary>
+    public string Code { get; }
+
+    internal static NhAiAgentModelCallException Of(TaskResult result, string message)
+    {
+        var code = result.GetResultItems()
+            .Select(item => item.Name)
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+        return new NhAiAgentModelCallException(message, code ?? UnclassifiedCode);
+    }
 }
 
 public sealed record NhAiAgentInstance(
@@ -222,6 +281,34 @@ internal sealed class NhAiAgentFrameworkAdapter(
                 Tools = functions
             }
         };
+        if (request.ChatHistoryProviderFactory is { } historyFactory)
+        {
+            options.ChatHistoryProvider = historyFactory(services)
+                ?? throw new InvalidOperationException(
+                    "The chat history provider factory of an AI agent returned no provider.");
+        }
+        if (request.AIContextProvidersFactory is { } contextFactory)
+        {
+            var created = contextFactory(services)
+                ?? throw new InvalidOperationException(
+                    "The AI context provider factory of an AI agent returned no providers.");
+            var providers = new List<AIContextProvider>();
+            foreach (var provider in created)
+            {
+                if (provider is null)
+                {
+                    throw new InvalidOperationException(
+                        "The AI context provider factory of an AI agent returned a null provider.");
+                }
+
+                // Each provider runs behind a guard that keeps tool publication NewHeap's.
+                providers.Add(new NhAiAgentFrameworkContextProvider(provider));
+            }
+            if (providers.Count > 0)
+            {
+                options.AIContextProviders = providers;
+            }
+        }
         var effectiveContext = request.Context with
         {
             RemainingBudget = IntersectBudgets(
@@ -391,7 +478,8 @@ internal sealed class NhAiAgentFrameworkChatClient(
             cancellationToken);
         if (!result.Success)
         {
-            throw new InvalidOperationException(
+            throw NhAiAgentModelCallException.Of(
+                result,
                 "The governed AI agent model call did not complete successfully.");
         }
         return result.Data.Response;
@@ -407,7 +495,8 @@ internal sealed class NhAiAgentFrameworkChatClient(
             cancellationToken);
         if (!start.Success)
         {
-            throw new InvalidOperationException(
+            throw NhAiAgentModelCallException.Of(
+                start,
                 "The governed AI agent model stream could not be started.");
         }
 
@@ -418,7 +507,8 @@ internal sealed class NhAiAgentFrameworkChatClient(
         var completion = await start.Data.Completion;
         if (!completion.Success)
         {
-            throw new InvalidOperationException(
+            throw NhAiAgentModelCallException.Of(
+                completion,
                 "The governed AI agent model stream did not complete successfully.");
         }
     }
@@ -465,6 +555,47 @@ internal sealed class NhAiAgentFrameworkChatClient(
             ExecutionRegion = executionRegion,
             AgentId = descriptor.Id
         };
+    }
+}
+
+/// <summary>
+/// Runs an application's <see cref="AIContextProvider"/> for a NewHeap agent. Its instructions and
+/// messages reach the model, but a tool it adds would run outside NewHeap's discovery, autonomy and
+/// invoker, so the run fails before the model is called.
+/// </summary>
+internal sealed class NhAiAgentFrameworkContextProvider(AIContextProvider inner) : AIContextProvider
+{
+    public override IReadOnlyList<string> StateKeys => inner.StateKeys;
+
+    public override object? GetService(Type serviceType, object? serviceKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+        return base.GetService(serviceType, serviceKey) ?? inner.GetService(serviceType, serviceKey);
+    }
+
+    protected override async ValueTask<AIContext> InvokingCoreAsync(
+        InvokingContext context,
+        CancellationToken cancellationToken)
+    {
+        var offered = context.AIContext.Tools?.ToArray() ?? [];
+        var provided = await inner.InvokingAsync(context, cancellationToken);
+        foreach (var tool in provided.Tools ?? [])
+        {
+            if (!offered.Contains(tool))
+            {
+                throw new InvalidOperationException(
+                    "An AI context provider of a governed AI agent may not add tools; publish tools through a governed NewHeap tool catalog.");
+            }
+        }
+
+        return provided;
+    }
+
+    protected override ValueTask InvokedCoreAsync(
+        InvokedContext context,
+        CancellationToken cancellationToken)
+    {
+        return inner.InvokedAsync(context, cancellationToken);
     }
 }
 

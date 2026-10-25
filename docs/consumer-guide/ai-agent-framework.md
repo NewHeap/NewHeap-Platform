@@ -44,6 +44,25 @@ must be descriptor-bound `INhAiGovernedAIFunction` instances from a
 authorization, approval, budget, concurrency, idempotency and verification are
 identical to local and MCP execution.
 
+The agent's chat history and its additional context belong to the application, its governance to
+NewHeap. `NhAiAgentCreateRequest.ChatHistoryProviderFactory` creates the agent's Agent Framework
+`ChatHistoryProvider`, such as an `InMemoryChatHistoryProvider` with a chat reducer or a provider
+over the application's own store, and `AIContextProvidersFactory` its `AIContextProvider`s, such as
+memory or compaction. The adapter calls each factory once per created agent with the service
+provider passed to `CreateAsync` and puts the result into the `ChatClientAgentOptions` it builds;
+providers keep per-session state in the session's `StateBag`. The governed client, the published
+tools and the invocation context stay NewHeap's: history and context reach the model only through
+the governed client, and a context provider that adds a tool fails the run with
+`InvalidOperationException` before the model is called, because such a tool would bypass discovery,
+autonomy and the invoker. Without a factory the agent keeps Agent Framework's default.
+
+The agent's chat client can only answer or throw, so a failed governed call, a stream that could not
+start and a failed stream completion throw `NhAiAgentModelCallException`, an
+`InvalidOperationException` whose `Code` keeps the result's failure code, such as
+`ai-model-timeout` when the profile's timeout or the run's deadline ended the call. The caller's own
+cancellation still throws `OperationCanceledException`. Map the code instead of the exception's
+message.
+
 Treat instructions as versioned application assets. Record prompt and agent
 versions or hashes in the invocation context and evaluation evidence, but do not
 put prompt content, chat history, credentials or tool payloads in normal logs.
@@ -63,6 +82,8 @@ upgrade starts a new lineage rather than coercing old state.
 - Treating a tool allow-list, autonomy level, or prompt as authorization.
 - Passing locally visible tools to Agent Framework without `Agent` discovery.
 - Passing a raw catalog function or raw keyed model client around NewHeap governance.
+- Publishing tools through an AI context provider instead of a governed tool catalog.
+- Telling a model timeout from cancellation by the exception type; read `NhAiAgentModelCallException.Code`.
 - Adding Microsoft Agent Framework or provider dependencies to AI Common.
 - Persisting authoritative run state only in conversation history.
 - Loading workflow checkpoints from an untrusted store or resuming them under a changed identity.
@@ -75,7 +96,11 @@ mutations, propose autonomy sees them only with `EffectsAsProposals` in a scope
 that requires approval for effects, execute autonomy still preserves mutation
 safeguards, and content-safe
 telemetry contains versions and outcomes only. Invoke the constructed agent and
-prove a budget reservation and usage record occur. Reject an ungoverned catalog
+prove a budget reservation and usage record occur. With a supplied history provider, prove the
+model receives its history through the governed client and the provider stores the run's messages;
+with a context provider, prove a governed tool still runs through the governed client and that a
+provider which adds a tool fails the run before the model is called. Let a call pass a short profile
+timeout and assert `NhAiAgentModelCallException.Code` `ai-model-timeout` for a run and a stream. Reject an ungoverned catalog
 and return a failed creation result for expected profile resolution failure.
 Verify workflow references retain
 the official session/checkpoint identity and reject a changed workflow version
@@ -87,8 +112,8 @@ or state hash. SPM-225, SPM-236, and
 - SPM-225 — Policy-bound Agent Framework adapter
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiAgentHistorySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiAgentHistorySamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs)
-  - [../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs)
 - SPM-236 — Version-bound Agent Framework workflow checkpoint
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs)

@@ -12,7 +12,14 @@ public enum NhAiOutcomeKind
     ApprovalRequired = 5,
     BudgetExhausted = 6,
     DependencyUnavailable = 7,
-    TerminalFailure = 8
+    TerminalFailure = 8,
+
+    /// <summary>
+    /// A governed deadline ended the call: the model profile's timeout or the invocation context's
+    /// deadline, not the caller's cancellation. The governed chat executor reports it as
+    /// <see cref="NhAiModelFailureCodes.Timeout"/>.
+    /// </summary>
+    TimedOut = 9
 }
 
 public sealed record NhAiOutcomeClassification(

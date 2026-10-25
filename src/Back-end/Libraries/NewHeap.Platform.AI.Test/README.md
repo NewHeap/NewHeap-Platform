@@ -51,3 +51,21 @@ services.AddKeyedSingleton<IChatClient>("project-assistant-chat-model", model);
 - An exhausted script throws `InvalidOperationException`. Pass `loop: true` to
   restart the script instead, for example in a runnable sample host.
 - `Requests` records every received message list and the chat options.
+
+## Strict structured output
+
+NewHeap passes a `ChatOptions.ResponseFormat` schema on unchanged; the application normalizes its
+schemas for its providers. Set `StrictStructuredOutput` on `NhAiDeterministicChatClient` or
+`NhAiScriptedChatClient` to refuse a schema as a provider in strict mode does: a `$ref` that names
+neither the root (`#`) nor an entry of the root's `$defs`, an object without
+`additionalProperties: false`, or a property missing from `required`. The call throws an
+`HttpRequestException` with status 400 and consumes no response; a stream throws when it starts.
+`NhAiStrictStructuredOutput.Validate` returns every violation with its JSON pointer:
+
+```csharp
+var model = new NhAiDeterministicChatClient("""{"open":[],"done":[]}""")
+{
+    StrictStructuredOutput = true
+};
+Assert.Empty(NhAiStrictStructuredOutput.Validate(format.Schema!.Value));
+```
