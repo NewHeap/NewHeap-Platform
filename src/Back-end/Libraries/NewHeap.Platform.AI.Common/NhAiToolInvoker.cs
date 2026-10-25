@@ -337,8 +337,9 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         activity?.SetTag("newheap.ai.tool.effect", descriptor.Effect.ToString());
         activity?.SetTag("newheap.ai.tool.exposure", descriptor.Exposure.ToString());
 
-        // Every refusal audits the code its caller receives, so the audit and what reads it name the
-        // real reason rather than the outcome kind alone.
+        // Every refusal audits the code its caller receives as the audit's result code, so the audit
+        // and what reads it name the real reason rather than the outcome kind alone. The approval,
+        // idempotency and verification codes keep the detail of their own step next to it.
         var authorization = await _invocationGate.AuthorizeAsync(descriptor, cancellationToken);
         if (!authorization.Success)
         {
@@ -351,7 +352,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 null,
                 NhAiOutcomeKind.AuthorizationDenied,
                 cancellationToken,
-                resultCode: FirstResultCode(denied) ?? NhAiToolFailureCodes.AuthorizationDenied);
+                resultCode: NhAiToolResult.GetCode(denied));
             return denied;
         }
 
@@ -363,7 +364,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.TerminalFailure,
-                cancellationToken);
+                cancellationToken,
+                resultCode: NhAiToolFailureCodes.InputTooLarge);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.InputTooLarge,
                 "AI tool input exceeded its configured size limit.");
@@ -402,6 +404,9 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             var denialCode = FirstResultCode(authoritativeEvidence);
             activity?.SetTag("newheap.ai.tool.outcome", "execution-evidence-invalid");
             activity?.SetTag("newheap.ai.tool.approval_code", denialCode);
+            var deniedResult = WithFallbackCode(
+                TaskResult<T>.Failed(authoritativeEvidence),
+                NhAiToolFailureCodes.ExecutionEvidenceInvalid);
             await WriteAuditAsync(
                 descriptor,
                 context,
@@ -409,12 +414,9 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 cancellationToken,
                 approvalCode: denialCode ?? "execution-evidence-invalid",
                 approvalEvidenceReference: SafeEvidenceReference(denial?.EvidenceReference),
-                resultCode: denialCode);
+                resultCode: NhAiToolResult.GetCode(deniedResult));
 
             trace.EvidenceReference = SafeEvidenceReference(denial?.EvidenceReference);
-            var deniedResult = WithFallbackCode(
-                TaskResult<T>.Failed(authoritativeEvidence),
-                NhAiToolFailureCodes.ExecutionEvidenceInvalid);
             if (denial?.DenialPayload is { } denialPayload)
             {
                 if (denialPayload is not T typedDenialPayload)
@@ -439,6 +441,16 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                         !char.IsAsciiLetterOrDigit(character)
                         && character is not '-' and not '_' and not '.' and not ':'))))
         {
+            // The attestation as a whole is untrusted, so neither its evidence reference nor its
+            // idempotency key reaches the audit.
+            activity?.SetTag("newheap.ai.tool.outcome", "execution-evidence-invalid");
+            await WriteAuditAsync(
+                descriptor,
+                context,
+                NhAiOutcomeKind.AuthorizationDenied,
+                cancellationToken,
+                approvalCode: "execution-evidence-invalid",
+                resultCode: NhAiToolFailureCodes.ExecutionEvidenceInvalid);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.ExecutionEvidenceInvalid,
                 "Authoritative AI execution evidence is invalid.");
@@ -505,11 +517,14 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             if (evidence is null)
             {
                 activity?.SetTag("newheap.ai.tool.outcome", "approval-required");
+                // No approval code: a missing approval is no rejected one, and the assistant turns
+                // it into a proposal.
                 await WriteAuditAsync(
                     descriptor,
                     context,
                     NhAiOutcomeKind.ApprovalRequired,
-                    cancellationToken);
+                    cancellationToken,
+                    resultCode: NhAiToolFailureCodes.ApprovalRequired);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.ApprovalRequired,
                     "AI tool approval is required.");
@@ -531,7 +546,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     NhAiOutcomeKind.ApprovalRequired,
                     cancellationToken,
-                    approvalCode: SafeCode(validation.Code) ?? "approval-invalid");
+                    approvalCode: SafeCode(validation.Code) ?? "approval-invalid",
+                    resultCode: NhAiToolFailureCodes.ApprovalInvalid);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.ApprovalInvalid,
                     $"AI tool approval validation failed with code '{validation.Code}'.");
@@ -557,7 +573,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 NhAiOutcomeKind.BudgetExhausted,
                 cancellationToken,
                 approvalCode: approvalCode,
-                approvalEvidenceReference: approvalEvidenceReference);
+                approvalEvidenceReference: approvalEvidenceReference,
+                resultCode: NhAiToolFailureCodes.BudgetExhausted);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.BudgetExhausted,
                 "AI tool execution budget is exhausted.");
@@ -587,7 +604,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 NhAiOutcomeKind.BudgetExhausted,
                 cancellationToken,
                 approvalCode: approvalCode,
-                approvalEvidenceReference: approvalEvidenceReference);
+                approvalEvidenceReference: approvalEvidenceReference,
+                resultCode: NhAiToolFailureCodes.BudgetDenied);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.BudgetDenied,
                 "AI tool execution budget could not be reserved.");
@@ -610,7 +628,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 NhAiOutcomeKind.Conflict,
                 cancellationToken,
                 approvalCode: approvalCode,
-                approvalEvidenceReference: approvalEvidenceReference);
+                approvalEvidenceReference: approvalEvidenceReference,
+                resultCode: NhAiToolFailureCodes.ConcurrencyLimited);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.ConcurrencyLimited,
                 "AI tool concurrency limit was reached.");
@@ -627,7 +646,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 NhAiOutcomeKind.BudgetExhausted,
                 cancellationToken,
                 approvalCode: approvalCode,
-                approvalEvidenceReference: approvalEvidenceReference);
+                approvalEvidenceReference: approvalEvidenceReference,
+                resultCode: NhAiToolFailureCodes.DeadlineExpired);
             return TaskResult<T>.Failed(
                 NhAiToolFailureCodes.DeadlineExpired,
                 "AI tool execution deadline has expired.");
@@ -658,7 +678,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     cancellationToken,
                     approvalCode: approvalCode,
                     approvalEvidenceReference: approvalEvidenceReference,
-                    idempotencyCode: "idempotency-key-invalid");
+                    idempotencyCode: "idempotency-key-invalid",
+                    resultCode: NhAiToolFailureCodes.IdempotencyKeyInvalid);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.IdempotencyKeyInvalid,
                     "AI tool execution requires a valid idempotency key.");
@@ -686,7 +707,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     cancellationToken,
                     approvalCode: approvalCode,
                     approvalEvidenceReference: approvalEvidenceReference,
-                    idempotencyCode: idempotencyCode);
+                    idempotencyCode: idempotencyCode,
+                    resultCode: NhAiToolFailureCodes.IdempotencyDenied);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.IdempotencyDenied,
                     "AI tool idempotency policy denied execution.");
@@ -724,7 +746,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     cancellationToken,
                     approvalCode: approvalCode,
                     approvalEvidenceReference: approvalEvidenceReference,
-                    idempotencyCode: idempotencyCode);
+                    idempotencyCode: idempotencyCode,
+                    resultCode: NhAiToolFailureCodes.ResultTooLarge);
                 return TaskResult<T>.Failed(
                     NhAiToolFailureCodes.ResultTooLarge,
                     "AI tool result exceeded its configured size limit.");
@@ -761,7 +784,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                         approvalEvidenceReference: approvalEvidenceReference,
                         idempotencyCode: idempotencyCode,
                         verificationCode: verificationCode,
-                        verificationEvidenceReference: verificationEvidenceReference);
+                        verificationEvidenceReference: verificationEvidenceReference,
+                        resultCode: NhAiToolFailureCodes.VerificationFailed);
                     trace.EvidenceReference = verificationEvidenceReference;
                     return TaskResult<T>
                         .Failed(
@@ -774,7 +798,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             var outcome = result.Success
                 ? NhAiOutcomeKind.Succeeded
                 : NhAiOutcomeKind.TerminalFailure;
-            var resultCode = result.Success ? null : FirstResultCode(result);
+            // A failed result reaches its caller with its first code, or ai-tool-failed without one.
+            var resultCode = result.Success ? null : NhAiToolResult.GetCode(result);
             await CompleteIdempotencyOnceAsync(outcome);
             activity?.SetTag("newheap.ai.tool.outcome", result.Success ? "succeeded" : "failed");
             activity?.SetTag("newheap.ai.tool.result_code", resultCode);
@@ -811,6 +836,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     context.InvocationId,
                     exception.GetType().FullName ?? exception.GetType().Name);
             }
+            // The exception propagates; the protocol adapters give the caller ai-tool-failed.
             await WriteAuditAsync(
                 descriptor,
                 context,
@@ -818,7 +844,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 CancellationToken.None,
                 approvalCode: approvalCode,
                 approvalEvidenceReference: approvalEvidenceReference,
-                idempotencyCode: idempotencyCode);
+                idempotencyCode: idempotencyCode,
+                resultCode: NhAiToolFailureCodes.Failed);
             throw;
         }
     }
