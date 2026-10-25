@@ -128,11 +128,17 @@ public sealed class AssistantDatabaseFixture
         return services;
     }
 
+    /// <summary>
+    /// Applies the checked-in migrations. Their commands may run as long as the other commands that
+    /// prepare test databases (<see cref="RelationalTestServer.PreparationCommandTimeout"/>), so a
+    /// server slowed down by the parallel test matrix fails no test while it migrates a slot.
+    /// </summary>
     internal static async Task MigrateAsync(IServiceProvider services)
     {
         await using var context = services
             .GetRequiredService<NhAssistantDbContextFactory>()
             .CreateDbContext();
+        context.Database.SetCommandTimeout(RelationalTestServer.PreparationCommandTimeout);
         await context.Database.MigrateAsync();
     }
 }

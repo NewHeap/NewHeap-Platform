@@ -396,10 +396,10 @@ both providers each project runs its SQL Server variants in a second process
 alongside its other tests. The Angular libraries, one at a time, and the sample
 checks need no build and run alongside from the start. Each job's output is printed
 in one block when it ends, and a summary lists every process with its duration and
-the failures; a failed `ng test` job shows each failed spec with its message and
-stack, and the summary names those specs under it, so do not rerun the library to
-find them. `--max-parallel <n>` changes the bound; `--max-parallel 1` runs one
-job after the other. Use
+the failures; a failed `ng test` job shows each failed spec, and a failed .NET test
+process each failed test, with its message and stack, and the summary names them
+under the job, so do not rerun the suite to find them. `--max-parallel <n>` changes
+the bound; `--max-parallel 1` runs one job after the other. Use
 `--dry-run` to see the plan, `--files a,b` to plan for files before changing them,
 `--all-providers` to add SQL Server and `--all` for everything. Do not rerun suites
 the change cannot reach. Before merging to `main` and before a release, run the
@@ -462,7 +462,8 @@ Keep the test loop short. These rules add to "Test project ownership" and the
   generous, named timeout, as `formFlowTimeout` in the `nh-ai-chat` admin UI spec
   does.
 - **Failures.** A full run prints the failing tests and specs with their messages
-  (Karma's `dots` reporter for Angular). Read that summary instead of rerunning.
+  (Karma's `dots` reporter for Angular, the console logger at minimal verbosity for
+  .NET). Read that summary instead of rerunning.
 - **Budget.** A test project that takes more than one to two minutes, or a single
   test above a few seconds, is a finding: profile container start, migrations,
   host start and waits before adding tests to it. When a failure appears only

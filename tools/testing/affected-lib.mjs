@@ -208,11 +208,20 @@ export function providerRuns(allProviders) {
 }
 
 /**
+ * How the console logger of `dotnet test` reports: each failed test with its error message and stack
+ * trace, and no line per passed test. `-v q` alone keeps the build quiet but names a failed test
+ * without its message.
+ */
+export const dotnetConsoleLogger = 'console;verbosity=minimal';
+
+/**
  * The arguments of `dotnet test` for one provider process. Processes that run at the same time test
  * the one build made beforehand (`noBuild`): building in each would write the same files. Through the
- * Windows shell the filter needs quotes; spawned directly it does not.
+ * Windows shell the filter and the logger, whose `;` the shell would split on, need quotes; spawned
+ * directly they do not.
  */
 export function dotnetTestArguments(project, filter, { noBuild = false, windowsShell = false } = {}) {
+  const quoted = value => windowsShell ? `"${value}"` : value;
   return [
     'test',
     project,
@@ -220,8 +229,10 @@ export function dotnetTestArguments(project, filter, { noBuild = false, windowsS
     'q',
     '-nologo',
     ...(noBuild ? ['--no-build'] : []),
+    '--logger',
+    quoted(dotnetConsoleLogger),
     '--filter',
-    windowsShell ? `"${filter}"` : filter
+    quoted(filter)
   ];
 }
 
@@ -425,11 +436,25 @@ function karmaFailedSpec(line) {
 }
 
 /**
- * The full names of the specs a Karma run reports as failed, in the order it reports them. Below
- * each such line Karma prints the message and stack, every line indented with a tab.
+ * The console logger's line for a failed .NET test, `  Failed <full name> [<duration>]`, as the test's
+ * full name. Below it the logger prints the error message and the stack trace.
+ */
+function dotnetFailedTest(line) {
+  return /^\s+Failed (\S.*?) \[[^\]]+\]$/.exec(line)?.[1];
+}
+
+/** The full name of the failed Karma spec or .NET test that `line` reports, if it reports one. */
+function failedSpecOrTest(line) {
+  return karmaFailedSpec(line) ?? dotnetFailedTest(line);
+}
+
+/**
+ * The full names of the specs a Karma run, or the tests a `dotnet test` run, reports as failed, in
+ * the order it reports them. Below each such line Karma prints the message and stack, every line
+ * indented with a tab, and the .NET console logger the error message and stack trace.
  */
 export function failedSpecs(output) {
-  return withoutAnsi(output).split(/\r?\n/).map(karmaFailedSpec).filter(Boolean);
+  return withoutAnsi(output).split(/\r?\n/).map(failedSpecOrTest).filter(Boolean);
 }
 
 /** How many lines of a failed process's output its job block shows at least. */
@@ -437,11 +462,12 @@ const reportedTailLines = 60;
 
 /**
  * The output a failed process shows: its last lines without ANSI escape sequences and, for a Karma
- * run, everything from the first failed spec on, so that no failure, message or stack falls off.
+ * or `dotnet test` run, everything from the first failed spec or test on, so that no failure,
+ * message or stack falls off.
  */
 export function failureOutput(output) {
   const lines = withoutAnsi(output).split(/\r?\n/);
-  const firstFailure = lines.findIndex(line => karmaFailedSpec(line) !== undefined);
+  const firstFailure = lines.findIndex(line => failedSpecOrTest(line) !== undefined);
   const tail = Math.max(0, lines.length - reportedTailLines);
   return lines.slice(firstFailure >= 0 ? Math.min(firstFailure, tail) : tail).join('\n');
 }
