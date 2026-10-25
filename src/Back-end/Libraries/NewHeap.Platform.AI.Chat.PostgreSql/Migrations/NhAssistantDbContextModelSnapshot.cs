@@ -461,6 +461,27 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantAgentMetadata", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadataIndexValue", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("IndexValue")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("AgentId", "Name", "IndexValue");
+
+                    b.HasIndex("Name", "IndexValue");
+
+                    b.ToTable("AssistantAgentMetadataIndexValue", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentPackage", b =>
                 {
                     b.Property<string>("Id")
@@ -3018,6 +3039,15 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadataIndexValue", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadata", null)
+                        .WithMany("IndexValues")
+                        .HasForeignKey("AgentId", "Name")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentPackageLink", b =>
                 {
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
@@ -3239,6 +3269,11 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", b =>
                 {
                     b.Navigation("McpServers");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentMetadata", b =>
+                {
+                    b.Navigation("IndexValues");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", b =>
