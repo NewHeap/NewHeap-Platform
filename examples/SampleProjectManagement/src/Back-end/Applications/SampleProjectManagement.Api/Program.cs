@@ -185,6 +185,10 @@ builder.Services
     })
     .WithEvents(events =>
     {
+        // AddCap registers an NhTransactionFactoryAsync: the service's
+        // StartOrGetTransactionScopeAsync opens its transaction with
+        // BeginTransactionAsync and the service's cancellation token, and the
+        // CAP outbox joins that transaction (SPM-195).
         events.AddCap(cap =>
         {
             cap.WithOptions(options =>

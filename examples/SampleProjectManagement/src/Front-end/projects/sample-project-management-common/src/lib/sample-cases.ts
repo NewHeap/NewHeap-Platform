@@ -2654,7 +2654,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
       "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhTransactionFactoryProviderTests.cs"
     ]
   },
   {
@@ -2706,14 +2708,16 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "SQL outbox and broker",
     "category": "Application services and unit of work",
     "surface": "CAP EF storage + Aspire RabbitMQ",
-    "outcome": "The domain write and outbox record use SQL; RabbitMQ receives the message only after commit.",
+    "outcome": "The domain write and outbox record use SQL in one transaction that CAP opens asynchronously with the service's cancellation token; RabbitMQ receives the message only after commit.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
       "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhCapTransactionProviderTests.cs"
     ]
   },
   {
@@ -2789,7 +2793,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
       "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhCapTransactionProviderTests.cs"
     ]
   },
   {
