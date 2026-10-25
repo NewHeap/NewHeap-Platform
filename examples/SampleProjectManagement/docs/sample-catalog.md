@@ -446,6 +446,17 @@ trial is deleted without ever going live. In the assistant administration, and i
 mock API, a data variant offers "Promote onto {agent}" with a confirmation. `AssistantAgentDefinitionSamplesTests`
 runs both cases.
 
+The management portal's handbook page reads a bundle of the team's Markdown documents with
+`nh-assistant-document` of `@newheap/platform-ai-chat` (SPM-336). The text is untrusted: inline HTML
+shows as text, and a `javascript:` link or a path outside the bundle is no link. A relative link such as
+`release.md#checklist` resolves from the open document's folder against the bundle's paths; the
+document reports it through `linkClick` and the page opens that document at the heading, while the
+headings it reports through `headingsChange` are the page's "On this page" list. The sample has no
+diagram package, so the portal supplies a small renderer for its own `flow` language
+(`sampleFlowDiagramRenderer`), whose drawing module loads only when a document has a `flow` block, as
+an application would load Mermaid. The document shows the sanitized SVG in a shadow root, and the
+release guide's block with a mistake shows its source with the renderer's reason.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server
@@ -855,6 +866,14 @@ the shell managed by `NhModalService`, not the base for consumer content.
 The large editor with the project's agent work is taller than the page: it
 scrolls vertically within the modal's holder, and the shell keeps the modal next
 to the holder's scrollbar, so nothing scrolls sideways (SPM-116).
+
+The editor works with the keyboard alone, without code of its own (SPM-115). The shell is a dialog
+named by its title, with a translated close label. It focuses the close button while the form data
+loads and the key field once the form is there, keeps Tab and Shift+Tab inside the dialog, skips the
+disabled save button, and gives focus back to the "Edit" button when it closes. Escape closes the
+topmost modal that can close: for the editor it calls `closeDialog` through `onModalEscape`, as
+"Cancel" does, and the processing modal of the platform playground, opened with `closeable: false`,
+ignores it.
 
 After `created` or `updated`, the register updates the concrete row and then
 closes the modal. The parent subsequently receives the `closed` event through

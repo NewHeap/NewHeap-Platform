@@ -130,6 +130,13 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.IntakeReviewsPageComponent)
       },
       {
+        // SPM-336: a bundle of Markdown documents read with nh-assistant-document.
+        path: 'handbook',
+        title: 'Project handbook',
+        loadComponent: () => import('./project-handbook/project-handbook-page.component')
+          .then(module => module.ProjectHandbookPageComponent)
+      },
+      {
         path: 'platform',
         title: 'Platform',
         loadComponent: () => import('./platform-playground/platform-playground.component')
