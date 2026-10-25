@@ -795,7 +795,7 @@ internal static class NhAssistantAdminEndpoints
                 .ListTokenConnectionsAsync(NhAssistantMcpConnectionOwners.Organization, null, httpContext.RequestAborted))
             .ToDictionary(connection => connection.ServerId, StringComparer.Ordinal);
         return Json(
-            servers.Select(item => ToDto(item.Server, item.AgentIds, connections.GetValueOrDefault(item.Server.Id))).ToArray(),
+            servers.Select(item => NhAssistantMcpServerDtos.ToDto(item.Server, item.AgentIds, connections.GetValueOrDefault(item.Server.Id))).ToArray(),
             Context.NhAssistantMcpServerDtoArray);
     }
 
@@ -846,7 +846,7 @@ internal static class NhAssistantAdminEndpoints
         }
         var found = await administration.GetConnectionAsync(id, actor, httpContext.RequestAborted);
         return found.Success
-            ? Json(ToDto(found.Data.Connection), Context.NhAssistantMcpOrganizationConnectionDto)
+            ? Json(NhAssistantMcpServerDtos.ToDto(found.Data.Connection), Context.NhAssistantMcpOrganizationConnectionDto)
             : Failure(found);
     }
 
@@ -930,7 +930,7 @@ internal static class NhAssistantAdminEndpoints
         }
         return new CreatedJson<NhAssistantMcpServerDto>(
             $"{httpContext.Request.PathBase}{httpContext.Request.Path.Value?.TrimEnd('/')}/{created.Data!.Id}",
-            ToDto(created.Data, [], null),
+            NhAssistantMcpServerDtos.ToDto(created.Data, [], null),
             Context.NhAssistantMcpServerDto);
     }
 
@@ -959,7 +959,7 @@ internal static class NhAssistantAdminEndpoints
         var assigned = (await administration.ListAsync(httpContext.RequestAborted))
             .FirstOrDefault(item => item.Server.Id == id).AgentIds ?? [];
         var connection = await administration.FindOrganizationConnectionAsync(id, httpContext.RequestAborted);
-        return Json(ToDto(updated.Data!, assigned, connection), Context.NhAssistantMcpServerDto);
+        return Json(NhAssistantMcpServerDtos.ToDto(updated.Data!, assigned, connection), Context.NhAssistantMcpServerDto);
     }
 
     private static async Task<IResult> DeleteMcpServerAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
@@ -989,13 +989,13 @@ internal static class NhAssistantAdminEndpoints
             return ContextUnavailable();
         }
         var synced = await administration.SyncAsync(id, actor, httpContext.RequestAborted);
-        return synced.Success ? Json(synced.Data!.Select(ToDto).ToArray(), Context.NhAssistantMcpToolDtoArray) : Failure(synced);
+        return synced.Success ? Json(synced.Data!.Select(NhAssistantMcpServerDtos.ToDto).ToArray(), Context.NhAssistantMcpToolDtoArray) : Failure(synced);
     }
 
     private static async Task<IResult> GetMcpToolsAsync(string id, HttpContext httpContext, NhAssistantMcpAdministration administration)
     {
         var tools = await administration.ListToolsAsync(id, httpContext.RequestAborted);
-        return tools.Success ? Json(tools.Data!.Select(ToDto).ToArray(), Context.NhAssistantMcpToolDtoArray) : Failure(tools);
+        return tools.Success ? Json(tools.Data!.Select(NhAssistantMcpServerDtos.ToDto).ToArray(), Context.NhAssistantMcpToolDtoArray) : Failure(tools);
     }
 
     private static async Task<IResult> UpdateMcpToolAsync(
@@ -1026,7 +1026,7 @@ internal static class NhAssistantAdminEndpoints
             body.DescriptionOverride,
             actor,
             httpContext.RequestAborted);
-        return updated.Success ? Json(ToDto(updated.Data!), Context.NhAssistantMcpToolDto) : Failure(updated);
+        return updated.Success ? Json(NhAssistantMcpServerDtos.ToDto(updated.Data!), Context.NhAssistantMcpToolDto) : Failure(updated);
     }
 
     // ----- Mapping and helpers -----
@@ -1233,82 +1233,6 @@ internal static class NhAssistantAdminEndpoints
             InstructionsAsset = agent.InstructionsAsset,
             InstructionsProblem = agent.InstructionsProblem
         };
-    }
-
-    private static NhAssistantMcpOrganizationConnectionDto ToDto(AssistantMcpConnection? connection)
-    {
-        return connection is null
-            ? new NhAssistantMcpOrganizationConnectionDto("not-connected", null, null, null, null, null, null)
-            : new NhAssistantMcpOrganizationConnectionDto(
-                connection.Status ?? "not-connected",
-                connection.ConnectedAt,
-                connection.ConnectedBy,
-                connection.GrantedScopes,
-                connection.RequiredScopes,
-                connection.AccessTokenExpiresAt,
-                connection.LastFailureCode);
-    }
-
-    private static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds, AssistantMcpConnection? organizationConnection)
-    {
-        return new NhAssistantMcpServerDto(
-            server.Id,
-            server.DisplayName,
-            server.Url,
-            server.AuthMode,
-            server.HeaderName,
-            server.ProtectedSecret is not null,
-            server.RequiredPolicy,
-            server.IsEnabled,
-            server.LastSyncAt,
-            server.LastSyncStatus,
-            agentIds)
-        {
-            HeadlessUse = server.HeadlessUse,
-            LastConnectAt = server.LastConnectAt,
-            LastConnectCode = server.LastConnectCode,
-            UserName = server.UserName,
-            SecretReference = server.SecretReference,
-            ClientCertificateReference = server.ClientCertificateReference,
-            Transport = server.Transport,
-            ConnectionScope = server.ConnectionScope,
-            OAuth = NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
-                ? new NhAssistantMcpOAuthDto(
-                    server.OAuthClientId,
-                    server.ProtectedOAuthClientSecret is not null,
-                    server.OAuthClientSecretReference,
-                    server.OAuthScopes,
-                    server.OrganizationAccountLabel)
-                : null,
-            Authorization = server.AuthorizationServerIssuer is { } issuer && server.ResourceUri is { } resource && server.AuthorizationConfirmedAt is { } confirmedAt
-                ? new NhAssistantMcpAuthorizationDto(issuer, resource, confirmedAt, server.AuthorizationConfirmedBy)
-                : null,
-            OrganizationConnection = NhAssistantMcpAuthModes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope) && NhAssistantMcpAuthModes.IsOAuth(server.AuthMode)
-                ? ToDto(organizationConnection)
-                : null,
-            Readers = server.Readers
-                .OrderByDescending(reader => reader.Priority)
-                .ThenBy(reader => reader.ToolName, StringComparer.Ordinal)
-                .Select(reader => new NhAssistantMcpReaderDto(
-                    NhAssistantMcpReaders.Split(reader.MediaTypes),
-                    reader.ToolName,
-                    reader.MaxClassification,
-                    reader.Priority))
-                .ToArray()
-        };
-    }
-
-    private static NhAssistantMcpToolDto ToDto(AssistantMcpTool tool)
-    {
-        return new NhAssistantMcpToolDto(
-            tool.RemoteName,
-            tool.LocalId,
-            tool.Description,
-            tool.DescriptionOverride,
-            tool.IsEnabled,
-            tool.Effect,
-            tool.Status,
-            tool.ReadOnlyHint);
     }
 
     private static string EffectName(NhAiToolEffect effect)

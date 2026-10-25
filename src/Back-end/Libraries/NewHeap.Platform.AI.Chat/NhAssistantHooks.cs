@@ -394,6 +394,16 @@ public enum NhAssistantAuditEventKind
     AdminAgentPackageUnlinked = 83,
 
     /// <summary>
+    /// An administrator or the application assigned an MCP server to an agent, or removed the
+    /// assignment, through <c>INhAssistantMcpServers</c>, without changing the agent's definition or
+    /// version. <see cref="NhAssistantAuditEvent.ObjectId"/> is the server,
+    /// <see cref="NhAssistantAuditEvent.AgentId"/> the agent and <see cref="NhAssistantAuditEvent.ResultCode"/>
+    /// <c>assigned</c> or <c>unassigned</c>. A call that changes nothing is not audited; an agent save
+    /// that replaces the agent's servers is audited as <see cref="AdminAgentUpdated"/>.
+    /// </summary>
+    AdminMcpServerAssignmentChanged = 90,
+
+    /// <summary>
     /// An administrator or the application promoted a shadow variant created as data onto its live
     /// agent, after the change of the live agent, the skills it moved and the removal of the variant
     /// were audited as their own events. <see cref="NhAssistantAuditEvent.AgentId"/> and
@@ -402,7 +412,7 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ObjectId"/> the variant that was removed and
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>promoted</c>. Never the definition.
     /// </summary>
-    AdminAgentShadowVariantPromoted = 90
+    AdminAgentShadowVariantPromoted = 91
 }
 
 /// <summary>

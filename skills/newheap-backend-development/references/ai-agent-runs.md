@@ -798,7 +798,14 @@ execute and the administration shows the problem (`InstructionsProblem` of
 `NhAssistantAdminAgentDto`). A source that fails keeps a text it verified before in effect and is asked
 again after half a minute. A new version of the asset never takes effect on its own: an administrator
 saves it as the skill's next version or the agent's next version, and the history keeps which version
-each one used. The audit names the asset as `InstructionsVersion` (`<asset-id>@<version>`) with
+each one used. `INhAssistantInstructionAssetUsage.ListAsync(assetId)` answers which data skills and
+agents created in the administration name an asset (`NhAssistantInstructionAssetUsageDto`): every skill
+version with its agent, skill id, version, status (`live`, `candidate`, or `superseded` and `discarded`
+as history) and the asset version and hash it names, and every agent with its version and the asset
+version and hash, ordered ordinal; an id that is not lowercase dash-case of at most 128 characters fails
+with `assetId: invalid`. It only reads, so an application that publishes a new version finds what to
+save as each one's next version; nothing follows it by itself (SPM-331). The audit names the asset as
+`InstructionsVersion` (`<asset-id>@<version>`) with
 `InstructionsHash` on `AdminAgentSkillDefinitionChanged`, `AdminAgentCreated` and
 `AdminAgentUpdated`, and `AgentRunEnded` names the skill and agent versions that pin it; no text
 reaches the audit, logs, problems or run facts. The administration's skill form and agent editor choose
@@ -1155,7 +1162,14 @@ audited as `AdminAgentPackageUnlinked`; the next upgrade keeps it as `kept-local
 `Relink` names it, while an unlocked field the host changed is overwritten and shown as changed
 locally. The administration's DTOs carry the link of every linked part (`Package`, with its locked
 fields), and `AssistantAgentPackage` and `AssistantAgentPackageLink` store packages and links with the
-AgentPackages migrations for SQL Server and PostgreSQL.
+AgentPackages migrations for SQL Server and PostgreSQL. `GetPackageAsync(packageId)` returns the package
+the host imported (`NhAssistantInstalledAgentPackageDto`: version, format version, hash, agents, imported
+at and by) with the current links of its parts per agent (`NhAssistantPackageAgentLinksDto`, each with
+`ChangedLocally`), also after every agent was unlinked, when `GetLinkAsync` returns nothing; it is `null`
+for a package the host never imported or an id that is no package id. `ReadAsync(agentIds)` returns
+exactly those agents, 1 to 20, with their parts and `Hashes` built as `ExportAsync` builds them but
+without locks and without the `AdminAgentPackageExported` audit, to compare an installed agent with a
+shipped package or with its links; it refuses the agent ids an export refuses (SPM-331).
 
 The schema of the format, which tools that write packages follow:
 
@@ -1625,6 +1639,10 @@ entry's name and the version only.
   agent in the import options.
 - Locking whole parts to keep one field, or expecting a lock to stop an administrator for good: lock the
   fields that must stay, and know that an administrator may unlink a part.
+- Exporting agents only to compare them with a package, which audits an export, or reading the
+  installed version from the links, which an unlink removes: use `ReadAsync` and `GetPackageAsync`.
+- Saving the skills and agents that name a text asset automatically when the application publishes a
+  new version: list them with `INhAssistantInstructionAssetUsage` and let an administrator save each.
 - Reading a package leniently or dropping what a host does not know; read it with
   `NhAssistantAgentPackageFormat.Read` and fix a refused package at its source.
 - Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
@@ -1927,7 +1945,10 @@ skill's runs and the agent's turns read the asset's text, that a wrong hash, a m
 reference without a source are refused at save, that a hash that changes later takes the skill out of
 effect and keeps the agent from running at the next load, that a failing source keeps a verified text,
 that inline instructions are unchanged and that people who do not administer neither list nor read the
-assets. Save a change of a live data skill for shadow and
+assets. Assert that the asset usage lists every skill version and agent that names the asset with the
+version and hash it uses, leaves out an agent whose own instructions merely share the asset's id, keeps
+naming the old version after a new one is published until it is saved, and refuses an id that is not an
+asset id, on both providers. Save a change of a live data skill for shadow and
 assert that an event starts the live version's run live and the candidate's run in the shadow thread
 with its own version, rules and inputs, that a repeated delivery starts neither again, that the
 comparison pairs the two, that promoting makes the candidate live without a second run, and that a
@@ -2058,7 +2079,10 @@ account is required, must be able to sign in and never travels, that `Apply = "s
 promote puts live, that every save path refuses a locked field and the removal or deletion of a locked part
 while operations stay free, that an unlinked part stays `kept-local` until `Relink` names it, that an agent
 in code takes the overlay, that the format is read strictly, and that the endpoints refuse people who do
-not administer. SPM-321 is the executable reference.
+not administer. Assert that `GetPackageAsync` returns the imported version, hash and links, shows a part
+changed on the host as changed locally and still returns the package after every agent was unlinked,
+and that `ReadAsync` equals the parts and hashes of an export of the same agents and writes no audit.
+SPM-321 and SPM-331 are the executable references.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 
