@@ -2313,6 +2313,11 @@
       "waiting": "Wacht op goedkeuring",
       "unread": "Ongelezen"
     },
+    "document": {
+      "diagram-failed": "Dit diagram kon niet worden getekend: {{reason}}",
+      "diagram-no-reason": "de renderer gaf geen reden.",
+      "diagram-not-svg": "de renderer gaf geen SVG terug."
+    },
     "share": {
       "title": "Gesprek delen",
       "members-title": "Mensen in dit gesprek",
