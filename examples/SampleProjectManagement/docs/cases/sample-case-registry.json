@@ -5416,6 +5416,25 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageFormatTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageEndpointTests.cs"
       ]
+    },
+    {
+      "id": "SPM-325",
+      "categoryId": "6",
+      "title": "A durable cancellation that a handler sees before the heartbeat ends the operation cancelled",
+      "surface": "`INhBackgroundOperationContext.ThrowIfCancellationRequestedAsync`, `INhBackgroundOperationService.RequestCancellationAsync`, `RunStepAsync` of `INhBackgroundOperationProgressContext` and `INhBackgroundOperationStepContext`, `TaskResult.Failed` and `NhBackgroundOperationRetryResult.Retry` with the `FailureCode` and `FailureMessageKey` of `NhBackgroundOperation`, and the statuses `Cancelled` and `TimedOut` of `NhBackgroundOperationStatus`",
+      "outcome": "The sample's project-analysis child checks `ThrowIfCancellationRequestedAsync` before every pass. When its owner cancels, it stops at the next pass, and the operation ends `Cancelled` with failure code `cancelled` although no heartbeat ran during the attempt. Only a soft time-out that fired ends an operation `TimedOut`, and the durable check is fenced on the attempt, so a cancellation requested for another attempt does not count for this one. A failed or retry result whose failure code is longer than its column of 100 characters, or whose message key is longer than its column of 300, still completes its attempt, terminally or with its retry, as `handler-rejected` with the generic failure key, and the returned text reaches the operational log only. A step whose action threw keeps its own exception, a cancellation included, when the write that records the step fails; that failure is logged with the operation and attempt, while a lost fence, lock contention and a durable cancellation request that the write finds after the step's own error still stop the attempt, so the operation ends cancelled instead of retrying an error its owner cancelled. The library tests prove the column limits and the step recording on SQL Server and PostgreSQL, next to the cancellation and time-out classification.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackgroundOperationCancellationSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOutcomeProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStepRecordingProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BackgroundOperationProviderHost.cs"
+      ]
     }
   ]
 }

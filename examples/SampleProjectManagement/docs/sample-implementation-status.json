@@ -317,7 +317,8 @@
     "SPM-318",
     "SPM-319",
     "SPM-320",
-    "SPM-321"
+    "SPM-321",
+    "SPM-325"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3092,6 +3093,17 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageFormatTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageEndpointTests.cs"
+    ],
+    "SPM-325": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackgroundOperationCancellationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOutcomeProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStepRecordingProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BackgroundOperationProviderHost.cs"
     ]
   }
 }
