@@ -64,15 +64,17 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
         Assert.Equal([host.OwnerId.ToString(), host.ColleagueId.ToString()], authors);
         Assert.Equal(2, conversation.GetProperty("members").GetArrayLength());
 
-        // The colleague's answer is unread for the owner until the owner reads it.
-        var item = Assert.Single((await host.GetJsonAsync(owner, "/api/assistant/conversations")).GetProperty("items").EnumerateArray());
+        // The colleague's answer is unread for the owner until the owner reads it. The owner's list
+        // also holds the conversations of the other tests of this class, which share the host and
+        // run in any order.
+        var item = await ListedConversationAsync(owner, conversationId);
         Assert.True(item.GetProperty("lastReadSequence").GetInt32() < item.GetProperty("lastMessageSequence").GetInt32());
         using var read = await owner.PostAsync(
             $"/api/assistant/conversations/{conversationId}/read",
             AssistantSampleHost.Json(new { }),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NoContent, read.StatusCode);
-        item = Assert.Single((await host.GetJsonAsync(owner, "/api/assistant/conversations")).GetProperty("items").EnumerateArray());
+        item = await ListedConversationAsync(owner, conversationId);
         Assert.Equal(item.GetProperty("lastMessageSequence").GetInt32(), item.GetProperty("lastReadSequence").GetInt32());
 
         var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
@@ -213,6 +215,17 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
             AssistantSampleHost.Json(new { pushEnabled = false }),
             TestContext.Current.CancellationToken);
         Assert.False((await AssistantSampleHost.ReadJsonAsync(optOut)).GetProperty("pushEnabled").GetBoolean());
+    }
+
+    /// <summary>
+    /// The entry of one conversation in the caller's conversation list.
+    /// </summary>
+    private async Task<JsonElement> ListedConversationAsync(HttpClient client, Guid conversationId)
+    {
+        var list = await host.GetJsonAsync(client, "/api/assistant/conversations");
+        return Assert.Single(
+            list.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("id").GetGuid() == conversationId);
     }
 }
 
