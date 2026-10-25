@@ -8,7 +8,10 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// Runs assistant turns inside the HTTP request that started them, so the request-bound
-/// invocation context and caller credentials stay available to tool execution.
+/// invocation context and caller credentials stay available to tool execution. A person's turn that
+/// does not depend on its request (one kept after a disconnect, or one the application starts for a
+/// person through <c>INhAssistantConversationTurns</c>) carries the person captured when it started,
+/// which its tools authorize instead.
 /// </summary>
 internal interface INhAssistantTurnRunner
 {
