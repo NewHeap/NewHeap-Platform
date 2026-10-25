@@ -2082,19 +2082,30 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// <paramref name="maximum"/>. The inbox asks the caller's live role on each subject and whether
     /// the caller passes each agent's view policy.
     /// </summary>
-    public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithPendingProposalsAsync(
+    public Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithPendingProposalsAsync(
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        return GetSystemThreadsWithProposalsAsync(NhAssistantApprovalStatuses.Pending, maximum, cancellationToken);
+    }
+
+    /// <summary>
+    /// The agent threads of the whole application with a proposal in the inbox status
+    /// <paramref name="status"/> (<see cref="InInboxStatus"/>), ordered by subject, agent and thread, at
+    /// most <paramref name="maximum"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithProposalsAsync(
+        string status,
         int maximum,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        // A proposal expires on the application's clock.
+        // A proposal expires, and a report falls due, on the application's clock.
         var now = _applicationClock.GetUtcNow();
         var threads = await (
-                from approval in context.Approvals.AsNoTracking()
+                from approval in InInboxStatus(context.Approvals.AsNoTracking(), status, now)
                 join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
                 where thread.SubjectType == NhAiSubjectRef.SystemType
-                    && approval.Status == NhAssistantApprovalStatuses.Pending
-                    && approval.ExpiresAt > now
                     && (approval.Mode != NhAssistantApprovalModes.Inline || approval.RunId != null)
                 select new { thread.ConversationId, thread.SubjectId, thread.AgentId })
             .Distinct()
@@ -2828,58 +2839,17 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         bool grouped = false)
     {
         await using var context = contextFactory.CreateDbContext();
-        // A proposal expires on the application's clock.
-        var now = _applicationClock.GetUtcNow();
-        var systemApprover = (system?.ApproverConversationIds ?? []).ToArray();
-        var systemViewer = (system?.ViewerConversationIds ?? []).ToArray();
-        var approverSubjects = context.SubjectMembers
-            .Where(member => member.ActorId == actorId && member.Role >= NhAiSubjectRole.Approver);
-        var query =
-            from approval in context.Approvals.AsNoTracking()
-            join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
-            where approval.Status == NhAssistantApprovalStatuses.Pending
-                && approval.ExpiresAt > now
-                && ((thread.SubjectType != NhAiSubjectRef.SystemType
-                        && (approverSubjects.Any(member => member.ScopeKey == thread.ScopeKey
-                                && member.SubjectType == thread.SubjectType
-                                && member.SubjectId == thread.SubjectId)
-                            // A proposal placed at another object waits for that object's approvers only.
-                            || (approval.InitiatorActorId == actorId && approval.PlacedFromConversationId == null)))
-                    // The whole application lists no members: its approvers and initiators who pass the
-                    // agent's view policy, decided live per thread.
-                    || (thread.SubjectType == NhAiSubjectRef.SystemType
-                        && (systemApprover.Contains(thread.ConversationId)
-                            || (approval.InitiatorActorId == actorId
-                                && approval.PlacedFromConversationId == null
-                                && systemViewer.Contains(thread.ConversationId)))))
-            select new { approval, thread };
-        if (filter.SubjectType is { } subjectType)
-        {
-            query = query.Where(row => row.thread.SubjectType == subjectType);
-        }
-        if (filter.AgentId is { } agentId)
-        {
-            query = query.Where(row => row.thread.AgentId == agentId);
-        }
-        if (filter.DivisionId is { } divisionId)
-        {
-            query = query.Where(row => row.thread.DivisionId == divisionId);
-        }
-        if (filter.RunId is { } runId)
-        {
-            query = query.Where(row => row.approval.RunId == runId);
-        }
-
+        var query = InboxQuery(context, actorId, filter, system);
         var total = await query.CountAsync(cancellationToken);
         if (!grouped)
         {
             var rows = await query
-                .OrderBy(row => row.approval.ExpiresAt)
-                .ThenBy(row => row.approval.Id)
+                .OrderBy(row => row.SortAt)
+                .ThenBy(row => row.Approval.Id)
                 .Skip((page - 1) * itemsPerPage)
                 .Take(itemsPerPage)
                 .ToListAsync(cancellationToken);
-            return new NhAssistantInboxPage(rows.Select(row => new NhAssistantInboxRow(row.approval, row.thread)).ToList(), total);
+            return new NhAssistantInboxPage(rows.Select(row => new NhAssistantInboxRow(row.Approval, row.Thread)).ToList(), total);
         }
 
         // A proposal without a parent groups by its own subject. Scope keys keep equal ids of
@@ -2888,10 +2858,11 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             from row in query
             select new
             {
-                row.approval,
-                row.thread,
-                GroupType = row.approval.ParentSubjectType ?? row.thread.SubjectType,
-                GroupId = row.approval.ParentSubjectId ?? row.thread.SubjectId
+                approval = row.Approval,
+                thread = row.Thread,
+                row.SortAt,
+                GroupType = row.Approval.ParentSubjectType ?? row.Thread.SubjectType,
+                GroupId = row.Approval.ParentSubjectId ?? row.Thread.SubjectId
             };
         var groups =
             from row in keyed
@@ -2902,7 +2873,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 grouping.Key.GroupType,
                 grouping.Key.GroupId,
                 Total = grouping.Count(),
-                FirstExpiry = grouping.Min(item => item.approval.ExpiresAt)
+                FirstExpiry = grouping.Min(item => item.SortAt)
             };
         var subjects =
             from row in keyed
@@ -2915,7 +2886,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 grouping.Key.SubjectType,
                 grouping.Key.SubjectId,
                 Total = grouping.Count(),
-                FirstExpiry = grouping.Min(item => item.approval.ExpiresAt)
+                FirstExpiry = grouping.Min(item => item.SortAt)
             };
         // Every tie is broken explicitly, and runs without an id come last on both providers, so a
         // group, a subject and a run stay contiguous across pages.
@@ -2937,7 +2908,7 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 row.thread.SubjectId,
                 row.approval.RunId == null ? 1 : 0,
                 row.approval.RunId,
-                row.approval.ExpiresAt,
+                row.SortAt,
                 row.approval.Id
             select new { row.approval, row.thread, GroupTotal = groupOf.Total, SubjectTotal = subjectOf.Total };
 
@@ -2963,6 +2934,134 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             Groups = NhAssistantInboxGrouping.GroupsOf(pageRows, previous, next)
         };
     }
+
+    /// <summary>
+    /// How many proposals the inbox of <paramref name="actorId"/> lists with <paramref name="filter"/>,
+    /// with the visibility of <see cref="ListInboxAsync"/>.
+    /// </summary>
+    public async Task<int> CountInboxAsync(
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await InboxQuery(context, actorId, filter, system).CountAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The approvals in the inbox status <paramref name="status"/> at <paramref name="now"/> on the
+    /// application's clock: a pending proposal before its expiry, one handed to the application before
+    /// its report falls due, and an uncertain execution until an approver resolves it.
+    /// </summary>
+    internal static IQueryable<AssistantApproval> InInboxStatus(
+        IQueryable<AssistantApproval> approvals,
+        string status,
+        DateTimeOffset now)
+    {
+        return status switch
+        {
+            NhAssistantApprovalStatuses.Pending => approvals.Where(approval =>
+                approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt > now),
+            NhAssistantApprovalStatuses.AwaitingApplication => approvals.Where(approval =>
+                approval.Status == NhAssistantApprovalStatuses.AwaitingApplication && approval.ExecutionReportDueAt > now),
+            NhAssistantApprovalStatuses.ExecutionUnknown => approvals.Where(approval =>
+                approval.Status == NhAssistantApprovalStatuses.ExecutionUnknown),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "The inbox lists pending, awaiting-application or execution-unknown proposals.")
+        };
+    }
+
+    /// <summary>
+    /// The proposals the inbox of <paramref name="actorId"/> lists with <paramref name="filter"/>, each
+    /// with its thread and the time it is listed by: a pending proposal by its expiry, one handed to the
+    /// application by its report deadline and an uncertain execution by its decision. A person sees the
+    /// proposals of subjects they approve according to the member snapshot and those of runs they
+    /// started in the run's own thread; the whole application lists no members, so its threads come
+    /// from <paramref name="system"/>, which the caller evaluated live.
+    /// </summary>
+    private IQueryable<NhAssistantInboxCandidate> InboxQuery(
+        NhAssistantDbContext context,
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system)
+    {
+        // A proposal expires, and a report falls due, on the application's clock.
+        var now = _applicationClock.GetUtcNow();
+        var systemApprover = (system?.ApproverConversationIds ?? []).ToArray();
+        var systemViewer = (system?.ViewerConversationIds ?? []).ToArray();
+        var approverSubjects = context.SubjectMembers
+            .Where(member => member.ActorId == actorId && member.Role >= NhAiSubjectRole.Approver);
+        var visible =
+            from approval in InInboxStatus(context.Approvals.AsNoTracking(), filter.Status, now)
+            join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
+            where (thread.SubjectType != NhAiSubjectRef.SystemType
+                    && (approverSubjects.Any(member => member.ScopeKey == thread.ScopeKey
+                            && member.SubjectType == thread.SubjectType
+                            && member.SubjectId == thread.SubjectId)
+                        // A proposal placed at another object waits for that object's approvers only.
+                        || (approval.InitiatorActorId == actorId && approval.PlacedFromConversationId == null)))
+                // The whole application lists no members: its approvers and initiators who pass the
+                // agent's view policy, decided live per thread.
+                || (thread.SubjectType == NhAiSubjectRef.SystemType
+                    && (systemApprover.Contains(thread.ConversationId)
+                        || (approval.InitiatorActorId == actorId
+                            && approval.PlacedFromConversationId == null
+                            && systemViewer.Contains(thread.ConversationId))))
+            select new { approval, thread };
+        if (filter.SubjectType is { } subjectType)
+        {
+            visible = visible.Where(row => row.thread.SubjectType == subjectType);
+        }
+        if (filter.AgentId is { } agentId)
+        {
+            visible = visible.Where(row => row.thread.AgentId == agentId);
+        }
+        if (filter.DivisionId is { } divisionId)
+        {
+            visible = visible.Where(row => row.thread.DivisionId == divisionId);
+        }
+        if (filter.RunId is { } runId)
+        {
+            visible = visible.Where(row => row.approval.RunId == runId);
+        }
+
+        return filter.Status switch
+        {
+            NhAssistantApprovalStatuses.AwaitingApplication => visible.Select(row => new NhAssistantInboxCandidate
+            {
+                Approval = row.approval,
+                Thread = row.thread,
+                SortAt = row.approval.ExecutionReportDueAt!.Value
+            }),
+            NhAssistantApprovalStatuses.ExecutionUnknown => visible.Select(row => new NhAssistantInboxCandidate
+            {
+                Approval = row.approval,
+                Thread = row.thread,
+                SortAt = row.approval.DecidedAt ?? row.approval.CreatedAt
+            }),
+            _ => visible.Select(row => new NhAssistantInboxCandidate
+            {
+                Approval = row.approval,
+                Thread = row.thread,
+                SortAt = row.approval.ExpiresAt
+            })
+        };
+    }
+}
+
+/// <summary>
+/// A proposal of the inbox with its thread and the time it is listed by.
+/// </summary>
+internal sealed class NhAssistantInboxCandidate
+{
+    public required AssistantApproval Approval { get; init; }
+
+    public required AssistantThread Thread { get; init; }
+
+    public required DateTimeOffset SortAt { get; init; }
 }
 
 /// <summary>
@@ -3136,7 +3235,15 @@ internal sealed record NhAssistantInboxFilter(
     string? SubjectType,
     string? AgentId,
     Guid? DivisionId,
-    Guid? RunId);
+    Guid? RunId)
+{
+    /// <summary>
+    /// The status the inbox lists: <see cref="NhAssistantApprovalStatuses.Pending"/>,
+    /// <see cref="NhAssistantApprovalStatuses.AwaitingApplication"/> or
+    /// <see cref="NhAssistantApprovalStatuses.ExecutionUnknown"/>.
+    /// </summary>
+    public string Status { get; init; } = NhAssistantApprovalStatuses.Pending;
+}
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
 
