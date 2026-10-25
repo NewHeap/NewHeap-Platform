@@ -48,6 +48,16 @@ public sealed class NhBackgroundOperationsOptions
     public int MaxConcurrentOperations { get; set; } = int.MaxValue;
     public IDictionary<string, int> QueueConcurrencyLimits { get; } =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Slots of <see cref="MaxConcurrentOperations"/> reserved per queue. Only operations on that
+    /// queue take its reserved slots; they take a shared slot when their reserved ones are in use.
+    /// Operations on every other queue share the slots the reservations leave. Set it through
+    /// <see cref="NhBackgroundOperationBuilder.WithReservedQueueConcurrency"/>.
+    /// </summary>
+    public IDictionary<string, int> ReservedQueueConcurrency { get; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
     public int MaxPayloadBytes { get; set; } = 64 * 1024;
     public int MaxCheckpointBytes { get; set; } = 16 * 1024;
     public int MaxMessageArgumentsBytes { get; set; } = 8 * 1024;
@@ -157,6 +167,8 @@ public sealed class NhBackgroundOperationsOptions
             throw new InvalidOperationException("Background operation retention and retry values are invalid.");
         }
 
+        ValidateReservedQueueConcurrency();
+
         if (PayloadRetentionPeriod < TimeSpan.Zero
             || EventRetentionPeriod < TimeSpan.Zero
             || SucceededRetentionPeriod <= TimeSpan.Zero
@@ -167,6 +179,46 @@ public sealed class NhBackgroundOperationsOptions
             || PayloadRetentionPeriod > FailedRetentionPeriod)
         {
             throw new InvalidOperationException("Background operation retention periods are invalid.");
+        }
+    }
+
+    /// <summary>
+    /// The slots of the global limit that every queue shares: what the reservations leave.
+    /// </summary>
+    internal int SharedConcurrencySlots => MaxConcurrentOperations - ReservedQueueConcurrency.Values.Sum();
+
+    private void ValidateReservedQueueConcurrency()
+    {
+        if (ReservedQueueConcurrency.Count == 0)
+        {
+            return;
+        }
+
+        if (ReservedQueueConcurrency.Any(x => string.IsNullOrWhiteSpace(x.Key) || x.Value < 1))
+        {
+            throw new InvalidOperationException("Background operation reserved queue concurrency needs a queue name and at least one slot per queue.");
+        }
+
+        if (MaxConcurrentOperations == int.MaxValue)
+        {
+            throw new InvalidOperationException(
+                "Background operation reserved queue concurrency is a share of the global limit; set one with WithGlobalConcurrency.");
+        }
+
+        var reserved = ReservedQueueConcurrency.Values.Sum(slots => (long)slots);
+        if (reserved >= MaxConcurrentOperations)
+        {
+            throw new InvalidOperationException(
+                $"Background operation queues reserve {reserved} slots of the global limit of {MaxConcurrentOperations}; leave at least one slot for the other queues.");
+        }
+
+        foreach (var (queue, slots) in ReservedQueueConcurrency)
+        {
+            if (QueueConcurrencyLimits.TryGetValue(queue, out var limit) && slots > limit)
+            {
+                throw new InvalidOperationException(
+                    $"Background operation queue '{queue}' reserves {slots} slots but may run only {limit} operations at the same time.");
+            }
         }
     }
 
@@ -411,6 +463,32 @@ public sealed class NhBackgroundOperationBuilder
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentOperations));
         }
         _options.QueueConcurrencyLimits[NhHangfireUtil.GetQueueName()] = maxConcurrentOperations;
+        return this;
+    }
+
+    /// <summary>
+    /// Reserves <paramref name="slots"/> of the global limit (<see cref="WithGlobalConcurrency"/>) for
+    /// the operations on <paramref name="queue"/>, so other work cannot take all of them. Operations
+    /// on other queues never take a reserved slot; operations on <paramref name="queue"/> take a
+    /// reserved slot first and a free shared slot when their reserved ones are in use. The shared
+    /// slots are what all reservations leave of the global limit, so the operations in progress never
+    /// exceed it. Cap the queue itself with <see cref="WithQueueConcurrency"/> when its work must not
+    /// take every shared slot either.
+    /// <para>
+    /// Host start fails without a global limit, when the reservations leave no shared slot, and when
+    /// a queue reserves more slots than its queue limit. Give every process of a <c>ProcessorKey</c>
+    /// the same global limit and reservations.
+    /// </para>
+    /// </summary>
+    public NhBackgroundOperationBuilder WithReservedQueueConcurrency(string queue, int slots)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(queue);
+        if (slots < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slots));
+        }
+
+        _options.ReservedQueueConcurrency[NhBackgroundOperationKeys.NormalizeQueueName(queue)] = slots;
         return this;
     }
 
