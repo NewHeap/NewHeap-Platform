@@ -41,6 +41,12 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
     /// </summary>
     private static readonly TimeSpan SlowWriteDuration = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    /// How long every heartbeat takes when heartbeats are slow: three heartbeat intervals, so the
+    /// next beat is due as soon as one ends.
+    /// </summary>
+    private static readonly TimeSpan SlowHeartbeatDuration = TimeSpan.FromMilliseconds(300);
+
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     public enum OwnWriteOutcome
@@ -95,6 +101,53 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
         {
             operation.Status.Should().Be(NhBackgroundOperationStatus.WaitingForSignal);
             operation.CurrentAttemptId.Should().BeNull();
+            attempt.Status.Should().Be(NhBackgroundOperationAttemptStatus.Suspended);
+            operation.Events.Should().ContainSingle(operationEvent => operationEvent.MessageKey == SignalWaitStartedMessageKey);
+        }
+    }
+
+    /// <summary>
+    /// Every heartbeat takes longer than the heartbeat interval, as on a busy database, so the next
+    /// beat is due the moment one ends. The attempt's own write, which starts while a beat runs,
+    /// waits for that beat only and goes first after it, and so does the completion: the operation
+    /// completes or suspends while its heartbeats go on.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer, OwnWriteOutcome.Completes)]
+    [InlineData(RelationalTestProvider.SqlServer, OwnWriteOutcome.Suspends)]
+    [InlineData(RelationalTestProvider.PostgreSql, OwnWriteOutcome.Completes)]
+    [InlineData(RelationalTestProvider.PostgreSql, OwnWriteOutcome.Suspends)]
+    public async Task Own_writes_go_first_after_a_beat_while_every_heartbeat_takes_longer_than_the_interval(
+        RelationalTestProvider provider,
+        OwnWriteOutcome outcome)
+    {
+        await using var services = await CreateServicesAsync(provider);
+        var options = services.GetRequiredService<NhBackgroundOperationsOptions>();
+        SlowHeartbeatDuration.Should().BeGreaterThan(options.HeartbeatInterval * 2);
+        var slowWrites = services.GetRequiredService<SlowWriteInterceptor>();
+        slowWrites.HoldHeartbeats(SlowHeartbeatDuration);
+        var operationId = await EnqueueAsync(
+            services,
+            new WriteDuringBeatRequest(outcome == OwnWriteOutcome.Suspends, DateTimeOffset.UtcNow.AddHours(1)));
+        var generation = await DispatchAsync(services, operationId);
+
+        await CreateRunner(services, new RecordingLogger<NhBackgroundOperationRunner>())
+            .RunAsync(operationId, generation)
+            .WaitAsync(Patience);
+
+        slowWrites.HeldHeartbeats.Should().BeGreaterThan(0);
+        var operation = await ReadOperationAsync(services, operationId);
+        operation.FailureCode.Should().BeNull();
+        var attempt = operation.Attempts.Should().ContainSingle().Subject;
+        if (outcome == OwnWriteOutcome.Completes)
+        {
+            operation.Status.Should().Be(NhBackgroundOperationStatus.Succeeded);
+            attempt.Status.Should().Be(NhBackgroundOperationAttemptStatus.Succeeded);
+            operation.Events.Should().ContainSingle(operationEvent => operationEvent.MessageKey == SlowWriteMessageKey);
+        }
+        else
+        {
+            operation.Status.Should().Be(NhBackgroundOperationStatus.WaitingForSignal);
             attempt.Status.Should().Be(NhBackgroundOperationAttemptStatus.Suspended);
             operation.Events.Should().ContainSingle(operationEvent => operationEvent.MessageKey == SignalWaitStartedMessageKey);
         }
@@ -330,6 +383,7 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
         registryBuilder.Add<OwnWriteRequest, OwnWriteHandler>("heartbeat-own-write");
         registryBuilder.Add<WaitingRequest, WaitingHandler>("heartbeat-waiting");
         registryBuilder.Add<HungWriteRequest, HungWriteHandler>("heartbeat-hung-write");
+        registryBuilder.Add<WriteDuringBeatRequest, WriteDuringBeatHandler>("heartbeat-write-during-beat");
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<SlowWriteInterceptor>();
@@ -365,6 +419,7 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
         services.AddTransient<OwnWriteHandler>();
         services.AddTransient<WaitingHandler>();
         services.AddTransient<HungWriteHandler>();
+        services.AddTransient<WriteDuringBeatHandler>();
         var serviceProvider = services.BuildServiceProvider();
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
@@ -375,6 +430,8 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
     }
 
     private sealed record OwnWriteRequest(bool Suspend, DateTimeOffset ExpiresAt);
+
+    private sealed record WriteDuringBeatRequest(bool Suspend, DateTimeOffset ExpiresAt);
 
     private sealed record ApprovalSignal(bool Approved);
 
@@ -464,17 +521,54 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
     }
 
     /// <summary>
+    /// Makes one own write, a message or a signal suspension, while a heartbeat runs.
+    /// </summary>
+    private sealed class WriteDuringBeatHandler(SlowWriteInterceptor slowWrites) : INhBackgroundOperationHandler<WriteDuringBeatRequest>
+    {
+        public async Task<TaskResult> ExecuteAsync(
+            WriteDuringBeatRequest request,
+            INhBackgroundOperationContext context,
+            CancellationToken cancellationToken)
+        {
+            await slowWrites.HeartbeatHeld.Task.WaitAsync(Patience, cancellationToken);
+            if (request.Suspend)
+            {
+                var wait = await context.Suspension.WaitForSignalAsync<ApprovalSignal>(
+                    "heartbeat-approval",
+                    request.ExpiresAt,
+                    cancellationToken: cancellationToken);
+                return wait.Signal is { Approved: true }
+                    ? TaskResult.Succeeded()
+                    : TaskResult.Failed("approval-missing", "heartbeat.approval-missing");
+            }
+
+            await context.Messages.PublishAsync(NhBackgroundOperationMessage.Info(SlowWriteMessageKey), cancellationToken);
+            return TaskResult.Succeeded();
+        }
+    }
+
+    /// <summary>
     /// Holds a save that adds the event with the configured message key, inside the write's
-    /// transaction and so inside its operation lock. The delay ignores cancellation, as the
-    /// compilation of a first EF query does.
+    /// transaction and so inside its operation lock, or every heartbeat's save, inside the beat's
+    /// transaction. The delay ignores cancellation, as the compilation of a first EF query or a busy
+    /// database does.
     /// </summary>
     private sealed class SlowWriteInterceptor : SaveChangesInterceptor
     {
         private string? _messageKey;
         private TimeSpan _duration;
         private int _heldWrites;
+        private TimeSpan? _heartbeatDuration;
+        private int _heldHeartbeats;
 
         public int HeldWrites => Volatile.Read(ref _heldWrites);
+
+        public int HeldHeartbeats => Volatile.Read(ref _heldHeartbeats);
+
+        /// <summary>
+        /// Completes when the first held heartbeat runs.
+        /// </summary>
+        public TaskCompletionSource HeartbeatHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Hold(string messageKey, TimeSpan duration)
         {
@@ -482,13 +576,31 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
             Volatile.Write(ref _messageKey, messageKey);
         }
 
+        public void HoldHeartbeats(TimeSpan duration)
+        {
+            _heartbeatDuration = duration;
+        }
+
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
             DbContextEventData eventData,
             InterceptionResult<int> result,
             CancellationToken cancellationToken = default)
         {
+            if (eventData.Context is not { } context)
+            {
+                return result;
+            }
+
+            if (_heartbeatDuration is { } heartbeatDuration && IsHeartbeat(context))
+            {
+                Interlocked.Increment(ref _heldHeartbeats);
+                HeartbeatHeld.TrySetResult();
+                await Task.Delay(heartbeatDuration, CancellationToken.None);
+                return result;
+            }
+
             var messageKey = Volatile.Read(ref _messageKey);
-            if (messageKey is null || eventData.Context is not { } context)
+            if (messageKey is null)
             {
                 return result;
             }
@@ -502,6 +614,20 @@ public sealed class NhBackgroundOperationHeartbeatContentionProviderTests
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// A heartbeat's save: it refreshes a running attempt's heartbeat and changes nothing else of
+        /// the attempt, and adds no event.
+        /// </summary>
+        private static bool IsHeartbeat(DbContext context)
+        {
+            return context.ChangeTracker.Entries<NhBackgroundOperationAttempt>()
+                       .Any(entry => entry.State == EntityState.Modified
+                                     && entry.Property(attempt => attempt.HeartbeatAt).IsModified
+                                     && !entry.Property(attempt => attempt.Status).IsModified)
+                   && !context.ChangeTracker.Entries<NhBackgroundOperationEvent>()
+                       .Any(entry => entry.State == EntityState.Added);
         }
     }
 

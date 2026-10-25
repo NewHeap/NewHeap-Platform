@@ -105,6 +105,20 @@ Three fixes keep a background operation's outcome recordable and true to what st
 | When the write of a failed or cancelled step fails, the handler and the runner receive the step's own exception instead of the database exception. | None, unless a handler catches the database exception of that write; catch the step's own exception instead. |
 | A write of an attempt that lost its fence throws an internal subclass of `InvalidOperationException` with the same message. | Assert it in tests with a check that accepts derived types, such as `Assert.ThrowsAnyAsync<InvalidOperationException>`. |
 
+## NewHeap.Platform.AspNet.Common: an attempt's own write between slow heartbeats
+
+A heartbeat that takes longer than `HeartbeatInterval`, as on a busy database, has its next beat due at
+once. An own write of the attempt that waited for a beat (a message, step, progress, checkpoint, signal
+suspension, fan-out or the completion) could then wait behind every following beat, so the attempt kept
+sending heartbeats but never completed or suspended. The end of a beat now admits the writes that waited
+for it before the next beat can start; that beat skips or waits for them, as for any own write in
+progress, so a write waits for at most one beat. The heartbeat still never waits for the operation lock
+behind an own write, and an own write that never ends still lets the heartbeat go stale.
+
+| Breaking change | Required action |
+|---|---|
+| None; an attempt whose heartbeats are slower than their interval now completes or suspends instead of hanging. | None. |
+
 ## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: reserved capacity for agent runs
 
 `NhBackgroundOperationBuilder.WithReservedQueueConcurrency(queue, slots)` reserves slots of the global
