@@ -410,6 +410,11 @@ internal sealed class NhAssistantSeeder(
                     NhAssistantAgentCatalog.ComputeHash(seed.Content),
                     cancellationToken);
             }
+            // Values stored before their entry declared IndexByEach, or before its selector changed,
+            // get the searchable values it computes now (LS25).
+            await new NhAssistantAgentMetadataStore(contextFactory).ReindexEachAsync(
+                state.AgentMetadata.Values.ToArray(),
+                cancellationToken);
             _seeded = true;
         }
         finally

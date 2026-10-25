@@ -61,12 +61,43 @@ public sealed class NhAssistantAgentMetadataBuilder<TValue>
     /// with it. It is trimmed and compared without regard to case; <see langword="null"/> or empty
     /// makes the value unsearchable. A searchable value longer than
     /// <see cref="NhAssistantAgentMetadataLimits.MaxIndexValueLength"/> characters is refused with
-    /// <c>value: too-long</c>.
+    /// <c>value: too-long</c>. An entry declares either <c>IndexBy</c> or <see cref="IndexByEach"/>.
     /// </summary>
     public NhAssistantAgentMetadataBuilder<TValue> IndexBy(Func<TValue, string?> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
+        if (_entry.IndexEachSelector is not null)
+        {
+            throw new InvalidOperationException(
+                $"Agent metadata '{_entry.Name}' already declares its searchable values with IndexByEach; declare IndexBy or IndexByEach.");
+        }
+
         _entry.IndexSelector = value => selector((TValue)value);
+        return this;
+    }
+
+    /// <summary>
+    /// Declares several searchable values of the value, such as the codes of the departments an agent
+    /// works for, which are stored in an indexed table of their own on every save so that
+    /// <see cref="INhAssistantAgentMetadata.ListAgentsAsync"/> finds the agents with any of them. Each
+    /// value is trimmed and compared without regard to case, as with <see cref="IndexBy"/>;
+    /// <see langword="null"/>, empty and repeated values are left out. A value holds at most
+    /// <see cref="NhAssistantAgentMetadataLimits.MaxIndexValuesPerEntry"/> searchable values of at most
+    /// <see cref="NhAssistantAgentMetadataLimits.MaxIndexValueLength"/> characters each; more, or a
+    /// longer one, is refused with <c>value: too-long</c>, and fails startup for a value in code. Values
+    /// stored before the entry declared them get theirs when the process starts. An entry declares
+    /// either <see cref="IndexBy"/> or <c>IndexByEach</c>.
+    /// </summary>
+    public NhAssistantAgentMetadataBuilder<TValue> IndexByEach(Func<TValue, IEnumerable<string?>?> selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        if (_entry.IndexSelector is not null)
+        {
+            throw new InvalidOperationException(
+                $"Agent metadata '{_entry.Name}' already declares its searchable value with IndexBy; declare IndexBy or IndexByEach.");
+        }
+
+        _entry.IndexEachSelector = value => selector((TValue)value);
         return this;
     }
 
@@ -167,9 +198,14 @@ public static class NhAssistantAgentMetadataLimits
     public const int MaxNameLength = 64;
 
     /// <summary>
-    /// The longest searchable value (<c>IndexBy</c>).
+    /// The longest searchable value (<c>IndexBy</c> and each value of <c>IndexByEach</c>).
     /// </summary>
     public const int MaxIndexValueLength = 256;
+
+    /// <summary>
+    /// The most searchable values one value of an entry declared with <c>IndexByEach</c> holds.
+    /// </summary>
+    public const int MaxIndexValuesPerEntry = 50;
 
     /// <summary>
     /// The most entries one application registers.
@@ -225,8 +261,10 @@ public interface INhAssistantAgentMetadata
 
     /// <summary>
     /// The agents whose entry <paramref name="name"/> has <paramref name="value"/> as its searchable
-    /// value (<c>IndexBy</c>), compared trimmed and without regard to case, ordered by id, each with the
-    /// metadata in effect. Throws for an entry that is not registered or declares no searchable value.
+    /// value (<c>IndexBy</c>), or as any of its searchable values (<c>IndexByEach</c>), compared
+    /// trimmed and without regard to case, ordered by id, each with the metadata in effect. Values in
+    /// code and stored values both count; a stored override decides for its agent in code. Throws for
+    /// an entry that is not registered or declares no searchable value.
     /// </summary>
     Task<IReadOnlyList<NhAssistantAgentWithMetadata>> ListAgentsAsync(
         string name,
@@ -237,8 +275,16 @@ public interface INhAssistantAgentMetadata
 /// <param name="Name">The entry's dash-case name.</param>
 /// <param name="Editable">Administrators may change it on agents in code.</param>
 /// <param name="MaxBytes">The largest value in bytes of its JSON.</param>
-/// <param name="Indexed">It declares a searchable value with <c>IndexBy</c>.</param>
-public sealed record NhAssistantAgentMetadataEntryDto(string Name, bool Editable, int MaxBytes, bool Indexed);
+/// <param name="Indexed">It declares a searchable value with <c>IndexBy</c>, or several with
+/// <c>IndexByEach</c>.</param>
+public sealed record NhAssistantAgentMetadataEntryDto(string Name, bool Editable, int MaxBytes, bool Indexed)
+{
+    /// <summary>
+    /// It declares several searchable values with <c>IndexByEach</c>, which
+    /// <see cref="NhAssistantAgentMetadataValue.IndexValues"/> holds.
+    /// </summary>
+    public bool IndexedByEach { get; init; }
+}
 
 /// <summary>
 /// An agent with the metadata in effect.
@@ -287,7 +333,14 @@ public sealed record NhAssistantAgentMetadataValue(
     int? Version,
     string? IndexValue,
     DateTimeOffset? ChangedAt,
-    string? ChangedBy);
+    string? ChangedBy)
+{
+    /// <summary>
+    /// The searchable values of an entry declared with <c>IndexByEach</c>, as stored: trimmed, in
+    /// lowercase, without repeats and ordered; empty for other entries.
+    /// </summary>
+    public IReadOnlyList<string> IndexValues { get; init; } = [];
+}
 
 /// <summary>
 /// The JSON of agent metadata: web defaults (camelCase). A value saved must fit its type exactly, so
@@ -318,6 +371,21 @@ internal sealed record NhAssistantAgentMetadataCheck(
     IReadOnlyList<(string? Field, string Code)> Errors)
 {
     public bool Valid => Errors.Count == 0;
+
+    /// <summary>
+    /// The searchable values of an entry declared with <c>IndexByEach</c>, normalized, without
+    /// repeats and ordered; empty for other entries.
+    /// </summary>
+    public IReadOnlyList<string> IndexValues { get; init; } = [];
+
+    /// <summary>
+    /// Whether the value is found by the normalized searchable value <paramref name="indexValue"/>.
+    /// </summary>
+    public bool Matches(string indexValue)
+    {
+        return string.Equals(IndexValue, indexValue, StringComparison.Ordinal)
+            || IndexValues.Contains(indexValue, StringComparer.Ordinal);
+    }
 
     public static NhAssistantAgentMetadataCheck Refused(string code)
     {
@@ -360,13 +428,23 @@ internal sealed class NhAssistantAgentMetadataEntry(string name, Type valueType)
 
     public Func<object, string?>? IndexSelector { get; set; }
 
+    /// <summary>
+    /// The searchable values of <c>IndexByEach</c>; <see langword="null"/> without them.
+    /// </summary>
+    public Func<object, IEnumerable<string?>?>? IndexEachSelector { get; set; }
+
     public List<Action<object, NhAssistantAgentMetadataErrors>> Validators { get; } = [];
 
-    public bool Indexed => IndexSelector is not null;
+    public bool Indexed => IndexSelector is not null || IndexEachSelector is not null;
+
+    public bool IndexedByEach => IndexEachSelector is not null;
 
     public NhAssistantAgentMetadataEntryDto ToDto()
     {
-        return new NhAssistantAgentMetadataEntryDto(Name, Editable, MaxBytes, Indexed);
+        return new NhAssistantAgentMetadataEntryDto(Name, Editable, MaxBytes, Indexed)
+        {
+            IndexedByEach = IndexedByEach
+        };
     }
 
     /// <summary>
@@ -444,10 +522,60 @@ internal sealed class NhAssistantAgentMetadataEntry(string name, Type valueType)
             errors.Add(NhAssistantFieldErrors.TooLong);
         }
 
+        var (indexValues, fits) = IndexValuesOf(value);
+        if (!fits)
+        {
+            errors.Add(NhAssistantFieldErrors.TooLong);
+        }
+
         return new NhAssistantAgentMetadataCheck(
             Encoding.UTF8.GetString(bytes),
             NormalizeIndex(index),
-            errors.Items.ToArray());
+            errors.Items.ToArray())
+        {
+            IndexValues = indexValues
+        };
+    }
+
+    /// <summary>
+    /// The searchable values of <c>IndexByEach</c> of a typed value: normalized, without empty values
+    /// and repeats, in ordinal order; <c>Fits</c> is <see langword="false"/> when one is longer than
+    /// <see cref="NhAssistantAgentMetadataLimits.MaxIndexValueLength"/> or there are more than
+    /// <see cref="NhAssistantAgentMetadataLimits.MaxIndexValuesPerEntry"/>. Empty for an entry without
+    /// <c>IndexByEach</c>.
+    /// </summary>
+    public (IReadOnlyList<string> Values, bool Fits) IndexValuesOf(object value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (IndexEachSelector is null)
+        {
+            return ([], true);
+        }
+
+        var fits = true;
+        var values = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var item in IndexEachSelector(value) ?? [])
+        {
+            var normalized = NormalizeIndex(item);
+            if (normalized is null)
+            {
+                continue;
+            }
+            if (normalized.Length > NhAssistantAgentMetadataLimits.MaxIndexValueLength)
+            {
+                fits = false;
+                continue;
+            }
+
+            values.Add(normalized);
+        }
+
+        if (values.Count > NhAssistantAgentMetadataLimits.MaxIndexValuesPerEntry)
+        {
+            fits = false;
+        }
+
+        return (values.ToArray(), fits);
     }
 
     /// <summary>
