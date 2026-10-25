@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "3cdb972f90fdbd3f310343912cf20d1f4ec8b1a2fb0ca471f7be851eb4add260",
-    "declarationCount": 10827,
+    "hash": "81a90d22b64b46dbf67ddd69c98f4e4a3b154317d7eac418cf7532c7d8af33fe",
+    "declarationCount": 10849,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3790,6 +3790,22 @@
         "declaration": "public static void Map(RouteGroupBuilder group) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public interface INhAssistantAgentRunLookup {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public sealed record NhAssistantTriggerEventRun( Guid InputId, string AgentId, string? TriggerId, string? EventKey, NhAiSubjectRef Subject, Guid ConversationId, bool Shadow, DateTimeOffset ReceivedAt, bool Waiting, DateTimeOffset? ConsumedAt, Guid? RunId, string? RunStatus);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public async Task<NhAssistantTriggerEventRun?> FindByEventAsync( string agentId, string triggerId, string eventKey, string? tenantId = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public async Task<NhAssistantTriggerEventRun?> FindByInputAsync( Guid inputId, string? tenantId = null, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
         "declaration": "public sealed record NhAssistantAgentRunRequest(Guid RunId);"
       },
@@ -3855,6 +3871,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public static NhBackgroundOperationBuilder AddAssistantAgentRuns( this NhBackgroundOperationBuilder operations, Action<NhAssistantAgentRunOperationsBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public sealed class NhAssistantAgentRunOperationsBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public NhAssistantAgentRunOperationsBuilder Queue(string queue) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public NhAssistantAgentRunOperationsBuilder MaxConcurrency(int maxConcurrentOperations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
         "declaration": "public async Task<TaskResult<NhAssistantAgentTurnContext>> CreateAsync( Guid conversationId, Guid? runId, string triggerId, string? initiatorActorId, string accountableOwnerId, CancellationToken cancellationToken) {"
       },
       {
@@ -3903,7 +3935,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
-        "declaration": "public sealed record NhAssistantTriggerReceipt( string TriggerId, string Outcome, Guid? RunId, Guid? ConversationId, string? ReasonCode);"
+        "declaration": "public sealed record NhAssistantTriggerReceipt( string TriggerId, string Outcome, Guid? RunId, Guid? ConversationId, string? ReasonCode) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public Guid? InputId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
@@ -7426,6 +7462,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261025083844_TriggerEventLookup.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261025083844_TriggerEventLookup.cs",
+        "declaration": "public partial class TriggerEventLookup : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261025083844_TriggerEventLookup.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261025083844_TriggerEventLookup.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -8243,6 +8295,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261024072041_AgentPackages.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261025083834_TriggerEventLookup.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261025083834_TriggerEventLookup.cs",
+        "declaration": "public partial class TriggerEventLookup : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261025083834_TriggerEventLookup.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261025083834_TriggerEventLookup.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -17715,6 +17783,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool RunSchedules { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public string AccessPolicy { get; set; } = DefaultAccessPolicy;"
       },
       {
@@ -19520,6 +19592,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<bool> QueuedInputExistsAsync(Guid inputId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<(AssistantQueuedInput Input, AssistantThread Thread)?> FindEventInputAsync( string agentId, string triggerId, string eventKey, string? tenantId, bool tenantTakesPartInWholeApplication, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<(AssistantQueuedInput Input, AssistantThread Thread)?> FindInputWithThreadAsync( Guid inputId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -34531,6 +34611,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public IDictionary<string, int> ReservedQueueConcurrency { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public int MaxPayloadBytes { get; set; } = 64 * 1024;"
       },
       {
@@ -34764,6 +34848,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public NhBackgroundOperationBuilder WithDefaultQueueConcurrency(int maxConcurrentOperations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder WithReservedQueueConcurrency(string queue, int slots) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
@@ -46817,6 +46905,9 @@
       "NhAssistantTriggerOutcomes",
       "NhAssistantTriggerReasons",
       "AddAssistantAgentRuns",
+      "NhAssistantAgentRunOperationsBuilder",
+      "INhAssistantAgentRunLookup",
+      "NhAssistantTriggerEventRun",
       "NhAiAgentAccountability",
       "NhAiGrantSource",
       "NhAiAgentGrant",
