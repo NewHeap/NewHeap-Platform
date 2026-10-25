@@ -322,6 +322,8 @@
     "SPM-324",
     "SPM-325",
     "SPM-326",
+    "SPM-329",
+    "SPM-330",
     "SPM-331"
   ],
   "gaps": {
@@ -2977,7 +2979,10 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/metadata/nh-assistant-agent-metadata-slot.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-metadata.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-metadata.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentDepartmentsComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentDefinitionTests.cs"
     ],
     "SPM-314": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",
@@ -3160,6 +3165,27 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationReservedConcurrencyProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventLookupTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScheduleHostTests.cs"
+    ],
+    "SPM-329": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDirectory.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentDefinitionTests.cs"
+    ],
+    "SPM-330": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentDefinitionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-shadow-variants.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-hand-offs-admin.spec.ts"
     ],
     "SPM-331": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",

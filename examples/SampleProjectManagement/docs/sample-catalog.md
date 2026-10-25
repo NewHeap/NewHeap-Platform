@@ -312,6 +312,14 @@ one, finds both with `INhAssistantAgentMetadata.ListAgentsAsync` whatever the co
 that people who do not administer neither read nor change it; NewHeap itself never reads the cost
 center.
 
+The planner also works for two departments, planning and operations, a second entry of agent metadata
+(SPM-313). `SampleAgentDepartmentsComposition` declares every department code as a searchable value
+with `IndexByEach`, so the application finds the agents of a department by any of their codes with
+`ListAgentsAsync`; NewHeap stores the codes once per agent, at most 50, in a table of their own, and a
+code that is no department is refused at its field. The portal shows the entry without an editor of its
+own. `AssistantAgentDefinitionSamplesTests` finds the planner by a code in code and a desk created at
+runtime by a code it was given.
+
 The application executes some approved proposals itself (SPM-314). The intake reviewer may propose to
 order equipment for a project, and the sample's order desk works asynchronously: its supplier confirms
 an order hours later. `SampleEquipmentOrderComposition` therefore declares the order tool with
@@ -404,6 +412,20 @@ SPM-320 and which version each uses, and with `GetPackageAsync` and `ReadAsync` 
 A test host of the environment `Testing` reaches the milestones server on loopback only with
 `NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
 runs the case.
+
+The operations process also reads and changes agents through services (SPM-329).
+`SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
+`INhAssistantAgentDirectory`, with its run state and cost center, and gives an agent a new description
+with `INhAssistantAgentDefinitions`: it reads the agent and sends its definition back at the version it
+read, so the planner is overridden at its next version, keeps its instructions and MCP assignments, and
+a change at the old version is refused. Resetting returns the planner to its code; an agent created at
+runtime is retired, while the planner in code is not. The same service promotes the planner's trial, a
+shadow variant created at runtime, onto the planner once the evaluation shows it does better (SPM-330):
+the planner takes the trial's description, instructions, tools, required policy and autonomy, keeps its
+name, run settings and live mode, gets the trial's progress review as a new skill in shadow, and the
+trial is deleted without ever going live. In the assistant administration, and in the playground on the
+mock API, a data variant offers "Promote onto {agent}" with a confirmation. `AssistantAgentDefinitionSamplesTests`
+runs both cases.
 
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization

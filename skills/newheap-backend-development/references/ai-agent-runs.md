@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code and promote a variant onto its live agent, change agent definitions from code and read agents as they are in effect, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
 
 ## Preferred approach
 
@@ -1115,6 +1115,24 @@ variants in code and as data. A variant that no longer fits (`outside-ceiling`, 
 `live-agent-not-live`, `too-many-variants`) has its run settings out of effect and never runs, live or
 in shadow.
 
+Promote a data variant that did better onto its live agent explicitly, never by copying its fields by
+hand: `INhAssistantAgentDefinitions.PromoteShadowVariantAsync(variantId, new
+NhAssistantShadowVariantPromotionRequest(expectedVersion, MoveSkills, ExpectedVariantVersion, Reason),
+actorId)` (`POST admin/agents/{id}/promote` for administrators) copies the variant's definition onto the
+live agent as its next version through the update path, with its checks, package locks, version and
+audit, then deletes the variant: the variant never goes live itself. The live agent keeps its display
+name, MCP assignments, metadata, run settings, triggers, state and shadow mode; an agent in code takes
+only the fields it can override (description, instructions as text, tool selectors, required policy
+and autonomy), an agent created in the administration also the variant's profile, classification,
+what it works on and its asset reference. With `MoveSkills` each data skill of the variant becomes the
+next live version of the live agent's skill of the same id, or a new skill, which starts in shadow; a
+skill the live agent has in code refuses the promotion before anything changes
+(`assistant-skill-in-code`). An agent that is no data variant answers `assistant-not-shadow-variant`, a
+live agent that may no longer have data variants `assistant-shadow-variants-not-allowed`, a stale
+version `assistant-version-conflict`. The steps run in that order and a failure stops there, with the
+variant still in place. The audit records `AdminAgentShadowVariantPromoted` (the live agent, its new
+version and the variant) after the events of each step. SPM-330.
+
 Move agents and their configuration as data between hosts as one versioned agent package with
 `INhAssistantAgentPackages`, never as a series of saves an application calls one after the other. A
 package (`NhAssistantAgentPackage`, format `newheap.assistant.agent-package`, `formatVersion` 1)
@@ -1511,6 +1529,32 @@ never interprets metadata and it never grants an agent or a person anything: aut
 application does with it in the application. The audit records `AdminAgentMetadataChanged` with the
 entry's name and the version only.
 
+Declare several searchable values with `IndexByEach(value => value.Codes)` when one agent belongs to
+several of them, such as the departments it works for, instead of joining them into one `IndexBy`
+string. An entry declares `IndexBy` or `IndexByEach`, never both. Each value is trimmed, in lowercase
+and stored once, at most `NhAssistantAgentMetadataLimits.MaxIndexValuesPerEntry` (50) of at most 256
+characters (`value: too-long` otherwise, a failed startup for a value in code), in
+`AssistantAgentMetadataIndexValue` (the MetadataIndexValues migrations), written in the same save as the
+value and removed with it. `ListAgentsAsync(name, value)` matches any of them, stored or in code;
+`NhAssistantAgentMetadataValue.IndexValues` and `NhAssistantAgentMetadataEntryDto.IndexedByEach` show
+them. Values stored before the entry declared `IndexByEach`, or before its selector changed, get their
+values when the process first reads the agents, each guarded by its version; the main `IndexBy` column
+still changes only on the next save. SPM-313.
+
+Change the definitions of agents from code with `INhAssistantAgentDefinitions` (`UpdateAsync(agentId,
+request, expectedVersion, actorId)`, `ResetAsync`, `DeleteAsync`), never by writing the agent tables or
+calling the administration's endpoints from the application. It applies the administration's checks,
+also that `RequiredPolicy` is a registered policy, its versions, package locks and audit, to agents
+created at runtime and to overrides of agents in code; `NhAssistantAgentDefinitionRequest` replaces the
+six fields of the definition and keeps every optional field, also the MCP assignments, unless it names
+them. Read agents as they are in effect with `INhAssistantAgentDirectory` (`GetAsync`, `ListAsync` with
+`NhAssistantAgentDirectoryFilter`): `NhAssistantAgentInEffectDto` holds the source, the name and
+description in effect (keys for an agent in code), the instructions resolved from an asset or the
+asset's problem, tool selectors, autonomy, profile, run state with `INhAssistantAgentControl`'s state,
+shadow and `ShadowOf`, and the metadata in effect. A read and a change at its `Version` refuse a change by
+someone else in the meantime. Both are server APIs that authorize nothing and the directory returns
+instructions in full: call them for an administrator or process the application authorized. SPM-329.
+
 ## Avoid
 - Deciding rights, routes or approvals from agent metadata in NewHeap hooks; metadata is the
   application's data and never widens what an agent may do.
@@ -1633,7 +1677,14 @@ entry's name and the version only.
 - Opening every agent created in the administration to every agent in `UseHandOffsAsData` when the
   application means a few connections, or expecting a stored hand-off to keep working with fewer
   sources or a lower limit after a deploy narrowed the ceiling: it goes out of effect.
-- Expecting a data shadow variant to go live: its mode never changes; create the live agent separately.
+- Expecting a data shadow variant to go live: its mode never changes; promote it onto its live agent
+  with `PromoteShadowVariantAsync`, which copies its definition and removes it, or create the live agent
+  separately.
+- Changing agents through the agent tables or the administration's HTTP endpoints from the application,
+  or reading `NhAssistantAdminAgentDto` to show an agent: use `INhAssistantAgentDefinitions` and
+  `INhAssistantAgentDirectory`, and send the version read with the change.
+- Joining several codes into one `IndexBy` value to search an agent by any of them: declare
+  `IndexByEach`.
 - Importing agents with a series of saves, or writing a package with a technical account, secrets or
   MCP servers in it; import the package once with `INhAssistantAgentPackages` and name the account per
   agent in the import options.
@@ -2083,6 +2134,16 @@ not administer. Assert that `GetPackageAsync` returns the imported version, hash
 changed on the host as changed locally and still returns the package after every agent was unlinked,
 and that `ReadAsync` equals the parts and hashes of an export of the same agents and writes no audit.
 SPM-321 and SPM-331 are the executable references.
+For definitions from code, on both providers, update an agent created at runtime at its version and
+with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
+refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an
+agent in code, an overridden one, an agent with an asset and with its problem, and stopped and switched
+off agents as in effect. For `IndexByEach`, assert normalization, the bound of 50 values, any-value
+matches of stored values and values in code, replacement on a change, removal with the agent and the
+values stored before the entry declared them. For a promotion, assert the fields an agent in code and
+one created at runtime take, moved skills, the variant's removal, the refusals before anything changes
+and the endpoint's refusal of people who do not administer. SPM-329, SPM-330 and SPM-313 are the
+executable references.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 
