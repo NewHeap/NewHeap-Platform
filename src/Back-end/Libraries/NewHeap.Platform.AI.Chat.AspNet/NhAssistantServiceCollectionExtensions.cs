@@ -108,6 +108,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantAgentTurnFactory>();
             services.TryAddScoped<NhAssistantAgentTriggers>();
             services.TryAddScoped<INhAssistantAgentTriggers>(provider => provider.GetRequiredService<NhAssistantAgentTriggers>());
+            // The run or the waiting input of a trigger event, for the application (LS13).
+            services.TryAddScoped<INhAssistantAgentRunLookup, NhAssistantAgentRunLookup>();
             services.TryAddScoped<NhAssistantHandOffService>();
             services.TryAddScoped<NhAssistantEvaluationService>();
             services.TryAddScoped<NhAssistantReplayService>();
@@ -143,6 +145,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantAgentControl>(provider => provider.GetRequiredService<NhAssistantAgentControl>());
             services.TryAddScoped<INhAiSubjectRetention, NhAssistantSubjectRetention>();
             services.TryAddScoped<NhAssistantScheduledTriggerJob>();
+            // The recurring jobs of schedules in code; a host with RunSchedules false adds none (LS11).
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantScheduleRegistration>());
 
             // The whole application as a subject, for agents that work on it: app-wide, or per

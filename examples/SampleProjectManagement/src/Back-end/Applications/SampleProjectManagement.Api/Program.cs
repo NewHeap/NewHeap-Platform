@@ -298,8 +298,9 @@ builder.Services
                     NhBackgroundOperationConflictBehavior.ReturnExisting)
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         // Headless agent runs and the execution of approved agent proposals; see
-        // SampleIntakeReviewerComposition.
-        operations.AddAssistantAgentRuns();
+        // SampleIntakeReviewerComposition. SPM-326: they work on a queue of their own that keeps
+        // two of the eight slots for itself and runs at most four operations at the same time.
+        operations.AddSampleAgentRuns();
     })
     .WithNotifications(NotificationProcessingSample.Configure)
     .ConfigureEmailNotificationSettings(options =>
@@ -377,6 +378,8 @@ builder.Services.AddScoped<ProjectMediaSampleService>();
 builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();
+// SPM-326: the intake review a project's creation started, for the maintenance page.
+builder.Services.AddScoped<SampleIntakeReviewLookup>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
 builder.Services.AddScoped<SampleInstructionAssetService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides

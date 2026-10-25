@@ -88,48 +88,137 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
     /// </summary>
     public static NhBackgroundOperationBuilder AddAssistantAgentRuns(this NhBackgroundOperationBuilder operations)
     {
+        return operations.AddAssistantAgentRuns(_ => { });
+    }
+
+    /// <summary>
+    /// Registers the background operations that run agents and execute their approved proposals, on
+    /// the queue and with the concurrency <paramref name="configure"/> chooses, for example
+    /// <c>AddAssistantAgentRuns(runs =&gt; runs.Queue("agent-runs").MaxConcurrency(4))</c>. Reserve part of
+    /// the global limit for that queue with <c>WithReservedQueueConcurrency</c>, so other work cannot
+    /// take every slot; <see cref="NhAssistantAgentRunOperationsBuilder.MaxConcurrency"/> keeps the agent
+    /// work from taking every slot in turn.
+    /// </summary>
+    public static NhBackgroundOperationBuilder AddAssistantAgentRuns(
+        this NhBackgroundOperationBuilder operations,
+        Action<NhAssistantAgentRunOperationsBuilder> configure)
+    {
         ArgumentNullException.ThrowIfNull(operations);
+        ArgumentNullException.ThrowIfNull(configure);
+        var placement = new NhAssistantAgentRunOperationsBuilder();
+        configure(placement);
+        var queue = placement.QueueName;
+        if (placement.Concurrency is { } concurrency)
+        {
+            if (queue is null)
+            {
+                throw new InvalidOperationException(
+                    "MaxConcurrency limits the queue of the assistant's operations; choose a queue of their own with Queue.");
+            }
+
+            if (operations.Options.QueueConcurrencyLimits.TryGetValue(queue, out var existing) && existing != concurrency)
+            {
+                throw new InvalidOperationException(
+                    $"Queue '{queue}' already has a concurrency limit of {existing}; MaxConcurrency would change it to {concurrency}.");
+            }
+
+            operations.WithQueueConcurrency(queue, concurrency);
+        }
+
         // The agent's Retry (0 to MaxRetryCount) decides how often a run is retried: the run's
         // operation allows the most an agent can configure, and the run's handler fails the run once
         // its failed attempts exceed the agent's setting, so a lower value is never stretched and a
         // higher one is never cut off.
         operations.Add<NhAssistantAgentRunRequest, NhAssistantAgentRunOperation>(
             NhAssistantAgentRunOperationTypes.Run,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(NhAssistantAgentConfigurationLimits.MaxRetryCount)
                 .WithSoftTimeout(TimeSpan.FromMinutes(15))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         operations.Add<NhAssistantExecuteProposalRequest, NhAssistantExecuteProposalOperation>(
             NhAssistantAgentRunOperationTypes.ExecuteProposal,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(3)
                 .WithSoftTimeout(TimeSpan.FromMinutes(5))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         operations.Add<NhAssistantExecuteProposalOnceRequest, NhAssistantExecuteProposalOnceOperation>(
             NhAssistantAgentRunOperationTypes.ExecuteProposalOnce,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(0)
                 .WithSoftTimeout(TimeSpan.FromMinutes(5))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.NonIdempotent));
         operations.Add<NhAssistantRevalidateProposalsRequest, NhAssistantRevalidateProposalsOperation>(
             NhAssistantAgentRunOperationTypes.RevalidateProposals,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(2)
                 .WithSoftTimeout(TimeSpan.FromMinutes(2))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         operations.Add<NhAssistantFireTriggerRequest, NhAssistantFireTriggerOperation>(
             NhAssistantAgentRunOperationTypes.FireTrigger,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(3)
                 .WithSoftTimeout(TimeSpan.FromMinutes(2))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         operations.Add<NhAssistantReplayOperationRequest, NhAssistantReplayOperation>(
             NhAssistantAgentRunOperationTypes.Replay,
-            operation => operation
+            operation => Place(operation, queue)
                 .WithRetry(3)
                 .WithSoftTimeout(TimeSpan.FromMinutes(5))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         return operations;
+    }
+
+    private static NhBackgroundOperationDefinitionBuilder<TRequest> Place<TRequest>(
+        NhBackgroundOperationDefinitionBuilder<TRequest> operation,
+        string? queue)
+    {
+        return queue is null ? operation : operation.UseQueue(queue);
+    }
+}
+
+/// <summary>
+/// The queue and concurrency of the assistant's background operations, chosen in
+/// <c>AddAssistantAgentRuns</c>. Without a choice they run on the default queue, as other work does,
+/// within the global and default-queue limits only.
+/// </summary>
+public sealed class NhAssistantAgentRunOperationsBuilder
+{
+    internal NhAssistantAgentRunOperationsBuilder()
+    {
+    }
+
+    internal string? QueueName { get; private set; }
+
+    internal int? Concurrency { get; private set; }
+
+    /// <summary>
+    /// Places every operation of the assistant on <paramref name="queue"/>: agent runs, proposal
+    /// executions, proposal revalidations, deferred trigger fires and replays
+    /// (<see cref="NhAssistantAgentRunOperationTypes"/>). The process's Hangfire server serves the queue
+    /// on its own. Operations queued before keep the queue they were queued on, so keep serving it until
+    /// they ended.
+    /// </summary>
+    public NhAssistantAgentRunOperationsBuilder Queue(string queue)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(queue);
+        QueueName = queue.Trim();
+        return this;
+    }
+
+    /// <summary>
+    /// At most <paramref name="maxConcurrentOperations"/> of the assistant's operations run at the same
+    /// time on this processor: the concurrency limit of the queue chosen with <see cref="Queue"/>, as
+    /// <c>WithQueueConcurrency</c> sets it. Agents' own <c>maxConcurrentRuns</c> still applies per agent.
+    /// </summary>
+    public NhAssistantAgentRunOperationsBuilder MaxConcurrency(int maxConcurrentOperations)
+    {
+        if (maxConcurrentOperations < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxConcurrentOperations));
+        }
+
+        Concurrency = maxConcurrentOperations;
+        return this;
     }
 }
 
