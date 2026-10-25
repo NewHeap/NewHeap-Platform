@@ -3861,6 +3861,59 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         // The report writes in the application's default culture, as a report has no request of a person.
         Assert.Contains(NhAssistantMarkdown.Escape("order-placed"), TextOf(message), StringComparison.Ordinal);
         Assert.Contains(NhAssistantMarkdown.Escape(order.OrderNumber), TextOf(message), StringComparison.Ordinal);
+
+        // A second order the supplier does not confirm in time becomes uncertain; the person who approved
+        // it hands it to the order desk again from the chat, which keeps its order number.
+        var second = await host.CreateConversationAsync(owner);
+        var secondCard = (await host.SendAsync(owner, second, $"Please order 3 headsets for project {project:D}."))
+            .Single(evt => evt.Name == "approval.required").Data;
+        await host.DecideAsync(owner, second, secondCard, "approve");
+        var headsets = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == secondCard.GetProperty("approvalId").GetGuid());
+        host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+        var uncertain = await WaitForChatApprovalAsync(owner, second, headsets.HandOff!.ApprovalId, NhAssistantApprovalStatuses.ExecutionUnknown);
+        Assert.Equal((true, "report-overdue"), (uncertain.CanResolve, uncertain.ExecutionResultCode));
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var foreign = await colleague.PostAsJsonAsync(
+            $"/api/assistant/conversations/{second}/approvals/{headsets.HandOff.ApprovalId}/resolve",
+            new NhAssistantResolveExecutionRequest("hand-to-application", null),
+            Json);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+
+        using var handBack = await owner.PostAsJsonAsync(
+            $"/api/assistant/conversations/{second}/approvals/{headsets.HandOff.ApprovalId}/resolve",
+            new NhAssistantResolveExecutionRequest("hand-to-application", "The supplier lost the order."),
+            Json);
+
+        Assert.Equal(HttpStatusCode.OK, handBack.StatusCode);
+        var again = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == headsets.HandOff.ApprovalId);
+        Assert.Equal((headsets.OrderNumber, 2, true), (again.OrderNumber, again.HandOff!.Attempt, again.HandOff.Inline));
+        var handed = await WaitForChatApprovalAsync(owner, second, headsets.HandOff.ApprovalId, NhAssistantApprovalStatuses.AwaitingApplication);
+        Assert.Null(handed.CanResolve);
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await desk.ConfirmAsync(again.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Status);
+    }
+
+    /// <summary>
+    /// SPM-328: waits until the approval of a chat reaches <paramref name="status"/>, as the chat shows it.
+    /// </summary>
+    private static async Task<NhAssistantApprovalPartDto> WaitForChatApprovalAsync(HttpClient client, Guid conversationId, Guid approvalId, string status)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        NhAssistantApprovalPartDto? part = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            part = (await ReadConversationAsync(client, conversationId)).Messages
+                .SelectMany(message => message.Parts)
+                .OfType<NhAssistantApprovalPartDto>()
+                .FirstOrDefault(item => item.ApprovalId == approvalId);
+            if (part?.Status == status)
+            {
+                return part;
+            }
+
+            await NextPollAsync(null);
+        }
+
+        throw new TimeoutException($"The chat approval {approvalId} stayed '{part?.Status ?? "missing"}' instead of reaching '{status}'.");
     }
 
     /// <summary>
