@@ -413,6 +413,8 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             CodeValue = JsonSerializer.SerializeToElement(new { code = "CC-1000" }),
             Indexed = true,
             IndexValue = "cc-2000",
+            IndexedByEach = false,
+            IndexValues = [],
             ChangedAt = DateTimeOffset.UnixEpoch,
             ChangedBy = "admin-1"
         };
@@ -426,10 +428,39 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             new NhAssistantAgentMetadataEntryDto("cost-center", true, 200, true),
             context.NhAssistantRunCatalogDto.Options);
 
-        AssertNames(json, "name", "editable", "maxBytes", "source", "value", "version", "agentVersion", "codeValue", "indexed", "indexValue", "changedAt", "changedBy");
+        AssertNames(
+            json,
+            "name", "editable", "maxBytes", "source", "value", "version", "agentVersion", "codeValue", "indexed", "indexValue",
+            "indexedByEach", "indexValues", "changedAt", "changedBy");
         AssertNames(request, "value", "expectedVersion");
-        AssertNames(catalogEntry, "name", "editable", "maxBytes", "indexed");
+        AssertNames(catalogEntry, "name", "editable", "maxBytes", "indexed", "indexedByEach");
         Assert.Equal("CC-2000", json.GetProperty("value").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public void Shadow_variants_and_their_promotion_keep_their_json_names()
+    {
+        var variants = JsonSerializer.SerializeToElement(
+            new NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantShadowVariantsDto(
+                "project-planner",
+                true,
+                2,
+                [new NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantShadowVariantDto("planner-trial", "Planner trial", "data", true, true, null) { Version = 3 }]),
+            NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantHandOffsAsDataJsonSerializerContext.Default.NhAssistantShadowVariantsDto);
+        var request = JsonSerializer.SerializeToElement(
+            new NhAssistantShadowVariantPromotionInputDto(2, true, 3, "The trial did better"),
+            NhAssistantJsonSerializerContext.Default.NhAssistantShadowVariantPromotionInputDto);
+        var agent = new NhAssistantAdminAgentDto(
+            "project-planner", "Planner", "Plans.", "Plan.", ["projects.*"], [], null, "execute", true, 3, "code", true, new string('a', 64), DateTimeOffset.UnixEpoch);
+        var promoted = JsonSerializer.SerializeToElement(
+            new NhAssistantShadowVariantPromotedDto(agent, "planner-trial", ["progress-review"]),
+            NhAssistantJsonSerializerContext.Default.NhAssistantShadowVariantPromotedDto);
+
+        AssertNames(variants, "agentId", "allowsDataVariants", "maxDataVariants", "variants");
+        AssertNames(variants.GetProperty("variants")[0], "agentId", "displayName", "source", "hasRunSettings", "inEffect", "problem", "version");
+        AssertNames(request, "expectedVersion", "moveSkills", "expectedVariantVersion", "reason");
+        AssertNames(promoted, "agent", "variantId", "movedSkills");
+        Assert.Equal(("project-planner", 3), (promoted.GetProperty("agent").GetProperty("id").GetString(), promoted.GetProperty("agent").GetProperty("version").GetInt32()));
     }
 
     private static Endpoint FindEndpoint(EndpointDataSource source, string name)

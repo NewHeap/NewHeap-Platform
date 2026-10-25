@@ -187,6 +187,11 @@ export interface NhAssistantMockAgentMetadataEntry {
   /** The field of the value whose text is its searchable value, as `IndexBy`. */
   indexBy?: string;
   /**
+   * The field of the value whose texts are its searchable values, as `IndexByEach`; an entry names
+   * `indexBy` or `indexByEach`.
+   */
+  indexByEach?: string;
+  /**
    * The fields of the entry's type: a value with another field is refused with `value: invalid`, as
    * the server refuses JSON that does not fit the type. Without it every field is accepted.
    */
