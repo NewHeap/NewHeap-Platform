@@ -117,6 +117,12 @@
       </form>
     }
 
+    @if (promotedNote(); as note) {
+      <p class="message" role="status" data-promoted>
+        {{ 'nh-assistant.admin.shadow-variants.promoted' | translate: { variant: note.variant, name: liveName(), version: note.version } }}
+      </p>
+    }
+
     @if ((variants()?.variants ?? []).length === 0) {
       <p class="state" data-shadow-variants-empty>{{ 'nh-assistant.admin.shadow-variants.empty' | translate }}</p>
     } @else {
@@ -150,7 +156,44 @@
                   (click)="openVariant.emit(variant.agentId)">
                   <nh-assistant-icon name="list" />{{ (variant.hasRunSettings ? 'nh-assistant.admin.shadow-variants.open' : 'nh-assistant.admin.shadow-variants.set-up') | translate }}
                 </button>
+                <button
+                  class="secondary"
+                  type="button"
+                  [attr.data-promote-variant]="variant.agentId"
+                  [attr.aria-label]="'nh-assistant.admin.shadow-variants.promote-named' | translate: { variant: variantName(variant), name: liveName() }"
+                  [attr.aria-expanded]="promoting() === variant.agentId"
+                  [disabled]="promoteBusy() || (promoting() !== null && promoting() !== variant.agentId)"
+                  (click)="promoting() === variant.agentId ? cancelPromote() : startPromote(variant)">
+                  <nh-assistant-icon name="check" />{{ 'nh-assistant.admin.shadow-variants.promote' | translate: { name: liveName() } }}
+                </button>
               </div>
+              @if (promoting() === variant.agentId) {
+                <!-- The promotion changes the live agent: it asks first and says what stays. -->
+                <div class="stack card" role="group" [attr.aria-labelledby]="id + '-promote-title'" data-promote-confirm>
+                  <h5 [id]="id + '-promote-title'">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.title' | translate: { variant: variantName(variant), name: liveName() } }}</h5>
+                  <p class="hint" data-promote-explain>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.' + (agent().source === 'code' ? 'code' : 'admin') | translate: { name: liveName() } }}</p>
+                  <p class="hint">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.removed' | translate }}</p>
+                  <label class="check described">
+                    <input type="checkbox" data-promote-move-skills [checked]="moveSkills()" [disabled]="promoteBusy()" (change)="moveSkills.set(checked($event))" />
+                    <span>
+                      <span>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills' | translate }}</span>
+                      <span class="muted">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills-hint' | translate }}</span>
+                    </span>
+                  </label>
+                  @if (promoteError(); as failure) {
+                    <div class="form-error" role="alert" data-promote-error>
+                      <nh-assistant-icon name="warning" />
+                      <div>{{ promoteErrorKeys() | nhAssistantTranslate: failure.code }}</div>
+                    </div>
+                  }
+                  <div class="actions">
+                    <button class="secondary" type="button" [disabled]="promoteBusy()" (click)="cancelPromote()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    <button class="primary" type="button" data-promote-confirm-button [disabled]="promoteBusy()" (click)="promote(variant)">
+                      {{ (promoteBusy() ? 'nh-assistant.admin.shadow-variants.promote-confirm.promoting' : 'nh-assistant.admin.shadow-variants.promote-confirm.confirm') | translate }}
+                    </button>
+                  </div>
+                </div>
+              }
             }
           </li>
         }

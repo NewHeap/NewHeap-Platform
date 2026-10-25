@@ -865,6 +865,12 @@ public static class NhAssistantErrorCodes
     public const string ShadowVariant = "assistant-shadow-variant";
 
     /// <summary>
+    /// The agent is no shadow variant created as data (<c>UseShadowVariantsAsData</c>), so it has no
+    /// live agent to be promoted onto.
+    /// </summary>
+    public const string NotShadowVariant = "assistant-not-shadow-variant";
+
+    /// <summary>
     /// The agent does not answer to a technical account, so it has none to change.
     /// </summary>
     public const string ServiceAccountNotUsed = "assistant-service-account-not-used";

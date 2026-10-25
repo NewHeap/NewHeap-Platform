@@ -401,7 +401,18 @@ public enum NhAssistantAuditEventKind
     /// <c>assigned</c> or <c>unassigned</c>. A call that changes nothing is not audited; an agent save
     /// that replaces the agent's servers is audited as <see cref="AdminAgentUpdated"/>.
     /// </summary>
-    AdminMcpServerAssignmentChanged = 90
+    AdminMcpServerAssignmentChanged = 90,
+
+    /// <summary>
+    /// An administrator or the application promoted a shadow variant created as data onto its live
+    /// agent, after the change of the live agent, the skills it moved and the removal of the variant
+    /// were audited as their own events. <see cref="NhAssistantAuditEvent.AgentId"/> and
+    /// <see cref="NhAssistantAuditEvent.LiveAgentId"/> are the live agent,
+    /// <see cref="NhAssistantAuditEvent.AgentVersion"/> its new version,
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> the variant that was removed and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>promoted</c>. Never the definition.
+    /// </summary>
+    AdminAgentShadowVariantPromoted = 91
 }
 
 /// <summary>

@@ -106,6 +106,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-agent-does-not-work-on',
     'assistant-moved-to-shadow',
     'assistant-shadow-variant',
+    'assistant-not-shadow-variant',
     'assistant-service-account-not-used',
     'assistant-consult-route-not-allowed',
     'assistant-consult-proposal-refused',

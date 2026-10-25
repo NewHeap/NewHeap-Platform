@@ -7,6 +7,8 @@ import {
   AssistantPreferences,
   McpConnectionStatus,
   NhAssistantMcpAuthorizationOutcome,
+  ShadowVariantPromotion,
+  ShadowVariantPromotionRequest,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockScenario } from './nh-assistant-mock.models';
@@ -246,6 +248,9 @@ export class NhAssistantMockAdmin {
         if (id !== undefined && (action === 'replay' || action === 'replays') && segments.length === 4) {
           return this.agents.agentReplay(method, id, action, body);
         }
+        if (id !== undefined && action === 'promote' && segments.length === 4) {
+          return this.promote(method, id, body);
+        }
         if (id !== undefined && (action === 'hand-offs' || action === 'shadow-variants')) {
           const handed = this.handOffs.handle(method, id, segments.slice(3), body, query);
           if (handed) {
@@ -272,6 +277,58 @@ export class NhAssistantMockAdmin {
       default:
         return failure('assistant-not-found');
     }
+  }
+
+  /**
+   * `POST admin/agents/{id}/promote`: a data shadow variant's definition becomes its live agent's next
+   * version, its skills move along with `moveSkills`, and the variant is deleted, as on the server. A
+   * stale version of either agent answers `409`; a skill the live agent has in code stops the promotion
+   * before anything changes.
+   */
+  private promote(method: string, variantId: string, body: unknown): NhAssistantMockResult {
+    if (method !== 'POST') {
+      return { status: 405 };
+    }
+    const variant = this.agents.find(variantId);
+    if (!variant) {
+      return failure('assistant-agent-not-found');
+    }
+    if (variant.source !== 'admin' || !variant.shadowOf) {
+      return failure('assistant-not-shadow-variant');
+    }
+    const request = body as Partial<ShadowVariantPromotionRequest> | undefined;
+    if (typeof request?.expectedVersion !== 'number') {
+      return failure('assistant-validation', { expectedVersion: ['required'] });
+    }
+    if (typeof request.reason === 'string' && request.reason.length > 500) {
+      return failure('assistant-validation', { reason: ['too-long'] });
+    }
+    const live = this.agents.find(variant.shadowOf);
+    if (!live) {
+      return failure('assistant-agent-not-found');
+    }
+    if (request.expectedVersion !== live.version
+      || (typeof request.expectedVariantVersion === 'number' && request.expectedVariantVersion !== variant.version)) {
+      return failure('assistant-version-conflict');
+    }
+    if (request.moveSkills === true) {
+      const refused = this.runConfiguration.skillsToMove(variant.id, live).failure;
+      if (refused) {
+        return refused;
+      }
+    }
+
+    // In the server's order: the definition, the skills, then the variant leaves.
+    const agent = this.agents.promote(variant.id, live.id);
+    const moved = request.moveSkills === true
+      ? this.runConfiguration.moveSkills(variant.id, agent, typeof request.reason === 'string' ? request.reason.trim() || null : null)
+      : { moved: [], failure: null };
+    if (moved.failure) {
+      return moved.failure;
+    }
+    this.agents.agentsEndpoint('DELETE', variant.id, undefined, undefined, 3);
+    const promotion: ShadowVariantPromotion = { agent: this.agents.find(agent.id)!, variantId: variant.id, movedSkills: moved.moved };
+    return { status: 200, body: promotion };
   }
 
   private context(method: string, sub: string | undefined, body: unknown): NhAssistantMockResult {

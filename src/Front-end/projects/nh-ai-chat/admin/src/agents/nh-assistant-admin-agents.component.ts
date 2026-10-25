@@ -32,6 +32,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError,
   RunCatalog,
   SetAgentStateRequest,
+  ShadowVariantPromotion,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import {
@@ -492,6 +493,20 @@ export class NhAssistantAdminAgentsComponent {
     this.returnTo.set(null);
     this.onSaved(variant);
     this.openRunConfiguration(variant, true);
+  }
+
+  /**
+   * A data shadow variant promoted onto the agent whose run configuration is open: the agent shows its
+   * new version there and in the list, and the variant, which was removed, leaves the list.
+   */
+  onVariantPromoted(promotion: ShadowVariantPromotion): void {
+    this.agents.update(agents => agents
+      .filter(item => item.id !== promotion.variantId)
+      .map(item => item.id === promotion.agent.id ? promotion.agent : item));
+    if (this.configuring()?.id === promotion.agent.id) {
+      this.configuring.set(promotion.agent);
+    }
+    this.refreshChat();
   }
 
   /** The run configuration of a data shadow variant of the agent whose run configuration is open. */

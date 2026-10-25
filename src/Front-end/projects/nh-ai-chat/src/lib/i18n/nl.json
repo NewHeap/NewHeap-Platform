@@ -435,6 +435,7 @@
       "assistant-consult-proposal-moved": "Het voorstel is aan de goedkeurders van het onderwerp gelaten.",
       "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
       "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
+      "assistant-not-shadow-variant": "Alleen een hier gemaakte schaduwvariant kan naar zijn live agent worden gepromoveerd.",
       "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
       "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen.",
       "assistant-skill-in-code": "Deze vaardigheid staat in de code en kan hier niet veranderen.",
@@ -2010,6 +2011,19 @@
         "open": "Runconfiguratie",
         "set-up": "Runs instellen",
         "open-named": "De runconfiguratie van {{name}} openen",
+        "promote": "Promoveren naar {{name}}",
+        "promote-named": "{{variant}} promoveren naar {{name}}",
+        "promote-confirm": {
+          "title": "{{variant}} promoveren naar {{name}}?",
+          "code": "Zijn beschrijving, instructies, hulpmiddelen, vereiste policy en autonomie worden de volgende versie van {{name}}, een agent in code, als overschrijving tot die wordt teruggezet. {{name}} houdt zijn naam, MCP-servers, runinstellingen, triggers, status en schaduwmodus.",
+          "admin": "Zijn beschrijving, instructies, hulpmiddelen, vereiste policy, autonomie, profiel, classificatie en werkgebied worden de volgende versie van {{name}}. {{name}} houdt zijn naam, MCP-servers, metadata, runinstellingen, triggers, status en schaduwmodus.",
+          "removed": "Daarna wordt de variant verwijderd; hij gaat zelf nooit live.",
+          "move-skills": "Ook zijn vaardigheden verplaatsen",
+          "move-skills-hint": "Elke vaardigheid wordt de volgende live versie van de vaardigheid met hetzelfde id, of een nieuwe vaardigheid die in schaduw begint.",
+          "confirm": "Promoveren",
+          "promoting": "Promoveren…"
+        },
+        "promoted": "{{variant}} is gepromoveerd naar {{name}}, dat nu op versie {{version}} staat.",
         "problems": {
           "invalid": "Buiten werking: een opgeslagen waarde is niet geldig.",
           "outside-ceiling": "Buiten werking: de applicatie laat beheerders geen schaduwvarianten van deze agent meer maken.",

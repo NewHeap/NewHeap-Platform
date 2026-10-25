@@ -2,6 +2,7 @@
  * Hand-offs defined as data and the shadow variants of an agent, as the administration reads and
  * changes them (`admin/agents/{id}/hand-offs` and `admin/agents/{id}/shadow-variants`).
  */
+import { AdminAgent } from './assistant-admin.models';
 import { PackagePartLink } from './assistant-agent-package.models';
 
 /** A hand-off the agent accepts in code (`AcceptHandOffs`), read only. */
@@ -99,6 +100,8 @@ export interface ShadowVariant {
   inEffect: boolean;
   /** Why a data variant with run settings is out of effect, such as `outside-ceiling`. */
   problem: string | null;
+  /** The version of the variant's definition, which a promotion sends as `expectedVariantVersion`. */
+  version?: number;
 }
 
 /** `GET admin/agents/{id}/shadow-variants`. */
@@ -110,4 +113,29 @@ export interface AgentShadowVariants {
   maxDataVariants: number;
   /** The variants in code first, then the data variants. */
   variants: ShadowVariant[];
+}
+
+/** `POST admin/agents/{id}/promote`: a data shadow variant becomes its live agent's next version. */
+export interface ShadowVariantPromotionRequest {
+  /** The live agent's version the promotion was decided on. */
+  expectedVersion: number;
+  /**
+   * The variant's data skills become the next live versions of the live agent's skills with the same
+   * id, or new skills, which start in shadow; otherwise they go with the variant.
+   */
+  moveSkills?: boolean;
+  /** The variant's version that was evaluated; omitted skips the check. */
+  expectedVariantVersion?: number | null;
+  /** Optional, at most 500 characters, stored with the skill versions the promotion saves. */
+  reason?: string | null;
+}
+
+/** The answer of a promotion: the live agent after it, and what moved. */
+export interface ShadowVariantPromotion {
+  /** The live agent with the variant's definition as its new version. */
+  agent: AdminAgent;
+  /** The variant, which was deleted: it never goes live itself. */
+  variantId: string;
+  /** The skills that moved to the live agent, ordered by id. */
+  movedSkills: string[];
 }

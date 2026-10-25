@@ -1096,8 +1096,10 @@ export interface AgentMetadataEntry {
   editable: boolean;
   /** The largest value in bytes of its JSON. */
   maxBytes: number;
-  /** It declares a searchable value with `IndexBy`. */
+  /** It declares a searchable value with `IndexBy`, or several with `IndexByEach`. */
   indexed: boolean;
+  /** It declares several searchable values with `IndexByEach`. */
+  indexedByEach?: boolean;
 }
 
 /** Where the value of an agent's metadata entry comes from. */
@@ -1131,6 +1133,10 @@ export interface AgentMetadata {
   indexed?: boolean;
   /** The searchable value of the value in effect, trimmed and in lowercase. */
   indexValue?: string | null;
+  /** Whether the entry declares several searchable values with `IndexByEach`. */
+  indexedByEach?: boolean;
+  /** The searchable values of an `IndexByEach` entry's value in effect, trimmed, in lowercase and ordered. */
+  indexValues?: string[];
   changedAt?: string | null;
   changedBy?: string | null;
   /**

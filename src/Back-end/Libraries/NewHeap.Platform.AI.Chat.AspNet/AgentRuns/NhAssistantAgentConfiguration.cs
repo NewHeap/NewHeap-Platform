@@ -382,6 +382,17 @@ public sealed record NhAssistantAgentMetadataDto(
     public string? IndexValue { get; init; }
 
     /// <summary>
+    /// Whether the entry declares several searchable values with <c>IndexByEach</c>.
+    /// </summary>
+    public bool IndexedByEach { get; init; }
+
+    /// <summary>
+    /// The searchable values of the value in effect of an entry declared with <c>IndexByEach</c>,
+    /// trimmed, in lowercase and ordered; empty for other entries.
+    /// </summary>
+    public IReadOnlyList<string> IndexValues { get; init; } = [];
+
+    /// <summary>
     /// When the stored value was saved; <see langword="null"/> for a value in code or none.
     /// </summary>
     public DateTimeOffset? ChangedAt { get; init; }
@@ -1689,6 +1700,8 @@ internal sealed class NhAssistantAgentConfiguration(
             CodeValue = state.CodeJson is null ? null : NhAssistantAgentMetadataService.Parse(state.CodeJson),
             Indexed = state.Entry.Indexed,
             IndexValue = state.IndexValue,
+            IndexedByEach = state.Entry.IndexedByEach,
+            IndexValues = state.IndexValues,
             ChangedAt = state.ChangedAt,
             ChangedBy = state.ChangedBy
         };

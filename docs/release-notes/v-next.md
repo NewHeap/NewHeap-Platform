@@ -299,6 +299,64 @@ returns the agents' parts and hashes exactly as `ExportAsync` builds them, witho
 |---|---|
 | `INhAssistantAgentPackages` gained `GetPackageAsync` and `ReadAsync`. | A class of the application that implements the interface, such as a test double, implements both; read the installed version with `GetPackageAsync` instead of `GetLinkAsync`, and compare agents with `ReadAsync` instead of an export. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: several searchable values per metadata entry
+
+`IndexByEach(value => items)` on `NhAssistantAgentMetadataBuilder<T>` declares several searchable values
+of an entry, such as the departments an agent works for. Each value is trimmed, in lowercase and stored
+once, at most `NhAssistantAgentMetadataLimits.MaxIndexValuesPerEntry` (50) of at most 256 characters
+(`value: too-long` otherwise, a failed start for a value in code), in the new table
+`AssistantAgentMetadataIndexValue`, written in the same save as the value and removed with it.
+`INhAssistantAgentMetadata.ListAgentsAsync(name, value)` matches any of them, stored or in code;
+`NhAssistantAgentMetadataValue.IndexValues`, `NhAssistantAgentMetadataEntryDto.IndexedByEach` and
+`NhAssistantAgentMetadataDto.IndexedByEach` and `IndexValues` show them. An entry declares `IndexBy` or
+`IndexByEach`, never both. Values stored before the entry declared `IndexByEach`, or before its selector
+changed, get their values when the process first reads the agents; `IndexBy` values still change only on
+the next save. The migration `MetadataIndexValues` adds the table on SQL Server and PostgreSQL.
+
+| Breaking change | Required action |
+|---|---|
+| The assistant schema gains the migration `MetadataIndexValues` (the table `AssistantAgentMetadataIndexValue`). | Apply it with `RunMigrations` or in the deployment step that applies the assistant's migrations. |
+| `NhAssistantAgentMetadataValue` gains `IndexValues` and `NhAssistantAgentMetadataEntryDto` gains `IndexedByEach`, which take part in their record equality. | Compare values read from the assistant by their properties instead of with a record built by hand that leaves them out. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: agent definitions from code and agents as in effect
+
+`INhAssistantAgentDefinitions` changes agent definitions from the application's code with the checks,
+versions, package locks and audit of the administration: `UpdateAsync(agentId, request, expectedVersion,
+actorId)` with `NhAssistantAgentDefinitionRequest`, `ResetAsync` and `DeleteAsync`, for agents created at
+runtime and overrides of agents in code. The request replaces the display name, description,
+instructions, tool selectors, autonomy and required policy, which must be a registered policy
+(`requiredPolicy: not-found`), and keeps every optional field, also the agent's MCP assignments, unless it
+names them; the administration's `PUT admin/agents/{id}` still replaces the assignments.
+`INhAssistantAgentDirectory` (`GetAsync`, `ListAsync` with `NhAssistantAgentDirectoryFilter`) returns
+agents as they are in effect (`NhAssistantAgentInEffectDto`): source, name and description in effect,
+instructions resolved from an asset or the asset's problem, tool selectors, autonomy, profile, run state
+with `NhAssistantAgentState`, shadow and `ShadowOf`, and metadata. Both are server APIs that authorize
+nothing; the directory returns instructions in full.
+
+| Breaking change | Required action |
+|---|---|
+| None; `INhAssistantAgentDefinitions` and `INhAssistantAgentDirectory` are new, and `INhAssistantAgentConfiguration` is unchanged. | Replace code that writes agent rows or calls the administration's agent endpoints with the services, and send the version you read with a change. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: promoting a shadow variant onto its live agent
+
+`INhAssistantAgentDefinitions.PromoteShadowVariantAsync(variantId, request, actorId)` with
+`NhAssistantShadowVariantPromotionRequest` (`ExpectedVersion`, `MoveSkills`, `ExpectedVariantVersion`,
+`Reason`) and `POST admin/agents/{id}/promote` for administrators copy a shadow variant created as data
+onto its live agent as the live agent's next version through the update path, then delete the variant,
+which never goes live itself. The live agent keeps its display name, MCP assignments, metadata, run
+settings, triggers, state and shadow mode; an agent in code takes only the fields it can override, an
+agent created at runtime also the variant's profile, classification, what it works on and its asset.
+With `MoveSkills` the variant's data skills become the next live versions of the live agent's skills of
+the same id, or new skills, which start in shadow. New refusals: `assistant-not-shadow-variant` (409),
+and `assistant-shadow-variants-not-allowed`, `assistant-version-conflict` and `assistant-skill-in-code`
+before anything changes. The audit records the new `AdminAgentShadowVariantPromoted` (91) after the
+events of each step. `NhAssistantShadowVariantDto.Version` is the variant's version a promotion expects.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAuditEventKind.AdminAgentShadowVariantPromoted` and the code `assistant-not-shadow-variant` are new. | Let audit sinks and error mappings that handle every kind or code accept them. |
+| `NhAssistantShadowVariantDto` gains `Version`, which takes part in its record equality. | Compare variants read from the assistant by their properties instead of with a record built by hand. |
+
 ## @newheap/platform-ai-chat: agent names in the administration and the region refusal
 
 The agent editor's title, the import dialog's name of a package agent the host does not have yet, and the
@@ -377,3 +435,16 @@ English and Dutch.
 | Breaking change | Required action |
 |---|---|
 | The new translation key `nh-assistant.errors.assistant-consult-turn-limit`. | An application that replaces the bundled translations adds the key in each of its languages. |
+
+## @newheap/platform-ai-chat: promoting a shadow variant in the administration
+
+The shadow variants of an agent in the administration offer "Promote onto {agent}" for a data variant,
+with a confirmation that says what the live agent keeps and an option to move the variant's skills. It
+calls the new `NhAssistantAdminApiService.promoteShadowVariant(variantId, request)` with
+`ShadowVariantPromotionRequest` and `ShadowVariantPromotion`, at the live agent's version and the variant's
+(`ShadowVariant.version`). The mock API promotes as the server does. `AgentMetadataEntry` gains the
+optional `indexedByEach` of `IndexByEach`, and `AgentMetadata` also its `indexValues`.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.errors.assistant-not-shadow-variant` and `nh-assistant.admin.shadow-variants.promote`, `promote-named`, `promote-confirm.*` and `promoted`. | An application that replaces the bundled translations adds the keys in each of its languages. |
