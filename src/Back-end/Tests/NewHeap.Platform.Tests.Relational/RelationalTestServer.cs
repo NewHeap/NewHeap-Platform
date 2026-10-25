@@ -25,6 +25,15 @@ public sealed partial class RelationalTestServer
     private static readonly RelationalTestServer SqlServer = new(RelationalTestProvider.SqlServer);
     private static readonly RelationalTestServer PostgreSql = new(RelationalTestProvider.PostgreSql);
 
+    /// <summary>
+    /// How long a command that prepares test databases may run: creating a database, emptying a
+    /// pooled slot or migrating one. Under the parallel load of the full test matrix the server's
+    /// disk can stall, and <c>CREATE DATABASE</c>, which writes the files of the new database, then
+    /// ran into the default command timeout of 30 seconds and failed whichever test created a
+    /// database at that moment. The bound only matters when the server hangs.
+    /// </summary>
+    public static readonly TimeSpan PreparationCommandTimeout = TimeSpan.FromMinutes(5);
+
     private readonly Lazy<Task<string>> _connectionString;
 
     /// <summary>
@@ -103,6 +112,7 @@ public sealed partial class RelationalTestServer
                 EXEC sys.sp_executesql @statements;
                 """,
                 connection);
+            create.CommandTimeout = PreparationCommandTimeoutSeconds;
             create.Parameters.AddWithValue("@database", database);
             await create.ExecuteNonQueryAsync();
         }
@@ -121,8 +131,14 @@ public sealed partial class RelationalTestServer
         await using var connection = new NpgsqlConnection(serverConnectionString);
         await connection.OpenAsync();
         await using var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", connection);
+        create.CommandTimeout = PreparationCommandTimeoutSeconds;
         await create.ExecuteNonQueryAsync();
     }
+
+    /// <summary>
+    /// <see cref="PreparationCommandTimeout"/> in seconds, as ADO.NET commands take it.
+    /// </summary>
+    internal static int PreparationCommandTimeoutSeconds => (int)PreparationCommandTimeout.TotalSeconds;
 
     private async Task<string> StartAsync()
     {

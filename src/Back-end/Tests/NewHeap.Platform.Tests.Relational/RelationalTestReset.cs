@@ -76,6 +76,7 @@ internal static class RelationalTestReset
         await using var truncate = new NpgsqlCommand(
             $"TRUNCATE TABLE {string.Join(", ", tables)} RESTART IDENTITY CASCADE",
             connection);
+        truncate.CommandTimeout = RelationalTestServer.PreparationCommandTimeoutSeconds;
         await truncate.ExecuteNonQueryAsync();
     }
 
@@ -131,6 +132,7 @@ internal static class RelationalTestReset
 
         var statements = DeleteOrder(tables, references).Select(table => $"DELETE FROM {table};");
         await using var delete = new SqlCommand(string.Join("\n", statements), connection);
+        delete.CommandTimeout = RelationalTestServer.PreparationCommandTimeoutSeconds;
         await delete.ExecuteNonQueryAsync();
     }
 
