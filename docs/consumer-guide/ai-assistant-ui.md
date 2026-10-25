@@ -235,6 +235,20 @@ working indicator shows the elapsed seconds, so a long turn never looks stalled.
 Custom layouts that render parts themselves should reuse the group component rather
 than listing every call card.
 
+A question the agent asked with `ask_question` (`QuestionPart`, server option `AllowQuestions`,
+SPM-334) renders as `nh-assistant-question-card`: the person it is addressed to gets one button per
+choice and a countdown to the end of its wait, everyone else sees the choices read-only with whom it
+waits for, and an answered question marks the chosen answer. The thread emits `questionAnswer`
+(`NhAssistantQuestionAnswer`) for the addressee only, and the panel calls
+`NhAssistantStore.answerQuestion`, which checks `canAnswer`, posts
+`NhAssistantApiService.answerQuestion` (`AnswerQuestionRequest`) and streams the resumed turn like a
+decision. The reducer follows `question.asked` and `question.answered` and keeps the waiting question
+in `Conversation.pendingQuestion`; the composer then says the conversation waits for an answer
+(`waiting-for-answer`), naming the addressee when it is someone else. A refused answer, such as an
+expired question, shows its localized error and reads the conversation again. The mock API plays a
+`question` step and answers as the server does. An agent message of a chat with `SkillsInChat` names
+the skill it worked in (`Message.skillId`, SPM-333) for applications that show or count it.
+
 Render `approval.presentation` as the primary explanation. When it is absent, use the
 bundled localized fallback instead of `summary` or a tool descriptor. Keep tool ids,
 targets and bounded/redacted argument previews in collapsed technical details. A
@@ -928,7 +942,10 @@ letting them replace `access_token`. The store tests offer each open proposal of
 thread to the approvers the server names, decide a run's proposal once with its hash
 through the agent-run endpoint and reload the thread, and show a refused decision; the
 thread tests label a trigger message as an event and give each approval card its own
-right. The agent-run component tests offer decisions only to people who may
+right. The question tests offer the choices of a question only to its addressee, emit one answer,
+show an answered, expired or cancelled question read-only in English and Dutch, follow the question
+events in the reducer and answer through the mock API, which refuses another person and an expired
+question. The agent-run component tests offer decisions only to people who may
 decide, approve the proposal shown, resolve an unknown outcome without running it again,
 start the agent with the trimmed message and drop the start notice once the run ended.
 In the management portal, sign in as the project lead, open the
@@ -1195,3 +1212,13 @@ shows its source with the reason (SPM-336).
   - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html)
   - [src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts)
   - [src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts)
+- SPM-333 — A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)
+- SPM-334 — The status advisor asks which status a project gets, and only the person it asks answers
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs)

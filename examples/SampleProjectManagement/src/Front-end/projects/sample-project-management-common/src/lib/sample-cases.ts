@@ -5604,6 +5604,46 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-333",
+    "title": "A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRunBuilder.SkillsInChat and NhAssistantAgentRunOptions.SkillsInChat; use_skill in a person's chat without triage, within the person's rights; the skill's Instructions, Tools, UseProfile, DataClassification, file limits and MaxTokensPerRun in a chat turn; NhAssistantMessageDto.SkillId and skillId of Message in @newheap/platform-ai-chat",
+    "outcome": "SampleProjectPlannerComposition lets people who chat with the planner reach its skills (`SkillsInChat`). A chat turn starts without a skill and offers `use_skill` with the planner's active live skills; asked which task comes next, the model loads the task follow-up skill, without a triage call, and continues with the skill's instructions and only the status tool the skill selects, with the person's own rights. The planner's message of the turn names the skill (`skillId`), and the next turn starts without one. Triage, the skill's daily budget and every other routing stay with runs. The library tests prove on SQL Server and PostgreSQL that only an agent with the opt-in offers `use_skill` in its chat, that the skill's tools, instructions and profile replace the agent's, that its token ceiling applies, that each turn's message records the skill and that no chat runs triage; the triage schema stays strict for providers with strict structured output.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantConversationReader.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantChatSkillTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-api.models.ts"
+    ]
+  },
+  {
+    "id": "SPM-334",
+    "title": "The status advisor asks which status a project gets, and only the person it asks answers",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRunBuilder.AllowQuestions and NhAssistantAgentRunOptions.AllowQuestions; the governed ask_question with NhAssistantQuestionLimits; POST conversations/{id}/questions/{questionId}/answer with NhAssistantAnswerQuestionRequest; NhAssistantQuestionPartDto (question parts, NhAssistantConversationDto.PendingQuestion) with NhAssistantQuestionStatuses; the stream events question.asked and question.answered; NhAssistantToolCallStatuses.AwaitingAnswer; the codes assistant-question-invalid, assistant-question-not-found, assistant-question-not-pending, assistant-question-forbidden, assistant-question-expired, assistant-question-cancelled and assistant-question-answer-invalid; NhAssistantAuditEventKind.QuestionAsked, QuestionAnswered and QuestionExpired; nh-assistant-question-card, QuestionPart, NhAssistantApiService.answerQuestion, NhAssistantStore.answerQuestion, canAnswer and the mock API's question step in @newheap/platform-ai-chat",
+    "outcome": "SampleStatusAdvisorComposition lets the status advisor ask structured questions in people's chats (`AllowQuestions`). Asked to change the status of a project, the advisor asks which status it should get with the choices Active, On hold and Closed; the turn waits as for an approval, the chat shows the question with `pendingQuestion`, and the audit records whom it asks. A colleague in the shared chat sees the question read-only and is refused with `403 assistant-question-forbidden` when they answer; the person whose turn asked answers On hold, and the turn continues with the answer as the result of the advisor's call. The question then reads as answered with the chosen index. In the management playground the panel shows the question card with one button per choice on the mock API. The library tests prove on SQL Server and PostgreSQL that a question waits and resumes with its answer, that another participant is refused and the answer then continues with the rights of the person who answered, that a question expires with the approval lifetime on the application's clock and releases the conversation, that stopping the turn cancels it, that a question out of bounds is not posted and that an agent without the opt-in offers no `ask_question`; the Angular specs prove the card, the reducer and the mock API in English and Dutch.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantQuestionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/question-card/nh-assistant-question-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-questions.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
+    ]
+  },
+  {
     "id": "SPM-335",
     "title": "A structured-output schema that a strict provider accepts, and a model call past its deadline as a failed result",
     "category": "AI tools and generated catalogs",
