@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "3cdb972f90fdbd3f310343912cf20d1f4ec8b1a2fb0ca471f7be851eb4add260",
-    "declarationCount": 10827,
+    "hash": "dd18e6bbe5755bf5e991062df613e2ecd134e4dd5fbb1dfad81675202a0d6d22",
+    "declarationCount": 10873,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2887,6 +2887,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantInstalledAgentPackageDto( string PackageId, int Version, int FormatVersion, string Hash, IReadOnlyList<string> AgentIds, DateTimeOffset ImportedAt, string ImportedBy, IReadOnlyList<NhAssistantPackageAgentLinksDto> Agents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageAgentLinksDto( string AgentId, IReadOnlyList<NhAssistantPackagePartLinkDto> Parts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
         "declaration": "public sealed record NhAssistantAgentPackageExportRequest( IReadOnlyList<string>? AgentIds, NhAssistantAgentPackageExportOptions? Options = null);"
       },
       {
@@ -3000,6 +3008,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, NhAssistantAgentPackageLinkDto>> OfAgentsAsync( IReadOnlyCollection<string> agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantPackageAgentLinksDto>> OfPackageAsync( string packageId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
@@ -3268,6 +3280,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
         "declaration": "public Task<NhAssistantAgentPackageLinkDto?> GetLinkAsync(string agentId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<NhAssistantInstalledAgentPackageDto?> GetPackageAsync(string packageId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantPackageAgent>>> ReadAsync( IReadOnlyList<string> agentIds, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
@@ -4354,6 +4374,26 @@
         "declaration": "public async Task WakeAsync(AssistantApproval approval, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public interface INhAssistantInstructionAssetUsage {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public sealed record NhAssistantInstructionAssetUsageDto( string AssetId, IReadOnlyList<NhAssistantInstructionAssetSkillUseDto> Skills, IReadOnlyList<NhAssistantInstructionAssetAgentUseDto> Agents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public sealed record NhAssistantInstructionAssetSkillUseDto( string AgentId, string SkillId, int Version, string Status, int AssetVersion, string Hash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public sealed record NhAssistantInstructionAssetAgentUseDto( string AgentId, int Version, int AssetVersion, string Hash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantInstructionAssetUsageDto>> ListAsync( string assetId, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
         "declaration": "public async Task<TaskResult> CheckStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
@@ -5023,7 +5063,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
-        "declaration": "public bool AllowsLoopback => environment.IsDevelopment();"
+        "declaration": "public bool AllowsLoopback => AllowsLoopbackIn(environment, options.CurrentValue.Mcp);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+        "declaration": "public static bool AllowsLoopbackIn(IHostEnvironment? environment, NhAssistantMcpOptions mcp) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
@@ -5412,6 +5456,122 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
         "declaration": "public async Task<NhAssistantMcpOwnerSweepBatch> RunBatchAsync(string? after, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public interface INhAssistantMcpServers {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public sealed record NhAssistantMcpServerRequest( string Id, string DisplayName, string Url, string AuthMode, string? HeaderName, string? Secret, string? RequiredPolicy, bool IsEnabled, string? HeadlessUse = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public string? UserName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public string? SecretReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public string? ClientCertificateReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public string? Transport { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public string? ConnectionScope { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public NhAssistantMcpOAuthRequest? OAuth { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpReaderRequest>? Readers { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public sealed record NhAssistantMcpOAuthRequest( string? ClientId, string? ClientSecret, string? ClientSecretReference, string? Scopes, string? OrganizationAccountLabel, bool ConfirmAuthorization = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public sealed record NhAssistantMcpReaderRequest( IReadOnlyList<string> MediaTypes, string? ToolName, string? MaxClassification, int Priority = 0);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public sealed record NhAssistantMcpToolSettingsRequest( bool IsEnabled, string? Effect, string? DescriptionOverride = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public static class NhAssistantMcpServerLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int MaxServersPerAgent = 32;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const string Assigned = \"assigned\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const string Unassigned = \"unassigned\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantMcpServerDto>> ListAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantMcpServerDto>> CreateAsync( NhAssistantMcpServerRequest request, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantMcpServerDto>> UpdateAsync( NhAssistantMcpServerRequest request, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public Task<TaskResult> DeleteAsync(string serverId, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantMcpServerTestResultDto>> TestAsync( string serverId, string? actorId = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantMcpToolDto>>> SyncAsync( string serverId, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantMcpToolDto>>> ListToolsAsync( string serverId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantMcpToolDto>> UpdateToolAsync( string serverId, string remoteName, NhAssistantMcpToolSettingsRequest request, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public Task<TaskResult<NhAssistantMcpServerDto>> AssignAsync( string serverId, string agentId, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public Task<TaskResult<NhAssistantMcpServerDto>> UnassignAsync( string serverId, string agentId, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds, AssistantMcpConnection? organizationConnection) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public static NhAssistantMcpOrganizationConnectionDto ToDto(AssistantMcpConnection? connection) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public static NhAssistantMcpToolDto ToDto(AssistantMcpTool tool) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
@@ -17775,6 +17935,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool AllowLoopback { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();"
       },
       {
@@ -18363,6 +18527,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgent>> ListAgentsNamingAssetAsync(string assetId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
         "declaration": "public async Task UpsertCodeAgentsAsync(IEnumerable<AssistantAgent> codeAgents, CancellationToken cancellationToken) {"
       },
       {
@@ -18452,6 +18620,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
         "declaration": "public async Task<IReadOnlyList<string>> FindExistingMcpServerIdsAsync( IReadOnlyCollection<string> ids, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ListMcpAssignmentsAsync(string serverId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<bool>> SetMcpAssignmentAsync( string agentId, string serverId, bool assign, int maxPerAgent, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
@@ -18564,6 +18740,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantAgentPackageLink>> ListLinksAsync( IReadOnlyCollection<string> agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentPackageLink>> ListPackageLinksAsync( string packageId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
@@ -19188,6 +19368,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantAgentSkillDefinition>> ListSkillsAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAgentSkillDefinition>> ListSkillsNamingAssetAsync( string assetId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
@@ -47223,7 +47407,14 @@
       "NhAssistantAgentPackageUnlinkRequest",
       "NhAssistantAgentPackageRoutes",
       "NhAssistantPackagePartKinds",
-      "NhAssistantPackageLockFields"
+      "NhAssistantPackageLockFields",
+      "INhAssistantInstructionAssetUsage",
+      "NhAssistantInstructionAssetUsageDto",
+      "NhAssistantInstructionAssetSkillUseDto",
+      "NhAssistantInstructionAssetAgentUseDto",
+      "GetPackageAsync",
+      "NhAssistantInstalledAgentPackageDto",
+      "NhAssistantPackageAgentLinksDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -47418,7 +47609,17 @@
       "NhAssistantMessageAuthorKinds",
       "NhAssistantMessageDto",
       "NhAssistantApplicationMessageDto",
-      "NhAssistantApplicationMessageLinkDto"
+      "NhAssistantApplicationMessageLinkDto",
+      "INhAssistantMcpServers",
+      "NhAssistantMcpServerRequest",
+      "NhAssistantMcpOAuthRequest",
+      "NhAssistantMcpReaderRequest",
+      "NhAssistantMcpToolSettingsRequest",
+      "NhAssistantMcpServerLimits",
+      "NhAssistantMcpServerDto",
+      "NhAssistantMcpToolDto",
+      "NhAssistantMcpServerTestResultDto",
+      "AllowLoopback"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
