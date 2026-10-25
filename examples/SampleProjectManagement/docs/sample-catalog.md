@@ -393,6 +393,18 @@ mock API, the skill form offers "The application's text" next to "Written here",
 shows the chosen one read-only with its hash. `AssistantInstructionAssetSamplesTests` runs the case,
 including the refusal of a reference whose hash differs from the text's.
 
+The sample's operations code changes the assistant through the platform's services, never through the
+administration's endpoints or its tables (SPM-331). `SampleAssistantOperationsService` connects the
+milestones MCP server with `INhAssistantMcpServers`: the API key is protected and never returned, the
+synced lookup is enabled as read-only and the server is assigned to the status advisor without a new
+version of the advisor, audited as `AdminMcpServerAssignmentChanged`. With
+`INhAssistantInstructionAssetUsage` it lists which data skills and agents name the risk review's text of
+SPM-320 and which version each uses, and with `GetPackageAsync` and `ReadAsync` of
+`INhAssistantAgentPackages` it compares a shipped package with the host's agents without exporting them.
+A test host of the environment `Testing` reaches the milestones server on loopback only with
+`NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
+runs the case.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server
