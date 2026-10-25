@@ -127,7 +127,8 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         string operation,
         string? schemaName = null,
         string? objectName = null,
-        string? searchTerm = null)
+        string? searchTerm = null,
+        int maximumRows = 10)
     {
         var json = JsonSerializer.Serialize(
             new
@@ -143,7 +144,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                 },
                 limits = new
                 {
-                    maximumRows = 10,
+                    maximumRows,
                     timeoutSeconds = 10
                 },
                 reason = "Automated database schema diagnostics test"

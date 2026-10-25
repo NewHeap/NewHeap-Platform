@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Security.Authentication;
 
 namespace NewHeap.Platform.DatabaseRead;
 
@@ -44,5 +45,18 @@ internal static class DatabaseReadExceptionInspector
     public static bool IsConnectivityFailure(Exception exception)
     {
         return Find<SocketException>(exception) is not null;
+    }
+
+    /// <summary>
+    /// Whether the TLS handshake failed because the client rejected the server's certificate.
+    /// .NET reports a certificate that failed validation as an <see cref="AuthenticationException"/>
+    /// without an inner exception; a handshake that failed for another reason, such as no common
+    /// protocol version, carries the platform's error as its inner exception.
+    /// </summary>
+    public static bool IsCertificateValidationFailure(Exception exception)
+    {
+        var authenticationException = Find<AuthenticationException>(exception);
+
+        return authenticationException is { InnerException: null };
     }
 }

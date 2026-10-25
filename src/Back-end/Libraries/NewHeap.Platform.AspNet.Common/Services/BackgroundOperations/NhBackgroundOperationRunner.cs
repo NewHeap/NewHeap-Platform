@@ -11,6 +11,9 @@ namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
 public sealed class NhBackgroundOperationRunner
 {
+    private const string HandlerRejectedFailureCode = "handler-rejected";
+    private const string GenericFailureMessageKey = "background-operation.failed";
+
     private readonly IServiceProvider _serviceProvider;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NhBackgroundOperationPersistence _persistence;
@@ -167,7 +170,8 @@ public sealed class NhBackgroundOperationRunner
                     _persistence,
                     _options,
                     leaseManager,
-                    _fanOutCoordinator);
+                    _fanOutCoordinator,
+                    _logger);
                 var result = await InvokeHandlerAsync(
                     descriptor,
                     handler,
@@ -185,7 +189,7 @@ public sealed class NhBackgroundOperationRunner
                     return;
                 }
 
-                var failure = GetFailure(result);
+                var failure = GetFailure(claim, result);
                 var retryAt = result is NhBackgroundOperationRetryResult retryResult
                     ? await GetRetryAtAsync(claim, descriptor, retryResult.RetryAfter)
                     : null;
@@ -204,7 +208,7 @@ public sealed class NhBackgroundOperationRunner
             {
                 if (!await HandleExecutionStopAsync(claim, descriptor, stopState))
                 {
-                    await CompleteTimedOutAsync(claim);
+                    await CompleteUnrecordedCancellationAsync(claim, timeoutSource);
                 }
             }
             catch (NhBackgroundOperationContentionSignal exception)
@@ -346,14 +350,7 @@ public sealed class NhBackgroundOperationRunner
             case NhBackgroundOperationExecutionStopReason.None:
                 return false;
             case NhBackgroundOperationExecutionStopReason.DurableCancellation:
-                await _persistence.CompleteAsync(
-                    claim,
-                    NhBackgroundOperationStatus.Cancelled,
-                    "cancelled",
-                    "background-operation.cancelled",
-                    null,
-                    null,
-                    CancellationToken.None);
+                await CompleteCancelledAsync(claim);
                 return true;
             case NhBackgroundOperationExecutionStopReason.Contention:
                 var contention = (NhBackgroundOperationContentionSignal?)stop.Exception;
@@ -375,6 +372,44 @@ public sealed class NhBackgroundOperationRunner
             default:
                 throw new ArgumentOutOfRangeException(nameof(stop.Reason));
         }
+    }
+
+    /// <summary>
+    /// Classifies an execution that unwound with a cancellation the heartbeat did not record. It
+    /// timed out only when the soft time-out fired. Otherwise a durable cancellation of this attempt
+    /// stopped it, as a handler that checks <c>ThrowIfCancellationRequestedAsync</c> sees before the
+    /// next heartbeat does, and the operation is cancelled. Any other cancellation is reported as a
+    /// time-out, as before.
+    /// </summary>
+    private async Task CompleteUnrecordedCancellationAsync(
+        NhBackgroundOperationAttemptClaim claim,
+        CancellationTokenSource timeoutSource)
+    {
+        if (timeoutSource.IsCancellationRequested)
+        {
+            await CompleteTimedOutAsync(claim);
+            return;
+        }
+
+        if (await _persistence.IsCancellationRequestedAsync(claim, CancellationToken.None))
+        {
+            await CompleteCancelledAsync(claim);
+            return;
+        }
+
+        await CompleteTimedOutAsync(claim);
+    }
+
+    private Task CompleteCancelledAsync(NhBackgroundOperationAttemptClaim claim)
+    {
+        return _persistence.CompleteAsync(
+            claim,
+            NhBackgroundOperationStatus.Cancelled,
+            "cancelled",
+            "background-operation.cancelled",
+            null,
+            null,
+            CancellationToken.None);
     }
 
     private Task CompleteTimedOutAsync(NhBackgroundOperationAttemptClaim claim)
@@ -412,7 +447,7 @@ public sealed class NhBackgroundOperationRunner
             claim,
             NhBackgroundOperationStatus.Failed,
             failureCode,
-            "background-operation.failed",
+            GenericFailureMessageKey,
             diagnosticCorrelationId,
             retryAt,
             CancellationToken.None);
@@ -456,7 +491,17 @@ public sealed class NhBackgroundOperationRunner
         }
     }
 
-    private static NhBackgroundOperationFailure? GetFailure(TaskResult result)
+    /// <summary>
+    /// The safe failure code and message key of a failed result, checked against the columns that
+    /// store them. A code that is missing or longer than its column becomes
+    /// <c>handler-rejected</c>, and a message key that is missing or longer than its column the
+    /// generic failure key; the oversized text goes to the operational log only. A key is not
+    /// truncated, because a truncated key matches no translation. The result's status and retry
+    /// request stay as the handler returned them.
+    /// </summary>
+    private NhBackgroundOperationFailure? GetFailure(
+        NhBackgroundOperationAttemptClaim claim,
+        TaskResult result)
     {
         if (result.Success)
         {
@@ -465,16 +510,43 @@ public sealed class NhBackgroundOperationRunner
 
         var resultItem = result.GetResultItems()
             .FirstOrDefault(item => item.ErrorMessages.Count > 0);
-        var failureCode = string.IsNullOrWhiteSpace(resultItem?.Name)
-            || resultItem.Name.Length > 200
-                ? "handler-rejected"
-                : resultItem.Name;
+        var failureCode = resultItem?.Name;
+        if (string.IsNullOrWhiteSpace(failureCode))
+        {
+            failureCode = HandlerRejectedFailureCode;
+        }
+        else if (failureCode.Length > NhBackgroundOperationColumnLimits.FailureCode)
+        {
+            _logger.LogWarning(
+                "Background operation {OperationId} attempt {AttemptId} returned a failure code of {Length} characters, longer than the {MaximumLength} its column holds; it is stored as {StoredFailureCode}. Returned code: {ReturnedFailureCode}",
+                claim.OperationId,
+                claim.AttemptId,
+                failureCode.Length,
+                NhBackgroundOperationColumnLimits.FailureCode,
+                HandlerRejectedFailureCode,
+                failureCode);
+            failureCode = HandlerRejectedFailureCode;
+        }
+
         var messageKey = resultItem?.ErrorMessages.FirstOrDefault()?.Format;
-        return new NhBackgroundOperationFailure(
-            failureCode,
-            string.IsNullOrWhiteSpace(messageKey)
-                ? "background-operation.failed"
-                : messageKey);
+        if (string.IsNullOrWhiteSpace(messageKey))
+        {
+            messageKey = GenericFailureMessageKey;
+        }
+        else if (messageKey.Length > NhBackgroundOperationColumnLimits.FailureMessageKey)
+        {
+            _logger.LogWarning(
+                "Background operation {OperationId} attempt {AttemptId} returned a failure message key of {Length} characters, longer than the {MaximumLength} its column holds; it is stored as {StoredMessageKey}. Returned key: {ReturnedMessageKey}",
+                claim.OperationId,
+                claim.AttemptId,
+                messageKey.Length,
+                NhBackgroundOperationColumnLimits.FailureMessageKey,
+                GenericFailureMessageKey,
+                messageKey);
+            messageKey = GenericFailureMessageKey;
+        }
+
+        return new NhBackgroundOperationFailure(failureCode, messageKey);
     }
 
     private async Task<DateTimeOffset?> GetRetryAtAsync(

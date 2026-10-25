@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Models;
 
@@ -10,16 +12,23 @@ internal sealed class NhBackgroundOperationContext : INhBackgroundOperationConte
     private readonly NhBackgroundOperationAttemptClaim _claim;
     private readonly NhBackgroundOperationPersistence _persistence;
 
+    // The logger receives what the operation's steps cannot record, such as a failed write of a
+    // failed step; without one it is discarded.
     internal NhBackgroundOperationContext(
         NhBackgroundOperationAttemptClaim claim,
         NhBackgroundOperationPersistence persistence,
         NhBackgroundOperationsOptions options,
         INhBackgroundOperationLeaseManager leases,
-        NhBackgroundOperationFanOutCoordinator fanOutCoordinator)
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        ILogger? logger = null)
     {
         _claim = claim;
         _persistence = persistence;
-        Progress = new NhBackgroundOperationProgressContext(claim, persistence, options);
+        Progress = new NhBackgroundOperationProgressContext(
+            claim,
+            persistence,
+            options,
+            logger ?? NullLogger.Instance);
         Messages = new NhBackgroundOperationMessageSink(claim, persistence);
         Checkpoints = new NhBackgroundOperationCheckpointStore(claim, persistence);
         Leases = leases;
@@ -63,17 +72,20 @@ internal sealed class NhBackgroundOperationProgressContext : INhBackgroundOperat
     private readonly NhBackgroundOperationAttemptClaim _claim;
     private readonly NhBackgroundOperationPersistence _persistence;
     private readonly NhBackgroundOperationsOptions _options;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _flushLock = new(1, 1);
     private DateTimeOffset _lastFlush = DateTimeOffset.MinValue;
 
     internal NhBackgroundOperationProgressContext(
         NhBackgroundOperationAttemptClaim claim,
         NhBackgroundOperationPersistence persistence,
-        NhBackgroundOperationsOptions options)
+        NhBackgroundOperationsOptions options,
+        ILogger logger)
     {
         _claim = claim;
         _persistence = persistence;
         _options = options;
+        _logger = logger;
     }
 
     public async Task ReportAsync(
@@ -122,7 +134,7 @@ internal sealed class NhBackgroundOperationProgressContext : INhBackgroundOperat
     {
         ArgumentNullException.ThrowIfNull(action);
         var stepId = await _persistence.StartStepAsync(_claim, null, stepKey, 1, cancellationToken);
-        var context = new NhBackgroundOperationStepContext(_claim, _persistence, _options, stepId, stepKey);
+        var context = new NhBackgroundOperationStepContext(_claim, _persistence, _options, _logger, stepId, stepKey);
         try
         {
             var result = await action(context, cancellationToken);
@@ -135,16 +147,103 @@ internal sealed class NhBackgroundOperationProgressContext : INhBackgroundOperat
                 CancellationToken.None);
             return result;
         }
-        catch (OperationCanceledException)
+        catch (Exception exception)
         {
-            await _persistence.CompleteStepAsync(_claim, stepId, NhBackgroundOperationStepStatus.Cancelled, CancellationToken.None);
+            await NhBackgroundOperationStepRecording.RecordUnwoundStepAsync(
+                _persistence,
+                _claim,
+                stepId,
+                stepKey,
+                exception,
+                _logger);
             throw;
         }
-        catch
+    }
+}
+
+/// <summary>
+/// Records a step whose action threw, as cancelled for a cancellation and as failed otherwise.
+/// Recording it never replaces the step's own exception, which the caller rethrows: when the write
+/// fails, that failure is logged with the operation and attempt. Only the platform's own stop
+/// signals win, because the attempt must stop and the runner handles them: a lost fence, contention
+/// for the operation's lock, and a durable cancellation request that the write finds after a step
+/// that failed with an error of its own.
+/// </summary>
+internal static class NhBackgroundOperationStepRecording
+{
+    internal static async Task RecordUnwoundStepAsync(
+        NhBackgroundOperationPersistence persistence,
+        NhBackgroundOperationAttemptClaim claim,
+        Guid stepId,
+        string stepKey,
+        Exception stepException,
+        ILogger logger)
+    {
+        var stepCancelled = stepException is OperationCanceledException;
+        var status = stepCancelled
+            ? NhBackgroundOperationStepStatus.Cancelled
+            : NhBackgroundOperationStepStatus.Failed;
+        try
         {
-            await _persistence.CompleteStepAsync(_claim, stepId, NhBackgroundOperationStepStatus.Failed, CancellationToken.None);
+            await persistence.CompleteStepAsync(claim, stepId, status, CancellationToken.None);
+        }
+        catch (Exception recordingException) when (StopsTheAttempt(recordingException, stepCancelled))
+        {
+            if (!IsPlatformSignal(stepException))
+            {
+                logger.LogWarning(
+                    stepException,
+                    "Step {StepKey} of background operation {OperationId} attempt {AttemptId} failed, and recording it stopped the attempt with {StopSignal}.",
+                    stepKey,
+                    claim.OperationId,
+                    claim.AttemptId,
+                    recordingException.GetType().Name);
+            }
+
             throw;
         }
+        catch (OperationCanceledException) when (stepCancelled)
+        {
+            // The step was cancelled while its operation is being cancelled. The request keeps the
+            // write from recording the step; the runner records the operation as cancelled.
+        }
+        catch (Exception recordingException)
+        {
+            logger.LogWarning(
+                recordingException,
+                "Recording step {StepKey} of background operation {OperationId} attempt {AttemptId} as {StepStatus} failed; the step's own {StepExceptionType} is rethrown.",
+                stepKey,
+                claim.OperationId,
+                claim.AttemptId,
+                status,
+                stepException.GetType().Name);
+        }
+    }
+
+    /// <summary>
+    /// A lost fence and lock contention always stop the attempt. The write runs without a
+    /// cancellation token, so a cancellation it throws is the operation's durable cancellation
+    /// request, which stops an attempt whose step failed with an error of its own.
+    /// </summary>
+    private static bool StopsTheAttempt(Exception recordingException, bool stepCancelled)
+    {
+        return recordingException is NhBackgroundOperationOwnershipLostException
+            or NhBackgroundOperationContentionSignal
+            || (recordingException is OperationCanceledException && !stepCancelled);
+    }
+
+    /// <summary>
+    /// The step stopped on the platform's own signal rather than an error of its own: a
+    /// cancellation, contention, a lost fence or a suspension. Losing it to the write's stop signal
+    /// loses nothing an operator needs, so it is not logged.
+    /// </summary>
+    private static bool IsPlatformSignal(Exception stepException)
+    {
+        return stepException is OperationCanceledException
+            or NhBackgroundOperationContentionSignal
+            or NhBackgroundOperationOwnershipLostException
+            or NhBackgroundOperationFanOutPendingException
+            or NhBackgroundOperationSignalPendingException;
     }
 }
 
@@ -153,6 +252,7 @@ internal sealed class NhBackgroundOperationStepContext : INhBackgroundOperationS
     private readonly NhBackgroundOperationAttemptClaim _claim;
     private readonly NhBackgroundOperationPersistence _persistence;
     private readonly NhBackgroundOperationsOptions _options;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _flushLock = new(1, 1);
     private DateTimeOffset _lastFlush = DateTimeOffset.MinValue;
 
@@ -160,12 +260,14 @@ internal sealed class NhBackgroundOperationStepContext : INhBackgroundOperationS
         NhBackgroundOperationAttemptClaim claim,
         NhBackgroundOperationPersistence persistence,
         NhBackgroundOperationsOptions options,
+        ILogger logger,
         Guid stepId,
         string stepKey)
     {
         _claim = claim;
         _persistence = persistence;
         _options = options;
+        _logger = logger;
         StepId = stepId;
         StepKey = stepKey;
     }
@@ -234,7 +336,7 @@ internal sealed class NhBackgroundOperationStepContext : INhBackgroundOperationS
         ArgumentNullException.ThrowIfNull(action);
         var childId = await _persistence.StartStepAsync(
             _claim, StepId, stepKey, weight, cancellationToken, titleKey);
-        var context = new NhBackgroundOperationStepContext(_claim, _persistence, _options, childId, stepKey);
+        var context = new NhBackgroundOperationStepContext(_claim, _persistence, _options, _logger, childId, stepKey);
         try
         {
             var result = await action(context, cancellationToken);
@@ -247,14 +349,15 @@ internal sealed class NhBackgroundOperationStepContext : INhBackgroundOperationS
                 CancellationToken.None);
             return result;
         }
-        catch (OperationCanceledException)
+        catch (Exception exception)
         {
-            await _persistence.CompleteStepAsync(_claim, childId, NhBackgroundOperationStepStatus.Cancelled, CancellationToken.None);
-            throw;
-        }
-        catch
-        {
-            await _persistence.CompleteStepAsync(_claim, childId, NhBackgroundOperationStepStatus.Failed, CancellationToken.None);
+            await NhBackgroundOperationStepRecording.RecordUnwoundStepAsync(
+                _persistence,
+                _claim,
+                childId,
+                stepKey,
+                exception,
+                _logger);
             throw;
         }
     }

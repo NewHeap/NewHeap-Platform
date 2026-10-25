@@ -62,6 +62,13 @@ are only additional safeguards. The `query` and `schema` commands refuse
 principals with detected write, DDL or elevated permissions, including in
 Production.
 
+On SQL Server a rejected principal returns `read-only-principal-not-verified`
+with an optional `verificationCheck` that names the first rejected check. The
+function policy is strict: SELECT or EXECUTE on any user-defined function
+rejects the principal with `function-select` or `function-execute`, because the
+tool does not verify a function's dependencies or side effects. Grant the
+diagnostic principal table, view or column permissions instead.
+
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the
 row, timeout, output, cell and SQL bounds appropriate for its environment.
@@ -276,7 +283,12 @@ DNS or unknown provider error during connection open returns
 `connection-failed`, preserves the first safe provider code when present, and
 uses the `network-access-required` retry hint. That hint does not identify the
 host policy responsible for the failure; a sandbox, firewall, DNS issue or
-network ACL can produce the same response. Raw provider messages, server and
+network ACL can produce the same response. A server certificate that the
+diagnostic host does not trust returns the non-transient
+`tls-certificate-untrusted` with the `certificate-authority-trust-required`
+retry hint: trust the issuing certificate authority on the host instead of
+retrying or turning certificate validation off. SQL Server keeps the SSPI code,
+such as `-2146893019`, as `providerCode`. Raw provider messages, server and
 object names, connection values and stack traces are never copied into the
 error contract.
 

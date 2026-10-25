@@ -177,6 +177,9 @@ public sealed class ProjectAnalysisChildOperation :
 
             for (var pass = nextPass; pass < request.Passes; pass++)
             {
+                // SPM-325: checking the durable cancellation before every pass stops the analysis as
+                // soon as its owner cancels, without waiting for the next heartbeat; the operation
+                // still ends cancelled, not timed out.
                 await context.ThrowIfCancellationRequestedAsync(token);
                 await batch.ItemStartedAsync(token);
                 await Task.Delay(request.DelayPerItemMilliseconds, token);

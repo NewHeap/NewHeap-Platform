@@ -244,7 +244,8 @@ calls through the sample's budget manager (`ProjectAiBudgetUsage.ProfilesOf`).
 An agent is not started again by its own change (SPM-308). The project service stamps the cause on
 every status event: the person, or the agent whose status tool changed the status with the subject it
 worked in (`ProjectAgentCause`, from the tool's invocation context and the ambient agent invocation
-scope). The planner's composition registers the status-changed event with the named filter
+scope), and the agent run the change belongs to (the context's `AgentRunId`; `RunId` is the turn's
+id). The planner's composition registers the status-changed event with the named filter
 `not-own-change`, and the application adds a status follow-up trigger to the planner that selects it.
 The filter skips the event only when the trigger's own agent changed the status on the subject the
 trigger fires for, so the planner's change of a project does not start it on that project again,
@@ -732,6 +733,20 @@ non-owning scope; only the outer service can commit the real transaction.
 `ProjectService` and `ProjectTaskService` participate in it, and commits only
 after both mutations and their events succeed. A failure in either step rolls
 back the complete setup.
+
+## Background operation cancellation
+
+The project-analysis child of the portfolio analysis checks
+`ThrowIfCancellationRequestedAsync` before every pass (SPM-325). When its owner
+cancels, the handler stops at the next pass instead of waiting for the next
+heartbeat, and the operation ends `Cancelled`, not `TimedOut`: the runner reports
+a time-out only when the soft time-out fired, and otherwise checks the attempt's
+durable cancellation. `BackgroundOperationCancellationSamplesTests` runs the
+child through Hangfire on the migrated sample database with a heartbeat a minute
+apart and proves that no heartbeat ran before the operation ended cancelled. The
+library's provider tests also show that a failure code or message key longer
+than its column completes the attempt with the generic code and key, and that a
+failed write of a failed step keeps the step's own exception.
 
 ## Edit modal
 

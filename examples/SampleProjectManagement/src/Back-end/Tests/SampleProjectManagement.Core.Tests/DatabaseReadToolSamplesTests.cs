@@ -39,6 +39,35 @@ public sealed class DatabaseReadToolSamplesTests
     }
 
     [Fact]
+    public void McpMapsAnUntrustedCertificateToTheTrustRemedy()
+    {
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                code = "database-query-failed",
+                message = "The remote certificate CN=private-canary was rejected.",
+                classification = "tls-certificate-untrusted",
+                provider = "postgresql",
+                transient = false,
+                stage = "connection-open",
+                retryHint = "certificate-authority-trust-required"
+            }
+        }));
+
+        var result = NewHeapSampleDatabaseReadExecutor.SafeFailure(response.RootElement);
+
+        Assert.False(result.Success);
+        var error = Assert.Single(result.GetResultItems());
+        Assert.Equal("tls-certificate-untrusted", error.Name);
+        var message = Assert.Single(error.ErrorMessages).ToString();
+        Assert.Contains("Trust its certificate authority", message, StringComparison.Ordinal);
+        Assert.Contains("Retry hint certificate-authority-trust-required.", message, StringComparison.Ordinal);
+        Assert.Contains("Stage connection-open.", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-canary", message);
+    }
+
+    [Fact]
     public void CheckedInCatalogProvidesOneAuthoritativeDiagnosticRoute()
     {
         var backendRoot = FindBackendRoot();

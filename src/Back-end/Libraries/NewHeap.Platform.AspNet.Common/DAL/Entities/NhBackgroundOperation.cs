@@ -86,6 +86,20 @@ public enum NhBackgroundOperationOwnerKind
     Agent = 10
 }
 
+/// <summary>
+/// The lengths of the failure columns that a handler's failed result fills, as the
+/// <see cref="StringLengthAttribute"/> of <see cref="NhBackgroundOperation.FailureCode"/>,
+/// <see cref="NhBackgroundOperation.FailureMessageKey"/> and
+/// <see cref="NhBackgroundOperationAttempt.FailureCode"/> declare them; a provider test compares
+/// them with the EF model. The runner checks a returned code and message key against them before
+/// it writes them.
+/// </summary>
+internal static class NhBackgroundOperationColumnLimits
+{
+    internal const int FailureCode = 100;
+    internal const int FailureMessageKey = 300;
+}
+
 public sealed class NhBackgroundOperation : IdDbEntity
 {
     [Key]

@@ -353,9 +353,30 @@ public sealed record NhAiInvocationContext(
     public string? Issuer { get; init; }
     public string? Subject { get; init; }
     public string? TenantId { get; init; }
+
+    /// <summary>
+    /// The run the invocation belongs to, as its caller names it: in an assistant turn the turn's id.
+    /// Proposal hashes and usage records use it; for the id of an agent run read
+    /// <see cref="AgentRunId"/>.
+    /// </summary>
     public string? RunId { get; init; }
+
     public int? RunAttemptNumber { get; init; }
+
+    /// <summary>
+    /// Correlates the invocation with the work it is part of; in an agent run the run's id as
+    /// <see cref="Guid.ToString(string)"/> with format <c>N</c>.
+    /// </summary>
     public string? CorrelationId { get; init; }
+
+    /// <summary>
+    /// The agent run the invocation belongs to, when an agent run invokes the tool; the agent
+    /// invocation gate sets it from <see cref="NhAiAgentInvocationScope.AgentRunId"/>.
+    /// <see langword="null"/> outside an agent run, such as in a person's own turn or a consultation.
+    /// <see cref="RunId"/> and <see cref="CorrelationId"/> keep their own meaning.
+    /// </summary>
+    public Guid? AgentRunId { get; init; }
+
     public string? AccountableOwnerId { get; init; }
     public IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes { get; init; } = [];
     public IReadOnlySet<string> CapabilityGrants { get; init; } = new HashSet<string>(StringComparer.Ordinal);

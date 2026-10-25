@@ -601,9 +601,10 @@ public sealed class AiToolSamplesTests
                 ProjectAiTools.ManageCapability
             }
         };
+        var audit = new NhAiCapturedAuditSink();
         var invoker = new NhAiToolInvoker(
             NhAiTestInvocationGate.Authorized(context),
-            [],
+            [audit],
             new RequireApprovalEffectPolicy(),
             new FixedApprovalEvidenceProvider(new NhAiApprovalEvidence(proposal, approval)),
             new NhAiApprovalValidator(factory),
@@ -629,6 +630,26 @@ public sealed class AiToolSamplesTests
         Assert.Equal(
             SampleProjectManagement.DAL.Entities.ProjectStatus.Active,
             service.CurrentStatus);
+
+        // The audit names the code each caller received: none for the verified change, and for the
+        // refused retry the code of the shared tool result, next to the lease's own code.
+        Assert.Equal(
+            NhAiToolFailureCodes.IdempotencyDenied,
+            retry.GetProperty(NhAiToolResult.CodePropertyName).GetString());
+        Assert.Collection(
+            audit.Records,
+            changed =>
+            {
+                Assert.Equal((NhAiOutcomeKind.Succeeded, (string?)null), (changed.Outcome, changed.ResultCode));
+                Assert.Equal("acquired", changed.IdempotencyCode);
+            },
+            refused =>
+            {
+                Assert.Equal(
+                    (NhAiOutcomeKind.Conflict, NhAiToolFailureCodes.IdempotencyDenied, "duplicate"),
+                    (refused.Outcome, refused.ResultCode, refused.IdempotencyCode));
+                Assert.Equal(proposal.ProposalId.ToString(), refused.ProposalId);
+            });
     }
 
     [Fact]

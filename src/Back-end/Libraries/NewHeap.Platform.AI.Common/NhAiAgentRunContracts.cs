@@ -990,6 +990,14 @@ public sealed record NhAiAgentInvocationScope(
 
     public int? RunAttemptNumber { get; init; }
     public string? CorrelationId { get; init; }
+
+    /// <summary>
+    /// The agent run the turn belongs to; <see langword="null"/> for a turn outside a run. The agent
+    /// invocation gate copies it to <see cref="NhAiInvocationContext.AgentRunId"/>, so a tool reads it
+    /// there. <see cref="RunId"/> stays the turn's id.
+    /// </summary>
+    public Guid? AgentRunId { get; init; }
+
     public DateTimeOffset? Deadline { get; init; }
     public string? ModelProfileName { get; init; }
     public string? PromptVersion { get; init; }
@@ -1027,6 +1035,7 @@ internal sealed class NhAiAgentInvocationContextFactory : INhAiAgentInvocationCo
             TenantId = scope.Subject.TenantId,
             RunId = scope.RunId,
             CorrelationId = scope.CorrelationId ?? scope.RunId,
+            AgentRunId = scope.AgentRunId,
             ExecutionScopes = NhAiSystemSubjects.IsSystem(scope.Subject.Subject)
                 ? []
                 : [new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)],

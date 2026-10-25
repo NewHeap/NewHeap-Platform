@@ -317,7 +317,8 @@
     "SPM-318",
     "SPM-319",
     "SPM-320",
-    "SPM-321"
+    "SPM-321",
+    "SPM-325"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1572,7 +1573,10 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
     ],
     "SPM-219": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -1632,7 +1636,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiApprovalTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolRefusalCodeTests.cs"
     ],
     "SPM-225": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -2857,6 +2862,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventFilterTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.html",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
@@ -3086,6 +3093,17 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageFormatTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageEndpointTests.cs"
+    ],
+    "SPM-325": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackgroundOperationCancellationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOutcomeProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStepRecordingProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BackgroundOperationProviderHost.cs"
     ]
   }
 }

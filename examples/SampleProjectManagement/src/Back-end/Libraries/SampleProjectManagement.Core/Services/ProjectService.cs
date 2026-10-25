@@ -519,7 +519,8 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             ChangedByUserId = committedByUserId,
             ChangedByAgentActorId = agentCause?.AgentActorId,
             ChangedInSubjectType = agentCause?.SubjectType,
-            ChangedInSubjectId = agentCause?.SubjectId
+            ChangedInSubjectId = agentCause?.SubjectId,
+            ChangedByAgentRunId = agentCause?.AgentRunId
         });
         await transaction.CommitAsync(cancellationToken);
         return result;
