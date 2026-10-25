@@ -78,7 +78,8 @@ export class NhAssistantMockAgentMetadata {
       name: entry.name,
       editable: entry.editable === true,
       maxBytes: entry.maxBytes ?? defaultMaxBytes,
-      indexed: entry.indexBy !== undefined
+      indexed: entry.indexBy !== undefined || entry.indexByEach !== undefined,
+      indexedByEach: entry.indexByEach !== undefined
     }));
   }
 
@@ -209,8 +210,10 @@ export class NhAssistantMockAgentMetadata {
       version: inCode ? stored?.version ?? null : agent.version,
       agentVersion: agent.version,
       codeValue: inCode && code !== undefined ? structuredClone(code) : null,
-      indexed: entry.indexBy !== undefined,
+      indexed: entry.indexBy !== undefined || entry.indexByEach !== undefined,
       indexValue: value !== undefined ? indexOf(entry, value) : null,
+      indexedByEach: entry.indexByEach !== undefined,
+      indexValues: value !== undefined ? indexValuesOf(entry, value) : [],
       changedAt: stored?.changedAt ?? null,
       changedBy: stored?.changedBy ?? null
     };
@@ -254,4 +257,19 @@ function indexOf(entry: NhAssistantMockAgentMetadataEntry, value: Record<string,
   const text = value[entry.indexBy];
   const trimmed = typeof text === 'string' ? text.trim() : '';
   return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+}
+
+/**
+ * The searchable values of an `IndexByEach` entry's value as the server stores them: trimmed, in
+ * lowercase, without empty values or repeats, in ordinal order.
+ */
+function indexValuesOf(entry: NhAssistantMockAgentMetadataEntry, value: Record<string, unknown>): string[] {
+  const texts = entry.indexByEach === undefined ? undefined : value[entry.indexByEach];
+  if (!Array.isArray(texts)) {
+    return [];
+  }
+  const values = texts
+    .map(text => (typeof text === 'string' ? text.trim().toLowerCase() : ''))
+    .filter(text => text.length > 0);
+  return [...new Set(values)].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 }
