@@ -12,7 +12,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// Writes a turn as server-sent events: <c>event: &lt;name&gt;</c>, <c>data: &lt;json&gt;</c> and an
 /// empty line per event, a <c>: keep-alive</c> comment every 15 seconds, and completion after
 /// <c>turn.completed</c> or <c>error</c>. A client disconnect cancels the turn through the request
-/// token; the runner then releases the conversation consistently.
+/// token; the runner then releases the conversation consistently. A turn that keeps running after the
+/// disconnect (<see cref="NhAssistantOptions.KeepTurnsAfterDisconnect"/>) did not take that token: its
+/// remaining events are read and dropped, and the request ends with the turn, so the request's services
+/// stay available to it while its tools authorize the person captured when it started.
 /// </summary>
 internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle handle) : IResult
 {
@@ -62,14 +65,32 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
         }
         catch (OperationCanceledException) when (aborted.IsCancellationRequested)
         {
-            // The client disconnected; the turn observes the same token and ends cancelled.
+            // The client disconnected; the turn observes the same token and ends cancelled, unless it
+            // keeps running after a disconnect.
+            await DropRemainingAsync(handle);
         }
         catch (IOException) when (aborted.IsCancellationRequested)
         {
             // The connection closed while an event was being written.
+            await DropRemainingAsync(handle);
         }
 
         await handle.Completion;
+    }
+
+    /// <summary>
+    /// Reads the events the turn still writes after the client left and drops them, so they do not
+    /// collect while the turn runs on; the conversation's snapshot and live updates carry its result.
+    /// </summary>
+    private static async Task DropRemainingAsync(NhAssistantTurnHandle handle)
+    {
+        while (await handle.Events.WaitToReadAsync(CancellationToken.None))
+        {
+            while (handle.Events.TryRead(out _))
+            {
+                // Dropped: nobody reads the stream any more.
+            }
+        }
     }
 
     private static async Task WriteEventAsync(

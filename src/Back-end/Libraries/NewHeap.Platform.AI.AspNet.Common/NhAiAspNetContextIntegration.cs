@@ -11,7 +11,16 @@ using NewHeap.Platform.AspNet.Common;
 
 namespace NewHeap.Platform.AI.AspNet;
 
-public sealed record NhAiAspNetScopeAuthorizationResource(
+/// <summary>
+/// The resource the request gate authorizes a tool call against: the caller's tenant when the issuer
+/// projects one, otherwise the active division of the request.
+/// </summary>
+/// <remarks>
+/// Not sealed, so that a person's turn that does not depend on the person's request passes a resource
+/// that also names the person's active division to division policies; handlers that match this type
+/// keep matching it.
+/// </remarks>
+public record NhAiAspNetScopeAuthorizationResource(
     string ScopeType,
     string ScopeId,
     string Purpose);
@@ -394,6 +403,13 @@ internal sealed class NhAiAspNetToolInvocationGate(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+        if (NhAiPersonInvocationScopes.Current is { } person)
+        {
+            // A person's turn that does not depend on the request authorizes the principal and the
+            // context captured when it started, never the current request.
+            return await AuthorizePersonAsync(descriptor, person, cancellationToken);
+        }
+
         var httpContext = httpContextAccessor.HttpContext;
         if (httpContext is null)
         {
@@ -446,6 +462,29 @@ internal sealed class NhAiAspNetToolInvocationGate(
         }
 
         return TaskResult<NhAiInvocationContext>.Succeeded(context);
+    }
+
+    private async ValueTask<TaskResult<NhAiInvocationContext>> AuthorizePersonAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiPersonInvocation person,
+        CancellationToken cancellationToken)
+    {
+        foreach (var policy in descriptor.AuthorizationPolicies)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var authorization = await authorizationService.AuthorizeAsync(
+                person.User,
+                person.AuthorizationResource,
+                policy);
+            if (!authorization.Succeeded)
+            {
+                return TaskResult<NhAiInvocationContext>.Failed(
+                    "ai-tool-authorization-denied",
+                    "AI tool authorization was denied.");
+            }
+        }
+
+        return TaskResult<NhAiInvocationContext>.Succeeded(person.Context);
     }
 }
 
