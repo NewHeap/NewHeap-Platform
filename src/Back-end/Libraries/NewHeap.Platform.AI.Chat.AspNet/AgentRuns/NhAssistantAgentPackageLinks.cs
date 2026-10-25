@@ -60,6 +60,28 @@ internal sealed class NhAssistantAgentPackageLinks(
     }
 
     /// <summary>
+    /// The current links of a package, per agent ordered by id and per part by part key, each with
+    /// whether the part changed locally since its import. An agent without linked parts is not listed.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantPackageAgentLinksDto>> OfPackageAsync(
+        string packageId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
+        var links = await packages.ListPackageLinksAsync(packageId, cancellationToken);
+        var agents = new List<NhAssistantPackageAgentLinksDto>();
+        foreach (var agent in links.GroupBy(link => link.AgentId, StringComparer.Ordinal))
+        {
+            var parts = await PartsAsync(agent.Key, agent.ToArray(), cancellationToken);
+            agents.Add(new NhAssistantPackageAgentLinksDto(
+                agent.Key,
+                parts.Values.OrderBy(part => part.Part, StringComparer.Ordinal).ToArray()));
+        }
+
+        return agents;
+    }
+
+    /// <summary>
     /// The link of every linked part of the agent, by part key.
     /// </summary>
     public async Task<IReadOnlyDictionary<string, NhAssistantPackagePartLinkDto>> PartsOfAsync(

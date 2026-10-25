@@ -84,6 +84,27 @@ internal sealed class NhAssistantAgentPackageStore(NhAssistantDbContextFactory c
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Every link that names the package, of every agent, by agent id; the column is indexed.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantAgentPackageLink>> ListPackageLinksAsync(
+        string packageId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var links = await context.AgentPackageLinks
+            .AsNoTracking()
+            .Where(item => item.PackageId == packageId)
+            .ToListAsync(cancellationToken);
+
+        // Ordinal, so both providers list the same order whatever their collation.
+        return links
+            .OrderBy(item => item.AgentId, StringComparer.Ordinal)
+            .ThenBy(item => item.PartKind, StringComparer.Ordinal)
+            .ThenBy(item => item.PartKey, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     public async Task<AssistantAgentPackageLink?> FindLinkAsync(
         string agentId,
         string partKind,

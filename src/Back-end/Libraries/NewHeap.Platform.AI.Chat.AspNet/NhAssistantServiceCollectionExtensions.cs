@@ -165,6 +165,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantAgentPackageLinks>();
             services.TryAddScoped<NhAssistantAgentPackageService>();
             services.TryAddScoped<INhAssistantAgentPackages>(provider => provider.GetRequiredService<NhAssistantAgentPackageService>());
+            // Which data skills and agents name a text asset of the application (LS30).
+            services.TryAddScoped<INhAssistantInstructionAssetUsage, NhAssistantInstructionAssetUsageService>();
             services.TryAddSingleton<NhAssistantDataScheduleSync>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAssistantRunSnapshotListener, NhAssistantDataScheduleSync>(
                 provider => provider.GetRequiredService<NhAssistantDataScheduleSync>()));

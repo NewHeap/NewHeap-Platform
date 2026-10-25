@@ -54,6 +54,25 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// The agents created in the administration whose instructions name the application's asset
+    /// <paramref name="assetId"/>, ordered by id. An agent whose instructions are text has an asset id
+    /// of its own and is never one of them. The asset columns have no index.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantAgent>> ListAgentsNamingAssetAsync(string assetId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var agents = await context.Agents
+            .AsNoTracking()
+            .Where(agent => agent.Source == NhAssistantAgentSources.Admin
+                && agent.InstructionsFromAsset
+                && agent.InstructionsAssetId == assetId)
+            .ToListAsync(cancellationToken);
+
+        // Ordinal, so both providers list the same order whatever their collation.
+        return agents.OrderBy(agent => agent.Id, StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>
     /// Inserts missing code agents and refreshes code agents that are not overridden when their
     /// code definition changed. Overridden agents keep the administrator's values.
     /// </summary>

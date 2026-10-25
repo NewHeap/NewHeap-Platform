@@ -408,6 +408,40 @@ public sealed record NhAssistantAgentPackageLinkDto(
     IReadOnlyList<NhAssistantPackagePartLinkDto> Parts);
 
 /// <summary>
+/// A package this host imported, as it stores it (PK11), with the current link of every part that is
+/// still linked to it (<see cref="INhAssistantAgentPackages.GetPackageAsync"/>). It stays after its
+/// agents or parts were unlinked, so the installed version stays known.
+/// </summary>
+/// <param name="PackageId">The package.</param>
+/// <param name="Version">The version of the package the host has.</param>
+/// <param name="FormatVersion">The version of the package format it was read with.</param>
+/// <param name="Hash">The SHA-256 of the package's canonical JSON at import, lowercase hex.</param>
+/// <param name="AgentIds">The agents that belong to the package on this host, ordered by id; an agent
+/// the last upgrade no longer contained, or that an administrator unlinked as a whole, is not one.</param>
+/// <param name="ImportedAt">When the host imported this version.</param>
+/// <param name="ImportedBy">Who imported it.</param>
+/// <param name="Agents">The parts still linked to the package, per agent ordered by id; empty once
+/// everything was unlinked.</param>
+public sealed record NhAssistantInstalledAgentPackageDto(
+    string PackageId,
+    int Version,
+    int FormatVersion,
+    string Hash,
+    IReadOnlyList<string> AgentIds,
+    DateTimeOffset ImportedAt,
+    string ImportedBy,
+    IReadOnlyList<NhAssistantPackageAgentLinksDto> Agents);
+
+/// <summary>
+/// The parts of one agent that are linked to a package.
+/// </summary>
+/// <param name="AgentId">The agent.</param>
+/// <param name="Parts">Its linked parts, ordered by part key, each with whether it changed locally.</param>
+public sealed record NhAssistantPackageAgentLinksDto(
+    string AgentId,
+    IReadOnlyList<NhAssistantPackagePartLinkDto> Parts);
+
+/// <summary>
 /// The body of <c>POST admin/agent-packages/export</c>.
 /// </summary>
 /// <param name="AgentIds">The agents to export, 1 to 20; exactly these (PK18).</param>
