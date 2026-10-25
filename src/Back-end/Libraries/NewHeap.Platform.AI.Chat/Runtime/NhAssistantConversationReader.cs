@@ -337,7 +337,10 @@ internal sealed class NhAssistantConversationReader(
             StaleKind = StaleKindOf(approval),
             StaleExplanation = Runs.NhAssistantStaleExplanations.Pick(approval.StaleExplanationsJson, CultureInfo.CurrentUICulture),
             Rationale = Runs.NhAssistantStaleExplanations.Pick(approval.RationalesJson, CultureInfo.CurrentUICulture),
-            SupersededByApprovalId = approval.SupersededByApprovalId
+            SupersededByApprovalId = approval.SupersededByApprovalId,
+            DecidedByActorId = approval.DecidedByActorId,
+            ExecutionResultCode = approval.ExecutionResultCode,
+            ExecutionReportDueAt = approval.ExecutionReportDueAt
         };
     }
 

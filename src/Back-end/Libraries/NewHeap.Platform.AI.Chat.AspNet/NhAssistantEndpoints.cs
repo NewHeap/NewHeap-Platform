@@ -112,6 +112,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        enabled.MapPost("conversations/{id:guid}/approvals/{approvalId:guid}/resolve", ResolveApprovalAsync)
+            .WithName("NhAssistantResolveChatExecution")
+            .WithSummary("Resolve an uncertain execution in a chat")
+            .WithDescription("Resolves a proposal of this chat whose hand-off to the application has an unknown outcome (execution-unknown), as approvals/{approvalId}/resolve does in an agent thread: action hand-to-application hands it to the application again with a new attempt and a new report deadline, after the proposal guards; mark-resolved confirms its outcome without running it. Only the person who approved it in the chat resolves it (403 assistant-approval-forbidden for another participant), while they may still approve the tool; re-execute and another action answer 400 assistant-approval-decision-invalid, as does a proposal of an agent thread, which is resolved through approvals/{approvalId}/resolve. A proposal in another status answers 409 assistant-execution-not-uncertain. Returns the conversation.")
+            .Produces<NhAssistantConversationDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapPost("conversations/{id:guid}/cancel", CancelAsync)
             .WithName("NhAssistantCancelTurn")
             .WithSummary("Cancel a turn")
@@ -442,6 +451,62 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
 
         return count > limits.MaxFilesPerTurn ? NhAssistantErrorCodes.FileCountLimit : null;
+    }
+
+    /// <summary>
+    /// Resolves an uncertain execution of a proposal that the caller approved in this chat and that was
+    /// handed to the application (LS17).
+    /// </summary>
+    private static async Task<IResult> ResolveApprovalAsync(
+        Guid id,
+        Guid approvalId,
+        HttpContext httpContext,
+        NhAssistantConversationReader reader,
+        NhAssistantCollaboration collaboration)
+    {
+        var caller = await ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return ContextUnavailable();
+        }
+        var request = await ReadBodyAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantResolveExecutionRequest);
+        if (request is null
+            || !AgentRuns.NhAssistantExecutionResolutions.TryParse(request.Action, out var resolution)
+            || request.Reason is { Length: > 500 })
+        {
+            return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+        }
+        var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
+        if (resolved.Error is not null)
+        {
+            return resolved.Error;
+        }
+        if (ThreadAccessOf(httpContext) is not null)
+        {
+            // An agent thread's uncertain executions are resolved through approvals/{approvalId}/resolve.
+            return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+        }
+
+        var outcome = await httpContext.RequestServices
+            .GetRequiredService<AgentRuns.NhAssistantApplicationExecutions>()
+            .ResolveInChatAsync(
+                resolved.Access!.Conversation,
+                approvalId,
+                caller.Data.ActorId,
+                httpContext.User,
+                resolution,
+                request.Reason,
+                httpContext.RequestAborted);
+        if (!outcome.Success)
+        {
+            return FromFailure(outcome);
+        }
+
+        return Json(
+            await CreateConversationDtoAsync(resolved.Access!, reader, collaboration, httpContext.RequestAborted, httpContext),
+            NhAssistantJsonSerializerContext.Default.NhAssistantConversationDto);
     }
 
     private static async Task<IResult> DecideAsync(

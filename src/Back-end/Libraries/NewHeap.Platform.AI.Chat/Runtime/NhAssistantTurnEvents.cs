@@ -284,6 +284,21 @@ internal sealed record NhAssistantApprovalView(
     /// conversation's own proposals.
     /// </summary>
     public NhAssistantApprovalConsultationView? Consultation { get; init; }
+
+    /// <summary>
+    /// The person who approved it; <see langword="null"/> while it waits for a decision.
+    /// </summary>
+    public string? DecidedByActorId { get; init; }
+
+    /// <summary>
+    /// The result of its execution, such as the application's code or <c>report-overdue</c>.
+    /// </summary>
+    public string? ExecutionResultCode { get; init; }
+
+    /// <summary>
+    /// Until when the application's report is due, once it was handed to the application.
+    /// </summary>
+    public DateTimeOffset? ExecutionReportDueAt { get; init; }
 }
 
 /// <summary>

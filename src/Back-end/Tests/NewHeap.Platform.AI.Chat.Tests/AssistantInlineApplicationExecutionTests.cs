@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
@@ -170,6 +172,140 @@ public sealed class AssistantInlineApplicationExecutionTests(AssistantDatabaseFi
         Assert.Equal(NhAssistantToolCallStatuses.Succeeded, (await FindToolCallAsync(host, (await FindApprovalAsync(host, approval.ApprovalId)).ToolInvocationId)).Status);
     }
 
+    /// <summary>
+    /// An uncertain chat hand-off is resolved by the person who approved it, with the rules of an agent
+    /// thread's resolve: handed to the application again with a new attempt and a new deadline, or marked
+    /// resolved, audited as <see cref="NhAssistantAuditEventKind.AgentProposalResolved"/>.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_person_who_approved_resolves_an_uncertain_chat_hand_off_and_hands_it_again_with_a_new_deadline(AssistantTestProvider provider)
+    {
+        using var english = English();
+        var clock = new AssistantTestClock(Start);
+        var model = Script(Script(new NhAiScriptedChatClient(), "The application has the order."), "The application may not have the order.");
+        await using var host = await CreateHostAsync(provider, model, alsoInline: true, clock);
+        var conversation = await host.CreateConversationAsync();
+        var approval = (await host.SendAsync(conversation.Id, "Activate the project.")).Single<NhAssistantApprovalRequiredEvent>().Approval;
+        await host.DecideAsync(conversation.Id, approval, approve: true);
+
+        // Waiting for the report, the proposal is not uncertain yet.
+        Assert.Equal(
+            NhAssistantErrorCodes.ExecutionNotUncertain,
+            CodeOf(await ResolveAsync(host, conversation.Id, approval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.HandToApplication)));
+        clock.Advance(ReportWithin);
+        await RunMaintenanceAsync(host);
+        Assert.Equal(NhAssistantApprovalStatuses.ExecutionUnknown, (await FindApprovalAsync(host, approval.ApprovalId)).Status);
+
+        // Another participant of the chat, re-execution and an unknown proposal are refused; nothing changes.
+        Assert.Equal(
+            NhAssistantErrorCodes.ApprovalForbidden,
+            CodeOf(await ResolveAsync(host, conversation.Id, approval.ApprovalId, "user-2", NhAssistantExecutionResolution.HandToApplication)));
+        Assert.Equal(
+            NhAssistantErrorCodes.ApprovalDecisionInvalid,
+            CodeOf(await ResolveAsync(host, conversation.Id, approval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.ReExecute)));
+        Assert.Equal(
+            NhAssistantErrorCodes.ApprovalNotFound,
+            CodeOf(await ResolveAsync(host, conversation.Id, Guid.NewGuid(), AssistantTestHost.UserId, NhAssistantExecutionResolution.MarkResolved)));
+        Assert.Single(Executor(host).HandOffs);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalResolved);
+
+        // The person hands it to the application again: a new attempt with a new deadline.
+        clock.Advance(TimeSpan.FromHours(1));
+        var resolved = await ResolveAsync(host, conversation.Id, approval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.HandToApplication, "The supplier lost the order.");
+
+        Assert.True(resolved.Success);
+        var second = Executor(host).HandOffs.Last();
+        Assert.Equal((2, clock.GetUtcNow().Add(ReportWithin), true), (second.Attempt, second.ReportDueAt, second.Inline));
+        var waiting = await FindApprovalAsync(host, approval.ApprovalId);
+        Assert.Equal(
+            (NhAssistantApprovalStatuses.AwaitingApplication, (DateTimeOffset?)clock.GetUtcNow().Add(ReportWithin)),
+            (waiting.Status, waiting.ExecutionReportDueAt));
+        var audited = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalResolved);
+        Assert.Equal(
+            (approval.ApprovalId, NhAssistantExecutionResolutions.HandToApplication, AssistantTestHost.UserId, (string?)null),
+            (audited.ApprovalId!.Value, audited.ResultCode, audited.ActorId, audited.SubjectType));
+        Assert.Equal(2, host.Business.Events.Count(evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalHandedToApplication));
+        Assert.True((await ReportAsync(host, NhAssistantExecutionReport.For(second, NhAssistantExecutionOutcome.Completed, "order-placed"))).Success);
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await FindApprovalAsync(host, approval.ApprovalId)).Status);
+        Assert.Equal(
+            NhAssistantErrorCodes.ExecutionNotUncertain,
+            CodeOf(await ResolveAsync(host, conversation.Id, approval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.MarkResolved)));
+
+        // An executor that throws leaves the next one uncertain; the person confirms it without a hand-off.
+        Executor(host).Answer = _ => throw new InvalidOperationException("The order system is down.");
+        var failedChat = await host.CreateConversationAsync();
+        var failedApproval = (await host.SendAsync(failedChat.Id, "Activate the project.")).Single<NhAssistantApprovalRequiredEvent>().Approval;
+        await host.DecideAsync(failedChat.Id, failedApproval, approve: true);
+        Assert.Equal(NhAssistantApprovalStatuses.ExecutionUnknown, (await FindApprovalAsync(host, failedApproval.ApprovalId)).Status);
+        var handOffs = Executor(host).HandOffs.Count;
+
+        var marked = await ResolveAsync(host, failedChat.Id, failedApproval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.MarkResolved);
+
+        Assert.Equal(NhAssistantApprovalStatuses.Resolved, marked.Data!.Status);
+        Assert.Equal(handOffs, Executor(host).HandOffs.Count);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalResolved
+            && evt.ApprovalId == failedApproval.ApprovalId
+            && evt.ResultCode == NhAssistantExecutionResolutions.MarkResolved);
+        // A proposal of another conversation is not found here.
+        Assert.Equal(
+            NhAssistantErrorCodes.ApprovalNotFound,
+            CodeOf(await ResolveAsync(host, conversation.Id, failedApproval.ApprovalId, AssistantTestHost.UserId, NhAssistantExecutionResolution.MarkResolved)));
+    }
+
+    /// <summary>
+    /// Over HTTP the chat says who may resolve an uncertain hand-off (<c>canResolve</c>), and
+    /// <c>POST conversations/{id}/approvals/{approvalId}/resolve</c> resolves it and returns the conversation.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_chat_offers_and_takes_the_resolution_of_an_uncertain_hand_off_over_http(AssistantTestProvider provider)
+    {
+        var model = Script(new NhAiScriptedChatClient(), "The application may not have the order.");
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            model,
+            configure: services => services.AddSingleton<TestApplicationExecutions>(),
+            assistantBuilder: assistant => assistant
+                .ExecuteInApplication(TestProjectToolCatalog.ChangeStatus.Id, ReportWithin, execution => execution.AlsoInline())
+                .UseProposalExecutor<TestApplicationExecutor>(),
+            provider: provider);
+        app.Services.GetRequiredService<TestApplicationExecutions>().Answer = _ => throw new InvalidOperationException("The order system is down.");
+        using var client = app.CreateClient();
+        using var created = await client.PostAsync("/api/assistant/conversations", JsonBody(new { agentId = "project-assistant" }));
+        var id = (await ReadJsonAsync(created, HttpStatusCode.Created)).GetProperty("id").GetGuid();
+        using var turn = await client.PostAsync($"/api/assistant/conversations/{id}/messages", JsonBody(new { text = "Activate the project.", clientMessageId = "c-1" }));
+        var approval = ApprovalOf(await turn.Content.ReadAsStringAsync());
+        var approvalId = approval.GetProperty("approvalId").GetGuid();
+        using var decided = await client.PostAsync(
+            $"/api/assistant/conversations/{id}/approvals/{approvalId}/decide",
+            JsonBody(new { decision = "approve", expectedProposalHash = approval.GetProperty("proposalHash").GetString() }));
+        await decided.Content.ReadAsStringAsync();
+
+        // The hand-off failed: the person who approved it may resolve it here.
+        var uncertain = ApprovalPartOf(await ReadJsonAsync(await client.GetAsync($"/api/assistant/conversations/{id}")), approvalId);
+        Assert.Equal("execution-unknown", uncertain.GetProperty("status").GetString());
+        Assert.Equal(NhAssistantApplicationExecutionCodes.HandOffFailed, uncertain.GetProperty("executionResultCode").GetString());
+        Assert.True(uncertain.GetProperty("canResolve").GetBoolean());
+
+        using var invalid = await client.PostAsync($"/api/assistant/conversations/{id}/approvals/{approvalId}/resolve", JsonBody(new { action = "re-execute" }));
+        Assert.Equal(NhAssistantErrorCodes.ApprovalDecisionInvalid, (await ReadJsonAsync(invalid, HttpStatusCode.BadRequest)).GetProperty("code").GetString());
+        using var stranger = app.CreateClient("user-2");
+        using var foreign = await stranger.PostAsync($"/api/assistant/conversations/{id}/approvals/{approvalId}/resolve", JsonBody(new { action = "mark-resolved" }));
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+
+        using var resolved = await client.PostAsync(
+            $"/api/assistant/conversations/{id}/approvals/{approvalId}/resolve",
+            JsonBody(new { action = "mark-resolved", reason = "The order desk confirmed it by phone." }));
+        var part = ApprovalPartOf(await ReadJsonAsync(resolved), approvalId);
+        Assert.Equal("resolved", part.GetProperty("status").GetString());
+        Assert.False(part.TryGetProperty("canResolve", out _));
+        using var again = await client.PostAsync($"/api/assistant/conversations/{id}/approvals/{approvalId}/resolve", JsonBody(new { action = "mark-resolved" }));
+        Assert.Equal(NhAssistantErrorCodes.ExecutionNotUncertain, (await ReadJsonAsync(again, HttpStatusCode.Conflict)).GetProperty("code").GetString());
+    }
+
     [Fact]
     public void A_declaration_with_other_options_for_the_same_tool_is_refused()
     {
@@ -230,6 +366,57 @@ public sealed class AssistantInlineApplicationExecutionTests(AssistantDatabaseFi
     {
         var targets = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson).Targets;
         return targets.Count == 0 ? NhAiSystemSubjects.Global : new NhAiSubjectRef(targets[0].Type, targets[0].Id);
+    }
+
+    private static async Task<TaskResult<AssistantApproval>> ResolveAsync(
+        AssistantTestHost host,
+        Guid conversationId,
+        Guid approvalId,
+        string actorId,
+        NhAssistantExecutionResolution resolution,
+        string? reason = null)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var conversation = await services.GetRequiredService<INhAssistantStore>().FindShareableConversationAsync(conversationId, CancellationToken.None);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, actorId)], "test"));
+        return await services.GetRequiredService<NhAssistantApplicationExecutions>()
+            .ResolveInChatAsync(conversation!, approvalId, actorId, principal, resolution, reason, CancellationToken.None);
+    }
+
+    private static StringContent JsonBody(object value)
+    {
+        return new StringContent(System.Text.Json.JsonSerializer.Serialize(value), System.Text.Encoding.UTF8, "application/json");
+    }
+
+    private static async Task<System.Text.Json.JsonElement> ReadJsonAsync(HttpResponseMessage response, HttpStatusCode expected = HttpStatusCode.OK)
+    {
+        Assert.Equal(expected, response.StatusCode);
+        using var document = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return document.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// The approval of an event stream's <c>approval.required</c> event.
+    /// </summary>
+    private static System.Text.Json.JsonElement ApprovalOf(string stream)
+    {
+        var block = stream.Split("\n\n").Single(item => item.Contains("event: approval.required", StringComparison.Ordinal));
+        var data = string.Concat(block.Split('\n').Where(line => line.StartsWith("data: ", StringComparison.Ordinal)).Select(line => line["data: ".Length..]));
+        using var document = System.Text.Json.JsonDocument.Parse(data);
+        return document.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// The approval part of <paramref name="approvalId"/> in a conversation.
+    /// </summary>
+    private static System.Text.Json.JsonElement ApprovalPartOf(System.Text.Json.JsonElement conversation, Guid approvalId)
+    {
+        return conversation.GetProperty("messages")
+            .EnumerateArray()
+            .SelectMany(message => message.GetProperty("parts").EnumerateArray())
+            .Single(part => part.GetProperty("type").GetString() == "approval"
+                && part.GetProperty("approvalId").GetGuid() == approvalId);
     }
 
     private static async Task<TaskResult<NhAssistantExecutionReportReceipt>> ReportAsync(AssistantTestHost host, NhAssistantExecutionReport report)
