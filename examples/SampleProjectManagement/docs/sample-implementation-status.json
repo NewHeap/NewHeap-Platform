@@ -327,7 +327,9 @@
     "SPM-329",
     "SPM-330",
     "SPM-331",
-    "SPM-335"
+    "SPM-332",
+    "SPM-335",
+    "SPM-336"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1048,7 +1050,9 @@
     "SPM-115": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/app.component.ts"
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-accessibility.spec.ts"
     ],
     "SPM-116": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
@@ -3251,6 +3255,23 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs"
     ],
+    "SPM-332": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationTurnTests.cs"
+    ],
     "SPM-335": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStructuredOutput.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs",
@@ -3262,6 +3283,16 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiStrictStructuredOutputTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
+    ],
+    "SPM-336": [
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
     ]
   }
 }

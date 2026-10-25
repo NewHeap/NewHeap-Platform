@@ -271,6 +271,13 @@ and shows it exactly when it would without them. A thread without `writingMessag
 layout that does not pass it, shows the indicator at the end of the thread. A custom view that applies
 live events itself does the same.
 
+When the host sets `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, closing the page or losing the
+connection no longer cancels the turn: the server finishes it and drops what it would still stream.
+There is no stream to resume; the client loads the conversation again when the person comes back, and
+live updates show a turn that is still running, as for a colleague's turn (SPM-332). A turn the
+application started for the person from another channel, such as a messaging app
+(`INhAssistantConversationTurns`), appears the same way, through live updates and the next snapshot.
+
 Show the work of agents that run on their own with the components of
 `@newheap/platform-ai-chat/agent-runs`, a separate entry point that stays out of the
 initial bundle. `nh-assistant-agent-inbox` lists the proposals waiting for the
@@ -713,6 +720,30 @@ administration is its next version, which the agent editor's next save continues
 generic form: an entry without an editor says that the application shows none. In the mock API give
 `admin.agentMetadata` the entries with their checks and the agents' `metadata` their values.
 
+Show untrusted Markdown documents, such as the files of a skill, a knowledge bundle or an upload, with
+`nh-assistant-document` (`NhAssistantDocumentComponent`) instead of `innerHTML` or a Markdown pipe of the
+application's own. It keeps the assistant's safety defaults: inline HTML shows as text, images as their
+alt text, and a link keeps its address only for a heading of the document, an `https:`, `http:` or
+`mailto:` address, which opens in a new tab, or another document of the bundle; `javascript:`,
+`data:`, every other scheme and a path outside the bundle show as text. Pass the document's `path` and
+the bundle's `siblingPaths`: a relative link resolves from the document's folder, or from the bundle's
+root when it starts with `/`, and `linkClick` reports it as kind `document` with the sibling's `path`
+and `fragment` without navigating, so the application opens that document. An `anchor` link scrolls to
+the document's own heading, and an `external` link opens unless the handler calls
+`event.preventDefault()`. `headingsChange` reports the headings, with ids unique per component, once they
+are in the page, for a table of contents that calls `scrollToHeading(fragment)`.
+
+Diagrams are optional and need no package in the library. Implement `NhAssistantDiagramRenderer` with
+the fenced code languages it draws and a `render(source, language)` that loads the drawing library
+lazily, for example `await import('mermaid')` configured without HTML labels, and returns SVG, or
+rejects with a short reason. The document calls it only for top-level blocks of those languages,
+sanitizes the SVG (no scripts, event handlers, links, images, `use`, foreign content, external
+references or CSS that could load anything) and shows it in a shadow root, so its styles stay inside the
+diagram. A block it cannot draw shows its source with `nh-assistant.document.diagram-failed` and the
+renderer's reason; without a renderer the blocks stay code. The texts come with `provideNhAssistant`;
+an application that shows documents without it starts `NhAssistantTranslationMerger` or translates the
+`nh-assistant.document.*` keys itself.
+
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.
@@ -745,6 +776,9 @@ generic form: an entry without an editor says that the application shows none. I
 - Rendering model text or previews with `bypassSecurityTrustHtml` or custom
   `innerHTML`; use the thread component, which renders Markdown through a strict
   DOMPurify allow-list and shows inline HTML as text.
+- Rendering an untrusted document yourself, or inserting a diagram library's SVG into the page; use
+  `nh-assistant-document` with an `NhAssistantDiagramRenderer`, and load the drawing library inside
+  `render` rather than in the application's initial bundle.
 - Displaying raw server messages. Show the translated `messageKey` of an `error`
   event and fall back to the code.
 - Mapping HTTP statuses to texts or swallowing a failed catalog, search, lookup or download as
@@ -994,6 +1028,11 @@ division filter, the grouped order with its totals and the inbox's visits (SPM-3
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 to SPM-304 and SPM-310
 are the executable references.
 
+Render a document with inline HTML, a `javascript:` link, a relative link to another document of the
+bundle, a diagram and a diagram with a mistake: nothing runs, the relative link opens the other document
+at its heading, the drawing library loads only once a document has a diagram, and the broken block
+shows its source with the reason (SPM-336).
+
 ## Executable evidence
 
 - SPM-248 — Assistant panel in the management portal
@@ -1151,3 +1190,8 @@ are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-336 — The project handbook reads a bundle of untrusted Markdown documents with relative links and diagrams
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts)
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html)
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts)
+  - [src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts)

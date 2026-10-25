@@ -5,7 +5,7 @@ area: frontend
 reference: frontend-lifecycle-modals
 summary: "Use the appOn lifecycle of NewHeap base components so routing, metadata, request state, modal behavior, and cleanup remain intact."
 sample-cases: ["SPM-114", "SPM-115", "SPM-116", "SPM-117", "SPM-118", "SPM-119", "SPM-120", "SPM-129"]
-public-symbols: ["NhPageTypeBaseComponent", "NhCollectionTypeBaseComponent", "NhModalMutateBaseComponent", "NhModalComponentImpl", "NhModalService"]
+public-symbols: ["NhPageTypeBaseComponent", "NhCollectionTypeBaseComponent", "NhModalMutateBaseComponent", "NhModalComponentImpl", "NhModalService", "NhModalComponent", "INhModalComponent", "NH_COMMON_TRANSLATIONS"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: critical
@@ -33,6 +33,10 @@ Do not mechanically replace a deliberately unawaited call with `await`. Awaiting
 
 Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic content may extend `NhModalComponentImpl`. `NhModalComponent` is the service-owned shell. Pass `modalClasses: 'large'` to the modal service for a larger modal. The shell keeps the modal within its holder's content box, which excludes the holder's scrollbar: a modal taller than the page scrolls vertically and never sideways. Size modal content in percentages of the modal, not in `vw`.
 
+The shell owns the modal's accessibility, so content adds no keyboard or focus code of its own. It is a dialog with `aria-modal="true"`, named through `aria-labelledby` by the `title` the service passes, and its close button is a `type="button"` with the translated label `nh-common.modal.close`; English and Dutch come with the library (`NH_COMMON_TRANSLATIONS`) and an application's own translation of the key wins. When the modal opens, focus moves to the content's element with `autofocus`, otherwise its first control, otherwise the close button or the dialog itself. Content that loads before it renders its fields, as a mutation that reads its entity does, gets its first field focused once it appears, unless the user moved focus in the meantime; content that replaces its fields later may call `modalComponent.focusInitial()`. Tab and Shift+Tab stay inside the topmost modal and skip disabled and hidden controls. Closing gives focus back to the element that opened the modal, or to the modal below when that element is gone, also when a route change destroys the modal.
+
+Escape closes only the topmost modal, and only when it can close. Content that implements `onModalEscape` of `INhModalComponent` decides itself: mutating and confirmation content call `closeDialog`, so an override of `closeDialog`, such as a guard for unsaved changes, also runs for Escape. Other content closes as the close button does. A modal opened with `closeable: false` has no close button and ignores Escape. An Escape that a control inside the modal already handled with `preventDefault()`, such as an open dropdown, does not close the modal.
+
 ## Avoid
 
 - Overriding Angular `ngOn...` or `ngAfter...` methods when the NewHeap base owns that hook.
@@ -40,9 +44,11 @@ Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic conte
 - Adding `await` to a deliberately detached task without establishing a real ordering dependency.
 - Detaching a task that can reject without observing the error, or that can write stale state after a later route load.
 - Using the modal shell as the consumer content base.
+- Listening to Escape on the document or trapping focus in modal content: it closes the wrong modal of a stack and ignores `closeable: false`. Override `onModalEscape` or `closeDialog` instead.
+- Opening a modal without a title, which leaves the dialog without an accessible name.
 - Sizing modal content or overriding the modal's width with `vw` units, which include the scrollbar.
 - Solving route changes with full page reloads that rebuild the app shell and SignalR connection.
 
 ## Verification
 
-Test initial navigation, parameter changes inside the same shell, modal open, save, and cancel behavior, cleanup, and browser back and forward. Open a large modal taller than the page at desktop and 375px widths and check that its holder does not scroll sideways. Check console errors, subscription leaks, and that the initial collection load runs exactly once. For detached work, prove that the hook can complete before the task while failures are still observed; for awaited work, prove the dependent step cannot run early.
+Test initial navigation, parameter changes inside the same shell, modal open, save, and cancel behavior, cleanup, and browser back and forward. Open a large modal taller than the page at desktop and 375px widths and check that its holder does not scroll sideways. With the keyboard only, open a modal and check that focus is inside it, Tab and Shift+Tab past both ends, close it with Escape and check that focus is back on the button that opened it; open a modal on top of another and check that Escape closes the top one first, and that a modal opened with `closeable: false` ignores Escape. Check console errors, subscription leaks, and that the initial collection load runs exactly once. For detached work, prove that the hook can complete before the task while failures are still observed; for awaited work, prove the dependent step cannot run early.

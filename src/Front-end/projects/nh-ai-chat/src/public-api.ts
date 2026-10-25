@@ -8,6 +8,7 @@ export * from './lib/models/assistant-admin.models';
 export * from './lib/models/assistant-agent-run.models';
 export * from './lib/models/assistant-hand-off.models';
 export * from './lib/models/assistant-agent-package.models';
+export * from './lib/models/assistant-document.models';
 export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
 export * from './lib/i18n/nh-assistant-translations';
@@ -46,6 +47,7 @@ export * from './lib/components/connection-required/nh-assistant-connection-requ
 export * from './lib/components/share/nh-assistant-share.component';
 export * from './lib/components/activity/nh-assistant-activity.component';
 export * from './lib/components/subject-badge/nh-assistant-subject-badge.component';
+export * from './lib/components/document/nh-assistant-document.component';
 
 /*
  * Internal building blocks shared with the secondary entry points. Not part of the public

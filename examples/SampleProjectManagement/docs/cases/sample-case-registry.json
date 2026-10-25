@@ -1705,13 +1705,15 @@
       "id": "SPM-115",
       "categoryId": "8",
       "title": "Edit modal",
-      "surface": "modal service/options/base",
-      "outcome": "Create and edit work from both list and detail pages.",
+      "surface": "modal service/options/base; the keyboard of `NhModalComponent` (`aria-modal`, `aria-labelledby`, the translated close label `nh-common.modal.close`, focus and Escape) with `INhModalComponent.onModalEscape`",
+      "outcome": "Create and edit work from both list and detail pages. The edit modal works with the keyboard alone: it is a dialog named by its title with a labelled close button, its key field takes focus once the form is loaded, Tab and Shift+Tab stay inside it and skip disabled controls, Escape closes it through `closeDialog` as \"Cancel\" does, and focus returns to the button that opened it. A modal on top of it closes first, and a modal opened with `closeable: false` ignores Escape.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
         "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-        "src/Front-end/projects/management/src/app/app.component.ts"
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-accessibility.spec.ts"
       ]
     },
     {
@@ -5638,6 +5640,31 @@
       ]
     },
     {
+      "id": "SPM-332",
+      "categoryId": "18",
+      "title": "A person continues a chat and approves its proposal from a messaging app, and turns outlive a closed browser",
+      "surface": "`INhAssistantConversationTurns` (`SendAsync`, `DecideAsync`) with `NhAssistantDecidingPerson`, `NhAssistantConversationMessage` (`ClientMessageId`, `Files`), `NhAssistantConversationDecision` (`NhAssistantProposalDecision`, `ExpectedProposalHash`, `Reason`), `NhAssistantConversationTurnOptions` (`Channel`, `Language`, `ActiveDivisionId`, `KeepTurnAfterCallerLeaves`) and `NhAssistantConversationTurnResult` (`NhAssistantMessageDto`, `NhAssistantApprovalPartDto`, `NhAssistantUsageDto`); the `Channel` of `NhAssistantAuditEvent`; `NhAssistantOptions.KeepTurnsAfterDisconnect` (`NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`)",
+      "outcome": "A signed-in person links one of their chats with the project assistant to a messaging app through `POST assistant-channel/links`, which issues a link token for the chat, the person and their active division. The messaging provider delivers the person's messages to `POST assistant-channel/messages` and their answer to an approval card to `POST assistant-channel/decisions` with that token and without a sign-in. `SampleAssistantMessagingChannel` vouches for the person because only the token it issued says who writes: it rebuilds their principal from the user store, as their sign-in would, and runs each turn through `INhAssistantConversationTurns`. The turn is the endpoint's turn with its access rules: the person's conversation, the assistant's access policy and the agent's policy. It runs in the person's active division with the person's own rights for every tool, without a request of the person and without the provider's request around it, so the search reads the person's division and the status change waits for the person's own approval card, which the answer carries with its proposal hash. A `yes` approves and the project's status changes once; an unclear answer, a forged token and a delivery the provider repeats (`assistant-message-duplicate`) start nothing, and a link to someone else's chat finds nothing (`assistant-conversation-not-found`). The audit records the `messaging-chat` channel on the turn's events. The turn keeps running when the provider's webhook gives up, and the portal shows the same chat. In Development the sample also sets `KeepTurnsAfterDisconnect`, so closing the browser no longer cancels a person's turn: it completes, its tools authorize the principal captured when it started, and the client reloads the chat. The library tests prove both on SQL Server and PostgreSQL: a disconnected turn completes with its tool authorized for the captured principal, is cancelled without the option and still stops on `POST cancel`; the service sends and decides, refuses a person outside the chat, without the access or the agent's policy, of another actor or tenant than the principal, and lets the person's policy, not the request around the call, decide a tool.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationTurnTests.cs"
+      ]
+    },
+    {
       "id": "SPM-335",
       "categoryId": "18",
       "title": "A structured-output schema that a strict provider accepts, and a model call past its deadline as a failed result",
@@ -5655,6 +5682,24 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiStrictStructuredOutputTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-336",
+      "categoryId": "18",
+      "title": "The project handbook reads a bundle of untrusted Markdown documents with relative links and diagrams",
+      "surface": "`NhAssistantDocumentComponent` (`nh-assistant-document`) of `@newheap/platform-ai-chat` with `markdown`, `path`, `siblingPaths` and `diagramRenderer`, the outputs `linkClick` (`NhAssistantDocumentLinkEvent`, `NhAssistantDocumentLinkKind`) and `headingsChange` (`NhAssistantDocumentHeading`), `scrollToHeading`, `NhAssistantDiagramRenderer`, and the texts `nh-assistant.document.diagram-failed`, `diagram-no-reason` and `diagram-not-svg`",
+      "outcome": "The management portal's handbook page shows three Markdown documents of one bundle with nh-assistant-document. Their text is untrusted: inline HTML shows as text, and a javascript: link or a path outside the bundle shows as its label without a link, while https: and mailto: links open in a new tab. A relative link such as `release.md#checklist` resolves from the open document's folder against the bundle's paths; the document reports it and the page opens that document at the heading. The headings the document reports are the page's \"On this page\" list. The portal supplies its own diagram renderer for its `flow` language, because the sample has no diagram package: its drawing module loads only when a document has a flow block, the document shows the sanitized SVG in a shadow root, and the release guide's block with a mistake shows its source with \"This diagram could not be drawn\" and the renderer's reason. The library specs prove escaped HTML, refused URLs, relative links, the renderer call with a sanitized result and a broken diagram shown as source.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts",
+        "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html",
+        "src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts",
+        "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts",
+        "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
       ]
     }
   ]

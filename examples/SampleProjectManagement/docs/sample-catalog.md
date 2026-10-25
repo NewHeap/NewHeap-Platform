@@ -432,6 +432,18 @@ A test host of the environment `Testing` reaches the milestones server on loopba
 `NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
 runs the case.
 
+A person may continue a chat with the project assistant in a messaging app (SPM-332). Signed in to the
+portal, they link the chat with `POST assistant-channel/links`; the messaging provider then delivers
+their messages and their answer to an approval card with the link token, without a sign-in.
+`SampleAssistantMessagingChannel` rebuilds the person from the user store and runs each turn through
+`INhAssistantConversationTurns`: the endpoint's turn with its access rules, in the person's active
+division and with the person's own rights for every tool, never the rights of the provider's request.
+The answer carries the assistant's text and, when the turn waits, the approval card with its proposal
+hash; a `yes` approves it. A repeated delivery starts no second turn, a link to someone else's chat finds
+nothing, and the audit records the `messaging-chat` channel. In Development the sample also sets
+`NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
+the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
+
 The operations process also reads and changes agents through services (SPM-329).
 `SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
 `INhAssistantAgentDirectory`, with its run state and cost center, and gives an agent a new description
@@ -445,6 +457,17 @@ name, run settings and live mode, gets the trial's progress review as a new skil
 trial is deleted without ever going live. In the assistant administration, and in the playground on the
 mock API, a data variant offers "Promote onto {agent}" with a confirmation. `AssistantAgentDefinitionSamplesTests`
 runs both cases.
+
+The management portal's handbook page reads a bundle of the team's Markdown documents with
+`nh-assistant-document` of `@newheap/platform-ai-chat` (SPM-336). The text is untrusted: inline HTML
+shows as text, and a `javascript:` link or a path outside the bundle is no link. A relative link such as
+`release.md#checklist` resolves from the open document's folder against the bundle's paths; the
+document reports it through `linkClick` and the page opens that document at the heading, while the
+headings it reports through `headingsChange` are the page's "On this page" list. The sample has no
+diagram package, so the portal supplies a small renderer for its own `flow` language
+(`sampleFlowDiagramRenderer`), whose drawing module loads only when a document has a `flow` block, as
+an application would load Mermaid. The document shows the sanitized SVG in a shadow root, and the
+release guide's block with a mistake shows its source with the renderer's reason.
 
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
@@ -867,6 +890,14 @@ the shell managed by `NhModalService`, not the base for consumer content.
 The large editor with the project's agent work is taller than the page: it
 scrolls vertically within the modal's holder, and the shell keeps the modal next
 to the holder's scrollbar, so nothing scrolls sideways (SPM-116).
+
+The editor works with the keyboard alone, without code of its own (SPM-115). The shell is a dialog
+named by its title, with a translated close label. It focuses the close button while the form data
+loads and the key field once the form is there, keeps Tab and Shift+Tab inside the dialog, skips the
+disabled save button, and gives focus back to the "Edit" button when it closes. Escape closes the
+topmost modal that can close: for the editor it calls `closeDialog` through `onModalEscape`, as
+"Cancel" does, and the processing modal of the platform playground, opened with `closeable: false`,
+ignores it.
 
 After `created` or `updated`, the register updates the concrete row and then
 closes the modal. The parent subsequently receives the `closed` event through

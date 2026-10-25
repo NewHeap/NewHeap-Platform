@@ -393,18 +393,20 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
         var text = request.Text ?? string.Empty;
         var files = request.Files ?? [];
+        var outlives = KeepsTurnAfterDisconnect(httpContext);
         var started = await runner.StartMessageTurnAsync(
             new NhAssistantMessageTurnRequest(
                 id,
                 caller.Data,
                 text,
                 request.ClientMessageId,
-                httpContext.RequestAborted,
+                outlives ? CancellationToken.None : httpContext.RequestAborted,
                 RequestLanguage(httpContext),
                 NhAssistantClientContext.From(request.ClientContext))
             {
                 AgentTurn = agentTurn,
-                Files = files
+                Files = files,
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
             },
             httpContext.RequestAborted);
         if (!started.Success
@@ -611,6 +613,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             agentTurn = created.Data! with { IsRequestTurn = true };
         }
 
+        var outlives = KeepsTurnAfterDisconnect(httpContext);
         var started = await runner.StartDecisionTurnAsync(
             new NhAssistantDecisionTurnRequest(
                 id,
@@ -619,12 +622,13 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 request.Decision == "approve",
                 request.ExpectedProposalHash,
                 string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
-                httpContext.RequestAborted,
+                outlives ? CancellationToken.None : httpContext.RequestAborted,
                 RequestLanguage(httpContext))
             {
                 AgentTurn = agentTurn,
                 PolicyAuthorized = agentTurn is not null && askerDecision.Approval is null,
-                LeaveForApprovers = request.Decision == "leave"
+                LeaveForApprovers = request.Decision == "leave",
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
             },
             httpContext.RequestAborted);
         return started.Success
@@ -662,14 +666,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return Error(NhAssistantErrorCodes.QuestionNotFound);
         }
 
+        var outlives = KeepsTurnAfterDisconnect(httpContext);
         var started = await runner.StartAnswerTurnAsync(
             new NhAssistantAnswerTurnRequest(
                 id,
                 caller.Data,
                 questionId,
                 choice,
-                httpContext.RequestAborted,
-                RequestLanguage(httpContext)),
+                outlives ? CancellationToken.None : httpContext.RequestAborted,
+                RequestLanguage(httpContext))
+            {
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
+            },
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -688,41 +696,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         string actorId,
         bool approve)
     {
-        var services = httpContext.RequestServices;
-        var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
-        if (approval is null
-            || approval.ConversationId == conversationId
-            || approval.ConsultationId is null
-            || approval.Mode != NhAssistantApprovalModes.Inline)
-        {
-            return (null, null);
-        }
-
-        var runs = services.GetRequiredService<NhAssistantRunStore>();
-        var row = (await runs.GetAskerDecisionsAsync(conversationId, [approval.Id], httpContext.RequestAborted)).FirstOrDefault();
-        if (row is null)
-        {
-            return (null, Error(NhAssistantErrorCodes.ApprovalNotFound));
-        }
-        if (!string.Equals(approval.InitiatorActorId, actorId, StringComparison.Ordinal))
-        {
-            return (null, Error(NhAssistantErrorCodes.ApprovalForbidden));
-        }
-        if (approve)
-        {
-            var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
-                approval,
-                row.Thread,
-                actorId,
-                httpContext.User,
-                httpContext.RequestAborted);
-            if (!check.Success)
-            {
-                return (null, Error(NhAssistantErrorCodes.ApprovalPolicyDenied));
-            }
-        }
-
-        return (approval, null);
+        var found = await NhAssistantAskerDecisions.FindAsync(
+            httpContext.RequestServices,
+            conversationId,
+            approvalId,
+            actorId,
+            httpContext.User,
+            approve,
+            httpContext.RequestAborted);
+        return found.ErrorCode is { } code ? (null, Error(code)) : (found.Approval, null);
     }
 
     private static async Task<IResult> CancelAsync(
@@ -904,6 +886,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return httpContext.Items.TryGetValue(ThreadAccessItemKey, out var value)
             ? value as NhAssistantThreadAccess
             : null;
+    }
+
+    /// <summary>
+    /// Whether the turn this request starts keeps running after its client disconnected (LS18): it then
+    /// does not follow the request's cancellation and authorizes the person captured now.
+    /// </summary>
+    private static bool KeepsTurnAfterDisconnect(HttpContext httpContext)
+    {
+        return httpContext.RequestServices
+            .GetRequiredService<IOptionsMonitor<NhAssistantOptions>>()
+            .CurrentValue
+            .KeepTurnsAfterDisconnect;
     }
 
     internal static async Task<TaskResult<NhAiInvocationContext>> ResolveCallerAsync(HttpContext httpContext)

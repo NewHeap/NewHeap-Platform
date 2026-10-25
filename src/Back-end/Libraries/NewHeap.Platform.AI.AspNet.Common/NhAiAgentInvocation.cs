@@ -266,6 +266,15 @@ internal sealed class NhAiAgentInvocationGate(
             return null;
         }
 
+        // In the initiator's own turn that does not depend on the request, the principal captured when
+        // the turn started decides, as the request's would.
+        if (scope.IsRequestTurn
+            && NhAiPersonInvocationScopes.Current is { } person
+            && string.Equals(person.Context.ActorId, scope.InitiatorActorId, StringComparison.Ordinal))
+        {
+            return person.User;
+        }
+
         // In the initiator's own request its live principal decides, recognized by the platform's actor
         // id of the request's person rather than by a claim.
         var httpContext = httpContextAccessor.HttpContext;

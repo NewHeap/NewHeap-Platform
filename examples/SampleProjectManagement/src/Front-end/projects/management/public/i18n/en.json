@@ -673,5 +673,13 @@
     "navigation": "Project management",
     "title": "Project management",
     "description": "The agents that keep the projects moving, with their latest results for the whole application. What arrived since your last visit is marked new; project managers can run an agent now."
+  },
+  "project-handbook": {
+    "navigation": "Handbook",
+    "title": "Project handbook",
+    "description": "The team's Markdown documents, shown as untrusted text. Links between the documents open them here, and the portal draws their flow diagrams with a renderer it loads only when a document has one.",
+    "documents": "Documents",
+    "contents": "On this page",
+    "no-headings": "This document has no headings."
   }
 }

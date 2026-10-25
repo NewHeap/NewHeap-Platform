@@ -1,4 +1,4 @@
-﻿import {Component, HostListener, Input, OnInit, input, output} from '@angular/core';
+﻿import {Component, Input, OnInit, input, output} from '@angular/core';
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
 import { SafeHtml } from '@angular/platform-browser';
 import {TaskResult} from "../../models/misc.models";
@@ -28,7 +28,15 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
     this.modalComponentRef = ref;
   }
 
-  @HostListener('document:keyup', ['$event'])
+  /** Escape on the topmost modal shell, when it can close: closes through `closeDialog`. */
+  onModalEscape(): void {
+    this.closeDialog({});
+  }
+
+  /**
+   * @deprecated The modal shell handles Escape on keydown for the topmost modal that can close and
+   * calls `onModalEscape`; this method no longer listens to the document.
+   */
   onKeyUp(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.stopImmediatePropagation();

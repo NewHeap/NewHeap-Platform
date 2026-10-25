@@ -44,8 +44,10 @@ node <consumer-root>/.agents/skills/newheap-platform-development/skills/foundati
 For a Claude-only installation, pass `--target claude` and run the bootstrapper from `.claude/skills/newheap-platform-development/skills/foundation`. A combined installation creates or preserves both `AGENTS.md` and `CLAUDE.md`; existing repository instructions are never overwritten.
 
 The bootstrap creates the solution and central props in `src/Back-end`. With
-the `management-portal` profile shown above, it also creates the Angular
-workspace in `src/Front-end` with applications under `projects`. It restores
+the `management-portal` profile shown above, or the `public-website` profile, it
+also creates the Angular workspace in `src/Front-end` with applications under
+`projects`, with Angular pinned to the lowest version that the peer range of
+`@newheap/platform-common` accepts. It restores
 compatible NewHeap packages anonymously from
 `https://api.nuget.org/v3/index.json` and
 `https://registry.npmjs.org/`. When restore or install fails, remove stale

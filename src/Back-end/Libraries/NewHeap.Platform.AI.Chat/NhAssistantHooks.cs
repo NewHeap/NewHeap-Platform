@@ -701,8 +701,11 @@ public sealed record NhAssistantAuditEvent(
     /// <see cref="NhAssistantAuditEventKind.ApprovalApproved"/> or
     /// <see cref="NhAssistantAuditEventKind.ApprovalRejected"/> event: <c>web</c> for the decision
     /// endpoints, or the dash-case code the application passed to the proposal decision service
-    /// (<c>INhAssistantProposalDecisionService.DecideAsync</c>), such as <c>messaging-reply</c>. Null
-    /// for other events.
+    /// (<c>INhAssistantProposalDecisionService.DecideAsync</c>), such as <c>messaging-reply</c>. Every
+    /// event of a person's turn that <c>INhAssistantConversationTurns</c> ran, such as
+    /// <see cref="NhAssistantAuditEventKind.ToolInvoked"/>, <see cref="NhAssistantAuditEventKind.ApprovalRequested"/>
+    /// and the decision, names the channel the application passed it. Null for other events, also for the
+    /// turns of the conversation endpoints.
     /// </summary>
     public string? Channel { get; init; }
 

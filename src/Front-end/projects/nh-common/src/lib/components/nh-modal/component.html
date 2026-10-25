@@ -1,13 +1,15 @@
 <div #modalHolder (touchmove)="modalTouchMove($event)" (touchcancel)="modalTouchEnd($event)"
   (touchend)="modalTouchEnd($event)" (mousemove)="modalMouseMove($event)" (mouseup)="modalMouseUp($event)"
-  role="dialog" class="nh-modal-holder" [ngClass]="modalHolderClasses">
+  role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? titleId : null" tabindex="-1"
+  class="nh-modal-holder" [ngClass]="modalHolderClasses">
   <div #modalBackdrop class="nh-modal-backdrop"></div>
   <div #modal class="nh-modal" [ngClass]="modalClasses" style="transform: translateY(100vh);">
     <div class="nh-modal-header" [ngClass]="modalHeaderClasses">
-      <h3>{{ title }}</h3>
+      <h3 [id]="titleId">{{ title }}</h3>
       @if (closeable) {
-        <button (click)="close()" class="close-nh-modal bg-white small font-grey">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
+        <button type="button" (click)="close()" class="close-nh-modal bg-white small font-grey"
+          [attr.aria-label]="closeLabel()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" aria-hidden="true" focusable="false">
             <path fill="black"
               d="M312.1 375c9.369 9.369 9.369 24.57 0 33.94s-24.57 9.369-33.94 0L160 289.9l-119 119c-9.369 9.369-24.57 9.369-33.94 0s-9.369-24.57 0-33.94L126.1 256L7.027 136.1c-9.369-9.369-9.369-24.57 0-33.94s24.57-9.369 33.94 0L160 222.1l119-119c9.369-9.369 24.57-9.369 33.94 0s9.369 24.57 0 33.94L193.9 256L312.1 375z"/>
             </svg>

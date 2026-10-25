@@ -2342,6 +2342,11 @@
       "waiting": "Waiting for approval",
       "unread": "Unread"
     },
+    "document": {
+      "diagram-failed": "This diagram could not be drawn: {{reason}}",
+      "diagram-no-reason": "the renderer gave no reason.",
+      "diagram-not-svg": "the renderer returned no SVG."
+    },
     "share": {
       "title": "Share conversation",
       "members-title": "People in this conversation",

@@ -1003,7 +1003,8 @@ internal sealed partial class NhAssistantMcpToolSource(
         ClaimsPrincipal? user;
         if (!request.IsHeadless)
         {
-            user = httpContextAccessor.HttpContext?.User;
+            // A person's turn that does not depend on the request uses the principal captured when it started.
+            user = NhAiPersonInvocationScopes.Current?.User ?? httpContextAccessor.HttpContext?.User;
         }
         else if (request.PersonActorId is null || request.Subject is null)
         {

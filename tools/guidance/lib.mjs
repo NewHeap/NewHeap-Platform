@@ -278,3 +278,19 @@ export async function packageVersions() {
   }
   return Object.fromEntries(Object.entries(versions).sort(([left], [right]) => left.localeCompare(right)));
 }
+
+/**
+ * The peer dependency ranges of every npm release unit, by package name. The consumer bootstrap
+ * derives its Angular pins from the range of `@newheap/platform-common`, so they always satisfy it.
+ */
+export async function packagePeerDependencies() {
+  const releaseManifest = await readJson(resolve(repositoryRoot, 'release', 'manifest.json'));
+  const peers = {};
+  for (const unit of Object.values(releaseManifest.units)) {
+    if (unit.kind !== 'npm') continue;
+    const packageJson = await readJson(resolve(repositoryRoot, unit.packageJson));
+    peers[unit.packageName] = Object.fromEntries(Object.entries(packageJson.peerDependencies ?? {})
+      .sort(([left], [right]) => left.localeCompare(right)));
+  }
+  return Object.fromEntries(Object.entries(peers).sort(([left], [right]) => left.localeCompare(right)));
+}

@@ -32,6 +32,12 @@ let nextProjectFormId = 0;
  * SPM-303: below them `nh-assistant-object-agents` lists the agents that work on projects with their
  * latest result and open proposals; the project's participants run one now, and its work on the
  * project opens on demand.
+ *
+ * SPM-115: the keyboard needs nothing of this component. The modal shell is a dialog named by its
+ * title; it focuses the close button while the form data loads and the key field once the form is
+ * there, keeps Tab and Shift+Tab inside the dialog (a disabled save button is skipped), and gives
+ * focus back to the button that opened it. Escape calls `closeDialog`, as "Cancel" does, through
+ * `onModalEscape` of the mutate base; a modal opened with `closeable: false` ignores Escape.
  */
 @Component({
   selector: 'app-project-edit-modal',

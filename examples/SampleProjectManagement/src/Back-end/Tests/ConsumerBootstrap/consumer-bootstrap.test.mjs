@@ -12,6 +12,52 @@ const inspectorScript = resolve(repositoryRoot, 'skills/newheap-consumer-develop
 const consumerRoot = await mkdtemp(resolve(tmpdir(), 'newheap-consumer-bootstrap-'));
 const sqlServerRoot = await mkdtemp(resolve(tmpdir(), 'newheap-consumer-bootstrap-sqlserver-'));
 const serviceRoot = await mkdtemp(resolve(tmpdir(), 'newheap-consumer-bootstrap-service-'));
+const websiteRoot = await mkdtemp(resolve(tmpdir(), 'newheap-consumer-bootstrap-website-'));
+const platformCommonPeers = JSON.parse(await readFile(
+  resolve(repositoryRoot, 'src/Front-end/projects/nh-common/package.json'),
+  'utf8'
+)).peerDependencies;
+const angularFrameworkPackages = [
+  '@angular/animations',
+  '@angular/common',
+  '@angular/compiler',
+  '@angular/core',
+  '@angular/forms',
+  '@angular/platform-browser',
+  '@angular/platform-browser-dynamic',
+  '@angular/router'
+];
+
+/** Whether an exact version satisfies a caret, tilde or exact peer range. */
+function satisfies(version, range) {
+  const [major, minor, patch] = version.split('.').map(Number);
+  const match = /^([\^~]?)(\d+)\.(\d+)\.(\d+)$/.exec(range.trim());
+  assert.ok(match, `The test supports caret, tilde and exact ranges, not ${range}.`);
+  const [, operator, lowMajor, lowMinor, lowPatch] = match;
+  const [low1, low2, low3] = [lowMajor, lowMinor, lowPatch].map(Number);
+  const atLeast = major !== low1 ? major > low1 : minor !== low2 ? minor > low2 : patch >= low3;
+  if (operator === '^') return atLeast && major === low1;
+  if (operator === '~') return atLeast && major === low1 && minor === low2;
+  return major === low1 && minor === low2 && patch === low3;
+}
+
+/** The Angular pins of a generated package.json match platform-common's peer ranges. */
+async function assertAngularPins(root) {
+  const frontendPackage = JSON.parse(await readFile(resolve(root, 'src/Front-end/package.json'), 'utf8'));
+  const expected = platformCommonPeers['@angular/core'].replace(/^[\^~]/, '');
+  for (const name of angularFrameworkPackages) {
+    assert.equal(frontendPackage.dependencies[name], expected, `${name} must be pinned to the lowest version platform-common accepts.`);
+  }
+  assert.equal(frontendPackage.devDependencies['@angular/compiler-cli'], expected);
+  const [major, minor] = expected.split('.');
+  assert.equal(frontendPackage.devDependencies['@angular/build'], `^${major}.${minor}.0`);
+  assert.equal(frontendPackage.devDependencies['@angular/cli'], `^${major}.${minor}.0`);
+  for (const [name, range] of Object.entries(platformCommonPeers).filter(([name]) => name.startsWith('@angular/'))) {
+    assert.ok(satisfies(frontendPackage.dependencies[name], range), `${name} ${frontendPackage.dependencies[name]} does not satisfy platform-common's ${range}.`);
+  }
+  assert.equal(frontendPackage.dependencies.rxjs, platformCommonPeers.rxjs);
+  assert.match(frontendPackage.dependencies['@newheap/platform-common'], /^\^\d+\.\d+\.\d+/);
+}
 
 function run(script, argumentsList) {
   return spawnSync(process.execPath, [script, ...argumentsList], {
@@ -74,7 +120,7 @@ try {
   assert.match(publicNpmConfig, /@newheap:registry=https:\/\/registry\.npmjs\.org\//);
   assert.doesNotMatch(publicNpmConfig, /auth|token|npm\.pkg\.github/i);
   await readFile(resolve(consumerRoot, 'src/Front-end/angular.json'), 'utf8');
-  await readFile(resolve(consumerRoot, 'src/Front-end/package.json'), 'utf8');
+  await assertAngularPins(consumerRoot);
   await assert.rejects(readFile(resolve(consumerRoot, 'Example.Portal.slnx'), 'utf8'));
   await assert.rejects(readFile(resolve(consumerRoot, 'angular.json'), 'utf8'));
 
@@ -205,6 +251,69 @@ try {
   assert.equal(serviceInventory.status, 0, serviceInventory.stderr || serviceInventory.stdout);
   assert.deepEqual(JSON.parse(serviceInventory.stdout).projectFoundation.missingFoundationPaths, []);
 
+  const websiteBootstrap = run(bootstrapScript, [
+    websiteRoot,
+    '--name', 'Example.Website',
+    '--profile', 'public-website',
+    '--database', 'none',
+    '--skip-install'
+  ]);
+  assert.equal(websiteBootstrap.status, 0, websiteBootstrap.stderr || websiteBootstrap.stdout);
+  const websiteManifest = JSON.parse(await readFile(resolve(websiteRoot, 'newheap-consumer.json'), 'utf8'));
+  const websitePackages = await readFile(resolve(websiteRoot, 'src/Back-end/Directory.Packages.props'), 'utf8');
+  assert.equal(websiteManifest.applicationProfile, 'public-website');
+  assert.equal(websiteManifest.databaseProvider, null);
+  assert.deepEqual(websiteManifest.capabilities, {
+    api: true,
+    backgroundService: false,
+    persistence: false,
+    authentication: false,
+    frontend: 'public'
+  });
+  assert.match(websitePackages, /NewHeap\.Platform\.AspNet\.Common/);
+  assert.doesNotMatch(websitePackages, /EntityFrameworkCore\.(?:SqlServer|PostgreSQL)/);
+  await readFile(resolve(websiteRoot, 'src/Back-end/Applications/Example.Website.Api/Program.cs'), 'utf8');
+  await assert.rejects(readFile(resolve(websiteRoot, 'src/Back-end/Applications/Example.Website.Service/Program.cs'), 'utf8'));
+  await readFile(resolve(websiteRoot, 'src/Front-end/angular.json'), 'utf8');
+  await readFile(resolve(websiteRoot, 'src/Front-end/proxy.conf.cjs'), 'utf8');
+  await assert.rejects(readFile(resolve(websiteRoot, 'src/Front-end/.gitkeep'), 'utf8'));
+  await assertAngularPins(websiteRoot);
+
+  const websiteInventory = run(inspectorScript, [websiteRoot, '--mode', 'inventory']);
+  assert.equal(websiteInventory.status, 0, websiteInventory.stderr || websiteInventory.stdout);
+  assert.deepEqual(JSON.parse(websiteInventory.stdout).projectFoundation.missingFoundationPaths, []);
+
+  // A public site registers NewHeap once and needs no login, identity store, API base or modal flow.
+  const websiteSourceDirectory = resolve(websiteRoot, 'src/Front-end/projects/website/src/app');
+  await mkdir(websiteSourceDirectory, { recursive: true });
+  await writeFile(
+    resolve(websiteSourceDirectory, 'app.config.ts'),
+    'import { NhCommonModule } from "@newheap/platform-common";\nexport const providers = [NhCommonModule.forRoot({})];\n',
+    'utf8'
+  );
+  const websiteValidation = run(inspectorScript, [websiteRoot, '--mode', 'validate']);
+  const websiteIssueCodes = JSON.parse(websiteValidation.stdout).issues.map(issue => issue.code);
+  assert.doesNotMatch(
+    websiteIssueCodes.join(','),
+    /profile-invalid|frontend-untracked|foundation-path-missing|angular-root-config|angular-api-base|angular-modal-base|identity-dbcontext|protected-controller|openapi-missing|proxy-contract|public-website-authentication/
+  );
+
+  websiteManifest.capabilities.authentication = true;
+  await writeFile(resolve(websiteRoot, 'newheap-consumer.json'), `${JSON.stringify(websiteManifest, null, 2)}\n`, 'utf8');
+  const signedInWebsite = run(inspectorScript, [websiteRoot, '--mode', 'validate']);
+  assert.match(signedInWebsite.stdout, /public-website-authentication/);
+
+  const websiteWithLogin = run(bootstrapScript, [
+    serviceRoot,
+    '--name', 'Example.Members',
+    '--profile', 'public-website',
+    '--database', 'none',
+    '--authentication',
+    '--skip-install'
+  ]);
+  assert.notEqual(websiteWithLogin.status, 0, 'A public website must not be bootstrapped with sign-in.');
+  assert.match(websiteWithLogin.stderr, /public-website profile has no sign-in/);
+
   const missingScope = run(bootstrapScript, [
     serviceRoot,
     '--name', 'Example.Unclear',
@@ -212,11 +321,12 @@ try {
     '--skip-install'
   ]);
   assert.notEqual(missingScope.status, 0, 'Bootstrap must not assume a technical profile when the product scope is unresolved.');
-  assert.match(missingScope.stderr, /--profile must be service, api, or management-portal/);
+  assert.match(missingScope.stderr, /--profile must be service, api, management-portal, or public-website/);
 } finally {
   await rm(consumerRoot, { recursive: true, force: true });
   await rm(sqlServerRoot, { recursive: true, force: true });
   await rm(serviceRoot, { recursive: true, force: true });
+  await rm(websiteRoot, { recursive: true, force: true });
 }
 
-console.log('Validated scope-driven NewHeap consumer profiles and post-bootstrap inspection.');
+console.log('Validated scope-driven NewHeap consumer profiles, Angular pins from the platform-common peer range, and post-bootstrap inspection.');
