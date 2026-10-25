@@ -40,6 +40,7 @@ import {
 } from '@newheap/platform-ai-chat/agent-runs';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import {
+  agentDisplayName,
   codeTextKeys,
   policyKeys,
   readableId,
@@ -219,9 +220,7 @@ export class NhAssistantAdminAgentsComponent {
     if (!agent) {
       return null;
     }
-    const keys = codeTextKeys(agent.source, agent.displayName);
-    const translated = keys.length > 0 ? this.translate.instant(keys[0]) as string : null;
-    return runNowAgentOf(agent, translated && translated !== keys[0] ? translated : agent.displayName);
+    return runNowAgentOf(agent, agentDisplayName(this.translate, agent));
   });
   /** The run configuration opens with the guided setup, for an agent created to work on its own. */
   readonly setupOnOpen = signal(false);

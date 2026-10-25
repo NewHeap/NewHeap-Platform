@@ -10,8 +10,9 @@ import {
   signal,
   untracked
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Observable, Subscription, map, of, switchMap, tap } from 'rxjs';
+import { Observable, Subscription, map, of, startWith, switchMap, tap } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentGroups,
@@ -31,7 +32,7 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
-import { policyKeys, warningKeys, worksOnSummary } from './agent-texts';
+import { agentDisplayName, policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
 import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './run-config/nh-assistant-instructions-asset.component';
 import { RunConfigFieldError } from './run-config/run-config-shared';
@@ -123,6 +124,20 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly uses: readonly AgentUse[] = ['chat', 'background', 'both'];
 
   readonly id = `nh-assistant-agent-editor-${nextId++}`;
+
+  private readonly language = toSignal(
+    this.translate.onLangChange.pipe(map(event => event.lang), startWith(this.translate.currentLang)),
+    { initialValue: this.translate.currentLang });
+
+  /**
+   * The agent's name in the title, as the agent list shows it: an agent in code names itself with a
+   * translation key, which reads in the reader's language.
+   */
+  readonly titleName = computed(() => {
+    this.language();
+    const agent = this.agent();
+    return agent ? agentDisplayName(this.translate, agent) : '';
+  });
   readonly max = NH_ASSISTANT_MAX_INSTRUCTIONS;
   readonly autonomyLevels: readonly AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
   readonly classifications: readonly AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];

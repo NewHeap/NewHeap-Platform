@@ -1,7 +1,7 @@
 <form class="section card" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="saving()" (submit)="$event.preventDefault(); save()">
   <h3 [id]="id + '-title'">
-    @if (agent(); as current) {
-      {{ 'nh-assistant.admin.agent-editor.edit-title' | translate: { name: current.displayName } }}
+    @if (agent()) {
+      {{ 'nh-assistant.admin.agent-editor.edit-title' | translate: { name: titleName() } }}
     } @else {
       {{ 'nh-assistant.admin.agent-editor.new-title' | translate }}
     }

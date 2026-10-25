@@ -38,7 +38,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
-import { codeTextKeys, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
+import { agentDisplayName, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
 import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
 import { isPackageLocked, packageLockOf } from './agent-packages/package-parts';
 import { NhAssistantAgentConsultationRoutesComponent } from './nh-assistant-agent-consultation-routes.component';
@@ -186,7 +186,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly agentName = computed(() => {
     this.language();
     const agent = this.agent();
-    return this.translated(codeTextKeys(agent.source, agent.displayName), agent.displayName);
+    return agentDisplayName(this.translate, agent);
   });
 
   /** The skill being changed; `null` with the skill form open adds a new skill. */
@@ -532,7 +532,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   /** An agent's name: the translation of an agent in code, the administrator's text, or its id. */
   agentNameOf(agentId: string): string {
     const agent = this.agents().find(item => item.id === agentId);
-    return agent ? this.translated(codeTextKeys(agent.source, agent.displayName), agent.displayName) : agentId;
+    return agent ? agentDisplayName(this.translate, agent) : agentId;
   }
 
   /** Who may ask a consultation defined as data, in a sentence; `null` for one in code, whose code says it. */
