@@ -472,6 +472,16 @@ internal sealed class NhAssistantMemoryFunction(
         "Continues the work in another skill of the agent.",
         NhAiToolEffect.ReadOnly);
 
+    /// <summary>
+    /// <c>ask_question</c>: asks a person of a chat a question with choices and lets the turn wait for
+    /// the answer (LS21).
+    /// </summary>
+    public static NhAiToolDescriptor AskQuestionDescriptor { get; } = Create(
+        "assistant.ask-question",
+        "ask_question",
+        "Asks a person of the conversation a question with choices and waits for the answer.",
+        NhAiToolEffect.ReadOnly);
+
     private readonly JsonElement _schema = JsonDocument.Parse(schema).RootElement.Clone();
 
     public NhAiToolDescriptor Descriptor { get; } = descriptor;

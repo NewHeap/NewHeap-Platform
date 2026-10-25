@@ -19,9 +19,29 @@ internal sealed record NhAssistantStoredPart(
     string? LinkUrl = null,
     string? LinkLabel = null,
     string? Sender = null,
-    bool? Trusted = null)
+    bool? Trusted = null,
+    IReadOnlyList<string>? Choices = null,
+    string? AddresseeActorId = null,
+    DateTimeOffset? ExpiresAt = null,
+    string? SkillId = null,
+    int? SkillVersion = null)
 {
     public const string TextType = "text";
+
+    /// <summary>
+    /// A question the agent asked with <c>ask_question</c> (LS21): <see cref="InvocationId"/> names its
+    /// call, which says whether it waits, was answered and with which choice; <see cref="Text"/> is the
+    /// question, <see cref="Choices"/> its choices, <see cref="AddresseeActorId"/> the person who
+    /// answers it and <see cref="ExpiresAt"/> the end of its wait on the application's clock.
+    /// </summary>
+    public const string QuestionType = "question";
+
+    /// <summary>
+    /// The skill a person's chat turn worked in from here on (LS20): <see cref="SkillId"/>, its
+    /// <see cref="SkillVersion"/> for a skill defined as data and who chose it in <see cref="Reason"/>
+    /// (<see cref="NhAssistantSkillChoosers"/>).
+    /// </summary>
+    public const string SkillType = "skill";
 
     /// <summary>
     /// What the application said about a message it posted, besides its text: the

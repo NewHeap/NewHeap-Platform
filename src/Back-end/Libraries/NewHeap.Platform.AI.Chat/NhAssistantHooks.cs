@@ -412,7 +412,30 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ObjectId"/> the variant that was removed and
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>promoted</c>. Never the definition.
     /// </summary>
-    AdminAgentShadowVariantPromoted = 91
+    AdminAgentShadowVariantPromoted = 91,
+
+    /// <summary>
+    /// The agent asked a question with <c>ask_question</c> in a person's chat (LS21) and the turn waits
+    /// for its answer. <see cref="NhAssistantAuditEvent.InvocationId"/> is the question,
+    /// <see cref="NhAssistantAuditEvent.ActorId"/> the person whose turn it is and
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> the addressee. Never the question or its choices.
+    /// </summary>
+    QuestionAsked = 100,
+
+    /// <summary>
+    /// The addressee answered a question (LS21) and the turn continued.
+    /// <see cref="NhAssistantAuditEvent.InvocationId"/> is the question, <see cref="NhAssistantAuditEvent.ActorId"/>
+    /// the person who answered and <see cref="NhAssistantAuditEvent.ResultCode"/> <c>answered</c>. Never
+    /// the answer.
+    /// </summary>
+    QuestionAnswered = 101,
+
+    /// <summary>
+    /// A question expired without an answer (LS21), found when its addressee answered too late.
+    /// <see cref="NhAssistantAuditEvent.InvocationId"/> is the question, <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// the addressee and <see cref="NhAssistantAuditEvent.ResultCode"/> <c>assistant-question-expired</c>.
+    /// </summary>
+    QuestionExpired = 102
 }
 
 /// <summary>

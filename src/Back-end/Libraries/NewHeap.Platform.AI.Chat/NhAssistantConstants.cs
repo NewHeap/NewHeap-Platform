@@ -335,6 +335,52 @@ public static class NhAssistantToolCallStatuses
     /// became stale. Its approval names the reason.
     /// </summary>
     public const string NotExecuted = "not-executed";
+
+    /// <summary>
+    /// An <c>ask_question</c> call that waits for its addressee's answer. It ends as
+    /// <see cref="Succeeded"/> with the answer as its result, as <see cref="Failed"/> with
+    /// <see cref="NhAssistantErrorCodes.QuestionExpired"/>, or as <see cref="NotExecuted"/> with
+    /// <see cref="NhAssistantErrorCodes.QuestionCancelled"/> when the turn was stopped.
+    /// </summary>
+    public const string AwaitingAnswer = "awaiting-answer";
+}
+
+/// <summary>
+/// The status of a question an agent asked with <c>ask_question</c> in a person's chat, as the
+/// conversation shows it (<c>run.AllowQuestions()</c>).
+/// </summary>
+public static class NhAssistantQuestionStatuses
+{
+    /// <summary>The question waits for its addressee, and the turn waits with it.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>The addressee chose an answer and the turn continued with it.</summary>
+    public const string Answered = "answered";
+
+    /// <summary>Nobody answered within the turn's wait limit, <see cref="NhAssistantLimits.ApprovalLifetime"/>.</summary>
+    public const string Expired = "expired";
+
+    /// <summary>The turn was stopped while the question waited.</summary>
+    public const string Cancelled = "cancelled";
+}
+
+/// <summary>
+/// The bounds of a question an agent asks with <c>ask_question</c>: a question that breaks them is
+/// not posted, and the model reads <see cref="NhAssistantErrorCodes.QuestionInvalid"/> instead.
+/// </summary>
+public static class NhAssistantQuestionLimits
+{
+    /// <summary>The most characters of the question.</summary>
+    public const int MaxQuestionLength = 500;
+
+    /// <summary>The fewest choices a question offers.</summary>
+    public const int MinChoices = 2;
+
+    /// <summary>The most choices a question offers.</summary>
+    public const int MaxChoices = 6;
+
+    /// <summary>The most characters of one choice.</summary>
+    public const int MaxChoiceLength = 100;
 }
 
 /// <summary>
@@ -1268,6 +1314,44 @@ public static class NhAssistantErrorCodes
     /// The proposal takes no feedback in its status: it is still pending, or it was approved.
     /// </summary>
     public const string FeedbackNotAccepted = "assistant-feedback-not-accepted";
+
+    /// <summary>
+    /// The agent's <c>ask_question</c> call broke the bounds of <see cref="NhAssistantQuestionLimits"/>,
+    /// named an addressee who is not a person of the conversation, or came while another question or
+    /// an approval waits. Nothing was posted; the model reads the code as the call's result.
+    /// </summary>
+    public const string QuestionInvalid = "assistant-question-invalid";
+
+    /// <summary>
+    /// The conversation has no question with that id.
+    /// </summary>
+    public const string QuestionNotFound = "assistant-question-not-found";
+
+    /// <summary>
+    /// The question no longer waits for an answer: it was answered, it expired or its turn was stopped.
+    /// </summary>
+    public const string QuestionNotPending = "assistant-question-not-pending";
+
+    /// <summary>
+    /// The question is addressed to another person of the conversation; only its addressee answers it.
+    /// </summary>
+    public const string QuestionForbidden = "assistant-question-forbidden";
+
+    /// <summary>
+    /// Nobody answered the question within the turn's wait limit: the answer is refused and the
+    /// conversation is released.
+    /// </summary>
+    public const string QuestionExpired = "assistant-question-expired";
+
+    /// <summary>
+    /// The turn was stopped while its question waited.
+    /// </summary>
+    public const string QuestionCancelled = "assistant-question-cancelled";
+
+    /// <summary>
+    /// The answer names no choice of the question.
+    /// </summary>
+    public const string QuestionAnswerInvalid = "assistant-question-answer-invalid";
 
     /// <summary>
     /// Creates the localization key for a code.

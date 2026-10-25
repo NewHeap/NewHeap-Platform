@@ -102,6 +102,12 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantApprovalRequiredEvent approval => ("approval.required", Json(
                 NhAssistantDtoMapper.ToDto(approval.Approval),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantQuestionAskedEvent asked => ("question.asked", Json(
+                NhAssistantDtoMapper.ToDto(asked.Question),
+                context.NhAssistantMessagePartDto)),
+            NhAssistantQuestionAnsweredEvent answered => ("question.answered", Json(
+                NhAssistantDtoMapper.ToDto(answered.Question),
+                context.NhAssistantMessagePartDto)),
             NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
                 new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                 context.NhAssistantConnectionRequiredDto)),
@@ -227,7 +233,10 @@ internal static class NhAssistantDtoMapper
             shareToken,
             currentActorId,
             view.Kind,
-            thread);
+            thread)
+        {
+            PendingQuestion = view.PendingQuestion is null ? null : ToDto(view.PendingQuestion)
+        };
     }
 
     public static NhAssistantMessageDto ToDto(NhAssistantMessageView message)
@@ -255,7 +264,8 @@ internal static class NhAssistantDtoMapper
                     application.SenderName,
                     application.LinkUrl is { } url ? new NhAssistantApplicationMessageLinkDto(url, application.LinkLabel) : null,
                     application.Trusted)
-                : null
+                : null,
+            SkillId = message.SkillId
         };
     }
 
@@ -295,6 +305,17 @@ internal static class NhAssistantDtoMapper
                 connection.DisplayName,
                 connection.Reason),
             NhAssistantFilePartView file => new NhAssistantFilePartDto(file.Name, file.MediaType, file.Size),
+            NhAssistantQuestionView question => new NhAssistantQuestionPartDto(
+                question.QuestionId,
+                question.Question,
+                question.Choices,
+                question.AddresseeActorId,
+                question.ExpiresAt,
+                question.Status)
+            {
+                AnswerIndex = question.AnswerIndex,
+                ClosedAt = question.ClosedAt
+            },
             NhAssistantToolCallPartView tool => new NhAssistantToolCallPartDto(
                 tool.InvocationId,
                 tool.ToolId,

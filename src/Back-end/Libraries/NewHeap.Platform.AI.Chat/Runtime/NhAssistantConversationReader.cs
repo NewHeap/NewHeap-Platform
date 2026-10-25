@@ -62,7 +62,7 @@ internal sealed class NhAssistantConversationReader(
             message => NhAssistantContent.DeserializeParts(message.PartsJson));
         var invocationIds = storedParts.Values
             .SelectMany(parts => parts)
-            .Where(part => part.Type == NhAssistantStoredPart.ToolCallType && part.InvocationId is not null)
+            .Where(part => part.Type is NhAssistantStoredPart.ToolCallType or NhAssistantStoredPart.QuestionType && part.InvocationId is not null)
             .Select(part => part.InvocationId!.Value)
             .ToHashSet();
         var approvalIds = storedParts.Values
@@ -84,15 +84,28 @@ internal sealed class NhAssistantConversationReader(
         var now = _applicationClock.GetUtcNow();
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
+        var questions = new List<NhAssistantQuestionView>();
         foreach (var message in messages)
         {
             var parts = new List<NhAssistantPartView>();
+            string? skillId = null;
             foreach (var part in storedParts[message.Id])
             {
                 switch (part.Type)
                 {
                     case NhAssistantStoredPart.TextType when !string.IsNullOrEmpty(part.Text):
                         parts.Add(new NhAssistantTextPartView(part.Text));
+                        break;
+                    case NhAssistantStoredPart.QuestionType
+                        when part.InvocationId is { } questionId
+                            && invocations.TryGetValue(questionId, out var asked)
+                            && NhAssistantQuestions.ViewOf(part, asked, now) is { } question:
+                        parts.Add(question);
+                        questions.Add(question);
+                        break;
+                    case NhAssistantStoredPart.SkillType when part.SkillId is not null:
+                        // The message names the skill it worked in at its end (LS20).
+                        skillId = part.SkillId;
                         break;
                     case NhAssistantStoredPart.ToolCallType
                         when part.InvocationId is { } invocationId && invocations.TryGetValue(invocationId, out var invocation):
@@ -124,7 +137,8 @@ internal sealed class NhAssistantConversationReader(
                     : message.AuthorActorId,
                 Application = message.Role == NhAssistantMessageRoles.Application
                     ? NhAssistantApplicationMessageView.From(storedParts[message.Id])
-                    : null
+                    : null,
+                SkillId = skillId
             });
         }
 
@@ -149,6 +163,13 @@ internal sealed class NhAssistantConversationReader(
             }
             pending = pendingApproval is null ? null : WithOrigin(ToView(pendingApproval, now), origins, invocations.Values);
         }
+
+        // A waiting turn that asked a question waits for it as for an approval (LS21).
+        var pendingQuestion = pending is null && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval
+            ? questions.LastOrDefault(question => question.TurnId == conversation.ActiveTurnId
+                && invocations.TryGetValue(question.QuestionId, out var asked)
+                && asked.Status == NhAssistantToolCallStatuses.AwaitingAnswer)
+            : null;
 
         var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
         IReadOnlyList<NhAssistantMemberView> members = participants.Count == 0
@@ -185,7 +206,8 @@ internal sealed class NhAssistantConversationReader(
             LastMessageSequence = lastMessageSequence,
             ActiveActorId = access.ActiveActorId,
             Members = members,
-            ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null
+            ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null,
+            PendingQuestion = pendingQuestion
         };
     }
 
