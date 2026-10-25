@@ -9,22 +9,21 @@ internal sealed class NhAssistantToolPresentationResolver(
     ILogger<NhAssistantToolPresentationResolver> logger,
     INhAssistantPresentationCultures? presentationCultures = null)
 {
-    public const int MaxDisplayNameLength = 160;
-    public const int MaxSummaryLength = 512;
-    public const int MaxFieldCount = 8;
-    public const int MaxFieldLabelLength = 80;
-    public const int MaxFieldValueLength = 256;
-    public const int MaxNoticeLength = 512;
-    public const int MaxSerializedLength = 4_000;
+    public const int MaxDisplayNameLength = NhAssistantPresentationLimits.MaxDisplayNameLength;
+    public const int MaxSummaryLength = NhAssistantPresentationLimits.MaxSummaryLength;
+    public const int MaxFieldCount = NhAssistantPresentationLimits.MaxFields;
+    public const int MaxFieldLabelLength = NhAssistantPresentationLimits.MaxFieldLabelLength;
+    public const int MaxFieldValueLength = NhAssistantPresentationLimits.MaxFieldValueLength;
+    public const int MaxNoticeLength = NhAssistantPresentationLimits.MaxNoticeLength;
+    public const int MaxSerializedLength = NhAssistantPresentationLimits.MaxSerializedLength;
 
     /// <summary>
     /// The most cultures one approval is presented in.
     /// </summary>
-    public const int MaxLocalizedCultures = 8;
+    public const int MaxLocalizedCultures = NhAssistantPresentationLimits.MaxCultures;
 
     public const int MaxLocalizedSerializedLength = MaxLocalizedCultures * (MaxSerializedLength + 64);
 
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
     private readonly IReadOnlyList<INhAssistantToolPresenter> _presenters = presenters.ToArray();
 
     public async Task<string> ResolveDisplayNameAsync(
@@ -41,10 +40,21 @@ internal sealed class NhAssistantToolPresentationResolver(
                     token),
                 descriptor.Id,
                 cancellationToken);
+            if (result is null)
+            {
+                continue;
+            }
             if (result is { Length: > 0 and <= MaxDisplayNameLength })
             {
                 return result;
             }
+
+            LogDropped(
+                presenter,
+                descriptor.Id,
+                culture,
+                string.IsNullOrWhiteSpace(result) ? NhAssistantPresentationRules.DisplayNameMissing : NhAssistantPresentationRules.DisplayNameTooLong,
+                "display name");
         }
 
         return descriptor.Id;
@@ -75,10 +85,17 @@ internal sealed class NhAssistantToolPresentationResolver(
                     token),
                 descriptor.Id,
                 cancellationToken);
-            if (IsValid(result))
+            if (result is null)
+            {
+                continue;
+            }
+            if (BrokenRuleOf(result) is not { } rule)
             {
                 return result;
             }
+
+            // The presenter is the application's to fix; the approver reads the generic summary.
+            LogDropped(presenter, descriptor.Id, culture, rule, "approval presentation");
         }
 
         return null;
@@ -249,25 +266,82 @@ internal sealed class NhAssistantToolPresentationResolver(
 
     private static bool IsValid(NhAssistantApprovalPresentation? presentation)
     {
-        if (presentation is null
-            || string.IsNullOrWhiteSpace(presentation.ToolDisplayName)
-            || presentation.ToolDisplayName.Length > MaxDisplayNameLength
-            || string.IsNullOrWhiteSpace(presentation.Summary)
-            || presentation.Summary.Length > MaxSummaryLength
-            || presentation.Fields is null
-            || presentation.Fields.Count > MaxFieldCount
-            || presentation.Fields.Any(field =>
-                string.IsNullOrWhiteSpace(field.Label)
-                || field.Label.Length > MaxFieldLabelLength
-                || string.IsNullOrWhiteSpace(field.Value)
-                || field.Value.Length > MaxFieldValueLength)
-            || presentation.Notice?.Length > MaxNoticeLength)
+        return presentation is not null && BrokenRuleOf(presentation) is null;
+    }
+
+    /// <summary>
+    /// The first rule of <see cref="NhAssistantPresentationLimits"/> that <paramref name="presentation"/>
+    /// breaks, as a <see cref="NhAssistantPresentationRules"/> name, or <see langword="null"/> when it keeps
+    /// within all of them.
+    /// </summary>
+    internal static string? BrokenRuleOf(NhAssistantApprovalPresentation presentation)
+    {
+        if (string.IsNullOrWhiteSpace(presentation.ToolDisplayName))
         {
-            return false;
+            return NhAssistantPresentationRules.DisplayNameMissing;
+        }
+        if (presentation.ToolDisplayName.Length > MaxDisplayNameLength)
+        {
+            return NhAssistantPresentationRules.DisplayNameTooLong;
+        }
+        if (string.IsNullOrWhiteSpace(presentation.Summary))
+        {
+            return NhAssistantPresentationRules.SummaryMissing;
+        }
+        if (presentation.Summary.Length > MaxSummaryLength)
+        {
+            return NhAssistantPresentationRules.SummaryTooLong;
+        }
+        if (presentation.Fields is null)
+        {
+            return NhAssistantPresentationRules.FieldsMissing;
+        }
+        if (presentation.Fields.Count > MaxFieldCount)
+        {
+            return NhAssistantPresentationRules.TooManyFields;
+        }
+        foreach (var field in presentation.Fields)
+        {
+            if (field is null || string.IsNullOrWhiteSpace(field.Label))
+            {
+                return NhAssistantPresentationRules.FieldLabelMissing;
+            }
+            if (field.Label.Length > MaxFieldLabelLength)
+            {
+                return NhAssistantPresentationRules.FieldLabelTooLong;
+            }
+            if (string.IsNullOrWhiteSpace(field.Value))
+            {
+                return NhAssistantPresentationRules.FieldValueMissing;
+            }
+            if (field.Value.Length > MaxFieldValueLength)
+            {
+                return NhAssistantPresentationRules.FieldValueTooLong;
+            }
+        }
+        if (presentation.Notice?.Length > MaxNoticeLength)
+        {
+            return NhAssistantPresentationRules.NoticeTooLong;
         }
 
-        return JsonSerializer.Serialize(presentation, NhAssistantContent.JsonOptions).Length
-            <= MaxSerializedLength;
+        return JsonSerializer.Serialize(presentation, NhAssistantContent.JsonOptions).Length > MaxSerializedLength
+            ? NhAssistantPresentationRules.TooLong
+            : null;
+    }
+
+    /// <summary>
+    /// Logs that a presenter's result was dropped: its type, the tool, the culture and the broken rule,
+    /// never the text it returned.
+    /// </summary>
+    private void LogDropped(INhAssistantToolPresenter presenter, string toolId, CultureInfo culture, string rule, string what)
+    {
+        logger.LogWarning(
+            "Assistant tool presenter {PresenterType} returned a {PresentationKind} for tool {ToolId} in culture {Culture} that breaks rule {PresentationRule}; it is dropped and the fallback is shown.",
+            presenter.GetType().FullName,
+            what,
+            toolId,
+            culture.Name,
+            rule);
     }
 
     private async Task<T?> TryInvokeAsync<T>(
@@ -280,7 +354,7 @@ internal sealed class NhAssistantToolPresentationResolver(
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(Timeout);
+            timeout.CancelAfter(NhAssistantPresentationLimits.PresenterTimeout);
             return await invoke(timeout.Token).AsTask().WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)

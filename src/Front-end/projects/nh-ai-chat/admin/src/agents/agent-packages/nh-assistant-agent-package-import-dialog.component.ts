@@ -35,7 +35,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
-import { codeTextKeys } from '../agent-texts';
+import { agentDisplayName } from '../agent-texts';
 import { NhAssistantAccountPickerComponent } from '../run-config/nh-assistant-account-picker.component';
 import { packageFieldLabelKey, packagePartLabelKey, packagePartOf } from './package-parts';
 
@@ -299,11 +299,12 @@ export class NhAssistantAgentPackageImportDialogComponent {
   agentName(agentId: string): string {
     const agent = this.agents().find(item => item.id === agentId);
     if (agent) {
-      const keys = codeTextKeys(agent.source, agent.displayName);
-      const translated = keys.length > 0 ? this.translate.instant(keys[0]) as string : null;
-      return translated && translated !== keys[0] ? translated : agent.displayName;
+      return agentDisplayName(this.translate, agent);
     }
-    return this.source().package?.agents?.find(item => item?.id === agentId)?.definition?.displayName ?? agentId;
+    // An agent the host does not have yet reads as the package names it; one in code by its key.
+    const packaged = this.source().package?.agents?.find(item => item?.id === agentId);
+    const displayName = packaged?.definition?.displayName;
+    return packaged && displayName ? agentDisplayName(this.translate, { source: packaged.source, displayName }) : agentId;
   }
 
   /** The translation keys of the codes of one field, the first one known. */

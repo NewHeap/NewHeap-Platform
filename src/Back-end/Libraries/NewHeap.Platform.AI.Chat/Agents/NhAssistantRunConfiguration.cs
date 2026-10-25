@@ -694,6 +694,22 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
     }
 
     /// <summary>
+    /// Whether <paramref name="profileName"/> permits the assistant's execution region
+    /// (<see cref="NhAssistantBuilder.UseExecutionRegion"/>), itself or through a fallback, as a save of a
+    /// data skill or an agent created in the administration requires (field error
+    /// <see cref="NhAssistantFieldErrors.RegionNotPermitted"/>). A profile that is not registered passes:
+    /// <see cref="IsChoosableProfile"/> reports it. Loading does not check it, so a version saved before
+    /// keeps loading and its model calls fail with <see cref="NhAssistantErrorCodes.ModelRegionDenied"/>.
+    /// </summary>
+    public bool PermitsExecutionRegion(string? profileName)
+    {
+        return NhAssistantRegionChecks.PermitsByName(
+            services.GetService<INhAiModelProfileRegistry>(),
+            profileName,
+            registration.ExecutionRegion);
+    }
+
+    /// <summary>
     /// The problem of a data skill on its agent, or <see langword="null"/> when it fits.
     /// </summary>
     public string? ValidateSkill(AssistantAgentSkillDefinition definition, IReadOnlyList<string> toolSelectors, NhAssistantRunAgent? agent)

@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using Xunit;
 
@@ -50,6 +52,43 @@ public sealed class AssistantAgentRegistryTests
     public void Tool_selectors_are_exact_ids_or_prefix_globs(string selector, bool valid)
     {
         Assert.Equal(valid, NhAssistantAgentDefinition.IsValidSelector(selector));
+    }
+
+    [Fact]
+    public void Long_tool_selectors_are_checked_by_length_and_pattern()
+    {
+        var longest = string.Join('.', Enumerable.Repeat("segment-a1", 11)) + ".tools.*";
+        var nearMiss = string.Join('-', Enumerable.Repeat("a", 64)) + "-";
+
+        Assert.Equal(128, longest.Length);
+        Assert.True(NhAssistantAgentDefinition.IsValidSelector(longest));
+        Assert.False(NhAssistantAgentDefinition.IsValidSelector(longest + "x"));
+        Assert.Equal(128, nearMiss.Length);
+        Assert.False(NhAssistantAgentDefinition.IsValidSelector(nearMiss));
+    }
+
+    [Fact]
+    public void Fixed_patterns_have_no_match_timeout_and_stay_linear_on_long_input()
+    {
+        var selector = NhAssistantAgentDefinition.SelectorPattern();
+        var extension = NhAssistantUploadOptions.ExtensionPattern();
+        var artifactType = NhAssistantArtifactStore.ContentTypePattern();
+
+        Assert.Equal(Regex.InfiniteMatchTimeout, selector.MatchTimeout);
+        Assert.Equal(Regex.InfiniteMatchTimeout, extension.MatchTimeout);
+        Assert.Equal(Regex.InfiniteMatchTimeout, artifactType.MatchTimeout);
+
+        var segments = Enumerable.Repeat("segment-a1-b2", 20_000).ToArray();
+        Assert.Matches(selector, string.Join('.', segments) + ".*");
+        Assert.DoesNotMatch(selector, string.Join('.', segments) + ".-");
+        Assert.DoesNotMatch(selector, string.Join('-', Enumerable.Repeat("a", 100_000)) + "-");
+        Assert.DoesNotMatch(selector, string.Join('.', Enumerable.Repeat("a-a", 50_000)) + ".*.*");
+
+        var characters = new string('a', 200_000);
+        Assert.Matches(extension, "." + characters);
+        Assert.DoesNotMatch(extension, "." + characters + ".");
+        Assert.Matches(artifactType, "text/" + characters);
+        Assert.DoesNotMatch(artifactType, "text/" + characters + "/");
     }
 
     [Fact]

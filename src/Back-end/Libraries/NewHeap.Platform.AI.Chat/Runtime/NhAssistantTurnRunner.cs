@@ -1009,9 +1009,7 @@ internal sealed partial class NhAssistantTurnRunner(
             var agent = await CreateAgentAsync(state, callerContext, interceptor, timeout.Token);
             if (agent is null)
             {
-                return (NhAssistantTurnStatuses.Failed, state.ClassificationNotPermitted
-                    ? NhAssistantErrorCodes.ClassificationNotPermitted
-                    : NhAssistantErrorCodes.ModelUnavailable);
+                return (NhAssistantTurnStatuses.Failed, ModelNotCreatedCode(state));
             }
 
             var updates = new List<AgentResponseUpdate>();
@@ -2293,9 +2291,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 outcomeStatus = NhAssistantTurnStatuses.Failed;
                 errorCode = state.InstructionsTooLong
                     ? NhAssistantAdminErrorCodes.InstructionsTooLong
-                    : state.ClassificationNotPermitted
-                        ? NhAssistantErrorCodes.ClassificationNotPermitted
-                        : NhAssistantErrorCodes.ModelUnavailable;
+                    : ModelNotCreatedCode(state);
             }
             else
             {
@@ -2609,6 +2605,24 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
+    /// The failure code of a turn whose model could not be created: a classification or region that no
+    /// profile of the chain permits, which no retry changes, or else an unavailable model.
+    /// </summary>
+    private static string ModelNotCreatedCode(NhAssistantTurnState state)
+    {
+        if (state.ClassificationNotPermitted)
+        {
+            return NhAssistantErrorCodes.ClassificationNotPermitted;
+        }
+        if (state.RegionNotPermitted)
+        {
+            return NhAssistantErrorCodes.ModelRegionDenied;
+        }
+
+        return NhAssistantErrorCodes.ModelUnavailable;
+    }
+
+    /// <summary>
     /// Starts the closing answer on a new paragraph when the model already wrote text after its last tool call.
     /// </summary>
     private static async Task SeparateClosingTextAsync(NhAssistantTurnState state)
@@ -2672,6 +2686,19 @@ internal sealed partial class NhAssistantTurnRunner(
                 agent.Id,
                 state.Scope.TurnId,
                 profile.Name,
+                ClassificationOf(state));
+            return null;
+        }
+        if (!NhAssistantRegionChecks.PermitsTogether(profiles, profile, ClassificationOf(state), registration.ExecutionRegion))
+        {
+            // No profile of the chain that may take the data runs in the region: no retry would change that.
+            state.RegionNotPermitted = true;
+            logger.LogWarning(
+                "Agent {AgentId} cannot call its model in turn {TurnId}: no profile of {ProfileName} permits region {ExecutionRegion} for classification {Classification}.",
+                agent.Id,
+                state.Scope.TurnId,
+                profile.Name,
+                registration.ExecutionRegion,
                 ClassificationOf(state));
             return null;
         }

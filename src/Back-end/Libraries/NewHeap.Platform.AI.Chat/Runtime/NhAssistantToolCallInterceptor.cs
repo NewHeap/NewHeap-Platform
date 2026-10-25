@@ -175,6 +175,12 @@ internal sealed class NhAssistantTurnState
     public bool ClassificationNotPermitted { get; set; }
 
     /// <summary>
+    /// No profile of the turn's model call permits the execution region for its data classification;
+    /// the turn fails with <see cref="NhAssistantErrorCodes.ModelRegionDenied"/>.
+    /// </summary>
+    public bool RegionNotPermitted { get; set; }
+
+    /// <summary>
     /// The files this turn gave the model, from attachments and tool results; the turn's file limits
     /// bound them.
     /// </summary>
@@ -1145,10 +1151,14 @@ internal sealed class NhAssistantToolCallInterceptor(
             : [];
         var duplicate = agentProposal && duplicates is not null && policy is not null
             ? await duplicates.CheckAsync(home!, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
-            : NhAssistantDuplicateCheck.None;
+            // A shadow proposal never waits, so it counts as open within its lifetime: an unchanged
+            // finding is not proposed again, as live would not (LS9).
+            : shadow && duplicates is not null
+                ? await duplicates.CheckShadowAsync(home!, descriptor.Id, argumentsHash, cancellationToken)
+                : NhAssistantDuplicateCheck.None;
         if (duplicate is { Outcome: not NhAssistantProposeOutcome.Created, Existing: { } existing })
         {
-            return await SkipDuplicateAsync(descriptor, row, duplicate.Outcome, existing, mode, cancellationToken);
+            return await SkipDuplicateAsync(descriptor, row, duplicate.Outcome, existing, mode, shadow, cancellationToken);
         }
 
         var presentations = await toolPresentation.ResolveApprovalInCulturesAsync(
@@ -1442,6 +1452,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         NhAssistantProposeOutcome outcome,
         AssistantApproval existing,
         NhAiApprovalMode mode,
+        bool shadow,
         CancellationToken cancellationToken)
     {
         var code = outcome == NhAssistantProposeOutcome.RecentlyRejected
@@ -1475,7 +1486,7 @@ internal sealed class NhAssistantToolCallInterceptor(
                 StartedAt = row.StartedAt
             },
             cancellationToken);
-        return new NhAssistantRecordedProposal(existing.Id, existing.ProposalId, mode, false)
+        return new NhAssistantRecordedProposal(existing.Id, existing.ProposalId, mode, shadow)
         {
             Outcome = outcome,
             Existing = existing

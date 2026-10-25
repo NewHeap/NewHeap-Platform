@@ -2270,7 +2270,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 Blank(request.DataClassification) is not { } classificationName
                     || NhAssistantDataClassificationNames.TryParse(classificationName, out _),
                 "dataClassification",
-                NhAssistantFieldErrors.Invalid);
+                NhAssistantFieldErrors.Invalid)
+            // A profile that runs in the execution region neither itself nor through a fallback would
+            // refuse every model call of the skill; saving and importing refuse it (LS7).
+            .Require(validator.PermitsExecutionRegion(Blank(request.Profile)), "profile", NhAssistantFieldErrors.RegionNotPermitted);
         RequireFileLimits(errors, request.AcceptsFiles, request.MaxFileBytes, request.MaxFilePages, request.MaxFilesPerTurn, request.MaxFileTokensPerTurn);
         // The save asks the application's source: the asset must exist and have the hash it names.
         if (instructionsAsset is not null

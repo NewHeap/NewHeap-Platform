@@ -2543,6 +2543,36 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The oldest shadow proposal of the agent in its shadow threads within the scope that has the same
+    /// identity and whose proposal lifetime has not ended at <paramref name="now"/> (the application's
+    /// clock), or <see langword="null"/>. A shadow proposal never waits for a decision, so it counts as
+    /// open for exactly its lifetime, as a live one would.
+    /// </summary>
+    public async Task<AssistantApproval?> FindOpenShadowProposalAsync(
+        string scopeKey,
+        string agentId,
+        string toolId,
+        string argumentsHash,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Approvals
+            .AsNoTracking()
+            .Where(approval => context.Threads.Any(thread => thread.ConversationId == approval.ConversationId
+                    && thread.ScopeKey == scopeKey
+                    && thread.AgentId == agentId
+                    && thread.Shadow)
+                && approval.ToolId == toolId
+                && approval.ArgumentsHash == argumentsHash
+                && approval.Status == NhAssistantApprovalStatuses.Shadow
+                && approval.ExpiresAt > now
+                && !(approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline))
+            .OrderBy(approval => approval.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// The latest proposal of the agent within the scope with the same identity that people rejected
     /// since <paramref name="since"/>, or <see langword="null"/>.
     /// </summary>

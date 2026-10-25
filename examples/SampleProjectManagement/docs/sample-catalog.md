@@ -38,10 +38,12 @@ status change because both `ProjectAiTools.ChangeStatusAsync` (`AllowAgentGrant`
 and `SampleIntakeReviewerComposition` grant it, for trigger runs only. Its
 proposal waits under the `project-intake` approval policy until a project approver
 other than the project's creator decides it; the approved change then executes as
-its own background operation, and an edit in between closes it as stale. An approver
-may also answer with a messaging reply: `SampleApprovalReplyChannel` asks
+its own background operation. An edit in between makes the proposal stale (SPM-271): the
+decision facts say `SubjectChanged`, an approval is refused with `assistant-proposal-stale` and
+closes the proposal at once, and an edit after the approval still closes it before it executes. An
+approver may also answer with a messaging reply: `SampleApprovalReplyChannel` asks
 `INhAssistantProposalDecisionService` whether the person may decide before it issues
-them a reply token, and `POST approval-replies` decides their reply as them with the
+them a reply token, and whether the project changed since, and `POST approval-replies` decides their reply as them with the
 checks of the decision endpoint; a reply delivered twice returns the earlier decision,
 and the audit names the `messaging-reply` channel and the delivery. Project
 members and their roles decide who sees the project's agent thread, through
@@ -241,6 +243,14 @@ with a classification that no profile of the chain permits is saved with the war
 `AssistantClassificationSamplesTests` and `AssistantFileSamplesTests` show which profile served the
 calls through the sample's budget manager (`ProjectAiBudgetUsage.ProfilesOf`).
 
+Every profile the assistant uses runs in its execution region (SPM-323). The sample's chat profile
+and its confidential fallback permit `local`, where the deterministic model runs, and the region of
+the real model its secrets configure, which `UseExecutionRegion` names. `AssistantRegionSamplesTests`
+moves the sample assistant to a region its profiles do not permit: the host does not start, and the
+error names the chat profile and the region, instead of every model call failing later. The
+administration refuses a profile that does not run in the region with `region-not-permitted`, and a
+turn that no profile may serve there fails with `assistant-model-region-denied` without a retry.
+
 An agent is not started again by its own change (SPM-308). The project service stamps the cause on
 every status event: the person, or the agent whose status tool changed the status with the subject it
 worked in (`ProjectAgentCause`, from the tool's invocation context and the ambient agent invocation
@@ -316,6 +326,12 @@ message of the application, and the audit records the outcome and the code only.
 confirms in time becomes `execution-unknown`, and an approver hands it to the desk again from the
 proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
 in for the supplier's callback.
+
+In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
+waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see
+it: when a task of the project is saved again, the next shadow run finds the same proposal, records
+nothing new and is audited as `AgentProposalDeduplicated`, so evaluating the closer in shadow compares
+what it would really propose live. `AssistantAgentRunSamplesTests` runs it.
 
 A changed data trigger can be tried in shadow before it replaces the live one (SPM-316). The planner's
 status follow-up skips the planner's own changes (SPM-308); `SampleAgentConfigurationService` saves the

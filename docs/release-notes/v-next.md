@@ -104,3 +104,102 @@ Three fixes keep a background operation's outcome recordable and true to what st
 | A failure code of 101 to 200 characters is stored as `handler-rejected`, and a message key longer than 300 characters as `background-operation.failed`, instead of failing the completion write. | Return failure codes of at most 100 characters and translation keys of at most 300; read the returned text from the operational log. |
 | When the write of a failed or cancelled step fails, the handler and the runner receive the step's own exception instead of the database exception. | None, unless a handler catches the database exception of that write; catch the step's own exception instead. |
 | A write of an attempt that lost its fence throws an internal subclass of `InvalidOperationException` with the same message. | Assert it in tests with a check that accepts derived types, such as `Assert.ThrowsAnyAsync<InvalidOperationException>`. |
+
+## NewHeap.Platform.AI.Chat: fixed patterns without a match timeout
+
+The tool selector (`NhAssistantAgentDefinition`), the upload extension (`NhAssistantUploadOptions.MapExtension`)
+and the artifact type patterns are generated regular expressions without a match timeout. They are linear,
+so a busy machine no longer turns a valid selector into a `RegexMatchTimeoutException` while the host
+starts. Which values are valid does not change.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the execution region at start, at save and per turn
+
+Every profile the assistant uses must permit its execution region (`UseExecutionRegion`, `local` by
+default), itself or through its fallbacks: the chat profile (`UseChatProfile`), the agents' profiles and
+the profiles of the skills and the triage of agents in code. Otherwise the host does not start, and the
+error names the profile and the region. Saving a data skill, also through a package import, or an agent
+created in the administration with a profile whose chain does not permit the region fails with the field
+error `profile: region-not-permitted` (`NhAssistantFieldErrors.RegionNotPermitted`); an agent's stored or
+default profile is accepted as before. A turn whose chain permits the region for no profile that takes its
+data classification fails at once with the new `assistant-model-region-denied`
+(`NhAssistantErrorCodes.ModelRegionDenied`, HTTP 400), failure class `policy`, without a model call; a run
+is not retried.
+
+| Breaking change | Required action |
+|---|---|
+| A host whose chat, agent, skill or triage profile in code permits the execution region neither itself nor through a fallback no longer starts. | Permit the region on the profile or a fallback (`PermitExecutionRegions`), or choose the region with `UseExecutionRegion`. |
+| A turn refused for its region fails with `assistant-model-region-denied` (failure class `policy`, not retried) instead of `assistant-model-unavailable` (transient, retried). | Handle the new code where turn or run failures are mapped or translated; give the agent a profile that runs in the region. |
+| Saving a data skill or an agent created in the administration with such a profile fails with `profile: region-not-permitted` instead of succeeding. | Choose a profile that permits the region; show the field error in an own editor. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a warning for a dropped tool presentation
+
+A display name or approval presentation of an `INhAssistantToolPresenter` that breaks a cap is still
+dropped as a whole, and the approver reads the generic summary; a warning now names the presenter's type,
+the tool, the culture and the broken rule (`NhAssistantPresentationRules`), never the text. The caps are
+public in `NhAssistantPresentationLimits`: a display name of 160 characters, a summary of 512, at most
+eight fields with labels of 80 and values of 256 characters, a notice of 512, 4,000 characters of stored
+JSON, two seconds per presenter call, and at most eight UI cultures. Approvals are presented in every
+supported UI culture of the request localization, which `NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`
+fills; more cultures than the cap log one warning.
+
+| Breaking change | Required action |
+|---|---|
+| None; the caps, including eight fields, are unchanged. | Keep a presenter within `NhAssistantPresentationLimits`; fix the presenter a warning names. |
+
+## NewHeap.Platform.AI.Chat: shadow proposals follow the duplicate rules
+
+A shadow proposal never waits for a decision, so every shadow run proposed an unchanged finding again. A
+shadow proposal with the identity (tool and canonical arguments) of one recorded in the agent's shadow
+threads of the scope within its proposal lifetime is no longer recorded: it is reported as `AlreadyOpen`
+(`assistant-proposal-already-open`), as a live proposal would be, with the `AgentProposalDeduplicated`
+audit event. The evaluation of a shadow variant therefore compares what the live agent would really
+propose; the feedback aggregates already leave shadow proposals out.
+
+| Breaking change | Required action |
+|---|---|
+| A shadow run that proposes an unchanged finding within the earlier shadow proposal's lifetime records no new shadow proposal, and its rules receive `AlreadyOpen`. | None, unless a report counted every shadow proposal; count the `AgentProposalDeduplicated` events of shadow threads for the repeats. |
+
+## NewHeap.Platform.AI.Chat.AspNet: staleness in the decision facts and at the decision
+
+`NhAssistantProposalDecisionFacts.SubjectChanged` (`bool?`, an init-only property) says whether the
+object a pending proposal waits at changed since the proposal, by the precondition the execution runs
+(`INhAiProposalPrecondition`; by default the recorded and current subject versions): `null` when the
+proposal is not pending or the default precondition has no version to compare. When the proposal's
+approval policy requires an unchanged subject (`RequireUnchangedSubject`), approving a proposal whose
+object changed, through `POST approvals/{id}/decisions` or `INhAssistantProposalDecisionService.DecideAsync`,
+fails with `assistant-proposal-stale` and closes it as stale as the execution would: the asker of a
+consultation is told, and a deferred proposal's follow-up run starts when its policy asks for one. A
+rejection is recorded as before.
+
+| Breaking change | Required action |
+|---|---|
+| Approving a proposal of a changed object whose policy requires an unchanged subject fails with `assistant-proposal-stale` (HTTP 409) and closes the proposal, instead of succeeding and closing it as stale before execution. | Handle `assistant-proposal-stale` at the decision; read `SubjectChanged` from the decision facts to tell the person before they decide. |
+
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: the query token at the configured hub paths
+
+`MapNewHeapAssistant` maps the assistant hub on the host's root at `NhAssistantOptions.HubPath`
+(`/hub/assistant` by default, `NewHeap:AI:Assistant:HubPath`), outside the route prefix. NewHeap's bearer
+setup reads `access_token` and `divisionId` from the query string below `/hub`, as before, and now also
+below the configured path of a hub a NewHeap library maps: the assistant hub and the background-operations
+hub while it is mapped. A hub moved to `/hubs/assistant` or under the route prefix connects with a query
+token; every other request still takes its token from the `Authorization` header only.
+
+| Breaking change | Required action |
+|---|---|
+| None; the default path stays. | None. A host that moved the assistant hub out of `/hub` and read the query token itself may remove that workaround. |
+
+## @newheap/platform-ai-chat: agent names in the administration and the region refusal
+
+The agent editor's title, the import dialog's name of a package agent the host does not have yet, and the
+names in the agent list, the export dialog, the run configuration and the flow all read an agent's name
+through `agentDisplayName`: an agent in code shows its translation in the reader's language instead of
+its translation key. New texts translate the server's `assistant-model-region-denied` error and the field
+error `region-not-permitted` (English and Dutch).
+
+| Breaking change | Required action |
+|---|---|
+| The new translation keys `nh-assistant.errors.assistant-model-region-denied` and `nh-assistant.admin.run-config.field-errors.region-not-permitted`. | An application that replaces the bundled translations adds both keys in each of its languages. |

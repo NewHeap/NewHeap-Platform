@@ -139,7 +139,12 @@ which the panel shows as is. The administration also reads
 a readable form of the skill id and the description from code) and `nh-assistant.policies.<policy>`
 for the policy an agent requires (otherwise the policy as it is named in code). Its agent editor
 shows the translations of an agent in code and sends the keys back unless the administrator
-changes the text. A host that provides every text itself (`translations: 'host'`) covers
+changes the text. Every place that names an agent, the editor's title, the agent list, the run
+configuration and the package dialogs included, shows an agent in code by its translated
+`displayNameKey` in the reader's language, with the key's text as fallback, and an agent created in
+the administration by what was typed; a package agent the host does not have yet reads as the
+package names it. Translate the server's `assistant-model-region-denied` and the field error
+`region-not-permitted` as well when the host provides its own texts. A host that provides every text itself (`translations: 'host'`) covers
 `nh-assistant.errors.<code>` for each code in `NH_ASSISTANT_ERROR_CODES` (the server's
 `NH_ASSISTANT_SERVER_ERROR_CODES` plus the client-side codes). Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through

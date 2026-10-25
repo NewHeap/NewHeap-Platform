@@ -34,7 +34,7 @@ import {
   ɵNhAssistantRunNowDialogComponent as NhAssistantRunNowDialogComponent,
   type ɵNhAssistantRunNowAgent as NhAssistantRunNowAgent
 } from '@newheap/platform-ai-chat/agent-runs';
-import { codeTextKeys, policyKeys, readableId, runNowAgentOf, skillDescriptionKeys, skillNameKeys, worksOnSummary } from '../agent-texts';
+import { agentDisplayName, policyKeys, readableId, runNowAgentOf, skillDescriptionKeys, skillNameKeys, worksOnSummary } from '../agent-texts';
 import {
   AgentFlowEntry,
   AgentFlowServerUse,
@@ -167,7 +167,7 @@ export class NhAssistantAgentFlowComponent implements OnInit {
   readonly agentName = computed(() => {
     this.language();
     const agent = this.agent();
-    return this.translated(codeTextKeys(agent.source, agent.displayName), agent.displayName);
+    return agentDisplayName(this.translate, agent);
   });
   readonly accountability = computed(() => flowAccountability(this.configuration()));
   /** The way of working of the agent: fixed rules (named for an agent created here) or the model. */

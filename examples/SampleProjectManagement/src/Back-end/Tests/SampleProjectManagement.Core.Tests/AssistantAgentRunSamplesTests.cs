@@ -194,6 +194,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(NhAssistantErrorCodes.ApprovalPolicyDenied, FirstCode(outsiderOffer));
         Assert.True(offer.Success);
         Assert.Equal(proposal.ExpiresAt, offer.Data!.ExpiresAt);
+        // SPM-271: the project is as the reviewer saw it.
+        Assert.False(offer.Data.SubjectChanged);
 
         // A token the application did not issue, or an answer that is neither yes nor no, decides
         // nothing.
@@ -410,11 +412,23 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
 
         await host.TouchProjectAsync(project);
+        // The decision facts tell a channel that the project changed since the proposal.
+        TaskResult<SampleApprovalReplyOffer> offer;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            offer = await scope.ServiceProvider.GetRequiredService<SampleApprovalReplyChannel>()
+                .OfferAsync(proposal.ApprovalId, host.ColleagueId, CancellationToken.None);
+        }
+        Assert.True(offer.Data!.SubjectChanged);
+        // The policy requires an unchanged project: the approval is refused at once and closes the
+        // proposal as stale, as the execution would, instead of succeeding first.
         var decision = await DecideAsync(colleague, proposal, "approve");
-        Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, decision.StatusCode);
+        Assert.Contains(NhAssistantErrorCodes.ProposalStale, await decision.Content.ReadAsStringAsync());
 
         var stale = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Stale);
         Assert.Equal(proposal.ApprovalId, stale.ApprovalId);
+        Assert.Null(stale.DecidedByActorId);
         Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
     }
 
@@ -1046,6 +1060,44 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // Other samples share the host, its closer and its planner.
             await ChangeShadowAsync(closer, SampleShadowChange.Code, null);
             await ChangeSkillShadowAsync(planner, skill, SampleShadowChange.Code, null);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_324_the_project_closer_in_shadow_proposes_an_unchanged_finding_once_within_its_lifetime()
+    {
+        // A shadow proposal never waits for people, but it follows the live duplicate rules as if it
+        // were open for its proposal lifetime, so the evaluation counts what live would propose.
+        const string closer = SampleProjectCloserComposition.AgentId;
+        var project = await host.CreateProjectAsync("SHADOW-ONCE", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var report = await host.CreateTaskAsync(project, "Write the closing report");
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            await ChangeShadowAsync(closer, SampleShadowChange.Shadow, "Evaluate the closing rules");
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(report, host.ParticipantId));
+            var shadowThread = await WaitForShadowThreadAsync(administrator, project, closer);
+            var first = await WaitForProposalAsync(administrator, shadowThread, NhAssistantApprovalStatuses.Shadow);
+
+            // The task is saved again; the rules find the same finding in the next shadow run.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(report, host.ParticipantId));
+            var runs = await WaitForRunCountAsync(administrator, shadowThread, 2);
+
+            Assert.All(runs, run => Assert.True(run.Shadow));
+            Assert.Equal(0, Assert.Single(runs, run => run.Id != first.RunId).ProposalCount);
+            var proposals = await administrator.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{shadowThread}/proposals", Json, TestContext.Current.CancellationToken);
+            Assert.Equal(first.ApprovalId, Assert.Single(proposals!).ApprovalId);
+            Assert.Contains(
+                host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+                evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated
+                    && evt.ApprovalId == first.ApprovalId
+                    && evt.ResultCode == NhAssistantErrorCodes.ProposalAlreadyOpen);
+        }
+        finally
+        {
+            // Other samples share the host and its closer.
+            await ChangeShadowAsync(closer, SampleShadowChange.Code, null);
         }
     }
 

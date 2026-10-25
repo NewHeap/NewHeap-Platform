@@ -34,7 +34,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
-import { codeTextKeys } from '../agent-texts';
+import { agentDisplayName } from '../agent-texts';
 import { PackagePart, lockableFields, packageFieldLabelKey, packagePartLabelKey, packagePartOf } from './package-parts';
 
 /** How a part is locked in the package. */
@@ -288,12 +288,7 @@ export class NhAssistantAgentPackageExportDialogComponent {
 
   agentName(agentId: string): string {
     const agent = this.agents().find(item => item.id === agentId);
-    if (!agent) {
-      return agentId;
-    }
-    const keys = codeTextKeys(agent.source, agent.displayName);
-    const translated = keys.length > 0 ? this.translate.instant(keys[0]) as string : null;
-    return translated && translated !== keys[0] ? translated : agent.displayName;
+    return agent ? agentDisplayName(this.translate, agent) : agentId;
   }
 
   /** Exports the chosen agents with the chosen locks and saves the package as a JSON file. */

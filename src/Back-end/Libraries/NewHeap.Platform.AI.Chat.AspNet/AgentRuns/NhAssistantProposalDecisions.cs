@@ -273,6 +273,11 @@ internal sealed class NhAssistantProposalDecisions(
         {
             return TaskResult<AssistantApproval>.Failed(check);
         }
+        // The execution's own check first, then the application's guards, in the execution's order.
+        if (approve && await RefuseChangedSubjectAsync(approval, thread, actorId, cancellationToken) is { } changed)
+        {
+            return changed;
+        }
         if (approve && await RefuseStaleAsync(approval, thread, actorId, cancellationToken) is { } refusal)
         {
             return refusal;
@@ -328,6 +333,68 @@ internal sealed class NhAssistantProposalDecisions(
             approval.RunId,
             cancellationToken);
         return TaskResult<AssistantApproval>.Succeeded(approval);
+    }
+
+    /// <summary>
+    /// Refuses an approval of a proposal whose policy requires an unchanged subject when the object
+    /// changed since it was proposed, by the precondition the execution runs (LS16), and closes it as
+    /// the execution would: stale, the asker of a consultation told, and a deferred proposal's
+    /// follow-up run started when its policy asks for one. A rejection needs no check.
+    /// </summary>
+    private async Task<TaskResult<AssistantApproval>?> RefuseChangedSubjectAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
+        if (policy?.RequireUnchangedSubject != true)
+        {
+            return null;
+        }
+
+        var change = await CheckSubjectAsync(approval, thread, cancellationToken);
+        if (change.Result.Outcome != NhAiPreconditionOutcome.Stale)
+        {
+            return null;
+        }
+
+        var closed = await invalidation.CloseAsync(
+            approval,
+            thread,
+            thread.AgentId,
+            change.Result,
+            NhAssistantInvalidationStages.Decision,
+            [NhAssistantApprovalStatuses.Pending],
+            actorId,
+            CancellationToken.None);
+        if (closed is not null)
+        {
+            await services.GetRequiredService<NhAssistantAgentNotifier>().ConsultationProposalEndedAsync(thread, closed, CancellationToken.None);
+            if (policy.StartFollowUpRun && closed.Mode == NhAssistantApprovalModes.Deferred)
+            {
+                await triggers.StartFollowUpAsync(thread, closed, actorId, CancellationToken.None);
+            }
+        }
+
+        return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ProposalStale, "The object changed since the proposal.");
+    }
+
+    /// <summary>
+    /// The precondition the execution runs, for the object the proposal waits at.
+    /// </summary>
+    private Task<NhAssistantSubjectChange> CheckSubjectAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        CancellationToken cancellationToken)
+    {
+        return NhAssistantSubjectChangeCheck.CheckAsync(
+            services.GetRequiredService<INhAiProposalPrecondition>(),
+            services.GetRequiredService<NhAssistantSubjectAccessService>(),
+            approval,
+            Governance.NhAssistantProposalSerializer.Deserialize(approval.ProposalJson),
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            cancellationToken);
     }
 
     /// <summary>
@@ -404,6 +471,10 @@ internal sealed class NhAssistantProposalDecisions(
             : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
         var waiting = approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt > now;
         var refusal = await RefusalOfAsync(approval, thread, actorId, user, now, cancellationToken);
+        // Whether the object changed, by the execution's precondition; only a pending proposal is asked.
+        var subjectChanged = approval.Status == NhAssistantApprovalStatuses.Pending
+            ? (await CheckSubjectAsync(approval, thread, cancellationToken)).Changed
+            : null;
         return TaskResult<NhAssistantProposalDecisionFacts>.Succeeded(new NhAssistantProposalDecisionFacts(
             approval.Id,
             approval.Status,
@@ -412,7 +483,10 @@ internal sealed class NhAssistantProposalDecisions(
             policy.FourEyes,
             waiting ? 1 : 0,
             refusal is null,
-            refusal));
+            refusal)
+        {
+            SubjectChanged = subjectChanged
+        });
     }
 
     /// <summary>

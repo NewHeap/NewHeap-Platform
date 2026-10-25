@@ -84,6 +84,8 @@ public static class NhAssistantServiceCollectionExtensions
             // Web Push sent directly after a turn; the core library keeps no-op defaults.
             services.AddSignalR();
             services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport, NhAssistantSignalRLiveUpdateTransport>());
+            // The NewHeap bearer setup reads the query token for the hub at its configured path (LS27).
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<NewHeap.Platform.AspNet.Common.Authentication.INhLibraryHubPath, NhAssistantHubPath>());
             services.TryAddSingleton<INhAssistantShareTokenProtector, NhAssistantShareTokenProtector>();
             // The text a reading tool made of a file is kept per conversation, protected with Data
             // Protection, and removed once it expired (D32).
@@ -244,8 +246,9 @@ internal sealed class NhAssistantAgentAccess(
 
 /// <summary>
 /// Fails host start when the assistant registration is incomplete: missing ASP.NET AI integration,
-/// managers replaced after the assistant, unknown policies or profiles, or invalid agents. It logs a
-/// warning for an agent or skill in code whose data classification no profile of its chain permits.
+/// managers replaced after the assistant, unknown policies or profiles, a profile in use that permits
+/// the execution region neither itself nor through a fallback, or invalid agents. It logs a warning for
+/// an agent or skill in code whose data classification no profile of its chain permits.
 /// </summary>
 internal sealed class NhAssistantStartupValidator(
     IServiceScopeFactory scopeFactory,
@@ -403,6 +406,9 @@ internal sealed class NhAssistantStartupValidator(
                 }
             }
         }
+        // Every profile in use must run in the execution region, itself or through a fallback: without
+        // one, every model call of its agent would be refused and no retry would change that.
+        NhAssistantRegionChecks.Validate(state, profiles);
         // A classification that no profile of the chain permits is no reason to stop the host: the
         // profiles may change without a deploy of the agent. The model calls fail until then.
         NhAssistantClassificationChecks.LogCodeWarnings(state, profiles, logger);

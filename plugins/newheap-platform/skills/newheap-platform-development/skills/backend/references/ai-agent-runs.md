@@ -33,8 +33,9 @@ run end; people decide in the thread or in `GET approvals/inbox` later.
 `NhAiApprovalMode.Inline` suspends the headless run until the decision. Approvers
 are subject roles (`NhAiApprovers.SubjectRole`), the initiator or a policy;
 `FourEyes()` keeps the initiator out, `RequireUnchangedSubject()` closes a
-proposal as stale when the subject changed before execution, and every approver
-must also satisfy the tool's approval policy. Approved proposals execute as their
+proposal as stale when the subject changed before execution, and refuses an approval of
+a changed subject with `assistant-proposal-stale` at the decision, closing it the same
+way (SPM-271), and every approver must also satisfy the tool's approval policy. Approved proposals execute as their
 own background operation; a non-idempotent tool runs at most once, and an
 execution whose outcome is unknown waits for a person in `resolve`. A proposal waits
 for its policy's `Lifetime` on the application's clock (a registered `TimeProvider`,
@@ -143,6 +144,11 @@ them), never an id taken from the message itself. Before the application asks so
 `GetDecisionFactsAsync`: the current proposal hash, the expiry, whether four eyes apply, the
 approvals still needed and whether this person may decide, with the refusal code otherwise, and no
 proposal content; nothing changes, so the proposal guards run only when the person decides.
+`SubjectChanged` says whether the object changed since the proposal, by the precondition the
+execution runs (`INhAiProposalPrecondition`, by default the subject versions compared): `true`,
+`false`, or `null` for a proposal that is no longer pending or a subject without versions. Tell
+the person: with `RequireUnchangedSubject` an approval of a changed object is refused with
+`assistant-proposal-stale`, while a rejection is still recorded.
 `DecideAsync(person, approvalId, expectedHash, decision, channel, idempotencyKey)` is the decision of
 `POST approvals/{id}/decisions` through the same implementation: the approvers and the tool's
 approve policy, four eyes, the hash, the proposal guards and `RequireUnchangedSubject`, the expiry on
@@ -1412,6 +1418,12 @@ by default and at most `MaxRejectionCooldown`: the same proposal, or one for the
 refused as `assistant-proposal-recently-rejected` within it. Duplicates are audited as
 `AgentProposalDeduplicated` and replacements as `AgentProposalSuperseded`; neither counts,
 notifies or shows as a new proposal. A person's own proposals in a chat turn are never compared.
+A shadow proposal never waits for a decision, so it counts as open for exactly its proposal
+lifetime: an identical one (the same tool and canonical arguments) of the agent in its shadow
+threads of the scope is not recorded again and the model or the rules receive `AlreadyOpen`, as
+live would, with the `AgentProposalDeduplicated` audit event. Shadow proposals store no object
+keys and are never rejected or superseded, so only this identity rule applies; the evaluation of
+a shadow variant then compares what the live agent would really propose (SPM-324).
 
 Run an agent by fixed rules when its decisions follow from data. Implement
 `INhAssistantAgentRuleHandler` and register it with `UseRuleHandler<THandler>()` on
@@ -1805,7 +1817,16 @@ profile chain that does not permit it refuses the call with
 `assistant-classification-not-permitted` without a retry; that a data skill and an agent created
 in the administration store their classification and refuse an unknown one, and are saved with the
 warning `classification-not-permitted` when no profile of the chain permits it, on both providers;
-and that an agent or skill in code with such a classification is logged at startup. Assert that an agent configured for runs and a skill refuse files with
+and that an agent or skill in code with such a classification is logged at startup. Assert that a
+host whose chat, agent, skill or triage profile does not permit the execution region through its
+fallbacks does not start, that a data skill and an agent created in the administration with such a
+profile are refused with `profile: region-not-permitted`, and that a turn no profile may serve in the
+region for its classification fails with `assistant-model-region-denied` without a model call or a
+retry, on both providers. Assert that a shadow run proposes an unchanged finding once within the
+proposal's lifetime and again after it, and that approving a proposal of a changed object with
+`RequireUnchangedSubject` is refused as `assistant-proposal-stale` through the endpoint and the
+decision service, also with the application's own precondition, while the decision facts report
+`SubjectChanged`. Assert that an agent configured for runs and a skill refuse files with
 `assistant-files-not-accepted` until `AcceptsFiles()` or `acceptsFiles` in the administration switches
 them on, that a run opens a file for the agent, and that an agent's limit only lowers the
 application's, on both providers. SPM-306 runs the sample's document reader end to end: its skill

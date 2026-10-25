@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "ab42d48da654201668238a2b784734ec68375ba47c1232bbe9ef54289e68a030",
-    "declarationCount": 10785,
+    "hash": "3cdb972f90fdbd3f310343912cf20d1f4ec8b1a2fb0ca471f7be851eb4add260",
+    "declarationCount": 10827,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4379,7 +4379,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
-        "declaration": "public sealed record NhAssistantProposalDecisionFacts( Guid ApprovalId, string Status, string ProposalHash, DateTimeOffset ExpiresAt, bool FourEyes, int ApprovalsNeeded, bool CanDecide, string? ReasonCode);"
+        "declaration": "public sealed record NhAssistantProposalDecisionFacts( Guid ApprovalId, string Status, string ProposalHash, DateTimeOffset ExpiresAt, bool FourEyes, int ApprovalsNeeded, bool CanDecide, string? ReasonCode) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public bool? SubjectChanged { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
@@ -4646,6 +4650,14 @@
         "declaration": "public static void Validate(NhAssistantRegistrationState state, NhAiAspNetRegistrationState? aspNet) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectChangeCheck.cs",
+        "declaration": "public bool? Changed => Known ? Result.Outcome == NhAiPreconditionOutcome.Stale : null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectChangeCheck.cs",
+        "declaration": "public static async Task<NhAssistantSubjectChange> CheckAsync( INhAiProposalPrecondition precondition, NhAssistantSubjectAccessService subjects, AssistantApproval approval, NhAiProposal proposal, NhAiSubjectRef subject, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder group) {"
       },
@@ -4804,6 +4816,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
         "declaration": "public Task SendToWatchersAsync( NhAssistantWatchedWork work, NhAssistantLiveAgentWorkChanged evt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
+        "declaration": "public string? HubPath => options.Value.HubPath;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
@@ -8743,7 +8759,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentDefinition.cs",
-        "declaration": "public sealed record NhAssistantAgentDefinition( string Id, int Version, string DisplayNameKey, string DescriptionKey, string ProfileName, NhAiTextAsset Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null)"
+        "declaration": "public sealed partial record NhAssistantAgentDefinition( string Id, int Version, string DisplayNameKey, string DescriptionKey, string ProfileName, NhAiTextAsset Instructions, IReadOnlyList<string> ToolSelectors, NhAiAutonomyLevel Autonomy, string? RequiredPolicy = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentDefinition.cs",
@@ -10790,6 +10806,22 @@
         "declaration": "public static TaskResult Locked() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs",
+        "declaration": "public static bool Permits( INhAiModelProfileRegistry profiles, NhAiModelProfile profile, string region) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs",
+        "declaration": "public static bool PermitsTogether( INhAiModelProfileRegistry profiles, NhAiModelProfile profile, NhAiDataClassification classification, string region) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs",
+        "declaration": "public static bool PermitsByName( INhAiModelProfileRegistry? profiles, string? profileName, string region) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs",
+        "declaration": "public static void Validate(NhAssistantRegistrationState registration, INhAiModelProfileRegistry profiles) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
         "declaration": "public sealed class NhAssistantTriggerEventBuilder<TEvent> where TEvent : class {"
       },
@@ -11244,6 +11276,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public bool IsChoosableProfile(string profileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public bool PermitsExecutionRegion(string? profileName) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -15847,6 +15883,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ModelRegionDenied = \"assistant-model-region-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FilesUnavailable = \"assistant-files-unavailable\";"
       },
       {
@@ -16867,6 +16907,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string RegionNotPermitted = \"region-not-permitted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FieldPrefix = \"field:\";"
       },
       {
@@ -17035,7 +17079,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
-        "declaration": "public sealed class NhAssistantUploadOptions {"
+        "declaration": "public sealed partial class NhAssistantUploadOptions {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
@@ -18036,6 +18080,98 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
         "declaration": "public sealed record NhAssistantApprovalPresentation( string ToolDisplayName, string Summary, IReadOnlyList<NhAssistantPresentationField> Fields, string? Notice = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public static class NhAssistantPresentationLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxDisplayNameLength = 160;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxSummaryLength = 512;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxFields = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxFieldLabelLength = 80;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxFieldValueLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxNoticeLength = 512;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxSerializedLength = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const int MaxCultures = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public static TimeSpan PresenterTimeout { get; } = TimeSpan.FromSeconds(2);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public static class NhAssistantPresentationRules {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string DisplayNameMissing = \"display-name-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string DisplayNameTooLong = \"display-name-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string SummaryMissing = \"summary-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string SummaryTooLong = \"summary-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string FieldsMissing = \"fields-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string TooManyFields = \"too-many-fields\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string FieldLabelMissing = \"field-label-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string FieldLabelTooLong = \"field-label-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string FieldValueMissing = \"field-value-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string FieldValueTooLong = \"field-value-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string NoticeTooLong = \"notice-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string TooLong = \"too-long\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
@@ -19539,6 +19675,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<AssistantApproval?> FindOpenShadowProposalAsync( string scopeKey, string agentId, string toolId, string argumentsHash, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<AssistantApproval?> FindRecentRejectionAsync( string scopeKey, string agentId, string toolId, string argumentsHash, DateTimeOffset since, CancellationToken cancellationToken) {"
       },
       {
@@ -20424,6 +20564,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
         "declaration": "public async Task<NhAssistantDuplicateCheck> CheckAsync( AssistantThread thread, string toolId, string argumentsHash, IReadOnlyCollection<NhAiProposalKey> keys, NhAiApprovalPolicy policy, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
+        "declaration": "public async Task<NhAssistantDuplicateCheck> CheckShadowAsync( AssistantThread thread, string toolId, string argumentsHash, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
@@ -21499,6 +21643,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool RegionNotPermitted { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public List<NhAssistantTurnFile> Files { get; } = [];"
       },
       {
@@ -21715,35 +21863,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxDisplayNameLength = 160;"
+        "declaration": "public const int MaxDisplayNameLength = NhAssistantPresentationLimits.MaxDisplayNameLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxSummaryLength = 512;"
+        "declaration": "public const int MaxSummaryLength = NhAssistantPresentationLimits.MaxSummaryLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxFieldCount = 8;"
+        "declaration": "public const int MaxFieldCount = NhAssistantPresentationLimits.MaxFields;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxFieldLabelLength = 80;"
+        "declaration": "public const int MaxFieldLabelLength = NhAssistantPresentationLimits.MaxFieldLabelLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxFieldValueLength = 256;"
+        "declaration": "public const int MaxFieldValueLength = NhAssistantPresentationLimits.MaxFieldValueLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxNoticeLength = 512;"
+        "declaration": "public const int MaxNoticeLength = NhAssistantPresentationLimits.MaxNoticeLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxSerializedLength = 4_000;"
+        "declaration": "public const int MaxSerializedLength = NhAssistantPresentationLimits.MaxSerializedLength;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-        "declaration": "public const int MaxLocalizedCultures = 8;"
+        "declaration": "public const int MaxLocalizedCultures = NhAssistantPresentationLimits.MaxCultures;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
@@ -26904,6 +27052,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhAuthenticationSessionState.cs",
         "declaration": "public async Task<bool> ValidateAsync( ClaimsPrincipal principal, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "declaration": "public const string HubPrefix = \"/hub\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "declaration": "public const string AccessTokenParameter = \"access_token\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "declaration": "public const string DivisionParameter = \"divisionId\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "declaration": "public static void Read(MessageReceivedContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "declaration": "public static bool Applies(HttpContext httpContext) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhImpersonateAuthenticationHandler.cs",
@@ -47170,6 +47338,8 @@
       "INhAssistantToolPresenter",
       "NhAssistantApprovalPresentation",
       "NhAssistantPresentationField",
+      "NhAssistantPresentationLimits",
+      "NhAssistantPresentationRules",
       "AddToolPresenter",
       "INhAssistantParticipantDirectory",
       "NhAssistantDirectoryEntry",

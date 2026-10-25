@@ -330,6 +330,7 @@
       "assistant-message-too-long": "Het bericht is te lang. Maak het korter en verstuur het opnieuw.",
       "assistant-model-unavailable": "Het taalmodel is tijdelijk niet beschikbaar. Probeer het zo opnieuw.",
       "assistant-classification-not-permitted": "Het model dat deze agent gebruikt mag geen gegevens met de classificatie van de agent ontvangen. Vraag een beheerder een modelprofiel te kiezen dat dit toestaat.",
+      "assistant-model-region-denied": "Het model dat deze agent gebruikt mag niet draaien in de regio waarin de applicatie werkt. Vraag een beheerder een modelprofiel te kiezen dat die regio toestaat.",
       "assistant-files-unavailable": "Deze applicatie geeft de assistent geen bestanden.",
       "assistant-files-not-accepted": "Deze agent neemt geen bestanden aan. Een beheerder kan bestanden voor hem aanzetten.",
       "assistant-file-reference-invalid": "Een bestand kon niet worden gelezen omdat de verwijzing ongeldig is.",
@@ -1310,7 +1311,8 @@
           "not-allowed": "De applicatie staat dit niet toe.",
           "routes-required": "Kies minstens één route, of laat hem alleen antwoorden.",
           "tools-not-allowed": "Een gekozen tool valt buiten de eigen tools van de agent. Haal het vinkje weg, of voeg de tool eerst aan de agent toe.",
-          "locked": "Een agentpakket vergrendelt dit veld. Ontkoppel het onderdeel eerst om het te wijzigen."
+          "locked": "Een agentpakket vergrendelt dit veld. Ontkoppel het onderdeel eerst om het te wijzigen.",
+          "region-not-permitted": "Dit modelprofiel mag niet draaien in de regio waarin de applicatie werkt, en zijn terugvalprofielen ook niet. Kies een profiel dat de regio toestaat."
         },
         "settings": {
           "title": "Runinstellingen",
