@@ -1,7 +1,9 @@
 using AwesomeAssertions;
+using Npgsql;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.Json;
 using Xunit;
@@ -514,6 +516,51 @@ public sealed class DatabaseReadApplicationTests
         error.GetProperty("stage").GetString().Should().Be("connection-open");
         error.GetProperty("transient").GetBoolean().Should().BeTrue();
         error.GetProperty("retryHint").GetString().Should().Be("network-access-required");
+        error.TryGetProperty("providerCode", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("sql-server")]
+    [InlineData("postgresql")]
+    public async Task UntrustedCertificateIsClassifiedSafelyWithoutOpeningARealConnection(
+        string provider)
+    {
+        const string canary = "NEVER-RETURN-THIS-PASSWORD";
+        const string unsafeSubject = "CN=PRIVATE-DATABASE-HOST-MUST-NOT-LEAK";
+        using var workspace = new DatabaseReadTestWorkspace(
+            provider,
+            canary);
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1");
+        using var output = new MemoryStream();
+        var certificateFailure = new AuthenticationException(
+            $"The remote certificate {unsafeSubject} was rejected for Password={canary}.");
+        DbException exception = provider == "postgresql"
+            ? new NpgsqlException($"Exception while connecting with Password={canary}.", certificateFailure)
+            : new TestDatabaseException($"Could not connect with Password={canary}.", certificateFailure);
+        var connectionFactory = new ThrowingConnectionFactory(exception);
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output,
+            connectionFactory);
+
+        var outputText = Encoding.UTF8.GetString(output.ToArray());
+        exitCode.Should().Be(5, outputText);
+        connectionFactory.WasCalled.Should().BeTrue();
+        outputText.Should().NotContain(canary);
+        outputText.Should().NotContain("Password");
+        outputText.Should().NotContain(unsafeSubject);
+        outputText.Should().NotContain(certificateFailure.Message);
+        outputText.Should().NotContain(exception.Message);
+        using var response = JsonDocument.Parse(outputText);
+        var error = response.RootElement.GetProperty("error");
+        error.GetProperty("code").GetString().Should().Be("database-query-failed");
+        error.GetProperty("classification").GetString().Should().Be("tls-certificate-untrusted");
+        error.GetProperty("provider").GetString().Should().Be(provider);
+        error.GetProperty("stage").GetString().Should().Be("connection-open");
+        error.GetProperty("transient").GetBoolean().Should().BeFalse();
+        error.GetProperty("retryHint").GetString().Should().Be("certificate-authority-trust-required");
         error.TryGetProperty("providerCode", out _).Should().BeFalse();
     }
 

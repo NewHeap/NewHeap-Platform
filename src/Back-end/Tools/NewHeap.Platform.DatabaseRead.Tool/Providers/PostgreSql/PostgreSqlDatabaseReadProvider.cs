@@ -143,6 +143,11 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             return ClassifySqlState(postgresException.SqlState, exception, stage);
         }
 
+        if (DatabaseReadExceptionInspector.IsCertificateValidationFailure(exception))
+        {
+            return UntrustedCertificateFailure();
+        }
+
         if (stage == DatabaseReadExecutionStage.ConnectionOpen
             || DatabaseReadExceptionInspector.Find<NpgsqlException>(exception) is not null
             || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
@@ -220,6 +225,22 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             true,
             "network-access-required",
             "The database connection could not be established or was interrupted.");
+    }
+
+    /// <summary>
+    /// Npgsql reports a server certificate that failed validation as an
+    /// <see cref="NpgsqlException"/> around the handshake's <c>AuthenticationException</c>. It
+    /// carries no SQLSTATE and does not say which check failed, so an untrusted authority, a host
+    /// name the certificate does not name and an expired certificate report the same failure.
+    /// </summary>
+    private static DatabaseReadProviderFailure UntrustedCertificateFailure()
+    {
+        return Failure(
+            "tls-certificate-untrusted",
+            null,
+            false,
+            "certificate-authority-trust-required",
+            "The client did not trust the database server's TLS certificate.");
     }
 
     private static async Task<DatabaseSchemaResultResponse> SearchSchemaAsync(
