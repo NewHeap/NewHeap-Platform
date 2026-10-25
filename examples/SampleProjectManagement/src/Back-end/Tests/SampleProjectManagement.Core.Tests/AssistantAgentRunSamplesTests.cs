@@ -3748,6 +3748,137 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal("supplier-out-of-stock", failed.ExecutionResultCode);
     }
 
+    [Fact]
+    public async Task SPM_327_the_approval_digest_counts_what_waits_per_status_and_the_inbox_lists_each_status()
+    {
+        // SPM-327: the digest counts with INhAssistantProposalCounts, the inbox lists the same per status.
+        var project = await host.CreateProjectAsync("DIGEST", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var before = await DigestAsync(host.ColleagueId);
+        var outsider = await DigestAsync(Guid.NewGuid());
+
+        var conversationId = await StartIntakeReviewerAsync(participant, project, $"Please order 4 headsets for project {project:D}.");
+        var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+
+        // The project's approver has one more to decide; somebody without a role on it has nothing.
+        Assert.Equal(before with { Pending = before.Pending + 1 }, await DigestAsync(host.ColleagueId));
+        Assert.Equal(outsider, await DigestAsync(Guid.NewGuid()));
+        Assert.Contains(proposal.ApprovalId, await InboxAsync(colleague, NhAssistantInboxStatuses.Pending));
+
+        // Approved, it waits for the order desk's report, by report deadline.
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "approve")).StatusCode);
+        await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(before with { AwaitingApplication = before.AwaitingApplication + 1 }, await DigestAsync(host.ColleagueId));
+        Assert.Contains(proposal.ApprovalId, await InboxAsync(colleague, NhAssistantInboxStatuses.AwaitingApplication));
+        Assert.DoesNotContain(proposal.ApprovalId, await InboxAsync(colleague, NhAssistantInboxStatuses.Pending));
+
+        // No report in time: it waits for an approver to resolve it.
+        host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+        await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.ExecutionUnknown, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(before with { ExecutionUnknown = before.ExecutionUnknown + 1 }, await DigestAsync(host.ColleagueId));
+        Assert.Contains(proposal.ApprovalId, await InboxAsync(colleague, NhAssistantInboxStatuses.ExecutionUnknown));
+        using var refused = await colleague.GetAsync("/api/assistant/approvals/inbox?status=executed");
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+    }
+
+    [Fact]
+    public async Task SPM_327_the_whole_application_lists_the_people_who_decide_its_proposals()
+    {
+        // SPM-327: the list the notifications of the whole application consider next to its threads' people.
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var members = Assert.IsType<SampleSystemMembers>(services.GetRequiredService<INhAssistantSystemMembers>());
+        var roles = services.GetRequiredService<RoleManager<NhUserRole>>();
+        var users = services.GetRequiredService<UserManager<NhUser>>();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var managers = new NhUserRole("digest-managers-" + suffix);
+        var viewers = new NhUserRole("digest-viewers-" + suffix);
+        Assert.True((await roles.CreateAsync(managers)).Succeeded);
+        Assert.True((await roles.CreateAsync(viewers)).Succeeded);
+        Assert.True((await roles.AddClaimAsync(managers, new Claim(NhPlatformClaimTypes.Permission, SampleSystemMembers.ManagePermission))).Succeeded);
+        Assert.True((await roles.AddClaimAsync(viewers, new Claim(NhPlatformClaimTypes.Permission, "app.project.view"))).Succeeded);
+        var manager = new NhUser { Email = $"manager-{suffix}@sample.test", UserName = $"manager-{suffix}@sample.test", EmailConfirmed = true };
+        var viewer = new NhUser { Email = $"viewer-{suffix}@sample.test", UserName = $"viewer-{suffix}@sample.test", EmailConfirmed = true };
+        Assert.True((await users.CreateAsync(manager)).Succeeded);
+        Assert.True((await users.CreateAsync(viewer)).Succeeded);
+        Assert.True((await users.AddToRoleAsync(manager, managers.Name!)).Succeeded);
+        Assert.True((await users.AddToRoleAsync(viewer, viewers.Name!)).Succeeded);
+
+        var listed = new List<string>();
+        await foreach (var actorId in members.ListAsync(null, CancellationToken.None))
+        {
+            listed.Add(actorId);
+        }
+
+        // The people who pass the administration policy are listed once; a viewer is not.
+        Assert.Contains(manager.Id.ToString("D"), listed);
+        Assert.DoesNotContain(viewer.Id.ToString("D"), listed);
+        Assert.Equal(listed.Count, listed.Distinct(StringComparer.Ordinal).Count());
+        // The sample lists no divisions for the whole application.
+        await foreach (var _ in members.ListAsync(Guid.NewGuid(), CancellationToken.None))
+        {
+            Assert.Fail("The sample lists nobody for a division of the whole application.");
+        }
+    }
+
+    [Fact]
+    public async Task SPM_328_a_person_approves_an_equipment_order_in_their_own_chat_and_the_order_desk_reports_into_that_chat()
+    {
+        // SPM-328: AlsoInline hands a person's inline approval to the order desk as well.
+        var project = await host.CreateProjectAsync("INLINE", ownerId: host.OwnerId);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+        var chat = await host.CreateConversationAsync(owner);
+
+        var paused = await host.SendAsync(owner, chat, $"Please order 2 docking stations for project {project:D}.");
+        var card = paused.Single(evt => evt.Name == "approval.required").Data;
+        Assert.Equal(ProjectAiEquipmentTools.OrderEquipmentToolId, card.GetProperty("toolId").GetString());
+        Assert.DoesNotContain(desk.Orders, order => order.ProjectId == project);
+
+        var decided = await host.DecideAsync(owner, chat, card, "approve");
+
+        // The order desk took the approved order, which says where it was approved; the tool's
+        // function placed nothing, and the turn ends saying the desk has it.
+        Assert.Equal(NhAssistantTurnStatuses.Completed, decided.Single(evt => evt.Name == "turn.completed").Data.GetProperty("status").GetString());
+        var order = Assert.Single(desk.Orders, item => item.ProjectId == project);
+        Assert.Equal((2, "docking stations", true, host.OwnerId.ToString()), (order.Quantity, order.Item, order.HandOff!.Inline, order.HandOff.DecidedByActorId));
+        var waiting = await ReadConversationAsync(owner, chat);
+        Assert.Contains(waiting.Messages, message => message.Role == NhAssistantMessageRoles.Assistant
+            && TextOf(message).Contains("The order desk has the approved order", StringComparison.Ordinal));
+
+        // The supplier confirms: the desk's report is posted into the person's own chat as a message
+        // of the application, with the outcome, its code and the desk's summary, its Markdown escaped.
+        var reported = await desk.ConfirmAsync(order.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed");
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, reported.Data!.Status);
+        var conversation = await ReadConversationAsync(owner, chat);
+        var message = Assert.Single(conversation.Messages, item => item.Role == NhAssistantMessageRoles.Application);
+        // The report writes in the application's default culture, as a report has no request of a person.
+        Assert.Contains(NhAssistantMarkdown.Escape("order-placed"), TextOf(message), StringComparison.Ordinal);
+        Assert.Contains(NhAssistantMarkdown.Escape(order.OrderNumber), TextOf(message), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// SPM-327: what the sample's daily approval digest would tell <paramref name="userId"/>.
+    /// </summary>
+    private async Task<SampleApprovalDigestCounts> DigestAsync(Guid userId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<SampleApprovalDigest>().CountAsync(userId, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// SPM-327: the proposals of the caller's inbox with <paramref name="status"/>, at most a hundred.
+    /// </summary>
+    private static async Task<IReadOnlyList<Guid>> InboxAsync(HttpClient client, string status)
+    {
+        var inbox = await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?status={status}&itemsPerPage=100", Json);
+        Assert.Equal(status, inbox!.Status);
+        return inbox.Items.Select(item => item.ApprovalId).ToArray();
+    }
+
     /// <summary>
     /// A participant starts the intake reviewer on the project with <paramref name="message"/>; the
     /// agent's thread.
@@ -3962,6 +4093,50 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var requested = Assert.Single(runs, run => run.TriggerId == NhAssistantTriggerIds.AgentRequest);
             Assert.Equal(NhAssistantRunStatuses.Completed, requested.Status);
             Assert.Equal(host.ParticipantId.ToString(), requested.InitiatorActorId);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
+    public async Task SPM_278_one_answer_of_the_project_assistant_consults_the_intake_reviewer_at_most_twice()
+    {
+        // SPM-278: MaxConsultationsPerTurn is 2 in SampleAssistantComposition; the third is refused first.
+        const string consultTool = "consult_sample-project-intake-reviewer_project_v1";
+        var project = await host.CreateProjectAsync("TWICE", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var projectText = project.ToString("D");
+        var reviewer = new NhAiScriptedChatClient()
+            .RespondWithText("The owner is set.")
+            .RespondWithText("The review board has not answered yet.");
+        var assistant = new NhAiScriptedChatClient();
+        foreach (var question in new[] { "Is the owner set?", "Did the review board answer?", "Is the budget approved?" })
+        {
+            assistant.RespondWithFunctionCall(consultTool, new { input = new { subjectId = projectText, question } }, "call-" + question.Length);
+        }
+        assistant.RespondWithText("The owner is set and the review board has not answered; I did not ask about the budget.");
+        var assistantInstructions = ProjectAiAssets.ProjectAgentInstructions.Content.Split('\n')[0].Trim();
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
+        try
+        {
+            var chat = await host.CreateConversationAsync(participant);
+
+            var events = await host.SendAsync(participant, chat, "What does the intake reviewer know about my project?");
+
+            var calls = events.Where(evt => evt.Name == "tool.completed").Select(evt => evt.Data).ToArray();
+            Assert.Equal(3, calls.Length);
+            Assert.All(calls[..2], call => Assert.Equal("succeeded", call.GetProperty("status").GetString()));
+            Assert.Equal("failed", calls[2].GetProperty("status").GetString());
+            Assert.Equal(NhAssistantErrorCodes.ConsultTurnLimit, calls[2].GetProperty("resultCode").GetString());
+            // The reviewer answered twice; the third question never reached it.
+            Assert.Equal(2, reviewer.Requests.Count);
+            Assert.Equal(NhAssistantTurnStatuses.Completed, events.Single(evt => evt.Name == "turn.completed").Data.GetProperty("status").GetString());
         }
         finally
         {
@@ -5836,6 +6011,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleProjectPlanner();
         services.AddSampleProjectPlannerVariant();
         services.AddSampleProjectStarterBlocks();
+        // SPM-327: the approval digest and the whole application's people, as in Program.cs.
+        services.AddSampleDecisionDigest();
         // SPM-318 and SPM-319: hand-offs and shadow variants as data, as in Program.cs.
         services.AddSampleAgentLinksAsData();
         // SPM-320: the planner's risk review takes its instructions from the sample's own text asset.

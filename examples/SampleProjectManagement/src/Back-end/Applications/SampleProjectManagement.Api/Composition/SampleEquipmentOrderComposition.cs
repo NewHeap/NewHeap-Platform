@@ -16,6 +16,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// <c>awaiting-application</c> until the order desk reports how the supplier answered
 /// (<see cref="SampleEquipmentOrderDesk.ConfirmAsync"/>). Without a report in time the proposal becomes
 /// <c>execution-unknown</c> and an approver hands it to the order desk again or marks it resolved.
+/// SPM-328: with <c>AlsoInline</c> a person who approves an order in their own chat with the project
+/// assistant hands it to the order desk too, instead of running the tool's function; the chat goes on
+/// with "the order desk has it", and the desk's report is posted into that chat.
 /// Call it after <c>AddSampleIntakeReviewer</c>.
 /// </summary>
 public static class SampleEquipmentOrderComposition
@@ -33,9 +36,9 @@ public static class SampleEquipmentOrderComposition
         services.AddNewHeapPlatformAI(ai => ai.AddGeneratedToolCatalog<ProjectAiEquipmentToolsNhAiCatalog>());
 
         services.AddNewHeapAssistant(assistant => assistant
-            // The application executes approved orders and reports within eight hours; every other tool
-            // keeps executing in its function.
-            .ExecuteInApplication(ProjectAiEquipmentTools.OrderEquipmentToolId, ReportWithin)
+            // The application executes approved orders and reports within eight hours, also those a
+            // person approves in their own chat (SPM-328); every other tool keeps executing in its function.
+            .ExecuteInApplication(ProjectAiEquipmentTools.OrderEquipmentToolId, ReportWithin, execution => execution.AlsoInline())
             .UseProposalExecutor<SampleEquipmentOrderExecutor>()
             .ConfigureAgent(SampleIntakeReviewerComposition.AgentId, agent => agent
                 .Grant(ProjectAiEquipmentTools.OrderEquipmentToolId)));

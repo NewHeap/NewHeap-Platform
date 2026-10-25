@@ -85,6 +85,7 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.retryRun('run-1', 'resume')), 'POST', 'runs/run-1/retry'],
       [() => firstValueFrom(api.getInbox()), 'GET', 'approvals/inbox'],
       [() => firstValueFrom(api.getInbox({ subjectType: 'project', page: 2, itemsPerPage: 10 })), 'GET', 'approvals/inbox?subjectType=project&page=2&itemsPerPage=10'],
+      [() => firstValueFrom(api.getInbox({ status: 'awaiting-application' })), 'GET', 'approvals/inbox?status=awaiting-application'],
       [() => firstValueFrom(api.decide(proposal, 'approve')), 'POST', 'approvals/approval%201/decisions'],
       [() => firstValueFrom(api.decideMany(['a', 'b'], 'reject')), 'POST', 'approvals/decisions'],
       [() => firstValueFrom(api.resolve('approval-1', 'mark-resolved')), 'POST', 'approvals/approval-1/resolve'],

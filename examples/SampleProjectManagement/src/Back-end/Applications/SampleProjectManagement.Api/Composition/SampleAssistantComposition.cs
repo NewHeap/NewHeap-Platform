@@ -233,6 +233,10 @@ public static class SampleAssistantComposition
                 // default 128. Prefer prefix selectors; this does not raise MaxToolsPerAgent.
                 limits.MaxToolSelectorsPerAgent = 256;
                 limits.MaxParticipantsPerConversation = 10;
+                // SPM-278: one answer of the project assistant consults the intake reviewer at most
+                // twice; a third consultation is refused with assistant-consult-turn-limit before the
+                // reviewer runs. Unlimited by default; an agent with runs can set its own limit.
+                limits.MaxConsultationsPerTurn = 2;
             }));
 
         if (model is not null)
@@ -567,6 +571,14 @@ public sealed partial class SampleAssistantChatClient : IChatClient
                     "Nothing to propose: " + (explanation ?? "the work is already done."));
             }
 
+            // SPM-328: an approval in the person's own chat went to the order desk, which reports here.
+            if (ResultCodeOf(result.Result) == "assistant-proposal-handed-to-application")
+            {
+                return new ChatMessage(
+                    ChatRole.Assistant,
+                    "The order desk has the approved order; its report follows in this conversation.");
+            }
+
             // A deferred proposal returns a "recorded" result: nothing happened yet.
             if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } recorded
                 && recorded.TryGetProperty("code", out var code)
@@ -779,6 +791,21 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
     private static partial Regex ProjectIdPattern();
+
+    /// <summary>
+    /// The <c>code</c> of a tool result the assistant gave the model, as JSON or as the dictionary it
+    /// builds itself; <see langword="null"/> without one.
+    /// </summary>
+    private static string? ResultCodeOf(object? result)
+    {
+        return result switch
+        {
+            JsonElement { ValueKind: JsonValueKind.Object } json
+                when json.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String => code.GetString(),
+            IReadOnlyDictionary<string, object?> dictionary when dictionary.TryGetValue("code", out var value) => value as string,
+            _ => null
+        };
+    }
 
     [GeneratedRegex(@"project\s+(?:[^\s(]+\s+\()?(?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", RegexOptions.IgnoreCase)]
     private static partial Regex ProjectReferencePattern();

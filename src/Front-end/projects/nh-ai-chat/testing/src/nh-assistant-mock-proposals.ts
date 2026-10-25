@@ -2,6 +2,7 @@ import {
   AgentDecisionOutcome,
   AgentInbox,
   AgentInboxGroup,
+  AgentInboxStatus,
   AgentInboxVisit,
   AgentProposal,
   AgentProposalLookup,
@@ -228,15 +229,23 @@ export class NhAssistantMockProposals {
       return { status: 400 };
     }
 
+    // What waits for a decision by default; what waits for the application's report or for an
+    // approver to resolve an uncertain execution on request, with the same visibility.
+    const status = query.get('status') || 'pending';
+    if (!isInboxStatus(status)) {
+      return failure('assistant-message-invalid');
+    }
+
     const grouped = query.get('grouped') === 'true';
     const items = this.visible()
-      .filter(item => item.proposal.status === 'pending' && item.canDecide)
+      .filter(item => item.proposal.status === status && item.canDecide)
       .filter(item => divisionId === null || sameGuid(item.divisionId, divisionId))
       .map(item => item.proposal)
       .filter(proposal => (subjectType === null || proposal.subjectType === subjectType)
         && (agentId === null || proposal.agentId === agentId)
         && (runId === null || proposal.runId === runId))
-      .sort((left, right) => left.expiresAt.localeCompare(right.expiresAt) || left.approvalId.localeCompare(right.approvalId));
+      .sort((left, right) => inboxSortAt(left, status).localeCompare(inboxSortAt(right, status))
+        || left.approvalId.localeCompare(right.approvalId));
     const ordered = grouped ? groupedOrder(items) : items;
     const offset = (page - 1) * itemsPerPage;
     const pageItems = ordered.slice(offset, offset + itemsPerPage);
@@ -245,6 +254,7 @@ export class NhAssistantMockProposals {
     const body: AgentInbox = {
       items: pageItems,
       total: items.length,
+      status,
       scopeKey,
       lastVisitedAt,
       newApprovalIds: pageItems
@@ -422,6 +432,25 @@ function consultationRefusal(route: NhAssistantConsultationRoute | null, initiat
     return askerDecidesCode;
   }
   return route === 'subject-agent-rights' && initiatorActorId === actorId ? fourEyesCode : null;
+}
+
+function isInboxStatus(status: string): status is AgentInboxStatus {
+  return status === 'pending' || status === 'awaiting-application' || status === 'execution-unknown';
+}
+
+/**
+ * The time the inbox lists a proposal by, as the server: a pending one by its expiry, one handed to the
+ * application by its report deadline, an uncertain execution by its decision.
+ */
+function inboxSortAt(proposal: AgentProposal, status: AgentInboxStatus): string {
+  switch (status) {
+    case 'awaiting-application':
+      return proposal.executionReportDueAt ?? proposal.expiresAt;
+    case 'execution-unknown':
+      return proposal.decidedAt ?? proposal.createdAt;
+    default:
+      return proposal.expiresAt;
+  }
 }
 
 /** The scope of the inbox's visits: `global`, or the scope key of a division. */

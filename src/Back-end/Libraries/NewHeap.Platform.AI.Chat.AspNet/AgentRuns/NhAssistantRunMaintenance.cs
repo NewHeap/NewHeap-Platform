@@ -132,6 +132,16 @@ internal sealed class NhAssistantRunMaintenance(
     {
         if (registration.AgentRuns.Count == 0)
         {
+            // Without agent runs only a person's inline approval handed to the application waits for
+            // a report (LS17); its deadline still makes it uncertain.
+            if (registration.ApplicationExecutions.Values.Any(execution => execution.AlsoInline))
+            {
+                await using var reportScope = scopeFactory.CreateAsyncScope();
+                await reportScope.ServiceProvider
+                    .GetRequiredService<NhAssistantApplicationExecutions>()
+                    .ExpireReportsAsync(_applicationClock.GetUtcNow(), BatchSize, cancellationToken);
+            }
+
             return;
         }
 

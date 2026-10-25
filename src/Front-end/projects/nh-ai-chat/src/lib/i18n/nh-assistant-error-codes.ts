@@ -147,6 +147,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-consult-depth-exceeded',
   'assistant-consult-budget-exhausted',
   'assistant-consult-limit-reached',
+  'assistant-consult-turn-limit',
   'assistant-consult-timeout',
   'assistant-consult-failed',
   'assistant-consult-read-only',

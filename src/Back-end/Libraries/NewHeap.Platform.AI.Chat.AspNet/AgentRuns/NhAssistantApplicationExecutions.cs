@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -15,7 +16,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Executes the approved proposals of tools the application executes
-/// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>): hands them to the application's
+/// (<see cref="NhAssistantBuilder.ExecuteInApplication(string, TimeSpan)"/>): hands them to the application's
 /// <see cref="INhAssistantProposalExecutor"/>, takes the application's reports
 /// (<see cref="INhAssistantProposalExecutionReports"/>) and closes the proposals whose report deadline
 /// passed. Every change of a proposal is a compare-and-set transition from
@@ -23,6 +24,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// the deadline close a proposal once. What follows a close is the same for each of them: the work update,
 /// the content-free audit, the notification, for a report its summary as an application message in the
 /// agent's thread, and the follow-up run when the approval policy asks for one.
+/// <para>
+/// A person's inline approval of a tool declared with <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>
+/// is handed off the same way (LS17). In an agent thread everything above applies. In a person's chat,
+/// which belongs to no subject and has no approvers, the audit names no subject, nobody is notified, no
+/// follow-up run starts, and the conversation hears every close instead: the outcome with its code, and
+/// the summary of a report, as an application message without the trusted flag.
+/// </para>
 /// </summary>
 internal sealed class NhAssistantApplicationExecutions(
     INhAssistantStore store,
@@ -32,10 +40,16 @@ internal sealed class NhAssistantApplicationExecutions(
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentTriggers triggers,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantLivePublisher live,
     IOptions<RequestLocalizationOptions> localization,
     IServiceProvider services,
-    ILogger<NhAssistantApplicationExecutions> logger) : INhAssistantProposalExecutionReports
+    ILogger<NhAssistantApplicationExecutions> logger) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
 {
+    /// <summary>
+    /// The statuses an inline approval is handed off from: the person's decision just approved it.
+    /// </summary>
+    private static readonly string[] InlineHandOffStatuses = [NhAssistantApprovalStatuses.Approved];
+
     /// <summary>
     /// The application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock),
     /// which report deadlines follow, as a proposal's lifetime does.
@@ -48,7 +62,7 @@ internal sealed class NhAssistantApplicationExecutions(
     /// the application's report that it does not execute the proposal; an exception leaves the outcome
     /// unknown. A proposal that another worker moved first is left alone.
     /// </summary>
-    public async Task HandOffAsync(
+    public Task<NhAssistantHandOffOutcome?> HandOffAsync(
         AssistantApproval approval,
         AssistantThread thread,
         NhAiProposal proposal,
@@ -57,87 +71,27 @@ internal sealed class NhAssistantApplicationExecutions(
         Guid operationId,
         CancellationToken cancellationToken)
     {
-        var executor = services.GetService<INhAssistantProposalExecutor>()
-            ?? throw new InvalidOperationException(
-                $"Tool '{execution.ToolId}' is executed by the application, but no executor is registered. Call UseProposalExecutor.");
-        var dueAt = _applicationClock.GetUtcNow().Add(execution.ReportWithin);
-        var handed = await runs.TryTransitionApprovalAsync(
-            approval.Id,
-            fromStatuses,
-            NhAssistantApprovalStatuses.AwaitingApplication,
-            new NhAssistantApprovalTransition
-            {
-                ExecutionOperationId = operationId,
-                CountExecutionAttempt = true,
-                ExecutionReportDueAt = dueAt,
-                ClearExecutedAt = true
-            },
-            CancellationToken.None);
-        if (!handed)
-        {
-            return;
-        }
+        return HandOffCoreAsync(approval, HomeOf(thread), proposal, execution, fromStatuses, operationId, inline: false, cancellationToken);
+    }
 
-        var current = (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!;
-        await workUpdates.PublishAsync(
-            current.ConversationId,
-            NhAssistantAgentWorkReasons.Proposal,
-            current.Id,
-            current.RunId,
-            CancellationToken.None);
-        // The hand-off is recorded before the executor runs, so a report the application makes while it
-        // takes the work follows it in the audit.
-        await events.ProposalAsync(
-            NhAssistantAuditEventKind.AgentProposalHandedToApplication,
-            thread,
-            current,
-            NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
-            NhAssistantApplicationExecutionCodes.HandedOff,
-            CancellationToken.None);
-
-        var handOff = new NhAssistantProposalHandOff(
-            current.Id,
-            proposal,
-            current.DecidedByActorId ?? string.Empty,
-            current.DecidedAt ?? current.CreatedAt,
-            thread.AgentId,
-            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-            thread.TenantId,
-            current.ExecutionAttempts,
-            dueAt);
-        TaskResult result;
-        try
-        {
-            result = await executor.ExecuteAsync(handOff, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // The proposal waits for the report; without one its deadline makes it uncertain.
-            throw;
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            logger.LogError(
-                exception,
-                "The application's executor did not take proposal {ApprovalId} of tool {ToolId}; its outcome is unknown.",
-                current.Id,
-                current.ToolId);
-            await CloseUncertainAsync(current, thread, NhAssistantApplicationExecutionCodes.HandOffFailed);
-            return;
-        }
-
-        if (!result.Success)
-        {
-            var code = NhAssistantResults.CodeOf(result) is { } refused && NhAssistantExecutionReport.IsValidCode(refused)
-                ? refused
-                : NhAssistantApplicationExecutionCodes.HandOffRefused;
-            logger.LogInformation(
-                "The application refused to execute proposal {ApprovalId} of tool {ToolId} ({Code}).",
-                current.Id,
-                current.ToolId,
-                code);
-            await CloseReportedAsync(current, thread, NhAssistantExecutionOutcome.Failed, code, null);
-        }
+    /// <summary>
+    /// Hands a person's inline approval in their own conversation to the application (LS17), as
+    /// <see cref="HandOffAsync"/> does for an approved deferred proposal. The decision ran the proposal
+    /// guards already; no background operation carries the hand-off.
+    /// </summary>
+    public async Task<NhAssistantHandOffOutcome?> HandOffInlineAsync(
+        AssistantApproval approval,
+        AssistantConversation conversation,
+        NhAssistantApplicationExecution execution,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(execution);
+        var thread = await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken);
+        var home = thread is null ? HomeOf(conversation, approval) : HomeOf(thread);
+        var proposal = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
+        return await HandOffCoreAsync(approval, home, proposal, execution, InlineHandOffStatuses, operationId: null, inline: true, cancellationToken);
     }
 
     public async Task<TaskResult<NhAssistantExecutionReportReceipt>> ReportExecutionAsync(
@@ -168,12 +122,10 @@ internal sealed class NhAssistantApplicationExecutions(
         }
 
         var approval = await store.FindApprovalAsync(report.ApprovalId, cancellationToken);
-        var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
+        var home = approval is null ? null : await HomeOfAsync(approval, cancellationToken);
         // The application reports within one tenant: another tenant's proposal, and the whole
         // application's for a tenant that takes no part in it, read as unknown.
-        if (approval is null
-            || thread is null
-            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, report.TenantId))
+        if (approval is null || home is null || !Reaches(home, report.TenantId))
         {
             return TaskResult<NhAssistantExecutionReportReceipt>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }
@@ -186,7 +138,7 @@ internal sealed class NhAssistantApplicationExecutions(
         // as headless runs and executions do.
         using var culture = NhAssistantRunCulture.Use(localization.Value);
         if (approval.Status == NhAssistantApprovalStatuses.AwaitingApplication
-            && await CloseReportedAsync(approval, thread, report.Outcome, report.Code, summary) is { } closed)
+            && await CloseReportedAsync(approval, home, report.Outcome, report.Code, summary) is { } closed)
         {
             return TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(
                 new NhAssistantExecutionReportReceipt(closed.Id, closed.Status, Duplicate: false));
@@ -213,12 +165,12 @@ internal sealed class NhAssistantApplicationExecutions(
         var expired = 0;
         foreach (var approval in await runs.GetOverdueExecutionReportsAsync(now, maximum, cancellationToken))
         {
-            if (await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken) is not { } thread)
+            if (await HomeOfAsync(approval, cancellationToken) is not { } home)
             {
                 continue;
             }
 
-            if (await CloseUncertainAsync(approval, thread, NhAssistantApplicationExecutionCodes.ReportOverdue))
+            if (await CloseUncertainAsync(approval, home, NhAssistantApplicationExecutionCodes.ReportOverdue))
             {
                 expired++;
             }
@@ -230,6 +182,112 @@ internal sealed class NhAssistantApplicationExecutions(
         }
 
         return expired;
+    }
+
+    /// <summary>
+    /// Hands the proposal to the executor from <paramref name="fromStatuses"/>, once, and returns how it
+    /// ended; <see langword="null"/> when another worker moved the proposal first.
+    /// </summary>
+    private async Task<NhAssistantHandOffOutcome?> HandOffCoreAsync(
+        AssistantApproval approval,
+        ExecutionHome home,
+        NhAiProposal proposal,
+        NhAssistantApplicationExecution execution,
+        IReadOnlyCollection<string> fromStatuses,
+        Guid? operationId,
+        bool inline,
+        CancellationToken cancellationToken)
+    {
+        var executor = services.GetService<INhAssistantProposalExecutor>()
+            ?? throw new InvalidOperationException(
+                $"Tool '{execution.ToolId}' is executed by the application, but no executor is registered. Call UseProposalExecutor.");
+        var dueAt = _applicationClock.GetUtcNow().Add(execution.ReportWithin);
+        var handed = await runs.TryTransitionApprovalAsync(
+            approval.Id,
+            fromStatuses,
+            NhAssistantApprovalStatuses.AwaitingApplication,
+            new NhAssistantApprovalTransition
+            {
+                ExecutionOperationId = operationId,
+                CountExecutionAttempt = true,
+                ExecutionReportDueAt = dueAt,
+                ClearExecutedAt = true
+            },
+            CancellationToken.None);
+        if (!handed)
+        {
+            return null;
+        }
+
+        var current = (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!;
+        await PublishAsync(home, current);
+        // The hand-off is recorded before the executor runs, so a report the application makes while it
+        // takes the work follows it in the audit.
+        await events.ProposalAsync(
+            NhAssistantAuditEventKind.AgentProposalHandedToApplication,
+            home.AgentId,
+            home.Thread,
+            current,
+            NhAssistantAgentEvents.AgentActorPrefix + home.AgentId,
+            NhAssistantApplicationExecutionCodes.HandedOff,
+            null,
+            null,
+            CancellationToken.None);
+
+        var handOff = new NhAssistantProposalHandOff(
+            current.Id,
+            proposal,
+            current.DecidedByActorId ?? string.Empty,
+            current.DecidedAt ?? current.CreatedAt,
+            home.AgentId,
+            home.Subject,
+            home.TenantId,
+            current.ExecutionAttempts,
+            dueAt)
+        {
+            Inline = inline
+        };
+        TaskResult result;
+        try
+        {
+            result = await executor.ExecuteAsync(handOff, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The proposal waits for the report; without one its deadline makes it uncertain.
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            logger.LogError(
+                exception,
+                "The application's executor did not take proposal {ApprovalId} of tool {ToolId}; its outcome is unknown.",
+                current.Id,
+                current.ToolId);
+            await CloseUncertainAsync(current, home, NhAssistantApplicationExecutionCodes.HandOffFailed);
+            return new NhAssistantHandOffOutcome(NhAssistantApprovalStatuses.ExecutionUnknown, NhAssistantApplicationExecutionCodes.HandOffFailed, dueAt);
+        }
+
+        if (!result.Success)
+        {
+            var code = NhAssistantResults.CodeOf(result) is { } refused && NhAssistantExecutionReport.IsValidCode(refused)
+                ? refused
+                : NhAssistantApplicationExecutionCodes.HandOffRefused;
+            logger.LogInformation(
+                "The application refused to execute proposal {ApprovalId} of tool {ToolId} ({Code}).",
+                current.Id,
+                current.ToolId,
+                code);
+            await CloseReportedAsync(current, home, NhAssistantExecutionOutcome.Failed, code, null);
+            return new NhAssistantHandOffOutcome(NhAssistantApprovalStatuses.ExecutionFailed, code, dueAt);
+        }
+
+        // The executor may have reported at once, when the work was already done.
+        var latest = await store.FindApprovalAsync(current.Id, CancellationToken.None) ?? current;
+        return new NhAssistantHandOffOutcome(
+            latest.Status,
+            latest.Status == NhAssistantApprovalStatuses.AwaitingApplication ? null : latest.ExecutionResultCode,
+            dueAt);
     }
 
     /// <summary>
@@ -250,7 +308,7 @@ internal sealed class NhAssistantApplicationExecutions(
     /// </summary>
     private async Task<AssistantApproval?> CloseReportedAsync(
         AssistantApproval approval,
-        AssistantThread thread,
+        ExecutionHome home,
         NhAssistantExecutionOutcome outcome,
         string code,
         string? summary)
@@ -272,21 +330,24 @@ internal sealed class NhAssistantApplicationExecutions(
         }
 
         var current = (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!;
-        await workUpdates.PublishAsync(
-            current.ConversationId,
-            NhAssistantAgentWorkReasons.Proposal,
-            current.Id,
-            current.RunId,
-            CancellationToken.None);
+        await PublishAsync(home, current);
         await events.ProposalAsync(
             NhAssistantAuditEventKind.AgentProposalExecuted,
-            thread,
+            home.AgentId,
+            home.Thread,
             current,
             NhAssistantSpeakers.ApplicationActorId,
             status,
             NhAssistantApplicationExecutionCodes.Of(outcome),
             code,
             CancellationToken.None);
+        if (home.Thread is not { } thread)
+        {
+            // A chat has no approvers to notify: the person reads the outcome in their conversation.
+            await PostAsync(current, home, ReportText(outcome, code, summary), "execution-report-");
+            return current;
+        }
+
         await notifier.ConsultationProposalEndedAsync(thread, current, CancellationToken.None);
         await notifier.NotifyAsync(
             outcome == NhAssistantExecutionOutcome.NeedsAttention
@@ -301,7 +362,7 @@ internal sealed class NhAssistantApplicationExecutions(
             failureCode: code);
         if (summary is not null)
         {
-            await PostSummaryAsync(current, thread, summary);
+            await PostAsync(current, home, NhAssistantMarkdown.Escape(summary), "execution-report-");
         }
 
         await FollowUpAsync(current, thread);
@@ -310,9 +371,9 @@ internal sealed class NhAssistantApplicationExecutions(
 
     /// <summary>
     /// Makes a waiting proposal uncertain without a report, once: its executor threw or its deadline
-    /// passed. The approvers are told, as for any uncertain execution.
+    /// passed. The approvers are told, as for any uncertain execution; in a chat the conversation is.
     /// </summary>
-    private async Task<bool> CloseUncertainAsync(AssistantApproval approval, AssistantThread thread, string code)
+    private async Task<bool> CloseUncertainAsync(AssistantApproval approval, ExecutionHome home, string code)
     {
         var closed = await runs.TryTransitionApprovalAsync(
             approval.Id,
@@ -326,21 +387,23 @@ internal sealed class NhAssistantApplicationExecutions(
         }
 
         var current = (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!;
-        await workUpdates.PublishAsync(
-            current.ConversationId,
-            NhAssistantAgentWorkReasons.Proposal,
-            current.Id,
-            current.RunId,
-            CancellationToken.None);
+        await PublishAsync(home, current);
         await events.ProposalAsync(
             NhAssistantAuditEventKind.AgentProposalExecuted,
-            thread,
+            home.AgentId,
+            home.Thread,
             current,
-            NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
+            NhAssistantAgentEvents.AgentActorPrefix + home.AgentId,
             NhAssistantApprovalStatuses.ExecutionUnknown,
             null,
             code,
             CancellationToken.None);
+        if (home.Thread is not { } thread)
+        {
+            await PostAsync(current, home, ReportText(NhAssistantExecutionOutcome.NeedsAttention, code, null), "execution-unknown-");
+            return true;
+        }
+
         await notifier.NotifyAsync(
             NhAssistantAgentNotificationKind.ExecutionUnknown,
             thread,
@@ -355,27 +418,49 @@ internal sealed class NhAssistantApplicationExecutions(
     }
 
     /// <summary>
-    /// Posts the application's summary into the agent's thread as an application message without the
-    /// trusted flag, so the people of the thread read it and the follow-up run reads it as information
-    /// from the application, never as instructions. Its Markdown is escaped, so it shows as written. One
-    /// message per hand-off; a failed post is logged and changes nothing about the report.
+    /// What a person's chat reads about the close of its handed-off proposal: the outcome with its code,
+    /// and the application's summary as written, its Markdown escaped.
     /// </summary>
-    private async Task PostSummaryAsync(AssistantApproval approval, AssistantThread thread, string summary)
+    private static string ReportText(NhAssistantExecutionOutcome outcome, string code, string? summary)
     {
         var dutch = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "nl";
-        var text = NhAssistantContent.Bound(NhAssistantMarkdown.Escape(summary), registration.Limits.MaxMessageChars);
-        var message = new NhAssistantApplicationMessage(text)
+        var escapedCode = NhAssistantMarkdown.Escape(code);
+        var sentence = outcome switch
+        {
+            NhAssistantExecutionOutcome.Completed => dutch
+                ? $"De applicatie heeft het goedgekeurde voorstel uitgevoerd ({escapedCode})."
+                : $"The application carried out the approved proposal ({escapedCode}).",
+            NhAssistantExecutionOutcome.Failed => dutch
+                ? $"De applicatie heeft het goedgekeurde voorstel niet uitgevoerd ({escapedCode})."
+                : $"The application did not carry out the approved proposal ({escapedCode}).",
+            _ => dutch
+                ? $"Het is niet bekend of de applicatie het goedgekeurde voorstel heeft uitgevoerd ({escapedCode}). Controleer het voordat iemand het opnieuw vraagt."
+                : $"It is not known whether the application carried out the approved proposal ({escapedCode}). Check it before anyone asks again."
+        };
+        return summary is null ? sentence : sentence + "\n\n" + NhAssistantMarkdown.Escape(summary);
+    }
+
+    /// <summary>
+    /// Posts <paramref name="text"/> into the proposal's conversation as an application message without
+    /// the trusted flag, so its people read it and a model reads it as information from the application,
+    /// never as instructions. One message per hand-off and kind; a failed post is logged and changes
+    /// nothing about the close.
+    /// </summary>
+    private async Task PostAsync(AssistantApproval approval, ExecutionHome home, string text, string keyPrefix)
+    {
+        var dutch = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "nl";
+        var message = new NhAssistantApplicationMessage(NhAssistantContent.Bound(text, registration.Limits.MaxMessageChars))
         {
             Title = dutch ? "Uitvoering van een goedgekeurd voorstel" : "Execution of an approved proposal",
             Access = NhAssistantApplicationMessageAccess.WithoutPersonCheck(),
-            IdempotencyKey = "execution-report-" + approval.Id.ToString("N") + "-" + approval.ExecutionAttempts.ToString(CultureInfo.InvariantCulture)
+            IdempotencyKey = keyPrefix + approval.Id.ToString("N") + "-" + approval.ExecutionAttempts.ToString(CultureInfo.InvariantCulture)
         };
         var posted = await services.GetRequiredService<INhAssistantConversationMessages>()
-            .PostAsync(thread.ConversationId, message, CancellationToken.None);
+            .PostAsync(home.ConversationId, message, CancellationToken.None);
         if (!posted.Success)
         {
             logger.LogWarning(
-                "The summary of the execution of proposal {ApprovalId} was not posted ({Code}).",
+                "The outcome of the execution of proposal {ApprovalId} was not posted ({Code}).",
                 approval.Id,
                 NhAssistantResults.CodeOf(posted, NhAssistantErrorCodes.MessageInvalid));
         }
@@ -389,4 +474,93 @@ internal sealed class NhAssistantApplicationExecutions(
             await triggers.StartFollowUpAsync(thread, approval, approval.DecidedByActorId, CancellationToken.None);
         }
     }
+
+    /// <summary>
+    /// Tells the screens that the proposal changed: the agent's work for a thread, the conversation for
+    /// a chat.
+    /// </summary>
+    private async Task PublishAsync(ExecutionHome home, AssistantApproval approval)
+    {
+        if (home.Thread is not null)
+        {
+            await workUpdates.PublishAsync(
+                approval.ConversationId,
+                NhAssistantAgentWorkReasons.Proposal,
+                approval.Id,
+                approval.RunId,
+                CancellationToken.None);
+            return;
+        }
+
+        await live.PublishChangedAsync(approval.ConversationId, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Where the proposal waits: its agent thread, otherwise the person's chat of an inline approval;
+    /// <see langword="null"/> for a proposal without either.
+    /// </summary>
+    private async Task<ExecutionHome?> HomeOfAsync(AssistantApproval approval, CancellationToken cancellationToken)
+    {
+        if (await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken) is { } thread)
+        {
+            return HomeOf(thread);
+        }
+
+        if (approval.Mode != NhAssistantApprovalModes.Inline
+            || await store.FindShareableConversationAsync(approval.ConversationId, cancellationToken) is not { } conversation)
+        {
+            return null;
+        }
+
+        return HomeOf(conversation, approval);
+    }
+
+    /// <summary>
+    /// The application reports within one tenant: for a thread the whole application's rules, for a
+    /// chat its own tenant.
+    /// </summary>
+    private bool Reaches(ExecutionHome home, string? tenantId)
+    {
+        return home.Thread is { } thread
+            ? NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+            : string.Equals(home.TenantId, tenantId, StringComparison.Ordinal);
+    }
+
+    private static ExecutionHome HomeOf(AssistantThread thread)
+    {
+        return new ExecutionHome(
+            thread.ConversationId,
+            thread.AgentId,
+            thread.TenantId,
+            thread,
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId));
+    }
+
+    /// <summary>
+    /// A person's chat belongs to no object: the hand-off names the proposal's first target, or the whole
+    /// application when the tool names none.
+    /// </summary>
+    private static ExecutionHome HomeOf(AssistantConversation conversation, AssistantApproval approval)
+    {
+        var target = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson).Targets.FirstOrDefault();
+        var subject = target is not null
+                      && NhAiSubjectRef.IsValidType(target.Type)
+                      && !string.IsNullOrWhiteSpace(target.Id)
+                      && target.Id.Length <= NhAiSubjectRef.MaxIdLength
+                      && target.Id.Trim() == target.Id
+            ? new NhAiSubjectRef(target.Type, target.Id)
+            : NhAiSystemSubjects.Global;
+        return new ExecutionHome(conversation.Id, conversation.AgentId, conversation.TenantId, null, subject);
+    }
+
+    /// <summary>
+    /// Where a proposal the application executes waits: the agent's thread, or the person's own chat for
+    /// an inline approval (<see cref="Thread"/> is <see langword="null"/>).
+    /// </summary>
+    private sealed record ExecutionHome(
+        Guid ConversationId,
+        string AgentId,
+        string? TenantId,
+        AssistantThread? Thread,
+        NhAiSubjectRef Subject);
 }

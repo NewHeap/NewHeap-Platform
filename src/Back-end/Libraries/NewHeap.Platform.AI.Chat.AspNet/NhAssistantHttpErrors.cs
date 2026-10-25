@@ -120,6 +120,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ConsultDepthExceeded,
             NhAssistantErrorCodes.ConsultBudgetExhausted,
             NhAssistantErrorCodes.ConsultLimitReached,
+            NhAssistantErrorCodes.ConsultTurnLimit,
             NhAssistantErrorCodes.ConsultTimeout,
             NhAssistantErrorCodes.ConsultFailed,
             NhAssistantErrorCodes.ConsultReadOnly,

@@ -34,7 +34,9 @@ public interface IProjectEquipmentOrderDesk
 /// the result. The sample therefore declares the tool with <c>ExecuteInApplication</c>
 /// (<c>SampleEquipmentOrderComposition</c>): an approved proposal is handed to the sample's executor,
 /// which puts the order on the desk, and the desk reports how it went once the supplier confirmed.
-/// The function below runs only when a person approves the call inline in their own turn.
+/// The function below runs only in a host that declares the tool without <c>AlsoInline</c>, when a
+/// person approves the call inline in their own turn; the sample hands those approvals to the order desk
+/// as well (SPM-328).
 /// </summary>
 [Authorize]
 [NhAiToolSet("projects")]

@@ -712,6 +712,8 @@ export interface AgentConsultationList {
 export interface AgentInbox {
   items: AgentProposal[];
   total: number;
+  /** The status the page lists. Missing on older servers, which list pending proposals only. */
+  status?: AgentInboxStatus;
   /**
    * The scope whose visits mark what is new: `global`, or `division:{id}` for an inbox filtered on a
    * division. Missing on older servers.
@@ -770,7 +772,19 @@ export interface AgentInboxSubjectGroup {
   continuesOnNextPage: boolean;
 }
 
+/**
+ * What the approval inbox lists (`AgentInboxFilter.status`): proposals that wait for a decision
+ * (the default), approved proposals of tools the application executes that wait for its report, and
+ * proposals whose execution is uncertain until an approver resolves it.
+ */
+export type AgentInboxStatus = 'pending' | 'awaiting-application' | 'execution-unknown';
+
 export interface AgentInboxFilter {
+  /**
+   * The status the inbox lists, with the same visibility: `pending` by expiry (the default),
+   * `awaiting-application` by report deadline, `execution-unknown` by decision.
+   */
+  status?: AgentInboxStatus;
   subjectType?: string;
   agentId?: string;
   /** Only proposals on subjects of this division; the inbox's visits are then those of the division. */

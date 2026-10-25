@@ -34,8 +34,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// store, so its member snapshot stays empty. Listings that follow the snapshot, such as the approval
 /// inbox and the subject summary, ask the caller's live role on its subjects instead
 /// (<see cref="NhAssistantSystemApprovers"/>), and notifications reach its approvers among the people
-/// of the thread. Roles are kept for a few seconds per scope, so a listing asks the principal factory
-/// once per person.
+/// of the thread and the people the application lists (<see cref="INhAssistantSystemMembers"/>, LS15),
+/// each with the role the policies give them now. Roles are kept for a few seconds per scope, so a
+/// listing asks the principal factory once per person.
 /// </remarks>
 internal sealed class NhAssistantSystemSubjectResolver(
     IServiceProvider services,
@@ -391,16 +392,18 @@ internal sealed class NhAssistantSystemApprovers(
     internal const int MaxThreads = 200;
 
     /// <summary>
-    /// The threads of the whole application whose pending proposals the person's inbox lists: as an
-    /// approver of the subject, or as the initiator of a run, and in both cases only when the person
-    /// passes the agent's view policy. A person bound to a tenant sees none: the whole application
-    /// belongs to no tenant, as its proposals' threads do not; with the single-tenant mode a person of
-    /// its tenant does (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// The threads of the whole application whose proposals in the inbox status
+    /// <paramref name="status"/> (by default pending) the person's inbox lists: as an approver of the
+    /// subject, or as the initiator of a run, and in both cases only when the person passes the agent's
+    /// view policy. A person bound to a tenant sees none: the whole application belongs to no tenant, as
+    /// its proposals' threads do not; with the single-tenant mode a person of its tenant does
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </summary>
     public async Task<NhAssistantSystemInbox> InboxAsync(
         string actorId,
         string? tenantId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string status = NhAssistantApprovalStatuses.Pending)
     {
         if (!NhAssistantWholeApplicationTenancy.TakesPart(registration, tenantId))
         {
@@ -409,7 +412,7 @@ internal sealed class NhAssistantSystemApprovers(
 
         var approver = new List<Guid>();
         var viewer = new List<Guid>();
-        foreach (var thread in await runs.GetSystemThreadsWithPendingProposalsAsync(MaxThreads, cancellationToken))
+        foreach (var thread in await runs.GetSystemThreadsWithProposalsAsync(status, MaxThreads, cancellationToken))
         {
             if (!await MayViewAsync(thread, actorId, cancellationToken))
             {

@@ -67,6 +67,15 @@ public sealed record NhAssistantProposalHandOff(
     DateTimeOffset ReportDueAt)
 {
     /// <summary>
+    /// The person approved it inline in their own conversation
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>): in a chat, or in a request in an
+    /// agent thread. The report is posted into that conversation. A chat belongs to no object, so there
+    /// <see cref="Subject"/> is the proposal's first target, or the whole application
+    /// (<see cref="NhAiSystemSubjects.Global"/>) when the tool names none.
+    /// </summary>
+    public bool Inline { get; init; }
+
+    /// <summary>
     /// The proposal's id, as <see cref="NhAiProposal.ProposalId"/>.
     /// </summary>
     public Guid ProposalId => Proposal.ProposalId;
@@ -293,8 +302,41 @@ public static class NhAssistantApplicationExecutionCodes
 }
 
 /// <summary>
+/// The options of a tool the application executes
+/// (<see cref="NhAssistantBuilder.ExecuteInApplication(string, TimeSpan, Action{NhAssistantApplicationExecutionBuilder})"/>).
+/// </summary>
+public sealed class NhAssistantApplicationExecutionBuilder
+{
+    internal NhAssistantApplicationExecutionBuilder()
+    {
+    }
+
+    internal bool HandsOffInline { get; private set; }
+
+    /// <summary>
+    /// Hands a person's inline approval to the application too (LS17). Without it a person who approves
+    /// a proposal of the tool in their own turn, in a chat or in a request in an agent thread, runs the
+    /// tool's function there (AE3), the default. With it that approval is handed to the application's
+    /// <see cref="INhAssistantProposalExecutor"/> as a deferred approval is: the proposal waits as
+    /// <see cref="NhAssistantApprovalStatuses.AwaitingApplication"/> until the report deadline, the hand-off
+    /// is audited, and the turn goes on with a tool result that says the application has it and reports
+    /// later. The application's report (<see cref="INhAssistantProposalExecutionReports.ReportExecutionAsync"/>)
+    /// is posted into that person's conversation as an application message the model reads as information,
+    /// never as instructions; in a chat, which has no approvers to notify, it is always posted, with the
+    /// outcome and its code. A refused hand-off fails the proposal and the turn says so; a passed deadline
+    /// or an executor that throws makes it uncertain, which the conversation is told as well.
+    /// <see cref="NhAssistantProposalHandOff.Inline"/> tells the executor where the approval came from.
+    /// </summary>
+    public NhAssistantApplicationExecutionBuilder AlsoInline(bool enabled = true)
+    {
+        HandsOffInline = enabled;
+        return this;
+    }
+}
+
+/// <summary>
 /// A tool whose approved deferred proposals the application executes
-/// (<see cref="NhAssistantBuilder.ExecuteInApplication"/>).
+/// (<see cref="NhAssistantBuilder.ExecuteInApplication(string, TimeSpan)"/>).
 /// </summary>
 /// <param name="ToolId">The tool's id.</param>
 /// <param name="ReportWithin">How long the assistant waits for the application's report after a hand-off.</param>
@@ -304,4 +346,10 @@ internal sealed record NhAssistantApplicationExecution(string ToolId, TimeSpan R
     /// The longest report deadline a tool may declare.
     /// </summary>
     public static readonly TimeSpan MaxReportWithin = TimeSpan.FromDays(90);
+
+    /// <summary>
+    /// A person's inline approval of the tool is handed to the application too
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>), instead of running its function.
+    /// </summary>
+    public bool AlsoInline { get; init; }
 }

@@ -318,7 +318,7 @@ public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture databas
         var unknownRead = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(
             assistant => assistant.UseSystemSubject(system => system.ReadPolicy("app.unknown-read"))));
         Assert.Contains("read policy 'app.unknown-read'", unknownRead.Message);
-        Assert.Throws<ArgumentException>(() => new NhAssistantSystemSubjectBuilder(new NhAssistantRegistrationState()).ApprovePolicy(" app.padded"));
+        Assert.Throws<ArgumentException>(() => new NhAssistantSystemSubjectBuilder(new NhAssistantRegistrationState(), new ServiceCollection()).ApprovePolicy(" app.padded"));
     }
 
     [Fact]

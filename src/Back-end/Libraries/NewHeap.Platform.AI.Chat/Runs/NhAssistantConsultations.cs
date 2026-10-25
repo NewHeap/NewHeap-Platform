@@ -405,6 +405,15 @@ internal sealed class NhAssistantConsultationService(
         CancellationToken cancellationToken)
     {
         var options = request.Options;
+        // The asking turn's limit is checked first, so every consultation it starts counts (LS22).
+        var asking = NhAssistantExecutionScope.CurrentTurn;
+        if (asking is not null
+            && TurnLimitOf(asking) is { } turnLimit
+            && asking.IncrementConsultations() > turnLimit)
+        {
+            return Refused(NhAssistantErrorCodes.ConsultTurnLimit, "This turn reached its number of consultations.");
+        }
+
         if (depth > registration.Limits.MaxConsultationDepth || askers.Contains(options.AgentId, StringComparer.Ordinal))
         {
             return Refused(
@@ -495,6 +504,18 @@ internal sealed class NhAssistantConsultationService(
 
         return TaskResult<NhAssistantConsultationTarget>.Succeeded(
             new NhAssistantConsultationTarget(thread.Data!, subject, access, runOptions, timeout, agent));
+    }
+
+    /// <summary>
+    /// The consultation limit of the asking turn: its agent's own, otherwise the application's;
+    /// <see langword="null"/> for no limit. A consultation outside a turn has no turn to count.
+    /// </summary>
+    private int? TurnLimitOf(NhAssistantTurnScope asking)
+    {
+        return registration.AgentRuns.TryGetValue(asking.Agent.Id, out var runOptions)
+               && runOptions.MaxConsultationsPerTurn is { } own
+            ? own
+            : asking.Limits.MaxConsultationsPerTurn;
     }
 
     /// <summary>
