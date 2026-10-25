@@ -130,8 +130,8 @@ describe('Agent metadata of the mock API', () => {
     await configure();
 
     expect((await call('GET', 'admin/run-catalog')).body.agentMetadata).toEqual([
-      { name: 'cost-center', editable: true, maxBytes: 100, indexed: true },
-      { name: 'team', editable: false, maxBytes: 4096, indexed: false }
+      { name: 'cost-center', editable: true, maxBytes: 100, indexed: true, indexedByEach: false },
+      { name: 'team', editable: false, maxBytes: 4096, indexed: false, indexedByEach: false }
     ]);
     const code = (await call('GET', 'admin/agents/planner/metadata')).body;
     expect(code.map((entry: any) => [entry.name, entry.source, entry.editable, entry.version])).toEqual([
@@ -143,6 +143,8 @@ describe('Agent metadata of the mock API', () => {
     // An override of an agent in code has a version of its own.
     const override = await call('PUT', 'admin/agents/planner/metadata/cost-center', { value: { code: 'CC-3000' }, expectedVersion: null });
     expect([override.status, override.body.source, override.body.version, override.body.indexValue]).toEqual([200, 'override', 1, 'cc-3000']);
+    // An IndexBy entry has no searchable values of IndexByEach, as on the server.
+    expect([override.body.indexedByEach, override.body.indexValues]).toEqual([false, []]);
     expect(override.body.codeValue).toEqual({ code: 'CC-1000' });
     expect((await call('PUT', 'admin/agents/planner/metadata/cost-center', { value: { code: 'CC-3001' }, expectedVersion: null })).status).toBe(409);
 
