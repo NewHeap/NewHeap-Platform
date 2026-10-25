@@ -112,13 +112,14 @@ assert.deepEqual(providerRuns(true), [
   { label: 'SQL Server', filter: 'DisplayName~SqlServer' },
   { label: 'PostgreSQL and other tests', filter: 'DisplayName!~SqlServer' }
 ]);
-// Processes that run side by side test one build; the Windows shell needs the filter quoted.
+// Processes that run side by side test one build and print each failed test with its message; the
+// Windows shell needs the logger and the filter quoted.
 assert.deepEqual(
   dotnetTestArguments(chatTests, 'DisplayName~SqlServer', { noBuild: true }),
-  ['test', chatTests, '-v', 'q', '-nologo', '--no-build', '--filter', 'DisplayName~SqlServer']);
+  ['test', chatTests, '-v', 'q', '-nologo', '--no-build', '--logger', 'console;verbosity=minimal', '--filter', 'DisplayName~SqlServer']);
 assert.deepEqual(
   dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { windowsShell: true }),
-  ['test', chatTests, '-v', 'q', '-nologo', '--filter', '"DisplayName!~SqlServer"']);
+  ['test', chatTests, '-v', 'q', '-nologo', '--logger', '"console;verbosity=minimal"', '--filter', '"DisplayName!~SqlServer"']);
 
 // --max-parallel takes a whole number of at least 1; without it three test projects run at a time.
 assert.equal(parseMaxParallel(undefined), defaultMaxParallel);
@@ -297,6 +298,42 @@ assert.deepEqual(summaryLines([passing, karmaFailing], 20).slice(-4), [
   '  ng test nh-common',
   '    NhDatePipe formats (a) the day',
   '    NhToast closes'
+]);
+// A failed .NET test run shows every failed test with its error message and stack trace in the job
+// block, however long the stacks, and names the failed tests under the process in the summary.
+const dotnetOutput = [
+  `Test run for C:\\repo\\${chatTests}.dll (.NETCoreApp,Version=v10.0)`,
+  'A total of 1 test files matched the specified pattern.',
+  '[xUnit.net 00:02:01.62]     NewHeap.Tests.Leases.A_lease_expires(provider: SqlServer) [FAIL]',
+  '  Failed NewHeap.Tests.Leases.A_lease_expires(provider: SqlServer) [1 s]',
+  '  Error Message:',
+  '   Expected operation.Status to be Cancelled, but found RetryScheduled.',
+  '  Stack Trace:',
+  ...Array.from({ length: 70 }, (_, line) => `     at frame ${line}`),
+  '  Failed NewHeap.Tests.Steps.A_step_fails(provider: SqlServer, level: Root) [12 ms]',
+  '  Error Message:',
+  '   System.TimeoutException : The operation has timed out.',
+  '',
+  'Failed!  - Failed:     2, Passed:    50, Skipped:     0, Total:    52, Duration: 4 m 22 s - Tests.dll (net10.0)'
+].join('\n');
+assert.deepEqual(failedSpecs(dotnetOutput), [
+  'NewHeap.Tests.Leases.A_lease_expires(provider: SqlServer)',
+  'NewHeap.Tests.Steps.A_step_fails(provider: SqlServer, level: Root)'
+]);
+assert.deepEqual(failedSpecs('Passed!  - Failed:     0, Passed:    52, Skipped:     0, Total:    52'), []);
+const dotnetFailing = { label: `${chatTests} [SQL Server]`, passed: false, seconds: 265, output: dotnetOutput };
+const dotnetReport = jobReport([dotnetFailing]).split('\n');
+assert.deepEqual(dotnetReport.slice(0, 4), [
+  `FAIL ${chatTests} [SQL Server] (265s)`,
+  '  Failed NewHeap.Tests.Leases.A_lease_expires(provider: SqlServer) [1 s]',
+  '  Error Message:',
+  '   Expected operation.Status to be Cancelled, but found RetryScheduled.'
+]);
+assert.ok(dotnetReport.includes('   System.TimeoutException : The operation has timed out.'));
+assert.deepEqual(summaryLines([dotnetFailing], 300).slice(-3), [
+  `  ${chatTests} [SQL Server]`,
+  '    NewHeap.Tests.Leases.A_lease_expires(provider: SqlServer)',
+  '    NewHeap.Tests.Steps.A_step_fails(provider: SqlServer, level: Root)'
 ]);
 
 // A provider flag named after SQL Server would send both of its cases to the SQL Server process.
