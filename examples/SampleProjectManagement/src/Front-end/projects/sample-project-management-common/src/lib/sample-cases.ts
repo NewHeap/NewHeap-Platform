@@ -5423,5 +5423,32 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStepRecordingProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BackgroundOperationProviderHost.cs"
     ]
+  },
+  {
+    "id": "SPM-326",
+    "title": "Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddAssistantAgentRuns(runs => runs.Queue(...).MaxConcurrency(...)) with NhAssistantAgentRunOperationsBuilder, NhBackgroundOperationBuilder.WithReservedQueueConcurrency and NhBackgroundOperationsOptions.ReservedQueueConcurrency within WithGlobalConcurrency; NhAssistantTriggerReceipt.InputId, INhAssistantAgentRunLookup.FindByEventAsync and FindByInputAsync with NhAssistantTriggerEventRun; NhAssistantOptions.RunSchedules for a host that knows the schedules but does not run them",
+    "outcome": "The sample's assistant operations (agent runs, proposal executions, revalidations, deferred trigger fires and replays) work on the queue `agent-runs`, which keeps two of the eight slots of the global limit for itself and may run four operations at the same time: other work never takes the reserved slots, agent work takes free shared slots once its own are in use, and it leaves the rest of the shared slots to the other work. When a project is created, the intake reviewer's receipt names the queued input that holds the event, and the maintenance page finds the review by the event's id: the input, the run it started and, once the run claimed it, that run's status; a redelivered event finds the review of its first delivery. The library tests prove the reservation on SQL Server and PostgreSQL, the lookup for started, coalesced, deduplicated, waiting and deferred fires with a tenant mismatch, and a host with `RunSchedules` false that starts without Hangfire and adds or removes no recurring job.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunConfigurationRefresh.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationReservedConcurrencyProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventLookupTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScheduleHostTests.cs"
+    ]
   }
 ] as const;
