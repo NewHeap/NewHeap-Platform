@@ -92,7 +92,9 @@
         "running": "The assistant is working",
         "waiting-for-approval": "Waiting for approval",
         "running-by": "{{name}} is working with the assistant…",
-        "waiting-for-approval-by": "Waiting for {{name}} to decide…"
+        "waiting-for-approval-by": "Waiting for {{name}} to decide…",
+        "waiting-for-answer": "Waiting for an answer to the question",
+        "waiting-for-answer-by": "Waiting for {{name}} to answer…"
       },
       "attach": "Attach files",
       "attach-hint": "{{types}}, up to {{max}} each, at most {{count}} files per message",
@@ -138,6 +140,7 @@
         "succeeded": "Completed",
         "failed": "Failed",
         "awaiting-approval": "Awaiting approval",
+        "awaiting-answer": "Awaiting an answer",
         "rejected": "Rejected",
         "not-executed": "Not run"
       },
@@ -156,6 +159,7 @@
     "tool-group": {
       "running": "Calling {{name}}…",
       "awaiting-approval": "Waiting for approval: {{name}}",
+      "awaiting-answer": "Waiting for an answer",
       "used-one": "Used 1 tool",
       "used-many": "Used {{count}} tools",
       "progress": "{{finished}} of {{total}} done",
@@ -225,6 +229,24 @@
         "moved-status": "Left for approvers",
         "moved": "It now waits for the approvers of {{subject}}."
       }
+    },
+    "question": {
+      "title": "Question",
+      "status": {
+        "pending": "Waiting for an answer",
+        "answered": "Answered",
+        "expired": "Expired",
+        "cancelled": "Cancelled"
+      },
+      "choices": "Answers",
+      "choose-label": "Answer: {{choice}}",
+      "expires-in": "Answer within {{time}}",
+      "answering": "Submitting your answer",
+      "waiting-for": "Waiting for {{name}} to answer.",
+      "waiting-for-participant": "Waiting for the person the question is addressed to.",
+      "answered": "Answer: {{choice}}",
+      "expired": "Nobody answered in time.",
+      "cancelled": "The question was withdrawn when the task was stopped."
     },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
@@ -496,7 +518,14 @@
       "assistant-package-locked": "An agent package locks this. Unlink it from the package first.",
       "assistant-package-too-large": "An agent package is at most 1 MB and holds at most 20 agents.",
       "assistant-package-refused": "The check refused parts of the package, so nothing was imported. Check the package again to see which.",
-      "assistant-package-not-linked": "This agent, or this part of it, is not linked to an agent package."
+      "assistant-package-not-linked": "This agent, or this part of it, is not linked to an agent package.",
+      "assistant-question-invalid": "The assistant could not ask this question; it continues without it.",
+      "assistant-question-not-found": "This question was not found.",
+      "assistant-question-not-pending": "This question no longer waits for an answer.",
+      "assistant-question-forbidden": "This question is addressed to someone else.",
+      "assistant-question-expired": "Nobody answered this question in time. Send your message again to continue.",
+      "assistant-question-cancelled": "The question was withdrawn when the task was stopped.",
+      "assistant-question-answer-invalid": "Choose one of the answers of the question."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

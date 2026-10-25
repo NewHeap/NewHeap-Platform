@@ -121,6 +121,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        enabled.MapPost("conversations/{id:guid}/questions/{questionId:guid}/answer", AnswerQuestionAsync)
+            .WithName("NhAssistantAnswerQuestion")
+            .WithSummary("Answer a question")
+            .WithDescription("Answers the question the waiting turn of this chat asked with ask_question (run.AllowQuestions()) with the zero-based index of one of its choices, and streams the resumed turn: the answer is the result of the agent's call, and the turn continues with the caller's rights. Only the question's addressee answers (403 assistant-question-forbidden for another person of the conversation). A question that was answered or whose turn was stopped answers 409 assistant-question-not-pending; one whose wait ended answers 409 assistant-question-expired and releases the conversation; a choice outside the question answers 400 assistant-question-answer-invalid. Agent threads ask no questions.")
+            .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapPost("conversations/{id:guid}/cancel", CancelAsync)
             .WithName("NhAssistantCancelTurn")
             .WithSummary("Cancel a turn")
@@ -619,6 +628,54 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 AgentTurn = agentTurn,
                 PolicyAuthorized = agentTurn is not null && askerDecision.Approval is null,
                 LeaveForApprovers = request.Decision == "leave",
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
+            },
+            httpContext.RequestAborted);
+        return started.Success
+            ? new NhAssistantServerSentEventsResult(started.Data)
+            : FromFailure(started);
+    }
+
+    /// <summary>
+    /// Answers the question a person's chat waits for and streams the resumed turn (LS21).
+    /// </summary>
+    private static async Task<IResult> AnswerQuestionAsync(
+        Guid id,
+        Guid questionId,
+        HttpContext httpContext,
+        INhAssistantTurnRunner runner)
+    {
+        var caller = await ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return ContextUnavailable();
+        }
+        var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantAnswerQuestionRequest);
+        if (request?.Choice is not { } choice)
+        {
+            return Error(NhAssistantErrorCodes.QuestionAnswerInvalid);
+        }
+        var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
+        if (resolved.Error is not null)
+        {
+            return resolved.Error;
+        }
+        if (ThreadAccessOf(httpContext) is not null)
+        {
+            // Questions are asked in people's chats only.
+            return Error(NhAssistantErrorCodes.QuestionNotFound);
+        }
+
+        var outlives = KeepsTurnAfterDisconnect(httpContext);
+        var started = await runner.StartAnswerTurnAsync(
+            new NhAssistantAnswerTurnRequest(
+                id,
+                caller.Data,
+                questionId,
+                choice,
+                outlives ? CancellationToken.None : httpContext.RequestAborted,
+                RequestLanguage(httpContext))
+            {
                 Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
             },
             httpContext.RequestAborted);

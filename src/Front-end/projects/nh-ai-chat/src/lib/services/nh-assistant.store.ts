@@ -51,6 +51,7 @@ import {
   applyNhAssistantConversationChange,
   applyNhAssistantEvent,
   applyNhAssistantLiveEvent,
+  applyNhAssistantQuestionAnswer,
   nhAssistantLatestTurnHasText
 } from './nh-assistant-reducer';
 import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
@@ -429,6 +430,24 @@ export class NhAssistantStore {
   readonly canDecide = computed(() => {
     const approval = this.activeConversation()?.pendingApproval;
     return approval ? this.approvalRights().get(approval.approvalId)?.canDecide === true : false;
+  });
+  /**
+   * True when the current user may answer the question the open chat waits for: it is addressed to
+   * them and still pending (`ask_question`, `run.AllowQuestions()` on the server).
+   */
+  readonly canAnswer = computed(() => {
+    const conversation = this.activeConversation();
+    const question = conversation?.pendingQuestion;
+    return !!question && question.status === 'pending' && question.addresseeActorId === conversation?.currentActorId;
+  });
+  /** The member a pending question of the open conversation is addressed to, when it is someone else. */
+  readonly questionAddressee = computed<ConversationMember | null>(() => {
+    const conversation = this.activeConversation();
+    const question = conversation?.pendingQuestion;
+    if (!question || question.addresseeActorId === conversation?.currentActorId) {
+      return null;
+    }
+    return conversation?.members?.find(member => member.actorId === question.addresseeActorId) ?? null;
   });
   /** The member whose turn runs or waits in the open conversation, when it is someone else. */
   readonly activeMember = computed<ConversationMember | null>(() => {
@@ -993,6 +1012,55 @@ export class NhAssistantStore {
         this.patchSession(conversationId, current => ({ ...current, deciding: false }));
         // A proposal left for the subject's approvers names the one that waits there only once read again.
         this.afterTurn(conversationId, failed || decision === 'leave');
+      }
+    });
+  }
+
+  /**
+   * Answers the question the open chat waits for with the choice at `choice` and streams the resumed
+   * turn, as a decision does. Ignores another question, a question addressed to someone else, a choice
+   * the question does not offer and calls while a turn or a decision is in flight. A refused answer,
+   * such as an expired question, shows its error and reads the conversation again.
+   */
+  answerQuestion(questionId: string, choice: number): void {
+    const session = this.activeSession();
+    const conversation = session?.conversation;
+    if (!session || !conversation || session.deciding || session.streaming || !this.canAnswer()) {
+      return;
+    }
+    const question = conversation.pendingQuestion;
+    if (!question || question.questionId !== questionId || !Number.isInteger(choice) || choice < 0 || choice >= question.choices.length) {
+      return;
+    }
+
+    const conversationId = conversation.id;
+    this.patchSession(conversationId, current => ({ ...current, deciding: true, error: null, notice: null }));
+
+    let accepted = false;
+    let failed = false;
+    this.runStream(conversationId, this.api.answerQuestion(conversationId, questionId, { choice }), {
+      next: event => {
+        if (!accepted && event.type !== 'error') {
+          accepted = true;
+          this.patchSession(conversationId, current => ({
+            ...current,
+            conversation: applyNhAssistantQuestionAnswer(current.conversation, questionId, choice)
+          }));
+        }
+        if (event.type === 'error') {
+          failed = true;
+          if (!accepted) {
+            this.patchSession(conversationId, current => ({ ...current, error: event.data }));
+            return;
+          }
+        }
+
+        this.applyEvent(conversationId, event);
+      },
+      complete: () => {
+        this.patchSession(conversationId, current => ({ ...current, deciding: false }));
+        // An expired question released the conversation; reading it again shows that.
+        this.afterTurn(conversationId, failed);
       }
     });
   }

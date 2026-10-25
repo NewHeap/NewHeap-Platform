@@ -565,6 +565,63 @@ assistant's message, the pending approvals and the usage. Only chats are served.
 | `NhAiAspNetScopeAuthorizationResource` is no longer `sealed`; in a person's turn that does not depend on the request the gate passes a derived resource that also implements `INhDivisionScopedResource` with the person's active division. | None for handlers that match the record; a division handler reads the division from the resource. |
 | `NhAssistantAuditEvent.Channel` is also set on the events of turns the service runs, such as `ToolInvoked` and `ApprovalRequested`. | Let audit sinks that expect a channel only on decisions accept it on other events. |
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: skills and structured questions in a person's chat
+
+`NhAssistantAgentRunBuilder.SkillsInChat()` (`NhAssistantAgentRunOptions.SkillsInChat`, off by default)
+offers an agent's skills in people's chats with it: a chat turn starts without a skill, `use_skill` lists
+the active skills that work live, and the model loads one, at most twice per turn, without triage. The
+skill's instructions, tools, profile, classification, file limits and its own `MaxTokensPerRun` then apply
+within the person's rights; its daily budget counts runs only. The agent's message records the skill it
+worked in at its end (`NhAssistantMessageDto.SkillId`), stored in the message's parts without a migration.
+
+`NhAssistantAgentRunBuilder.AllowQuestions()` (`NhAssistantAgentRunOptions.AllowQuestions`, off by
+default) offers the governed `ask_question` in people's chats with the agent: a question of at most 500
+characters with two to six distinct choices of at most 100 characters (`NhAssistantQuestionLimits`) for the
+person whose turn it is or another person of a shared chat. The turn waits as for an inline approval
+(conversation and turn `waiting-for-approval`, the call `NhAssistantToolCallStatuses.AwaitingAnswer`, the
+question in `NhAssistantConversationDto.PendingQuestion` and in a `question` part,
+`NhAssistantQuestionPartDto`, with `NhAssistantQuestionStatuses`; the stream event `question.asked`). Only
+the addressee answers, with `POST conversations/{id}/questions/{questionId}/answer` and
+`NhAssistantAnswerQuestionRequest`; the turn resumes as a stream with the answer as the call's result
+(`question.answered`) and continues with the rights of the person who answered, in the skill it worked in.
+A question expires with `NhAssistantLimits.ApprovalLifetime` on the application's clock, and stopping the
+turn cancels it. New codes: `assistant-question-invalid` (the model's result, 400),
+`assistant-question-answer-invalid` (400), `assistant-question-forbidden` (403),
+`assistant-question-not-found` (404), `assistant-question-not-pending`, `assistant-question-expired` and
+`assistant-question-cancelled` (409). The audit records `QuestionAsked` (100), `QuestionAnswered` (101) and
+`QuestionExpired` (102) without the question or the answer. Questions live in their call and the message
+part, without a migration; runs, people's turns in agent threads and consultations never ask.
+
+The skill triage's structured output is strict now (`additionalProperties: false`), so a provider that
+enforces strict structured output takes it.
+
+| Breaking change | Required action |
+|---|---|
+| None; `SkillsInChat` and `AllowQuestions` are off by default. | Opt an agent in with `ConfigureAgent(id, agent => agent.SkillsInChat())` or `.AllowQuestions()`, and update `@newheap/platform-ai-chat` before `AllowQuestions`, whose `question` parts and events older clients do not show. |
+| `NhAssistantAuditEventKind` gains `QuestionAsked`, `QuestionAnswered` and `QuestionExpired`, and `NhAssistantToolCallStatuses` gains `awaiting-answer`. | Let audit sinks and clients that map every kind or call status accept the new values. |
+| A turn that waits for a question ends as `waiting-for-approval`, so the Web Push notifier tells the person whose turn it is as for an approval. | None. |
+
+## @newheap/platform-ai-chat: the question card and the skill of a message
+
+A question an agent asked with `ask_question` (server option `AllowQuestions`) renders in the thread as
+`NhAssistantQuestionCardComponent` (`nh-assistant-question-card`): one button per choice and a countdown
+for the person it is addressed to, read-only with whom it waits for for everyone else, and the chosen
+answer once answered. The models gain `QuestionPart` with `QuestionStatus` in `MessagePart`,
+`Conversation.pendingQuestion`, `AnswerQuestionRequest`, `Message.skillId` and the tool call status
+`awaiting-answer`; the stream and live events `question.asked` and `question.answered`
+(`QuestionAskedEvent`, `QuestionAnsweredEvent`) follow in `applyNhAssistantEvent`, and
+`applyNhAssistantQuestionAnswer` records an answer locally. `NhAssistantApiService.answerQuestion` posts an
+answer and streams the resumed turn; `NhAssistantStore.answerQuestion` and `canAnswer` serve the addressee;
+the thread emits `questionAnswer` (`NhAssistantQuestionAnswer`) and the panel answers. The composer's
+`status` takes `waiting-for-answer`, and the tool call group the state `awaiting-answer`. The texts are in
+English and Dutch, `NH_ASSISTANT_SERVER_ERROR_CODES` names the `assistant-question-*` codes, and the mock
+API plays a `question` step (`NhAssistantMockQuestionStep`) and answers as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| `MessagePart`, `ToolCallStatus`, `NhAssistantSseEventMap`, the composer's `status` and `NhAssistantToolCallGroupState` gain question values. | Code that switches over them exhaustively handles `question`, `awaiting-answer`, `question.asked`, `question.answered` and `waiting-for-answer`. |
+| New translation keys under `nh-assistant.question`, `nh-assistant.tool-call.status.awaiting-answer`, `nh-assistant.tool-group.awaiting-answer`, `nh-assistant.composer.status.waiting-for-answer` and `waiting-for-answer-by`, and `nh-assistant.errors.assistant-question-*`. | An application that replaces the bundled translations adds the keys in each of its languages. |
+
 ## @newheap/platform-ai-chat: the inbox status filter and the consultation limit
 
 `AgentInboxFilter.status` (`AgentInboxStatus`: `pending`, `awaiting-application`, `execution-unknown`)

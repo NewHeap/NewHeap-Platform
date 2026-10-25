@@ -9,12 +9,13 @@ let nextId = 0;
 /**
  * Overall state of a run of tool calls, from most to least urgent. `not-executed` means that every
  * call finished and at least one ended without running, because its proposal expired, was
- * withdrawn or became stale.
+ * withdrawn or became stale. `awaiting-answer` waits for the answer to a question the agent asked.
  */
-export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'running' | 'failed' | 'not-executed' | 'succeeded';
+export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'awaiting-answer' | 'running' | 'failed' | 'not-executed' | 'succeeded';
 
 const stateIcons: Record<NhAssistantToolCallGroupState, NhAssistantIconName> = {
   'awaiting-approval': 'clock',
+  'awaiting-answer': 'clock',
   running: 'tool',
   failed: 'warning',
   'not-executed': 'stop',
@@ -46,7 +47,7 @@ export class NhAssistantToolCallGroupComponent {
   /** The call that currently needs attention or runs; the latest one when several do. */
   readonly current = computed(() => {
     const calls = this.calls();
-    return findLast(calls, call => call.status === 'awaiting-approval')
+    return findLast(calls, call => call.status === 'awaiting-approval' || call.status === 'awaiting-answer')
       ?? findLast(calls, call => call.status === 'running')
       ?? null;
   });
@@ -58,7 +59,7 @@ export class NhAssistantToolCallGroupComponent {
   readonly state = computed<NhAssistantToolCallGroupState>(() => {
     const current = this.current();
     if (current) {
-      return current.status === 'awaiting-approval' ? 'awaiting-approval' : 'running';
+      return current.status === 'awaiting-approval' || current.status === 'awaiting-answer' ? current.status : 'running';
     }
 
     if (this.failed() > 0) {
@@ -75,7 +76,7 @@ export class NhAssistantToolCallGroupComponent {
 }
 
 function isActive(call: ToolCallPart): boolean {
-  return call.status === 'running' || call.status === 'awaiting-approval';
+  return call.status === 'running' || call.status === 'awaiting-approval' || call.status === 'awaiting-answer';
 }
 
 function findLast(calls: readonly ToolCallPart[], predicate: (call: ToolCallPart) => boolean): ToolCallPart | undefined {

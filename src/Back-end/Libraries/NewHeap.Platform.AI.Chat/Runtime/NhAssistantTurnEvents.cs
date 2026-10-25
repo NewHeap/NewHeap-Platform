@@ -34,6 +34,19 @@ internal sealed record NhAssistantApprovalRequiredEvent(
     NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
 
 /// <summary>
+/// The agent asked a person of the conversation a question with <c>ask_question</c>; the turn waits
+/// for the answer (LS21).
+/// </summary>
+internal sealed record NhAssistantQuestionAskedEvent(
+    NhAssistantQuestionView Question) : NhAssistantTurnEvent;
+
+/// <summary>
+/// The addressee answered the question; the turn continues with the answer (LS21).
+/// </summary>
+internal sealed record NhAssistantQuestionAnsweredEvent(
+    NhAssistantQuestionView Question) : NhAssistantTurnEvent;
+
+/// <summary>
 /// The turn's person has to connect an MCP server, which each person connects to with OAuth, before
 /// the agent can use it; the turn continues without its tools.
 /// </summary>
@@ -104,6 +117,12 @@ internal sealed record NhAssistantConversationView(
     /// The protected invitation-link token; only set for the owner.
     /// </summary>
     public string? ProtectedShareToken { get; init; }
+
+    /// <summary>
+    /// The question the waiting turn asked and waits for (LS21); <see langword="null"/> when the
+    /// conversation does not wait for a question.
+    /// </summary>
+    public NhAssistantQuestionView? PendingQuestion { get; init; }
 }
 
 /// <summary>
@@ -133,6 +152,12 @@ internal sealed record NhAssistantMessageView(
     /// other messages.
     /// </summary>
     public NhAssistantApplicationMessageView? Application { get; init; }
+
+    /// <summary>
+    /// The skill an agent message of a person's chat worked in at its end (LS20); <see langword="null"/>
+    /// for a message without a skill and for every other message.
+    /// </summary>
+    public string? SkillId { get; init; }
 
     /// <summary>
     /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message, an
@@ -244,6 +269,38 @@ internal sealed record NhAssistantToolCallPartView(
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? ReadForActorId { get; init; }
+}
+
+/// <summary>
+/// A question the agent asked with <c>ask_question</c> (LS21), as the conversation shows it.
+/// </summary>
+/// <param name="QuestionId">The id of its <c>ask_question</c> call; the answer names it.</param>
+/// <param name="AddresseeActorId">The person who answers it.</param>
+/// <param name="ExpiresAt">The end of its wait on the application's clock.</param>
+/// <param name="Status">One of <see cref="NhAssistantQuestionStatuses"/>.</param>
+internal sealed record NhAssistantQuestionView(
+    Guid QuestionId,
+    string Question,
+    IReadOnlyList<string> Choices,
+    string AddresseeActorId,
+    DateTimeOffset ExpiresAt,
+    string Status) : NhAssistantPartView
+{
+    /// <summary>
+    /// The zero-based index of the chosen answer once it was answered; <see langword="null"/> before.
+    /// </summary>
+    public int? AnswerIndex { get; init; }
+
+    /// <summary>
+    /// When it was answered, expired or cancelled.
+    /// </summary>
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>
+    /// The turn that asked it. Never sent to clients.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Guid TurnId { get; init; }
 }
 
 internal sealed record NhAssistantApprovalView(

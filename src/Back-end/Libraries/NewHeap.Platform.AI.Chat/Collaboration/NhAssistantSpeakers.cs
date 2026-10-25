@@ -117,6 +117,25 @@ internal sealed class NhAssistantSpeakers
     }
 
     /// <summary>
+    /// The person of the conversation whose distinct name is <paramref name="name"/>, ignoring case;
+    /// <see langword="null"/> for a name no current person has.
+    /// </summary>
+    public string? ActorOf(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var trimmed = name.Trim();
+        foreach (var (actorId, distinct) in _names)
+        {
+            if (string.Equals(distinct, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return actorId;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Prefixes a user message with its writer's name.
     /// </summary>
     public string Mark(string actorId, string text)

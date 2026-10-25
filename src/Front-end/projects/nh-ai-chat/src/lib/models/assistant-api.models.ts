@@ -110,6 +110,11 @@ export interface Conversation extends ConversationSummary {
   agentVersion: number;
   messages: Message[];
   pendingApproval: ApprovalPart | null;
+  /**
+   * The question the waiting turn asked with `ask_question` and waits for (`run.AllowQuestions()` on
+   * the server); missing when the conversation waits for no question and on older servers.
+   */
+  pendingQuestion?: QuestionPart | null;
   /** The owner followed by the participants; empty while the conversation is not shared. */
   members?: ConversationMember[];
   /** The current invitation-link token; only for the owner. */
@@ -191,6 +196,11 @@ export interface Message {
   authorKind?: MessageAuthorKind | null;
   /** The title, sender, link and trusted flag of a message the application posted; missing for other messages. */
   application?: ApplicationMessageDetails | null;
+  /**
+   * The skill an agent message of a person's chat worked in at its end (`run.SkillsInChat()` on the
+   * server); missing for a message without a skill.
+   */
+  skillId?: string | null;
 }
 
 /**
@@ -223,7 +233,41 @@ export interface ApplicationMessageLink {
   label: string | null;
 }
 
-export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart;
+export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart | QuestionPart;
+
+/**
+ * `pending` while the turn waits for the answer; `answered` once the addressee chose; `expired` when
+ * nobody answered within the turn's wait limit; `cancelled` when the turn was stopped.
+ */
+export type QuestionStatus = 'pending' | 'answered' | 'expired' | 'cancelled';
+
+/**
+ * A question the agent asked with `ask_question` in a person's chat. Only the addressee answers it,
+ * with `NhAssistantApiService.answerQuestion`; the turn waits for the answer as for an approval and
+ * continues with it. Everyone else sees it read-only.
+ */
+export interface QuestionPart {
+  type: 'question';
+  questionId: string;
+  question: string;
+  /** Two to six answers, in order; the answer names the index of one. */
+  choices: string[];
+  /** The person who answers: by default the person whose turn asked. */
+  addresseeActorId: string;
+  /** After this moment an answer is refused with `assistant-question-expired`. */
+  expiresAt: string;
+  status: QuestionStatus;
+  /** The zero-based index of the chosen answer; only sent once it was answered. */
+  answerIndex?: number | null;
+  /** When it was answered, expired or cancelled; only sent then. */
+  closedAt?: string | null;
+}
+
+/** Body of `POST conversations/{id}/questions/{questionId}/answer`. */
+export interface AnswerQuestionRequest {
+  /** The zero-based index of the chosen answer. */
+  choice: number;
+}
 
 /**
  * A file a person attached to a message: its name, media type and size in bytes, never its content.
@@ -263,9 +307,10 @@ export interface TextPart {
  * `awaiting-approval` waits for a person. A call whose agent proposal closed without running ends
  * as `rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
  * `failed` when its execution failed before it started; its `resultCode` is then
- * `assistant-proposal-<approval status>`, for example `assistant-proposal-expired`.
+ * `assistant-proposal-<approval status>`, for example `assistant-proposal-expired`. An `ask_question`
+ * call waits as `awaiting-answer` for the person it asked.
  */
-export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'rejected' | 'not-executed';
+export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'awaiting-answer' | 'rejected' | 'not-executed';
 
 export interface ToolCallPart {
   type: 'tool-call';

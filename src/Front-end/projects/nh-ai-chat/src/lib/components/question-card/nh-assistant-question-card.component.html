@@ -1,0 +1,66 @@
+<section class="card" [attr.aria-labelledby]="questionId">
+  <header class="header">
+    <nh-assistant-icon [name]="statusIcon()" />
+    <h3>{{ 'nh-assistant.question.title' | translate }}</h3>
+    <span class="status">{{ 'nh-assistant.question.status.' + effectiveStatus() | translate }}</span>
+  </header>
+
+  <p class="question" [id]="questionId">{{ question().question }}</p>
+
+  @if (actionable() && canAnswer()) {
+    <div class="choices" role="group" [attr.aria-labelledby]="questionId">
+      @for (choice of question().choices; track $index) {
+        <button
+          class="choice"
+          type="button"
+          data-choice
+          [disabled]="disabled()"
+          [attr.aria-label]="'nh-assistant.question.choose-label' | translate: { choice }"
+          (click)="choose($index)">
+          {{ choice }}
+        </button>
+      }
+    </div>
+    <p class="expiry" aria-live="off">
+      <nh-assistant-icon name="clock" />
+      {{ 'nh-assistant.question.expires-in' | translate: { time: countdown() } }}
+    </p>
+    @if (answering()) {
+      <p class="answering" role="status">{{ 'nh-assistant.question.answering' | translate }}</p>
+    }
+  } @else {
+    <ul class="choices read-only" [attr.aria-label]="'nh-assistant.question.choices' | translate">
+      @for (choice of question().choices; track $index) {
+        <li class="choice" [attr.data-chosen]="$index === chosen() ? 'true' : null">
+          @if ($index === chosen()) {
+            <nh-assistant-icon name="check" />
+          }
+          <span>{{ choice }}</span>
+        </li>
+      }
+    </ul>
+    @switch (effectiveStatus()) {
+      @case ('pending') {
+        <p class="waiting-for-other" role="status" data-waiting-for>
+          <nh-assistant-icon name="users" />
+          @if (addresseeName(); as name) {
+            {{ 'nh-assistant.question.waiting-for' | translate: { name } }}
+          } @else {
+            {{ 'nh-assistant.question.waiting-for-participant' | translate }}
+          }
+        </p>
+      }
+      @case ('answered') {
+        @if (chosenText(); as text) {
+          <p class="outcome" data-answer>{{ 'nh-assistant.question.answered' | translate: { choice: text } }}</p>
+        }
+      }
+      @case ('expired') {
+        <p class="outcome">{{ 'nh-assistant.question.expired' | translate }}</p>
+      }
+      @case ('cancelled') {
+        <p class="outcome">{{ 'nh-assistant.question.cancelled' | translate }}</p>
+      }
+    }
+  }
+</section>

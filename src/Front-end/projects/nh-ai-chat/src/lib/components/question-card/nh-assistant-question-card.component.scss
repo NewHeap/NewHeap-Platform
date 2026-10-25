@@ -1,0 +1,124 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  --nha-status-color: var(--nha-accent);
+  --nha-status-background: var(--nha-surface-strong);
+}
+
+:host([data-status='answered']) { --nha-status-color: var(--nha-success); --nha-status-background: var(--nha-success-soft); }
+:host([data-status='expired']),
+:host([data-status='cancelled']) { --nha-status-color: var(--nha-text-muted); --nha-status-background: var(--nha-surface-strong); }
+
+.card {
+  border: 1px solid var(--nha-status-color);
+  border-radius: var(--nha-radius-control);
+  padding: 12px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nha-status-color);
+}
+
+h3 {
+  flex: 1;
+  margin: 0;
+  color: var(--nha-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status {
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--nha-status-color);
+  background: var(--nha-status-background);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.question {
+  margin: 8px 0 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.choices.read-only {
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+
+  .choice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--nha-text-muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .choice[data-chosen='true'] {
+    color: var(--nha-text);
+    font-weight: 700;
+  }
+}
+
+button.choice {
+  min-height: 36px;
+  max-width: 100%;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 6px 14px;
+  color: var(--nha-text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover:not(:disabled) {
+    border-color: var(--nha-accent);
+    background: var(--nha-surface-strong);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+  }
+}
+
+.expiry,
+.answering,
+.waiting-for-other,
+.outcome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.outcome {
+  color: var(--nha-text);
+}

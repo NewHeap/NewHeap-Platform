@@ -343,8 +343,10 @@ internal sealed partial class NhAssistantTurnRunner(
         var pending = await store.FindPendingApprovalAsync(conversationId, cancellationToken);
         if (pending is null)
         {
-            // Cancelling rejects the proposal of a consultation the person would decide here.
+            // Cancelling rejects the proposal of a consultation the person would decide here, and
+            // closes the question the turn waits for (LS21).
             await RejectAskerDecisionAsync(conversation, access.ActorId, cancellationToken);
+            await CancelWaitingQuestionAsync(conversation, cancellationToken);
         }
         if (pending is not null
             && await store.TryDecideApprovalAsync(
@@ -2420,15 +2422,16 @@ internal sealed partial class NhAssistantTurnRunner(
 
         await ReleaseMcpToolsAsync(state);
         await interceptor.FlushAsync(CancellationToken.None);
-        if (state.Scope.BudgetExhausted && state.PendingApproval is null)
+        if (state.Scope.BudgetExhausted && !state.WaitsForPerson)
         {
             await FinishWithErrorAsync(state, NhAssistantErrorCodes.BudgetExhausted, NhAssistantConversationStatuses.Idle);
             return;
         }
 
         string conversationStatus;
-        if (outcomeStatus == NhAssistantTurnStatuses.Completed && state.PendingApproval is not null)
+        if (outcomeStatus == NhAssistantTurnStatuses.Completed && state.WaitsForPerson)
         {
+            // A question waits as an approval does (LS21): the turn keeps the conversation.
             outcomeStatus = NhAssistantTurnStatuses.WaitingForApproval;
             conversationStatus = NhAssistantConversationStatuses.WaitingForApproval;
         }
@@ -2678,7 +2681,7 @@ internal sealed partial class NhAssistantTurnRunner(
     private static bool NeedsClosingAnswer(NhAssistantTurnState state)
     {
         return (state.ToolCallLimitReached || state.ToolBudgetExhausted)
-            && state.PendingApproval is null
+            && !state.WaitsForPerson
             && !state.ToolsDisabled
             && !state.RunTokenLimitReached
             && !state.TokenAllowanceUsed;

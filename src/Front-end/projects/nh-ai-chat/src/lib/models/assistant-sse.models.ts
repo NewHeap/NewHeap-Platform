@@ -1,5 +1,5 @@
 import { AgentTriggerReceipt } from './assistant-agent-run.models';
-import { ApprovalPart, ConnectionRequiredReason } from './assistant-api.models';
+import { ApprovalPart, ConnectionRequiredReason, QuestionPart } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -35,6 +35,12 @@ export interface ToolCompletedEvent {
 }
 
 export type ApprovalRequiredEvent = ApprovalPart;
+
+/** The agent asked a person of the conversation a question; the turn waits for the answer. */
+export type QuestionAskedEvent = QuestionPart;
+
+/** The addressee answered the question; the turn continues with the answer. */
+export type QuestionAnsweredEvent = QuestionPart;
 
 /** The person who asked has to connect an MCP server before the agent can use it. */
 export interface ConnectionRequiredEvent {
@@ -77,6 +83,8 @@ export interface NhAssistantSseEventMap {
   'tool.started': ToolStartedEvent;
   'tool.completed': ToolCompletedEvent;
   'approval.required': ApprovalRequiredEvent;
+  'question.asked': QuestionAskedEvent;
+  'question.answered': QuestionAnsweredEvent;
   'connection.required': ConnectionRequiredEvent;
   'turn.completed': TurnCompletedEvent;
   'error': AssistantErrorEvent;
@@ -101,6 +109,8 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'tool.started',
   'tool.completed',
   'approval.required',
+  'question.asked',
+  'question.answered',
   'connection.required',
   'turn.completed',
   'error'

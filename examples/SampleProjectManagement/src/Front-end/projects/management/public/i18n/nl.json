@@ -303,6 +303,7 @@
     "assistant-prompt-list": "Toolaanroep en tabel",
     "assistant-prompt-tools": "Meerdere tool-aanroepen",
     "assistant-prompt-approval": "Goedkeuring",
+    "assistant-prompt-question": "Vraag met keuzes",
     "assistant-prompt-legacy-approval": "Oude goedkeuring",
     "assistant-prompt-forbidden": "Mislukte toolaanroep",
     "assistant-prompt-long": "Lang antwoord om te stoppen",

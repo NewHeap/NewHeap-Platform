@@ -11,6 +11,8 @@ const statusIcons: Record<ToolCallPart['status'], NhAssistantIconName> = {
   succeeded: 'check',
   failed: 'warning',
   'awaiting-approval': 'clock',
+  // An ask_question call waits for the person it asked.
+  'awaiting-answer': 'clock',
   rejected: 'x',
   // Ended without running: its proposal expired, was withdrawn or became stale.
   'not-executed': 'stop'

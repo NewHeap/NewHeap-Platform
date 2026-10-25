@@ -159,6 +159,37 @@ internal interface INhAssistantStore
         Guid invocationId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The message with <paramref name="messageId"/> of <paramref name="conversationId"/>, or
+    /// <see langword="null"/>.
+    /// </summary>
+    Task<AssistantMessage?> FindMessageAsync(
+        Guid conversationId,
+        Guid messageId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The <c>ask_question</c> call of <paramref name="turnId"/> that waits for its answer (LS21), or
+    /// <see langword="null"/>.
+    /// </summary>
+    Task<AssistantToolInvocation?> FindAwaitingQuestionAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes a question's call that still waits for its answer: it takes <paramref name="status"/>,
+    /// <paramref name="resultCode"/> and <paramref name="resultJson"/>. Returns <see langword="false"/>
+    /// when the call no longer waits, so an answer, an expiry and a cancellation close it once.
+    /// </summary>
+    Task<bool> TryCloseQuestionAsync(
+        Guid invocationId,
+        string status,
+        string? resultCode,
+        string? resultJson,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<AssistantToolInvocation>> GetToolInvocationsAsync(
         Guid conversationId,
         IReadOnlyCollection<Guid> invocationIds,

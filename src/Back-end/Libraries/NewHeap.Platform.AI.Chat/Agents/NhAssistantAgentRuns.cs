@@ -210,6 +210,21 @@ public sealed class NhAssistantAgentRunOptions
     public string? TriageProfileName { get; internal set; }
 
     /// <summary>
+    /// People's chats with the agent offer <c>use_skill</c> as its runs do: a chat turn starts without
+    /// a skill and the model loads one, without triage. The skill's instructions, tools, profile,
+    /// classification, file limits and token ceiling apply within the person's rights, and the turn's
+    /// message records the skill. Off by default; see <see cref="NhAssistantAgentRunBuilder.SkillsInChat"/>.
+    /// </summary>
+    public bool SkillsInChat { get; internal set; }
+
+    /// <summary>
+    /// People's chats with the agent offer <c>ask_question</c>: the agent posts a question with two to
+    /// six choices to a person of the conversation, and the turn waits for that person's answer as for
+    /// an approval. Off by default; see <see cref="NhAssistantAgentRunBuilder.AllowQuestions"/>.
+    /// </summary>
+    public bool AllowQuestions { get; internal set; }
+
+    /// <summary>
     /// In headless runs the agent may use what the person or technical account it answers to may
     /// use, within its tool selectors (<see cref="NhAiGrantSource.Accountable"/>). Always on for an
     /// agent whose run settings are data.
@@ -673,6 +688,36 @@ public sealed class NhAssistantAgentRunBuilder
             throw new InvalidOperationException($"The triage of agent '{_options.AgentId}' needs UseProfile.");
         }
 
+        return this;
+    }
+
+    /// <summary>
+    /// Offers the agent's skills in people's chats with it (LS20): <c>use_skill</c> lists the active
+    /// skills that work live, and the model loads one when the question needs it; there is no triage.
+    /// The skill's instructions, tools, model profile, classification, file limits and its own token
+    /// ceiling (<see cref="NhAssistantSkillBuilder.MaxTokensPerRun"/>) apply as in a run, within the
+    /// rights of the person whose turn it is; its daily budget counts runs only. The agent's message of
+    /// the turn names the skill it worked in. Without it, chats work with the agent's own tools only.
+    /// </summary>
+    public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true)
+    {
+        _options.SkillsInChat = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the agent ask structured questions in people's chats with it (LS21): it offers the governed
+    /// <c>ask_question</c>, which posts a question with two to six choices
+    /// (<see cref="NhAssistantQuestionLimits"/>) to the person whose turn it is or to another person of
+    /// the conversation. The turn waits for the answer as for an approval, up to
+    /// <see cref="NhAssistantLimits.ApprovalLifetime"/> on the application's clock; only the addressee
+    /// answers, with <c>POST conversations/{id}/questions/{questionId}/answer</c>, and the turn
+    /// continues with the answer as the call's result, with the rights of the person who answered.
+    /// Runs, people's turns in the agent's threads and consultations never offer it.
+    /// </summary>
+    public NhAssistantAgentRunBuilder AllowQuestions(bool enabled = true)
+    {
+        _options.AllowQuestions = enabled;
         return this;
     }
 

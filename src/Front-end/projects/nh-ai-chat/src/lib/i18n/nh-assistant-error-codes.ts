@@ -142,6 +142,14 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // Feedback on proposals
   'assistant-feedback-invalid',
   'assistant-feedback-not-accepted',
+  // Questions an agent asks with ask_question in a person's chat
+  'assistant-question-invalid',
+  'assistant-question-not-found',
+  'assistant-question-not-pending',
+  'assistant-question-forbidden',
+  'assistant-question-expired',
+  'assistant-question-cancelled',
+  'assistant-question-answer-invalid',
   // Consultations of other agents
   'assistant-consult-subject-unavailable',
   'assistant-consult-agent-unavailable',

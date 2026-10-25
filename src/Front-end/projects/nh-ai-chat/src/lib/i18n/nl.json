@@ -92,7 +92,9 @@
         "running": "De assistent is bezig",
         "waiting-for-approval": "Wacht op goedkeuring",
         "running-by": "{{name}} werkt met de assistent…",
-        "waiting-for-approval-by": "Wacht op de beslissing van {{name}}…"
+        "waiting-for-approval-by": "Wacht op de beslissing van {{name}}…",
+        "waiting-for-answer": "Wacht op een antwoord op de vraag",
+        "waiting-for-answer-by": "Wacht op het antwoord van {{name}}…"
       },
       "attach": "Bestanden bijvoegen",
       "attach-hint": "{{types}}, elk tot {{max}}, hoogstens {{count}} bestanden per bericht",
@@ -138,6 +140,7 @@
         "succeeded": "Voltooid",
         "failed": "Mislukt",
         "awaiting-approval": "Wacht op goedkeuring",
+        "awaiting-answer": "Wacht op antwoord",
         "rejected": "Afgewezen",
         "not-executed": "Niet uitgevoerd"
       },
@@ -156,6 +159,7 @@
     "tool-group": {
       "running": "Roept {{name}} aan…",
       "awaiting-approval": "Wacht op goedkeuring: {{name}}",
+      "awaiting-answer": "Wacht op een antwoord",
       "used-one": "1 tool gebruikt",
       "used-many": "{{count}} tools gebruikt",
       "progress": "{{finished}} van {{total}} klaar",
@@ -225,6 +229,24 @@
         "moved-status": "Aan goedkeurders gelaten",
         "moved": "Het wacht nu op de goedkeurders van {{subject}}."
       }
+    },
+    "question": {
+      "title": "Vraag",
+      "status": {
+        "pending": "Wacht op antwoord",
+        "answered": "Beantwoord",
+        "expired": "Verlopen",
+        "cancelled": "Ingetrokken"
+      },
+      "choices": "Antwoorden",
+      "choose-label": "Antwoord: {{choice}}",
+      "expires-in": "Antwoord binnen {{time}}",
+      "answering": "Je antwoord wordt verstuurd",
+      "waiting-for": "Wacht op het antwoord van {{name}}.",
+      "waiting-for-participant": "Wacht op het antwoord van de persoon aan wie de vraag is gesteld.",
+      "answered": "Antwoord: {{choice}}",
+      "expired": "Niemand heeft op tijd geantwoord.",
+      "cancelled": "De vraag is ingetrokken toen de taak werd gestopt."
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -496,7 +518,14 @@
       "assistant-package-locked": "Een agentpakket vergrendelt dit. Ontkoppel het eerst van het pakket.",
       "assistant-package-too-large": "Een agentpakket is hoogstens 1 MB en bevat hoogstens 20 agents.",
       "assistant-package-refused": "De controle weigerde onderdelen van het pakket, dus er is niets geïmporteerd. Controleer het pakket opnieuw om te zien welke.",
-      "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld."
+      "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld.",
+      "assistant-question-invalid": "De assistent kon deze vraag niet stellen; hij gaat verder zonder.",
+      "assistant-question-not-found": "Deze vraag is niet gevonden.",
+      "assistant-question-not-pending": "Deze vraag wacht niet meer op een antwoord.",
+      "assistant-question-forbidden": "Deze vraag is aan iemand anders gesteld.",
+      "assistant-question-expired": "Niemand heeft deze vraag op tijd beantwoord. Stuur je bericht opnieuw om verder te gaan.",
+      "assistant-question-cancelled": "De vraag is ingetrokken toen de taak werd gestopt.",
+      "assistant-question-answer-invalid": "Kies een van de antwoorden van de vraag."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

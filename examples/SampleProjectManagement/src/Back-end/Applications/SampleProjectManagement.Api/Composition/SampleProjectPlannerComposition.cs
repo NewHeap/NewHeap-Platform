@@ -43,6 +43,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// while it worked on another subject, and every person's change, still start it.
 /// SPM-313: the planner's work is booked on cost center CC-4100, set in code as agent metadata; an
 /// administrator may book it elsewhere in the administration, which overrides the value in code.
+/// SPM-333: people who chat with the planner reach its skills too (<c>SkillsInChat</c>): a chat turn
+/// starts without a skill, and the model loads the task follow-up or the deadline risk skill with
+/// <c>use_skill</c>, without triage. The skill's instructions and tools then apply with the person's
+/// own rights, and the planner's message of the turn names the skill.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -125,6 +129,8 @@ public static class SampleProjectPlannerComposition
                     maxRunsPerSubjectPerDay: 20)
                 .MaxTokensPerRun(40_000)
                 .Triage(triage => triage.UseProfile(TriageProfileName))
+                // SPM-333: the skills also serve people's chats with the planner; triage stays with runs.
+                .SkillsInChat()
                 .Skill(TaskFollowUpSkill, skill => skill
                     .Description("Follows up completed tasks by rule: says how many tasks are left and which comes next.")
                     .UseRuleHandler<ProjectTaskFollowUpRules>()

@@ -303,6 +303,7 @@
     "assistant-prompt-list": "Tool call and table",
     "assistant-prompt-tools": "Several tool calls",
     "assistant-prompt-approval": "Approval",
+    "assistant-prompt-question": "Structured question",
     "assistant-prompt-legacy-approval": "Legacy approval",
     "assistant-prompt-forbidden": "Failed tool call",
     "assistant-prompt-long": "Long answer to cancel",

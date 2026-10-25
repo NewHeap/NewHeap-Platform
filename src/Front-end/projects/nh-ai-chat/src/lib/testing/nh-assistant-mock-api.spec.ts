@@ -15,6 +15,8 @@ const contractFields: Record<NhAssistantMessageEvent['type'], string[]> = {
   'tool.started': ['argumentsPreview', 'displayName', 'invocationId', 'toolId', 'toolVersion'],
   'tool.completed': ['invocationId', 'resultCode', 'resultPreview', 'status'],
   'approval.required': ['approvalId', 'argumentsPreview', 'expiresAt', 'proposalHash', 'proposalId', 'status', 'summary', 'targets', 'toolId', 'type'],
+  'question.asked': ['addresseeActorId', 'choices', 'expiresAt', 'question', 'questionId', 'status', 'type'],
+  'question.answered': ['addresseeActorId', 'answerIndex', 'choices', 'closedAt', 'expiresAt', 'question', 'questionId', 'status', 'type'],
   'connection.required': ['displayName', 'reason', 'serverId'],
   'turn.completed': ['errorCode', 'status', 'turnId', 'usage'],
   'error': ['code', 'messageKey'],
