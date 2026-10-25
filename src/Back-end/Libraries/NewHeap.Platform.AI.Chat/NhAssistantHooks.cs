@@ -391,7 +391,18 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.PackageVersion"/> the package; <see cref="NhAssistantAuditEvent.ResultCode"/>
     /// is <c>unlinked</c>, or <c>left-behind</c> when an upgrade no longer contains it.
     /// </summary>
-    AdminAgentPackageUnlinked = 83
+    AdminAgentPackageUnlinked = 83,
+
+    /// <summary>
+    /// An administrator or the application promoted a shadow variant created as data onto its live
+    /// agent, after the change of the live agent, the skills it moved and the removal of the variant
+    /// were audited as their own events. <see cref="NhAssistantAuditEvent.AgentId"/> and
+    /// <see cref="NhAssistantAuditEvent.LiveAgentId"/> are the live agent,
+    /// <see cref="NhAssistantAuditEvent.AgentVersion"/> its new version,
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> the variant that was removed and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>promoted</c>. Never the definition.
+    /// </summary>
+    AdminAgentShadowVariantPromoted = 90
 }
 
 /// <summary>

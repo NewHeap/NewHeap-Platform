@@ -606,6 +606,8 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantAdminAgentDto))]
 [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))]
 [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))]
+[JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))]
+[JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))]
 [JsonSerializable(typeof(NhAssistantMcpServerDto))]
 [JsonSerializable(typeof(NhAssistantMcpServerDto[]))]
 [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))]
@@ -764,6 +766,31 @@ public sealed record NhAssistantAdminAgentInputDto(
     /// </summary>
     public string? ShadowOf { get; init; }
 }
+
+/// <summary>
+/// The body of <c>POST admin/agents/{id}/promote</c>.
+/// </summary>
+/// <param name="ExpectedVersion">The live agent's version; required.</param>
+/// <param name="MoveSkills">The variant's data skills move to the live agent.</param>
+/// <param name="ExpectedVariantVersion">The variant's version that was evaluated; omitted skips the
+/// check.</param>
+/// <param name="Reason">At most 500 characters, stored with the skill versions the promotion saves.</param>
+public sealed record NhAssistantShadowVariantPromotionInputDto(
+    int? ExpectedVersion,
+    bool? MoveSkills = null,
+    int? ExpectedVariantVersion = null,
+    string? Reason = null);
+
+/// <summary>
+/// The answer of <c>POST admin/agents/{id}/promote</c>.
+/// </summary>
+/// <param name="Agent">The live agent after the promotion.</param>
+/// <param name="VariantId">The variant, which was deleted.</param>
+/// <param name="MovedSkills">The skills that moved to the live agent, ordered by id.</param>
+public sealed record NhAssistantShadowVariantPromotedDto(
+    NhAssistantAdminAgentDto Agent,
+    string VariantId,
+    IReadOnlyList<string> MovedSkills);
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>

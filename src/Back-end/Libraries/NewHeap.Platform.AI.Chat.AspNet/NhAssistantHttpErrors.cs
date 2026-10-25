@@ -210,6 +210,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.AgentDoesNotWorkOn,
             NhAssistantErrorCodes.MovedToShadow,
             NhAssistantErrorCodes.ShadowVariant,
+            NhAssistantErrorCodes.NotShadowVariant,
             NhAssistantErrorCodes.ServiceAccountNotUsed,
             NhAssistantErrorCodes.ConsultRouteNotAllowed,
             NhAssistantErrorCodes.ConsultProposalRefused,

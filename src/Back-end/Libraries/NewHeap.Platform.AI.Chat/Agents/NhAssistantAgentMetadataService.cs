@@ -84,13 +84,14 @@ internal sealed class NhAssistantAgentMetadataService(
             return [];
         }
 
-        // Stored values (agents created at runtime and overrides) by their indexed column, or by the
-        // table of searchable values of IndexByEach; values in code from the registration, matched in
-        // memory. A stored override decides for its agent in code either way.
+        // The agents first: the first read of a process also brings the searchable values of
+        // IndexByEach up to date. Then stored values (agents created at runtime and overrides) by their
+        // indexed column, or by the table of searchable values of IndexByEach; values in code from the
+        // registration, matched in memory. A stored override decides for its agent in code either way.
+        var all = await agents.ListAsync(includeDisabled: true, cancellationToken);
         var stored = entry.IndexedByEach
             ? await store.FindAgentsByIndexValueAsync(name, indexValue, cancellationToken)
             : (await store.FindByIndexAsync(name, indexValue, cancellationToken)).Select(row => row.AgentId).ToArray();
-        var all = await agents.ListAsync(includeDisabled: true, cancellationToken);
         var candidates = stored
             .Concat(all
                 .Where(agent => agent.Source == NhAssistantAgentSources.Code)

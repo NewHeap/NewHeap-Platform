@@ -170,6 +170,14 @@ internal static class NhAssistantAdminEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/promote", PromoteShadowVariantAsync)
+            .WithName("NhAssistantAdminPromoteShadowVariant")
+            .WithSummary("Promote a shadow variant onto its live agent")
+            .WithDescription("Copies the definition of the shadow variant {id}, created as data, onto its live agent as the live agent's next version when expectedVersion is the live agent's version (and expectedVariantVersion, when sent, the variant's), with the checks, package locks and audit of an update; then deletes the variant, which never goes live itself. The live agent keeps its display name, MCP assignments, metadata, run settings, triggers, state and shadow mode; an agent in code takes only the fields it can override. With moveSkills the variant's data skills become the next live versions of the live agent's skills of the same id, or new skills, which start in shadow. 404 for an unknown agent, 409 assistant-not-shadow-variant for an agent that is no data variant, 409 assistant-shadow-variants-not-allowed when the live agent may no longer have data variants, 409 assistant-version-conflict for a stale version and 409 assistant-skill-in-code for a skill the live agent has in code. Audited as AdminAgentShadowVariantPromoted.")
+            .Produces<NhAssistantShadowVariantPromotedDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapGet("mcp-servers", GetMcpServersAsync)
             .WithName("NhAssistantAdminGetMcpServers")
             .WithSummary("List MCP servers")
@@ -729,6 +737,53 @@ internal static class NhAssistantAdminEndpoints
         }
         var deleted = await administration.DeleteAsync(id, actor, httpContext.RequestAborted);
         return deleted.Success ? TypedResults.NoContent() : Failure(deleted);
+    }
+
+    private static async Task<IResult> PromoteShadowVariantAsync(
+        string id,
+        HttpContext httpContext,
+        AgentRuns.INhAssistantAgentDefinitions definitions,
+        NhAssistantAgentCatalog catalog)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(httpContext, Context.NhAssistantShadowVariantPromotionInputDto);
+        if (body is null)
+        {
+            return Validation();
+        }
+        if (body.ExpectedVersion is not { } expectedVersion)
+        {
+            return MissingField("expectedVersion");
+        }
+
+        var promoted = await definitions.PromoteShadowVariantAsync(
+            id,
+            new AgentRuns.NhAssistantShadowVariantPromotionRequest(
+                expectedVersion,
+                body.MoveSkills == true,
+                body.ExpectedVariantVersion,
+                string.IsNullOrWhiteSpace(body.Reason) ? null : body.Reason.Trim()),
+            actor,
+            httpContext.RequestAborted);
+        if (!promoted.Success)
+        {
+            return Failure(promoted);
+        }
+
+        // The administration shows the live agent as its list does.
+        var live = await catalog.FindAsync(promoted.Data!.Agent.AgentId, includeDisabled: true, httpContext.RequestAborted);
+        if (live is null)
+        {
+            return NhAssistantHttpErrors.Error(NhAssistantErrorCodes.AgentNotFound);
+        }
+
+        return Json(
+            new NhAssistantShadowVariantPromotedDto(await ToDtoAsync(live, httpContext), promoted.Data.VariantId, promoted.Data.MovedSkills),
+            Context.NhAssistantShadowVariantPromotedDto);
     }
 
     // ----- MCP servers -----
