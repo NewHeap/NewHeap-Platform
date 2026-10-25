@@ -164,7 +164,7 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   private readonly zone = inject(NgZone);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   /** The element that had focus when the modal opened; it gets focus back when the modal closes. */
-  private readonly restoreFocusTo: HTMLElement | null = activeElementOf(this.document);
+  private readonly restoreFocusTo: HTMLElement | null = this.browser ? activeElementOf(this.document) : null;
   private focusRestored = false;
   private closing = false;
   /** Watches content that renders its fields after the modal opened, until one takes focus. */
