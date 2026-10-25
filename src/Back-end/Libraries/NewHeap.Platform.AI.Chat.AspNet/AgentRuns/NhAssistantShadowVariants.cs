@@ -30,7 +30,14 @@ public sealed record NhAssistantShadowVariantDto(
     string Source,
     bool HasRunSettings,
     bool InEffect,
-    string? Problem);
+    string? Problem)
+{
+    /// <summary>
+    /// The version of the variant's definition: what a promotion onto the live agent sends as
+    /// <c>expectedVariantVersion</c> (<c>POST admin/agents/{id}/promote</c>).
+    /// </summary>
+    public int Version { get; init; }
+}
 
 /// <summary>
 /// Lists the shadow variants of a live agent for the administration.
@@ -57,6 +64,7 @@ internal sealed class NhAssistantShadowVariants(
 
         await configurations.EnsureCurrentAsync(cancellationToken);
         var names = all.ToDictionary(agent => agent.Id, agent => agent.Definition.DisplayNameKey, StringComparer.Ordinal);
+        var versions = all.ToDictionary(agent => agent.Id, agent => agent.Definition.Version, StringComparer.Ordinal);
         var problems = configurations.Problems;
         var variants = new List<NhAssistantShadowVariantDto>();
         foreach (var code in registration.CodeAgentRuns.Values
@@ -69,7 +77,10 @@ internal sealed class NhAssistantShadowVariants(
                 NhAssistantShadowVariantSources.Code,
                 true,
                 true,
-                null));
+                null)
+            {
+                Version = versions.GetValueOrDefault(code.AgentId, 1)
+            });
         }
 
         var stored = await store.ListShadowVariantsAsync(liveAgentId, cancellationToken);
@@ -87,7 +98,10 @@ internal sealed class NhAssistantShadowVariants(
                 hasRunSettings,
                 registration.AgentRuns.TryGetValue(variant.AgentId, out var options)
                 && string.Equals(options.ShadowOfAgentId, liveAgentId, StringComparison.Ordinal),
-                problem));
+                problem)
+            {
+                Version = versions.GetValueOrDefault(variant.AgentId, 1)
+            });
         }
 
         // A new variant of the agent would pass the checks of every load.

@@ -501,6 +501,9 @@ public sealed class AssistantAgentDefinitionTests(AssistantDatabaseFixture datab
         var version = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
             .Single(agent => agent.GetProperty("id").GetString() == live)
             .GetProperty("version").GetInt32();
+        // The list of variants carries the version a promotion expects.
+        var listed = Assert.Single((await ReadJsonAsync(await admin.GetAsync($"/api/assistant/admin/agents/{live}/shadow-variants"))).GetProperty("variants").EnumerateArray());
+        Assert.Equal((Variant, 1), (listed.GetProperty("agentId").GetString(), listed.GetProperty("version").GetInt32()));
 
         await AssertErrorAsync(await reader.PostAsJsonAsync($"/api/assistant/admin/agents/{Variant}/promote", new { expectedVersion = version }), HttpStatusCode.Forbidden, NhAssistantAdminErrorCodes.Forbidden);
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsJsonAsync($"/api/assistant/admin/agents/{Variant}/promote", new { expectedVersion = version })).StatusCode);

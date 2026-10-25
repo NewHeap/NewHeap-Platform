@@ -42,7 +42,7 @@ internal static class NhAssistantHandOffsAsDataEndpoints
         admin.MapGet("agents/{id}/shadow-variants", GetShadowVariantsAsync)
             .WithName("NhAssistantAdminGetAgentShadowVariants")
             .WithSummary("List the shadow variants of an agent")
-            .WithDescription("Returns the agent's shadow variants in code (ShadowOf) and created as data, each with whether it has run settings, whether it receives the agent's triggers now and why a data variant is out of effect, and whether the ceiling in code (UseShadowVariantsAsData) lets administrators create more and how many. A data variant is created with POST agents and shadowOf, edited like every agent created in the administration and removed with DELETE agents/{id}. An unknown agent answers 404.")
+            .WithDescription("Returns the agent's shadow variants in code (ShadowOf) and created as data, each with its version, whether it has run settings, whether it receives the agent's triggers now and why a data variant is out of effect, and whether the ceiling in code (UseShadowVariantsAsData) lets administrators create more and how many. A data variant is created with POST agents and shadowOf, edited like every agent created in the administration, promoted onto the agent with POST agents/{id}/promote and removed with DELETE agents/{id}. An unknown agent answers 404.")
             .Produces<NhAssistantShadowVariantsDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
     }
