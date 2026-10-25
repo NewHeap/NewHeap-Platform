@@ -1891,7 +1891,12 @@ internal sealed partial class NhAssistantTurnRunner(
             CancellationToken.None);
 
         object? functionResult;
-        if (request.Approve)
+        if (request.Approve && InlineHandOffOf(approval) is { } applicationExecution)
+        {
+            // The application executes the tool, also after an inline approval (LS17).
+            functionResult = await HandOffInlineAsync(state, approval, applicationExecution, cancellationToken);
+        }
+        else if (request.Approve)
         {
             var execution = await ExecuteApprovedAsync(state, interceptor, approval, invocation, cancellationToken);
             if (execution is null)

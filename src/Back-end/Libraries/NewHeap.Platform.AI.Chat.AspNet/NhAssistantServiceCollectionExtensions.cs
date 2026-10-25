@@ -132,6 +132,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantProposalDecisions>();
             // The same decision for the application's own channels, such as a messaging reply.
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
+            // What a person's inbox lists, counted per status for the application's digests (LS14).
+            services.TryAddScoped<INhAssistantProposalCounts, NhAssistantProposalCounts>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalReads>();
@@ -140,6 +142,8 @@ public static class NhAssistantServiceCollectionExtensions
             // the report deadline.
             services.TryAddScoped<NhAssistantApplicationExecutions>();
             services.TryAddScoped<INhAssistantProposalExecutionReports>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
+            // A person's inline approval of a tool declared with AlsoInline is handed off the same way (LS17).
+            services.TryAddScoped<Runs.INhAssistantInlineHandOffs>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();
             services.TryAddScoped<NhAssistantRunCancellation>();

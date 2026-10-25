@@ -408,7 +408,10 @@ describe('the inbox overview', () => {
           { approvalId: 'own', agentId: 'projects', subjectType: 'project', subjectId: 'apollo', subjectDisplayName: 'Apollo', toolId: 'projects.change', runId: 'run-1', divisionId: division, expiresAt: '2026-10-23T09:00:00Z' },
           { approvalId: 'task-a', agentId: 'projects', subjectType: 'project-task', subjectId: 'a', subjectDisplayName: 'Task A', toolId: 'tasks.complete', runId: 'run-1', parent: apollo, divisionId: division, expiresAt: '2026-10-23T08:00:00Z' },
           { approvalId: 'task-b', agentId: 'projects', subjectType: 'project-task', subjectId: 'b', subjectDisplayName: 'Task B', toolId: 'tasks.complete', runId: 'run-1', parent: apollo, canDecide: false, reasonCode: 'assistant-four-eyes-required' },
-          { approvalId: 'gemini', agentId: 'projects', subjectType: 'project', subjectId: 'gemini', subjectDisplayName: 'Gemini', toolId: 'projects.change', runId: 'run-2', expiresAt: '2026-10-22T09:00:00Z' }
+          { approvalId: 'gemini', agentId: 'projects', subjectType: 'project', subjectId: 'gemini', subjectDisplayName: 'Gemini', toolId: 'projects.change', runId: 'run-2', expiresAt: '2026-10-22T09:00:00Z' },
+          { approvalId: 'due-later', agentId: 'projects', subjectType: 'project', subjectId: 'apollo', subjectDisplayName: 'Apollo', toolId: 'projects.order', status: 'awaiting-application', executedByApplication: true, executionReportDueAt: '2026-10-21T12:00:00Z' },
+          { approvalId: 'due-first', agentId: 'projects', subjectType: 'project', subjectId: 'gemini', subjectDisplayName: 'Gemini', toolId: 'projects.order', status: 'awaiting-application', executedByApplication: true, executionReportDueAt: '2026-10-21T11:00:00Z' },
+          { approvalId: 'uncertain', agentId: 'projects', subjectType: 'project', subjectId: 'apollo', subjectDisplayName: 'Apollo', toolId: 'projects.order', status: 'execution-unknown', executedByApplication: true }
         ],
         admin: {
           agents: [{
@@ -465,6 +468,20 @@ describe('the inbox overview', () => {
       expect((await call('POST', `approvals/inbox/visit?divisionId=${division}`)).status).toBe(200);
       expect((await call('GET', `approvals/inbox?divisionId=${division}`)).body.newApprovalIds).toEqual([]);
       expect((await call('POST', 'approvals/inbox/visit?divisionId=b2000000-0000-0000-0000-0000000000b2')).body.code).toBe('assistant-subject-not-found');
+    });
+
+    it('lists what waits for the application and uncertain executions by status, as the server does', async () => {
+      await configure();
+
+      const pending = (await call('GET', 'approvals/inbox')).body;
+      expect(pending.status).toBe('pending');
+      expect(pending.items.map((item: AgentProposal) => item.approvalId)).not.toContain('due-first');
+      const awaiting = (await call('GET', 'approvals/inbox?status=awaiting-application')).body;
+      expect(awaiting.status).toBe('awaiting-application');
+      expect(awaiting.items.map((item: AgentProposal) => item.approvalId)).toEqual(['due-first', 'due-later']);
+      const uncertain = (await call('GET', 'approvals/inbox?status=execution-unknown')).body;
+      expect(uncertain.items.map((item: AgentProposal) => item.approvalId)).toEqual(['uncertain']);
+      expect((await call('GET', 'approvals/inbox?status=executed')).body.code).toBe('assistant-message-invalid');
     });
 
     it('lets the reader of a run result select and decide the run\'s proposals they may decide', async () => {

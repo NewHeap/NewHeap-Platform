@@ -81,6 +81,25 @@ before the deadline, on the application's clock, the maintenance job makes the p
 `hand-to-application` or `mark-resolved`; `re-execute` is refused for it, as `hand-to-application` is for
 a proposal the application does not execute.
 
+When a person's own inline approval should reach the application too, declare the tool with
+`ExecuteInApplication(toolId, reportWithin, execution => execution.AlsoInline())`
+(`NhAssistantApplicationExecutionBuilder`, SPM-328). Without `AlsoInline` a person who approves such a
+proposal in their own turn, a chat or a request in an agent thread, runs the tool's function there (AE3),
+which stays the default. With it the decision hands the approved proposal to the executor as a deferred
+approval is handed: `awaiting-application` with `ExecutionReportDueAt`, `AgentProposalHandedToApplication`
+in the audit (without a subject for a chat), and `NhAssistantProposalHandOff.Inline` set; a chat belongs
+to no object, so its hand-off names the proposal's first target, or `nh-system/global` when the tool
+names none, and the conversation's tenant. The tool's function never runs. The turn goes on with a tool
+result that says the application has it (`assistant-proposal-handed-to-application`), that it refused it
+(the refusal's code, tools disabled) or that whether it took it is unknown (`hand-off-failed`), and the
+tool call keeps waiting as a deferred call does until the report ends it. In an agent thread everything
+above applies. In a chat, which has no approvers, nobody is notified and no follow-up run starts: every
+close is posted into that conversation as an application message without the trusted flag, the outcome
+with its code and the report's summary, so the report, a refused hand-off and a passed deadline reach
+the person who approved; an uncertain chat proposal stays `execution-unknown`, because the `resolve`
+endpoints work on agent threads. The maintenance job also expires these deadlines in a host without
+agent runs.
+
 A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
 happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with
 `assistant-approval-expired` and the failure class `policy`, and notifies like any failed
@@ -305,7 +324,15 @@ seconds) and lists their proposals for its approvers, and `POST subjects/nh-syst
 the caller's live role; a caller bound to a tenant decides none of them. Notifications about its
 proposals reach the approvers among the people of its thread: those who take part in its conversation
 and those who decided its proposals, at most 50, each with the role the resolver gives them now and
-only when they pass the agent's view policy. With
+only when they pass the agent's view policy. A thread nobody opened therefore notifies nobody, so let
+the application list its people with `UseSystemSubject(system => system.Members<TMembers>())`
+(`INhAssistantSystemMembers.ListAsync(divisionId)`, scoped, SPM-327): the actor ids of the whole
+application app-wide (`null`) or of one division. Notifications then consider the first
+`INhAssistantSystemMembers.MaxMembers` (200) of them next to the thread's people, each with the role the
+read and approve policies and the agent's view policy give them now, and in a division only for people
+who may work there; the list names candidates and grants nothing, so a listed reader never hears what is
+meant for approvers. List the people who decide, such as the application's approvers, not every
+account; the member snapshot stays empty. With
 listed divisions `GET subjects/nh-system/search` finds the
 divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
 per-division agent.
@@ -530,7 +557,13 @@ page before or on the page after. Without `grouped` the inbox keeps its expiry o
 page made after the caller's `LastVisitedAt` in the inbox's `ScopeKey` (`global`, or the division of
 `divisionId`), every one before the first visit, and `POST approvals/inbox/visit` (optional
 `divisionId` of a division the caller works in, otherwise `404 assistant-subject-not-found`) records
-`NhAssistantInboxVisitDto`. The visits live with the board visits under the platform's reserved id
+`NhAssistantInboxVisitDto`. `status=` lists proposals on their way with the same visibility (SPM-327):
+`pending` before its expiry (the default), `awaiting-application` until its report falls due, by report
+deadline, and `execution-unknown` until an approver resolves it, by decision
+(`NhAssistantInboxStatuses`); any other value is `400 assistant-message-invalid` and the page says its
+`Status`. For digests, `INhAssistantProposalCounts.CountAsync(person, statuses)` counts per status with
+the inbox's own query and visibility for an `NhAssistantDecidingPerson` the application authenticated,
+ids and counts only; an unknown status throws `ArgumentException`. The visits live with the board visits under the platform's reserved id
 `nh-inbox`; `AddAgentGroup` therefore refuses every group id that starts with `nh-`, and the run
 maintenance removes inbox visits by age only.
 
@@ -1327,7 +1360,12 @@ custom notification policies and channels handle every kind. An application whos
 must allow `assistant.consult.` and `assistant.request.`. Bound consultations with
 `NhAssistantLimits.MaxConsultationDepth` (1 by default; an agent already in the chain is
 never asked again) and `MaxConsultationsPerActorPerDay`; they also spend the consulted
-agent's daily `Budget`. Make `INhAiSubjectAccessResolver` accept only the canonical id of a
+agent's daily `Budget`. `NhAssistantLimits.MaxConsultationsPerTurn` (1 to 100, unlimited by default)
+bounds the consultations one turn starts, and the asking agent's `MaxConsultationsPerTurn(count)` in
+`ConfigureAgent` replaces it for that agent's turns, higher or lower; every consultation the turn starts
+counts, also one refused later, and the next one is refused first with `assistant-consult-turn-limit`
+before the consulted agent runs (SPM-278). A consultation outside a turn, such as one through MCP, has no
+turn to count. Make `INhAiSubjectAccessResolver` accept only the canonical id of a
 subject, because the asking model types the id. Unknown subjects and subjects the asker
 may not read both return `assistant-consult-subject-unavailable`.
 
@@ -2134,6 +2172,19 @@ not administer. Assert that `GetPackageAsync` returns the imported version, hash
 changed on the host as changed locally and still returns the package after every agent was unlinked,
 and that `ReadAsync` equals the parts and hashes of an export of the same agents and writes no audit.
 SPM-321 and SPM-331 are the executable references.
+For proposals on their way, on both providers, assert that `GET approvals/inbox` stays `pending` by
+default, that `awaiting-application` lists by report deadline only until the report falls due, flat and
+grouped, that `execution-unknown` lists by decision, that another status is `400`, that the initiator of
+a run and the whole application's live approvers see exactly what they see for pending proposals, and
+that `INhAssistantProposalCounts` returns the same totals per status and zero for a tenant that takes no
+part in the whole application. For the members of the whole application assert that an unopened thread
+notifies nobody without `Members<T>()`, that with it the listed approvers are notified and listed
+readers, people without a role and unusable ids are not, that a division counts only people who work
+there and that a list is read up to its bound. For `AlsoInline` assert the hand-off of a chat approval,
+the turn's tool result, the report posted into that chat without the trusted flag, the deadline and a
+refused executor, and that without it the inline approval still runs the function. For
+`MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
+default without a limit and an agent's own limit. SPM-327 and SPM-328 are the executable references.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an

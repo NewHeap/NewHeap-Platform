@@ -162,6 +162,13 @@ public sealed class NhAssistantAgentRunOptions
     public long? MaxTokensPerRun { get; internal set; }
 
     /// <summary>
+    /// How many consultations one turn of the agent may start, replacing
+    /// <see cref="NhAssistantLimits.MaxConsultationsPerTurn"/> for its turns; <see langword="null"/>
+    /// keeps the application's limit.
+    /// </summary>
+    public int? MaxConsultationsPerTurn { get; internal set; }
+
+    /// <summary>
     /// The classification of the data the model calls of the agent's runs, people's turns in its
     /// threads, its triage, its consultations and people's plain chats with it carry; a skill's own
     /// wins. For an agent created in the administration it is the classification of its definition.
@@ -680,6 +687,21 @@ public sealed class NhAssistantAgentRunBuilder
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(tokens, 1);
         _options.MaxTokensPerRun = tokens;
+        return this;
+    }
+
+    /// <summary>
+    /// Limits how many consultations one turn of the agent may start, from 1 to 100, in its runs, in
+    /// people's turns in its threads and chats and when it is consulted itself. It replaces the
+    /// application's <see cref="NhAssistantLimits.MaxConsultationsPerTurn"/> for the agent, higher or
+    /// lower. Every consultation the turn starts counts, also one refused later; a further one is
+    /// refused with <c>assistant-consult-turn-limit</c> before it costs anything.
+    /// </summary>
+    public NhAssistantAgentRunBuilder MaxConsultationsPerTurn(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(count, 100);
+        _options.MaxConsultationsPerTurn = count;
         return this;
     }
 

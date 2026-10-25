@@ -169,7 +169,9 @@ consultation, the participant who asked decides it right away in their own chat,
 runs in their own request with their own rights. The project assistant also consults the
 project closer, whose proposal to complete a project waits for a project approver other
 than the person who asked and runs with the closer's own grant. Neither path rebuilds a
-person's principal outside that person's request. The reviewer's consultation names its tools
+person's principal outside that person's request. One answer of the project assistant consults at
+most twice (`MaxConsultationsPerTurn`); a third question in the same turn is refused with
+`assistant-consult-turn-limit` before the reviewer runs. The reviewer's consultation names its tools
 with `Tools(...)`: asked about a project it may only request a review, so its status and task
 tools stay with its own runs; a status change its model names anyway runs nothing. The consult tool only ever acts for a
 person: an agent created in the administration that acts with the operations account's
@@ -272,6 +274,16 @@ visit of the inbox in its scope is marked new, also what arrives while it is sho
 lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
 grouped order and totals across pages, the recorded parent, the division filter and what is new.
 
+What waits for people reaches them (SPM-327). The sample's daily approval digest, `SampleApprovalDigest`,
+counts per person what the approval inbox lists per status with `INhAssistantProposalCounts`: proposals
+to decide, approved orders the order desk has not reported on yet and executions whose outcome nobody
+knows, ids and counts only. `GET approvals/inbox?status=awaiting-application` and `status=execution-unknown`
+list those proposals with the visibility of the pending ones. The whole application keeps no member
+snapshot, so `SampleDecisionDigestComposition` lists its people with `UseSystemSubject(s => s.Members<...>())`:
+`SampleSystemMembers` names the users of the administrator role and of roles that grant
+`app.project.manage`, so a company-wide proposal in a thread nobody opened still reaches the people who
+decide it, while the policies keep deciding everyone's role.
+
 Administrators let other assistants consult an agent without a deploy (SPM-311). The project starter's
 composition calls `UseConsultationsAsData`: data may let the person who asked decide a proposal, or let
 a project approver other than that person decide it with the agent's own rights, and may generate request
@@ -334,6 +346,12 @@ message of the application, and the audit records the outcome and the code only.
 confirms in time becomes `execution-unknown`, and an approver hands it to the desk again from the
 proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
 in for the supplier's callback.
+
+A person can also order equipment in their own chat with the project assistant (SPM-328). The order tool
+is declared with `AlsoInline`, so approving the card in the chat hands the order to the order desk as
+well, instead of running the tool's function: the turn ends saying the desk has it, and the desk's report
+is posted into that chat as a message of the application with the outcome, the supplier's code and its
+summary.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
 waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see

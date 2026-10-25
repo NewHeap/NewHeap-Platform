@@ -424,6 +424,7 @@
       "assistant-consult-depth-exceeded": "Deze raadpleging zou agents in een kring of te diep laten vragen.",
       "assistant-consult-budget-exhausted": "Het dagbudget van de agent is op.",
       "assistant-consult-limit-reached": "Je hebt het aantal raadplegingen voor vandaag bereikt.",
+      "assistant-consult-turn-limit": "De assistent heeft het aantal raadplegingen voor dit antwoord bereikt.",
       "assistant-consult-timeout": "De agent antwoordde niet op tijd.",
       "assistant-consult-failed": "De agent kon niet antwoorden.",
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",

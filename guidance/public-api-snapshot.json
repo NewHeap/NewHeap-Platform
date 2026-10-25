@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "f477b96208856a3bb5f59f8c0e99b6d5ea15cf09e330934aca4e4a247ed2d22c",
-    "declarationCount": 10968,
+    "hash": "1b84d54a1311ac0965cc0d3e2f06a27b2a1d7393a68283cda43e402b418ce245",
+    "declarationCount": 10999,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3871,6 +3871,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public string Status { get; init; } = NhAssistantInboxStatuses.Pending;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public string ScopeKey { get; init; } = \"global\";"
       },
       {
@@ -4271,7 +4275,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
-        "declaration": "public async Task HandOffAsync( AssistantApproval approval, AssistantThread thread, NhAiProposal proposal, NhAssistantApplicationExecution execution, IReadOnlyCollection<string> fromStatuses, Guid operationId, CancellationToken cancellationToken) {"
+        "declaration": "public Task<NhAssistantHandOffOutcome?> HandOffAsync( AssistantApproval approval, AssistantThread thread, NhAiProposal proposal, NhAssistantApplicationExecution execution, IReadOnlyCollection<string> fromStatuses, Guid operationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "declaration": "public async Task<NhAssistantHandOffOutcome?> HandOffInlineAsync( AssistantApproval approval, AssistantConversation conversation, NhAssistantApplicationExecution execution, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
@@ -4604,6 +4612,38 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantObjectAgents.cs",
         "declaration": "public async Task<TaskResult<NhAssistantObjectAgentsDto>> ListAsync( NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public static class NhAssistantInboxStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public const string Pending = NhAssistantApprovalStatuses.Pending;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public const string AwaitingApplication = NhAssistantApprovalStatuses.AwaitingApplication;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public const string ExecutionUnknown = NhAssistantApprovalStatuses.ExecutionUnknown;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public static IReadOnlyList<string> All { get; } = [Pending, AwaitingApplication, ExecutionUnknown];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public static bool IsValid(string? status) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public interface INhAssistantProposalCounts {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<string, int>> CountAsync( NhAssistantDecidingPerson person, IReadOnlyCollection<string> statuses, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
@@ -4979,7 +5019,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
-        "declaration": "public async Task<NhAssistantSystemInbox> InboxAsync( string actorId, string? tenantId, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<NhAssistantSystemInbox> InboxAsync( string actorId, string? tenantId, CancellationToken cancellationToken, string status = NhAssistantApprovalStatuses.Pending)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
@@ -9967,6 +10007,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public int? MaxConsultationsPerTurn { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAiDataClassification? DataClassification { get; internal set; }"
       },
       {
@@ -10088,6 +10132,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder MaxTokensPerRun(long tokens) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder MaxConsultationsPerTurn(int count) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -10767,6 +10815,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public bool Inline { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
         "declaration": "public Guid ProposalId => Proposal.ProposalId;"
       },
       {
@@ -10859,7 +10911,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public sealed class NhAssistantApplicationExecutionBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public NhAssistantApplicationExecutionBuilder AlsoInline(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
         "declaration": "public static readonly TimeSpan MaxReportWithin = TimeSpan.FromDays(90);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public bool AlsoInline { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
@@ -15391,6 +15455,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder ExecuteInApplication( string toolId, TimeSpan reportWithin, Action<NhAssistantApplicationExecutionBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder UseProposalExecutor<TExecutor>() where TExecutor : class, INhAssistantProposalExecutor {"
       },
       {
@@ -15448,6 +15516,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantSystemSubjectBuilder ApprovePolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantSystemSubjectBuilder Members<TMembers>() where TMembers : class, INhAssistantSystemMembers {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -16851,6 +16923,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ConsultTurnLimit = \"assistant-consult-turn-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ConsultTimeout = \"assistant-consult-timeout\";"
       },
       {
@@ -18079,6 +18155,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int? MaxConsultationsPerTurn { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public int MaxOpenConsultationProposalsPerAsker { get; set; } = 5;"
       },
       {
@@ -18580,6 +18660,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectTypes.cs",
         "declaration": "public static string Build(string template, string subjectId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSystemMembers.cs",
+        "declaration": "public interface INhAssistantSystemMembers {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSystemMembers.cs",
+        "declaration": "public const int MaxMembers = 200;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
@@ -20175,7 +20263,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithPendingProposalsAsync( int maximum, CancellationToken cancellationToken) {"
+        "declaration": "public Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithPendingProposalsAsync( int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSystemThread>> GetSystemThreadsWithProposalsAsync( string status, int maximum, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -20256,6 +20348,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<NhAssistantInboxPage> ListInboxAsync( string actorId, NhAssistantInboxFilter filter, int page, int itemsPerPage, CancellationToken cancellationToken, NhAssistantSystemInbox? system = null, bool grouped = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<int> CountInboxAsync( string actorId, NhAssistantInboxFilter filter, NhAssistantSystemInbox? system, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public required AssistantApproval Approval { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public required AssistantThread Thread { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public required DateTimeOffset SortAt { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -20348,6 +20456,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public Guid? SupersededByApprovalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public string Status { get; init; } = NhAssistantApprovalStatuses.Pending;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -20780,6 +20892,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task ProposalAsync( NhAssistantAuditEventKind kind, AssistantThread thread, AssistantApproval approval, string actorId, string resultCode, string? executionOutcome, string? executionCode, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task ProposalAsync( NhAssistantAuditEventKind kind, string agentId, AssistantThread? thread, AssistantApproval approval, string actorId, string resultCode, string? executionOutcome, string? executionCode, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
@@ -21880,6 +21996,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public int IncrementToolCalls() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public int Consultations => Volatile.Read(ref _consultations);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public int IncrementConsultations() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
@@ -47798,6 +47922,13 @@
       "GetPackageAsync",
       "NhAssistantInstalledAgentPackageDto",
       "NhAssistantPackageAgentLinksDto",
+      "NhAssistantApplicationExecutionBuilder",
+      "AlsoInline",
+      "INhAssistantSystemMembers",
+      "Members",
+      "NhAssistantInboxStatuses",
+      "INhAssistantProposalCounts",
+      "MaxConsultationsPerTurn",
       "INhAssistantAgentDefinitions",
       "NhAssistantAgentDefinitionRequest",
       "PromoteShadowVariantAsync",
@@ -48013,7 +48144,8 @@
       "NhAssistantMcpServerDto",
       "NhAssistantMcpToolDto",
       "NhAssistantMcpServerTestResultDto",
-      "AllowLoopback"
+      "AllowLoopback",
+      "MaxConsultationsPerTurn"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

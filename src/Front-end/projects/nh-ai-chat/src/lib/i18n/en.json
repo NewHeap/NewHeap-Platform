@@ -424,6 +424,7 @@
       "assistant-consult-depth-exceeded": "This consultation would ask agents in a loop or nest too deeply.",
       "assistant-consult-budget-exhausted": "The agent's daily budget is spent.",
       "assistant-consult-limit-reached": "You reached the daily number of consultations.",
+      "assistant-consult-turn-limit": "The assistant reached the number of consultations for this answer.",
       "assistant-consult-timeout": "The agent did not answer in time.",
       "assistant-consult-failed": "The agent could not answer.",
       "assistant-consult-read-only": "A consultation cannot change anything.",

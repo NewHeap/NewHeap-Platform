@@ -369,6 +369,73 @@ error `region-not-permitted` (English and Dutch).
 |---|---|
 | The new translation keys `nh-assistant.errors.assistant-model-region-denied` and `nh-assistant.admin.run-config.field-errors.region-not-permitted`. | An application that replaces the bundled translations adds both keys in each of its languages. |
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: proposals on their way in the inbox and in counts
+
+`GET approvals/inbox` takes `status=`: `pending` (the default, unchanged), `awaiting-application` for
+approved proposals of tools the application executes that wait for its report, listed by report deadline
+until it falls due, and `execution-unknown` for proposals whose execution is uncertain, listed by decision
+until an approver resolves them (`NhAssistantInboxStatuses`). Each status keeps the inbox's visibility:
+the member snapshot, the run's initiator and the whole application's live approvers. Another value is
+`400 assistant-message-invalid`, and `NhAssistantInboxDto.Status` says which status the page lists.
+`INhAssistantProposalCounts.CountAsync(person, statuses)` counts per status with the inbox's own query for
+a person the application authenticated (`NhAssistantDecidingPerson`), for digests: ids and counts only.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the people of the whole application
+
+`UseSystemSubject(system => system.Members<TMembers>())` registers the application's
+`INhAssistantSystemMembers`, which lists the actor ids of the whole application app-wide and per division.
+Notifications about agent work in a thread of the whole application consider the first 200 of them next to
+the thread's participants and deciders, each with the role the read and approve policies and the agent's
+view policy give them now, so a company-wide proposal in a thread nobody opened reaches its approvers and
+never its readers. Without it nothing changes.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: inline approvals of tools the application executes
+
+`ExecuteInApplication(toolId, reportWithin, execution => execution.AlsoInline())`
+(`NhAssistantApplicationExecutionBuilder`) hands a person's inline approval in their own conversation, a
+chat or a request in an agent thread, to the application's executor too, instead of running the tool's
+function: the proposal waits as `awaiting-application` until the report deadline, the hand-off is audited,
+`NhAssistantProposalHandOff.Inline` is set, and the turn goes on with a tool result that says the
+application has it (`assistant-proposal-handed-to-application`), refused it or may not have taken it. In a
+chat the report, a refused hand-off and a passed deadline are posted into that conversation as an
+untrusted application message with the outcome and its code; nobody is notified there and no follow-up run
+starts. The run maintenance also expires such report deadlines in a host without agent runs. Without
+`AlsoInline` an inline approval still runs the tool's function.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a consultation limit per turn
+
+`NhAssistantLimits.MaxConsultationsPerTurn` (1 to 100, unlimited by default) bounds the consultations one
+turn starts, and `NhAssistantAgentRunBuilder.MaxConsultationsPerTurn(count)` replaces it for that agent's
+turns. Every consultation the turn starts counts; the next one is refused before the consulted agent runs
+with the new code `assistant-consult-turn-limit` (HTTP 400), which the asking model reads.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## @newheap/platform-ai-chat: the inbox status filter and the consultation limit
+
+`AgentInboxFilter.status` (`AgentInboxStatus`: `pending`, `awaiting-application`, `execution-unknown`)
+passes `status=` to `GET approvals/inbox`, and `AgentInbox.status` names the status the page lists; the
+mock API serves both. `NH_ASSISTANT_SERVER_ERROR_CODES` gains `assistant-consult-turn-limit`, translated in
+English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The new translation key `nh-assistant.errors.assistant-consult-turn-limit`. | An application that replaces the bundled translations adds the key in each of its languages. |
+
 ## @newheap/platform-ai-chat: promoting a shadow variant in the administration
 
 The shadow variants of an agent in the administration offer "Promote onto {agent}" for a data variant,

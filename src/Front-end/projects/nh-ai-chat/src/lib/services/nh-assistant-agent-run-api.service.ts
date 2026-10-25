@@ -242,7 +242,9 @@ export class NhAssistantAgentRunApiService {
 
   /**
    * Pending proposals the caller may decide, sorted by expiry, or with `grouped` by parent and subject,
-   * with what is new since the caller's last visit (`visitInbox`).
+   * with what is new since the caller's last visit (`visitInbox`). `status` lists the proposals that
+   * wait for the application's report (`awaiting-application`) or for an approver to resolve an
+   * uncertain execution (`execution-unknown`) instead, with the same visibility.
    */
   getInbox(filter: AgentInboxFilter = {}): Observable<AgentInbox> {
     const query = new URLSearchParams();

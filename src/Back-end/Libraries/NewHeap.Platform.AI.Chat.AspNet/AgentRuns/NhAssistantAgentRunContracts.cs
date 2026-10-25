@@ -845,6 +845,12 @@ public sealed record NhAssistantInboxDto(
     int Total)
 {
     /// <summary>
+    /// The status the inbox lists, one of <see cref="NhAssistantInboxStatuses"/>: <c>pending</c>
+    /// unless the request asked for <c>awaiting-application</c> or <c>execution-unknown</c>.
+    /// </summary>
+    public string Status { get; init; } = NhAssistantInboxStatuses.Pending;
+
+    /// <summary>
     /// The scope whose visits mark what is new: <c>global</c>, or <c>division:{id}</c> for an inbox
     /// filtered on a division.
     /// </summary>

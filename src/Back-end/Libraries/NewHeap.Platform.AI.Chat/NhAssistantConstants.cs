@@ -1168,6 +1168,13 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string ConsultLimitReached = "assistant-consult-limit-reached";
 
+    /// <summary>
+    /// The asking turn reached its number of consultations: the asking agent's
+    /// <c>MaxConsultationsPerTurn</c>, otherwise <see cref="NhAssistantLimits.MaxConsultationsPerTurn"/>.
+    /// The consultation is refused before it costs anything; the asking model reads the code.
+    /// </summary>
+    public const string ConsultTurnLimit = "assistant-consult-turn-limit";
+
     public const string ConsultTimeout = "assistant-consult-timeout";
 
     public const string ConsultFailed = "assistant-consult-failed";

@@ -94,7 +94,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
+            .WithDescription("Returns agent proposals across threads that the caller may decide, by default the pending ones sorted by expiry, paged. status=awaiting-application lists approved proposals of tools the application executes that wait for its report, sorted by report deadline, and status=execution-unknown those whose execution is uncertain until an approver resolves it, sorted by decision; both with the same visibility as pending ones. Visibility: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapPost("approvals/inbox/visit", VisitInboxAsync)
@@ -565,7 +565,8 @@ internal static class NhAssistantAgentRunEndpoints
         Guid? runId,
         int? page,
         int? itemsPerPage,
-        bool? grouped)
+        bool? grouped,
+        string? status)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -574,7 +575,11 @@ internal static class NhAssistantAgentRunEndpoints
         }
         var pageNumber = page ?? 1;
         var size = itemsPerPage ?? 20;
-        if (pageNumber < 1 || size is < 1 or > 100 || (subjectType is not null && !NhAiSubjectRef.IsValidType(subjectType)))
+        var inboxStatus = string.IsNullOrEmpty(status) ? NhAssistantInboxStatuses.Pending : status;
+        if (pageNumber < 1
+            || size is < 1 or > 100
+            || (subjectType is not null && !NhAiSubjectRef.IsValidType(subjectType))
+            || !NhAssistantInboxStatuses.IsValid(inboxStatus))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
@@ -582,11 +587,11 @@ internal static class NhAssistantAgentRunEndpoints
         // The whole application lists no members: its approvers, and who passes each agent's view
         // policy, are evaluated now.
         var system = subjectType is null || subjectType == NhAiSubjectRef.SystemType
-            ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted)
+            ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted, inboxStatus)
             : NhAssistantSystemInbox.None;
         var inbox = await runs.ListInboxAsync(
             caller.Data!.ActorId,
-            new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId),
+            new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId) { Status = inboxStatus },
             pageNumber,
             size,
             httpContext.RequestAborted,
@@ -604,6 +609,7 @@ internal static class NhAssistantAgentRunEndpoints
         return TypedResults.Json(
             new NhAssistantInboxDto(proposals, inbox.Total)
             {
+                Status = inboxStatus,
                 ScopeKey = scopeKey,
                 LastVisitedAt = lastVisit,
                 NewApprovalIds = inbox.Items

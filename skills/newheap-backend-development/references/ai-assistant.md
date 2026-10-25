@@ -395,6 +395,10 @@ tool's policy), `ai-tool-capability-denied`, `ai-tool-effect-denied` or
 `ai-tool-approval-delegation-invalid`; the `ToolInvoked` audit event and the model's summary of the
 call carry the same code.
 
+A turn's consultations are bounded with `NhAssistantLimits.MaxConsultationsPerTurn`, unlimited by
+default, or an agent's own `MaxConsultationsPerTurn`; the consultation beyond it is a failed tool call
+with `assistant-consult-turn-limit` that the model reads, and the turn goes on (SPM-278).
+
 When a turn reaches `MaxToolCallsPerTurn`, or the daily tool budget refuses a call, the
 assistant does not end silently: it makes one more model call with tool choice `none`,
 the tool results gathered so far and an instruction to answer with what is known and name

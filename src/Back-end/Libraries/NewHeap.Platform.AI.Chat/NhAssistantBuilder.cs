@@ -289,12 +289,13 @@ public sealed class NhAssistantBuilder
     /// the platform registers itself. People who pass its read policy (by default the assistant's
     /// access policy) read its threads; people who pass its approve policy (by default the
     /// administration policy) also take part in them and decide their proposals. Startup fails when a
-    /// policy is not registered.
+    /// policy is not registered. With <see cref="NhAssistantSystemSubjectBuilder.Members{TMembers}"/> the
+    /// application lists its people, so a thread nobody opened still reaches its approvers.
     /// </summary>
     public NhAssistantBuilder UseSystemSubject(Action<NhAssistantSystemSubjectBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        configure(new NhAssistantSystemSubjectBuilder(_state));
+        configure(new NhAssistantSystemSubjectBuilder(_state, Services));
         return this;
     }
 
@@ -701,7 +702,9 @@ public sealed class NhAssistantBuilder
     /// The declaration is opt-in per tool: other tools keep executing in their function. A run or a
     /// consultation always leaves a proposal of such a tool for later (deferred), at its subject, because
     /// the application's result never reaches a waiting turn; only a person's own turn, a chat or a request
-    /// in an agent thread, still approves it inline and runs the tool's function.
+    /// in an agent thread, still approves it inline and runs the tool's function, unless the declaration
+    /// says <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>
+    /// (<see cref="ExecuteInApplication(string, TimeSpan, Action{NhAssistantApplicationExecutionBuilder})"/>).
     /// </para>
     /// </summary>
     /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
@@ -709,6 +712,25 @@ public sealed class NhAssistantBuilder
     /// than zero and at most 90 days.</param>
     public NhAssistantBuilder ExecuteInApplication(string toolId, TimeSpan reportWithin)
     {
+        return ExecuteInApplication(toolId, reportWithin, _ => { });
+    }
+
+    /// <summary>
+    /// Declares that the application executes the approved proposals of tool <paramref name="toolId"/>
+    /// itself, as <see cref="ExecuteInApplication(string, TimeSpan)"/> does, with the options of
+    /// <paramref name="configure"/>, such as <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>,
+    /// which hands a person's inline approval in their own conversation to the application too.
+    /// </summary>
+    /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
+    /// <param name="reportWithin">How long the application may take to report after a hand-off: longer
+    /// than zero and at most 90 days.</param>
+    /// <param name="configure">The declaration's options.</param>
+    public NhAssistantBuilder ExecuteInApplication(
+        string toolId,
+        TimeSpan reportWithin,
+        Action<NhAssistantApplicationExecutionBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
         if (!NhAssistantAgentDefinition.IsValidSelector(toolId) || toolId.Contains('*', StringComparison.Ordinal))
         {
             throw new ArgumentException("The application executes a tool named by its exact id, without a selector.", nameof(toolId));
@@ -721,7 +743,12 @@ public sealed class NhAssistantBuilder
                 "The report deadline of a tool the application executes is longer than zero and at most 90 days.");
         }
 
-        _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin));
+        var options = new NhAssistantApplicationExecutionBuilder();
+        configure(options);
+        _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin)
+        {
+            AlsoInline = options.HandsOffInline
+        });
         return this;
     }
 
@@ -928,10 +955,12 @@ public sealed class NhAssistantBuilder
 public sealed class NhAssistantSystemSubjectBuilder
 {
     private readonly NhAssistantRegistrationState _state;
+    private readonly IServiceCollection _services;
 
-    internal NhAssistantSystemSubjectBuilder(NhAssistantRegistrationState state)
+    internal NhAssistantSystemSubjectBuilder(NhAssistantRegistrationState state, IServiceCollection services)
     {
         _state = state;
+        _services = services;
     }
 
     /// <summary>
@@ -956,6 +985,23 @@ public sealed class NhAssistantSystemSubjectBuilder
     public NhAssistantSystemSubjectBuilder ApprovePolicy(string policyName)
     {
         _state.SystemApprovePolicy = Validate(policyName);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the application's list of the people of the whole application, app-wide and per
+    /// division (<see cref="INhAssistantSystemMembers"/>), scoped. The whole application keeps no
+    /// member snapshot, so without it an agent event in a thread of the whole application reaches only
+    /// the people of that thread: those who take part in it and those who decided its proposals. With
+    /// it, notifications consider the listed people next to them, at most
+    /// <see cref="INhAssistantSystemMembers.MaxMembers"/>. Roles still come from the read and approve
+    /// policies and the agent's view policy, evaluated for each person now: a listed person without the
+    /// approve policy hears nothing meant for approvers, and listing someone grants nothing.
+    /// </summary>
+    public NhAssistantSystemSubjectBuilder Members<TMembers>()
+        where TMembers : class, INhAssistantSystemMembers
+    {
+        _services.Replace(ServiceDescriptor.Scoped<INhAssistantSystemMembers, TMembers>());
         return this;
     }
 
@@ -1431,7 +1477,7 @@ internal sealed class NhAssistantRegistrationState
             }
 
             throw new InvalidOperationException(
-                $"Tool '{execution.ToolId}' is already executed by the application with another report deadline.");
+                $"Tool '{execution.ToolId}' is already executed by the application with another report deadline or other options.");
         }
 
         _applicationExecutions.Add(execution.ToolId, execution);

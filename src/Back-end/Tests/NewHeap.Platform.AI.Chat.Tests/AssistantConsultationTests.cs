@@ -437,6 +437,118 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         Assert.Contains(NhAssistantErrorCodes.ConsultLimitReached, asker.FunctionResults[1].Result?.ToString());
     }
 
+    /// <summary>
+    /// LS22: the application's limit per turn refuses the consultation beyond it before the consulted
+    /// agent runs, and the code tells the asking model why.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_limit_per_turn_refuses_the_next_consultation_of_the_turn(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithText("All checks are done.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Done?" } }, "call-1")
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Really done?" } }, "call-2")
+            .RespondWithText("The second question was not asked.");
+        await using var host = await CreateHostAsync(provider, target, asker, limits: limits => limits.MaxConsultationsPerTurn = 1);
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        await host.SendAsync(conversation.Id, "Is the project done?", Member);
+
+        Assert.Single(target.Requests);
+        Assert.DoesNotContain(NhAssistantErrorCodes.ConsultTurnLimit, asker.FunctionResults[0].Result?.ToString());
+        Assert.Contains(NhAssistantErrorCodes.ConsultTurnLimit, asker.FunctionResults[1].Result?.ToString());
+        // The refused consultation is recorded nowhere but in the audit of its code.
+        await SingleConsultationAsync(host);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentConsulted
+            && evt.ResultCode == NhAssistantErrorCodes.ConsultTurnLimit);
+
+        // The next turn starts counting again.
+        target.RespondWithText("Still done.");
+        asker
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Done now?" } }, "call-3")
+            .RespondWithText("It is still done.");
+        await host.SendAsync(conversation.Id, "And now?", Member);
+        Assert.Equal(2, target.Requests.Count);
+    }
+
+    /// <summary>
+    /// LS22: without a limit a turn consults as often as its tool calls allow, and an agent's own limit
+    /// replaces the application's for its turns, higher or lower.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Consultations_are_unlimited_per_turn_by_default_and_an_agents_own_limit_wins(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithText("One.")
+            .RespondWithText("Two.")
+            .RespondWithText("Three.");
+        var asker = Ask(new NhAiScriptedChatClient(), 3, "Asked three times.");
+        await using (var unlimited = await CreateHostAsync(provider, target, asker))
+        {
+            Assert.Null(unlimited.Services.GetRequiredService<NhAssistantRegistrationState>().Limits.MaxConsultationsPerTurn);
+            var conversation = await unlimited.CreateConversationAsync(Member, AskingAgentId);
+
+            await unlimited.SendAsync(conversation.Id, "Ask three times.", Member);
+
+            Assert.Equal(3, target.Requests.Count);
+            Assert.All(asker.FunctionResults, result => Assert.DoesNotContain(NhAssistantErrorCodes.ConsultTurnLimit, result.Result?.ToString()));
+        }
+
+        // The asking agent may consult twice, although the application allows once.
+        var raisedTarget = new NhAiScriptedChatClient()
+            .RespondWithText("One.")
+            .RespondWithText("Two.");
+        var raisedAsker = Ask(new NhAiScriptedChatClient(), 3, "The third was refused.");
+        await using var raised = await CreateHostAsync(
+            provider,
+            raisedTarget,
+            raisedAsker,
+            limits: limits => limits.MaxConsultationsPerTurn = 1,
+            configureAssistant: assistant => assistant.ConfigureAgent(AskingAgentId, run => run.MaxConsultationsPerTurn(2)));
+        var raisedConversation = await raised.CreateConversationAsync(Member, AskingAgentId);
+
+        await raised.SendAsync(raisedConversation.Id, "Ask three times.", Member);
+
+        Assert.Equal(2, raisedTarget.Requests.Count);
+        Assert.Contains(NhAssistantErrorCodes.ConsultTurnLimit, raisedAsker.FunctionResults[2].Result?.ToString());
+    }
+
+    [Fact]
+    public void The_limit_per_turn_is_between_one_and_a_hundred_for_the_application_and_an_agent()
+    {
+        new NhAssistantLimits { MaxConsultationsPerTurn = 1 }.Validate();
+        new NhAssistantLimits { MaxConsultationsPerTurn = 100 }.Validate();
+        Assert.Throws<InvalidOperationException>(() => new NhAssistantLimits { MaxConsultationsPerTurn = 0 }.Validate());
+        Assert.Throws<InvalidOperationException>(() => new NhAssistantLimits { MaxConsultationsPerTurn = 101 }.Validate());
+
+        var options = new NhAssistantAgentRunOptions("asking-agent");
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NhAssistantAgentRunBuilder(options).MaxConsultationsPerTurn(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NhAssistantAgentRunBuilder(options).MaxConsultationsPerTurn(101));
+        new NhAssistantAgentRunBuilder(options).MaxConsultationsPerTurn(100);
+        Assert.Equal(100, options.MaxConsultationsPerTurn);
+    }
+
+    /// <summary>
+    /// Scripts <paramref name="count"/> consultations of the project and then <paramref name="answer"/>.
+    /// </summary>
+    private static NhAiScriptedChatClient Ask(NhAiScriptedChatClient asker, int count, string answer)
+    {
+        for (var index = 1; index <= count; index++)
+        {
+            asker.RespondWithFunctionCall(
+                ConsultTool,
+                new { input = new { subjectId = ProjectId, question = "Question " + index + "?" } },
+                "call-" + index);
+        }
+
+        return asker.RespondWithText(answer);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
