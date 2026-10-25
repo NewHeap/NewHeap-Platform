@@ -42,6 +42,11 @@
       max-width: calc(100% - 30px);
       margin: 0 auto;
   }
+
+  // The dialog takes focus only when it has nothing else to focus; its controls keep their focus ring.
+  &:focus {
+    outline: none;
+  }
 }
 
 .nh-modal-backdrop {
