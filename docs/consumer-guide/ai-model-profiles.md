@@ -54,9 +54,16 @@ person's turn in an assistant conversation), `agent-run`, `consultation`,
 `ingestion` and `application` (the application's own calls for no agent). Treat a purpose
 it does not know as `application`.
 
+A profile's timeout bounds each governed call, and so does the invocation context's deadline,
+whichever comes first. A call that reaches it is the failed result `ai-model-timeout` of
+`INhAiChatExecutor`, not an exception; only the caller's own cancellation throws (see the AI
+observability rule).
+
 Keep provider packages, endpoints, credentials, and concrete model names in the
 consumer. Use `NhAiDeterministicChatClient` and
-`NhAiDeterministicEmbeddingGenerator` in normal tests. Live-provider tests are
+`NhAiDeterministicEmbeddingGenerator` in normal tests. Set
+`NhAiDeterministicChatClient.StrictStructuredOutput` when a call sends a structured-output schema, so
+the test refuses a schema that a provider in strict mode would refuse. Live-provider tests are
 opt-in and require their own credentials, data policy, and budget controls.
 
 ## Avoid

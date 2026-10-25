@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "a14475980a56c13f6b4a904a70b80dcdc52481530b1d12252193a57da7f942b6",
-    "declarationCount": 11008,
+    "hash": "efbb2595dbc9501b9809967289787b87ae67d62e35374d0c78ee700f57bf9a4d",
+    "declarationCount": 11038,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -16,6 +16,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public bool EffectsAsProposals { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public Func<IServiceProvider, ChatHistoryProvider>? ChatHistoryProviderFactory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public Func<IServiceProvider, IEnumerable<AIContextProvider>>? AIContextProvidersFactory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public sealed class NhAiAgentModelCallException : InvalidOperationException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public const string UnclassifiedCode = \"ai-model-call-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiAgentModelCallException(string message, string code) : base(message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public string Code { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -64,6 +88,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public override IReadOnlyList<string> StateKeys => inner.StateKeys;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public override object? GetService(Type serviceType, object? serviceKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "protected override async ValueTask<AIContext> InvokingCoreAsync( InvokingContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "protected override ValueTask InvokedCoreAsync( InvokedContext context, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
@@ -23751,6 +23791,54 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public static class NhAiModelFailureCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string Timeout = \"ai-model-timeout\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string DependencyUnavailable = \"ai-model-dependency-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string StreamIncomplete = \"ai-model-stream-incomplete\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string ProfileBudgetExceeded = \"ai-model-profile-budget-exceeded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunDeadlineExpired = \"ai-run-deadline-expired\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunBudgetExceeded = \"ai-run-budget-exceeded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunBudgetReservationDenied = \"ai-run-budget-reservation-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public static class NhAiModelFinishReasons {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string TimedOut = \"timed-out\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string Cancelled = \"cancelled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string DependencyFailure = \"dependency-failure\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
         "declaration": "public async Task<TaskResult<NhAiChatResult>> GetResponseAsync( NhAiChatRequest request, CancellationToken cancellationToken = default)"
       },
       {
@@ -26931,6 +27019,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public bool StrictStructuredOutput { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
         "declaration": "public void EnqueueResponse(string response) {"
       },
       {
@@ -27115,6 +27207,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
+        "declaration": "public bool StrictStructuredOutput { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
         "declaration": "public int RemainingSteps {"
       },
       {
@@ -27144,6 +27240,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public sealed record NhAiStrictSchemaViolation( string Path, string Rule, string Message);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public static class NhAiStrictStructuredOutput {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string ReferenceRule = \"reference\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string AdditionalPropertiesRule = \"additional-properties\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string RequiredRule = \"required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public static IReadOnlyList<NhAiStrictSchemaViolation> Validate(JsonElement schema) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
@@ -47509,7 +47629,10 @@
       "NhAiAgentDescriptor",
       "NhAiAgentFrameworkServiceCollectionExtensions",
       "NhAiAgentInstance",
-      "NhAiAutonomyLevel"
+      "NhAiAgentModelCallException",
+      "NhAiAutonomyLevel",
+      "ChatHistoryProviderFactory",
+      "AIContextProvidersFactory"
     ],
     "nh-ai-agent-runs": [
       "ConfigureAgent",
@@ -48289,6 +48412,11 @@
       "NhAiChatResult",
       "NhAiChatStream",
       "NhAiChatStreamCompletion",
+      "NhAiModelFailureCodes",
+      "NhAiModelFinishReasons",
+      "NhAiOutcomeKind",
+      "NhAiStrictStructuredOutput",
+      "NhAiStrictSchemaViolation",
       "INhAiUsageSink",
       "NhAiUsageRecord",
       "NhAiEvaluationDataset",
