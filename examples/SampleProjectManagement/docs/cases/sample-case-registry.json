@@ -3534,8 +3534,8 @@
       "id": "SPM-246",
       "categoryId": "18",
       "title": "Assistant mutation paused for approval and resumed",
-      "surface": "Assistant approval flow over `INhAiProposalFactory`, `NhAiApprovalValidator` and the durable `INhAiApprovalEvidenceProvider`, optional `INhAssistantToolPresenter`, `POST conversations/{id}/approvals/{approvalId}/decide`, the `approval.required` event, `INhAssistantBusinessAuditSink` and `NhAssistantAuditEvent`",
-      "outcome": "When the model calls `projects.change-status`, the shared invoker reports that approval is required before anything executes. The assistant creates the exact NewHeap proposal from the arguments the invoker evaluated, bound to the agent actor, the accountable user, the turn as run, the prompt identity, the tool contract hash and the active-division target; it stores the proposal with a pending approval, streams `approval.required` and pauses the conversation as `waiting-for-approval`. The sample presenter uses those exact arguments and the authorized division to resolve the project server-side and stores a Dutch or English friendly tool name, summary and named old/new status fields beside, never inside, the proposal evidence; missing, failing, oversized or sensitive presentation safely falls back. The selected culture remains stable after reload and resume. The user approves with the expected proposal hash; the same governed function runs again through the invoker with the proposal and approval ids, the validator accepts only that user's decision for that hash within its lifetime, the project status verifier runs and the resumed turn completes. The business audit sink receives content-free `ApprovalRequested`, `ApprovalApproved` and `ToolInvoked` events. Rejections close without executing and expired proposals end with `assistant-approval-expired`.",
+      "surface": "Assistant approval flow over `INhAiProposalFactory`, `NhAiApprovalValidator` and the durable `INhAiApprovalEvidenceProvider`, optional `INhAssistantToolPresenter` within `NhAssistantPresentationLimits` (a dropped presentation warns with `NhAssistantPresentationRules`) and presented in every culture of `NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`, `POST conversations/{id}/approvals/{approvalId}/decide`, the `approval.required` event, `INhAssistantBusinessAuditSink` and `NhAssistantAuditEvent`",
+      "outcome": "When the model calls `projects.change-status`, the shared invoker reports that approval is required before anything executes. The assistant creates the exact NewHeap proposal from the arguments the invoker evaluated, bound to the agent actor, the accountable user, the turn as run, the prompt identity, the tool contract hash and the active-division target; it stores the proposal with a pending approval, streams `approval.required` and pauses the conversation as `waiting-for-approval`. The sample presenter uses those exact arguments and the authorized division to resolve the project server-side and stores a Dutch or English friendly tool name, summary and named old/new status fields beside, never inside, the proposal evidence; missing, failing, oversized or sensitive presentation safely falls back. The selected culture remains stable after reload and resume. The user approves with the expected proposal hash; the same governed function runs again through the invoker with the proposal and approval ids, the validator accepts only that user's decision for that hash within its lifetime, the project status verifier runs and the resumed turn completes. The business audit sink receives content-free `ApprovalRequested`, `ApprovalApproved` and `ToolInvoked` events. Rejections close without executing and expired proposals end with `assistant-approval-expired`. The presenter keeps within `NhAssistantPresentationLimits`, at most eight fields, so its presentation is never dropped; one that broke a cap would be dropped as a whole with a warning naming the presenter, the tool and the rule, and the approver would read the generic summary. The approval is presented in both supported cultures, so a reader in English reads it in English.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -3549,7 +3549,10 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPresentationCultures.cs"
       ]
     },
     {
@@ -3702,7 +3705,7 @@
       "categoryId": "18",
       "title": "Assistant administration and preferences UI",
       "surface": "`@newheap/platform-ai-chat`: `nh-assistant-preferences`, `NhAssistantApiService.getPreferences`/`updatePreferences`, `NhAssistantAdminApiService`, `NhAssistantConfig.adminRoute`, `NhAssistantStore.canAdminister`; `@newheap/platform-ai-chat/admin`: `nh-assistant-admin` with `nh-assistant-admin-context`, `nh-assistant-admin-agents`, `nh-assistant-admin-agent-editor`, `nh-assistant-admin-mcp-servers`, `nh-assistant-admin-mcp-server-editor` and `nh-assistant-admin-mcp-tools`; `provideNhAssistantMockApi` preference and admin endpoints",
-      "outcome": "From the panel header a user chooses style, form of address and answer length and writes own instructions of at most 1,000 characters; saving, validation and failures are shown in place. When the server reports `canAdminister` and the host configured `adminRoute`, the panel links to the administration page. There an administrator edits the versioned application context and sees a conflict instead of overwriting a newer version, overrides, disables and resets code agents, creates and deletes own agents with tool selectors from the tool catalog and assigned MCP servers, and connects MCP servers with a write-only secret that is never shown, only kept, replaced or cleared. After a sync every remote tool is disabled and treated as a change until the administrator enables it and chooses its effect; remote annotations are shown as hints and a changed remote input schema disables the tool with a warning. The management playground runs all of this on the scripted mock API.",
+      "outcome": "From the panel header a user chooses style, form of address and answer length and writes own instructions of at most 1,000 characters; saving, validation and failures are shown in place. When the server reports `canAdminister` and the host configured `adminRoute`, the panel links to the administration page. There an administrator edits the versioned application context and sees a conflict instead of overwriting a newer version, overrides, disables and resets code agents, creates and deletes own agents with tool selectors from the tool catalog and assigned MCP servers, and connects MCP servers with a write-only secret that is never shown, only kept, replaced or cleared. After a sync every remote tool is disabled and treated as a change until the administrator enables it and chooses its effect; remote annotations are shown as hints and a changed remote input schema disables the tool with a warning. The management playground runs all of this on the scripted mock API. Every place that names an agent, the editor's title and the import dialog included, shows an agent in code by its translated name in the reader's language.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
@@ -3719,7 +3722,9 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts",
-        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts"
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/agent-texts.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-display-name.spec.ts"
       ]
     },
     {
@@ -3901,8 +3906,8 @@
       "id": "SPM-263",
       "categoryId": "18",
       "title": "Shared assistant conversations with read state and live updates",
-      "surface": "`POST conversations/{id}/share-link` and `DELETE`, `POST conversations/{id}/join`, `GET conversations/{id}/participant-candidates`, `POST conversations/{id}/participants`, `DELETE conversations/{id}/participants/{actorId}`, `POST conversations/{id}/read`, `INhAssistantParticipantDirectory` with `UseParticipantDirectory`, `INhAssistantDisplayNameResolver`, `NhAssistantLimits.MaxParticipantsPerConversation`, `NhAssistantOptions.HubPath`, the `NhAssistantHub` SignalR hub (`ConversationChanged`, `ConversationRead`, `ConversationRemoved`, `ConversationEvent`), the conversation fields `role`, `members`, `currentActorId`, `activeActorId`, `lastMessageSequence` and `lastReadSequence`, and `NhAssistantAuditEventKind.Conversation*`",
-      "outcome": "An owner shares a conversation through an invitation link whose token is protected with ASP.NET Data Protection, or invites a colleague of the active division through the sample's `SampleAssistantParticipantDirectory`. A colleague of the same tenant who may use the agent joins, sees the whole history as read and continues the conversation: the turn runs with the colleague's own permissions, budget and approval, the model receives every user message with its writer's name and a shared-conversation data block, and only the person whose turn created a proposal can decide it while the owner or that person can stop the turn. Each user message records its author; owner and participants keep their own read position, which only moves forward and marks the other person's answer as unread. The owner removes participants, renews or revokes the link and deletes the conversation for everyone; a participant leaves. Every change is a content-free audit event, and the SignalR hub sends status, read and removal updates and the streamed turn events to the owner and current participants only. Conversations from before sharing keep working as read.",
+      "surface": "`POST conversations/{id}/share-link` and `DELETE`, `POST conversations/{id}/join`, `GET conversations/{id}/participant-candidates`, `POST conversations/{id}/participants`, `DELETE conversations/{id}/participants/{actorId}`, `POST conversations/{id}/read`, `INhAssistantParticipantDirectory` with `UseParticipantDirectory`, `INhAssistantDisplayNameResolver`, `NhAssistantLimits.MaxParticipantsPerConversation`, `NhAssistantOptions.HubPath` (mapped on the host's root outside the route prefix, with the query token read for the configured path), the `NhAssistantHub` SignalR hub (`ConversationChanged`, `ConversationRead`, `ConversationRemoved`, `ConversationEvent`), the conversation fields `role`, `members`, `currentActorId`, `activeActorId`, `lastMessageSequence` and `lastReadSequence`, and `NhAssistantAuditEventKind.Conversation*`",
+      "outcome": "An owner shares a conversation through an invitation link whose token is protected with ASP.NET Data Protection, or invites a colleague of the active division through the sample's `SampleAssistantParticipantDirectory`. A colleague of the same tenant who may use the agent joins, sees the whole history as read and continues the conversation: the turn runs with the colleague's own permissions, budget and approval, the model receives every user message with its writer's name and a shared-conversation data block, and only the person whose turn created a proposal can decide it while the owner or that person can stop the turn. Each user message records its author; owner and participants keep their own read position, which only moves forward and marks the other person's answer as unread. The owner removes participants, renews or revokes the link and deletes the conversation for everyone; a participant leaves. Every change is a content-free audit event, and the SignalR hub sends status, read and removal updates and the streamed turn events to the owner and current participants only. Conversations from before sharing keep working as read. The hub maps on the host's root at `/hub/assistant`, outside the `/api/assistant` prefix; NewHeap's bearer setup reads the WebSocket's query token for the configured hub path, so a hub moved to `/hubs/assistant` keeps connecting, while no other request takes a token from the query string.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -3918,7 +3923,11 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261002120044_Collaboration.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261002120047_Collaboration.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationPersistenceTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationPersistenceTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubPathTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHubQueryTokensTests.cs"
       ]
     },
     {
@@ -4002,7 +4011,7 @@
       "id": "SPM-268",
       "categoryId": "18",
       "title": "Event-triggered agent run with deferred proposals",
-      "surface": "`NhAssistantBuilder.AddAgent`, `ConfigureAgent` with `Grant`, `TriggerOnly`, `UseApprovalPolicy`, `Retry` and `Budget`, `AddApprovalPolicy` with `NhAiApprovalMode.Deferred`, `NhAiApprovers.SubjectRole`, `FourEyes` and `RequireUnchangedSubject`, `AddTrigger<TEvent>` with `StartAgent`, `Subject`, `Initiator`, `Message`, `Dedupe` and `OnBusy`, `INhAssistantAgentTriggers.PublishAsync`, `NhAiToolAttribute.AllowAgentGrant`, `NhBackgroundOperationBuilder.AddAssistantAgentRuns`, `GET threads/{id}/runs`, `GET threads/{id}/proposals`, `GET approvals/inbox` and `POST approvals/{id}/decisions`; for the application's own channels `INhAssistantProposalDecisionService` with `GetDecisionFactsAsync` (`NhAssistantProposalDecisionFacts`) and `DecideAsync` (`NhAssistantDecidingPerson`, `NhAssistantProposalDecision`, `NhAssistantProposalDecisionResult` with `Duplicate`), `NhAssistantDecisionChannels` and the `Channel` and `IdempotencyKey` of `NhAssistantAuditEvent`",
+      "surface": "`NhAssistantBuilder.AddAgent`, `ConfigureAgent` with `Grant`, `TriggerOnly`, `UseApprovalPolicy`, `Retry` and `Budget`, `AddApprovalPolicy` with `NhAiApprovalMode.Deferred`, `NhAiApprovers.SubjectRole`, `FourEyes` and `RequireUnchangedSubject`, `AddTrigger<TEvent>` with `StartAgent`, `Subject`, `Initiator`, `Message`, `Dedupe` and `OnBusy`, `INhAssistantAgentTriggers.PublishAsync`, `NhAiToolAttribute.AllowAgentGrant`, `NhBackgroundOperationBuilder.AddAssistantAgentRuns`, `GET threads/{id}/runs`, `GET threads/{id}/proposals`, `GET approvals/inbox` and `POST approvals/{id}/decisions`; for the application's own channels `INhAssistantProposalDecisionService` with `GetDecisionFactsAsync` (`NhAssistantProposalDecisionFacts` with `SubjectChanged`) and `DecideAsync` (`NhAssistantDecidingPerson`, `NhAssistantProposalDecision`, `NhAssistantProposalDecisionResult` with `Duplicate`), `NhAssistantDecisionChannels` and the `Channel` and `IdempotencyKey` of `NhAssistantAuditEvent`",
       "outcome": "Creating a project starts the intake reviewer from the sample's CAP consumer after the project transaction committed. The run is a background operation owned by the agent, not by the person who created the project; the agent answers for its own runs and may propose `projects.change-status` because both the tool (`AllowAgentGrant`) and the agent registration grant it, for trigger runs only. The deferred proposal waits in the project's agent thread and in the approval inbox: people outside the project do not see the thread, the creator may not approve it (four eyes), and a project approver who satisfies the tool's manage policy approves it. The approved proposal then executes as its own background operation and changes the project status once. An approver may also answer with a messaging reply: the sample's channel asks the decision service whether a person may decide before it sends them a reply token (the creator and someone outside the project are not asked), and the provider delivers the reply to `POST approval-replies`, where the channel rebuilds the person from the user store and decides as them with the checks of the decision endpoint. A forged token or an unclear answer decides nothing, a reply the provider delivers twice returns the earlier decision, another answer afterwards is refused as not pending, and the audit records the `messaging-reply` channel and the delivery id, where the endpoint records `web`.",
       "implementation": "implemented",
       "evidence": [
@@ -4061,15 +4070,19 @@
     {
       "id": "SPM-271",
       "categoryId": "18",
-      "title": "Approved agent proposal for an edited subject closes as stale",
-      "surface": "`NhAiApprovalPolicyBuilder.RequireUnchangedSubject`, `NhAiSubjectInfo.Version`, `INhAiProposalPrecondition` and `NhAssistantApprovalStatuses.Stale`",
-      "outcome": "The intake reviewer's proposal records the project version it was made for. When the project is edited before an approver decides, the approval still succeeds, but the execution operation checks the version first and closes the proposal as stale without changing the project.",
+      "title": "An agent proposal for an edited subject closes as stale at the decision or before execution",
+      "surface": "`NhAiApprovalPolicyBuilder.RequireUnchangedSubject`, `NhAiSubjectInfo.Version`, `INhAiProposalPrecondition`, `NhAssistantProposalDecisionFacts.SubjectChanged`, `assistant-proposal-stale` at `POST approvals/{id}/decisions` and `INhAssistantProposalDecisionService.DecideAsync`, and `NhAssistantApprovalStatuses.Stale`",
+      "outcome": "The intake reviewer's proposal records the project version it was made for. When the project is edited before an approver decides, the decision facts report `SubjectChanged`, which the messaging channel passes on, and an approval is refused with `assistant-proposal-stale` and closes the proposal as stale at once, by the same precondition the execution runs. When the project is edited after an approval, the execution operation checks the version first and closes the proposal as stale without changing the project.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
-        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs"
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectChangeCheck.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalDecisionServiceTests.cs"
       ]
     },
     {
@@ -5415,6 +5428,42 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageFormatTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageEndpointTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-323",
+      "categoryId": "18",
+      "title": "An assistant whose profiles do not run in its execution region does not start, and the administration and a turn refuse such a profile",
+      "surface": "`NhAssistantBuilder.UseExecutionRegion` and `NhAiModelProfileBuilder.PermitExecutionRegions` with `WithFallbackProfiles`, checked at host start for the chat profile, the agents' profiles and the profiles of skills and triage in code; the field error `region-not-permitted` (`NhAssistantFieldErrors.RegionNotPermitted`) when a data skill or an agent created in the administration is saved; `assistant-model-region-denied` (`NhAssistantErrorCodes.ModelRegionDenied`, failure class `policy`) for a turn; the administration's translations of both",
+      "outcome": "The sample's chat profile and its confidential fallback permit `local`, where the deterministic model runs, and the region of a real model its secrets configure, which `UseExecutionRegion` names, so the sample assistant starts. A host that moves the sample assistant to the region `eu-west`, which no profile of the chain permits, does not start: the error names the chat profile and the region instead of every model call failing later as an unavailable model that runs retry. A data skill or an agent created in the administration with such a profile is refused at save, and a turn that no profile may serve in the region for its data classification fails at once with `assistant-model-region-denied`, without a model call or a retry.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantRegionSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantExecutionRegionTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/en.json"
+      ]
+    },
+    {
+      "id": "SPM-324",
+      "categoryId": "18",
+      "title": "The project closer in shadow proposes an unchanged finding once within the proposal's lifetime",
+      "surface": "Shadow proposals under the duplicate rules of agent proposals: an identical proposal (tool and canonical arguments) of the agent in its shadow threads of the scope counts as open within its proposal lifetime, `NhAssistantProposeOutcome.AlreadyOpen` with `assistant-proposal-already-open` and `NhAssistantAuditEventKind.AgentProposalDeduplicated`; the effect on the comparison of shadow variants",
+      "outcome": "While an operator evaluates the project closer in shadow, a completed task makes its rules propose to complete the project, as a shadow proposal that never executes. The task is saved again and the next shadow run finds the same finding: within the proposal's seven-day lifetime the shadow proposal counts as open, as a live one would, so nothing new is recorded, the rules receive `AlreadyOpen` and the audit records `AgentProposalDeduplicated`. Evaluating the closer in shadow therefore compares what it would really propose live.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuleRunTests.cs"
       ]
     },
     {

@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312", "SPM-323"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -36,13 +36,23 @@ services.AddNewHeapAssistant(assistant => assistant
     .AddToolPresenter<ApplicationAssistantToolPresenter>()
     .WithLimits(limits => { limits.MaxToolCallsPerTurn = 8; limits.DailyToolCallBudgetPerActor = 200; }));
 
+// The routes below the prefix; the live-update hub on the root at NhAssistantOptions.HubPath
+// (/hub/assistant by default), outside the prefix.
 endpoints.MapNewHeapAssistant("/api/assistant");
 ```
 
 `NhAiTextAsset.FromEmbeddedResource` is a static extension member of
 `NewHeap.Platform.AI.Chat`; keep that namespace in scope. The chat profile must
 declare chat, function calling and streaming and permit the assistant execution
-region (`local` by default, see `UseExecutionRegion`). Tool selectors are exact tool
+region (`local` by default, see `UseExecutionRegion`). Every profile the assistant uses
+must permit that region, itself or through its fallbacks: the chat profile, the agents'
+profiles and the profiles of the skills and the triage of agents in code are checked at
+host start, which fails naming the profile and the region; a data skill or an agent
+created in the administration is refused at save with `profile: region-not-permitted`
+(`NhAssistantFieldErrors.RegionNotPermitted`); and a turn that no profile of its chain may
+serve in the region for its data classification fails at once with
+`assistant-model-region-denied`, failure class `policy`, which a run does not retry
+(SPM-323). Tool selectors are exact tool
 ids or prefixes ending in `.*`; only agents with `Execute` autonomy are offered
 mutating tools in their own turns, while a consultation with a proposal route also offers them as
 proposals to `Propose` and `Simulate` agents (`nh-ai-agent-runs`). An agent may list at most `NhAssistantLimits.MaxToolSelectorsPerAgent`
@@ -95,7 +105,17 @@ request culture. Resolve display data again inside the authorized scope, return 
 model metadata. Presentation is bounded, persisted and optional; it never enters the
 proposal hash or grants access. Failure, timeout, oversized output, confidential or
 restricted classification, old stored data and an unhandled tool all use the safe
-fallback. Never log presenter text, arguments or lookup results.
+fallback. Never log presenter text, arguments or lookup results. The caps are
+`NhAssistantPresentationLimits`: a display name of 160 characters, a summary of 512, at
+most eight fields (`MaxFields`) with labels of 80 and values of 256 characters, a notice
+of 512, 4,000 characters of stored JSON and two seconds per call (`PresenterTimeout`). A
+presentation that breaks one is dropped as a whole, so an approver never decides without
+fields they were not shown, and a warning names the presenter's type, the tool, the
+culture and the broken rule (`NhAssistantPresentationRules`), never the text: fix the
+presenter it names. A proposal is presented in every supported UI culture of the request
+localization, which NewHeap hosts fill from
+`NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`, at most eight
+(`MaxCultures`), so each approver reads their own language (SPM-246).
 
 The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 `INhAiApprovalEvidenceProvider` with durable implementations on its own tables.
@@ -449,14 +469,19 @@ while the first is higher. Conversations from before sharing count as read.
 Sharing, joining, inviting, removing and leaving are content-free audit events
 (`Conversation*`).
 
-`MapNewHeapAssistant` maps the SignalR hub at `NhAssistantOptions.HubPath`
-(`/hub/assistant` by default; empty turns live updates off). A connection joins
+`MapNewHeapAssistant(prefix)` maps the endpoints below the route prefix and the SignalR hub
+on the host's root at `NhAssistantOptions.HubPath` (`NewHeap:AI:Assistant:HubPath`,
+`/hub/assistant` by default, outside the prefix; empty turns live updates off). A
+proxy or client therefore routes both the prefix and the hub path. A connection joins
 the group of its authenticated actor, and the server decides per event who belongs to
 the conversation, so a removed participant stops receiving updates. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
-query string below `/hub`; other hosts must accept `access_token` there. Updates
+query string below `/hub` and below the configured hub path of a NewHeap library, so a
+hub moved to `/hubs/assistant` or under the prefix keeps working; no other request takes
+a token from the query string. Other hosts must accept `access_token` on the hub path.
+Updates
 reach the instance that runs the turn and use the host's SignalR backplane when there
 is one; clients reload snapshots after every reconnect.
 
