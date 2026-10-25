@@ -213,7 +213,7 @@ public sealed class NhAssistantMcpOAuthOptions
             || !(uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && allowLoopbackHttp && IsLoopback(uri))))
         {
             throw new InvalidOperationException(
-                $"NewHeap:AI:Assistant:Mcp:OAuth:{name} must be an absolute https URL without a fragment (http only on loopback in Development).");
+                $"NewHeap:AI:Assistant:Mcp:OAuth:{name} must be an absolute https URL without a fragment (http only on loopback, in Development or with Mcp:AllowLoopback).");
         }
     }
 
