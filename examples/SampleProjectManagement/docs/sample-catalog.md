@@ -733,6 +733,20 @@ non-owning scope; only the outer service can commit the real transaction.
 after both mutations and their events succeed. A failure in either step rolls
 back the complete setup.
 
+## Background operation cancellation
+
+The project-analysis child of the portfolio analysis checks
+`ThrowIfCancellationRequestedAsync` before every pass (SPM-325). When its owner
+cancels, the handler stops at the next pass instead of waiting for the next
+heartbeat, and the operation ends `Cancelled`, not `TimedOut`: the runner reports
+a time-out only when the soft time-out fired, and otherwise checks the attempt's
+durable cancellation. `BackgroundOperationCancellationSamplesTests` runs the
+child through Hangfire on the migrated sample database with a heartbeat a minute
+apart and proves that no heartbeat ran before the operation ended cancelled. The
+library's provider tests also show that a failure code or message key longer
+than its column completes the attempt with the generic code and key, and that a
+failed write of a failed step keeps the step's own exception.
+
 ## Edit modal
 
 `ProjectEditModalComponent` supports both create and update operations. The

@@ -627,3 +627,16 @@ lists only the four TA2 refusals. LS6 completes the rest.
     LS33.
   - **Train 23, chat, AI and front end:** LS18 to LS21, LS37 to LS43.
 - **(b) One train per area**, more but smaller trains.
+
+## Lane choices
+
+| # | Choice |
+|---|---|
+| LB1 | Built by lane LB (2026-10-25): **a durable cancellation request that the failed-step write finds wins over the step's own error**, as a third stop signal next to the fence and contention, and the step's error is logged as a warning; otherwise a handler error during a requested cancellation would be retried and the owner's cancellation lost (LS4), for Lars to review. |
+| LB2 | Built by lane LB (2026-10-25): **a lost fence is the internal `NhBackgroundOperationOwnershipLostException`, a subclass of `InvalidOperationException` with the unchanged message**, so the step recording can tell it from a failed write; a release-note row covers tests that assert the exact type (LS4), for Lars to review. |
+| LB3 | Built by lane LB (2026-10-25): **the column limits as internal constants next to the entity**: `NhBackgroundOperationColumnLimits` (100 and 300) feeds the runner's check, the entity attributes keep their literals so no public declaration, model or migration changes, and a provider test compares the constants with the EF model on both providers (LS3), for Lars to review. |
+| LB4 | Built by lane LB (2026-10-25): **warnings, not errors, for the secondary write failure and for an oversized code or key**, with the operation, attempt and full text; the runner still logs the step's own error as an error when it fails the operation (LS3, LS4), for Lars to review. |
+| LB5 | Built by lane LB (2026-10-25): **a cancelled step whose write finds the cancellation request logs nothing and rethrows the step's own cancellation**, because the request is expected and the runner records the operation as cancelled (LS4), for Lars to review. |
+| LB6 | Built by lane LB (2026-10-25): **a cancellation that is neither the soft time-out nor a durable cancellation of the attempt, such as a handler's own client time-out, stays `TimedOut` (`soft-timeout`)**, and the success path is unchanged: a result returned after the soft time-out fired is still a time-out (LS5), for Lars to review. |
+| LB7 | Built by lane LB (2026-10-25): **SPM-325 is a new case that runs the sample's existing project-analysis child** through Hangfire on the migrated PostgreSQL sample database with a heartbeat a minute apart and asserts that no heartbeat ran; LS3 and LS4 are proved by the library provider tests in its evidence, because a sample handler with oversized keys or a failing database would show what not to do, for Lars to review. |
+| LB8 | Built by lane LB (2026-10-25): **not changed: a handler error thrown outside a step while the operation's cancellation is requested is still recorded as `handler-failed`** and may retry; closing that needs the same durable check on the runner's failure path and is left as a follow-up rather than widening LS5, for Lars to review. |
