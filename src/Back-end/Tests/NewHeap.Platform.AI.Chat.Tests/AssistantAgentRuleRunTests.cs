@@ -534,6 +534,52 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_shadow_proposal_counts_as_open_within_its_lifetime_as_a_live_one_would(AssistantTestProvider provider)
+    {
+        // LS9: a shadow proposal never waits, so without this every shadow run proposed an unchanged
+        // finding again; the evaluation then compared more than the live agent would propose.
+        var projectId = Guid.NewGuid();
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 6, 2, 9, 0, 0, TimeSpan.Zero));
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), shadow: true, clock: clock);
+        var script = Script(host);
+        var status = "Active";
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, status), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed in shadow.");
+        };
+
+        var first = await StartRunAsync(host, projectId, shadow: true);
+        await RunTurnAsync(host, first, "Round 1.");
+        var second = await StartRunAsync(host, projectId, shadow: true);
+        var secondResult = await RunTurnAsync(host, second, "Round 2.");
+        // Another value is another finding.
+        status = "OnHold";
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 3.");
+        // Once the first proposal's lifetime (three days) ended, the unchanged finding is proposed again.
+        status = "Active";
+        clock.Advance(TimeSpan.FromDays(3) + TimeSpan.FromMinutes(1));
+        var fourth = await StartRunAsync(host, projectId, shadow: true);
+        await RunTurnAsync(host, fourth, "Round 4.");
+
+        var outcomes = script.Proposals.ToArray();
+        Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[0].Outcome);
+        Assert.Equal((NhAssistantProposeOutcome.AlreadyOpen, outcomes[0].ApprovalId), (outcomes[1].Outcome, outcomes[1].ApprovalId));
+        Assert.Equal(0, secondResult.ProposalCount);
+        Assert.Empty(await RunStore(host).GetRunApprovalsAsync(second.Run.Id, CancellationToken.None));
+        Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[2].Outcome);
+        Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[3].Outcome);
+        Assert.NotEqual(outcomes[0].ApprovalId, outcomes[3].ApprovalId);
+        Assert.Equal(NhAssistantApprovalStatuses.Shadow, Assert.Single(await RunStore(host).GetRunApprovalsAsync(fourth.Run.Id, CancellationToken.None)).Status);
+        var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated);
+        Assert.Equal((outcomes[0].ApprovalId, NhAssistantErrorCodes.ProposalAlreadyOpen), (audit.ApprovalId, audit.ResultCode));
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.Equal(3, await context.Approvals.CountAsync(item => item.ConversationId == first.Thread.ConversationId));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_trigger_stores_the_payload_its_rules_read(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), recordRuns: true);
@@ -561,7 +607,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Action<NhAiApprovalPolicyBuilder>? policy = null,
         bool shadow = false,
         bool recordRuns = false,
-        NhAiProposalGuardStages guardStages = NhAiProposalGuardStages.All)
+        NhAiProposalGuardStages guardStages = NhAiProposalGuardStages.All,
+        TimeProvider? clock = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -569,6 +616,10 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
             model,
             configure: services =>
             {
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestProjectStates>();
                 services.AddSingleton<TestRuleScript>();

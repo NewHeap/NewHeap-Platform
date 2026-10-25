@@ -104,4 +104,30 @@ internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs, Ti
             ? new NhAssistantDuplicateCheck(NhAssistantProposeOutcome.AlreadyOpen, sameObjects[0], [])
             : NhAssistantDuplicateCheck.None with { Superseded = sameObjects };
     }
+
+    /// <summary>
+    /// The duplicate check of a shadow proposal (LS9): a shadow proposal with the same identity (tool
+    /// and canonical arguments) of the agent in its shadow threads within the scope, recorded within its
+    /// proposal lifetime, counts as open, so the new one is not recorded and is reported as
+    /// <see cref="NhAssistantProposeOutcome.AlreadyOpen"/>, as a live proposal would be. Shadow
+    /// proposals store no object keys and are never rejected or superseded, so only this identity rule
+    /// applies; the evaluation then compares what the live agent would really have proposed.
+    /// </summary>
+    public async Task<NhAssistantDuplicateCheck> CheckShadowAsync(
+        AssistantThread thread,
+        string toolId,
+        string argumentsHash,
+        CancellationToken cancellationToken)
+    {
+        var open = await runs.FindOpenShadowProposalAsync(
+            thread.ScopeKey,
+            thread.AgentId,
+            toolId,
+            argumentsHash,
+            _applicationClock.GetUtcNow(),
+            cancellationToken);
+        return open is null
+            ? NhAssistantDuplicateCheck.None
+            : new NhAssistantDuplicateCheck(NhAssistantProposeOutcome.AlreadyOpen, open, []);
+    }
 }
