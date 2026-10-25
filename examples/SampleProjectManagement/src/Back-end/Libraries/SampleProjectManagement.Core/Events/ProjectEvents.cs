@@ -52,6 +52,12 @@ public sealed class ProjectStatusChangedEvent : INhEvent
 
     public string? ChangedInSubjectId { get; init; }
 
+    /// <summary>
+    /// SPM-308: the agent run whose tool changed the status, as the tool's invocation context names it
+    /// (<c>AgentRunId</c>); <see langword="null"/> for a person, a job or an agent outside a run.
+    /// </summary>
+    public Guid? ChangedByAgentRunId { get; init; }
+
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-status-changed";
 }

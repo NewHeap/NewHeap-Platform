@@ -1231,10 +1231,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.True(added.Success);
             Assert.Equal([SampleProjectPlannerComposition.NotOwnChangeFilter], added.Data!.Filters);
 
-            // The planner's status tool puts the project on hold while the planner works on it: the
-            // event names the planner and the project, and the filter skips it.
-            var own = await host.ChangeStatusAsAgentAsync(project, ProjectStatus.OnHold, planner, ProjectSubjects.For(project));
+            // The planner's status tool puts the project on hold while a run of the planner works on
+            // it: the event names the planner, the project and the run (the tool's AgentRunId), and the
+            // filter skips it.
+            var plannerRunId = Guid.NewGuid();
+            var own = await host.ChangeStatusAsAgentAsync(project, ProjectStatus.OnHold, planner, ProjectSubjects.For(project), plannerRunId);
             Assert.Equal(("assistant-agent:" + planner, ProjectSubjects.Type, ProjectSubjects.IdOf(project)), (own.ChangedByAgentActorId, own.ChangedInSubjectType, own.ChangedInSubjectId));
+            Assert.Equal(plannerRunId, own.ChangedByAgentRunId);
             var ignored = Assert.Single(await host.PublishAsync(own), receipt => receipt.TriggerId == triggerId);
             Assert.Equal((NhAssistantTriggerOutcomes.Ignored, NhAssistantTriggerReasons.Filtered, (Guid?)null), (ignored.Outcome, ignored.ReasonCode, ignored.RunId));
 
@@ -1247,7 +1250,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
             // A person's change starts it as well; the event names the person.
             var byPerson = await host.SetStatusByHandAsync(project, ProjectStatus.OnHold, host.OwnerId);
-            Assert.Equal((host.OwnerId, (string?)null), (byPerson.ChangedByUserId, byPerson.ChangedByAgentActorId));
+            Assert.Equal((host.OwnerId, (string?)null, (Guid?)null), (byPerson.ChangedByUserId, byPerson.ChangedByAgentActorId, byPerson.ChangedByAgentRunId));
             var person = Assert.Single(await host.PublishAsync(byPerson), receipt => receipt.TriggerId == triggerId);
             Assert.Contains(person.Outcome, new[] { NhAssistantTriggerOutcomes.Started, NhAssistantTriggerOutcomes.Queued });
             Assert.NotNull(person.RunId);
@@ -5999,27 +6002,36 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
     /// SPM-308: changes a project's status through the planner's status tool, as the shared invoker
     /// calls it inside an agent's turn: the invocation context names the agent's actor and the agent's
     /// invocation scope, which the platform makes ambient for the turn, the subject the agent works in.
+    /// In an agent run both carry the run's id as <c>AgentRunId</c>, while <c>RunId</c> is the turn's.
     /// Returns the event the project service handed to the outbox.
     /// </summary>
-    public async Task<ProjectStatusChangedEvent> ChangeStatusAsAgentAsync(Guid projectId, ProjectStatus status, string agentId, NhAiSubjectRef workingOn)
+    public async Task<ProjectStatusChangedEvent> ChangeStatusAsAgentAsync(Guid projectId, ProjectStatus status, string agentId, NhAiSubjectRef workingOn, Guid? agentRunId = null)
     {
         // The agent's actor, as NhAssistantAgentDefinition.ActorId names it.
         var agentActorId = "assistant-agent:" + agentId;
+        var turnId = Guid.NewGuid().ToString();
         var turn = new NhAiAgentInvocationScope(
             agentId,
             agentActorId,
             1,
             new NhAiSubjectInfo(workingOn, NhAiSubjectInfo.CreateScopeKey(null, null)),
             OwnerId.ToString("D"),
-            Guid.NewGuid().ToString(),
-            "project-assistance");
+            turnId,
+            "project-assistance")
+        {
+            AgentRunId = agentRunId,
+            CorrelationId = agentRunId?.ToString("N")
+        };
         var context = new NhAiInvocationContext(
             agentActorId,
             "project-assistance",
             new Dictionary<string, string> { [ProjectAiTools.DivisionScopeKey] = DivisionId.ToString("D") })
         {
             ActorKind = NhAiActorKind.Agent,
-            AgentId = agentId
+            AgentId = agentId,
+            RunId = turnId,
+            CorrelationId = agentRunId?.ToString("N") ?? turnId,
+            AgentRunId = agentRunId
         };
 
         // The tools change the project through the application's project service; this host otherwise

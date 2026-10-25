@@ -1635,7 +1635,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiApprovalTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolRefusalCodeTests.cs"
     ],
     "SPM-225": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -2860,6 +2861,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261022182415_TriggerEventFilters.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261022182423_TriggerEventFilters.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventFilterTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-trigger-form.component.html",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",

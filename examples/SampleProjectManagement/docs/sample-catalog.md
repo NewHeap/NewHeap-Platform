@@ -244,7 +244,8 @@ calls through the sample's budget manager (`ProjectAiBudgetUsage.ProfilesOf`).
 An agent is not started again by its own change (SPM-308). The project service stamps the cause on
 every status event: the person, or the agent whose status tool changed the status with the subject it
 worked in (`ProjectAgentCause`, from the tool's invocation context and the ambient agent invocation
-scope). The planner's composition registers the status-changed event with the named filter
+scope), and the agent run the change belongs to (the context's `AgentRunId`; `RunId` is the turn's
+id). The planner's composition registers the status-changed event with the named filter
 `not-own-change`, and the application adds a status follow-up trigger to the planner that selects it.
 The filter skips the event only when the trigger's own agent changed the status on the subject the
 trigger fires for, so the planner's change of a project does not start it on that project again,
