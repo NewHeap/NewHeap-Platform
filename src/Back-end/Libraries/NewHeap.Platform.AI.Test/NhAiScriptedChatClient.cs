@@ -59,6 +59,14 @@ public sealed class NhAiScriptedChatClient : IChatClient
     }
 
     /// <summary>
+    /// Checks the JSON schema of <see cref="ChatOptions.ResponseFormat"/> as a provider in strict
+    /// structured-output mode does (<see cref="NhAiStrictStructuredOutput"/>) and refuses a request that
+    /// breaks a rule with an <see cref="HttpRequestException"/> of status 400, without playing a step.
+    /// The request is still recorded. Off by default.
+    /// </summary>
+    public bool StrictStructuredOutput { get; init; }
+
+    /// <summary>
     /// The number of scripted responses that have not been played yet.
     /// </summary>
     public int RemainingSteps
@@ -200,6 +208,11 @@ public sealed class NhAiScriptedChatClient : IChatClient
         lock (_sync)
         {
             _requests.Add(new NhAiRecordedChatRequest(received, options));
+            if (StrictStructuredOutput)
+            {
+                NhAiStrictStructuredOutput.ThrowIfRefused(options);
+            }
+
             VerifyPendingFunctionResults(received);
             if (_position >= _steps.Count)
             {
