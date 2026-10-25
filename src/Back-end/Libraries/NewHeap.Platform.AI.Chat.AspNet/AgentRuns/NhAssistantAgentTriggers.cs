@@ -76,7 +76,17 @@ public sealed record NhAssistantTriggerReceipt(
     string Outcome,
     Guid? RunId,
     Guid? ConversationId,
-    string? ReasonCode);
+    string? ReasonCode)
+{
+    /// <summary>
+    /// The queued input that holds the event in the agent's thread: the input this fire wrote when it
+    /// started, queued, coalesced or let the event wait, and for a deferred fire the input it writes
+    /// once the application's transaction committed. Find the run that took it with
+    /// <see cref="INhAssistantAgentRunLookup.FindByInputAsync"/>. <see langword="null"/> when the fire
+    /// wrote no input: rejected, ignored, deduplicated against an earlier delivery, and a resume.
+    /// </summary>
+    public Guid? InputId { get; init; }
+}
 
 public static class NhAssistantTriggerOutcomes
 {
@@ -1157,12 +1167,16 @@ internal sealed class NhAssistantAgentTriggers(
     {
         if (await runs.QueuedInputExistsAsync(request.InputId, cancellationToken))
         {
+            // The same fire ran before and wrote its input; the receipt names that input.
             return new NhAssistantTriggerReceipt(
                 request.TriggerId,
                 NhAssistantTriggerOutcomes.Deduplicated,
                 null,
                 null,
-                NhAssistantTriggerReasons.Deduplicated);
+                NhAssistantTriggerReasons.Deduplicated)
+            {
+                InputId = request.InputId
+            };
         }
 
         if (request.TriggerCandidateVersion is { } candidateVersion)
@@ -1423,7 +1437,10 @@ internal sealed class NhAssistantAgentTriggers(
             return Rejected(fire, null, NhAssistantRunStore.OrphanedRunCode);
         }
 
-        return new NhAssistantTriggerReceipt(fire.TriggerId, NhAssistantTriggerOutcomes.Deferred, null, null, null);
+        return new NhAssistantTriggerReceipt(fire.TriggerId, NhAssistantTriggerOutcomes.Deferred, null, null, null)
+        {
+            InputId = inputId
+        };
     }
 
     /// <summary>
@@ -1586,13 +1603,17 @@ internal sealed class NhAssistantAgentTriggers(
             }
 
             // Rate limits count runs; the input waits for the resume, which starts one run per thread.
-            await runs.AddQueuedInputAsync(CreateInput(fire, conversationId), cancellationToken);
+            var waiting = CreateInput(fire, conversationId);
+            await runs.AddQueuedInputAsync(waiting, cancellationToken);
             return new NhAssistantTriggerReceipt(
                 fire.TriggerId,
                 NhAssistantTriggerOutcomes.Waiting,
                 null,
                 conversationId,
-                agent.RunState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.AgentPaused : NhAssistantErrorCodes.SkillPaused);
+                agent.RunState == NhAssistantAgentRunStates.Paused ? NhAssistantErrorCodes.AgentPaused : NhAssistantErrorCodes.SkillPaused)
+            {
+                InputId = waiting.Id
+            };
         }
         if (fire.Resume && queued is not null)
         {
@@ -1631,7 +1652,10 @@ internal sealed class NhAssistantAgentTriggers(
                 NhAssistantTriggerOutcomes.Coalesced,
                 queued.Id,
                 conversationId,
-                null);
+                null)
+            {
+                InputId = input.Id
+            };
         }
 
         var superseded = false;
@@ -1717,7 +1741,10 @@ internal sealed class NhAssistantAgentTriggers(
         var outcome = superseded
             ? NhAssistantTriggerOutcomes.Superseded
             : active is null ? NhAssistantTriggerOutcomes.Started : NhAssistantTriggerOutcomes.Queued;
-        return new NhAssistantTriggerReceipt(fire.TriggerId, outcome, run.Id, conversationId, null);
+        return new NhAssistantTriggerReceipt(fire.TriggerId, outcome, run.Id, conversationId, null)
+        {
+            InputId = fire.Resume ? null : input.Id
+        };
     }
 
     /// <summary>
