@@ -189,7 +189,7 @@ internal static class NhBackgroundOperationStepRecording
         }
         catch (Exception recordingException) when (StopsTheAttempt(recordingException, stepCancelled))
         {
-            if (!stepCancelled)
+            if (!IsPlatformSignal(stepException))
             {
                 logger.LogWarning(
                     stepException,
@@ -230,6 +230,20 @@ internal static class NhBackgroundOperationStepRecording
         return recordingException is NhBackgroundOperationOwnershipLostException
             or NhBackgroundOperationContentionSignal
             || (recordingException is OperationCanceledException && !stepCancelled);
+    }
+
+    /// <summary>
+    /// The step stopped on the platform's own signal rather than an error of its own: a
+    /// cancellation, contention, a lost fence or a suspension. Losing it to the write's stop signal
+    /// loses nothing an operator needs, so it is not logged.
+    /// </summary>
+    private static bool IsPlatformSignal(Exception stepException)
+    {
+        return stepException is OperationCanceledException
+            or NhBackgroundOperationContentionSignal
+            or NhBackgroundOperationOwnershipLostException
+            or NhBackgroundOperationFanOutPendingException
+            or NhBackgroundOperationSignalPendingException;
     }
 }
 

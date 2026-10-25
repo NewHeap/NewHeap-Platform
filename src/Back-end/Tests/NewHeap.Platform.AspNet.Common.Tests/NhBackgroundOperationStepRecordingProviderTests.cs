@@ -38,6 +38,12 @@ public sealed class NhBackgroundOperationStepRecordingProviderTests
         Cancellation
     }
 
+    public enum ContendedStep
+    {
+        FailsWithItsOwnError,
+        StopsOnContentionItself
+    }
+
     /// <summary>
     /// The write that records the failed or cancelled step fails. The step's own exception, a
     /// handler error or a cancellation, reaches the caller unchanged, and the failed write is logged
@@ -93,12 +99,17 @@ public sealed class NhBackgroundOperationStepRecordingProviderTests
 
     /// <summary>
     /// Another holder keeps the operation's lock while the failed step is recorded. The contention
-    /// signal still wins, so the runner reschedules the attempt, and the step's error is logged.
+    /// signal still wins, so the runner reschedules the attempt. A step error of its own is logged;
+    /// a step that stopped on the same contention itself logs nothing, as before.
     /// </summary>
     [Theory]
-    [InlineData(RelationalTestProvider.SqlServer)]
-    [InlineData(RelationalTestProvider.PostgreSql)]
-    public async Task Contention_while_recording_a_failed_step_still_stops_the_attempt(RelationalTestProvider provider)
+    [InlineData(RelationalTestProvider.SqlServer, ContendedStep.FailsWithItsOwnError)]
+    [InlineData(RelationalTestProvider.SqlServer, ContendedStep.StopsOnContentionItself)]
+    [InlineData(RelationalTestProvider.PostgreSql, ContendedStep.FailsWithItsOwnError)]
+    [InlineData(RelationalTestProvider.PostgreSql, ContendedStep.StopsOnContentionItself)]
+    public async Task Contention_while_recording_a_failed_step_still_stops_the_attempt(
+        RelationalTestProvider provider,
+        ContendedStep contendedStep)
     {
         await using var host = await CreateHostAsync(provider);
         var owner = await host.CreateUserAsync();
@@ -110,9 +121,15 @@ public sealed class NhBackgroundOperationStepRecordingProviderTests
         IAsyncDisposable? holder = null;
         try
         {
-            var run = () => RunFailingStepAsync(context, StepLevel.Root, async () =>
+            var run = () => context.Progress.RunStepAsync(FailingStepKey, async (step, cancellationToken) =>
             {
                 holder = await host.HoldOperationLockAsync(operationId);
+                if (contendedStep == ContendedStep.StopsOnContentionItself)
+                {
+                    // The step's own progress write waits for the lock and gives up.
+                    await step.ReportAsync(1, 2, cancellationToken: cancellationToken);
+                }
+
                 throw original;
             });
 
@@ -126,8 +143,15 @@ public sealed class NhBackgroundOperationStepRecordingProviderTests
             }
         }
 
-        logger.At(LogLevel.Warning).Should().ContainSingle()
-            .Which.Exception.Should().BeSameAs(original);
+        if (contendedStep == ContendedStep.FailsWithItsOwnError)
+        {
+            logger.At(LogLevel.Warning).Should().ContainSingle()
+                .Which.Exception.Should().BeSameAs(original);
+        }
+        else
+        {
+            logger.Entries.Should().BeEmpty();
+        }
     }
 
     /// <summary>
