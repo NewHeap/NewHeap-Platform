@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "242d7d26d6f74c240ec99842c29e50198ab59d5c5b3bb71b3272ccf2d5b6c88d",
-    "declarationCount": 10783,
+    "hash": "ab42d48da654201668238a2b784734ec68375ba47c1232bbe9ef54289e68a030",
+    "declarationCount": 10785,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -22659,6 +22659,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public Guid? AgentRunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public DateTimeOffset? Deadline { get; init; }"
       },
       {
@@ -23215,7 +23219,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
-        "declaration": "public static class NhAiMediaTypes {"
+        "declaration": "public static partial class NhAiMediaTypes {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiFiles.cs",
@@ -24788,6 +24792,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public string? CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public Guid? AgentRunId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",

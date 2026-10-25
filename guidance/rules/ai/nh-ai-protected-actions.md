@@ -41,13 +41,31 @@ data is `NhAiAuthoritativeExecutionEvidence.Denied(payload, evidenceReference)`;
 the invoker copies the payload into the failed `TaskResult<T>.Data` and audits
 the failure code as the approval code.
 
-Every refusal the invoker audits as `NhAiOutcomeKind.AuthorizationDenied` records
-the code its caller receives as the audit record's `ResultCode`: the invocation
-gate's own code (`ai-tool-authorization-denied` when the gate gives none),
-`ai-tool-capability-denied`, `ai-tool-effect-denied`,
-`ai-tool-approval-delegation-invalid` or the authoritative denial's own code when it
-has one. Read the
-reason of a refusal from that code, not from the outcome kind.
+Every call the invoker ends without success records the code its caller receives
+in the shared tool result as the audit record's `ResultCode`, next to the
+`Outcome` kind:
+
+- `AuthorizationDenied`: the invocation gate's own code (`ai-tool-authorization-denied`
+  when the gate gives none), `ai-tool-capability-denied`, the authoritative denial's
+  own code (`ai-tool-execution-evidence-invalid` when it has none, and for evidence
+  of an invalid shape, which is audited without its reference or key),
+  `ai-tool-effect-denied` and `ai-tool-approval-delegation-invalid`;
+- `ApprovalRequired`: `ai-tool-approval-required` for a missing approval, without an
+  `ApprovalCode`, and `ai-tool-approval-invalid` for a rejected one, with the
+  validator's code as `ApprovalCode`;
+- `BudgetExhausted`: `ai-tool-budget-exhausted` for an invalid remaining budget,
+  `ai-tool-budget-denied` for a refused reservation and `ai-tool-deadline-expired`;
+- `Conflict`: `ai-tool-concurrency-limited`, `ai-tool-idempotency-key-invalid` and
+  `ai-tool-idempotency-denied`, with the lease's own code as `IdempotencyCode`;
+- `TerminalFailure`: `ai-tool-input-too-large`, `ai-tool-result-too-large`,
+  `ai-tool-verification-failed` with the verifier's `VerificationCode`, the first
+  code of the tool's failed result (`ai-tool-failed` without one), and
+  `ai-tool-failed` for an exception, which still propagates.
+
+A success has no `ResultCode`. Read the reason of a refusal from `ResultCode`, its
+kind from `Outcome` and the detail of one step from `ApprovalCode`,
+`IdempotencyCode` and `VerificationCode`; the record never carries arguments,
+results or exception messages.
 
 When the application must validate approval and reconcile replays inside the
 write itself—for example an engine that returns a receipt with a stable denial
@@ -162,5 +180,7 @@ codes, and that a delegating effect decision is rejected for a tool that did not
 opt in. Issue a grant through an issuer tool and consume it through the consuming
 write; assert the audit codes `issuer` and the validated or denied consumer code,
 and assert the generator rejects an issuer that declares a Platform idempotency
-lease. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
+lease. For every refusal, assert that the audit record's `ResultCode` equals the
+`code` of the shared tool result (`NhAiToolResult.CodePropertyName`), as the
+library's own tests do for each exit of the invoker. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
 references.

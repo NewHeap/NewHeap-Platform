@@ -453,6 +453,13 @@ cancelled or retried turn keeps its calls and a run by rules alone stays 0; and 
 calls to usage records by the run id in `NhAiUsageRecord.CorrelationId`, each call named by its
 `ModelCallId`. A consultation is no run: its usage stays on `AgentConsulted`.
 
+A tool that needs the agent run it works for reads `NhAiInvocationContext.AgentRunId` (a `Guid`),
+which the run engine sets on the agent's invocation scope (`NhAiAgentInvocationScope.AgentRunId`) and
+the agent invocation gate copies to every tool call of the run, also when an approved proposal of the
+run executes. It is `null` outside a run: in a person's chat, a person's turn in the agent's thread and
+a consultation. `RunId` stays the turn's id, which proposal hashes and usage records use, and
+`CorrelationId` the run id in `N` format; never parse either to find the run.
+
 An agent's thread of the whole application is never readable more widely than its results: reading it,
 its conversation, its proposals and its files needs the read role of the whole application (the read
 policy of `UseSystemSubject`) and the agent's view policy, by default its required policy, evaluated as
@@ -779,8 +786,10 @@ type is known only when it fires) and `AgentActorId`, the actor the agent acts a
 the cause on the event where the agent's tool makes the change: inside the tool handler,
 `NhAiInvocationContext.ActorId` (with `ActorKind` `Agent`) is that same actor, and
 `NhAiAgentInvocationScopes.Current` is the agent's invocation scope with `AgentActorId` and the subject
-the agent works in (`Subject.Subject`). Skip the event only when the event's actor and subject both
-equal the context's: the agent then does not start itself again on the subject it changed, while its
+the agent works in (`Subject.Subject`); stamp `NhAiInvocationContext.AgentRunId` as well when the
+application traces a change back to the run that made it. Skip the event only when the event's actor
+and subject both equal the context's: the agent then does not start itself again on the subject it
+changed, while its
 change made while it worked on another subject (a task's change on its project, say) and every
 person's change still start it. Keep filters cheap and free of I/O like `When`. Saving a filter the
 event does not register fails with `assistant-trigger-filter-not-found` and the field error
@@ -1674,7 +1683,8 @@ maintenance keeps recent inbox visits, and that `AddAgentGroup` refuses `nh-` id
 For trigger event filters, publish the agent's own change on the trigger's subject and assert
 `ignored` with `filtered` and no audit, publish the same agent's change made on another subject and a
 person's change and assert a run each, assert that the filter's `AgentActorId` and `Subject` equal
-`NhAiInvocationContext.ActorId` and the ambient scope's subject inside the agent's tool call, save an
+`NhAiInvocationContext.ActorId` and the ambient scope's subject inside the agent's tool call, assert
+that a tool in a run reads the run's id as `AgentRunId` while `RunId` is the turn's, save an
 unknown filter and assert `assistant-trigger-filter-not-found`, and store a filter the code no longer
 registers and assert `filter-missing` and the problem `unknown-filter`, on both providers.
 
