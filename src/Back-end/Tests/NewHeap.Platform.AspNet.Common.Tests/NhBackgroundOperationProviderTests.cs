@@ -27,6 +27,18 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class NhBackgroundOperationProviderTests
 {
+    /// <summary>
+    /// How long the contention checks of this test wait for a lock that the test itself holds.
+    /// </summary>
+    private const int ContentionLockTimeoutMilliseconds = 250;
+
+    /// <summary>
+    /// How long a running cancellation waits for the operation's lock: the library's default.
+    /// </summary>
+    private const int RunningCancellationLockTimeoutMilliseconds = 5_000;
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
     [Theory]
     [InlineData(RelationalTestProvider.SqlServer)]
     [InlineData(RelationalTestProvider.PostgreSql)]
@@ -119,20 +131,7 @@ public sealed class NhBackgroundOperationProviderTests
             await context.SaveChangesAsync();
         }
 
-        var options = new NhBackgroundOperationsOptions
-        {
-            UserNotificationProjectionEnabled = false,
-            LiveUpdatesEnabled = false,
-            DispatchInterval = TimeSpan.FromMilliseconds(50),
-            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
-            PayloadRetentionPeriod = TimeSpan.FromDays(1),
-            EventRetentionPeriod = TimeSpan.FromDays(1),
-            SucceededRetentionPeriod = TimeSpan.FromDays(2),
-            CancelledRetentionPeriod = TimeSpan.FromDays(2),
-            FailedRetentionPeriod = TimeSpan.FromDays(3),
-            TransactionLockTimeoutMilliseconds = 250
-        };
+        var options = CreateOptions(ContentionLockTimeoutMilliseconds);
         var firstClaim = new NhBackgroundOperationAttemptClaim(
             operationId, firstAttemptId, 1, 1, 1, "provider-test", 1, "{}", "default", "provider-resource", ownerId);
         var firstManager = new NhBackgroundOperationLeaseManager(
@@ -1495,10 +1494,8 @@ public sealed class NhBackgroundOperationProviderTests
             ownerId);
         await VerifyRunningCancellationAsync(
             serviceProvider,
-            persistence,
             fanOutCoordinator,
             registry,
-            options,
             ownerId);
         await VerifySignalSuspensionAsync(
             serviceProvider,
@@ -1744,14 +1741,44 @@ public sealed class NhBackgroundOperationProviderTests
                 NhBackgroundOperationAttemptStatus.Succeeded);
     }
 
+    /// <summary>
+    /// The options of this test: heartbeats every 100 ms, so an attempt sees a cancellation soon,
+    /// and short retention periods, which the cleanup checks move past.
+    /// </summary>
+    private static NhBackgroundOperationsOptions CreateOptions(int transactionLockTimeoutMilliseconds)
+    {
+        return new NhBackgroundOperationsOptions
+        {
+            UserNotificationProjectionEnabled = false,
+            LiveUpdatesEnabled = false,
+            DispatchInterval = TimeSpan.FromMilliseconds(50),
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
+            DefaultLeaseDuration = TimeSpan.FromSeconds(2),
+            PayloadRetentionPeriod = TimeSpan.FromDays(1),
+            EventRetentionPeriod = TimeSpan.FromDays(1),
+            SucceededRetentionPeriod = TimeSpan.FromDays(2),
+            CancelledRetentionPeriod = TimeSpan.FromDays(2),
+            FailedRetentionPeriod = TimeSpan.FromDays(3),
+            TransactionLockTimeoutMilliseconds = transactionLockTimeoutMilliseconds
+        };
+    }
+
+    /// <summary>
+    /// The owner cancels a running operation; its heartbeat sees the request and the handler stops.
+    /// The request and the heartbeats, due every 100 ms, meet at the operation's lock. Under load
+    /// either can hold it longer than the 250 ms that the contention checks of this test wait, which
+    /// would stop the attempt as contention or refuse the request as busy. So the attempt and the
+    /// request here wait for the lock as an application does by default
+    /// (<see cref="RunningCancellationLockTimeoutMilliseconds"/>); only a holder that keeps the lock
+    /// would make them give up.
+    /// </summary>
     private static async Task VerifyRunningCancellationAsync(
         ServiceProvider serviceProvider,
-        NhBackgroundOperationPersistence persistence,
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
         NhBackgroundOperationRegistry registry,
-        NhBackgroundOperationsOptions options,
         Guid ownerId)
     {
+        var patientOptions = CreateOptions(RunningCancellationLockTimeoutMilliseconds);
         var operationId = Guid.NewGuid();
         await using (var seedScope = serviceProvider.CreateAsyncScope())
         {
@@ -1766,15 +1793,22 @@ public sealed class NhBackgroundOperationProviderTests
         var runner = new NhBackgroundOperationRunner(
             serviceProvider,
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
-            persistence,
+            new NhBackgroundOperationPersistence(
+                serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+                patientOptions,
+                new NoOpLiveUpdatePublisher(),
+                new NoOpNotificationProjector(),
+                fanOutCoordinator,
+                NullLogger<NhBackgroundOperationPersistence>.Instance),
             registry,
             fanOutCoordinator,
-            options,
+            patientOptions,
             NullLogger<NhBackgroundOperationRunner>.Instance);
         var runTask = runner.RunAsync(operationId, 1);
 
         var running = false;
-        for (var attempt = 0; attempt < 100 && !running; attempt++)
+        var runningBy = DateTimeOffset.UtcNow + Patience;
+        while (!running && DateTimeOffset.UtcNow < runningBy)
         {
             await Task.Delay(20);
             await using var pollScope = serviceProvider.CreateAsyncScope();
@@ -1791,7 +1825,7 @@ public sealed class NhBackgroundOperationProviderTests
             var service = new NhBackgroundOperationService(
                 cancellationScope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>(),
                 registry,
-                options,
+                patientOptions,
                 new NhHangfireQueueNameResolver(),
                 new NoOpScheduler(),
                 new NoOpLiveUpdatePublisher(),
@@ -1802,7 +1836,7 @@ public sealed class NhBackgroundOperationProviderTests
             (await service.RequestCancellationAsync(operationId, ownerId)).Success.Should().BeTrue();
         }
 
-        await runTask.WaitAsync(TimeSpan.FromSeconds(10));
+        await runTask.WaitAsync(Patience);
         await using var verificationScope = serviceProvider.CreateAsyncScope();
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
         var operation = await verificationContext.BackgroundOperations
