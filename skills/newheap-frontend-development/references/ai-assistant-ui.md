@@ -491,8 +491,12 @@ every kind of object taken) and keeps a saved source the ceiling no longer allow
 shadow variants (`getShadowVariants`) list those in code and as data with whether they have run
 settings and receive the agent's events; "New shadow variant" creates an agent from the live agent's
 definition with `createAgent` and `shadowOf`, never offered in the chat, and the page continues in the
-variant's run configuration to give it run settings. The mock API plays the same rules with
-`handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+variant's run configuration to give it run settings. "Promote onto {agent}" on a data variant asks to
+confirm first, says what the live agent keeps, offers to move the variant's skills too and calls
+`promoteShadowVariant` with the live agent's version and the variant's (`ShadowVariant.version`); the
+page then shows the live agent's new version (`ShadowVariantPromotion`) and the variant leaves the list,
+and a change in the meantime shows `assistant-version-conflict` in the confirmation. The mock API plays
+the same rules with `handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
 
 Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
 card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id

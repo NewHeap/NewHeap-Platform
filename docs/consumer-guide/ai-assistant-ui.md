@@ -491,8 +491,12 @@ every kind of object taken) and keeps a saved source the ceiling no longer allow
 shadow variants (`getShadowVariants`) list those in code and as data with whether they have run
 settings and receive the agent's events; "New shadow variant" creates an agent from the live agent's
 definition with `createAgent` and `shadowOf`, never offered in the chat, and the page continues in the
-variant's run configuration to give it run settings. The mock API plays the same rules with
-`handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+variant's run configuration to give it run settings. "Promote onto {agent}" on a data variant asks to
+confirm first, says what the live agent keeps, offers to move the variant's skills too and calls
+`promoteShadowVariant` with the live agent's version and the variant's (`ShadowVariant.version`); the
+page then shows the live agent's new version (`ShadowVariantPromotion`) and the variant leaves the list,
+and a change in the meantime shows `assistant-version-conflict` in the confirmation. The mock API plays
+the same rules with `handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
 
 Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
 card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id
@@ -1107,7 +1111,7 @@ are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs)
-- SPM-313 — The project planner's cost center is agent metadata: set in code, overridden and shown in the assistant administration through the portal's own editor, and found by its code
+- SPM-313 — The project planner's cost center and departments are agent metadata: set in code, overridden and shown in the assistant administration through the portal's own editor, and found by their codes
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentCostCenterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentCostCenterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
@@ -1131,4 +1135,9 @@ are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-330 — An operator promotes the planner's trial, a shadow variant created at runtime, onto the planner with its skills
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)

@@ -41,6 +41,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentMetadata> AgentMetadata => Set<AssistantAgentMetadata>();
 
+    public DbSet<AssistantAgentMetadataIndexValue> AgentMetadataIndexValues => Set<AssistantAgentMetadataIndexValue>();
+
     public DbSet<AssistantAgentSkillState> AgentSkillStates => Set<AssistantAgentSkillState>();
 
     public DbSet<AssistantApplicationContext> ApplicationContexts => Set<AssistantApplicationContext>();
@@ -854,6 +856,21 @@ public sealed class NhAssistantDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
+            metadata.HasMany(item => item.IndexValues)
+                .WithOne()
+                .HasForeignKey(item => new { item.AgentId, item.Name })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentMetadataIndexValue>(value =>
+        {
+            value.ToTable("AssistantAgentMetadataIndexValue");
+            value.HasKey(item => new { item.AgentId, item.Name, item.IndexValue });
+            value.Property(item => item.AgentId).HasMaxLength(128);
+            value.Property(item => item.Name).HasMaxLength(NhAssistantAgentMetadataLimits.MaxNameLength);
+            value.Property(item => item.IndexValue).HasMaxLength(NhAssistantAgentMetadataLimits.MaxIndexValueLength);
+            // ListAgentsAsync finds agents by any searchable value of an IndexByEach entry.
+            value.HasIndex(item => new { item.Name, item.IndexValue });
         });
 
         modelBuilder.Entity<AssistantAgentMcpServer>(assignment =>

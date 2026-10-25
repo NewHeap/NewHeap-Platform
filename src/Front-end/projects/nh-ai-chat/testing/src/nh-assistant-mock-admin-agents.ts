@@ -189,6 +189,43 @@ export class NhAssistantMockAdminAgents {
     return stored.agent;
   }
 
+  /**
+   * Copies a data shadow variant's definition onto its live agent as the live agent's next version,
+   * as a promotion does on the server before it deletes the variant: the live agent keeps its name,
+   * MCP servers, state and shadow mode; an agent in code takes only the fields it can override, an
+   * agent created here also the variant's profile, classification, what it works on and its asset.
+   */
+  promote(variantId: string, liveId: string): AdminAgent {
+    const variant = this.agents.get(variantId);
+    const live = this.agents.get(liveId);
+    if (!variant || !live) {
+      throw new Error(`The mock has no agent '${variant ? liveId : variantId}'.`);
+    }
+
+    const from = variant.agent;
+    const runtime = live.agent.source === 'admin';
+    const definition: AdminAgentInput = {
+      id: live.agent.id,
+      displayName: live.agent.displayName,
+      description: from.description,
+      instructions: runtime && from.instructionsAsset ? '' : from.instructions,
+      toolSelectors: [...from.toolSelectors],
+      mcpServerIds: [...live.agent.mcpServerIds],
+      requiredPolicy: from.requiredPolicy,
+      autonomy: from.autonomy,
+      ...(runtime
+        ? {
+          ...pickWorksOn(from),
+          profile: from.profile,
+          dataClassification: from.dataClassification ?? null,
+          instructionsAsset: from.instructionsAsset ?? null
+        }
+        : {})
+    };
+    live.agent = this.toAgent(definition, live.agent.source, live.agent.version + 1, live.agent.source === 'code', live.agent);
+    return live.agent;
+  }
+
   /** Removes a deleted MCP server from the agents it was assigned to. */
   removeServer(serverId: string): void {
     for (const agent of this.agents.values()) {

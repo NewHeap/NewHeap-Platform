@@ -329,10 +329,14 @@ export class NhAssistantMockHandOffs {
       allowsDataVariants: allowed,
       maxDataVariants: allowed ? this.maxVariants() : 0,
       variants: [
-        ...code.map(agent => ({ agentId: agent.id, displayName: agent.displayName, source: 'code' as const, hasRunSettings: true, inEffect: true, problem: null })),
+        ...code.map(agent => ({
+          agentId: agent.id, displayName: agent.displayName, source: 'code' as const, hasRunSettings: true, inEffect: true, problem: null, version: agent.version
+        })),
         ...data.map(agent => {
           const hasRunSettings = this.agents.isConfigured(agent);
-          return { agentId: agent.id, displayName: agent.displayName, source: 'data' as const, hasRunSettings, inEffect: hasRunSettings, problem: null };
+          return {
+            agentId: agent.id, displayName: agent.displayName, source: 'data' as const, hasRunSettings, inEffect: hasRunSettings, problem: null, version: agent.version
+          };
         })
       ]
     };

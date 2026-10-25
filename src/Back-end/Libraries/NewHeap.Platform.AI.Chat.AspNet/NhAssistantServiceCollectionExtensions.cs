@@ -168,6 +168,11 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantDataHandOffs>();
             services.TryAddScoped<INhAssistantDataHandOffs>(provider => provider.GetRequiredService<NhAssistantDataHandOffs>());
             services.TryAddScoped<NhAssistantShadowVariants>();
+            // Agent definitions changed from code and agents read as they are in effect (LS23, LS24).
+            services.TryAddScoped<NhAssistantAgentDefinitions>();
+            services.TryAddScoped<INhAssistantAgentDefinitions>(provider => provider.GetRequiredService<NhAssistantAgentDefinitions>());
+            services.TryAddScoped<NhAssistantAgentDirectory>();
+            services.TryAddScoped<INhAssistantAgentDirectory>(provider => provider.GetRequiredService<NhAssistantAgentDirectory>());
             // Agent packages: export, preview, import and unlink, and the links the administration shows.
             services.TryAddScoped<NhAssistantAgentPackageLinks>();
             services.TryAddScoped<NhAssistantAgentPackageService>();

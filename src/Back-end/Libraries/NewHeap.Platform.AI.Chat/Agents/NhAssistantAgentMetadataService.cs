@@ -19,7 +19,13 @@ internal sealed record NhAssistantAgentMetadataState(
     DateTimeOffset? ChangedAt,
     string? ChangedBy,
     string? CodeJson,
-    int AgentVersion);
+    int AgentVersion)
+{
+    /// <summary>
+    /// The searchable values of the value in effect of an entry declared with <c>IndexByEach</c>.
+    /// </summary>
+    public IReadOnlyList<string> IndexValues { get; init; } = [];
+}
 
 /// <summary>
 /// Reads, checks and stores agent metadata (MD1 to MD3): the values in code, the values of agents
@@ -69,7 +75,7 @@ internal sealed class NhAssistantAgentMetadataService(
         }
         if (!entry.Indexed)
         {
-            throw new ArgumentException($"Agent metadata '{name}' declares no searchable value with IndexBy.", nameof(name));
+            throw new ArgumentException($"Agent metadata '{name}' declares no searchable value with IndexBy or IndexByEach.", nameof(name));
         }
 
         var indexValue = NhAssistantAgentMetadataEntry.NormalizeIndex(value);
@@ -78,15 +84,18 @@ internal sealed class NhAssistantAgentMetadataService(
             return [];
         }
 
-        // Stored values (agents created at runtime and overrides) by their indexed column; values in
-        // code from the registration. A stored override decides for its agent in code either way.
-        var stored = await store.FindByIndexAsync(name, indexValue, cancellationToken);
+        // The agents first: the first read of a process also brings the searchable values of
+        // IndexByEach up to date. Then stored values (agents created at runtime and overrides) by their
+        // indexed column, or by the table of searchable values of IndexByEach; values in code from the
+        // registration, matched in memory. A stored override decides for its agent in code either way.
         var all = await agents.ListAsync(includeDisabled: true, cancellationToken);
-        var candidates = stored.Select(row => row.AgentId)
+        var stored = entry.IndexedByEach
+            ? await store.FindAgentsByIndexValueAsync(name, indexValue, cancellationToken)
+            : (await store.FindByIndexAsync(name, indexValue, cancellationToken)).Select(row => row.AgentId).ToArray();
+        var candidates = stored
             .Concat(all
                 .Where(agent => agent.Source == NhAssistantAgentSources.Code)
-                .Where(agent => registration.CodeMetadataOf(agent.Id).TryGetValue(name, out var code)
-                                && string.Equals(code.IndexValue, indexValue, StringComparison.Ordinal))
+                .Where(agent => registration.CodeMetadataOf(agent.Id).TryGetValue(name, out var code) && code.Matches(indexValue))
                 .Select(agent => agent.Id))
             .ToHashSet(StringComparer.Ordinal);
         if (candidates.Count == 0)
@@ -100,7 +109,8 @@ internal sealed class NhAssistantAgentMetadataService(
         return all
             .Where(agent => candidates.Contains(agent.Id))
             .Select(agent => ToView(agent, rows.GetValueOrDefault(agent.Id) ?? []))
-            .Where(view => view.Metadata.Any(item => item.Name == name && item.IndexValue == indexValue))
+            .Where(view => view.Metadata.Any(item => item.Name == name
+                                                     && (item.IndexValue == indexValue || item.IndexValues.Contains(indexValue, StringComparer.Ordinal))))
             .OrderBy(view => view.AgentId, StringComparer.Ordinal)
             .ToArray();
     }
@@ -386,7 +396,10 @@ internal sealed class NhAssistantAgentMetadataService(
         return (null, agent, entry);
     }
 
-    private NhAssistantAgentWithMetadata ToView(NhAssistantAgent agent, IReadOnlyList<AssistantAgentMetadata> rows)
+    /// <summary>
+    /// The agent with the metadata in effect, from its stored <paramref name="rows"/>.
+    /// </summary>
+    public NhAssistantAgentWithMetadata ToView(NhAssistantAgent agent, IReadOnlyList<AssistantAgentMetadata> rows)
     {
         var values = registration.AgentMetadata.Values
             .OrderBy(entry => entry.Name, StringComparer.Ordinal)
@@ -399,7 +412,10 @@ internal sealed class NhAssistantAgentMetadataService(
                 state.Source == NhAssistantAgentMetadataSources.Code ? null : state.Version,
                 state.IndexValue,
                 state.ChangedAt,
-                state.ChangedBy))
+                state.ChangedBy)
+            {
+                IndexValues = state.IndexValues
+            })
             .ToArray();
         return new NhAssistantAgentWithMetadata(agent.Id, agent.Source, agent.Definition.Version, agent.Definition.DisplayNameKey, values);
     }
@@ -426,7 +442,10 @@ internal sealed class NhAssistantAgentMetadataService(
                 row?.ChangedAt,
                 row?.ChangedBy,
                 CodeJson: null,
-                agent.Definition.Version);
+                agent.Definition.Version)
+            {
+                IndexValues = IndexValuesOf(row)
+            };
         }
 
         var code = registration.CodeMetadataOf(agent.Id).GetValueOrDefault(entry.Name);
@@ -442,7 +461,10 @@ internal sealed class NhAssistantAgentMetadataService(
                 row.ChangedAt,
                 row.ChangedBy,
                 code?.Json,
-                agent.Definition.Version);
+                agent.Definition.Version)
+            {
+                IndexValues = IndexValuesOf(row)
+            };
         }
 
         return new NhAssistantAgentMetadataState(
@@ -455,7 +477,20 @@ internal sealed class NhAssistantAgentMetadataService(
             ChangedAt: null,
             ChangedBy: null,
             code?.Json,
-            agent.Definition.Version);
+            agent.Definition.Version)
+        {
+            IndexValues = code?.IndexValues ?? []
+        };
+    }
+
+    /// <summary>
+    /// The stored searchable values of IndexByEach of a row, ordered as a check orders them.
+    /// </summary>
+    private static IReadOnlyList<string> IndexValuesOf(AssistantAgentMetadata? row)
+    {
+        return row is null
+            ? []
+            : row.IndexValues.Select(item => item.IndexValue).Order(StringComparer.Ordinal).ToArray();
     }
 
     /// <summary>

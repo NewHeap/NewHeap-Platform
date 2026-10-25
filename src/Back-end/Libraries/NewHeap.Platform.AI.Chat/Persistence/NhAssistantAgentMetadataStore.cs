@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AI.Chat.Entities;
 
@@ -24,6 +25,7 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
         await using var context = contextFactory.CreateDbContext();
         return await context.AgentMetadata
             .AsNoTracking()
+            .Include(item => item.IndexValues)
             .Where(item => item.AgentId == agentId)
             .OrderBy(item => item.Name)
             .ToListAsync(cancellationToken);
@@ -45,6 +47,7 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
         await using var context = contextFactory.CreateDbContext();
         return await context.AgentMetadata
             .AsNoTracking()
+            .Include(item => item.IndexValues)
             .Where(item => ids.Contains(item.AgentId))
             .OrderBy(item => item.AgentId)
             .ThenBy(item => item.Name)
@@ -66,6 +69,127 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
             .Where(item => item.Name == name && item.IndexValue == indexValue)
             .OrderBy(item => item.AgentId)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The agents whose stored value of entry <paramref name="name"/>, declared with
+    /// <c>IndexByEach</c>, has <paramref name="indexValue"/>, already normalized, among its searchable
+    /// values, ordered by id.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> FindAgentsByIndexValueAsync(
+        string name,
+        string indexValue,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.AgentMetadataIndexValues
+            .AsNoTracking()
+            .Where(item => item.Name == name && item.IndexValue == indexValue)
+            .Select(item => item.AgentId)
+            .OrderBy(agentId => agentId)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gives the stored values of entries declared with <c>IndexByEach</c> the searchable values their
+    /// selector computes now, for values stored before the entry declared them or before the selector
+    /// changed. A value that no longer reads as the entry's type, or whose values no longer fit, keeps
+    /// what it has. Each value is saved on its own, guarded by its version, so a save that happens at
+    /// the same time, or another host that does the same, wins.
+    /// </summary>
+    public async Task ReindexEachAsync(
+        IReadOnlyCollection<NhAssistantAgentMetadataEntry> entries,
+        CancellationToken cancellationToken)
+    {
+        var indexed = entries
+            .Where(entry => entry.IndexedByEach)
+            .ToDictionary(entry => entry.Name, StringComparer.Ordinal);
+        if (indexed.Count == 0)
+        {
+            return;
+        }
+
+        var names = indexed.Keys.ToArray();
+        IReadOnlyList<AssistantAgentMetadata> rows;
+        await using (var context = contextFactory.CreateDbContext())
+        {
+            rows = await context.AgentMetadata
+                .AsNoTracking()
+                .Include(item => item.IndexValues)
+                .Where(item => names.Contains(item.Name))
+                .ToListAsync(cancellationToken);
+        }
+
+        foreach (var row in rows)
+        {
+            var values = IndexValuesOf(indexed[row.Name], row.ValueJson);
+            if (values is null || SameIndexValues(row, values))
+            {
+                continue;
+            }
+
+            await ReindexAsync(row, values, cancellationToken);
+        }
+    }
+
+    private async Task ReindexAsync(AssistantAgentMetadata stored, IReadOnlyList<string> values, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var row = await context.AgentMetadata
+            .Include(item => item.IndexValues)
+            .SingleOrDefaultAsync(item => item.AgentId == stored.AgentId && item.Name == stored.Name, cancellationToken);
+        if (row is null || row.Version != stored.Version || row.ValueJson != stored.ValueJson)
+        {
+            return;
+        }
+
+        ApplyIndexValues(row, values);
+        // The version guards the change: a save of the value in the meantime wrote its own values.
+        context.Entry(row).Property(item => item.Version).IsModified = true;
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Saved again in the meantime, or another host reindexed it first.
+        }
+    }
+
+    /// <summary>
+    /// The searchable values of a stored value as the entry's selector computes them now, or
+    /// <see langword="null"/> when the value no longer reads as the entry's type or its values no longer
+    /// fit.
+    /// </summary>
+    private static IReadOnlyList<string>? IndexValuesOf(NhAssistantAgentMetadataEntry entry, string json)
+    {
+        object? value;
+        try
+        {
+            value = JsonSerializer.Deserialize(json, entry.ValueType, NhAssistantAgentMetadataJson.ReadOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+
+        if (value is null)
+        {
+            return null;
+        }
+
+        var (values, fits) = entry.IndexValuesOf(value);
+        return fits ? values : null;
+    }
+
+    private static bool SameIndexValues(AssistantAgentMetadata row, IReadOnlyList<string> values)
+    {
+        return row.IndexValues.Count == values.Count
+            && row.IndexValues.All(item => values.Contains(item.IndexValue, StringComparer.Ordinal));
     }
 
     /// <summary>
@@ -132,6 +256,7 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
 
         var names = values.Keys.ToArray();
         var existing = await context.AgentMetadata
+            .Include(item => item.IndexValues)
             .Where(item => item.AgentId == agentId && names.Contains(item.Name))
             .ToDictionaryAsync(item => item.Name, StringComparer.Ordinal, cancellationToken);
         var changes = new List<NhAssistantAgentMetadataChange>(values.Count);
@@ -211,6 +336,7 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
         CancellationToken cancellationToken)
     {
         var row = await context.AgentMetadata
+            .Include(item => item.IndexValues)
             .SingleOrDefaultAsync(item => item.AgentId == agentId && item.Name == name, cancellationToken);
         if (row is null)
         {
@@ -305,5 +431,28 @@ internal sealed class NhAssistantAgentMetadataStore(NhAssistantDbContextFactory 
         row.Version = version;
         row.ChangedAt = now;
         row.ChangedBy = actorId;
+        // The searchable values of IndexByEach go in the same save as the value.
+        ApplyIndexValues(row, value.IndexValues);
+    }
+
+    /// <summary>
+    /// Makes the searchable values of <paramref name="row"/>, whose values are loaded, exactly
+    /// <paramref name="values"/>: values that remain stay, others are removed or added.
+    /// </summary>
+    private static void ApplyIndexValues(AssistantAgentMetadata row, IReadOnlyList<string> values)
+    {
+        row.IndexValues.RemoveAll(item => !values.Contains(item.IndexValue, StringComparer.Ordinal));
+        foreach (var value in values)
+        {
+            if (row.IndexValues.All(item => !string.Equals(item.IndexValue, value, StringComparison.Ordinal)))
+            {
+                row.IndexValues.Add(new AssistantAgentMetadataIndexValue
+                {
+                    AgentId = row.AgentId,
+                    Name = row.Name,
+                    IndexValue = value
+                });
+            }
+        }
     }
 }

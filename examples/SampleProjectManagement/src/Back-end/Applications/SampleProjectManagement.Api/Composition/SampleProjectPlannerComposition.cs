@@ -105,9 +105,12 @@ public static class SampleProjectPlannerComposition
             .AddSampleProjectManagementGroup()
             // SPM-313: the application's cost center of agents, registered once with the planner.
             .AddSampleAgentCostCenter()
+            // SPM-313: the departments agents work for, each found by any of its codes (IndexByEach).
+            .AddSampleAgentDepartments()
             .ConfigureAgent(AgentId, agent => agent
                 // SPM-313: the cost center the planner's work is booked on, checked at startup.
                 .Metadata(SampleAgentCostCenterComposition.Entry, SampleAgentCostCenterComposition.PlannerCostCenter)
+                .Metadata(SampleAgentDepartmentsComposition.Entry, SampleAgentDepartmentsComposition.PlannerDepartments)
                 // SPM-302: the planner works on projects.
                 .WorksOn(ProjectSubjects.Type)
                 .InGroup(SampleAgentGroupComposition.ProjectManagement)

@@ -47,6 +47,13 @@ internal sealed record NhAssistantAgentInput(
     /// ignores it. A variant always works in shadow, so it ignores <see cref="StartsInShadow"/>.
     /// </summary>
     public string? ShadowOf { get; init; }
+
+    /// <summary>
+    /// For an update: the agent keeps its MCP assignments and <see cref="McpServerIds"/>, which is then
+    /// empty, is ignored, as <c>INhAssistantAgentDefinitions</c> does unless its request names them. The
+    /// administration's endpoint replaces them.
+    /// </summary>
+    public bool KeepMcpServers { get; init; }
 }
 
 /// <summary>
@@ -251,6 +258,8 @@ internal sealed class NhAssistantAgentAdministration(
         }
 
         var metadataChanges = new List<NhAssistantAgentMetadataChange>();
+        // Null keeps the agent's MCP assignments in the store.
+        var mcpServerIds = input.KeepMcpServers ? null : input.McpServerIds;
         var updated = await store.UpdateAgentAsync(
             input.Id,
             expectedVersion,
@@ -261,7 +270,7 @@ internal sealed class NhAssistantAgentAdministration(
                 row.UpdatedBy = actorId;
                 if (row.Source == NhAssistantAgentSources.Code)
                 {
-                    row.IsOverridden = !MatchesCode(row, input.McpServerIds);
+                    row.IsOverridden = !MatchesCode(row, mcpServerIds ?? row.McpServers.Select(server => server.McpServerId).ToArray());
                     if (!row.IsOverridden && registry.TryGet(row.Id, out var code))
                     {
                         // Back to the exact code definition: keep the code asset identity.
@@ -269,7 +278,7 @@ internal sealed class NhAssistantAgentAdministration(
                     }
                 }
             },
-            input.McpServerIds,
+            mcpServerIds,
             cancellationToken,
             values,
             metadataChanges);

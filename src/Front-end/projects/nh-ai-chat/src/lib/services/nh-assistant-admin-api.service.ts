@@ -76,7 +76,14 @@ import {
   AgentPackageWarning
 } from '../models/assistant-agent-package.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
-import { AgentHandOffs, AgentShadowVariants, DataHandOff, DataHandOffRequest } from '../models/assistant-hand-off.models';
+import {
+  AgentHandOffs,
+  AgentShadowVariants,
+  DataHandOff,
+  DataHandOffRequest,
+  ShadowVariantPromotion,
+  ShadowVariantPromotionRequest
+} from '../models/assistant-hand-off.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
 import { NhAssistantApiService } from './nh-assistant-api.service';
 import { NhAssistantApiError, NhAssistantStatusCodes, NhAssistantTransport, nhAssistantErrorMessageKey, nhAssistantIsSafeCode } from './nh-assistant-transport';
@@ -604,6 +611,18 @@ export class NhAssistantAdminApiService {
    */
   getShadowVariants(agentId: string): Observable<AgentShadowVariants> {
     return this.request<AgentShadowVariants>('GET', `${agentPath(agentId)}/shadow-variants`);
+  }
+
+  /**
+   * Promotes the data shadow variant `variantId` onto its live agent (`POST admin/agents/{id}/promote`):
+   * its definition becomes the live agent's next version through the update path, with its checks,
+   * locks and audit, its data skills move along when asked, and the variant is deleted. The live agent
+   * keeps its name, MCP servers, metadata, run settings, triggers, state and shadow mode; an agent in
+   * code takes only the fields it can override. Fails with `assistant-not-shadow-variant`,
+   * `assistant-shadow-variants-not-allowed`, `assistant-version-conflict` and `assistant-skill-in-code`.
+   */
+  promoteShadowVariant(variantId: string, request: ShadowVariantPromotionRequest): Observable<ShadowVariantPromotion> {
+    return this.request<ShadowVariantPromotion>('POST', `${agentPath(variantId)}/promote`, request);
   }
 
   /**

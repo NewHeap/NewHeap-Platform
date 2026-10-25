@@ -248,6 +248,31 @@ public sealed class AssistantAgentMetadata
     public DateTimeOffset ChangedAt { get; set; }
 
     public string ChangedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The searchable values of an entry declared with <c>IndexByEach</c>, written in the same save as
+    /// the value and removed with it; empty for other entries.
+    /// </summary>
+    public List<AssistantAgentMetadataIndexValue> IndexValues { get; set; } = [];
+}
+
+/// <summary>
+/// One searchable value of a stored value of agent metadata whose entry declares <c>IndexByEach</c>:
+/// trimmed and in lowercase, at most 50 per value. <c>ListAgentsAsync</c> finds agents by it.
+/// </summary>
+public sealed class AssistantAgentMetadataIndexValue
+{
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The entry's name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One searchable value, trimmed and in lowercase.
+    /// </summary>
+    public string IndexValue { get; set; } = string.Empty;
 }
 
 /// <summary>
