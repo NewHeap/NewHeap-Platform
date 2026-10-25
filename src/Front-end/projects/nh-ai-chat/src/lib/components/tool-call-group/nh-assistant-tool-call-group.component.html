@@ -17,12 +17,15 @@
         @case ('awaiting-approval') {
           {{ 'nh-assistant.tool-group.awaiting-approval' | translate: { name: current()?.displayName } }}
         }
+        @case ('awaiting-answer') {
+          {{ 'nh-assistant.tool-group.awaiting-answer' | translate }}
+        }
         @default {
           {{ (total() === 1 ? 'nh-assistant.tool-group.used-one' : 'nh-assistant.tool-group.used-many') | translate: { count: total() } }}
         }
       }
     </span>
-    @if (state() === 'running' || state() === 'awaiting-approval') {
+    @if (state() === 'running' || state() === 'awaiting-approval' || state() === 'awaiting-answer') {
       <span class="count">{{ 'nh-assistant.tool-group.progress' | translate: { finished: finished(), total: total() } }}</span>
     } @else {
       @if (failed() > 0) {

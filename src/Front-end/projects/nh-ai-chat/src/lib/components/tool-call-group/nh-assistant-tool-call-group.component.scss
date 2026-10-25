@@ -10,7 +10,8 @@
 
 :host([data-status='succeeded']) { --nha-status-color: var(--nha-success); }
 :host([data-status='failed']) { --nha-status-color: var(--nha-danger); }
-:host([data-status='awaiting-approval']) { --nha-status-color: var(--nha-warning); }
+:host([data-status='awaiting-approval']),
+:host([data-status='awaiting-answer']) { --nha-status-color: var(--nha-warning); }
 :host([data-status='not-executed']) { --nha-status-color: var(--nha-text-muted); }
 :host([data-status='not-executed']) .group { border-left-style: dashed; }
 

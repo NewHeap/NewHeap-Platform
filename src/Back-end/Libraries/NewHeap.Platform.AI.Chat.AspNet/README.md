@@ -73,6 +73,7 @@ approvals and tools without a presenter.
 | `DELETE conversations/{id}` | `204`; the conversation is archived and hidden |
 | `POST conversations/{id}/messages` `{ text, clientMessageId, clientContext? }` | `text/event-stream`; `409` when the conversation is not idle |
 | `POST conversations/{id}/approvals/{approvalId}/decide` `{ decision, expectedProposalHash, reason? }` | `text/event-stream` of the resumed turn |
+| `POST conversations/{id}/questions/{questionId}/answer` `{ choice }` | `text/event-stream` of the resumed turn; only the question's addressee answers (`403 assistant-question-forbidden`), and an expired question answers `409 assistant-question-expired` (`run.AllowQuestions()`) |
 | `POST conversations/{id}/cancel` | `202` |
 | `GET` / `PUT preferences` | the caller's style preferences |
 | `GET mcp-connections`, `PUT mcp-connections/{serverId}` `{ allowBackgroundUse }` | MCP servers that background runs may use with the caller's own account, and the caller's consent |
@@ -238,7 +239,7 @@ callers receive `404`.
 
 Each event is written as `event: <name>`, `data: <json>` and an empty line:
 `turn.started`, `message.delta`, `tool.started`, `tool.completed`,
-`approval.required`, `turn.completed` or `error`. A `: keep-alive` comment follows
+`approval.required`, `question.asked`, `question.answered`, `turn.completed` or `error`. A `: keep-alive` comment follows
 every 15 seconds without events, and the stream closes after `turn.completed` or
 `error`. Response buffering is disabled and `X-Accel-Buffering: no` is set for
 reverse proxies. A client disconnect cancels the turn and releases the conversation.

@@ -444,6 +444,17 @@ nothing, and the audit records the `messaging-chat` channel. In Development the 
 `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
 the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
 
+People who chat with the planner reach its skills too (SPM-333). With `SkillsInChat` a chat turn starts
+without a skill, and the model loads the task follow-up skill with `use_skill` when the person asks
+which task comes next: no triage call, the skill's instructions and only the status tool it selects,
+with the person's own rights. The planner's message of the turn names the skill (`skillId`); triage and
+the skill's daily budget stay with runs. The status advisor may ask a structured question in a chat
+(SPM-334): with `AllowQuestions` it asks which status a project gets, with the statuses as choices, and
+the turn waits as for an approval. A colleague in the shared chat sees the question but is refused when
+they answer; the person whose turn asked answers through `POST conversations/{id}/questions/{questionId}/answer`,
+and the turn continues with the answer. The management playground shows the question card with one
+button per choice on the mock API. `AssistantChatSkillQuestionSamplesTests` runs both cases.
+
 The operations process also reads and changes agents through services (SPM-329).
 `SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
 `INhAssistantAgentDirectory`, with its run state and cost center, and gives an agent a new description

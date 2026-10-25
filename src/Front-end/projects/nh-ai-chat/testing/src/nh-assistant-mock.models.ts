@@ -102,6 +102,25 @@ export interface NhAssistantMockApprovalConsultation {
   answer?: string | null;
 }
 
+/**
+ * Asks a question with `ask_question`: `tool.started`, `question.asked` and `turn.completed` with
+ * status `waiting-for-approval`, as the server's `run.AllowQuestions()` does. Only the addressee
+ * answers, with `POST conversations/{id}/questions/{questionId}/answer`; the answer resumes the turn
+ * with the `answered` steps, or with the steps that function returns for the chosen answer.
+ */
+export interface NhAssistantMockQuestionStep {
+  question: {
+    question: string;
+    /** Two to six answers. */
+    choices: string[];
+    /** The person who answers; default the person whose turn asks. */
+    addresseeActorId?: string;
+    /** Default 900 seconds, the server's default wait. */
+    expiresInSeconds?: number;
+    answered: NhAssistantMockStep[] | ((answer: string, choice: number) => NhAssistantMockStep[]);
+  };
+}
+
 /** Ends the stream with an `error` event. */
 export interface NhAssistantMockErrorStep {
   error: {
@@ -133,6 +152,7 @@ export type NhAssistantMockStep =
   | NhAssistantMockTextStep
   | NhAssistantMockToolStep
   | NhAssistantMockApprovalStep
+  | NhAssistantMockQuestionStep
   | NhAssistantMockErrorStep
   | NhAssistantMockFailStep
   | NhAssistantMockConnectionStep;

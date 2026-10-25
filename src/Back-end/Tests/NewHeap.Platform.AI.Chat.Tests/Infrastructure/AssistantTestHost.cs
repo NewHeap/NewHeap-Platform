@@ -256,6 +256,25 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Answers the question a chat's turn waits for with the choice at <paramref name="choice"/> (LS21).
+    /// </summary>
+    public Task<TurnResult> AnswerAsync(
+        Guid conversationId,
+        Guid questionId,
+        int choice,
+        string? userId = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartAnswerTurnAsync(
+            new NhAssistantAnswerTurnRequest(
+                conversationId,
+                context,
+                questionId,
+                choice,
+                CancellationToken.None),
+            CancellationToken.None));
+    }
+
     public async Task<TurnResult> StartWithoutWaitingAsync(
         Guid conversationId,
         string text,

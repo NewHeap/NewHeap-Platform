@@ -92,6 +92,29 @@ internal sealed class NhAssistantTurnState
 
     public NhAssistantApprovalView? PendingApproval { get; set; }
 
+    /// <summary>
+    /// The question this turn waits for (LS21); set once its <c>ask_question</c> call was recorded.
+    /// </summary>
+    public NhAssistantQuestionView? PendingQuestion { get; set; }
+
+    /// <summary>
+    /// Set by <c>ask_question</c> once the question passed its checks; the interceptor then records it
+    /// with the call and ends the model loop.
+    /// </summary>
+    public NhAssistantAskedQuestion? AskedQuestion { get; set; }
+
+    /// <summary>
+    /// Whether the turn waits for a person: an inline approval or a question.
+    /// </summary>
+    public bool WaitsForPerson => PendingApproval is not null || PendingQuestion is not null;
+
+    /// <summary>
+    /// The run settings of the agent in a person's chat that offers its skills or questions
+    /// (<c>SkillsInChat</c>, <c>AllowQuestions</c>); <see langword="null"/> in any other chat and
+    /// outside chats, where <see cref="AgentTurn"/> carries the run settings.
+    /// </summary>
+    public NhAssistantAgentRunOptions? ChatOptions { get; set; }
+
     public bool ToolCallLimitReached { get; set; }
 
     /// <summary>
@@ -584,6 +607,12 @@ internal sealed class NhAssistantToolCallInterceptor(
             // A consultation left a proposal this turn's person decides now: the turn waits for it.
             context.Terminate = true;
             return await AwaitAskerDecisionAsync(row, execution, askerDecision, cancellationToken);
+        }
+        if (state.AskedQuestion is { } asked && state.PendingQuestion is null)
+        {
+            // ask_question: the turn waits for the addressee's answer (LS21).
+            context.Terminate = true;
+            return await AwaitAnswerAsync(row, asked, cancellationToken);
         }
 
         var withFiles = await WithFilesAsync(descriptor, row, execution, cancellationToken);
@@ -1767,6 +1796,50 @@ internal sealed class NhAssistantToolCallInterceptor(
         await FlushAsync(cancellationToken);
         await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
         return execution.Result;
+    }
+
+    /// <summary>
+    /// Lets the turn wait for the answer to the question its <c>ask_question</c> call asked (LS21): the
+    /// call waits as <c>awaiting-answer</c>, the agent's message keeps the question with its choices,
+    /// its addressee and the end of its wait on the application's clock, the people of the
+    /// conversation see it, and the audit records it without its text.
+    /// </summary>
+    private async Task<object?> AwaitAnswerAsync(
+        AssistantToolInvocation row,
+        NhAssistantAskedQuestion asked,
+        CancellationToken cancellationToken)
+    {
+        var now = _applicationClock.GetUtcNow();
+        row.Status = NhAssistantToolCallStatuses.AwaitingAnswer;
+        row.ResultCode = null;
+        row.ResultJson = null;
+        await store.UpdateToolInvocationAsync(row, cancellationToken);
+
+        var part = NhAssistantQuestions.PartOf(asked, row.Id, now.Add(state.Scope.Limits.ApprovalLifetime));
+        var view = NhAssistantQuestions.ViewOf(part, row, now)
+            ?? throw new InvalidOperationException("A recorded question has no view.");
+        state.PendingQuestion = view;
+        state.AddPart(part);
+        await FlushAsync(cancellationToken);
+        await state.EmitAsync(new NhAssistantQuestionAskedEvent(view));
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.QuestionAsked,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = row.ToolId,
+                ToolVersion = row.ToolVersion,
+                InvocationId = row.Id,
+                ObjectId = asked.AddresseeActorId,
+                StartedAt = row.StartedAt
+            },
+            cancellationToken);
+        return NhAssistantQuestions.WaitingResult();
     }
 
     /// <summary>

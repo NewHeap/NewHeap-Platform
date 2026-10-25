@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "219a84b013e830b633073cf153a1155d4471df1bbebb5bb5578dc8e243dd6088",
-    "declarationCount": 11064,
+    "hash": "8f4a417420f6b8d2f1f57792b64e9dc5604b74e51ab6d9623c590868817f4fd2",
+    "declarationCount": 11122,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -6219,7 +6219,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantConversationDto( Guid Id, string AgentId, string? Title, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int AgentVersion, IReadOnlyList<NhAssistantMessageDto> Messages, NhAssistantMessagePartDto? PendingApproval, string Role = NhAssistantParticipantRoles.Owner, int LastReadSequence = 0, int LastMessageSequence = 0, string? ActiveActorId = null, IReadOnlyList<NhAssistantMemberDto>? Members = null, string? ShareToken = null, string? CurrentActorId = null, string Kind = NhAssistantConversationKinds.Chat, NhAssistantConversationThreadDto? Thread = null);"
+        "declaration": "public sealed record NhAssistantConversationDto( Guid Id, string AgentId, string? Title, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int AgentVersion, IReadOnlyList<NhAssistantMessageDto> Messages, NhAssistantMessagePartDto? PendingApproval, string Role = NhAssistantParticipantRoles.Owner, int LastReadSequence = 0, int LastMessageSequence = 0, string? ActiveActorId = null, IReadOnlyList<NhAssistantMemberDto>? Members = null, string? ShareToken = null, string? CurrentActorId = null, string Kind = NhAssistantConversationKinds.Chat, NhAssistantConversationThreadDto? Thread = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantMessagePartDto? PendingQuestion { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -6244,6 +6248,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantApplicationMessageDto? Application { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SkillId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -6319,7 +6327,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] [JsonDerivedType(typeof(NhAssistantFilePartDto), \"file\")] public abstract record NhAssistantMessagePartDto;"
+        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] [JsonDerivedType(typeof(NhAssistantFilePartDto), \"file\")] [JsonDerivedType(typeof(NhAssistantQuestionPartDto), \"question\")] public abstract record NhAssistantMessagePartDto;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantQuestionPartDto( Guid QuestionId, string Question, IReadOnlyList<string> Choices, string AddresseeActorId, DateTimeOffset ExpiresAt, string Status) : NhAssistantMessagePartDto {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? AnswerIndex { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTimeOffset? ClosedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantAnswerQuestionRequest(int? Choice);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -6459,7 +6483,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -10159,6 +10183,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool SkillsInChat { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool AllowQuestions { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool ActWithAccountableRights { get; internal set; }"
       },
       {
@@ -10256,6 +10288,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder Triage(Action<NhAssistantTriageBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder AllowQuestions(bool enabled = true)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -12188,6 +12228,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
         "declaration": "public string NameOf(string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
+        "declaration": "public string? ActorOf(string name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
@@ -16275,6 +16319,50 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string AwaitingAnswer = \"awaiting-answer\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static class NhAssistantQuestionStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Pending = \"pending\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Answered = \"answered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Expired = \"expired\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Cancelled = \"cancelled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static class NhAssistantQuestionLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxQuestionLength = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MinChoices = 2;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxChoices = 6;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxChoiceLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantStaleKinds {"
       },
       {
@@ -17124,6 +17212,34 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string FeedbackNotAccepted = \"assistant-feedback-not-accepted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionInvalid = \"assistant-question-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionNotFound = \"assistant-question-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionNotPending = \"assistant-question-not-pending\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionForbidden = \"assistant-question-forbidden\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionExpired = \"assistant-question-expired\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionCancelled = \"assistant-question-cancelled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string QuestionAnswerInvalid = \"assistant-question-answer-invalid\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -20735,6 +20851,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<AssistantMessage?> FindMessageAsync( Guid conversationId, Guid messageId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<AssistantToolInvocation?> FindAwaitingQuestionAsync( Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<bool> TryCloseQuestionAsync( Guid invocationId, string status, string? resultCode, string? resultJson, DateTimeOffset completedAt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantToolInvocation>> GetToolInvocationsAsync( Guid conversationId, IReadOnlyCollection<Guid> invocationIds, CancellationToken cancellationToken) {"
       },
       {
@@ -21571,6 +21699,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
+        "declaration": "public static NhAiToolDescriptor AskQuestionDescriptor { get; } = Create( \"assistant.ask-question\", \"ask_question\", \"Asks a person of the conversation a question with choices and waits for the answer.\", NhAiToolEffect.ReadOnly);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
         "declaration": "public NhAiToolDescriptor Descriptor { get; } = descriptor;"
       },
       {
@@ -21811,6 +21943,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public NhAiPersonInvocation? Person { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public string? Channel { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public int? Attempt { get; init; }"
       },
       {
@@ -21936,6 +22076,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
         "declaration": "public const string TextType = \"text\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public const string QuestionType = \"question\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public const string SkillType = \"skill\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
@@ -22290,6 +22438,50 @@
         "declaration": "public static bool Allows(AssistantMcpConnection? connection, AssistantMcpServer server) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public const string AnsweredCode = \"answered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static string DescriptionOf(NhAssistantSpeakers? speakers) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static string SchemaOf(NhAssistantSpeakers? speakers) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static (NhAssistantAskedQuestion? Question, string? Refusal) Check( AIFunctionArguments arguments, NhAssistantSpeakers? speakers, string currentActorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static NhAssistantStoredPart PartOf(NhAssistantAskedQuestion asked, Guid invocationId, DateTimeOffset expiresAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static NhAssistantQuestionView? ViewOf(NhAssistantStoredPart part, AssistantToolInvocation invocation, DateTimeOffset now) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static JsonElement AnswerResult(NhAssistantQuestionView question, int choice, string? answeredBy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static JsonElement WaitingResult() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static JsonElement Refused(string message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static JsonElement Closed(string code, string message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
+        "declaration": "public static int? AnswerIndexOf(AssistantToolInvocation invocation) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantReaderTexts.cs",
         "declaration": "public bool Enabled => registration.Limits.ReaderTextRetention > TimeSpan.Zero && Protector is not null;"
       },
@@ -22396,6 +22588,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantApprovalView? PendingApproval { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAssistantQuestionView? PendingQuestion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAssistantAskedQuestion? AskedQuestion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool WaitsForPerson => PendingApproval is not null || PendingQuestion is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAssistantAgentRunOptions? ChatOptions { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -22787,6 +22995,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public NhAssistantQuestionView? PendingQuestion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public int Sequence { get; init; }"
       },
       {
@@ -22796,6 +23008,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public NhAssistantApplicationMessageView? Application { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public string? SkillId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -22824,6 +23040,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "[System.Text.Json.Serialization.JsonIgnore] public string? ReadForActorId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public int? AnswerIndex { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public DateTimeOffset? ClosedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "[System.Text.Json.Serialization.JsonIgnore] public Guid TurnId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -22972,6 +23200,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Consultations.cs",
         "declaration": "public const string Moved = \"moved\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantTurnHandle>> StartAnswerTurnAsync( NhAssistantAnswerTurnRequest request, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs",
@@ -48228,7 +48460,9 @@
       "NhAssistantAgentInEffectDto",
       "IndexByEach",
       "NhAssistantResolveExecutionRequest",
-      "NhAssistantApprovalPartDto"
+      "NhAssistantApprovalPartDto",
+      "SkillsInChat",
+      "NhAssistantMessageDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -48440,7 +48674,13 @@
       "NhAssistantConversationMessage",
       "NhAssistantConversationDecision",
       "NhAssistantConversationTurnOptions",
-      "NhAssistantConversationTurnResult"
+      "NhAssistantConversationTurnResult",
+      "AllowQuestions",
+      "NhAssistantQuestionStatuses",
+      "NhAssistantQuestionLimits",
+      "NhAssistantQuestionPartDto",
+      "NhAssistantAnswerQuestionRequest",
+      "NhAssistantConversationDto"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -49052,7 +49292,15 @@
       "NhAssistantDiagramRenderer",
       "NhAssistantDocumentHeading",
       "NhAssistantDocumentLinkEvent",
-      "NhAssistantDocumentLinkKind"
+      "NhAssistantDocumentLinkKind",
+      "NhAssistantQuestionCardComponent",
+      "QuestionPart",
+      "QuestionStatus",
+      "AnswerQuestionRequest",
+      "NhAssistantQuestionAnswer",
+      "answerQuestion",
+      "applyNhAssistantQuestionAnswer",
+      "NhAssistantMockQuestionStep"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

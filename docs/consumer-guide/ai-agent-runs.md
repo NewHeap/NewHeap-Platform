@@ -1024,6 +1024,18 @@ a single skill with `PauseSkillAsync`, `StopSkillAsync` and `ResumeSkillAsync`; 
 covers all its skills. Start with a trigger per skill and add triage only for events rules cannot
 route; keep separate roles separate agents.
 
+People's chats with an agent use its own tools only, unless the agent opts in with
+`SkillsInChat()` (SPM-333): a chat turn then starts without a skill, `use_skill` lists the
+agent's active skills that work live, and the model loads one when the question needs it, at most
+twice per turn. There is no triage in a chat, and none of a run's routing applies. Once loaded, the
+skill's instructions, `Tools`, profile, classification, file limits and its own `MaxTokensPerRun`
+apply as in a run, always within the rights of the person whose turn it is; the skill's daily
+`Budget` counts runs only. The agent's message of the turn records the skill
+(`NhAssistantMessageDto.SkillId`, the skill it worked in at its end), so the application can tell
+which skill answered; the next turn starts without a skill again. Turn it on for a role agent that
+people also chat with, such as a planner whose skills each fit a kind of question; leave it off for
+an agent whose skills only make sense on events.
+
 Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
 and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
 most specific one wins: the skill's, then the agent's, then `NhAiDataClassification.Internal`. It
@@ -2004,7 +2016,9 @@ that a run at its ceiling fails with `assistant-run-token-limit`, keeps its prop
 after a resume, on both providers. Assert that a trigger with a skill runs that skill and records
 it, that rules and triage route to a skill with only its tools, instructions and profile, that
 triage can end a run with nothing to do, that `use_skill` switches at most twice and that a person's
-turn starts without a skill, that a stopped skill refuses its triggers before any lambda while the
+turn starts without a skill, that a chat offers `use_skill` only with `SkillsInChat`, without triage,
+narrows the tools to the skill's, applies the skill's token ceiling and records the skill on the
+turn's message, that a stopped skill refuses its triggers before any lambda while the
 other skills work, that a paused skill lets its events wait and resumes one run per thread, that
 a skill's budget stops its runs, that a skill's rules hand over to the skill's own model with its
 tools, instructions, profile and ceiling, and that a follow-up run continues in the skill of the
@@ -2473,3 +2487,8 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs)
+- SPM-333 — A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)

@@ -38,6 +38,7 @@ import {
 import {
   NhAssistantApprovalChoice,
   NhAssistantApprovalResolutionChoice,
+  NhAssistantQuestionAnswer,
   NhAssistantThreadComponent
 } from '../thread/nh-assistant-thread.component';
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
@@ -107,11 +108,26 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   private resumeAfterEditing = false;
   readonly validQueuedDraft = computed(() => this.queuedDraft().trim().length > 0
     && this.queuedDraft().trim().length <= (this.store.limits()?.maxMessageChars ?? Infinity));
-  readonly composerStatus = computed<'running' | 'waiting-for-approval' | null>(() => {
+  readonly composerStatus = computed<'running' | 'waiting-for-approval' | 'waiting-for-answer' | null>(() => {
     if (this.store.streaming() || this.conversation()?.status === 'running') {
       return 'running';
     }
-    return this.conversation()?.status === 'waiting-for-approval' ? 'waiting-for-approval' : null;
+    if (this.conversation()?.status !== 'waiting-for-approval') {
+      return null;
+    }
+    // A turn that asked a question waits for its answer, not for an approval.
+    return this.conversation()?.pendingQuestion ? 'waiting-for-answer' : 'waiting-for-approval';
+  });
+  /**
+   * Who the composer says the conversation waits for, when it is someone else: the addressee of a
+   * pending question, otherwise the person whose turn waits.
+   */
+  readonly composerStatusActor = computed(() => {
+    if (this.composerStatus() === 'waiting-for-answer') {
+      const addressee = this.store.questionAddressee();
+      return addressee ? addressee.displayName ?? '' : null;
+    }
+    return this.activeMemberName();
   });
   /** Name of another participant whose turn runs or waits, or `null`. */
   readonly activeMemberName = computed(() => {
@@ -320,6 +336,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
   resolveApproval(choice: NhAssistantApprovalResolutionChoice): void {
     void this.store.resolveApproval(choice.approvalId, choice.resolution);
+  }
+
+  /** Answers the question the conversation waits for; only its addressee gets the choices. */
+  answerQuestion(answer: NhAssistantQuestionAnswer): void {
+    this.store.answerQuestion(answer.questionId, answer.choice);
   }
 
   cancel(): void {

@@ -5,6 +5,7 @@ import {
   ConversationStatus,
   Message,
   MessagePart,
+  QuestionPart,
   ToolCallPart
 } from '../models/assistant-api.models';
 import { LiveConversationChanged, LiveConversationEvent } from '../models/assistant-live.models';
@@ -97,6 +98,25 @@ export function applyNhAssistantEvent(
       return { ...withApproval, status: 'waiting-for-approval', pendingApproval: approval };
     }
 
+    case 'question.asked': {
+      const question: QuestionPart = { ...event.data, type: 'question' };
+      // The ask_question call waits for the answer as a call waits for an approval.
+      const withToolAwaiting = updateToolCall(conversation, question.questionId, part => ({ ...part, status: 'awaiting-answer' }));
+      const withQuestion = hasQuestion(withToolAwaiting, question.questionId)
+        ? replaceQuestion(withToolAwaiting, question)
+        : appendToCurrentAssistantMessage(withToolAwaiting, question);
+
+      return { ...withQuestion, status: 'waiting-for-approval', pendingQuestion: question };
+    }
+
+    case 'question.answered': {
+      const question: QuestionPart = { ...event.data, type: 'question' };
+      return {
+        ...replaceQuestion(conversation, question),
+        pendingQuestion: conversation.pendingQuestion?.questionId === question.questionId ? null : conversation.pendingQuestion ?? null
+      };
+    }
+
     case 'connection.required': {
       const data = event.data;
       // One card per server and answer, also when a live update repeats the event.
@@ -117,7 +137,8 @@ export function applyNhAssistantEvent(
       return {
         ...conversation,
         status,
-        pendingApproval: status === 'waiting-for-approval' ? conversation.pendingApproval : null
+        pendingApproval: status === 'waiting-for-approval' ? conversation.pendingApproval : null,
+        pendingQuestion: status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
       };
     }
 
@@ -174,6 +195,30 @@ export function applyNhAssistantApprovalDecision(
   return updated;
 }
 
+/**
+ * Records the addressee's answer to a question locally until the server state is reloaded: the
+ * question reads as answered with the chosen index and the turn runs again.
+ */
+export function applyNhAssistantQuestionAnswer(
+  conversation: Conversation,
+  questionId: string,
+  choice: number
+): Conversation {
+  const messages = conversation.messages.map(message => ({
+    ...message,
+    parts: message.parts.map(part =>
+      part.type === 'question' && part.questionId === questionId
+        ? { ...part, status: 'answered' as const, answerIndex: choice }
+        : part
+    )
+  }));
+
+  return updateToolCall(
+    { ...conversation, messages, status: 'running', pendingQuestion: null },
+    questionId,
+    part => ({ ...part, status: 'running' }));
+}
+
 /** An approval part after the user's decision. */
 function decidedApproval(part: ApprovalPart, decision: ApprovalDecision): ApprovalPart {
   const decided: ApprovalPart = { ...part, status: decision === 'approve' ? 'approved' : 'rejected' };
@@ -213,7 +258,8 @@ export function applyNhAssistantConversationChange(conversation: Conversation, c
     activeActorId: change.activeActorId,
     lastMessageSequence: change.lastMessageSequence,
     participantCount: change.participantCount,
-    pendingApproval: change.status === 'waiting-for-approval' ? conversation.pendingApproval : null
+    pendingApproval: change.status === 'waiting-for-approval' ? conversation.pendingApproval : null,
+    pendingQuestion: change.status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
   };
 }
 
@@ -320,8 +366,28 @@ function partKey(part: MessagePart): string {
   if (part.type === 'connection-required') {
     return `connection-${part.serverId}`;
   }
+  if (part.type === 'question') {
+    return `question-${part.questionId}`;
+  }
 
   return 'text';
+}
+
+function hasQuestion(conversation: Conversation, questionId: string): boolean {
+  return conversation.messages.some(message =>
+    message.parts.some(part => part.type === 'question' && part.questionId === questionId));
+}
+
+function replaceQuestion(conversation: Conversation, question: QuestionPart): Conversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({
+      ...message,
+      parts: message.parts.map(part =>
+        part.type === 'question' && part.questionId === question.questionId ? question : part
+      )
+    }))
+  };
 }
 
 function findToolCall(messages: Message[], invocationId: string): ToolCallPart | undefined {

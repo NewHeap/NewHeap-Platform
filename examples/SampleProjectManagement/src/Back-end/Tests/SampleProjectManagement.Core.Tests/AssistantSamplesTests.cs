@@ -488,6 +488,25 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
         return await ReadEventsAsync(response);
     }
 
+    /// <summary>
+    /// SPM-334: answers the question a chat's turn waits for with the choice at <paramref name="choice"/>.
+    /// Returns the status and, on success, the events of the resumed turn, otherwise the error body.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, IReadOnlyList<SampleServerSentEvent> Events, JsonElement? Error)> AnswerQuestionAsync(
+        HttpClient client,
+        Guid conversationId,
+        Guid questionId,
+        int choice)
+    {
+        using var response = await client.PostAsync(
+            $"/api/assistant/conversations/{conversationId}/questions/{questionId}/answer",
+            Json(new { choice }),
+            TestContext.Current.CancellationToken);
+        return response.StatusCode == HttpStatusCode.OK
+            ? (response.StatusCode, await ReadEventsAsync(response), null)
+            : (response.StatusCode, [], await ReadJsonAsync(response));
+    }
+
     public async Task<JsonElement> GetJsonAsync(HttpClient client, string path)
     {
         using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);

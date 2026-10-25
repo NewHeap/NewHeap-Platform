@@ -541,6 +541,33 @@ carries the conversation id, a kind and short localized texts with the conversat
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
 
+## Structured questions
+
+When an agent needs a decision or a missing fact that a person can give and the possible
+answers are known, let it ask instead of guessing or writing numbered options: `ConfigureAgent(id,
+agent => agent.AllowQuestions())` offers the governed built-in `ask_question` in people's chats with
+that agent (SPM-334). It posts a question of at most `NhAssistantQuestionLimits.MaxQuestionLength`
+characters with two to six distinct choices (`MinChoices`, `MaxChoices`, `MaxChoiceLength`) to the
+person whose turn it is or, in a shared chat, to another person the model names as the conversation
+shows them; a question out of bounds, an unknown addressee or a second question in the same wait is
+not posted and the model reads `assistant-question-invalid`. The call counts toward the turn's tool
+calls and is recorded like any tool call. The turn then waits as for an inline approval: the
+conversation stays `waiting-for-approval` with the question in `pendingQuestion`, the call is
+`awaiting-answer`, the agent's message carries a `question` part (`NhAssistantQuestionPartDto`) and
+the stream sends `question.asked`. Only the addressee answers, with `POST
+conversations/{id}/questions/{questionId}/answer` and the zero-based `choice`
+(`NhAssistantAnswerQuestionRequest`); anyone else gets `403 assistant-question-forbidden`, a
+choice outside the question `400 assistant-question-answer-invalid` and a question that no longer
+waits `409 assistant-question-not-pending`. The answer resumes the turn as a stream with the
+answer as the call's result (`choice`, `answer`, `answeredBy`) and `question.answered`; the rest of the
+turn is the turn of the person who answered and runs with their rights, and it continues in the skill
+the turn worked in. A question waits for `NhAssistantLimits.ApprovalLifetime` on the application's
+clock: a later answer is refused with `409 assistant-question-expired`, which releases the
+conversation, and stopping the turn cancels the question. The question needs no storage of its own:
+it lives in its call and the message part. The audit records `QuestionAsked`, `QuestionAnswered` and
+`QuestionExpired` with the addressee, never the question or the answer. Runs, people's turns in agent
+threads and consultations never ask; use deferred proposals there.
+
 ## Application messages
 
 The application posts its own messages into a conversation with
@@ -1024,7 +1051,10 @@ Drive turns with `NhAiScriptedChatClient` against real SQL Server and PostgreSQL
 a read-only turn with one tool call, a mutation that pauses for approval and
 resumes after approve, a reject that closes without executing, an expired
 proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
-flag. Script a provider error inside the stream with
+flag. For `AllowQuestions`, assert that a question waits, that its addressee's answer resumes the
+turn with the answer as the call's result, that another participant is refused, that a question
+expires on the application's clock and that a stopped turn cancels it, and that an agent without the
+opt-in offers no `ask_question`. Script a provider error inside the stream with
 `RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
 a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
 that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice

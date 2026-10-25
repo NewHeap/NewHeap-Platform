@@ -49,9 +49,12 @@ export class NhAssistantComposerComponent {
   readonly busy = input(false);
   /** Keeps the send action available next to Stop so the host can queue messages. */
   readonly queueWhileBusy = input(false);
-  /** Announces why sending is temporarily unavailable. */
-  readonly status = input<'running' | 'waiting-for-approval' | null>(null);
-  /** Name of the participant whose turn runs or waits, when it is someone else. */
+  /**
+   * Announces why sending is temporarily unavailable: a running turn, a turn that waits for an
+   * approval, or one that waits for the answer to a question the agent asked.
+   */
+  readonly status = input<'running' | 'waiting-for-approval' | 'waiting-for-answer' | null>(null);
+  /** Name of the participant whose turn runs or waits, or who answers the question, when it is someone else. */
   readonly statusActor = input<string | null>(null);
   /** False when the user may not stop the running turn, such as another participant's turn. */
   readonly canStop = input(true);

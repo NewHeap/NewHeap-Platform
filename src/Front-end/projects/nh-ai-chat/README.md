@@ -154,6 +154,13 @@ title, Markdown text and a link within the application or to an `https` address.
 Custom layouts pass `[approvalRights]` to `nh-assistant-thread` and handle
 `(approvalChoice)`, which carries the approval id.
 
+A question an agent asked with `ask_question` (`run.AllowQuestions()` on the server) shows as
+`nh-assistant-question-card`: the person it is addressed to gets a button per choice, everyone else
+reads it with whom it waits for. The turn waits for the answer as for an approval
+(`conversation.pendingQuestion`); the thread emits `(questionAnswer)` for the addressee and the panel
+calls `NhAssistantStore.answerQuestion`, which streams the resumed turn. An agent message of a chat
+with `run.SkillsInChat()` names the skill it worked in (`message.skillId`).
+
 A tool call whose agent proposal closed without running no longer waits: it ends as
 `rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
 `failed` when its execution failed before it started, with the result code

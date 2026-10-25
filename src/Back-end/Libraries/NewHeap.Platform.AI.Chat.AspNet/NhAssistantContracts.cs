@@ -135,7 +135,15 @@ public sealed record NhAssistantConversationDto(
     string? ShareToken = null,
     string? CurrentActorId = null,
     string Kind = NhAssistantConversationKinds.Chat,
-    NhAssistantConversationThreadDto? Thread = null);
+    NhAssistantConversationThreadDto? Thread = null)
+{
+    /// <summary>
+    /// The question the waiting turn asked and waits for (LS21), typed as a message part with
+    /// <c>type: "question"</c>; left out when the conversation waits for no question.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantMessagePartDto? PendingQuestion { get; init; }
+}
 
 /// <summary>
 /// The subject of an agent thread as the caller sees it. Access follows the subject access
@@ -206,6 +214,13 @@ public sealed record NhAssistantMessageDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantApplicationMessageDto? Application { get; init; }
+
+    /// <summary>
+    /// The skill an agent message of a person's chat worked in at its end (LS20,
+    /// <c>run.SkillsInChat()</c>); left out for a message without a skill.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SkillId { get; init; }
 }
 
 /// <summary>
@@ -333,7 +348,45 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantApprovalPartDto), "approval")]
 [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), "connection-required")]
 [JsonDerivedType(typeof(NhAssistantFilePartDto), "file")]
+[JsonDerivedType(typeof(NhAssistantQuestionPartDto), "question")]
 public abstract record NhAssistantMessagePartDto;
+
+/// <summary>
+/// A question the agent asked with <c>ask_question</c> in a person's chat (LS21). Only the
+/// <paramref name="AddresseeActorId"/> answers it, with
+/// <c>POST conversations/{id}/questions/{questionId}/answer</c>; everyone else sees it read-only.
+/// </summary>
+/// <param name="QuestionId">The question; the answer names it.</param>
+/// <param name="Choices">The two to six answers to choose from, in order.</param>
+/// <param name="AddresseeActorId">The person who answers it: by default the person whose turn asked it.</param>
+/// <param name="ExpiresAt">The end of its wait, after which an answer is refused with <c>assistant-question-expired</c>.</param>
+/// <param name="Status"><c>pending</c>, <c>answered</c>, <c>expired</c> or <c>cancelled</c> (<see cref="NhAssistantQuestionStatuses"/>).</param>
+public sealed record NhAssistantQuestionPartDto(
+    Guid QuestionId,
+    string Question,
+    IReadOnlyList<string> Choices,
+    string AddresseeActorId,
+    DateTimeOffset ExpiresAt,
+    string Status) : NhAssistantMessagePartDto
+{
+    /// <summary>
+    /// The zero-based index of the chosen answer; only sent once it was answered.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? AnswerIndex { get; init; }
+
+    /// <summary>
+    /// When it was answered, expired or cancelled; only sent then.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ClosedAt { get; init; }
+}
+
+/// <summary>
+/// Body of <c>POST conversations/{id}/questions/{questionId}/answer</c> (LS21).
+/// </summary>
+/// <param name="Choice">The zero-based index of the chosen answer.</param>
+public sealed record NhAssistantAnswerQuestionRequest(int? Choice);
 
 /// <summary>
 /// A file a person attached to the message: its name, media type and size in bytes, never its
@@ -599,6 +652,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantSendMessageRequest))]
 [JsonSerializable(typeof(NhAssistantClientContextDto))]
 [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))]
+[JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))]
 [JsonSerializable(typeof(NhAssistantErrorDto))]
 [JsonSerializable(typeof(NhAssistantTurnStartedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDeltaDto))]

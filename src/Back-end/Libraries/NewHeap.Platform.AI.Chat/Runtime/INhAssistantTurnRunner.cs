@@ -33,6 +33,16 @@ internal interface INhAssistantTurnRunner
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Validates the answer to the question a person's chat turn waits for, claims the conversation
+    /// and resumes the turn with the answer as the result of its <c>ask_question</c> call (LS21).
+    /// Only the question's addressee answers; an expired question is refused and releases the
+    /// conversation. Expected failures are returned before any event is produced.
+    /// </summary>
+    Task<TaskResult<NhAssistantTurnHandle>> StartAnswerTurnAsync(
+        NhAssistantAnswerTurnRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Cancels the running turn of a conversation in this process, or dismisses a pending approval.
     /// Only the owner or the participant who started the turn may do so.
     /// </summary>
@@ -139,6 +149,26 @@ internal sealed record NhAssistantDecisionTurnRequest(
     /// </summary>
     public bool LeaveForApprovers { get; init; }
 
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.Person"/>
+    public NhAiPersonInvocation? Person { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.Channel"/>
+    public string? Channel { get; init; }
+}
+
+/// <param name="ConversationId">The chat whose turn waits for the question.</param>
+/// <param name="CallerContext">Authenticated invocation context of the person who answers.</param>
+/// <param name="QuestionId">The question, the id of its <c>ask_question</c> call.</param>
+/// <param name="ChoiceIndex">The zero-based index of the chosen answer.</param>
+/// <param name="RequestAborted">Token that fires when the client disconnects.</param>
+internal sealed record NhAssistantAnswerTurnRequest(
+    Guid ConversationId,
+    NhAiInvocationContext CallerContext,
+    Guid QuestionId,
+    int ChoiceIndex,
+    CancellationToken RequestAborted,
+    string Language = "en")
+{
     /// <inheritdoc cref="NhAssistantMessageTurnRequest.Person"/>
     public NhAiPersonInvocation? Person { get; init; }
 
