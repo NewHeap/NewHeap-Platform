@@ -150,6 +150,18 @@ starts. Which values are valid does not change.
 |---|---|
 | None. | None. |
 
+## NewHeap.Platform.AI.Chat: the first reservations of a day at the same time
+
+A budget reservation that found no ledger for the actor and day, while another reservation created that
+ledger before this one checked for it, was refused with `assistant-budget-exhausted` although the day's
+budget had room; concurrent first calls of a day, such as parallel tool calls, could be refused that way.
+Such a reservation now books against the new ledger, and only an increment against a ledger that already
+existed decides that the budget is exhausted. Concurrent reservations still never exceed the limit.
+
+| Breaking change | Required action |
+|---|---|
+| None; reservations that the budget allows are no longer refused when the day's ledger is created at the same time. | None. |
+
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the execution region at start, at save and per turn
 
 Every profile the assistant uses must permit its execution region (`UseExecutionRegion`, `local` by

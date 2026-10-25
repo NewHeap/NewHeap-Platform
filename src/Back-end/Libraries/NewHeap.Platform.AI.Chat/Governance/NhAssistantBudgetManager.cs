@@ -129,6 +129,12 @@ internal sealed class NhAssistantBudgetManager(
     /// <summary>
     /// Books the request and returns the new call count, or <see langword="null"/> when the limit would be exceeded.
     /// </summary>
+    /// <remarks>
+    /// Only an increment against a ledger that already existed decides that the limit is reached. An
+    /// increment that found no ledger is repeated once the ledger exists, because a concurrent
+    /// reservation may have created it after the increment and before the check: refusing then would
+    /// refuse calls the day's budget still allows.
+    /// </remarks>
     private async Task<int?> BookAsync(
         string actorId,
         DateOnly day,
@@ -143,6 +149,7 @@ internal sealed class NhAssistantBudgetManager(
             return null;
         }
 
+        var ledgerExisted = false;
         for (var attempt = 0; attempt < 3; attempt++)
         {
             await using var context = contextFactory.CreateDbContext();
@@ -152,11 +159,18 @@ internal sealed class NhAssistantBudgetManager(
                 return await ReadCallsAsync(context, actorId, day, isToolCall, cancellationToken);
             }
 
+            if (ledgerExisted)
+            {
+                return null;
+            }
+
             var exists = await context.BudgetLedgers
                 .AnyAsync(ledger => ledger.ActorId == actorId && ledger.Day == day, cancellationToken);
             if (exists)
             {
-                return null;
+                // The ledger may be younger than the increment that found none; book against it.
+                ledgerExisted = true;
+                continue;
             }
 
             context.BudgetLedgers.Add(new AssistantBudgetLedger

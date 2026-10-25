@@ -1,4 +1,6 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Governance;
@@ -6,6 +8,7 @@ using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Models;
 using Xunit;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
@@ -72,6 +75,49 @@ public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture databa
         }));
 
         Assert.Equal(5, results.Count(success => success));
+    }
+
+    /// <summary>
+    /// The first reservation of the day finds no ledger to book against, and another reservation
+    /// creates the ledger before this one checks whether it exists, as concurrent reservations do
+    /// under load. The reservation books against that ledger instead of reading it as exhausted.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_reservation_books_against_the_ledger_another_reservation_created_after_its_increment(
+        AssistantTestProvider provider)
+    {
+        var ledgerCreatedMeanwhile = new AfterTheFirstEmptyLedgerIncrement();
+        await using var services = await CreateServicesAsync(provider, ledgerCreatedMeanwhile);
+        var manager = services.GetRequiredService<NhAssistantBudgetManager>();
+        var contextFactory = services.GetRequiredService<NhAssistantDbContextFactory>();
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        ledgerCreatedMeanwhile.Run = async () =>
+        {
+            await using var context = contextFactory.CreateDbContext();
+            context.BudgetLedgers.Add(new AssistantBudgetLedger
+            {
+                ActorId = "owner-meanwhile",
+                Day = day,
+                ToolCalls = 1,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+            await context.SaveChangesAsync();
+        };
+        var turn = AssistantTestData.Turn("owner-meanwhile", limits => limits.DailyToolCallBudgetPerActor = 5);
+
+        TaskResult<NhAiBudgetReservation> reserved;
+        using (NhAssistantExecutionScope.EnterTurn(turn))
+        using (NhAssistantExecutionScope.EnterCall(AssistantTestData.Call()))
+        {
+            reserved = await manager.ReserveAsync(ToolRequest());
+        }
+
+        Assert.Equal(1, ledgerCreatedMeanwhile.Runs);
+        Assert.True(reserved.Success, string.Join(", ", reserved.AllErrorMessages));
+        await using var verification = contextFactory.CreateDbContext();
+        Assert.Equal(2, (await verification.BudgetLedgers.SingleAsync(ledger => ledger.ActorId == "owner-meanwhile")).ToolCalls);
     }
 
     [Theory]
@@ -323,10 +369,30 @@ public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture databa
             null);
     }
 
-    private Task<ServiceProvider> CreateServicesAsync(AssistantTestProvider provider)
+    /// <summary>
+    /// Registers the managers over a leased schema. An <paramref name="interceptor"/> sees every
+    /// command of the assistant's contexts.
+    /// </summary>
+    private Task<ServiceProvider> CreateServicesAsync(AssistantTestProvider provider, IInterceptor? interceptor = null)
     {
         return database.CreateStorageAsync(provider, configure: services =>
         {
+            if (interceptor is not null)
+            {
+                var descriptor = services.Single(item => item.ServiceType == typeof(NhAssistantStorageRegistration));
+                var registration = (NhAssistantStorageRegistration)descriptor.ImplementationInstance!;
+                services.Remove(descriptor);
+                services.AddSingleton(new NhAssistantStorageRegistration(
+                    registration.ProviderName,
+                    registration.StorageOptions,
+                    (serviceProvider, builder) =>
+                    {
+                        registration.ConfigureProvider(serviceProvider, builder);
+                        builder.AddInterceptors(interceptor);
+                    },
+                    registration.TransactionLocks));
+            }
+
             services.AddSingleton(new NhAssistantRegistrationState());
             services.AddKeyedSingleton<INhAiBudgetManager>(
                 NhAssistantFallbacks.ServiceKey,
@@ -339,6 +405,37 @@ public sealed class AssistantDurableManagerTests(AssistantDatabaseFixture databa
             services.AddSingleton<NhAssistantIdempotencyManager>();
             services.AddSingleton<NhAssistantApprovalEvidenceProvider>();
         });
+    }
+
+    /// <summary>
+    /// Runs <see cref="Run"/> once, right after the first increment of a budget ledger that found no
+    /// ledger to update, before the reservation goes on.
+    /// </summary>
+    private sealed class AfterTheFirstEmptyLedgerIncrement : DbCommandInterceptor
+    {
+        private int _runs;
+
+        public Func<Task>? Run { get; set; }
+
+        public int Runs => Volatile.Read(ref _runs);
+
+        public override async ValueTask<int> NonQueryExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (result == 0
+                && Run is { } run
+                && command.CommandText.TrimStart().StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase)
+                && command.CommandText.Contains("BudgetLedger", StringComparison.Ordinal)
+                && Interlocked.CompareExchange(ref _runs, 1, 0) == 0)
+            {
+                await run();
+            }
+
+            return result;
+        }
     }
 
     private sealed class NoEvidenceProvider : INhAiApprovalEvidenceProvider
