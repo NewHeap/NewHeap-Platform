@@ -1,0 +1,48 @@
+<section class="handbook-lab" id="project-handbook">
+  <header>
+    <div>
+      <h2>{{ 'project-handbook.title' | translate }}</h2>
+      <p>{{ 'project-handbook.description' | translate }}</p>
+    </div>
+    <span class="case-badge"><i class="ph ph-book-open" aria-hidden="true"></i> SPM-336</span>
+  </header>
+
+  <div class="handbook-grid">
+    <nav class="handbook-index" [attr.aria-label]="'project-handbook.documents' | translate">
+      <h3>{{ 'project-handbook.documents' | translate }}</h3>
+      <ul>
+        @for (item of documents; track item.path) {
+          <li>
+            <button type="button" [class.active]="item.path === selectedPath()"
+              [attr.aria-current]="item.path === selectedPath() ? 'page' : null" (click)="open(item.path)">
+              <i class="ph ph-file-text" aria-hidden="true"></i>{{ item.path }}
+            </button>
+          </li>
+        }
+      </ul>
+
+      <h3>{{ 'project-handbook.contents' | translate }}</h3>
+      @if (headings().length > 0) {
+        <ul class="handbook-contents">
+          @for (heading of headings(); track heading.id) {
+            <li [style.padding-left.px]="(heading.level - 1) * 12">
+              <button type="button" (click)="showHeading(heading.fragment)">{{ heading.text }}</button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="handbook-empty">{{ 'project-handbook.no-headings' | translate }}</p>
+      }
+    </nav>
+
+    <article class="handbook-document" [attr.aria-label]="selected().path">
+      <nh-assistant-document
+        [markdown]="selected().markdown"
+        [path]="selected().path"
+        [siblingPaths]="paths"
+        [diagramRenderer]="diagramRenderer"
+        (linkClick)="onLink($event)"
+        (headingsChange)="onHeadings($event)" />
+    </article>
+  </div>
+</section>

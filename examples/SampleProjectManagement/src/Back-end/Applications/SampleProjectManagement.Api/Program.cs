@@ -185,6 +185,10 @@ builder.Services
     })
     .WithEvents(events =>
     {
+        // AddCap registers an NhTransactionFactoryAsync: the service's
+        // StartOrGetTransactionScopeAsync opens its transaction with
+        // BeginTransactionAsync and the service's cancellation token, and the
+        // CAP outbox joins that transaction (SPM-195).
         events.AddCap(cap =>
         {
             cap.WithOptions(options =>
@@ -391,6 +395,9 @@ builder.Services.AddScoped<SampleAssistantOperationsService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();
+// SPM-332: people continue a chat with the project assistant in a messaging app, whose turns run as
+// that person through the platform's INhAssistantConversationTurns.
+builder.Services.AddScoped<SampleAssistantMessagingChannel>();
 builder.Services.AddScoped<ObservabilitySampleService>();
 builder.Services.AddSingleton<NewHeap.Platform.AspNet.Common.Utilities.IStartupConfiguration, SampleStartupConfiguration>();
 builder.Services.AddScoped<ProjectMaintenanceJob>();

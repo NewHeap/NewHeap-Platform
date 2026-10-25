@@ -8,7 +8,10 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// Runs assistant turns inside the HTTP request that started them, so the request-bound
-/// invocation context and caller credentials stay available to tool execution.
+/// invocation context and caller credentials stay available to tool execution. A person's turn that
+/// does not depend on its request (one kept after a disconnect, or one the application starts for a
+/// person through <c>INhAssistantConversationTurns</c>) carries the person captured when it started,
+/// which its tools authorize instead.
 /// </summary>
 internal interface INhAssistantTurnRunner
 {
@@ -74,7 +77,9 @@ internal interface INhAssistantTurnRunner
 /// <param name="CallerContext">Authenticated invocation context of the human caller.</param>
 /// <param name="Text">User message text.</param>
 /// <param name="ClientMessageId">Client-generated id that makes a retried POST detectable.</param>
-/// <param name="RequestAborted">Token that fires when the client disconnects.</param>
+/// <param name="RequestAborted">Token that cancels the turn when the client disconnects or the caller
+/// cancels; <see cref="CancellationToken.None"/> for a turn that outlives its caller
+/// (<see cref="NhAssistantOptions.KeepTurnsAfterDisconnect"/>).</param>
 /// <param name="ClientContext">Validated page context of the client, or <see langword="null"/>.</param>
 internal sealed record NhAssistantMessageTurnRequest(
     Guid ConversationId,
@@ -89,6 +94,19 @@ internal sealed record NhAssistantMessageTurnRequest(
     /// The agent side of a turn in an agent thread; <see langword="null"/> in a chat.
     /// </summary>
     public NhAssistantAgentTurnContext? AgentTurn { get; init; }
+
+    /// <summary>
+    /// The person captured when the turn started, for a turn that does not depend on the person's
+    /// request: the turn makes it ambient, so tools authorize it instead of the request. <see langword="null"/>
+    /// for a turn that lives within its request, whose tools authorize the request.
+    /// </summary>
+    public NhAiPersonInvocation? Person { get; init; }
+
+    /// <summary>
+    /// The application's channel that started the turn (<c>INhAssistantConversationTurns</c>), recorded on
+    /// the turn's audit events; <see langword="null"/> for the endpoints.
+    /// </summary>
+    public string? Channel { get; init; }
 
     /// <summary>
     /// The files the person attached to the message, as the application's file source stored them.
@@ -120,6 +138,12 @@ internal sealed record NhAssistantDecisionTurnRequest(
     /// of deciding it (CP20); <see cref="Approve"/> is ignored then.
     /// </summary>
     public bool LeaveForApprovers { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.Person"/>
+    public NhAiPersonInvocation? Person { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.Channel"/>
+    public string? Channel { get; init; }
 }
 
 /// <summary>

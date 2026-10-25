@@ -23,6 +23,13 @@
       "expectedOutcome": "The explicit request supplies enough product context to select the management-portal profile without redundant questions; the pinned skill bootstraps src/Back-end and src/Front-end, package restore and install form a hard gate, only selected infrastructure is added, and foundation plus final validation pass."
     },
     {
+      "id": "consumer-public-website-bootstrap",
+      "skill": "newheap-consumer-development",
+      "prompt": "Set up this empty repository for our product information site. Visitors read the pages without signing in, the pages come from our own API, and the site keeps no data of its own yet.",
+      "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence", "nh-consumer-management-portal"],
+      "expectedOutcome": "The request is enough to select the public-website profile without a management portal: the agent summarizes an API with a public Angular front end and no sign-in, runs the bootstrap with --profile public-website --database none and without --authentication, lets it pin Angular to the lowest version that the peer range of @newheap/platform-common accepts, proves the anonymous NuGet restore and npm installation with resolved peers, and runs the inspector in foundation and validate mode without the portal's identity, API-base and modal requirements."
+    },
+    {
       "id": "consumer-nontechnical-scope-gate",
       "skill": "newheap-consumer-development",
       "prompt": "Every night we need to collect a delivery file from an existing partner system, check it, and send a result back. Nobody needs screens or user accounts for the first version, and the partner remains the source of the information.",

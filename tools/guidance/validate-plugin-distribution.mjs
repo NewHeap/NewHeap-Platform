@@ -11,6 +11,7 @@ import {
   consumerSkillModuleDirectories,
   consumerSkillNames,
   consumerSkillRoots,
+  packagePeerDependencies,
   packageVersions,
   readJson,
   renderBundledConsumerSkillFile,
@@ -24,6 +25,7 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const distribution = JSON.parse(await readFile(resolve(consumerPluginRoot, 'distribution.json'), 'utf8'));
 const installGuide = await readFile(resolve(consumerPluginRoot, 'INSTALL.md'), 'utf8');
 const versions = await packageVersions();
+const peerDependencies = await packagePeerDependencies();
 const guidanceVersion = await readJson(resolve(repositoryRoot, 'guidance', 'version.json'));
 
 if (manifest.name !== 'newheap-platform') failures.push('Plugin name must be newheap-platform.');
@@ -31,6 +33,7 @@ if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(manifest.ve
 if (manifest.version !== guidanceVersion.guidanceVersion) failures.push(`Plugin ${manifest.version} does not match guidance ${guidanceVersion.guidanceVersion}.`);
 if (distribution.pluginVersion !== manifest.version) failures.push('Plugin distribution metadata has a stale pluginVersion.');
 if (distribution.compatiblePackages?.['@newheap/platform-common'] !== versions['@newheap/platform-common']) failures.push('Plugin package compatibility metadata is stale.');
+if (JSON.stringify(distribution.npmPeerDependencies) !== JSON.stringify(peerDependencies)) failures.push('Plugin npm peer dependency metadata is stale.');
 const expectedEvidenceSourceRef = `newheap-platform-plugin-v${manifest.version}`;
 const expectedEvidenceCatalog = `skills/${consumerSkillBundleName}/references/${consumerSkillEvidenceCatalogName}`;
 if (distribution.evidence?.sourceRef !== expectedEvidenceSourceRef

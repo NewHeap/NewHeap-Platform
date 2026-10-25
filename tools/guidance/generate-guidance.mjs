@@ -18,6 +18,7 @@ import {
   loadRegistry,
   loadRules,
   maintenanceSkillRoot,
+  packagePeerDependencies,
   packageVersions,
   planPath,
   planTemplatePath,
@@ -42,6 +43,7 @@ const failures = [...validateRegistry(registry), ...validateRules(rules, registr
 if (failures.length > 0) throw new Error(failures.join('\n'));
 const groups = groupRulesByReference(rules);
 const versions = await packageVersions();
+const peerDependencies = await packagePeerDependencies();
 const guidanceVersion = JSON.parse(await readFile(resolve(repositoryRoot, 'guidance', 'version.json'), 'utf8'));
 const pluginReleaseRef = `newheap-platform-plugin-v${guidanceVersion.guidanceVersion}`;
 const template = await readFile(planTemplatePath, 'utf8');
@@ -192,6 +194,7 @@ outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution
   modules: consumerSkillNames,
   moduleDirectories: Object.fromEntries(consumerSkillModuleDirectories),
   compatiblePackages: versions,
+  npmPeerDependencies: peerDependencies,
   evidence: {
     sourceRef: pluginReleaseRef,
     catalog: `skills/${consumerSkillBundleName}/references/immutable-evidence.md`

@@ -83,10 +83,22 @@ internal sealed class NhAssistantTurnScope
     public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }
 
     /// <summary>
-    /// Adds the content-free prompt identity of this turn to an audit event.
+    /// The application's channel that started the turn through <c>INhAssistantConversationTurns</c>, which
+    /// its audit events record; <see langword="null"/> for a turn of the endpoints or a run.
+    /// </summary>
+    public string? Channel { get; set; }
+
+    /// <summary>
+    /// Adds the content-free prompt identity of this turn to an audit event, and the channel that started
+    /// the turn to an event that names none.
     /// </summary>
     public NhAssistantAuditEvent WithPromptIdentity(NhAssistantAuditEvent evt)
     {
+        if (Channel is not null && evt.Channel is null)
+        {
+            evt = evt with { Channel = Channel };
+        }
+
         return Prompt is null
             ? evt
             : evt with

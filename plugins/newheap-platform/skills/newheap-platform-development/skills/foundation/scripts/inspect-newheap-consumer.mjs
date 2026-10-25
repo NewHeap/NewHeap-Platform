@@ -55,8 +55,10 @@ for (const file of sources.filter(file => file.name.endsWith('package.json'))) {
 let manifest;
 try { manifest = JSON.parse(sourceByName.get('newheap-consumer.json')?.content); } catch { manifest = undefined; }
 const applicationProfile = manifest?.applicationProfile;
-const apiExpected = ['api', 'management-portal'].includes(applicationProfile);
-const frontendExpected = applicationProfile === 'management-portal';
+const apiExpected = ['api', 'management-portal', 'public-website'].includes(applicationProfile);
+const managementExpected = applicationProfile === 'management-portal';
+const publicWebsiteExpected = applicationProfile === 'public-website';
+const frontendExpected = managementExpected || publicWebsiteExpected;
 const backgroundServiceExpected = applicationProfile === 'service';
 const identityOwnership = manifest?.capabilities?.identityOwnership ?? 'local';
 const exactFoundationPaths = [
@@ -149,7 +151,7 @@ const error = (code, message) => report.issues.push({ severity: 'error', code, m
 const warning = (code, message) => report.issues.push({ severity: 'warning', code, message });
 if (mode !== 'inventory') {
   if (!manifest) error('manifest-missing', 'newheap-consumer.json is missing or invalid.');
-  else if (!['service', 'api', 'management-portal'].includes(applicationProfile)) error('profile-invalid', 'applicationProfile must be service, api, or management-portal.');
+  else if (!['service', 'api', 'management-portal', 'public-website'].includes(applicationProfile)) error('profile-invalid', 'applicationProfile must be service, api, management-portal, or public-website.');
   else if (!['local', 'external'].includes(identityOwnership)) error('identity-ownership-invalid', 'capabilities.identityOwnership must be local or external when specified.');
   if (identityOwnership === 'external' && !manifest?.capabilities?.authentication) error('identity-ownership-invalid', 'External identity ownership requires authentication to be enabled.');
   for (const path of missingFoundationPaths) error('foundation-path-missing', `Required foundation path is missing: ${path}`);
@@ -172,16 +174,17 @@ if (mode !== 'inventory') {
 }
 
 if (mode === 'validate') {
-  if (frontendExpected && report.angular.rootRegistrations.length === 0) error('angular-root-config', 'Register NhCommonModule.forRoot(...) once in the management application root.');
-  if (frontendExpected && report.angular.apiServices.length === 0) error('angular-api-base', 'Use NhBaseApiService for the management portal API layer.');
-  if (frontendExpected && report.angular.modalContent.length === 0) error('angular-modal-base', 'Use NewHeap modal content and NhModalService for create/edit flows.');
+  if (frontendExpected && report.angular.rootRegistrations.length === 0) error('angular-root-config', 'Register NhCommonModule.forRoot(...) once in the Angular application root.');
+  if (managementExpected && report.angular.apiServices.length === 0) error('angular-api-base', 'Use NhBaseApiService for the management portal API layer.');
+  if (managementExpected && report.angular.modalContent.length === 0) error('angular-modal-base', 'Use NewHeap modal content and NhModalService for create/edit flows.');
+  if (publicWebsiteExpected && manifest?.capabilities?.authentication) error('public-website-authentication', 'A public website has no sign-in. Use the management-portal profile for screens behind a login.');
   for (const path of directLifecycleOverrides) error('angular-lifecycle', `Use appOn... hooks instead of owned Angular lifecycle hooks: ${path}`);
   for (const path of asideMutationFiles) error('aside-mutation', `Move create/edit form content from an aside into a NewHeap modal: ${path}`);
-  for (const path of report.angular.genericStarterFiles) error('generic-angular-starter', `Replace the generic Angular starter with the management portal shell: ${path}`);
-  if (frontendExpected && identityOwnership === 'local' && report.backend.dbContexts.length === 0) error('identity-dbcontext', 'Use a consumer DbContext derived from NhIdentityDbContext when the management portal owns identity.');
+  for (const path of report.angular.genericStarterFiles) error('generic-angular-starter', `Replace the generic Angular starter with the application's own shell: ${path}`);
+  if (managementExpected && identityOwnership === 'local' && report.backend.dbContexts.length === 0) error('identity-dbcontext', 'Use a consumer DbContext derived from NhIdentityDbContext when the management portal owns identity.');
   const hasExpectedProtectedController = report.backend.protectedControllers.length > 0
     || identityOwnership === 'external' && report.backend.authorizedControllers.length > 0;
-  if ((frontendExpected || manifest?.capabilities?.authentication) && apiExpected && !hasExpectedProtectedController) error('protected-controller', 'Use a NewHeap protected/base controller, or an explicitly authorized ControllerBase when identity is externally owned.');
+  if ((managementExpected || manifest?.capabilities?.authentication) && apiExpected && !hasExpectedProtectedController) error('protected-controller', 'Use a NewHeap protected/base controller, or an explicitly authorized ControllerBase when identity is externally owned.');
   if (apiExpected && report.backend.scalarOrOpenApi.length === 0) error('openapi-missing', 'Expose the API contract through OpenAPI and Scalar metadata.');
   if (apiExpected && report.backend.apiPrefixedControllerRoutes.length > 0) error('api-route-prefix', 'Backend controller routes must not repeat the browser /api proxy prefix.');
   const proxy = sourceByName.get('src/Front-end/proxy.conf.cjs')?.content ?? '';

@@ -28,6 +28,20 @@ public sealed class NhAssistantOptions
     public bool RunSchedules { get; set; } = true;
 
     /// <summary>
+    /// Whether a person's turn keeps running after the client that started it disconnected
+    /// (<c>NewHeap:AI:Assistant:KeepTurnsAfterDisconnect</c>), false by default; read for every
+    /// <c>POST conversations/{id}/messages</c> and <c>POST conversations/{id}/approvals/{approvalId}/decide</c>.
+    /// When false, closing the browser cancels the turn, as before. When true, the turn continues until
+    /// it ends or reaches <see cref="NhAssistantLimits.TurnTimeout"/>: its tools authorize the principal
+    /// and the invocation context captured when it started, never the request again; what it would still
+    /// write to the closed stream is dropped; the conversation's snapshot and its live updates carry its
+    /// result, so a client that comes back reloads the conversation, as there is no stream to resume.
+    /// <c>POST conversations/{id}/cancel</c> still stops it. A turn that
+    /// <c>INhAssistantConversationTurns</c> starts follows this setting unless its options say otherwise.
+    /// </summary>
+    public bool KeepTurnsAfterDisconnect { get; set; }
+
+    /// <summary>
     /// Authorization policy every assistant endpoint requires unless
     /// <c>NhAssistantBuilder.UseAccessPolicy</c> sets one explicitly.
     /// </summary>

@@ -91,3 +91,6 @@ export * from './lib/prototype-extensions/observable.extensions';
 //export * from './lib/miscellaneous/nh-node-fetch.http-backend';
 export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';
 //export * from './lib/miscellaneous/translate-loaders/translate-server.loader';
+
+// The library's own English and Dutch texts, such as the modal's close label (`nh-common.`).
+export {NH_COMMON_TRANSLATIONS} from './lib/i18n/nh-common-translations';

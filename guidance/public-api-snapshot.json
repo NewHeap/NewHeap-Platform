@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "a14475980a56c13f6b4a904a70b80dcdc52481530b1d12252193a57da7f942b6",
-    "declarationCount": 11008,
+    "hash": "219a84b013e830b633073cf153a1155d4471df1bbebb5bb5578dc8e243dd6088",
+    "declarationCount": 11064,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -16,6 +16,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public bool EffectsAsProposals { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public Func<IServiceProvider, ChatHistoryProvider>? ChatHistoryProviderFactory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public Func<IServiceProvider, IEnumerable<AIContextProvider>>? AIContextProvidersFactory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public sealed class NhAiAgentModelCallException : InvalidOperationException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public const string UnclassifiedCode = \"ai-model-call-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiAgentModelCallException(string message, string code) : base(message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public string Code { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -64,6 +88,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public override IReadOnlyList<string> StateKeys => inner.StateKeys;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public override object? GetService(Type serviceType, object? serviceKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "protected override async ValueTask<AIContext> InvokingCoreAsync( InvokingContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "protected override ValueTask InvokedCoreAsync( InvokedContext context, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
@@ -159,7 +199,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
-        "declaration": "public sealed record NhAiAspNetScopeAuthorizationResource( string ScopeType, string ScopeId, string Purpose);"
+        "declaration": "public record NhAiAspNetScopeAuthorizationResource( string ScopeType, string ScopeId, string Purpose);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -664,6 +704,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiMcpDelegatedToken>> IssueAsync( NhAiMcpDelegatedTokenRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+        "declaration": "public static NhAiPersonInvocation FromRequest(HttpContext httpContext, NhAiInvocationContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+        "declaration": "public static async Task<TaskResult<NhAiPersonInvocation>> ResolveAsync( IServiceProvider services, ClaimsPrincipal user, Guid? activeDivisionId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
@@ -6122,6 +6170,10 @@
         "declaration": "public Task ExecuteAsync(HttpContext httpContext) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAskerDecisions.cs",
+        "declaration": "public static async Task<(AssistantApproval? Approval, string? ErrorCode)> FindAsync( IServiceProvider services, Guid conversationId, Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantCollaborationEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder enabled) {"
       },
@@ -6732,6 +6784,58 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantUpdateMcpToolRequest( bool? IsEnabled, string? Effect, string? DescriptionOverride);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public interface INhAssistantConversationTurns {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationMessage(string Text) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string? ClientMessageId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationDecision( NhAssistantProposalDecision Decision, string ExpectedProposalHash) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string? Reason { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationTurnOptions(string Channel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string Language { get; init; } = \"en\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Guid? ActiveDivisionId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public bool? KeepTurnAfterCallerLeaves { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationTurnResult( Guid ConversationId, Guid TurnId, string Status, string? ErrorCode, NhAssistantMessageDto? Message, IReadOnlyList<NhAssistantApprovalPartDto> PendingApprovals, NhAssistantUsageDto Usage);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> SendAsync( NhAssistantDecidingPerson person, Guid conversationId, NhAssistantConversationMessage message, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> DecideAsync( NhAssistantDecidingPerson person, Guid conversationId, Guid approvalId, NhAssistantConversationDecision decision, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
@@ -18331,6 +18435,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool KeepTurnsAfterDisconnect { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public string AccessPolicy { get; set; } = DefaultAccessPolicy;"
       },
       {
@@ -21671,6 +21779,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public NhAiPersonInvocation? Person { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public string? Channel { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];"
       },
       {
@@ -21684,6 +21800,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public bool LeaveForApprovers { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public NhAiPersonInvocation? Person { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public string? Channel { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -21996,6 +22120,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public string? Channel { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
@@ -23751,6 +23879,54 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public static class NhAiModelFailureCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string Timeout = \"ai-model-timeout\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string DependencyUnavailable = \"ai-model-dependency-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string StreamIncomplete = \"ai-model-stream-incomplete\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string ProfileBudgetExceeded = \"ai-model-profile-budget-exceeded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunDeadlineExpired = \"ai-run-deadline-expired\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunBudgetExceeded = \"ai-run-budget-exceeded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string RunBudgetReservationDenied = \"ai-run-budget-reservation-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public static class NhAiModelFinishReasons {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string TimedOut = \"timed-out\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string Cancelled = \"cancelled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public const string DependencyFailure = \"dependency-failure\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
         "declaration": "public async Task<TaskResult<NhAiChatResult>> GetResponseAsync( NhAiChatRequest request, CancellationToken cancellationToken = default)"
       },
       {
@@ -24980,6 +25156,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public ValueTask<TaskResult<NhAiBudgetReservation>> ReserveAsync( NhAiBudgetRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public static NhAiPersonInvocation? Current => CurrentPerson.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public static IDisposable Begin(NhAiPersonInvocation person) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
@@ -26931,6 +27119,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public bool StrictStructuredOutput { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
         "declaration": "public void EnqueueResponse(string response) {"
       },
       {
@@ -27115,6 +27307,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
+        "declaration": "public bool StrictStructuredOutput { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
         "declaration": "public int RemainingSteps {"
       },
       {
@@ -27144,6 +27340,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public sealed record NhAiStrictSchemaViolation( string Path, string Rule, string Message);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public static class NhAiStrictStructuredOutput {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string ReferenceRule = \"reference\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string AdditionalPropertiesRule = \"additional-properties\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public const string RequiredRule = \"required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "declaration": "public static IReadOnlyList<NhAiStrictSchemaViolation> Validate(JsonElement schema) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
@@ -32408,6 +32628,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
         "declaration": "public delegate IDbContextTransaction NhTransactionFactory(IDbContextTransaction? prev,DbContext dbContext,IServiceProvider serviceProvider);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
+        "declaration": "public delegate Task<IDbContextTransaction> NhTransactionFactoryAsync( IDbContextTransaction? prev, DbContext dbContext, IServiceProvider serviceProvider, CancellationToken cancellationToken);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
@@ -42151,7 +42375,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
-        "declaration": "public ValueTask DisposeAsync() {"
+        "declaration": "public async ValueTask DisposeAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
@@ -44040,8 +44264,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "a3a9bc1f74406033a007c037a420490ae1d843b2e9ce5be027466f69c77d6590",
-    "declarationCount": 864,
+    "hash": "324b61b99bb2dc0172a41b4a89b62e4a6c8cf341f02dbb83c6fbb75d3e1a11f6",
+    "declarationCount": 870,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -44402,6 +44626,18 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
         "declaration": "public componentRef: ComponentRef<C> | undefined;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "export interface NhModalStackEntry {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "export class NhModalStack {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
@@ -44786,6 +45022,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/guards/nh-cancel-navigation.guard.ts",
         "declaration": "export interface ICancelNavigationComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
+        "declaration": "export const NH_COMMON_TRANSLATIONS: Readonly<Record<'en' | 'nl', TranslationObject>> = {en, nl};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
+        "declaration": "export function nhCommonText(translate: TranslateService | null, key: string): string {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-active-division.interceptor.ts",
@@ -47392,6 +47636,10 @@
         "declaration": "export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export {NH_COMMON_TRANSLATIONS} from './lib/i18n/nh-common-translations';"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
         "declaration": "@Component({"
       },
@@ -47509,7 +47757,10 @@
       "NhAiAgentDescriptor",
       "NhAiAgentFrameworkServiceCollectionExtensions",
       "NhAiAgentInstance",
-      "NhAiAutonomyLevel"
+      "NhAiAgentModelCallException",
+      "NhAiAutonomyLevel",
+      "ChatHistoryProviderFactory",
+      "AIContextProvidersFactory"
     ],
     "nh-ai-agent-runs": [
       "ConfigureAgent",
@@ -48183,7 +48434,13 @@
       "NhAssistantMcpToolDto",
       "NhAssistantMcpServerTestResultDto",
       "AllowLoopback",
-      "MaxConsultationsPerTurn"
+      "MaxConsultationsPerTurn",
+      "KeepTurnsAfterDisconnect",
+      "INhAssistantConversationTurns",
+      "NhAssistantConversationMessage",
+      "NhAssistantConversationDecision",
+      "NhAssistantConversationTurnOptions",
+      "NhAssistantConversationTurnResult"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -48289,6 +48546,11 @@
       "NhAiChatResult",
       "NhAiChatStream",
       "NhAiChatStreamCompletion",
+      "NhAiModelFailureCodes",
+      "NhAiModelFinishReasons",
+      "NhAiOutcomeKind",
+      "NhAiStrictStructuredOutput",
+      "NhAiStrictSchemaViolation",
       "INhAiUsageSink",
       "NhAiUsageRecord",
       "NhAiEvaluationDataset",
@@ -48484,7 +48746,9 @@
     "nh-backend-service-unit-of-work": [
       "StartOrGetTransactionScopeAsync",
       "UpdatePartialAsync",
-      "INhDbTransactionScope"
+      "INhDbTransactionScope",
+      "NhTransactionFactoryAsync",
+      "NhTransactionFactory"
     ],
     "nh-consumer-bootstrap-sequence": [
       "NewHeapPlatformCommonConfigurator",
@@ -48533,7 +48797,10 @@
       "NhCollectionTypeBaseComponent",
       "NhModalMutateBaseComponent",
       "NhModalComponentImpl",
-      "NhModalService"
+      "NhModalService",
+      "NhModalComponent",
+      "INhModalComponent",
+      "NH_COMMON_TRANSLATIONS"
     ],
     "nh-frontend-root-configuration": [
       "NhCommonModule",
@@ -48780,7 +49047,12 @@
       "ApprovalResolution",
       "ResolveApprovalRequest",
       "NhAssistantApprovalResolutionChoice",
-      "resolveApproval"
+      "resolveApproval",
+      "NhAssistantDocumentComponent",
+      "NhAssistantDiagramRenderer",
+      "NhAssistantDocumentHeading",
+      "NhAssistantDocumentLinkEvent",
+      "NhAssistantDocumentLinkKind"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
@@ -48820,6 +49092,7 @@
     ],
     "nh-operations-events-jobs-notifications": [
       "CapTransactionScope",
+      "CapEFDbTransaction",
       "INhBackgroundOperationAdministrationService",
       "INhBackgroundOperationContext",
       "INhBackgroundOperationFanOutContext",

@@ -23,6 +23,21 @@ token. After enumeration, await `NhAiChatStream.Completion`: successful end and
 provider dependency failure are explicit `TaskResult` outcomes, while caller
 cancellation remains cancellation.
 
+A governed deadline is an expected outcome, not an exception. When the profile's timeout or the
+invocation context's `Deadline` passes before the model answers, after any retry the profile
+allows, `GetResponseAsync` returns the failed result `NhAiModelFailureCodes.Timeout`
+(`ai-model-timeout`); a stream ends its enumeration without an exception, keeps the updates it
+already delivered, and completes with that failed result. A cancellation the caller did not
+request, such as the provider HTTP client's own timeout, counts the same. The usage record and the
+`ai.model.invoke` activity carry outcome `NhAiOutcomeKind.TimedOut` and finish reason
+`timed-out` (`NhAiModelFinishReasons`). Only the caller's own token still throws
+`OperationCanceledException`, recorded as `TerminalFailure` with finish reason `cancelled`. In
+both cases the call keeps its one budget reservation and writes one usage record with the same
+`ModelCallId`, so a budget manager settles it as any other call. Propagate the failed result like
+the other `NhAiModelFailureCodes`; the Agent Framework adapter throws it as
+`NhAiAgentModelCallException` with the code, and the assistant ends such a turn with
+`assistant-turn-timeout` (`assistant-consult-timeout` in a consultation).
+
 Keep operational telemetry, application audit and usage accounting in separate
 sinks. Usage records may include stable versions and hashes, bounded scope
 identifiers, token counts, character counts, duration, finish reason and a model
@@ -42,6 +57,38 @@ judge/model evaluations are explicit, credentialed, budgeted and reproducible;
 compare and accept the baseline before changing a recommended model, prompt,
 tool catalog or agent asset.
 
+Structured output is checked where the provider checks it. NewHeap passes a
+`ChatOptions.ResponseFormat` schema on unchanged; normalizing it for a provider stays with the
+application. Providers in strict mode refuse a schema whose `$ref` names anything but the root
+(`#`) or an entry of the root's `$defs` (`#/$defs/name`), whose objects do not set
+`additionalProperties` to `false`, or whose objects leave a property out of `required`. Set
+`StrictStructuredOutput` on `NhAiDeterministicChatClient` or `NhAiScriptedChatClient` to refuse
+such a request in tests as the provider would, with an `HttpRequestException` of status 400 that the
+executor reports as `ai-model-dependency-unavailable` without a retry, or call
+`NhAiStrictStructuredOutput.Validate` on the schema for every `NhAiStrictSchemaViolation` with its
+JSON pointer. What Microsoft.Extensions.AI 10.9 generates with `AIJsonUtilities.CreateJsonSchema`:
+
+- Without `AIJsonSchemaTransformOptions { DisallowAdditionalProperties = true, RequireAllProperties = true }`,
+  and so with `ChatResponseFormat.ForJsonSchema<T>()` as it is, every object stays open and a
+  parameter with a default value, such as `int Limit = 10`, is not required: refused. Generate with
+  those transform options.
+- A repeated object type, such as `Order(Address Billing, Address Shipping)`, is written out at each
+  property: accepted.
+- A nullable object, such as `Contact(string Name, Address? Work)`, is required with
+  `"type": ["object", "null"]`: accepted.
+- A list element type used twice, such as `Board(IReadOnlyList<Line> Open, IReadOnlyList<Line> Done)`,
+  refers to the second use as `"items": { "$ref": "#/properties/open/items" }`: refused. Move `Line`
+  into `$defs` and refer to `#/$defs/line` from both lists.
+- A type that contains itself at the root, such as `Node(string Name, IReadOnlyList<Node> Children)`,
+  refers to `#`: accepted.
+- A recursive type below the root, such as `Tree(string Title, Branch Root)` with
+  `Branch(string Label, IReadOnlyList<Branch> Branches)`, refers to
+  `#/properties/root/properties/branches`: refused. Move `Branch` into `$defs`.
+
+SPM-335 shows an application's own normalization: `ProjectAiStructuredOutput` generates the schema
+with closed objects and every property required, moves each JSON-pointer reference target into
+`$defs`, and the status digest's tests prove the result with the strict deterministic client.
+
 Score prompt injection through documents on a recorded turn rather than on hand-written prompts:
 run the assistant turn with the malicious document, record the model request, and evaluate it with
 what the turn did as `EvaluationContext`. The case passes only when the document's text reaches the
@@ -58,6 +105,9 @@ document, and a change the model then asks for waits for approval without runnin
 - Treating an inconclusive evaluation as a pass.
 - Recommending a model upgrade based only on compilation or a single live demonstration.
 - Keeping a streaming provider call alive after the consumer cancels enumeration.
+- Catching `OperationCanceledException` to detect a model timeout; read `ai-model-timeout` from the result.
+- Expecting NewHeap to normalize a structured-output schema, or testing structured output only with a
+  client that accepts every schema.
 
 ## Verification
 
@@ -68,8 +118,13 @@ Assert that two calls in one invocation context get two `ModelCallId`s while a
 retried call keeps one, shared with its budget reservation.
 Also force a provider exception during stream enumeration and assert that the
 stream ends with a safe failed completion rather than leaking provider details.
+Let a model wait past a short profile timeout and past the invocation deadline, for a call and a
+stream, and assert `ai-model-timeout`, outcome `TimedOut`, finish reason `timed-out` and one
+reservation and usage record with the same `ModelCallId`; cancel the caller's token and assert
+that cancellation still throws. Send each structured-output schema to a client with
+`StrictStructuredOutput`.
 Run the deterministic dataset on every relevant change, and run controlled live
-evaluation only in its opt-in pipeline. SPM-232 and SPM-233 are the executable
+evaluation only in its opt-in pipeline. SPM-232, SPM-233 and SPM-335 are the executable
 references.
 
 ## Executable evidence
@@ -84,3 +139,8 @@ references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantFileSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiEvaluationTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiEvaluationTests.cs)
+- SPM-335 — A structured-output schema that a strict provider accepts, and a model call past its deadline as a failed result
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStructuredOutput.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStructuredOutput.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiStructuredOutputSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiStructuredOutputSamplesTests.cs)

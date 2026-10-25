@@ -184,6 +184,7 @@ internal sealed partial class NhAssistantTurnRunner(
             conversation,
             turnId,
             request.RequestAborted,
+            request.Person,
             (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, events, token));
     }
 
@@ -304,6 +305,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 conversation,
                 waitingTurnId,
                 request.RequestAborted,
+                request.Person,
                 (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, events, token));
         }
 
@@ -311,6 +313,7 @@ internal sealed partial class NhAssistantTurnRunner(
             conversation,
             approval.TurnId,
             request.RequestAborted,
+            request.Person,
             (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, request, events, token));
     }
 
@@ -1046,6 +1049,11 @@ internal sealed partial class NhAssistantTurnRunner(
                 exception.GetType().Name);
             return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.BudgetExhausted);
         }
+        catch (NhAiAgentModelCallException exception) when (exception.Code == NhAiModelFailureCodes.Timeout)
+        {
+            // The governed deadline of a model call passed, as when the consultation's own timeout fires.
+            return (NhAssistantTurnStatuses.Failed, NhAssistantErrorCodes.ConsultTimeout);
+        }
 
         if (state.Scope.BudgetExhausted && state.ToolCalls == 0)
         {
@@ -1609,10 +1617,16 @@ internal sealed partial class NhAssistantTurnRunner(
         return await interceptor.ProposeAsync(function, new AIFunctionArguments(values), rationale, cancellationToken);
     }
 
+    /// <param name="requestAborted">Cancels the turn with its caller; <see cref="CancellationToken.None"/>
+    /// for a turn that outlives it, which <c>POST cancel</c> and its timeout still end.</param>
+    /// <param name="person">The person captured when the turn started, made ambient for the whole turn
+    /// so its tools authorize that person instead of the request; <see langword="null"/> for a turn that
+    /// lives within its request.</param>
     private TaskResult<NhAssistantTurnHandle> Start(
         AssistantConversation conversation,
         Guid turnId,
         CancellationToken requestAborted,
+        NhAiPersonInvocation? person,
         Func<ChannelWriter<NhAssistantTurnEvent>, CancellationToken, Task> run)
     {
         var channel = Channel.CreateUnbounded<NhAssistantTurnEvent>(new UnboundedChannelOptions
@@ -1623,6 +1637,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var cancellation = cancellations.Register(conversation.Id, turnId, requestAborted);
         var completion = Task.Run(async () =>
         {
+            using var personScope = person is null ? null : NhAiPersonInvocationScopes.Begin(person);
             try
             {
                 await run(channel.Writer, cancellation.Token);
@@ -1675,6 +1690,7 @@ internal sealed partial class NhAssistantTurnRunner(
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn);
+        state.Scope.Channel = request.Channel;
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -1833,6 +1849,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn);
+        state.Scope.Channel = request.Channel;
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -2376,6 +2393,16 @@ internal sealed partial class NhAssistantTurnRunner(
                 "Assistant turn {TurnId} stopped because the daily budget is exhausted ({ExceptionType}).",
                 state.Scope.TurnId,
                 exception.GetType().Name);
+        }
+        catch (NhAiAgentModelCallException exception) when (exception.Code == NhAiModelFailureCodes.Timeout)
+        {
+            // The governed deadline of a model call passed: the turn's deadline or the profile's timeout.
+            logger.LogInformation(
+                "Assistant turn {TurnId} of agent {AgentId} ended at the deadline of a model call.",
+                state.Scope.TurnId,
+                state.Scope.Agent.Id);
+            outcomeStatus = NhAssistantTurnStatuses.Failed;
+            errorCode = NhAssistantErrorCodes.TurnTimeout;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

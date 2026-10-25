@@ -33,6 +33,15 @@ public sealed class NhAiDeterministicChatClient : IChatClient
         }
     }
 
+    /// <summary>
+    /// Checks the JSON schema of <see cref="ChatOptions.ResponseFormat"/> as a provider in strict
+    /// structured-output mode does (<see cref="NhAiStrictStructuredOutput"/>) and refuses a request that
+    /// breaks a rule, as the provider would: the call throws an <see cref="HttpRequestException"/> with
+    /// status 400 and consumes no queued response; a stream throws when it starts. The request is still
+    /// recorded in <see cref="Requests"/>. Off by default, so the client accepts every schema.
+    /// </summary>
+    public bool StrictStructuredOutput { get; init; }
+
     public void EnqueueResponse(string response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -93,6 +102,11 @@ public sealed class NhAiDeterministicChatClient : IChatClient
         lock (_sync)
         {
             _requests.Add(new NhAiRecordedChatRequest(messages.ToArray(), options));
+            if (StrictStructuredOutput)
+            {
+                NhAiStrictStructuredOutput.ThrowIfRefused(options);
+            }
+
             return _responses.Count > 0
                 ? _responses.Dequeue()
                 : throw new InvalidOperationException(

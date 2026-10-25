@@ -677,6 +677,12 @@ internal sealed class NhAssistantConsultationToolHandler(
     /// </summary>
     private async Task<ClaimsPrincipal?> RequestPrincipalOfAsync(string asker, CancellationToken cancellationToken)
     {
+        // A person's turn that does not depend on the request uses the principal captured when it started.
+        if (NhAiPersonInvocationScopes.Current is { } person)
+        {
+            return string.Equals(person.Context.ActorId, asker, StringComparison.Ordinal) ? person.User : null;
+        }
+
         var httpContext = httpContextAccessor.HttpContext;
         return httpContext is not null && await NhAiRequestActor.IsAsync(httpContext, asker, services, cancellationToken)
             ? httpContext.User

@@ -17,10 +17,15 @@ const applicationName = valueAfter('--name');
 const applicationProfile = valueAfter('--profile')?.toLowerCase();
 const database = valueAfter('--database')?.toLowerCase();
 const skipInstall = args.includes('--skip-install');
-const apiEnabled = ['api', 'management-portal'].includes(applicationProfile);
+const profiles = ['service', 'api', 'management-portal', 'public-website'];
+const apiEnabled = ['api', 'management-portal', 'public-website'].includes(applicationProfile);
 const backgroundServiceEnabled = applicationProfile === 'service';
-const frontendEnabled = applicationProfile === 'management-portal';
-const authenticationEnabled = frontendEnabled || args.includes('--authentication');
+const frontendKind = applicationProfile === 'management-portal'
+  ? 'management'
+  : applicationProfile === 'public-website' ? 'public' : undefined;
+const frontendEnabled = frontendKind !== undefined;
+const authenticationRequested = args.includes('--authentication');
+const authenticationEnabled = applicationProfile === 'management-portal' || authenticationRequested;
 const features = {
   aspire: args.includes('--aspire'),
   docker: args.includes('--docker'),
@@ -30,13 +35,16 @@ const features = {
 if (!applicationName || !/^[A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*$/.test(applicationName)) {
   throw new Error('Use --name with a PascalCase or dotted PascalCase application name, for example Example.Portal.');
 }
-if (!['service', 'api', 'management-portal'].includes(applicationProfile)) {
-  throw new Error('--profile must be service, api, or management-portal. Derive it from the confirmed product scope instead of assuming a portal.');
+if (!profiles.includes(applicationProfile)) {
+  throw new Error('--profile must be service, api, management-portal, or public-website. Derive it from the confirmed product scope instead of assuming a portal.');
+}
+if (applicationProfile === 'public-website' && authenticationRequested) {
+  throw new Error('The public-website profile has no sign-in. Use management-portal for screens behind a login, or api with --authentication for protected system access.');
 }
 if (!['none', 'postgresql', 'sqlserver'].includes(database)) {
   throw new Error('--database must be none, postgresql, or sqlserver. Derive persistence from whether the product must retain its own data.');
 }
-if (frontendEnabled && database === 'none') {
+if (applicationProfile === 'management-portal' && database === 'none') {
   throw new Error('The authenticated management-portal profile requires postgresql or sqlserver. Use api or service when the current scope has no application-owned persistence.');
 }
 if (!(await stat(consumerRoot).catch(() => undefined))?.isDirectory()) {
@@ -69,6 +77,73 @@ const requiredPackageVersion = name => {
   if (!packages[name]) throw new Error(`Compatibility metadata has no version for ${name}.`);
   return packages[name];
 };
+
+// The TypeScript and zone.js ranges that go with each supported Angular major version.
+const angularToolchains = new Map([
+  [20, { typescript: '~5.9.2', zoneJs: '~0.15.0' }]
+]);
+const versionParts = text => /^(\d+)\.(\d+)\.(\d+)$/.exec(text)?.slice(1).map(Number);
+const compareVersions = (left, right) => left.map((part, index) => part - right[index]).find(difference => difference !== 0) ?? 0;
+
+/** The versions a comparator set accepts, as a lower bound and an exclusive upper bound. */
+function comparatorBounds(name, range, comparator) {
+  const caret = /^\^(\d+\.\d+\.\d+)$/.exec(comparator);
+  if (caret) {
+    const [major, minor, patch] = versionParts(caret[1]);
+    return { min: [major, minor, patch], max: major > 0 ? [major + 1, 0, 0] : minor > 0 ? [0, minor + 1, 0] : [0, 0, patch + 1] };
+  }
+  const tilde = /^~(\d+\.\d+\.\d+)$/.exec(comparator);
+  if (tilde) {
+    const [major, minor, patch] = versionParts(tilde[1]);
+    return { min: [major, minor, patch], max: [major, minor + 1, 0] };
+  }
+  const atLeast = /^>=\s*(\d+\.\d+\.\d+)(?:\s+<\s*(\d+\.\d+\.\d+))?$/.exec(comparator);
+  if (atLeast) return { min: versionParts(atLeast[1]), max: atLeast[2] ? versionParts(atLeast[2]) : undefined };
+  const exact = /^=?(\d+\.\d+\.\d+)$/.exec(comparator);
+  if (exact) {
+    const [major, minor, patch] = versionParts(exact[1]);
+    return { min: [major, minor, patch], max: [major, minor, patch + 1] };
+  }
+  throw new Error(`Unsupported peer range ${range} for ${name} in the NewHeap compatibility metadata.`);
+}
+
+/** The alternatives of a peer range such as `^20.3.28 || ^21.0.0`. */
+const peerRangeAlternatives = (name, range) => range.split('||').map(comparator => comparatorBounds(name, range, comparator.trim()));
+const accepts = (alternatives, version) => alternatives.some(({ min, max }) =>
+  compareVersions(version, min) >= 0 && (!max || compareVersions(version, max) < 0));
+
+/**
+ * The Angular versions to pin, derived from the peer ranges of @newheap/platform-common: the lowest
+ * version that every @angular/* range accepts, so the pins always satisfy the library.
+ */
+function angularPins() {
+  const peers = distribution.npmPeerDependencies?.['@newheap/platform-common'];
+  if (!peers?.['@angular/core']) {
+    throw new Error('Compatibility metadata has no Angular peer range for @newheap/platform-common. Install this skill from the current plugin before bootstrapping a front end.');
+  }
+  const ranges = Object.entries(peers)
+    .filter(([name]) => name.startsWith('@angular/'))
+    .map(([name, range]) => peerRangeAlternatives(name, range));
+  // The lowest accepted version is always the lower bound of one of the alternatives.
+  const version = ranges
+    .flatMap(alternatives => alternatives.map(alternative => alternative.min))
+    .sort(compareVersions)
+    .find(candidate => ranges.every(alternatives => accepts(alternatives, candidate)));
+  if (!version) {
+    throw new Error('No single Angular version satisfies every @angular/* peer range of @newheap/platform-common.');
+  }
+  const toolchain = angularToolchains.get(version[0]);
+  if (!toolchain) {
+    throw new Error(`The bootstrap has no TypeScript and zone.js ranges for Angular ${version[0]}. Add them before bootstrapping with this platform-common version.`);
+  }
+  return {
+    framework: version.join('.'),
+    tooling: `^${version[0]}.${version[1]}.0`,
+    rxjs: peers.rxjs ?? '~7.8.0',
+    ...toolchain
+  };
+}
+
 const backendRoot = resolve(consumerRoot, 'src', 'Back-end');
 const frontendRoot = resolve(consumerRoot, 'src', 'Front-end');
 const created = [];
@@ -122,7 +197,7 @@ await writeManaged('newheap-consumer.json', `${JSON.stringify({
     backgroundService: backgroundServiceEnabled,
     persistence: database !== 'none',
     authentication: authenticationEnabled,
-    frontend: frontendEnabled ? 'management' : 'deferred'
+    frontend: frontendKind ?? 'deferred'
   },
   databaseProvider: database === 'none' ? null : database,
   features,
@@ -248,6 +323,7 @@ await host.RunAsync();
 }
 
 if (frontendEnabled) {
+  const angular = angularPins();
   await writeManaged('src/Front-end/.npmrc', `registry=https://registry.npmjs.org/
 @newheap:registry=https://registry.npmjs.org/
 `);
@@ -258,24 +334,24 @@ if (frontendEnabled) {
   private: true,
   scripts: {},
   dependencies: {
-    '@angular/animations': '20.3.27',
-    '@angular/common': '20.3.27',
-    '@angular/compiler': '20.3.27',
-    '@angular/core': '20.3.27',
-    '@angular/forms': '20.3.27',
-    '@angular/platform-browser': '20.3.27',
-    '@angular/platform-browser-dynamic': '20.3.27',
-    '@angular/router': '20.3.27',
+    '@angular/animations': angular.framework,
+    '@angular/common': angular.framework,
+    '@angular/compiler': angular.framework,
+    '@angular/core': angular.framework,
+    '@angular/forms': angular.framework,
+    '@angular/platform-browser': angular.framework,
+    '@angular/platform-browser-dynamic': angular.framework,
+    '@angular/router': angular.framework,
     '@newheap/platform-common': `^${requiredPackageVersion('@newheap/platform-common')}`,
-    'rxjs': '~7.8.0',
+    'rxjs': angular.rxjs,
     'tslib': '^2.3.0',
-    'zone.js': '~0.15.0'
+    'zone.js': angular.zoneJs
   },
   devDependencies: {
-    '@angular/build': '^20.3.26',
-    '@angular/cli': '^20.3.26',
-    '@angular/compiler-cli': '20.3.27',
-    'typescript': '~5.9.2'
+    '@angular/build': angular.tooling,
+    '@angular/cli': angular.tooling,
+    '@angular/compiler-cli': angular.framework,
+    'typescript': angular.typescript
   }
 }, null, 2)}\n`);
 
@@ -343,6 +419,7 @@ const renderAgentInstructions = skillDirectory => `# NewHeap consumer instructio
 - Leave only \`src/Front-end/.gitkeep\` while no user interface is needed. Create the Angular workspace in \`src/Front-end\` and applications in \`src/Front-end/projects\` only after an interactive frontend is confirmed.
 - Complete package restore and installation before generating domain features.
 - For a confirmed management portal, use NewHeap protected/base controllers, \`NhBaseApiService\`, collection bases and modal services; do not substitute generic CRUD panels or edit asides.
+- For a confirmed public website, keep the Angular application and its API endpoints anonymous, without a login; when sign-in becomes part of the scope, change the profile instead of adding it to the public site.
 - Run \`node ${skillDirectory}/skills/newheap-platform-development/skills/foundation/scripts/inspect-newheap-consumer.mjs . --mode validate\` before handoff.
 `;
 

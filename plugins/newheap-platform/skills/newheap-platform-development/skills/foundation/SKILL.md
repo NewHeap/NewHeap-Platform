@@ -1,6 +1,6 @@
 ---
 name: newheap-consumer-development
-description: Bootstrap, inspect, repair or upgrade a repository that consumes NewHeap Platform packages. Use for first-time project setup, choosing a service/API/management-portal foundation, public package access, optional infrastructure, or validating an existing NewHeap foundation. Do not use for ordinary feature implementation in an already configured consumer.
+description: Bootstrap, inspect, repair or upgrade a repository that consumes NewHeap Platform packages. Use for first-time project setup, choosing a service/API/management-portal/public-website foundation, public package access, optional infrastructure, or validating an existing NewHeap foundation. Do not use for ordinary feature implementation in an already configured consumer.
 ---
 
 # NewHeap consumer foundation
@@ -13,7 +13,8 @@ Infer the profile from the product outcome rather than asking the user to choose
 
 - automatic work without screens maps to `service`;
 - system-to-system HTTP work maps to `api`;
-- confirmed interactive administration maps to `management-portal`.
+- confirmed interactive administration maps to `management-portal`;
+- pages that anonymous visitors read, without sign-in, map to `public-website`.
 
 Select persistence, authentication, Aspire, Docker and Elasticsearch only when the outcome requires them or the repository already establishes them. Before creating files, summarize the proposed result and what remains deferred.
 
@@ -30,7 +31,7 @@ Read only the reference needed for the current setup task:
 For an empty repository, run:
 
 ```text
-node <skill-directory>/scripts/bootstrap-newheap-consumer.mjs <consumer-root> --name <Application.Name> --profile <service|api|management-portal> --database <none|postgresql|sqlserver>
+node <skill-directory>/scripts/bootstrap-newheap-consumer.mjs <consumer-root> --name <Application.Name> --profile <service|api|management-portal|public-website> --database <none|postgresql|sqlserver>
 ```
 
 Add `--authentication`, `--aspire`, `--docker` or `--elasticsearch` only for confirmed needs. Do not use `--skip-install` as proof of a ready foundation.

@@ -132,6 +132,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantProposalDecisions>();
             // The same decision for the application's own channels, such as a messaging reply.
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
+            // A person's turns in their chat for the application's own channels, without their request (LS19).
+            services.TryAddScoped<INhAssistantConversationTurns, NhAssistantConversationTurns>();
             // What a person's inbox lists, counted per status for the application's digests (LS14).
             services.TryAddScoped<INhAssistantProposalCounts, NhAssistantProposalCounts>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
