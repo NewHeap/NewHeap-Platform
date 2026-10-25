@@ -35,7 +35,11 @@ import {
   NH_ASSISTANT_JOIN_FRAGMENT,
   NH_ASSISTANT_RUN_FRAGMENT
 } from '../../services/nh-assistant-share-link';
-import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
+import {
+  NhAssistantApprovalChoice,
+  NhAssistantApprovalResolutionChoice,
+  NhAssistantThreadComponent
+} from '../thread/nh-assistant-thread.component';
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
 
 let nextId = 0;
@@ -312,6 +316,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   /** Decides the approval of a card; in an agent thread several proposals can be open. */
   decideApproval(choice: NhAssistantApprovalChoice): void {
     this.store.decide(choice.decision, undefined, choice.approvalId);
+  }
+
+  resolveApproval(choice: NhAssistantApprovalResolutionChoice): void {
+    void this.store.resolveApproval(choice.approvalId, choice.resolution);
   }
 
   cancel(): void {

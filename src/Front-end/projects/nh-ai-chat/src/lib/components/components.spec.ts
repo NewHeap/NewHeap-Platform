@@ -3,7 +3,7 @@ import { Component, Injectable } from '@angular/core';
 import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { BehaviorSubject, Observable, Subject, firstValueFrom, of } from 'rxjs';
-import { ApprovalDecision, ApprovalPart, AssistantStatus, Message, ToolCallPart } from '../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ApprovalResolution, AssistantStatus, Message, ToolCallPart } from '../models/assistant-api.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -309,6 +309,44 @@ describe('NhAssistantApprovalCardComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Review this action before it runs.');
     expect(text).not.toContain('Technical descriptor');
+  });
+
+  it('offers the person who approved it to resolve an uncertain hand-off, once until the host is done', () => {
+    const resolutions: ApprovalResolution[] = [];
+    fixture.componentInstance.resolve.subscribe(resolution => resolutions.push(resolution));
+    fixture.componentRef.setInput('approval', { ...approval, status: 'execution-unknown', canResolve: true, executionResultCode: 'report-overdue' });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.status')!.textContent).toContain('Outcome unknown');
+    expect(element.querySelector('.resolve-explanation')!.textContent).toContain('It is not known whether the application carried this out.');
+    const handAgain = element.querySelector('[data-hand-to-application]') as HTMLButtonElement;
+    const markResolved = element.querySelector('[data-mark-resolved]') as HTMLButtonElement;
+    expect(handAgain.textContent).toContain('Hand to the application again');
+    expect(markResolved.textContent).toContain('Mark as done');
+    expect(handAgain.getAttribute('aria-describedby')).toBe(element.querySelector('.resolve-explanation')!.id);
+
+    handAgain.click();
+    fixture.detectChanges();
+    markResolved.click();
+    expect(resolutions).toEqual(['hand-to-application']);
+    expect(markResolved.disabled).toBeTrue();
+
+    // A refused resolution may be tried again once the host is done.
+    fixture.componentRef.setInput('deciding', true);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('deciding', false);
+    fixture.detectChanges();
+    markResolved.click();
+    expect(resolutions).toEqual(['hand-to-application', 'mark-resolved']);
+
+    // Without the right to resolve, or once resolved, nothing is offered.
+    fixture.componentRef.setInput('approval', { ...approval, status: 'execution-unknown' });
+    fixture.detectChanges();
+    expect(element.querySelector('[data-resolve]')).toBeNull();
+    fixture.componentRef.setInput('approval', { ...approval, status: 'resolved', canResolve: true });
+    fixture.detectChanges();
+    expect(element.querySelector('[data-resolve]')).toBeNull();
   });
 
   it('emits one decision on a double click', () => {

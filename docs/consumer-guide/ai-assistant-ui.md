@@ -317,7 +317,12 @@ the buttons, the person who started the work reads that another approver decides
 everyone else waits for an approver. The panel decides a run's proposal with its proposal
 hash through `NhAssistantAgentRunApiService` (`POST approvals/{id}/decisions`) and reloads
 the thread; a proposal of a person's own turn in the thread still resumes that turn as a
-stream. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
+stream. In a chat, an approval the user approved whose hand-off to the application has an unknown
+outcome (`ApprovalPart.canResolve`, SPM-328) shows "Hand to the application again" and "Mark as done"
+on its card: the card emits `resolve` (`ApprovalResolution`), the thread `approvalResolution`
+(`NhAssistantApprovalResolutionChoice`), and the panel calls `NhAssistantStore.resolveApproval`, which
+posts `NhAssistantApiService.resolveApproval` (`ResolveApprovalRequest`) and shows the conversation the
+server returns. The mock API resolves it as the server does. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
 a participant. A message the application posted (`role: 'application'`, SPM-312) reads as the
 application's in chats and threads alike: a card with the application's mark, the sender with an
 "Application" tag, the title, the text as Markdown and the link (`Message.application`,
@@ -1136,6 +1141,11 @@ are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+- SPM-328 — A person approves an equipment order in their own chat and the order desk reports into that chat
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs)
 - SPM-330 — An operator promotes the planner's trial, a shadow variant created at runtime, onto the planner with its skills
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)

@@ -197,6 +197,12 @@
       "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
       "waiting-for-approver": "Wacht tot een beslisser hierover beslist.",
       "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover.",
+      "resolve": {
+        "explanation": "Het is niet bekend of de applicatie dit heeft uitgevoerd. Controleer het en geef het opnieuw aan de applicatie of markeer het als afgehandeld.",
+        "hand-to-application": "Opnieuw aan de applicatie geven",
+        "mark-resolved": "Markeren als afgehandeld",
+        "resolving": "Je keuze wordt verstuurd"
+      },
       "waiting-for-asker": "Wacht tot degene die het vroeg, beslist in de eigen chat.",
       "give-feedback": "Wat klopte er niet?",
       "stale-kind": {

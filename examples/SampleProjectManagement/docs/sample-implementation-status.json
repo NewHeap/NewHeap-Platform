@@ -3197,7 +3197,10 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantInlineHandOffs.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineApplicationExecutionTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineApplicationExecutionTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-application-execution.spec.ts"
     ],
     "SPM-329": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentDefinitionService.cs",

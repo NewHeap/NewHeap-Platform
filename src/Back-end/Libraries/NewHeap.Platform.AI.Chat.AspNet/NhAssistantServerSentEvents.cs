@@ -211,8 +211,8 @@ internal static class NhAssistantDtoMapper
             view.CreatedAt,
             view.UpdatedAt,
             view.AgentVersion,
-            view.Messages.Select(ToDto).ToArray(),
-            view.PendingApproval is null ? null : ToDto(view.PendingApproval),
+            view.Messages.Select(message => ToDto(message, ChatResolverOf(view, currentActorId))).ToArray(),
+            view.PendingApproval is null ? null : ToDto(view.PendingApproval, ChatResolverOf(view, currentActorId)),
             view.Role,
             view.LastReadSequence,
             view.LastMessageSequence,
@@ -232,11 +232,18 @@ internal static class NhAssistantDtoMapper
 
     public static NhAssistantMessageDto ToDto(NhAssistantMessageView message)
     {
+        return ToDto(message, null);
+    }
+
+    /// <param name="chatActorId">The caller of a chat, who may resolve the uncertain executions they
+    /// approved there; <see langword="null"/> elsewhere.</param>
+    public static NhAssistantMessageDto ToDto(NhAssistantMessageView message, string? chatActorId)
+    {
         return new NhAssistantMessageDto(
             message.Id,
             message.Role,
             message.CreatedAt,
-            message.Parts.Select(ToDto).ToArray(),
+            message.Parts.Select(part => ToDto(part, chatActorId)).ToArray(),
             message.Sequence,
             // An agent message names no person; a rule message says so through its author kind.
             message.Role == NhAssistantMessageRoles.User ? message.AuthorActorId : null,
@@ -253,6 +260,32 @@ internal static class NhAssistantDtoMapper
     }
 
     public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part)
+    {
+        return ToDto(part, null);
+    }
+
+    /// <summary>
+    /// The caller who may resolve uncertain executions in <paramref name="view"/>: the caller of a chat;
+    /// an agent thread's uncertain executions are resolved through <c>approvals/{id}/resolve</c>.
+    /// </summary>
+    private static string? ChatResolverOf(NhAssistantConversationView view, string? currentActorId)
+    {
+        return view.Kind == NhAssistantConversationKinds.Chat ? currentActorId : null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="chatActorId"/> may resolve the approval in the chat (LS17): it is uncertain,
+    /// it was handed to the application and they approved it.
+    /// </summary>
+    private static bool MayResolve(NhAssistantApprovalView approval, string? chatActorId)
+    {
+        return chatActorId is not null
+            && approval.Status == NhAssistantApprovalStatuses.ExecutionUnknown
+            && approval.ExecutionReportDueAt is not null
+            && string.Equals(approval.DecidedByActorId, chatActorId, StringComparison.Ordinal);
+    }
+
+    public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part, string? chatActorId)
     {
         return part switch
         {
@@ -291,6 +324,9 @@ internal static class NhAssistantDtoMapper
                 StaleExplanation = approval.StaleExplanation,
                 Rationale = approval.Rationale,
                 SupersededByApprovalId = approval.SupersededByApprovalId,
+                ExecutionResultCode = approval.ExecutionResultCode,
+                ExecutionReportDueAt = approval.ExecutionReportDueAt,
+                CanResolve = MayResolve(approval, chatActorId) ? true : null,
                 Consultation = approval.Consultation is { } origin
                     ? new NhAssistantApprovalConsultationDto(
                         origin.ConsultationId,

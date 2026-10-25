@@ -96,9 +96,15 @@ tool call keeps waiting as a deferred call does until the report ends it. In an 
 above applies. In a chat, which has no approvers, nobody is notified and no follow-up run starts: every
 close is posted into that conversation as an application message without the trusted flag, the outcome
 with its code and the report's summary, so the report, a refused hand-off and a passed deadline reach
-the person who approved; an uncertain chat proposal stays `execution-unknown`, because the `resolve`
-endpoints work on agent threads. The maintenance job also expires these deadlines in a host without
-agent runs.
+the person who approved. The person who approved resolves an uncertain chat proposal with the rules of
+an agent thread's `resolve` through `POST conversations/{id}/approvals/{approvalId}/resolve`
+(`NhAssistantResolveExecutionRequest`): `hand-to-application` runs the execution guards and hands it to
+the application again with a new attempt and a new deadline, `mark-resolved` confirms it, `re-execute`
+and an agent thread's proposal are `400 assistant-approval-decision-invalid`, another participant gets
+`403 assistant-approval-forbidden`, another status `409 assistant-execution-not-uncertain`, and the audit
+records `AgentProposalResolved`; the answer is the conversation, whose approval part says `CanResolve`
+only to that person (`NhAssistantApprovalPartDto.ExecutionResultCode`, `ExecutionReportDueAt`,
+`CanResolve`). The maintenance job also expires these deadlines in a host without agent runs.
 
 A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
 happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with
@@ -2182,7 +2188,9 @@ notifies nobody without `Members<T>()`, that with it the listed approvers are no
 readers, people without a role and unusable ids are not, that a division counts only people who work
 there and that a list is read up to its bound. For `AlsoInline` assert the hand-off of a chat approval,
 the turn's tool result, the report posted into that chat without the trusted flag, the deadline and a
-refused executor, and that without it the inline approval still runs the function. For
+refused executor, that only the person who approved resolves an uncertain chat proposal, that a
+proposal in another status is refused and that handing it again starts a new attempt with a new deadline,
+and that without it the inline approval still runs the function. For
 `MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
 default without a limit and an agent's own limit. SPM-327 and SPM-328 are the executable references.
 For definitions from code, on both providers, update an agent created at runtime at its version and

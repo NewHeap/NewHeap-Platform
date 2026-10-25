@@ -442,6 +442,28 @@ public sealed record NhAssistantApprovalPartDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantApprovalConsultationDto? Consultation { get; init; }
+
+    /// <summary>
+    /// The result of the execution, such as the application's code or <c>report-overdue</c>. Only
+    /// written once the proposal executed or was handed to the application.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExecutionResultCode { get; init; }
+
+    /// <summary>
+    /// Until when the application's report is due, for a proposal handed to the application
+    /// (<c>AlsoInline</c>). Only written then.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ExecutionReportDueAt { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> when the caller may resolve this uncertain execution in the chat with
+    /// <c>POST conversations/{id}/approvals/{approvalId}/resolve</c>: an <c>execution-unknown</c> proposal
+    /// of a chat that the caller approved and that was handed to the application. Only written then.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? CanResolve { get; init; }
 }
 
 /// <summary>

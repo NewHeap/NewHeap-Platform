@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -41,6 +43,10 @@ internal sealed class NhAssistantApplicationExecutions(
     NhAssistantAgentTriggers triggers,
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantLivePublisher live,
+    NhAssistantProposalGuards guards,
+    NhAssistantProposalInvalidation invalidation,
+    NhAssistantApproverCheck approvers,
+    IAuthorizationService authorization,
     IOptions<RequestLocalizationOptions> localization,
     IServiceProvider services,
     ILogger<NhAssistantApplicationExecutions> logger) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
@@ -92,6 +98,149 @@ internal sealed class NhAssistantApplicationExecutions(
         var home = thread is null ? HomeOf(conversation, approval) : HomeOf(thread);
         var proposal = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
         return await HandOffCoreAsync(approval, home, proposal, execution, InlineHandOffStatuses, operationId: null, inline: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Resolves an uncertain execution of a person's chat (LS17) with the rules of an agent thread's
+    /// <c>resolve</c>: only an <c>execution-unknown</c> proposal, only by the person who approved it in the
+    /// chat and who may still approve the tool, <c>hand-to-application</c> for a proposal handed to the
+    /// application and <c>mark-resolved</c> for any, never <c>re-execute</c>, because a chat proposal runs
+    /// in its function only within the person's turn. Handing it again runs the execution guards first and
+    /// starts a new attempt with a new deadline. The audit records <c>AgentProposalResolved</c> with the
+    /// resolution. A proposal of an agent thread is resolved through <c>approvals/{id}/resolve</c>.
+    /// </summary>
+    public async Task<TaskResult<AssistantApproval>> ResolveInChatAsync(
+        AssistantConversation conversation,
+        Guid approvalId,
+        string actorId,
+        ClaimsPrincipal user,
+        NhAssistantExecutionResolution resolution,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(user);
+        var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
+        if (approval is null || approval.ConversationId != conversation.Id || approval.Mode != NhAssistantApprovalModes.Inline)
+        {
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
+        }
+        if (await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken) is not null)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                "A proposal of an agent thread is resolved through approvals/{approvalId}/resolve.");
+        }
+        if (approval.Status != NhAssistantApprovalStatuses.ExecutionUnknown)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ExecutionNotUncertain,
+                "Only an execution with an unknown outcome can be resolved.");
+        }
+        if (!string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal))
+        {
+            // The person who approved it in their own turn answers for it, as for the decision.
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalForbidden, "The approval belongs to another participant.");
+        }
+
+        var handedToApplication = approval.ExecutionReportDueAt is not null;
+        if (resolution == NhAssistantExecutionResolution.ReExecute
+            || (resolution == NhAssistantExecutionResolution.HandToApplication && !handedToApplication))
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                handedToApplication
+                    ? "The application executes this proposal; hand it to the application again."
+                    : "Only a proposal the application executes is handed to it again.");
+        }
+
+        // The tool's approve policy keeps a person from resolving what they may no longer do themselves.
+        foreach (var toolPolicy in approvers.FindDescriptor(approval.ToolId)?.ApproverPolicies ?? [])
+        {
+            if (!(await authorization.AuthorizeAsync(user, null, toolPolicy)).Succeeded)
+            {
+                return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalPolicyDenied, "The caller may not approve this tool.");
+            }
+        }
+
+        var home = HomeOf(conversation, approval);
+        NhAssistantApplicationExecution? execution = null;
+        if (resolution == NhAssistantExecutionResolution.HandToApplication)
+        {
+            if (!registration.TryGetApplicationExecution(approval.ToolId, out execution))
+            {
+                return TaskResult<AssistantApproval>.Failed(
+                    NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                    "The application no longer executes this tool.");
+            }
+
+            // The work may have been done another way since: the execution guards decide first.
+            if (guards.HasGuards(approval.ToolId, NhAiProposalGuardStages.Execution))
+            {
+                var check = await guards.CheckAsync(
+                    NhAssistantProposalGuards.ContextOf(approval, null),
+                    NhAiProposalGuardStages.Execution,
+                    cancellationToken);
+                if (check.Stale is { } stale)
+                {
+                    await invalidation.CloseAsync(
+                        approval,
+                        null,
+                        home.AgentId,
+                        stale,
+                        NhAssistantInvalidationStages.Execution,
+                        [NhAssistantApprovalStatuses.ExecutionUnknown],
+                        actorId,
+                        CancellationToken.None);
+                    return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ProposalStale, "The proposal no longer applies.");
+                }
+                if (check.Failed)
+                {
+                    return TaskResult<AssistantApproval>.Failed(
+                        NhAssistantErrorCodes.ProposalCheckFailed,
+                        "Whether the proposal still applies could not be checked.");
+                }
+            }
+        }
+
+        var resolved = await runs.TryTransitionApprovalAsync(
+            approval.Id,
+            [NhAssistantApprovalStatuses.ExecutionUnknown],
+            execution is not null ? NhAssistantApprovalStatuses.Approved : NhAssistantApprovalStatuses.Resolved,
+            new NhAssistantApprovalTransition
+            {
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                ExecutionResultCode = execution is not null ? "hand-off-acknowledged" : "resolved-by-approver",
+                DecidedByActorId = actorId
+            },
+            cancellationToken);
+        if (!resolved)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ExecutionNotUncertain,
+                "The execution was resolved by someone else.");
+        }
+
+        approval = (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!;
+        await events.ProposalAsync(
+            NhAssistantAuditEventKind.AgentProposalResolved,
+            home.AgentId,
+            null,
+            approval,
+            actorId,
+            NhAssistantExecutionResolutions.Of(resolution),
+            null,
+            null,
+            CancellationToken.None);
+        if (execution is not null)
+        {
+            // A new attempt with a new deadline, as an agent thread's hand-off again.
+            var proposal = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
+            await HandOffCoreAsync(approval, home, proposal, execution, InlineHandOffStatuses, operationId: null, inline: true, cancellationToken);
+        }
+
+        await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
+        return TaskResult<AssistantApproval>.Succeeded((await store.FindApprovalAsync(approval.Id, CancellationToken.None))!);
     }
 
     public async Task<TaskResult<NhAssistantExecutionReportReceipt>> ReportExecutionAsync(

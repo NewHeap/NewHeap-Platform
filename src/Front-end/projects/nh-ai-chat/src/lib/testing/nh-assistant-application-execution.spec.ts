@@ -4,8 +4,11 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
 import { NhAssistantAgentProposalsComponent } from '../../../agent-runs/src/public-api';
+import { NhAssistantApprovalCardComponent } from '../components/approval-card/nh-assistant-approval-card.component';
 import { AgentProposal, AgentSubjectWorkProposal } from '../models/assistant-agent-run.models';
+import { ApprovalPart, Conversation } from '../models/assistant-api.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
+import { NhAssistantStore } from '../services/nh-assistant.store';
 
 /**
  * A proposal the application executes (S5, `ExecuteInApplication` on the server): approved, it waits
@@ -107,6 +110,130 @@ function card(element: HTMLElement, index: number): HTMLElement {
 function buttonsOf(element: HTMLElement): string[] {
   return Array.from(element.querySelectorAll('button')).map(item => item.textContent?.trim() ?? '');
 }
+
+/** An order the person approved in their chat whose hand-off to the application has an unknown outcome. */
+function uncertainOrder(overrides: Partial<ApprovalPart> = {}): ApprovalPart {
+  return {
+    type: 'approval',
+    approvalId: 'chat-order',
+    proposalId: 'chat-order-proposal',
+    proposalHash: 'sha256:chat-order',
+    toolId: 'projects.order-hardware',
+    summary: 'Order hardware.',
+    presentation: null,
+    argumentsPreview: '{}',
+    targets: [],
+    expiresAt: '2026-10-25T09:00:00Z',
+    status: 'execution-unknown',
+    executionResultCode: 'report-overdue',
+    executionReportDueAt: '2026-10-25T08:00:00Z',
+    canResolve: true,
+    ...overrides
+  };
+}
+
+function chat(parts: ApprovalPart[]): Conversation {
+  return {
+    id: 'chat-1',
+    agentId: 'purchasing',
+    agentVersion: 1,
+    title: 'Hardware',
+    status: 'idle',
+    kind: 'chat',
+    createdAt: '2026-10-25T07:00:00Z',
+    updatedAt: '2026-10-25T07:00:00Z',
+    pendingApproval: null,
+    messages: [{ id: 'm-1', role: 'assistant', createdAt: '2026-10-25T07:00:00Z', parts }]
+  };
+}
+
+describe('A chat approval handed to the application', () => {
+  async function configureChat(parts: ApprovalPart[]): Promise<NhAssistantStore> {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService({ fallbackLang: 'en' }),
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token' }),
+        provideNhAssistantMockApi({ ...scenario(), conversations: [chat(parts)] })
+      ]
+    });
+    await firstValueFrom(TestBed.inject(TranslateService).use('en'));
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+    await store.openConversation('chat-1');
+    return store;
+  }
+
+  function approvalIn(store: NhAssistantStore, approvalId: string): ApprovalPart | undefined {
+    return store.activeConversation()?.messages
+      .flatMap(message => message.parts)
+      .find((part): part is ApprovalPart => part.type === 'approval' && part.approvalId === approvalId);
+  }
+
+  it('is handed to the application again by the person who approved it, as the server does', async () => {
+    const store = await configureChat([uncertainOrder()]);
+
+    await store.resolveApproval('chat-order', 'hand-to-application');
+
+    const handed = approvalIn(store, 'chat-order')!;
+    expect(handed.status).toBe('awaiting-application');
+    expect(handed.canResolve).toBeUndefined();
+    expect(Date.parse(handed.executionReportDueAt!)).toBeGreaterThan(Date.now());
+    const request = TestBed.inject(NhAssistantMockBackend).requests.find(item => item.path.endsWith('/resolve'));
+    expect(request?.method).toBe('POST');
+    expect(request?.body).toEqual({ action: 'hand-to-application' });
+
+    // Resolved once, it offers nothing more and the store sends nothing again.
+    await store.resolveApproval('chat-order', 'mark-resolved');
+    expect(TestBed.inject(NhAssistantMockBackend).requests.filter(item => item.path.endsWith('/resolve')).length).toBe(1);
+  });
+
+  it('is marked resolved, and the mock refuses what the server refuses', async () => {
+    const store = await configureChat([
+      uncertainOrder(),
+      uncertainOrder({ approvalId: 'other-order', canResolve: undefined }),
+      uncertainOrder({ approvalId: 'waiting-order', status: 'awaiting-application', canResolve: undefined })
+    ]);
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    async function resolve(approvalId: string, action: string): Promise<{ status: number; code: string | null }> {
+      const response = await backend.fetch(`/api/assistant/conversations/chat-1/approvals/${approvalId}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ action })
+      });
+      const body = await response.json();
+      return { status: response.status, code: body.code ?? null };
+    }
+
+    expect(await resolve('chat-order', 're-execute')).toEqual({ status: 400, code: 'assistant-approval-decision-invalid' });
+    expect(await resolve('other-order', 'mark-resolved')).toEqual({ status: 403, code: 'assistant-approval-forbidden' });
+    expect(await resolve('waiting-order', 'mark-resolved')).toEqual({ status: 409, code: 'assistant-execution-not-uncertain' });
+
+    await store.resolveApproval('chat-order', 'mark-resolved');
+
+    expect(approvalIn(store, 'chat-order')?.status).toBe('resolved');
+    // The store ignores an approval the user may not resolve.
+    await store.resolveApproval('other-order', 'mark-resolved');
+    expect(approvalIn(store, 'other-order')?.status).toBe('execution-unknown');
+  });
+
+  it('offers its resolution in Dutch', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService({ fallbackLang: 'en' }),
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token' }),
+        provideNhAssistantMockApi(scenario())
+      ]
+    });
+    await firstValueFrom(TestBed.inject(TranslateService).use('nl'));
+    const fixture: ComponentFixture<NhAssistantApprovalCardComponent> = TestBed.createComponent(NhAssistantApprovalCardComponent);
+    fixture.componentRef.setInput('approval', uncertainOrder());
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.resolve-explanation')!.textContent).toContain('Het is niet bekend of de applicatie dit heeft uitgevoerd.');
+    expect(element.querySelector('[data-hand-to-application]')!.textContent).toContain('Opnieuw aan de applicatie geven');
+    expect(element.querySelector('[data-mark-resolved]')!.textContent).toContain('Markeren als afgehandeld');
+  });
+});
 
 describe('A proposal the application executes', () => {
   it('waits for the application after its approval, and the mock resolves it as the server does', async () => {

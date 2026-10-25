@@ -16,7 +16,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { ApprovalDecision, ApprovalPart, ConversationMember, FilePart, Message } from '../../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, FilePart, Message } from '../../models/assistant-api.models';
 import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
@@ -31,6 +31,12 @@ import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store
 export interface NhAssistantApprovalChoice {
   approvalId: string;
   decision: ApprovalDecision;
+}
+
+/** How the user resolves the uncertain hand-off of one approval they made in this chat. */
+export interface NhAssistantApprovalResolutionChoice {
+  approvalId: string;
+  resolution: ApprovalResolution;
 }
 
 /** Above this number of messages the thread renders through CDK virtual scrolling. */
@@ -111,6 +117,8 @@ export class NhAssistantThreadComponent {
   readonly approvalDecision = output<ApprovalDecision>();
   /** The decision about an approval card together with its approval id. */
   readonly approvalChoice = output<NhAssistantApprovalChoice>();
+  /** How the user resolves an uncertain hand-off they approved in this chat, with its approval id. */
+  readonly approvalResolution = output<NhAssistantApprovalResolutionChoice>();
   /**
    * The question to ask again after the viewer connected an MCP server from a connection card: the
    * text of the user message the card answered. The panel sends it.
@@ -255,6 +263,10 @@ export class NhAssistantThreadComponent {
   choose(approval: ApprovalPart, decision: ApprovalDecision): void {
     this.approvalDecision.emit(decision);
     this.approvalChoice.emit({ approvalId: approval.approvalId, decision });
+  }
+
+  resolveApproval(approval: ApprovalPart, resolution: ApprovalResolution): void {
+    this.approvalResolution.emit({ approvalId: approval.approvalId, resolution });
   }
 
   /** Display name of another person's message, or `null` when the application provides none. */
