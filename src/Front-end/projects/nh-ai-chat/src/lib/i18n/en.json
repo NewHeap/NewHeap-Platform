@@ -434,6 +434,7 @@
       "assistant-consult-proposal-moved": "The proposal was left for the subject's approvers.",
       "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
       "assistant-shadow-variant": "A shadow variant always works in shadow.",
+      "assistant-not-shadow-variant": "Only a shadow variant created here can be promoted onto its live agent.",
       "assistant-service-account-not-used": "This agent does not answer to a technical account.",
       "assistant-service-account-not-found": "No account that may sign in exists with this id.",
       "assistant-skill-in-code": "This skill is part of the code and cannot change here.",
@@ -2009,6 +2010,19 @@
         "open": "Run configuration",
         "set-up": "Set up runs",
         "open-named": "Open the run configuration of {{name}}",
+        "promote": "Promote onto {{name}}",
+        "promote-named": "Promote {{variant}} onto {{name}}",
+        "promote-confirm": {
+          "title": "Promote {{variant}} onto {{name}}?",
+          "code": "Its description, instructions, tools, required policy and autonomy become the next version of {{name}}, an agent in code, as an override until it is reset. {{name}} keeps its name, MCP servers, run settings, triggers, state and shadow mode.",
+          "admin": "Its description, instructions, tools, required policy, autonomy, profile, classification and what it works on become the next version of {{name}}. {{name}} keeps its name, MCP servers, metadata, run settings, triggers, state and shadow mode.",
+          "removed": "The variant is removed afterwards; it never goes live itself.",
+          "move-skills": "Move its skills too",
+          "move-skills-hint": "Each skill becomes the next live version of the skill with the same id, or a new skill that starts in shadow.",
+          "confirm": "Promote",
+          "promoting": "Promoting…"
+        },
+        "promoted": "{{variant}} was promoted onto {{name}}, which is at version {{version}} now.",
         "problems": {
           "invalid": "Out of effect: a stored value is not valid.",
           "outside-ceiling": "Out of effect: the application no longer lets administrators create shadow variants of this agent.",

@@ -40,6 +40,7 @@
     <nh-assistant-agent-shadow-variants
       [agent]="agent"
       (created)="onVariantCreated($event)"
+      (promoted)="onVariantPromoted($event)"
       (openVariant)="variantFromRunConfiguration($event)" />
   </div>
 } @else if (viewingRuns(); as agent) {

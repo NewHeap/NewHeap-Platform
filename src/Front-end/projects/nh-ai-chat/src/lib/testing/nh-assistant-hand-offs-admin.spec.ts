@@ -115,6 +115,12 @@ function requestBodies(method: string, path: string): unknown[] {
     .map(item => item.body);
 }
 
+/** A data shadow variant of the planner, as an administrator creates it. */
+const variantDefinition = {
+  id: 'planner-v2', displayName: 'Planner v2', description: 'Plans strictly.', instructions: 'Plan strictly.',
+  toolSelectors: ['projects.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose', shadowOf: 'planner'
+};
+
 /** Opens the run configuration of the agent on the agents page and returns the page. */
 async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
   (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
@@ -211,9 +217,37 @@ describe('Hand-offs and shadow variants as data in the mock API', () => {
       agentId: 'planner',
       allowsDataVariants: true,
       maxDataVariants: 1,
-      variants: [{ agentId: 'planner-v2', displayName: 'Planner v2', source: 'data', hasRunSettings: false, inEffect: false, problem: null }]
+      variants: [{ agentId: 'planner-v2', displayName: 'Planner v2', source: 'data', hasRunSettings: false, inEffect: false, problem: null, version: 1 }]
     });
     expect(((await call('GET', 'admin/agents/reviewer/shadow-variants')).body as AgentShadowVariants).allowsDataVariants).toBeFalse();
+  });
+
+  it('promotes a data variant onto its live agent through the update path, moves its skills and removes it', async () => {
+    expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
+    expect((await call('PUT', 'admin/agents/planner-v2/run-settings', { accountability: 'agent' })).status).toBe(200);
+    expect((await call('PUT', 'admin/agents/planner-v2/skills/review', { description: 'Reviews plans.', instructions: 'Review the plan.', tools: ['projects.*'] })).status).toBe(200);
+
+    // Only a data variant, at the versions the administrator saw.
+    expect((await call('POST', 'admin/agents/planner/promote', { expectedVersion: 1 })).body.code).toBe('assistant-not-shadow-variant');
+    expect((await call('POST', 'admin/agents/ghost/promote', { expectedVersion: 1 })).body.code).toBe('assistant-agent-not-found');
+    const missing = await call('POST', 'admin/agents/planner-v2/promote', { moveSkills: true });
+    expect([missing.status, missing.body.errors]).toEqual([400, { expectedVersion: ['required'] }]);
+    expect((await call('POST', 'admin/agents/planner-v2/promote', { expectedVersion: 2 })).body.code).toBe('assistant-version-conflict');
+    expect((await call('POST', 'admin/agents/planner-v2/promote', { expectedVersion: 1, expectedVariantVersion: 3 })).body.code).toBe('assistant-version-conflict');
+
+    const promoted = await call('POST', 'admin/agents/planner-v2/promote', { expectedVersion: 1, moveSkills: true, expectedVariantVersion: 1 });
+    expect(promoted.status).toBe(200);
+    // The live agent in code keeps its name and takes the fields it overrides, as its next version.
+    expect(promoted.body).toEqual(jasmine.objectContaining({ variantId: 'planner-v2', movedSkills: ['review'] }));
+    expect(promoted.body.agent).toEqual(jasmine.objectContaining({
+      id: 'planner', version: 2, displayName: 'Project planner', description: 'Plans strictly.', instructions: 'Plan strictly.',
+      autonomy: 'propose', isOverridden: true, source: 'code'
+    }));
+    const agents = (await call('GET', 'admin/agents')).body as { id: string }[];
+    expect(agents.map(agent => agent.id)).not.toContain('planner-v2');
+    expect(((await call('GET', 'admin/agents/planner/shadow-variants')).body as AgentShadowVariants).variants).toEqual([]);
+    const configuration = (await call('GET', 'admin/agents/planner/configuration')).body as { dataSkills: { skillId: string; description: string }[] };
+    expect(configuration.dataSkills.map(skill => [skill.skillId, skill.description])).toEqual([['review', 'Reviews plans.']]);
   });
 
   it('answers only administrators', async () => {
@@ -223,7 +257,8 @@ describe('Hand-offs and shadow variants as data in the mock API', () => {
       ['GET', 'admin/agents/closer/hand-offs'],
       ['PUT', 'admin/agents/closer/hand-offs/order'],
       ['DELETE', 'admin/agents/closer/hand-offs/order'],
-      ['GET', 'admin/agents/planner/shadow-variants']
+      ['GET', 'admin/agents/planner/shadow-variants'],
+      ['POST', 'admin/agents/planner-v2/promote']
     ]) {
       const answer = await call(method, path, method === 'PUT' ? { sources: ['planner'] } : undefined);
       expect([answer.status, answer.body.code]).withContext(`${method} ${path}`).toEqual([403, 'assistant-forbidden']);
@@ -327,6 +362,75 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     expect(section.querySelector('[data-shadow-variants-closed]')?.getAttribute('data-shadow-variants-closed')).toBe('not-allowed');
     const variants = (await call('GET', 'admin/agents/planner/shadow-variants')).body as AgentShadowVariants;
     expect(variants.variants.map(variant => [variant.agentId, variant.hasRunSettings])).toEqual([['planner-v2', false]]);
+  }, formFlowTimeout);
+
+  it('promotes a data variant onto the agent after a confirmation and says what changed', async () => {
+    expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await openRunConfiguration(fixture, element, 'planner');
+    const action = page.querySelector('[data-shadow-variants] [data-promote-variant="planner-v2"]') as HTMLButtonElement;
+    expect(text(action)).toBe('Promote onto Project planner');
+    expect(action.getAttribute('aria-label')).toBe('Promote Planner v2 onto Project planner');
+
+    // It asks first, says what the agent in code keeps, and is cancelled without a request.
+    action.click();
+    page = await settle(fixture);
+    let confirm = page.querySelector('[data-promote-confirm]') as HTMLElement;
+    expect(text(confirm.querySelector('h5'))).toBe('Promote Planner v2 onto Project planner?');
+    expect(text(confirm.querySelector('[data-promote-explain]'))).toContain('keeps its name, MCP servers, run settings, triggers, state and shadow mode');
+    expect(document.activeElement).toBe(confirm.querySelector('[data-promote-confirm-button]'));
+    (confirm.querySelector('.actions button.secondary') as HTMLButtonElement).click();
+    page = await settle(fixture);
+    expect(page.querySelector('[data-promote-confirm]')).toBeNull();
+    expect(document.activeElement).toBe(page.querySelector('[data-promote-variant="planner-v2"]'));
+    expect(requestBodies('POST', 'admin/agents/planner-v2/promote')).toEqual([]);
+
+    // Confirmed with its skills, at the versions shown.
+    (page.querySelector('[data-promote-variant="planner-v2"]') as HTMLButtonElement).click();
+    page = await settle(fixture);
+    confirm = page.querySelector('[data-promote-confirm]') as HTMLElement;
+    (confirm.querySelector('[data-promote-move-skills]') as HTMLInputElement).click();
+    (confirm.querySelector('[data-promote-confirm-button]') as HTMLButtonElement).click();
+    page = await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/agents/planner-v2/promote')).toEqual([{ expectedVersion: 1, moveSkills: true, expectedVariantVersion: 1 }]);
+    const section = page.querySelector('[data-shadow-variants]') as HTMLElement;
+    expect(text(section.querySelector('[data-promoted]'))).toBe('Planner v2 was promoted onto Project planner, which is at version 2 now.');
+    expect(section.querySelector('[data-shadow-variant="planner-v2"]')).toBeNull();
+    expect(text(section.querySelector('[data-shadow-variants-empty]'))).toBe('This agent has no shadow variants.');
+  }, formFlowTimeout);
+
+  it('refuses a promotion onto an agent that changed in the meantime', async () => {
+    expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await openRunConfiguration(fixture, element, 'planner');
+    (page.querySelector('[data-promote-variant="planner-v2"]') as HTMLButtonElement).click();
+    page = await settle(fixture);
+
+    // Someone else changes the planner while the confirmation is open.
+    const planner = ((await call('GET', 'admin/agents')).body as { id: string }[]).find(agent => agent.id === 'planner');
+    expect((await call('PUT', 'admin/agents/planner', { ...planner, description: 'Plans everything.', expectedVersion: 1 })).status).toBe(200);
+    (page.querySelector('[data-promote-confirm-button]') as HTMLButtonElement).click();
+    page = await settle(fixture);
+
+    expect(text(page.querySelector('[data-promote-error]'))).toBe('Someone else changed this in the meantime. Reload and apply your change again.');
+    expect(page.querySelector('[data-shadow-variant="planner-v2"]')).not.toBeNull();
+    expect(page.querySelector('[data-promoted]')).toBeNull();
+  }, formFlowTimeout);
+
+  it('asks to promote a variant in Dutch', async () => {
+    await firstValueFrom(TestBed.inject(TranslateService).use('nl'));
+    expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    let page = await openRunConfiguration(fixture, element, 'planner');
+    const action = page.querySelector('[data-promote-variant="planner-v2"]') as HTMLButtonElement;
+    expect(text(action)).toBe('Promoveren naar Project planner');
+    action.click();
+    page = await settle(fixture);
+    const confirm = page.querySelector('[data-promote-confirm]') as HTMLElement;
+    expect(text(confirm.querySelector('h5'))).toBe('Planner v2 promoveren naar Project planner?');
+    expect(text(confirm.querySelector('[data-promote-confirm-button]'))).toBe('Promoveren');
+    expect(text(confirm)).toContain('Ook zijn vaardigheden verplaatsen');
   }, formFlowTimeout);
 
   it('says why an agent accepts no hand-offs and gets no shadow variants', async () => {

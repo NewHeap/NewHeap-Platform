@@ -860,6 +860,56 @@ export class NhAssistantMockRunConfiguration {
     return { status: 200, body: withoutOwner(existing) };
   }
 
+  /**
+   * The ids of the variant's data skills that would move to `live` and the failure of one that cannot,
+   * as a promotion with `moveSkills` checks them before anything changes: a skill the live agent has
+   * in code stays (`assistant-skill-in-code`).
+   */
+  skillsToMove(variantId: string, live: AdminAgent): { skillIds: string[]; failure: MockResult | null } {
+    const skillIds = this.liveSkills(variantId).map(skill => skill.skillId);
+    const inCode = (live.skills ?? []).some(skill => skillIds.includes(skill.skillId) && !this.skills.has(key(live.id, skill.skillId)));
+    return { skillIds, failure: inCode ? failure('assistant-skill-in-code') : null };
+  }
+
+  /**
+   * Moves the variant's data skills to `live` as a promotion does: each becomes the next live version
+   * of the live agent's skill with the same id, or a new skill, which starts in shadow. Answers the ids
+   * that moved, in order, or the failure of the first save.
+   */
+  moveSkills(variantId: string, live: AdminAgent, reason: string | null): { moved: string[]; failure: MockResult | null } {
+    const moved: string[] = [];
+    for (const skill of this.liveSkills(variantId)) {
+      const current = (this.skills.get(key(live.id, skill.skillId)) ?? []).find(version => version.status === 'live');
+      const request: DataSkillRequest = {
+        description: skill.description,
+        instructions: skill.instructionsAsset ? null : skill.instructions,
+        tools: [...skill.tools],
+        profile: skill.profile,
+        ruleHandler: skill.ruleHandler,
+        maxTokensPerRun: skill.maxTokensPerRun,
+        dailyToolCalls: skill.dailyToolCalls,
+        dailyTokens: skill.dailyTokens,
+        approvalPolicy: skill.approvalPolicy,
+        expectedVersion: current?.version ?? null,
+        reason,
+        ...(current ? { apply: 'live' as const } : {}),
+        dataClassification: skill.dataClassification ?? null,
+        acceptsFiles: skill.acceptsFiles ?? false,
+        maxFileBytes: skill.maxFileBytes ?? null,
+        maxFilePages: skill.maxFilePages ?? null,
+        maxFilesPerTurn: skill.maxFilesPerTurn ?? null,
+        maxFileTokensPerTurn: skill.maxFileTokensPerTurn ?? null,
+        instructionsAsset: skill.instructionsAsset ?? null
+      };
+      const saved = this.skill('PUT', live, skill.skillId, request, new URLSearchParams());
+      if (saved.status !== 200) {
+        return { moved, failure: saved };
+      }
+      moved.push(skill.skillId);
+    }
+    return { moved, failure: null };
+  }
+
   /** An agent in code has a run configuration; one created in the administration once it has run settings. */
   isConfigured(agent: AdminAgent): boolean {
     return agent.source === 'code' || this.settings.has(agent.id);
