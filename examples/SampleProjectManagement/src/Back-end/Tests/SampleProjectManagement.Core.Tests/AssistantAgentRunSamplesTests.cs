@@ -3700,7 +3700,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             waiting.ExecutionReportDueAt!.Value - host.Clock.GetUtcNow(),
             SampleEquipmentOrderComposition.ReportWithin - TimeSpan.FromMinutes(1),
             SampleEquipmentOrderComposition.ReportWithin);
-        var order = Assert.Single(desk.Orders, item => item.ProjectId == project);
+        // The status reads awaiting-application before the executor puts the order on the desk.
+        var order = await WaitForOrderAsync(desk, item => item.ProjectId == project && item.HandOff is not null, "the laptops");
         Assert.Equal((3, "laptops"), (order.Quantity, order.Item));
         Assert.Equal(
             (waiting.ApprovalId, waiting.ProposalHash, host.ColleagueId.ToString(), 1),
@@ -3725,7 +3726,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var pending = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
         Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, pending, "approve")).StatusCode);
         await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
-        var monitors = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == pending.ApprovalId);
+        var monitors = await WaitForOrderAsync(desk, item => item.HandOff?.ApprovalId == pending.ApprovalId, "the monitors");
 
         host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
 
@@ -3744,8 +3745,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Json);
         Assert.Equal(HttpStatusCode.OK, handBack.StatusCode);
         await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.AwaitingApplication, ProjectAiEquipmentTools.OrderEquipmentToolId);
-        var again = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == pending.ApprovalId);
+        // The desk keeps the order and takes the second hand-off once the executor ran again.
+        var again = await WaitForOrderAsync(
+            desk,
+            item => item.HandOff?.ApprovalId == pending.ApprovalId && item.HandOff.Attempt == 2,
+            "the monitors handed over again");
         Assert.Equal((monitors.OrderNumber, 2), (again.OrderNumber, again.HandOff!.Attempt));
+        Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == pending.ApprovalId);
         Assert.True((await desk.ConfirmAsync(again.OrderNumber, NhAssistantExecutionOutcome.Failed, "supplier-out-of-stock")).Success);
         var failed = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.ExecutionFailed, ProjectAiEquipmentTools.OrderEquipmentToolId);
         Assert.Equal("supplier-out-of-stock", failed.ExecutionResultCode);
@@ -3933,6 +3939,37 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var inbox = await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?status={status}&itemsPerPage=100", Json);
         Assert.Equal(status, inbox!.Status);
         return inbox.Items.Select(item => item.ApprovalId).ToArray();
+    }
+
+    /// <summary>
+    /// SPM-314: waits until the order desk holds exactly one order that <paramref name="match"/> accepts.
+    /// A hand-off marks the proposal <c>awaiting-application</c> and audits it before it calls the
+    /// executor (AE5), and an agent thread's hand-off runs as a background operation, so the desk takes
+    /// the order a moment after the proposal reads so.
+    /// </summary>
+    private static async Task<SampleEquipmentOrder> WaitForOrderAsync(
+        SampleEquipmentOrderDesk desk,
+        Func<SampleEquipmentOrder, bool> match,
+        string description)
+    {
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var orders = desk.Orders.Where(match).ToArray();
+            if (orders.Length == 1)
+            {
+                return orders[0];
+            }
+
+            Assert.True(orders.Length == 0, $"The order desk holds {orders.Length} orders for {description}.");
+            await NextPollAsync(null);
+        }
+
+        throw new TimeoutException(
+            $"Waited {Elapsed(started)} for the order desk to hold {description}; it holds: "
+            + string.Join("; ", desk.Orders.Select(item => $"{item.OrderNumber} attempt {item.HandOff?.Attempt.ToString(CultureInfo.InvariantCulture) ?? "none"}"))
+            + ".");
     }
 
     /// <summary>
