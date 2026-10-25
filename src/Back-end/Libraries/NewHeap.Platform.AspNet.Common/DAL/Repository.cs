@@ -233,22 +233,60 @@ public partial class Repository<T> : IRepository<T>
         return new Repository<T>(context, _serviceProvider);
     }
 
+    /// <summary>
+    /// Opens a transaction on the repository's context through the registered transaction factories.
+    /// </summary>
+    /// <remarks>
+    /// The registered <see cref="NhTransactionFactory"/> delegates run first, in registration order,
+    /// and then the registered <see cref="NhTransactionFactoryAsync"/> delegates, in registration
+    /// order. Each factory receives the transaction the factory before it returned, or <c>null</c>.
+    /// Without any factory, or when the factories return none, the context opens the transaction with
+    /// <c>BeginTransactionAsync</c>. A cancelled token stops the call before anything opens. When a
+    /// factory fails or the call is cancelled after an earlier factory returned a transaction, that
+    /// transaction is disposed before the exception propagates, so the context holds no transaction.
+    /// </remarks>
     public async Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default)
     {
-        var factories = _serviceProvider.GetServices<NhTransactionFactory>();
+        cancellationToken.ThrowIfCancellationRequested();
 
-        IDbContextTransaction? transaction = null;
-        foreach (var nhTransactionFactory in factories)
-        {
-            transaction = nhTransactionFactory(transaction,Context,_serviceProvider);
-        }
-
+        var transaction = await OpenTransactionThroughFactoriesAsync(cancellationToken);
         if (transaction == null)
         {
             transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
         }
-        
+
         return new Transaction(transaction);
+    }
+
+    private async Task<IDbContextTransaction?> OpenTransactionThroughFactoriesAsync(CancellationToken cancellationToken)
+    {
+        var factories = _serviceProvider.GetServices<NhTransactionFactory>();
+        var asyncFactories = _serviceProvider.GetServices<NhTransactionFactoryAsync>();
+
+        IDbContextTransaction? transaction = null;
+        try
+        {
+            foreach (var factory in factories)
+            {
+                transaction = factory(transaction, Context, _serviceProvider);
+            }
+
+            foreach (var factory in asyncFactories)
+            {
+                transaction = await factory(transaction, Context, _serviceProvider, cancellationToken);
+            }
+        }
+        catch
+        {
+            if (transaction != null)
+            {
+                await transaction.DisposeAsync();
+            }
+
+            throw;
+        }
+
+        return transaction;
     }
 
     /// <summary>
@@ -390,4 +428,40 @@ public class NhDbTransactionScope : INhDbTransactionScope
     }
 }
 
+/// <summary>
+/// Opens or wraps the transaction that <see cref="Repository{T}.StartTransactionAsync"/> starts,
+/// synchronously. Kept for compatibility; prefer <see cref="NhTransactionFactoryAsync"/>.
+/// </summary>
+/// <remarks>
+/// Synchronous factories run before the asynchronous ones. Each receives the transaction the factory
+/// before it returned (<paramref name="prev"/>), or <c>null</c> when it is the first, and returns the
+/// transaction the next factory receives.
+/// </remarks>
+/// <param name="prev">The transaction the factory before this one returned, or <c>null</c>.</param>
+/// <param name="dbContext">The repository's context.</param>
+/// <param name="serviceProvider">The repository's service provider.</param>
 public delegate IDbContextTransaction NhTransactionFactory(IDbContextTransaction? prev,DbContext dbContext,IServiceProvider serviceProvider);
+
+/// <summary>
+/// Opens or wraps the transaction that <see cref="Repository{T}.StartTransactionAsync"/> starts,
+/// asynchronously and cancellation-aware. Register it as a singleton
+/// <c>NhTransactionFactoryAsync</c> service.
+/// </summary>
+/// <remarks>
+/// Asynchronous factories run after the synchronous <see cref="NhTransactionFactory"/> delegates, in
+/// registration order. Each receives the transaction the factory before it returned
+/// (<paramref name="prev"/>), or <c>null</c> when no factory returned one yet, and then opens the
+/// transaction itself, preferably with <c>BeginTransactionAsync(cancellationToken)</c>, or wraps
+/// <paramref name="prev"/>; the transaction it returns owns <paramref name="prev"/> from then on.
+/// When a factory throws, including for cancellation, the repository disposes the transaction the
+/// factory received, so a failing factory disposes only a transaction it opened itself.
+/// </remarks>
+/// <param name="prev">The transaction the factory before this one returned, or <c>null</c>.</param>
+/// <param name="dbContext">The repository's context.</param>
+/// <param name="serviceProvider">The repository's service provider.</param>
+/// <param name="cancellationToken">The caller's token of <c>StartTransactionAsync</c>.</param>
+public delegate Task<IDbContextTransaction> NhTransactionFactoryAsync(
+    IDbContextTransaction? prev,
+    DbContext dbContext,
+    IServiceProvider serviceProvider,
+    CancellationToken cancellationToken);
