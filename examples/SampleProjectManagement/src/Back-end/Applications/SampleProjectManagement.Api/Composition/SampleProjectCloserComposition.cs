@@ -68,7 +68,8 @@ public static class SampleProjectCloserComposition
                 .Lifetime(TimeSpan.FromDays(7))
                 .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
                 .OnExpiry(NhAiApprovalExpiryAction.Withdraw)
-                // An identical proposal is never recorded twice. A newer proposal for the same
+                // An identical proposal is never recorded twice; in shadow, one recorded within
+                // these seven days counts as open (SPM-324). A newer proposal for the same
                 // objects replaces an open one, for tools whose guard names the objects (as the task
                 // guard does); the status guard names none, so the closer relies on identity.
                 .Duplicates(NhAiDuplicateProposals.Supersede)

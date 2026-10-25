@@ -18,6 +18,10 @@ namespace SampleProjectManagement.Api.Services;
 /// it rebuilds their principal from the user store as their own sign-in would. The platform then
 /// decides as that person with the checks of its own decision endpoint, and a reply the provider
 /// delivers twice returns the earlier decision.
+/// SPM-271: the offer says whether the project changed since the proposal
+/// (<see cref="NhAssistantProposalDecisionFacts.SubjectChanged"/>), so the message can say so; the
+/// intake reviewer's policy requires an unchanged project, so a "yes" to a changed one is refused with
+/// <c>assistant-proposal-stale</c> and closes the proposal.
 /// </summary>
 public sealed class SampleApprovalReplyChannel(
     INhAssistantProposalDecisionService decisions,
@@ -78,7 +82,7 @@ public sealed class SampleApprovalReplyChannel(
         var token = _tokens.Protect(
             JsonSerializer.Serialize(new ReplyToken(approvalId, userId, facts.Data.ProposalHash), Json),
             facts.Data.ExpiresAt);
-        return TaskResult<SampleApprovalReplyOffer>.Succeeded(new SampleApprovalReplyOffer(token, facts.Data.ExpiresAt));
+        return TaskResult<SampleApprovalReplyOffer>.Succeeded(new SampleApprovalReplyOffer(token, facts.Data.ExpiresAt, facts.Data.SubjectChanged));
     }
 
     /// <summary>
@@ -160,9 +164,10 @@ public sealed class SampleApprovalReplyChannel(
 }
 
 /// <summary>
-/// The reply token of a message that asks a person to decide a proposal, and until when it is valid.
+/// The reply token of a message that asks a person to decide a proposal, until when it is valid, and
+/// whether the project changed since the proposal (<see langword="null"/> when the platform cannot tell).
 /// </summary>
-public sealed record SampleApprovalReplyOffer(string Token, DateTimeOffset ExpiresAt);
+public sealed record SampleApprovalReplyOffer(string Token, DateTimeOffset ExpiresAt, bool? SubjectChanged = null);
 
 /// <summary>
 /// A reply the messaging provider delivered: its own id, the reply token of the message the person

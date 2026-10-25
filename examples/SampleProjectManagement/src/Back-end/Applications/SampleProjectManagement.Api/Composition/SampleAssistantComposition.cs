@@ -235,6 +235,10 @@ public static class SampleAssistantComposition
         if (model is not null)
         {
             // Every agent model call, triage included, names the region the real model runs in.
+            // SPM-323: startup checks that every profile in use (the chat profile, the agents', the
+            // skills' and the triage's) permits it, itself or through a fallback; both sample profiles
+            // permit local and the model's region (ModelExecutionRegions). The administration refuses
+            // a profile that does not with region-not-permitted.
             services.AddNewHeapAssistant(assistant => assistant.UseExecutionRegion(model.Region));
         }
 
@@ -277,6 +281,10 @@ public static class SampleAssistantComposition
 
     public static IEndpointRouteBuilder MapSampleAssistant(this IEndpointRouteBuilder endpoints)
     {
+        // SPM-263: the assistant's routes take the prefix; its live-update hub maps on the host's root
+        // at NhAssistantOptions.HubPath (/hub/assistant by default, NewHeap:AI:Assistant:HubPath),
+        // outside the prefix. NewHeap's bearer setup reads the WebSocket's query token for that path,
+        // also when the setting moves the hub out of /hub.
         endpoints.MapNewHeapAssistant("/api/assistant");
         return endpoints;
     }
@@ -285,6 +293,11 @@ public static class SampleAssistantComposition
 /// <summary>
 /// Localizes assistant tool names and explains a governed project status proposal with data read
 /// inside the same authorized division. The technical descriptor remains model-facing metadata.
+/// SPM-246: a presentation keeps within <see cref="NhAssistantPresentationLimits"/> (at most eight
+/// fields, short texts); one that breaks a cap is dropped with a warning naming this presenter, the
+/// tool and the rule, and the approver reads the generic summary. Approvals are presented in every
+/// culture of <c>NewHeap:PlatformAspNetCommon:Settings:SupportedCultures</c> (nl-NL and en-US here),
+/// so each approver reads their own language.
 /// </summary>
 public sealed class SampleAssistantToolPresenter(
     IProjectAiReadService projects,

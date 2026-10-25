@@ -141,6 +141,21 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
         Assert.Equal(
             expectedDisplayName,
             storedApproval.GetProperty("presentation").GetProperty("toolDisplayName").GetString());
+        // The presentation keeps within the caps, so it is never dropped for the generic summary.
+        Assert.InRange(presentation.GetProperty("fields").GetArrayLength(), 1, NewHeap.Platform.AI.Chat.NhAssistantPresentationLimits.MaxFields);
+        Assert.InRange(presentation.GetProperty("summary").GetString()!.Length, 1, NewHeap.Platform.AI.Chat.NhAssistantPresentationLimits.MaxSummaryLength);
+        // It was presented in every supported culture: a reader in English reads it in English.
+        using var english = host.CreateClient("spm-246-user");
+        english.DefaultRequestHeaders.AcceptLanguage.Clear();
+        english.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        var englishApproval = (await host.GetJsonAsync(english, $"/api/assistant/conversations/{conversationId}"))
+            .GetProperty("messages")
+            .EnumerateArray()
+            .SelectMany(message => message.GetProperty("parts").EnumerateArray())
+            .Single(part => part.GetProperty("type").GetString() == "approval");
+        Assert.Equal(
+            resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo("en-US")),
+            englishApproval.GetProperty("presentation").GetProperty("toolDisplayName").GetString());
         var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ApprovalApproved);
         Assert.Contains(audit, evt => evt.ToolId == "projects.change-status" && evt.ResultCode == "succeeded");
