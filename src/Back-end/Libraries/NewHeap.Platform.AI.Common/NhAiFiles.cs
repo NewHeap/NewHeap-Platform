@@ -57,7 +57,7 @@ public sealed record NhAiFileReference(
 /// The media types the platform names, and the check a media type passes before a profile, a file
 /// source or a tool may use it. Media types are compared lowercase and without parameters.
 /// </summary>
-public static class NhAiMediaTypes
+public static partial class NhAiMediaTypes
 {
     public const string Pdf = "application/pdf";
 
@@ -71,10 +71,13 @@ public static class NhAiMediaTypes
     /// <summary>An Excel workbook (<c>.xlsx</c>), which models read through a reading tool.</summary>
     public const string Xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    private static readonly Regex Pattern = new(
-        "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$",
-        RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
+    /// <summary>
+    /// The form <c>type/subtype</c>. The pattern is linear and the value at most
+    /// <see cref="NhAiFileReference.MaxMediaTypeLength"/> characters, so it has no match timeout: a
+    /// busy machine never turns a valid media type into a failure.
+    /// </summary>
+    [GeneratedRegex("^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$", RegexOptions.CultureInvariant)]
+    private static partial Regex Pattern();
 
     /// <summary>
     /// The media type in lowercase without parameters, such as <c>text/plain</c> for
@@ -89,7 +92,7 @@ public static class NhAiMediaTypes
 
         var separator = mediaType.IndexOf(';', StringComparison.Ordinal);
         var essence = (separator < 0 ? mediaType : mediaType[..separator]).Trim().ToLowerInvariant();
-        return essence.Length <= NhAiFileReference.MaxMediaTypeLength && Pattern.IsMatch(essence)
+        return essence.Length <= NhAiFileReference.MaxMediaTypeLength && Pattern().IsMatch(essence)
             ? essence
             : null;
     }
