@@ -15,6 +15,19 @@ public sealed class NhAssistantOptions
     public bool Enabled { get; set; }
 
     /// <summary>
+    /// Whether this host runs the scheduled triggers (<c>NewHeap:AI:Assistant:RunSchedules</c>), true by
+    /// default; read when the host starts. A host that runs them registers a Hangfire recurring job for
+    /// every schedule in code when it starts, and keeps the recurring jobs of schedules defined as data in
+    /// line with its snapshot: it adds and changes them, and removes those of schedules that were removed
+    /// or are out of effect. Set it to false on a host that shares the database, and perhaps the Hangfire
+    /// storage, of the scheduling host but does not run the schedules, such as a host without a Hangfire
+    /// server: it adds and removes no recurring job and needs no <c>IRecurringJobManager</c>, while
+    /// triggers, runs, the administration and the following of data changes work as usual. Keep it true
+    /// on the hosts whose Hangfire servers run the schedules, with the same agents and schedules.
+    /// </summary>
+    public bool RunSchedules { get; set; } = true;
+
+    /// <summary>
     /// Authorization policy every assistant endpoint requires unless
     /// <c>NhAssistantBuilder.UseAccessPolicy</c> sets one explicitly.
     /// </summary>
@@ -53,8 +66,9 @@ public sealed class NhAssistantOptions
 }
 
 /// <summary>
-/// Connection rules for remote MCP servers. Link-local addresses, cloud metadata hosts and, outside
-/// Development, loopback are always blocked, also when they match <see cref="AllowedHosts"/>.
+/// Connection rules for remote MCP servers. Link-local addresses and cloud metadata hosts are always
+/// blocked, also when they match <see cref="AllowedHosts"/>; loopback is blocked outside Development
+/// unless <see cref="AllowLoopback"/> is on.
 /// </summary>
 public sealed class NhAssistantMcpOptions
 {
@@ -70,7 +84,8 @@ public sealed class NhAssistantMcpOptions
     public IList<string> ForwardUserTokenHosts { get; set; } = [];
 
     /// <summary>
-    /// Requires https. Plain http is then only allowed to loopback in Development.
+    /// Requires https. Plain http is then only allowed to loopback, in Development or with
+    /// <see cref="AllowLoopback"/>.
     /// </summary>
     public bool RequireHttps { get; set; } = true;
 
@@ -98,6 +113,16 @@ public sealed class NhAssistantMcpOptions
     public bool BlockPrivateNetworks { get; set; }
 
     /// <summary>
+    /// Lets MCP servers and the OAuth URLs they name use loopback (<c>localhost</c>, <c>127.0.0.0/8</c>
+    /// and <c>::1</c>), also over plain http, in an environment other than Development, such as a test
+    /// host of the environment <c>Testing</c> with an MCP server on <c>127.0.0.1</c>; the OAuth redirect
+    /// URI and return origins may then be http on loopback too. Off by default; the host does not start
+    /// in Production when it is on. Link-local addresses and cloud metadata hosts stay blocked
+    /// (<c>NewHeap:AI:Assistant:Mcp:AllowLoopback</c>).
+    /// </summary>
+    public bool AllowLoopback { get; set; }
+
+    /// <summary>
     /// The host as OAuth client of MCP authorization servers.
     /// </summary>
     public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();
@@ -110,7 +135,8 @@ public sealed class NhAssistantMcpOAuthOptions
 {
     /// <summary>
     /// The public absolute URL of the assistant's OAuth callback, <c>&lt;prefix&gt;/mcp/oauth/callback</c>.
-    /// Required for servers with <c>oauth</c>; https, or http on loopback in Development.
+    /// Required for servers with <c>oauth</c>; https, or http on loopback in Development or with
+    /// <see cref="NhAssistantMcpOptions.AllowLoopback"/>.
     /// </summary>
     public string? RedirectUri { get; set; }
 
@@ -200,7 +226,7 @@ public sealed class NhAssistantMcpOAuthOptions
             || !(uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && allowLoopbackHttp && IsLoopback(uri))))
         {
             throw new InvalidOperationException(
-                $"NewHeap:AI:Assistant:Mcp:OAuth:{name} must be an absolute https URL without a fragment (http only on loopback in Development).");
+                $"NewHeap:AI:Assistant:Mcp:OAuth:{name} must be an absolute https URL without a fragment (http only on loopback, in Development or with Mcp:AllowLoopback).");
         }
     }
 

@@ -393,6 +393,18 @@ mock API, the skill form offers "The application's text" next to "Written here",
 shows the chosen one read-only with its hash. `AssistantInstructionAssetSamplesTests` runs the case,
 including the refusal of a reference whose hash differs from the text's.
 
+The sample's operations code changes the assistant through the platform's services, never through the
+administration's endpoints or its tables (SPM-331). `SampleAssistantOperationsService` connects the
+milestones MCP server with `INhAssistantMcpServers`: the API key is protected and never returned, the
+synced lookup is enabled as read-only and the server is assigned to the status advisor without a new
+version of the advisor, audited as `AdminMcpServerAssignmentChanged`. With
+`INhAssistantInstructionAssetUsage` it lists which data skills and agents name the risk review's text of
+SPM-320 and which version each uses, and with `GetPackageAsync` and `ReadAsync` of
+`INhAssistantAgentPackages` it compares a shipped package with the host's agents without exporting them.
+A test host of the environment `Testing` reaches the milestones server on loopback only with
+`NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
+runs the case.
+
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
 server protects its address, from its challenge and protected resource metadata; saving the server
@@ -763,6 +775,22 @@ apart and proves that no heartbeat ran before the operation ended cancelled. The
 library's provider tests also show that a failure code or message key longer
 than its column completes the attempt with the generic code and key, and that a
 failed write of a failed step keeps the step's own exception.
+
+## Agent run capacity and the run of an event
+
+`SampleAgentRunCapacityComposition` places the assistant's background operations
+on the queue `agent-runs` (SPM-326). The queue keeps two of the eight slots of
+the global limit for itself, so a burst of portfolio analyses cannot take every
+slot while an intake review waits, and runs at most four operations at the same
+time, so the agents leave the other shared slots to the rest of the work.
+`Program.cs` and the agent run sample host share the composition. When a
+project is created, the intake reviewer's receipt names the queued input that
+holds the event, and the maintenance page finds the review by the event's id
+(`GET /agent-maintenance/intake-reviews/{eventId}`) through
+`INhAssistantAgentRunLookup`: the input, the run it started and that run's
+status once it claimed the event. A redelivered event finds the review of its
+first delivery. The library tests prove the reserved slots on both providers,
+the lookup for every kind of fire and a host with `RunSchedules` off.
 
 ## Edit modal
 

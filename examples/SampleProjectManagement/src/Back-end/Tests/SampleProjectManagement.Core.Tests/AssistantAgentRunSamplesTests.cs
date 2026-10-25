@@ -266,6 +266,63 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_intake_review_runs_on_the_agent_queue_and_the_application_finds_it_by_the_event()
+    {
+        // SPM-326
+        var project = await host.CreateProjectAsync("LOOKUP", ownerId: host.OwnerId);
+        var evt = new ProjectCreatedEvent { ProjectId = project, ProjectKey = "LOOKUP", CreatedByUserId = host.OwnerId };
+        var receipt = Assert.Single(await host.PublishAsync(evt));
+        Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
+        Assert.NotNull(receipt.InputId);
+
+        // The maintenance page finds the review by the event's id: the input that holds the event and
+        // the run it started, in the reviewer's thread of the project.
+        var review = await FindIntakeReviewAsync(evt.EventId);
+        Assert.Equal((receipt.InputId, receipt.RunId, receipt.ConversationId), (review!.InputId, review.RunId, (Guid?)review.ConversationId));
+        Assert.Equal((SampleIntakeReviewerComposition.AgentId, SampleIntakeReviewerComposition.TriggerId, ProjectSubjects.For(project)), (review.AgentId, review.TriggerId, review.Subject));
+        Assert.Null(await FindIntakeReviewAsync(Guid.NewGuid()));
+
+        // The run works on the agent runs' own queue, which keeps two of the eight slots for itself and
+        // runs at most four of the assistant's operations at the same time.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            var runId = receipt.RunId!.Value.ToString("N");
+            var queue = await dbContext.Set<NhBackgroundOperation>()
+                .AsNoTracking()
+                .Where(operation => operation.OperationType == NhAssistantAgentRunOperationTypes.Run && operation.CorrelationId == runId)
+                .Select(operation => operation.Queue)
+                .SingleAsync();
+            Assert.Equal(SampleAgentRunCapacityComposition.Queue, queue);
+        }
+        var options = host.Services.GetRequiredService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationsOptions>();
+        Assert.Equal(
+            (8, SampleAgentRunCapacityComposition.ReservedSlots, SampleAgentRunCapacityComposition.MaxConcurrency),
+            (options.MaxConcurrentOperations,
+                options.ReservedQueueConcurrency[SampleAgentRunCapacityComposition.Queue],
+                options.QueueConcurrencyLimits[SampleAgentRunCapacityComposition.Queue]));
+
+        // The run claims the event when it starts; the review then names the input as consumed by it.
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var run = Assert.Single(await WaitForRunCountAsync(owner, review.ConversationId, 1));
+        Assert.Equal(receipt.RunId, run.Id);
+        var claimed = await FindIntakeReviewAsync(evt.EventId);
+        Assert.Equal((false, receipt.RunId), (claimed!.Waiting, claimed.RunId));
+        Assert.True(NhAssistantRunStatuses.IsTerminal(claimed.RunStatus!));
+
+        // A redelivered event writes no input; the page still finds the review of its first delivery.
+        var redelivered = Assert.Single(await host.PublishAsync(evt));
+        Assert.Equal((NhAssistantTriggerOutcomes.Deduplicated, (Guid?)null), (redelivered.Outcome, redelivered.InputId));
+        Assert.Equal(receipt.InputId, (await FindIntakeReviewAsync(evt.EventId))!.InputId);
+    }
+
+    private async Task<NhAssistantTriggerEventRun?> FindIntakeReviewAsync(Guid eventId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<SampleIntakeReviewLookup>().FindAsync(eventId, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task The_grouped_inbox_shows_proposals_per_division_with_their_totals_and_marks_what_is_new()
     {
         // SPM-310: the project resolver names each project's division as its parent; every proposal
@@ -5866,7 +5923,10 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
                 operations.Options.LiveUpdatesEnabled = false;
                 operations.Options.UserNotificationProjectionEnabled = false;
                 operations.Options.CleanupEnabled = false;
-                operations.AddAssistantAgentRuns();
+                // SPM-326: the agent runs' own queue with its reserved slots, as in Program.cs.
+                operations
+                    .WithGlobalConcurrency(8)
+                    .AddSampleAgentRuns();
             });
         // The platform defaults to JWT bearer and Identity cookies; the sample tests sign in with
         // a header.
@@ -5888,6 +5948,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddScoped<ProjectTaskService>();
         // SPM-284: the operator pauses, stops and resumes the closer through the maintenance page.
         services.AddScoped<SampleAgentMaintenanceService>();
+        // SPM-326: the maintenance page finds the intake review an event started.
+        services.AddScoped<SampleIntakeReviewLookup>();
         services.AddScoped<SampleAgentConfigurationService>();
         // SPM-268: approvers answer proposals with a messaging reply, delivered to POST approval-replies.
         services.AddScoped<SampleApprovalReplyChannel>();

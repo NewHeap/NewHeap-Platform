@@ -3,6 +3,7 @@ using Hangfire.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.Common.Utilities;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -12,10 +13,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// every snapshot that goes into effect: it adds and changes the jobs of the snapshot's data schedules
 /// and removes those of schedules that were removed or are out of effect. The candidate version of a
 /// data schedule has a job of its own (<see cref="CandidateJobSuffix"/>) on its own cron. Every host
-/// does this; the recurring job manager makes repeated registrations harmless.
+/// with <see cref="NhAssistantOptions.RunSchedules"/> does this; the recurring job manager makes
+/// repeated registrations harmless. A host without it touches no recurring job, so it never removes
+/// the jobs of the hosts that run the schedules.
 /// </summary>
 internal sealed class NhAssistantDataScheduleSync(
     IServiceProvider services,
+    IOptions<NhAssistantOptions> options,
     ILogger<NhAssistantDataScheduleSync> logger) : INhAssistantRunSnapshotListener
 {
     internal const string RecurringJobPrefix = "nh-assistant-data-trigger-";
@@ -29,6 +33,11 @@ internal sealed class NhAssistantDataScheduleSync(
 
     public Task AppliedAsync(NhAssistantRunSnapshot snapshot, CancellationToken cancellationToken)
     {
+        if (!options.Value.RunSchedules)
+        {
+            return Task.CompletedTask;
+        }
+
         var schedules = snapshot.Triggers.Values
             .Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule && trigger.DataVersion is not null)
             .Concat(snapshot.TriggerCandidates.Values.Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule))

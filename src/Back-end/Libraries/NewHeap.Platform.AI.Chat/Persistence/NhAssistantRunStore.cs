@@ -1556,6 +1556,66 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The first input of <paramref name="triggerId"/> with <paramref name="eventKey"/> in a thread of
+    /// <paramref name="agentId"/>, live or shadow, with its thread, consumed or not. With a
+    /// <paramref name="tenantId"/>, only threads of that tenant count, and threads of the whole
+    /// application when <paramref name="tenantTakesPartInWholeApplication"/>. The lookup goes through
+    /// the inputs, because a run that coalesced several events records the first event's key only.
+    /// </summary>
+    public async Task<(AssistantQueuedInput Input, AssistantThread Thread)?> FindEventInputAsync(
+        string agentId,
+        string triggerId,
+        string eventKey,
+        string? tenantId,
+        bool tenantTakesPartInWholeApplication,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var threads = context.Threads.AsNoTracking().Where(thread => thread.AgentId == agentId);
+        if (tenantId is not null)
+        {
+            threads = tenantTakesPartInWholeApplication
+                ? threads.Where(thread => thread.TenantId == tenantId
+                    || (thread.TenantId == null && thread.SubjectType == NhAiSubjectRef.SystemType))
+                : threads.Where(thread => thread.TenantId == tenantId);
+        }
+
+        var match = await context.QueuedInputs
+            .AsNoTracking()
+            .Where(input => input.TriggerId == triggerId && input.EventKey == eventKey)
+            .Join(
+                threads,
+                input => input.ConversationId,
+                thread => thread.ConversationId,
+                (input, thread) => new { Input = input, Thread = thread })
+            .OrderBy(item => item.Input.CreatedAt)
+            .ThenBy(item => item.Input.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        return match is null ? null : (match.Input, match.Thread);
+    }
+
+    /// <summary>
+    /// The input with <paramref name="inputId"/> and the agent thread it belongs to, consumed or not;
+    /// <see langword="null"/> when it was not written or does not belong to an agent thread.
+    /// </summary>
+    public async Task<(AssistantQueuedInput Input, AssistantThread Thread)?> FindInputWithThreadAsync(
+        Guid inputId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var match = await context.QueuedInputs
+            .AsNoTracking()
+            .Where(input => input.Id == inputId)
+            .Join(
+                context.Threads.AsNoTracking(),
+                input => input.ConversationId,
+                thread => thread.ConversationId,
+                (input, thread) => new { Input = input, Thread = thread })
+            .FirstOrDefaultAsync(cancellationToken);
+        return match is null ? null : (match.Input, match.Thread);
+    }
+
+    /// <summary>
     /// Whether an input of <paramref name="triggerId"/> with <paramref name="eventKey"/> still waits
     /// in the thread, so a redelivered event waits once.
     /// </summary>

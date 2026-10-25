@@ -105,6 +105,26 @@ Three fixes keep a background operation's outcome recordable and true to what st
 | When the write of a failed or cancelled step fails, the handler and the runner receive the step's own exception instead of the database exception. | None, unless a handler catches the database exception of that write; catch the step's own exception instead. |
 | A write of an attempt that lost its fence throws an internal subclass of `InvalidOperationException` with the same message. | Assert it in tests with a check that accepts derived types, such as `Assert.ThrowsAnyAsync<InvalidOperationException>`. |
 
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: reserved capacity for agent runs
+
+`NhBackgroundOperationBuilder.WithReservedQueueConcurrency(queue, slots)` reserves slots of the global
+limit (`WithGlobalConcurrency`) for one queue, in `NhBackgroundOperationsOptions.ReservedQueueConcurrency`.
+Operations on that queue take a reserved slot first and a free shared slot when their reserved ones are
+in use; operations on every other queue share only the slots the reservations leave, so they never take a
+reserved slot, and the slots in use never exceed the global limit. Host start fails without a global
+limit, when the reservations leave no shared slot, and when a queue reserves more slots than its
+`WithQueueConcurrency` limit. Without reservations the global lease is unchanged.
+
+`AddAssistantAgentRuns(runs => runs.Queue("agent-runs").MaxConcurrency(4))` places every operation of the
+assistant (runs, proposal executions, revalidations, deferred trigger fires and replays) on one queue,
+which the process's Hangfire server serves on its own, and gives that queue its concurrency limit.
+`MaxConcurrency` needs a queue of their own and refuses to change a limit the queue already has.
+`AddAssistantAgentRuns()` without a choice keeps them on the default queue.
+
+| Breaking change | Required action |
+|---|---|
+| None; both are additive, and the assistant's operations stay on the default queue unless `Queue` is chosen. | None. A host that moves them to a queue keeps serving the old queue until the operations queued before have ended, and gives every process of its `ProcessorKey` the same reservations. |
+
 ## NewHeap.Platform.AI.Chat: fixed patterns without a match timeout
 
 The tool selector (`NhAssistantAgentDefinition`), the upload extension (`NhAssistantUploadOptions.MapExtension`)
@@ -179,6 +199,39 @@ rejection is recorded as before.
 |---|---|
 | Approving a proposal of a changed object whose policy requires an unchanged subject fails with `assistant-proposal-stale` (HTTP 409) and closes the proposal, instead of succeeding and closing it as stale before execution. | Handle `assistant-proposal-stale` at the decision; read `SubjectChanged` from the decision facts to tell the person before they decide. |
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: hosts that know schedules but do not run them
+
+`NhAssistantOptions.RunSchedules` (`NewHeap:AI:Assistant:RunSchedules`, true by default) says whether a
+host runs the scheduled triggers. A host with `false` registers no recurring job for the schedules in
+code, its data schedule sync adds, changes and removes no recurring job, and it needs no
+`IRecurringJobManager`; triggers, runs, the administration and the following of data changes work as
+usual. Keep it true on the hosts whose Hangfire servers run the schedules, with the same agents and
+schedules, and set it to false on every other host that shares the database, such as an API host next
+to the worker or a host without a Hangfire server, whose sync would otherwise remove the jobs of data
+schedules its snapshot does not know.
+
+| Breaking change | Required action |
+|---|---|
+| None; the default runs the schedules as before. | None. A host that removed the assistant's schedule registrations by their internal types sets `RunSchedules` to `false` instead. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: the run a trigger event started
+
+`NhAssistantTriggerReceipt.InputId` (an init-only property) names the queued input that holds the event:
+for a started, queued, superseded, coalesced and waiting fire, and for a deferred fire the input it writes
+once the application's transaction committed. `INhAssistantAgentRunLookup.FindByEventAsync(agentId,
+triggerId, eventKey)` and `FindByInputAsync(inputId)` return that input as `NhAssistantTriggerEventRun`
+with its thread, subject and whether it waits, and the run that consumed it, or while it waits the run
+the event started. The lookup goes through the queued inputs, so an event that coalesced into another
+event's run finds that run, and a redelivered event finds its first delivery. It is a server API for the
+application and checks no person's access; with a tenant it finds only that tenant's work, and the whole
+application's work for a tenant that takes part (`UseSingleTenant`). The migration `TriggerEventLookup`
+adds the index `IX_AssistantQueuedInput_EventKey_TriggerId` on SQL Server and PostgreSQL.
+
+| Breaking change | Required action |
+|---|---|
+| The assistant schema gains the migration `TriggerEventLookup` (one index). | Apply it with `RunMigrations` or in the deployment step that applies the assistant's migrations. |
+| `NhAssistantTriggerReceipt` gains `InputId`, which takes part in its record equality. | Compare receipts by `Outcome`, `RunId` and the other properties instead of with a receipt built by hand. |
+
 ## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Chat.AspNet: the query token at the configured hub paths
 
 `MapNewHeapAssistant` maps the assistant hub on the host's root at `NhAssistantOptions.HubPath`
@@ -191,6 +244,60 @@ token; every other request still takes its token from the `Authorization` header
 | Breaking change | Required action |
 |---|---|
 | None; the default path stays. | None. A host that moved the assistant hub out of `/hub` and read the query token itself may remove that workaround. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers from the application's code
+
+`INhAssistantMcpServers` manages MCP servers, their tools and their agent assignments from the
+application's own code, with the checks of the `admin/mcp-servers` endpoints: `ListAsync`, `CreateAsync`
+and `UpdateAsync` with `NhAssistantMcpServerRequest` (and `NhAssistantMcpOAuthRequest` and
+`NhAssistantMcpReaderRequest`; `null` keeps a stored value, `""` clears it), `DeleteAsync`, `TestAsync`,
+`SyncAsync`, `ListToolsAsync`, `UpdateToolAsync` with `NhAssistantMcpToolSettingsRequest`, and
+`AssignAsync` and `UnassignAsync`. Secrets are protected with Data Protection and never returned, logged
+or audited; the audit is the administration's, with the actor the application names. An assignment
+writes only the assignment, so the agent's definition and version stay and neither an open editor nor a
+package import conflicts; it is audited as the new `AdminMcpServerAssignmentChanged` (`assigned` or
+`unassigned`), at most `NhAssistantMcpServerLimits.MaxServersPerAgent` (32) servers per agent. The
+service does not authorize the caller.
+
+| Breaking change | Required action |
+|---|---|
+| None; `INhAssistantMcpServers` and `NhAssistantAuditEventKind.AdminMcpServerAssignmentChanged` are new. | Replace code that writes MCP server, tool or assignment rows with the service; let audit sinks that map every kind accept the new one. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: loopback MCP servers outside Development
+
+`NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`, off by default) lets a
+host outside Development, such as a test host of the environment `Testing`, connect MCP servers and
+their OAuth URLs on loopback, also over plain http with `RequireHttps`. A Production host with the option
+on does not start. Link-local addresses and cloud metadata hosts stay blocked. Where loopback is allowed,
+the OAuth `RedirectUri`, `ClientUri` and `ReturnOrigins` may be http on loopback too, as in Development.
+
+| Breaking change | Required action |
+|---|---|
+| None; without the option loopback stays limited to Development. | Set the option in the configuration of test hosts that run MCP servers on loopback instead of running them as Development. |
+
+## NewHeap.Platform.AI.Chat.AspNet: which skills and agents name a text asset
+
+`INhAssistantInstructionAssetUsage.ListAsync(assetId)` lists every version of the data skills (agent,
+skill id, version, status) and the agents created in the administration that name a text asset of the
+application, with the asset version and hash each one uses (`NhAssistantInstructionAssetUsageDto`). An id
+that is not an asset id fails with `assetId: invalid`. It only reads: a new version of the asset still
+never takes effect by itself.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: the installed package and an agent's parts without an export
+
+`INhAssistantAgentPackages.GetPackageAsync(packageId)` returns the package the host imported
+(`NhAssistantInstalledAgentPackageDto`: version, format version, hash, agents, imported at and by) with
+the current links of its parts per agent, also after every agent was unlinked. `ReadAsync(agentIds)`
+returns the agents' parts and hashes exactly as `ExportAsync` builds them, without locks and without the
+`AdminAgentPackageExported` audit.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantAgentPackages` gained `GetPackageAsync` and `ReadAsync`. | A class of the application that implements the interface, such as a test double, implements both; read the installed version with `GetPackageAsync` instead of `GetLinkAsync`, and compare agents with `ReadAsync` instead of an export. |
 
 ## @newheap/platform-ai-chat: agent names in the administration and the region refusal
 

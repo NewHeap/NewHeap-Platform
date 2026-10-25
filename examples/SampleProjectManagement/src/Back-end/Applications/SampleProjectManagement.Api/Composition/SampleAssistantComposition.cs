@@ -147,7 +147,10 @@ public static class SampleAssistantComposition
             .ConfigureMcp(mcp =>
             {
                 // Administrators may connect any https host that is not blocked; plain http is only
-                // accepted for loopback in Development. Only hosts in
+                // accepted for loopback in Development. SPM-331: a test host of another environment,
+                // such as Testing, reaches MCP servers on loopback only with
+                // NewHeap:AI:Assistant:Mcp:AllowLoopback, which Production refuses at start; the sample
+                // leaves it off. Only hosts in
                 // NewHeap:AI:Assistant:Mcp:ForwardUserTokenHosts receive a person's token, none by default.
                 // SPM-251: background runs use a server only after an administrator sets its
                 // headlessUse to organization, or to personal for a forwarded token, which then needs

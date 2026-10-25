@@ -365,6 +365,8 @@ public sealed class NhAssistantDbContext : DbContext
             input.Property(item => item.SkillId).HasMaxLength(64);
             input.Property(item => item.ClientMessageId).HasMaxLength(128);
             input.HasIndex(item => new { item.ConversationId, item.ConsumedAt, item.CreatedAt });
+            // The application finds the input, and the run that took it, by its trigger event's key.
+            input.HasIndex(item => new { item.EventKey, item.TriggerId });
             input.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)

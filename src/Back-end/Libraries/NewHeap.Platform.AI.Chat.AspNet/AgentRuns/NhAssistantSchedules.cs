@@ -3,6 +3,7 @@ using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Utilities;
 
@@ -226,11 +227,13 @@ internal sealed class NhAssistantScheduledTriggerJob(
 
 /// <summary>
 /// Registers a Hangfire recurring job for every scheduled trigger in code at startup. Data schedules
-/// have jobs of their own; see <see cref="NhAssistantDataScheduleSync"/>.
+/// have jobs of their own; see <see cref="NhAssistantDataScheduleSync"/>. A host with
+/// <see cref="NhAssistantOptions.RunSchedules"/> false registers none and needs no Hangfire.
 /// </summary>
 internal sealed class NhAssistantScheduleRegistration(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
+    IOptions<NhAssistantOptions> options,
     ILogger<NhAssistantScheduleRegistration> logger) : IHostedService
 {
     internal const string RecurringJobPrefix = "nh-assistant-trigger-";
@@ -242,6 +245,14 @@ internal sealed class NhAssistantScheduleRegistration(
             .ToArray();
         if (schedules.Length == 0)
         {
+            return Task.CompletedTask;
+        }
+
+        if (!options.Value.RunSchedules)
+        {
+            logger.LogInformation(
+                "This host does not run the {Count} scheduled assistant triggers in code (RunSchedules is false); it registers no recurring jobs.",
+                schedules.Length);
             return Task.CompletedTask;
         }
 

@@ -72,4 +72,28 @@ public interface INhAssistantAgentPackages
     /// that belongs to none.
     /// </summary>
     Task<NhAssistantAgentPackageLinkDto?> GetLinkAsync(string agentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The package this host imported as <paramref name="packageId"/>: its version, format version and
+    /// hash, its agents, when and by whom it was imported, and the current link of every part still
+    /// linked to it, per agent, each with whether it changed locally. The package stays known after its
+    /// agents were unlinked, when <see cref="GetLinkAsync"/> returns nothing. <see langword="null"/> for a
+    /// package the host never imported or an id that is not a package id (lowercase dash-case, at most
+    /// 128 characters). Reads only; nothing is audited.
+    /// </summary>
+    Task<NhAssistantInstalledAgentPackageDto?> GetPackageAsync(string packageId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Exactly <paramref name="agentIds"/> (1 to 20) as <see cref="ExportAsync"/> would put them in a
+    /// package, in the same order: every part and its SHA-256 in
+    /// <see cref="NhAssistantPackageAgent.Hashes"/>, built the same way, without locks, which only an
+    /// export's options set. Compare them with a package's parts and hashes, or with the hashes of the
+    /// parts' links, without exporting: nothing is audited and nothing changes. Fails with the field
+    /// error <c>agentIds</c> as an export does (<c>required</c>, <c>too-long</c>, <c>invalid</c> for an id
+    /// that is malformed or named twice) and with <c>assistant-agent-not-found</c>; agents of different
+    /// packages may be read together.
+    /// </summary>
+    Task<TaskResult<IReadOnlyList<NhAssistantPackageAgent>>> ReadAsync(
+        IReadOnlyList<string> agentIds,
+        CancellationToken cancellationToken = default);
 }

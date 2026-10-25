@@ -547,7 +547,18 @@ committed change always reaches its agent, and the receipt reads `deferred`
 after the commit when you need it. After the commit, for example from an outbox
 consumer, a trigger fires at once and the receipt names the run. Deferred triggers
 of one agent and subject fire in publishing order, and a retried operation fires
-once. The assistant's own endpoints, schedules, webhooks and follow-ups always fire
+once. Every receipt of a fire that wrote an input, or writes one after the commit, names it
+(`NhAssistantTriggerReceipt.InputId`): started, queued, superseded, coalesced and waiting fires and a
+deferred fire before the commit; a rejected, ignored or deduplicated fire names none. To find what
+became of an event, call `INhAssistantAgentRunLookup.FindByEventAsync(agentId, triggerId, eventKey)`
+with the trigger's dedupe key, or `FindByInputAsync(inputId)`: the `NhAssistantTriggerEventRun` names
+the input, its thread and subject, whether it still waits, and the run that consumed it, or while it
+waits the run the event started. The lookup goes through the queued inputs, because a run that
+coalesced several events records only the first event's key, and a redelivered event finds its first
+delivery. It is a server API for the application: it checks no person's access, so show its result
+only to people the application lets see the agent's work, and pass the caller's tenant to leave other
+tenants' work out (the whole application's work only for a tenant that takes part, `UseSingleTenant`).
+The assistant's own endpoints, schedules, webhooks and follow-ups always fire
 at once. Maintenance queues a run again whose operation never committed. Choose
 `NhAssistantTriggerConflict` for events that arrive while a run is active:
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
@@ -563,6 +574,16 @@ going, gives way without spending a retry and tries again 15 or 30 seconds later
 application's clock, twice as long after every attempt that gave way, at most five minutes. Call
 `AddAssistantAgentRuns()` inside `WithBackgroundOperations`.
 
+Give agent runs capacity of their own when other background work can fill the global limit.
+`AddAssistantAgentRuns(runs => runs.Queue("agent-runs").MaxConcurrency(4))` places every operation of
+the assistant (runs, proposal executions, revalidations, deferred trigger fires and replays) on that
+queue, which the process's Hangfire server serves on its own, and gives the queue that concurrency
+limit; `MaxConcurrency` needs a queue of their own and refuses to change a limit the queue already has.
+Reserve slots of the global limit for the queue with `WithReservedQueueConcurrency("agent-runs", 2)`:
+other work then never takes them, and the queue limit keeps agent work from taking every shared slot
+in turn. Operations queued before the queue changed keep their old queue, so keep serving it until
+they ended. The agents' own `maxConcurrentRuns` still applies per agent.
+
 Other sources start agents too. `AddScheduledTrigger` runs a Hangfire recurring job on
 a cron schedule and fires the trigger for each subject its `Subjects` query returns,
 at most `MaxSubjectsPerTick`; a repeated job in the same minute starts nothing twice.
@@ -570,6 +591,14 @@ Hangfire fires the cron on real time, but the minute a tick belongs to comes fro
 application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
 its clock to the next minute to tick again instead of waiting, and with a clock that stands
 still every later tick counts as the same minute and starts nothing.
+A host that runs the schedules registers the recurring jobs of the schedules in code when it starts and
+keeps those of data schedules in line with its snapshot, which removes the jobs of schedules its snapshot
+does not know. Set `NewHeap:AI:Assistant:RunSchedules` (`NhAssistantOptions.RunSchedules`, true by
+default) to `false` on every other host that shares the database, such as an API host next to the worker
+that runs Hangfire, or a host without a Hangfire server: it registers, changes and removes no recurring
+job and needs no `IRecurringJobManager`, while its triggers, runs, administration and the following of
+data changes work as usual and a tick that reaches it still fires. Keep it `true` on the hosts whose
+Hangfire servers run the schedules, and give them the agents and schedules the other hosts have.
 `AddWebhookTrigger` exposes `POST {prefix}/triggers/{id}` to an external system without
 a user: the caller signs `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and a shared
 secret of at least 32 characters read for every call, calls more than five minutes off
@@ -769,7 +798,14 @@ execute and the administration shows the problem (`InstructionsProblem` of
 `NhAssistantAdminAgentDto`). A source that fails keeps a text it verified before in effect and is asked
 again after half a minute. A new version of the asset never takes effect on its own: an administrator
 saves it as the skill's next version or the agent's next version, and the history keeps which version
-each one used. The audit names the asset as `InstructionsVersion` (`<asset-id>@<version>`) with
+each one used. `INhAssistantInstructionAssetUsage.ListAsync(assetId)` answers which data skills and
+agents created in the administration name an asset (`NhAssistantInstructionAssetUsageDto`): every skill
+version with its agent, skill id, version, status (`live`, `candidate`, or `superseded` and `discarded`
+as history) and the asset version and hash it names, and every agent with its version and the asset
+version and hash, ordered ordinal; an id that is not lowercase dash-case of at most 128 characters fails
+with `assetId: invalid`. It only reads, so an application that publishes a new version finds what to
+save as each one's next version; nothing follows it by itself (SPM-331). The audit names the asset as
+`InstructionsVersion` (`<asset-id>@<version>`) with
 `InstructionsHash` on `AdminAgentSkillDefinitionChanged`, `AdminAgentCreated` and
 `AdminAgentUpdated`, and `AgentRunEnded` names the skill and agent versions that pin it; no text
 reaches the audit, logs, problems or run facts. The administration's skill form and agent editor choose
@@ -1126,7 +1162,14 @@ audited as `AdminAgentPackageUnlinked`; the next upgrade keeps it as `kept-local
 `Relink` names it, while an unlocked field the host changed is overwritten and shown as changed
 locally. The administration's DTOs carry the link of every linked part (`Package`, with its locked
 fields), and `AssistantAgentPackage` and `AssistantAgentPackageLink` store packages and links with the
-AgentPackages migrations for SQL Server and PostgreSQL.
+AgentPackages migrations for SQL Server and PostgreSQL. `GetPackageAsync(packageId)` returns the package
+the host imported (`NhAssistantInstalledAgentPackageDto`: version, format version, hash, agents, imported
+at and by) with the current links of its parts per agent (`NhAssistantPackageAgentLinksDto`, each with
+`ChangedLocally`), also after every agent was unlinked, when `GetLinkAsync` returns nothing; it is `null`
+for a package the host never imported or an id that is no package id. `ReadAsync(agentIds)` returns
+exactly those agents, 1 to 20, with their parts and `Hashes` built as `ExportAsync` builds them but
+without locks and without the `AdminAgentPackageExported` audit, to compare an installed agent with a
+shipped package or with its links; it refuses the agent ids an export refuses (SPM-331).
 
 The schema of the format, which tools that write packages follow:
 
@@ -1545,7 +1588,15 @@ entry's name and the version only.
   background operations, or inside an ambient `TransactionScope`, which the
   background operations do not support; the platform cannot defer such a trigger.
 - Reading the run or thread from the receipt of a trigger published inside a
-  transaction; it reads `deferred` until the commit.
+  transaction; it reads `deferred` until the commit. Keep its `InputId` or the event's dedupe key and
+  find the run with `INhAssistantAgentRunLookup` after the commit.
+- Finding the run of an event through `AssistantRun.TriggerEventKey` alone: a run that coalesced
+  several events records the first event's key only.
+- Removing the assistant's schedule registrations by their internal types on a host that must not run
+  the schedules, or leaving `RunSchedules` true on a host without a Hangfire server or with other
+  agents, whose data schedule sync removes the jobs it does not know; set `RunSchedules` to `false`.
+- Placing agent runs on a queue of their own without a reservation when other work can fill the global
+  limit, or reserving slots without a queue limit when agent work must leave room for other work.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
 - Waiting for an asynchronous system inside a tool's function, or polling it from an agent run, instead of
@@ -1588,6 +1639,10 @@ entry's name and the version only.
   agent in the import options.
 - Locking whole parts to keep one field, or expecting a lock to stop an administrator for good: lock the
   fields that must stay, and know that an administrator may unlink a part.
+- Exporting agents only to compare them with a package, which audits an export, or reading the
+  installed version from the links, which an unlink removes: use `ReadAsync` and `GetPackageAsync`.
+- Saving the skills and agents that name a text asset automatically when the application publishes a
+  new version: list them with `INhAssistantInstructionAssetUsage` and let an administrator save each.
 - Reading a package leniently or dropping what a host does not know; read it with
   `NhAssistantAgentPackageFormat.Read` and fix a refused package at its source.
 - Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
@@ -1699,6 +1754,19 @@ person's change and assert a run each, assert that the filter's `AgentActorId` a
 that a tool in a run reads the run's id as `AgentRunId` while `RunId` is the turn's, save an
 unknown filter and assert `assistant-trigger-filter-not-found`, and store a filter the code no longer
 registers and assert `filter-missing` and the problem `unknown-filter`, on both providers.
+
+For the trigger event lookup, on both providers, assert that the receipts of a started, a coalesced, a
+waiting and a deferred fire name their input, a deferred one before the commit, and a redelivery none;
+that `FindByEventAsync` returns a started event's input with its queued run, a coalesced event's input
+waiting without a run and then with the run that claimed it, a waiting event's input and after the resume
+the run of the resume, a deferred event only once its fire ran and a redelivery's first delivery; that
+`FindByInputAsync` returns the same; and that a lookup for another tenant finds nothing, also for the
+whole application's work, which the single tenant finds. For hosts that do not run schedules, assert that
+a host with `RunSchedules` false starts without Hangfire, fires its schedules and adds or removes no
+recurring job next to the scheduling host's storage, and that a host with the default registers the jobs
+of schedules in code and as data and removes a data schedule's job its snapshot does not know. For the
+agent runs' queue, assert that every assistant operation type uses it and that the queue gets its limit.
+SPM-326 is the executable reference.
 
 Publish the event twice and assert one run. Assert that the run's background
 operation is owned by the agent, that the deferred proposal is visible only to
@@ -1877,7 +1945,10 @@ skill's runs and the agent's turns read the asset's text, that a wrong hash, a m
 reference without a source are refused at save, that a hash that changes later takes the skill out of
 effect and keeps the agent from running at the next load, that a failing source keeps a verified text,
 that inline instructions are unchanged and that people who do not administer neither list nor read the
-assets. Save a change of a live data skill for shadow and
+assets. Assert that the asset usage lists every skill version and agent that names the asset with the
+version and hash it uses, leaves out an agent whose own instructions merely share the asset's id, keeps
+naming the old version after a new one is published until it is saved, and refuses an id that is not an
+asset id, on both providers. Save a change of a live data skill for shadow and
 assert that an event starts the live version's run live and the candidate's run in the shadow thread
 with its own version, rules and inputs, that a repeated delivery starts neither again, that the
 comparison pairs the two, that promoting makes the candidate live without a second run, and that a
@@ -2008,7 +2079,10 @@ account is required, must be able to sign in and never travels, that `Apply = "s
 promote puts live, that every save path refuses a locked field and the removal or deletion of a locked part
 while operations stay free, that an unlinked part stays `kept-local` until `Relink` names it, that an agent
 in code takes the overlay, that the format is read strictly, and that the endpoints refuse people who do
-not administer. SPM-321 is the executable reference.
+not administer. Assert that `GetPackageAsync` returns the imported version, hash and links, shows a part
+changed on the host as changed locally and still returns the package after every agent was unlinked,
+and that `ReadAsync` equals the parts and hashes of an export of the same agents and writes no audit.
+SPM-321 and SPM-331 are the executable references.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 
