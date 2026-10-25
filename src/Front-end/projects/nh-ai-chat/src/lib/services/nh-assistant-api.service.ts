@@ -12,6 +12,7 @@ import {
 import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
 import {
   AgentSummary,
+  AnswerQuestionRequest,
   AssistantStatus,
   Conversation,
   ConversationPage,
@@ -126,6 +127,17 @@ export class NhAssistantApiService {
 
   decideApproval(conversationId: string, approvalId: string, request: DecideApprovalRequest): Observable<NhAssistantSseEvent> {
     const path = `conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(approvalId)}/decide`;
+    return this.requestStream(path, request, false);
+  }
+
+  /**
+   * Answers the question the chat's waiting turn asked with `ask_question` with the index of one of
+   * its choices, and streams the resumed turn like a decision. Only the question's addressee answers;
+   * the server refuses others with `assistant-question-forbidden` and a question whose wait ended with
+   * `assistant-question-expired`.
+   */
+  answerQuestion(conversationId: string, questionId: string, request: AnswerQuestionRequest): Observable<NhAssistantSseEvent> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/answer`;
     return this.requestStream(path, request, false);
   }
 

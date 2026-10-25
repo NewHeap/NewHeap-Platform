@@ -111,6 +111,14 @@
       {{ 'nh-assistant.composer.status.waiting-for-approval' | translate }}
     }
   </p>
+} @else if (status() === 'waiting-for-answer') {
+  <p class="composer-status" role="status" aria-live="polite">
+    @if (statusActor(); as name) {
+      {{ 'nh-assistant.composer.status.waiting-for-answer-by' | translate: { name } }}
+    } @else {
+      {{ 'nh-assistant.composer.status.waiting-for-answer' | translate }}
+    }
+  </p>
 }
 
 <p class="hint" [id]="hintId">

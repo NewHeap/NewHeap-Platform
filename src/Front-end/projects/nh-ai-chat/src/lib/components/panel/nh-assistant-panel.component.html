@@ -133,6 +133,7 @@
             [writingMessageId]="store.writingMessageId()"
             (approvalChoice)="decideApproval($event)"
             (approvalResolution)="resolveApproval($event)"
+            (questionAnswer)="answerQuestion($event)"
             (retryMessage)="store.send($event)" />
         }
       }
@@ -269,7 +270,7 @@
           [busy]="busy()"
           [queueWhileBusy]="true"
           [status]="composerStatus()"
-          [statusActor]="activeMemberName()"
+          [statusActor]="composerStatusActor()"
           [canStop]="canStop()"
           [maxLength]="store.limits()?.maxMessageChars ?? null"
           [restore]="store.restoredDraft()"

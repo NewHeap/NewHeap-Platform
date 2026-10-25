@@ -105,6 +105,15 @@
             (decide)="choose(group.part, $event)"
             (resolve)="resolveApproval(group.part, $event)" />
         }
+        @case ('question') {
+          <nh-assistant-question-card
+            class="part"
+            [question]="group.part"
+            [canAnswer]="canAnswer(group.part)"
+            [addresseeName]="addresseeName(group.part)"
+            [answering]="deciding()"
+            (answer)="answerQuestion(group.part, $event)" />
+        }
       }
     }
     @if (isApplication(message) && message.application?.link; as link) {

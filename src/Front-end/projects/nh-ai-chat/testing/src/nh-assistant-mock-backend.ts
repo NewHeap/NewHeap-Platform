@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
   AgentConsultationList,
   AgentUploads,
+  AnswerQuestionRequest,
   ApplicationMessageDetails,
   ApprovalPart,
   ClientContext,
@@ -21,11 +22,13 @@ import {
   NH_ASSISTANT_CONFIG,
   NhAssistantSseEvent,
   NhAssistantUploadRequest,
+  QuestionPart,
   ResolveApprovalRequest,
   SendMessageRequest,
   TurnUsage,
   applyNhAssistantApprovalDecision,
   applyNhAssistantEvent,
+  applyNhAssistantQuestionAnswer,
   normalizeNhAssistantClientContext
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
@@ -44,6 +47,7 @@ import {
   NhAssistantMockApprovalStep,
   NhAssistantMockInstructionAsset,
   NhAssistantMockPerson,
+  NhAssistantMockQuestionStep,
   NhAssistantMockRemoteTool,
   NhAssistantMockRequest,
   NhAssistantMockScenario,
@@ -77,6 +81,14 @@ interface PendingApproval {
   step: NhAssistantMockApprovalStep['approval'];
 }
 
+interface PendingQuestion {
+  question: QuestionPart;
+  step: NhAssistantMockQuestionStep['question'];
+}
+
+/** The tool of `ask_question`, as the server records its call. */
+const askQuestionToolId = 'assistant.ask-question';
+
 /** When the scenario's consultations started, when they name no time. */
 const consultationStart = new Date().toISOString();
 
@@ -100,6 +112,7 @@ export class NhAssistantMockBackend {
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly conversations = new Map<string, Conversation>();
   private readonly pendingApprovals = new Map<string, PendingApproval>();
+  private readonly pendingQuestions = new Map<string, PendingQuestion>();
   private readonly runs = new Map<string, ActiveRun>();
   /** Page context of the latest message per conversation, as the server stores it. */
   private readonly pageContexts = new Map<string, ClientContext | null>();
@@ -480,6 +493,7 @@ export class NhAssistantMockBackend {
       if (method === 'DELETE') {
         this.conversations.delete(conversation.id);
         this.pendingApprovals.delete(conversation.id);
+        this.pendingQuestions.delete(conversation.id);
         this.emitLive({ kind: 'removed', data: { conversationId: conversation.id } });
         return this.empty(204);
       }
@@ -528,6 +542,9 @@ export class NhAssistantMockBackend {
     }
     if (method === 'POST' && segments.length === 5 && segments[2] === 'approvals' && segments[4] === 'resolve') {
       return this.resolve(conversation, segments[3], body as ResolveApprovalRequest);
+    }
+    if (method === 'POST' && segments.length === 5 && segments[2] === 'questions' && segments[4] === 'answer') {
+      return this.answer(conversation, segments[3], body as AnswerQuestionRequest);
     }
 
     return this.empty(404);
@@ -714,11 +731,68 @@ export class NhAssistantMockBackend {
     return this.json(200, this.view(this.conversations.get(conversation.id) ?? conversation));
   }
 
+  /**
+   * `POST conversations/{id}/questions/{questionId}/answer`: the addressee answers the question the
+   * turn waits for with the index of a choice, as on the server. Anyone else is refused, as are a
+   * choice the question does not offer and a question whose wait ended, which releases the
+   * conversation. The answer resumes the turn with the step's answered steps.
+   */
+  private answer(conversation: Conversation, questionId: string, request: AnswerQuestionRequest): Response {
+    const pending = this.pendingQuestions.get(conversation.id);
+    const known = conversation.messages.some(message =>
+      message.parts.some(part => part.type === 'question' && part.questionId === questionId));
+    if (!known) {
+      return this.error('assistant-question-not-found');
+    }
+    if (pending?.question.questionId === questionId && pending.question.addresseeActorId !== this.currentUser.actorId) {
+      return this.error('assistant-question-forbidden');
+    }
+    if (!pending || pending.question.questionId !== questionId) {
+      return this.error('assistant-question-not-pending');
+    }
+    const choice = request?.choice;
+    if (typeof choice !== 'number' || !Number.isInteger(choice) || choice < 0 || choice >= pending.question.choices.length) {
+      return this.error('assistant-question-answer-invalid');
+    }
+    if (Date.parse(pending.question.expiresAt) <= Date.now()) {
+      this.pendingQuestions.delete(conversation.id);
+      this.update(conversation.id, current => withClosedQuestion(current, questionId, 'expired'));
+      return this.error('assistant-question-expired');
+    }
+
+    this.pendingQuestions.delete(conversation.id);
+    this.activeActors.set(conversation.id, this.currentUser.actorId);
+    const lastUser = [...conversation.messages].reverse().find(message => message.role === 'user');
+    this.update(conversation.id, current => applyNhAssistantQuestionAnswer(current, questionId, choice));
+    const answer = pending.question.choices[choice];
+    const steps = typeof pending.step.answered === 'function' ? pending.step.answered(answer, choice) : pending.step.answered;
+    const assistantMessageId = this.nextId();
+
+    return this.stream(conversation.id, async emit => {
+      await emit({ type: 'turn.started', data: { turnId: this.nextId(), userMessageId: lastUser?.id ?? questionId, assistantMessageId } });
+      await emit({
+        type: 'tool.completed',
+        data: { invocationId: questionId, status: 'succeeded', resultCode: null, resultPreview: JSON.stringify({ answer }) }
+      });
+      await emit({
+        type: 'question.answered',
+        data: { ...pending.question, status: 'answered', answerIndex: choice, closedAt: new Date().toISOString() }
+      });
+      await this.playSteps(conversation.id, assistantMessageId, steps, emit);
+    });
+  }
+
   private cancel(conversation: Conversation): Response {
     const run = this.runs.get(conversation.id);
     if (run) {
       run.cancelled = true;
       return this.empty(202);
+    }
+
+    const question = this.pendingQuestions.get(conversation.id);
+    if (question) {
+      this.pendingQuestions.delete(conversation.id);
+      this.update(conversation.id, current => withClosedQuestion(current, question.question.questionId, 'cancelled'));
     }
 
     const pending = this.pendingApprovals.get(conversation.id);
@@ -769,6 +843,11 @@ export class NhAssistantMockBackend {
         });
       } else if ('approval' in step) {
         await this.pauseForApproval(conversationId, assistantMessageId, step.approval, emit);
+        usage.toolCalls++;
+        await emit({ type: 'turn.completed', data: { turnId: this.nextId(), status: 'waiting-for-approval', usage, errorCode: null } });
+        return;
+      } else if ('question' in step) {
+        await this.pauseForQuestion(conversationId, step.question, emit);
         usage.toolCalls++;
         await emit({ type: 'turn.completed', data: { turnId: this.nextId(), status: 'waiting-for-approval', usage, errorCode: null } });
         return;
@@ -844,6 +923,37 @@ export class NhAssistantMockBackend {
     };
     this.pendingApprovals.set(conversationId, { approval, invocationId, assistantMessageId, step });
     await emit({ type: 'approval.required', data: approval });
+  }
+
+  /** Records the `ask_question` call and posts the question; the turn then waits for its answer. */
+  private async pauseForQuestion(
+    conversationId: string,
+    step: NhAssistantMockQuestionStep['question'],
+    emit: Emit
+  ): Promise<void> {
+    const questionId = this.nextId();
+    await emit({
+      type: 'tool.started',
+      data: {
+        invocationId: questionId,
+        toolId: askQuestionToolId,
+        toolVersion: 1,
+        displayName: 'ask_question',
+        argumentsPreview: JSON.stringify({ question: step.question, choices: step.choices })
+      }
+    });
+
+    const question: QuestionPart = {
+      type: 'question',
+      questionId,
+      question: step.question,
+      choices: [...step.choices],
+      addresseeActorId: step.addresseeActorId ?? this.activeActors.get(conversationId) ?? this.currentUser.actorId,
+      expiresAt: new Date(Date.now() + (step.expiresInSeconds ?? 900) * 1000).toISOString(),
+      status: 'pending'
+    };
+    this.pendingQuestions.set(conversationId, { question, step });
+    await emit({ type: 'question.asked', data: question });
   }
 
   private stream(conversationId: string, play: (emit: Emit) => Promise<void>): Response {
@@ -1289,6 +1399,31 @@ function withResolvedApproval(
   return {
     ...conversation,
     messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(resolved) }))
+  };
+}
+
+/**
+ * A question that closed without an answer, as the server reads it afterwards: expired or withdrawn
+ * with its stopped turn. Its call ends, and the conversation takes the next message.
+ */
+function withClosedQuestion(conversation: Conversation, questionId: string, status: 'expired' | 'cancelled'): Conversation {
+  const closedAt = new Date().toISOString();
+  const closed = (part: MessagePart): MessagePart => {
+    if (part.type === 'question' && part.questionId === questionId) {
+      return { ...part, status, closedAt };
+    }
+    if (part.type === 'tool-call' && part.invocationId === questionId) {
+      return status === 'expired'
+        ? { ...part, status: 'failed', resultCode: 'assistant-question-expired' }
+        : { ...part, status: 'not-executed', resultCode: 'assistant-question-cancelled' };
+    }
+    return part;
+  };
+  return {
+    ...conversation,
+    status: 'idle',
+    pendingQuestion: null,
+    messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(closed) }))
   };
 }
 

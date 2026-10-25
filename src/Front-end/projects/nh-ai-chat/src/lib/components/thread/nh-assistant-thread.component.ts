@@ -16,7 +16,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, FilePart, Message } from '../../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, FilePart, Message, QuestionPart } from '../../models/assistant-api.models';
 import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
@@ -24,6 +24,7 @@ import { NhAssistantMessageLinkComponent } from '../../internal/nh-assistant-mes
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
 import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
+import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-question-card.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
 
@@ -31,6 +32,13 @@ import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store
 export interface NhAssistantApprovalChoice {
   approvalId: string;
   decision: ApprovalDecision;
+}
+
+/** The answer the user chose for a question of the thread. */
+export interface NhAssistantQuestionAnswer {
+  questionId: string;
+  /** The zero-based index of the chosen answer. */
+  choice: number;
 }
 
 /** How the user resolves the uncertain hand-off of one approval they made in this chat. */
@@ -69,7 +77,8 @@ const stickToBottomDistance = 120;
     NhAssistantPartGroupsPipe,
     NhAssistantToolCallGroupComponent,
     NhAssistantApprovalCardComponent,
-    NhAssistantConnectionRequiredComponent
+    NhAssistantConnectionRequiredComponent,
+    NhAssistantQuestionCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-thread.component.html',
@@ -120,6 +129,11 @@ export class NhAssistantThreadComponent {
   /** How the user resolves an uncertain hand-off they approved in this chat, with its approval id. */
   readonly approvalResolution = output<NhAssistantApprovalResolutionChoice>();
   /**
+   * The answer the user chose for a question addressed to them, for example for
+   * `NhAssistantStore.answerQuestion`. Only the addressee of a pending question gets choice buttons.
+   */
+  readonly questionAnswer = output<NhAssistantQuestionAnswer>();
+  /**
    * The question to ask again after the viewer connected an MCP server from a connection card: the
    * text of the user message the card answered. The panel sends it.
    */
@@ -166,7 +180,8 @@ export class NhAssistantThreadComponent {
     const lastPart = last.parts[last.parts.length - 1];
     return lastPart.type === 'tool-call'
       && lastPart.status !== 'running'
-      && lastPart.status !== 'awaiting-approval';
+      && lastPart.status !== 'awaiting-approval'
+      && lastPart.status !== 'awaiting-answer';
   });
   /**
    * The message in whose row the working indicator shows: the answer `writingMessageId` names.
@@ -267,6 +282,21 @@ export class NhAssistantThreadComponent {
 
   resolveApproval(approval: ApprovalPart, resolution: ApprovalResolution): void {
     this.approvalResolution.emit({ approvalId: approval.approvalId, resolution });
+  }
+
+  /** Whether the current user may answer the question: it waits and is addressed to them. */
+  canAnswer(question: QuestionPart): boolean {
+    const currentActorId = this.currentActorId();
+    return question.status === 'pending' && !!currentActorId && question.addresseeActorId === currentActorId;
+  }
+
+  /** The name of the person a question is addressed to, or `null` when the application provides none. */
+  addresseeName(question: QuestionPart): string | null {
+    return this.names().get(question.addresseeActorId) ?? null;
+  }
+
+  answerQuestion(question: QuestionPart, choice: number): void {
+    this.questionAnswer.emit({ questionId: question.questionId, choice });
   }
 
   /** Display name of another person's message, or `null` when the application provides none. */
