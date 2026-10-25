@@ -12,7 +12,7 @@ using NewHeap.Platform.AI.Chat.Persistence;
 namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    [Migration("20261025082626_MetadataIndexValues")]
+    [Migration("20261025090105_MetadataIndexValues")]
     partial class MetadataIndexValues
     {
         /// <inheritdoc />
@@ -2547,6 +2547,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventKey", "TriggerId");
 
                     b.HasIndex("ConversationId", "ConsumedAt", "CreatedAt");
 

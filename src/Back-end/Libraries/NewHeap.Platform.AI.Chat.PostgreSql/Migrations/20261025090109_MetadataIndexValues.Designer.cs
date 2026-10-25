@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    [Migration("20261025082639_MetadataIndexValues")]
+    [Migration("20261025090109_MetadataIndexValues")]
     partial class MetadataIndexValues
     {
         /// <inheritdoc />
@@ -2547,6 +2547,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventKey", "TriggerId");
 
                     b.HasIndex("ConversationId", "ConsumedAt", "CreatedAt");
 
