@@ -382,6 +382,8 @@ builder.Services.AddScoped<SampleAgentMaintenanceService>();
 builder.Services.AddScoped<SampleIntakeReviewLookup>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
 builder.Services.AddScoped<SampleInstructionAssetService>();
+// SPM-329 and SPM-330: agents read as in effect, changed from code and a shadow variant promoted.
+builder.Services.AddScoped<SampleAgentDefinitionService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();

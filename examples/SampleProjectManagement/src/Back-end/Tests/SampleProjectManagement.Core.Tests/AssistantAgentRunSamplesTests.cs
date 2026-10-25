@@ -2211,8 +2211,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         try
         {
             var catalog = (await administrator.GetFromJsonAsync<NhAssistantRunCatalogDto>("/api/assistant/admin/run-catalog", Json))!;
-            Assert.Equal(new NhAssistantAgentMetadataEntryDto(entry, true, 512, true), Assert.Single(catalog.AgentMetadata));
-            var inCode = Assert.Single((await administrator.GetFromJsonAsync<NhAssistantAgentMetadataDto[]>($"/api/assistant/admin/agents/{planner}/metadata", Json))!);
+            // The departments of SPM-313's IndexByEach are another entry, next to the cost center.
+            Assert.Equal(new NhAssistantAgentMetadataEntryDto(entry, true, 512, true), Assert.Single(catalog.AgentMetadata, item => item.Name == entry));
+            var inCode = Assert.Single(
+                (await administrator.GetFromJsonAsync<NhAssistantAgentMetadataDto[]>($"/api/assistant/admin/agents/{planner}/metadata", Json))!,
+                item => item.Name == entry);
             Assert.Equal((NhAssistantAgentMetadataSources.Code, true, (int?)null), (inCode.Source, inCode.Editable, inCode.Version));
             Assert.Equal("CC-4100", inCode.Value!.Value.GetProperty("code").GetString());
 
@@ -5841,6 +5844,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         // SPM-320: the planner's risk review takes its instructions from the sample's own text asset.
         services.AddSampleInstructionAssets();
         services.AddScoped<SampleInstructionAssetService>();
+        // SPM-329 and SPM-330: agents read as in effect and changed from code, as in Program.cs.
+        services.AddScoped<SampleAgentDefinitionService>();
         // SPM-278: every principal anything asks for is counted, and people are refused while a test
         // proves that consultations never rebuild a person's principal.
         SamplePrincipalWatch.Install(services, PrincipalWatch);
