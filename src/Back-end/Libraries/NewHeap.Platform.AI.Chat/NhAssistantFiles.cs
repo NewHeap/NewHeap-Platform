@@ -167,7 +167,7 @@ public sealed record NhAssistantFileUpload(
 /// accepted media type within the agent's <see cref="NhAssistantLimits.MaxFileBytes"/>; then the file
 /// source stores it.
 /// </summary>
-public sealed class NhAssistantUploadOptions
+public sealed partial class NhAssistantUploadOptions
 {
     /// <summary>
     /// The most media types an application accepts for uploads.
@@ -183,11 +183,6 @@ public sealed class NhAssistantUploadOptions
     /// The longest extension <see cref="MapExtension"/> takes, its dot included.
     /// </summary>
     private const int MaxExtensionLength = 32;
-
-    private static readonly Regex ExtensionPattern = new(
-        "^\\.[a-z0-9][a-z0-9_+-]*$",
-        RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
 
     private IReadOnlyList<string> _mediaTypes = DefaultMediaTypes;
 
@@ -275,7 +270,7 @@ public sealed class NhAssistantUploadOptions
         ArgumentNullException.ThrowIfNull(mediaType);
 
         var normalizedExtension = extension.Trim().ToLowerInvariant();
-        if (normalizedExtension.Length > MaxExtensionLength || !ExtensionPattern.IsMatch(normalizedExtension))
+        if (normalizedExtension.Length > MaxExtensionLength || !ExtensionPattern().IsMatch(normalizedExtension))
         {
             throw new ArgumentException($"'{extension}' is not a file name extension such as '.dwg'.", nameof(extension));
         }
@@ -329,6 +324,13 @@ public sealed class NhAssistantUploadOptions
             throw new InvalidOperationException("The default classification of uploads must be a defined NhAiDataClassification.");
         }
     }
+
+    /// <summary>
+    /// The extension pattern of <see cref="MapExtension"/>: a dot, then one character class repeated, so a
+    /// match is linear in the input and needs no match timeout.
+    /// </summary>
+    [GeneratedRegex("^\\.[a-z0-9][a-z0-9_+-]*$", RegexOptions.CultureInvariant)]
+    internal static partial Regex ExtensionPattern();
 }
 
 /// <summary>

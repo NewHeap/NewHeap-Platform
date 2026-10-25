@@ -16,7 +16,7 @@ namespace NewHeap.Platform.AI.Chat;
 /// <param name="ToolSelectors">Globs over <see cref="NhAiToolDescriptor.Id"/>: an exact id or a prefix ending in <c>.*</c>.</param>
 /// <param name="Autonomy">Maximum autonomy; only <see cref="NhAiAutonomyLevel.Execute"/> offers mutating tools in the agent's own turns, while a consultation with a proposal route offers them as proposals from <see cref="NhAiAutonomyLevel.Propose"/> on.</param>
 /// <param name="RequiredPolicy">Optional authorization policy a user needs to see and use the agent.</param>
-public sealed record NhAssistantAgentDefinition(
+public sealed partial record NhAssistantAgentDefinition(
     string Id,
     int Version,
     string DisplayNameKey,
@@ -27,11 +27,6 @@ public sealed record NhAssistantAgentDefinition(
     NhAiAutonomyLevel Autonomy,
     string? RequiredPolicy = null)
 {
-    private static readonly Regex SelectorPattern = new(
-        "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\\.\\*)?$",
-        RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
-
     /// <summary>
     /// True when the agent may be offered tools that change state in its own turns, runs and rules.
     /// A consultation with a proposal route offers them as proposals from
@@ -48,8 +43,15 @@ public sealed record NhAssistantAgentDefinition(
     {
         return !string.IsNullOrWhiteSpace(selector)
             && selector.Length <= 128
-            && SelectorPattern.IsMatch(selector);
+            && SelectorPattern().IsMatch(selector);
     }
+
+    /// <summary>
+    /// The tool selector pattern. Every repetition starts at a literal <c>-</c> or <c>.</c>, so a match is
+    /// linear in the input and needs no match timeout; a start-up check never depends on CPU time.
+    /// </summary>
+    [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\\.\\*)?$", RegexOptions.CultureInvariant)]
+    internal static partial Regex SelectorPattern();
 
     /// <summary>
     /// True when the selectors' stored JSON fits <see cref="NhAssistantLimits.MaxStoredToolSelectorCharacters"/>.

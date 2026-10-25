@@ -114,8 +114,12 @@ internal sealed partial class NhAssistantArtifactStore(NhAssistantDbContextFacto
         return contentType.Length <= 100 && ContentTypePattern().IsMatch(contentType);
     }
 
-    [GeneratedRegex("^[a-z]+/[a-z0-9][a-z0-9.+-]*$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
-    private static partial Regex ContentTypePattern();
+    /// <summary>
+    /// The artifact type pattern: a type, a slash and one character class repeated, so a match is linear in
+    /// the input and needs no match timeout.
+    /// </summary>
+    [GeneratedRegex("^[a-z]+/[a-z0-9][a-z0-9.+-]*$", RegexOptions.CultureInvariant)]
+    internal static partial Regex ContentTypePattern();
 }
 
 internal sealed record NhAssistantArtifactRow(
