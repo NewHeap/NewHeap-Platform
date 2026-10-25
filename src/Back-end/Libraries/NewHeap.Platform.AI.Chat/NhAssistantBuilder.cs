@@ -702,7 +702,9 @@ public sealed class NhAssistantBuilder
     /// The declaration is opt-in per tool: other tools keep executing in their function. A run or a
     /// consultation always leaves a proposal of such a tool for later (deferred), at its subject, because
     /// the application's result never reaches a waiting turn; only a person's own turn, a chat or a request
-    /// in an agent thread, still approves it inline and runs the tool's function.
+    /// in an agent thread, still approves it inline and runs the tool's function, unless the declaration
+    /// says <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>
+    /// (<see cref="ExecuteInApplication(string, TimeSpan, Action{NhAssistantApplicationExecutionBuilder})"/>).
     /// </para>
     /// </summary>
     /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
@@ -710,6 +712,25 @@ public sealed class NhAssistantBuilder
     /// than zero and at most 90 days.</param>
     public NhAssistantBuilder ExecuteInApplication(string toolId, TimeSpan reportWithin)
     {
+        return ExecuteInApplication(toolId, reportWithin, _ => { });
+    }
+
+    /// <summary>
+    /// Declares that the application executes the approved proposals of tool <paramref name="toolId"/>
+    /// itself, as <see cref="ExecuteInApplication(string, TimeSpan)"/> does, with the options of
+    /// <paramref name="configure"/>, such as <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>,
+    /// which hands a person's inline approval in their own conversation to the application too.
+    /// </summary>
+    /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
+    /// <param name="reportWithin">How long the application may take to report after a hand-off: longer
+    /// than zero and at most 90 days.</param>
+    /// <param name="configure">The declaration's options.</param>
+    public NhAssistantBuilder ExecuteInApplication(
+        string toolId,
+        TimeSpan reportWithin,
+        Action<NhAssistantApplicationExecutionBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
         if (!NhAssistantAgentDefinition.IsValidSelector(toolId) || toolId.Contains('*', StringComparison.Ordinal))
         {
             throw new ArgumentException("The application executes a tool named by its exact id, without a selector.", nameof(toolId));
@@ -722,7 +743,12 @@ public sealed class NhAssistantBuilder
                 "The report deadline of a tool the application executes is longer than zero and at most 90 days.");
         }
 
-        _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin));
+        var options = new NhAssistantApplicationExecutionBuilder();
+        configure(options);
+        _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin)
+        {
+            AlsoInline = options.HandsOffInline
+        });
         return this;
     }
 
@@ -1451,7 +1477,7 @@ internal sealed class NhAssistantRegistrationState
             }
 
             throw new InvalidOperationException(
-                $"Tool '{execution.ToolId}' is already executed by the application with another report deadline.");
+                $"Tool '{execution.ToolId}' is already executed by the application with another report deadline or other options.");
         }
 
         _applicationExecutions.Add(execution.ToolId, execution);

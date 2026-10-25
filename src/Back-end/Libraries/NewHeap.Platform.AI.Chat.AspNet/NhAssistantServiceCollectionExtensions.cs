@@ -137,6 +137,8 @@ public static class NhAssistantServiceCollectionExtensions
             // the report deadline.
             services.TryAddScoped<NhAssistantApplicationExecutions>();
             services.TryAddScoped<INhAssistantProposalExecutionReports>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
+            // A person's inline approval of a tool declared with AlsoInline is handed off the same way (LS17).
+            services.TryAddScoped<Runs.INhAssistantInlineHandOffs>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();
             services.TryAddScoped<NhAssistantRunCancellation>();

@@ -658,13 +658,31 @@ internal sealed class NhAssistantAgentEvents(
         string? executionCode,
         CancellationToken cancellationToken)
     {
+        return ProposalAsync(kind, thread.AgentId, thread, approval, actorId, resultCode, executionOutcome, executionCode, cancellationToken);
+    }
+
+    /// <summary>
+    /// Records a proposal event of <paramref name="agentId"/> in its thread, or without a subject for a
+    /// proposal of a person's chat outside a subject thread (LS17).
+    /// </summary>
+    public Task ProposalAsync(
+        NhAssistantAuditEventKind kind,
+        string agentId,
+        AssistantThread? thread,
+        AssistantApproval approval,
+        string actorId,
+        string resultCode,
+        string? executionOutcome,
+        string? executionCode,
+        CancellationToken cancellationToken)
+    {
         return RecordAsync(
             new NhAssistantAuditEvent(
                 kind,
                 approval.ConversationId,
                 approval.TurnId,
                 actorId,
-                thread.AgentId,
+                agentId,
                 0,
                 DateTimeOffset.UtcNow)
             {
@@ -674,8 +692,8 @@ internal sealed class NhAssistantAgentEvents(
                 ApprovalId = approval.Id,
                 ProposalId = approval.ProposalId,
                 RunId = approval.RunId,
-                SubjectType = thread.SubjectType,
-                SubjectId = thread.SubjectId,
+                SubjectType = thread?.SubjectType,
+                SubjectId = thread?.SubjectId,
                 InitiatorActorId = approval.InitiatorActorId,
                 GrantSource = approval.GrantSource,
                 ApprovalPolicyId = approval.PolicyId,
