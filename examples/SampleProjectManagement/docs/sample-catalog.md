@@ -351,7 +351,8 @@ A person can also order equipment in their own chat with the project assistant (
 is declared with `AlsoInline`, so approving the card in the chat hands the order to the order desk as
 well, instead of running the tool's function: the turn ends saying the desk has it, and the desk's report
 is posted into that chat as a message of the application with the outcome, the supplier's code and its
-summary.
+summary. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
+offers the person who approved it to hand it to the order desk again or to mark it done.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
 waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "1b84d54a1311ac0965cc0d3e2f06a27b2a1d7393a68283cda43e402b418ce245",
-    "declarationCount": 10999,
+    "hash": "a14475980a56c13f6b4a904a70b80dcdc52481530b1d12252193a57da7f942b6",
+    "declarationCount": 11008,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4283,6 +4283,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+        "declaration": "public async Task<TaskResult<AssistantApproval>> ResolveInChatAsync( AssistantConversation conversation, Guid approvalId, string actorId, ClaimsPrincipal user, NhAssistantExecutionResolution resolution, string? reason, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
         "declaration": "public async Task<TaskResult<NhAssistantExecutionReportReceipt>> ReportExecutionAsync( NhAssistantExecutionReport report, CancellationToken cancellationToken = default)"
       },
       {
@@ -6327,6 +6331,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ExecutionResultCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTimeOffset? ExecutionReportDueAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? CanResolve { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantApprovalConsultationDto( Guid ConsultationId, string AgentId, string SubjectType, string SubjectId, string? SubjectDisplayName) {"
       },
       {
@@ -6859,7 +6875,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static NhAssistantMessageDto ToDto(NhAssistantMessageView message, string? chatActorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
         "declaration": "public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part, string? chatActorId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
@@ -22692,6 +22716,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public NhAssistantApprovalConsultationView? Consultation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public string? DecidedByActorId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public string? ExecutionResultCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public DateTimeOffset? ExecutionReportDueAt { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -47939,7 +47975,9 @@
       "INhAssistantAgentDirectory",
       "NhAssistantAgentDirectoryFilter",
       "NhAssistantAgentInEffectDto",
-      "IndexByEach"
+      "IndexByEach",
+      "NhAssistantResolveExecutionRequest",
+      "NhAssistantApprovalPartDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -48738,7 +48776,11 @@
       "PackagePartLink",
       "AgentPackageLink",
       "NH_ASSISTANT_PACKAGE_LOCK_FIELDS",
-      "NhAssistantMockAgentPackage"
+      "NhAssistantMockAgentPackage",
+      "ApprovalResolution",
+      "ResolveApprovalRequest",
+      "NhAssistantApprovalResolutionChoice",
+      "resolveApproval"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

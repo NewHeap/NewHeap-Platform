@@ -317,7 +317,12 @@ the buttons, the person who started the work reads that another approver decides
 everyone else waits for an approver. The panel decides a run's proposal with its proposal
 hash through `NhAssistantAgentRunApiService` (`POST approvals/{id}/decisions`) and reloads
 the thread; a proposal of a person's own turn in the thread still resumes that turn as a
-stream. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
+stream. In a chat, an approval the user approved whose hand-off to the application has an unknown
+outcome (`ApprovalPart.canResolve`, SPM-328) shows "Hand to the application again" and "Mark as done"
+on its card: the card emits `resolve` (`ApprovalResolution`), the thread `approvalResolution`
+(`NhAssistantApprovalResolutionChoice`), and the panel calls `NhAssistantStore.resolveApproval`, which
+posts `NhAssistantApiService.resolveApproval` (`ResolveApprovalRequest`) and shows the conversation the
+server returns. The mock API resolves it as the server does. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
 a participant. A message the application posted (`role: 'application'`, SPM-312) reads as the
 application's in chats and threads alike: a card with the application's mark, the sender with an
 "Application" tag, the title, the text as Markdown and the link (`Message.application`,

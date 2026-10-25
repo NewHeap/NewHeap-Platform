@@ -408,7 +408,11 @@ application has it (`assistant-proposal-handed-to-application`), refused it or m
 chat the report, a refused hand-off and a passed deadline are posted into that conversation as an
 untrusted application message with the outcome and its code; nobody is notified there and no follow-up run
 starts. The run maintenance also expires such report deadlines in a host without agent runs. Without
-`AlsoInline` an inline approval still runs the tool's function.
+`AlsoInline` an inline approval still runs the tool's function. The person who approved a chat proposal
+resolves its uncertain hand-off with `POST conversations/{id}/approvals/{approvalId}/resolve`
+(`hand-to-application` with a new attempt and deadline, or `mark-resolved`), with the rules of an agent
+thread's resolve and the audit `AgentProposalResolved`; the chat's approval part says so with
+`CanResolve`, next to `ExecutionResultCode` and `ExecutionReportDueAt`.
 
 | Breaking change | Required action |
 |---|---|
@@ -430,11 +434,16 @@ with the new code `assistant-consult-turn-limit` (HTTP 400), which the asking mo
 `AgentInboxFilter.status` (`AgentInboxStatus`: `pending`, `awaiting-application`, `execution-unknown`)
 passes `status=` to `GET approvals/inbox`, and `AgentInbox.status` names the status the page lists; the
 mock API serves both. `NH_ASSISTANT_SERVER_ERROR_CODES` gains `assistant-consult-turn-limit`, translated in
-English and Dutch.
+English and Dutch. In a chat, the approval card of an uncertain hand-off the user approved
+(`ApprovalPart.canResolve`, with `executionResultCode` and `executionReportDueAt`) offers to hand it to the
+application again or to mark it done: the card's `resolve` output (`ApprovalResolution`), the thread's
+`approvalResolution` (`NhAssistantApprovalResolutionChoice`), `NhAssistantStore.resolveApproval` and
+`NhAssistantApiService.resolveApproval` (`ResolveApprovalRequest`); the mock API resolves it as the server
+does.
 
 | Breaking change | Required action |
 |---|---|
-| The new translation key `nh-assistant.errors.assistant-consult-turn-limit`. | An application that replaces the bundled translations adds the key in each of its languages. |
+| The new translation keys `nh-assistant.errors.assistant-consult-turn-limit` and `nh-assistant.approval.resolve.explanation`, `hand-to-application`, `mark-resolved` and `resolving`. | An application that replaces the bundled translations adds the keys in each of its languages. |
 
 ## @newheap/platform-ai-chat: promoting a shadow variant in the administration
 
