@@ -21,6 +21,7 @@ import {
   FileReference,
   NotificationSettings,
   PushSubscriptionRequest,
+  ResolveApprovalRequest,
   SendMessageRequest,
   ShareLink
 } from '../models/assistant-api.models';
@@ -126,6 +127,16 @@ export class NhAssistantApiService {
   decideApproval(conversationId: string, approvalId: string, request: DecideApprovalRequest): Observable<NhAssistantSseEvent> {
     const path = `conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(approvalId)}/decide`;
     return this.requestStream(path, request, false);
+  }
+
+  /**
+   * Resolves an uncertain hand-off of a proposal the caller approved in this chat (`canResolve`):
+   * `hand-to-application` hands it to the application again, `mark-resolved` confirms its outcome.
+   * Returns the conversation as it is afterwards.
+   */
+  resolveApproval(conversationId: string, approvalId: string, request: ResolveApprovalRequest): Observable<Conversation> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(approvalId)}/resolve`;
+    return this.transport.json<Conversation>('POST', path, request);
   }
 
   cancel(conversationId: string): Observable<void> {

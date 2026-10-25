@@ -132,6 +132,7 @@
             [approvalRights]="store.approvalRights()"
             [writingMessageId]="store.writingMessageId()"
             (approvalChoice)="decideApproval($event)"
+            (approvalResolution)="resolveApproval($event)"
             (retryMessage)="store.send($event)" />
         }
       }

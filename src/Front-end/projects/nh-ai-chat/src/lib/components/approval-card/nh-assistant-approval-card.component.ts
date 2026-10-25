@@ -11,7 +11,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision, ApprovalPart } from '../../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ApprovalResolution } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantStore, type NhAssistantApprovalWaitingFor } from '../../services/nh-assistant.store';
@@ -41,7 +41,9 @@ export function formatNhAssistantCountdown(milliseconds: number): string {
  * another agent the assistant consulted (`consultation`) names that agent and the subject, offers the
  * agent's answer and says that approving runs it with the user's own rights; with a
  * `consultation.leaveRoute` a third action leaves it for the subject's approvers (`leave`), after which
- * the card says that it waits for them.
+ * the card says that it waits for them. A proposal the user approved in their chat whose hand-off to the
+ * application has an unknown outcome (`canResolve`) offers to hand it to the application again or to mark
+ * it resolved (`resolve`).
  */
 @Component({
   selector: 'nh-assistant-approval-card',
@@ -80,6 +82,8 @@ export class NhAssistantApprovalCardComponent {
    */
   readonly canGiveFeedback = input(false);
   readonly decide = output<ApprovalDecision>();
+  /** How the user resolves an uncertain execution they approved in this chat (`canResolve`). */
+  readonly resolve = output<ApprovalResolution>();
 
   private readonly now = signal(Date.now());
   private readonly submitted = signal(false);
@@ -157,6 +161,11 @@ export class NhAssistantApprovalCardComponent {
   /** The route at the subject the pending proposal may be left for; `null` when it can only be approved or rejected. */
   readonly leaveRoute = computed(() => this.actionable() ? this.consultation()?.leaveRoute ?? null : null);
   readonly leaveHintId = `nh-assistant-approval-leave-${nextId++}`;
+  /** The user may resolve this uncertain hand-off: the server says so for the person who approved it. */
+  readonly resolvable = computed(() => this.approval().canResolve === true && this.effectiveStatus() === 'execution-unknown');
+  readonly resolveDisabled = computed(() => !this.resolvable() || this.deciding() || this.resolving());
+  readonly resolveHintId = `nh-assistant-approval-resolve-${nextId++}`;
+  private readonly resolving = signal(false);
   readonly countdown = computed(() => formatNhAssistantCountdown(this.remainingMs()));
   readonly presentedSummary = computed(() => this.approval().presentation?.summary ?? null);
   readonly feedbackAvailable = computed(() => this.canGiveFeedback() && this.effectiveStatus() === 'rejected');
@@ -199,6 +208,23 @@ export class NhAssistantApprovalCardComponent {
         this.submitted.set(false);
       }
     });
+
+    // Allow another resolution once the host finished and the outcome is still unknown.
+    effect(() => {
+      if (!this.deciding() && this.approval().status === 'execution-unknown') {
+        this.resolving.set(false);
+      }
+    });
+  }
+
+  /** Emits a resolution of an uncertain hand-off, at most once until the host reports it is done. */
+  chooseResolution(resolution: ApprovalResolution): void {
+    if (this.resolveDisabled()) {
+      return;
+    }
+
+    this.resolving.set(true);
+    this.resolve.emit(resolution);
   }
 
   /** Emits a decision; `leave` only for a consulted agent's proposal with a route at the subject. */

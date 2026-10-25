@@ -102,7 +102,8 @@
             [decisionOwner]="rightFor(group.part).decisionOwner"
             [waitingFor]="rightFor(group.part).waitingFor"
             [canGiveFeedback]="rightFor(group.part).canGiveFeedback === true"
-            (decide)="choose(group.part, $event)" />
+            (decide)="choose(group.part, $event)"
+            (resolve)="resolveApproval(group.part, $event)" />
         }
       }
     }

@@ -128,6 +128,36 @@
     <p class="expiry">{{ 'nh-assistant.approval.expired' | translate }}</p>
   }
 
+  <!-- The user approved it in this chat and whether the application took it is unknown. -->
+  @if (resolvable()) {
+    <div class="resolve" data-resolve>
+      <p class="resolve-explanation" [id]="resolveHintId">{{ 'nh-assistant.approval.resolve.explanation' | translate }}</p>
+      <div class="actions">
+        <button
+          class="mark-resolved"
+          type="button"
+          data-mark-resolved
+          [disabled]="resolveDisabled()"
+          [attr.aria-describedby]="resolveHintId"
+          (click)="chooseResolution('mark-resolved')">
+          {{ 'nh-assistant.approval.resolve.mark-resolved' | translate }}
+        </button>
+        <button
+          class="hand-again"
+          type="button"
+          data-hand-to-application
+          [disabled]="resolveDisabled()"
+          [attr.aria-describedby]="resolveHintId"
+          (click)="chooseResolution('hand-to-application')">
+          {{ 'nh-assistant.approval.resolve.hand-to-application' | translate }}
+        </button>
+      </div>
+      @if (deciding()) {
+        <p class="deciding" role="status">{{ 'nh-assistant.approval.resolve.resolving' | translate }}</p>
+      }
+    </div>
+  }
+
   @if (feedbackAvailable()) {
     @if (!feedbackSaved()) {
       <button

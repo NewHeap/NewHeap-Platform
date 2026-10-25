@@ -254,8 +254,20 @@ button {
   font-size: 12px;
 }
 
+// Resolving an uncertain hand-off follows its explanation; handing it again is the primary action.
+.resolve {
+  margin-top: 10px;
+}
+
+.resolve-explanation {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
 .reject,
-.leave {
+.leave,
+.mark-resolved {
   color: var(--nha-text);
   background: transparent;
 
@@ -264,7 +276,8 @@ button {
   }
 }
 
-.approve {
+.approve,
+.hand-again {
   border-color: var(--nha-accent);
   color: var(--nha-accent-contrast);
   background: var(--nha-accent);

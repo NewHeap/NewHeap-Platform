@@ -18,6 +18,7 @@ import {
   AgentUploads,
   ApprovalDecision,
   ApprovalPart,
+  ApprovalResolution,
   ApprovalStatus,
   AssistantStatus,
   ClientContext,
@@ -1028,6 +1029,42 @@ export class NhAssistantStore {
       if (revision === this.accountRevision) {
         this.patchSession(conversationId, session => ({ ...session, deciding: false }));
         await this.reloadSession(conversationId);
+      }
+    }
+  }
+
+  /**
+   * Resolves an uncertain hand-off in the open chat that the current user approved (`canResolve`):
+   * `hand-to-application` hands it to the application again with a new report deadline,
+   * `mark-resolved` confirms its outcome. The conversation the server returns replaces the shown one.
+   * Ignores approvals the user may not resolve and calls while a decision or a turn is in flight.
+   */
+  async resolveApproval(approvalId: string, resolution: ApprovalResolution, reason?: string): Promise<void> {
+    const session = this.activeSession();
+    const conversation = session?.conversation;
+    if (!session || !conversation || session.deciding || session.streaming
+      || !resolvableApprovalParts(conversation).some(part => part.approvalId === approvalId)) {
+      return;
+    }
+
+    const conversationId = conversation.id;
+    const revision = this.accountRevision;
+    this.patchSession(conversationId, current => ({ ...current, deciding: true, error: null, notice: null }));
+    try {
+      const resolved = await firstValueFrom(this.api.resolveApproval(conversationId, approvalId, {
+        action: resolution,
+        ...(reason ? { reason } : {})
+      }));
+      if (revision === this.accountRevision) {
+        this.upsertSession(resolved);
+      }
+    } catch (error) {
+      if (revision === this.accountRevision) {
+        this.setError(conversationId, error);
+      }
+    } finally {
+      if (revision === this.accountRevision) {
+        this.patchSession(conversationId, current => ({ ...current, deciding: false }));
       }
     }
   }
@@ -2050,6 +2087,13 @@ function approvalParts(conversation: Conversation): ApprovalPart[] {
     }
   }
   return [...approvals.values()];
+}
+
+/** The uncertain hand-offs of a chat that the current user may resolve (`canResolve`). */
+function resolvableApprovalParts(conversation: Conversation): ApprovalPart[] {
+  return conversation.messages
+    .flatMap(message => message.parts)
+    .filter((part): part is ApprovalPart => part.type === 'approval' && part.canResolve === true && part.status === 'execution-unknown');
 }
 
 function pendingApprovalParts(conversation: Conversation): ApprovalPart[] {

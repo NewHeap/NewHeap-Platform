@@ -352,6 +352,31 @@ export interface ApprovalPart {
    * in the person's own request with their own rights. Missing for the conversation's own proposals.
    */
   consultation?: ApprovalConsultation | null;
+  /**
+   * The result of the execution, such as the application's code or `report-overdue`. Only sent once the
+   * proposal executed or was handed to the application; missing on older servers.
+   */
+  executionResultCode?: string;
+  /** Until when the application's report is due, for a proposal handed to the application. Only sent then. */
+  executionReportDueAt?: string;
+  /**
+   * `true` when the current user may resolve this uncertain execution in the chat (`resolveApproval`):
+   * they approved it here, it was handed to the application and its outcome is unknown. Only sent then.
+   */
+  canResolve?: boolean;
+}
+
+/**
+ * How the person who approved a proposal in their chat resolves its uncertain hand-off: hand it to the
+ * application again, with a new attempt and report deadline, or confirm its outcome without running it.
+ */
+export type ApprovalResolution = 'hand-to-application' | 'mark-resolved';
+
+/** Body of `POST conversations/{id}/approvals/{approvalId}/resolve`. */
+export interface ResolveApprovalRequest {
+  action: ApprovalResolution;
+  /** Why, at most 500 characters. */
+  reason?: string;
 }
 
 /**

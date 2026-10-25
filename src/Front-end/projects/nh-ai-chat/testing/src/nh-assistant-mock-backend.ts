@@ -21,6 +21,7 @@ import {
   NH_ASSISTANT_CONFIG,
   NhAssistantSseEvent,
   NhAssistantUploadRequest,
+  ResolveApprovalRequest,
   SendMessageRequest,
   TurnUsage,
   applyNhAssistantApprovalDecision,
@@ -525,6 +526,9 @@ export class NhAssistantMockBackend {
     if (method === 'POST' && segments.length === 5 && segments[2] === 'approvals' && segments[4] === 'decide') {
       return this.decide(conversation, segments[3], body as DecideApprovalRequest);
     }
+    if (method === 'POST' && segments.length === 5 && segments[2] === 'approvals' && segments[4] === 'resolve') {
+      return this.resolve(conversation, segments[3], body as ResolveApprovalRequest);
+    }
 
     return this.empty(404);
   }
@@ -678,6 +682,36 @@ export class NhAssistantMockBackend {
         await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.rejected, emit);
       }
     });
+  }
+
+  /**
+   * `POST conversations/{id}/approvals/{approvalId}/resolve`: the person who approved a proposal in this
+   * chat resolves its uncertain hand-off (`canResolve`), as the server does: `hand-to-application` hands
+   * it to the application again with a new report deadline, `mark-resolved` confirms it. Another action
+   * is refused, as are an approval in another status and one the caller may not resolve. Returns the
+   * conversation.
+   */
+  private resolve(conversation: Conversation, approvalId: string, request: ResolveApprovalRequest): Response {
+    const part = conversation.messages
+      .flatMap(message => message.parts)
+      .find((item): item is ApprovalPart => item.type === 'approval' && item.approvalId === approvalId);
+    if (!part) {
+      return this.error('assistant-approval-not-found');
+    }
+    const action = request?.action;
+    if (action !== 'hand-to-application' && action !== 'mark-resolved') {
+      return this.error('assistant-approval-decision-invalid');
+    }
+    if (part.status !== 'execution-unknown') {
+      return this.error('assistant-execution-not-uncertain');
+    }
+    if (part.canResolve !== true) {
+      return this.error('assistant-approval-forbidden');
+    }
+
+    const reportDueAt = new Date(Date.now() + mockReportWithinMs).toISOString();
+    this.update(conversation.id, current => withResolvedApproval(current, approvalId, action, reportDueAt));
+    return this.json(200, this.view(this.conversations.get(conversation.id) ?? conversation));
   }
 
   private cancel(conversation: Conversation): Response {
@@ -1226,6 +1260,35 @@ function withMovedApproval(conversation: Conversation, approvalId: string, moved
   return {
     ...conversation,
     messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(moved) }))
+  };
+}
+
+/** How long the mock's application may take to report after a hand-off. */
+const mockReportWithinMs = 4 * 60 * 60 * 1000;
+
+/**
+ * The approval after its uncertain hand-off was resolved: handed to the application again, waiting for
+ * its report until `reportDueAt`, or resolved. Either way nobody resolves it again.
+ */
+function withResolvedApproval(
+  conversation: Conversation,
+  approvalId: string,
+  action: 'hand-to-application' | 'mark-resolved',
+  reportDueAt: string
+): Conversation {
+  const resolved = (part: MessagePart): MessagePart => {
+    if (part.type !== 'approval' || part.approvalId !== approvalId) {
+      return part;
+    }
+
+    const { canResolve: _resolved, ...rest } = part;
+    return action === 'hand-to-application'
+      ? { ...rest, status: 'awaiting-application', executionResultCode: 'hand-off-acknowledged', executionReportDueAt: reportDueAt }
+      : { ...rest, status: 'resolved', executionResultCode: 'resolved-by-approver' };
+  };
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(resolved) }))
   };
 }
 

@@ -197,6 +197,12 @@
       "waiting-for-participant": "Waiting for the participant who started this task to decide.",
       "waiting-for-approver": "Waiting for an approver to decide.",
       "waiting-for-other-approver": "You started this work, so another approver decides.",
+      "resolve": {
+        "explanation": "It is not known whether the application carried this out. Check it, then hand it to the application again or mark it as done.",
+        "hand-to-application": "Hand to the application again",
+        "mark-resolved": "Mark as done",
+        "resolving": "Submitting your choice"
+      },
       "waiting-for-asker": "Waiting for the person who asked to decide in their own chat.",
       "give-feedback": "What was wrong?",
       "stale-kind": {

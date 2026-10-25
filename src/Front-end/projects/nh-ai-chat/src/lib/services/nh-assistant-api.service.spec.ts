@@ -204,6 +204,19 @@ describe('NhAssistantApiService', () => {
     expect(events.map(event => event.type)).toEqual(['turn.started', 'turn.completed']);
   });
 
+  it('resolves an uncertain hand-off in the chat and returns the conversation', async () => {
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ id: 'c1', messages: [] })));
+    const service = setup();
+
+    const conversation = await firstValueFrom(service.resolveApproval('c1', 'a 1', { action: 'hand-to-application', reason: 'Lost.' }));
+
+    const [url, init] = fetchSpy.calls.mostRecent().args;
+    expect(url).toBe('/api/assistant/conversations/c1/approvals/a%201/resolve');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ action: 'hand-to-application', reason: 'Lost.' });
+    expect(conversation.id).toBe('c1');
+  });
+
   it('turns a network failure into a network error event', async () => {
     fetchSpy.and.returnValue(Promise.reject(new TypeError('Failed to fetch')));
     const service = setup();
