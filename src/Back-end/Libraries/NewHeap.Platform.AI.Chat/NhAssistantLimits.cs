@@ -160,6 +160,16 @@ public sealed class NhAssistantLimits
     public int MaxConsultationsPerActorPerDay { get; set; } = 50;
 
     /// <summary>
+    /// How many consultations one turn may start, from 1 to 100; <see langword="null"/>, the default,
+    /// leaves them unlimited, bounded only by <see cref="MaxToolCallsPerTurn"/>, because each
+    /// consultation is a tool call of the asking turn. An agent's own limit
+    /// (<c>NhAssistantAgentRunBuilder.MaxConsultationsPerTurn</c>) replaces it for that agent's turns.
+    /// Every consultation the turn starts counts, also one refused later; a further one is refused with
+    /// <see cref="NhAssistantErrorCodes.ConsultTurnLimit"/> before it costs anything.
+    /// </summary>
+    public int? MaxConsultationsPerTurn { get; set; }
+
+    /// <summary>
     /// How many proposals of consultations that execute with the consulted agent's own rights
     /// (<c>AtSubject(NhAssistantConsultationRights.Agent)</c>) one person may have waiting at one
     /// subject. A further one is refused with the reason <c>open-limit</c>, so the subject's approvers
@@ -294,6 +304,7 @@ public sealed class NhAssistantLimits
             || MaxParticipantsPerConversation is < 1 or > 100
             || MaxConsultationDepth is < 1 or > 3
             || MaxConsultationsPerActorPerDay < 1
+            || MaxConsultationsPerTurn is < 1 or > 100
             || MaxOpenConsultationProposalsPerAsker is < 1 or > 100
             || MaxHandOffDepth is < 1 or > 3
             || MaxPlacedProposalsPerRun is < 0 or > 200

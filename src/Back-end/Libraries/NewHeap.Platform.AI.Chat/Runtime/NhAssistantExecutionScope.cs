@@ -9,6 +9,7 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 internal sealed class NhAssistantTurnScope
 {
     private int _toolCalls;
+    private int _consultations;
     private int _askerDecisionReserved;
 
     public required Guid ConversationId { get; init; }
@@ -120,6 +121,19 @@ internal sealed class NhAssistantTurnScope
     public int IncrementToolCalls()
     {
         return Interlocked.Increment(ref _toolCalls);
+    }
+
+    /// <summary>
+    /// The consultations this turn started, counted against its consultation limit (LS22).
+    /// </summary>
+    public int Consultations => Volatile.Read(ref _consultations);
+
+    /// <summary>
+    /// Counts one more consultation of this turn and returns the new count.
+    /// </summary>
+    public int IncrementConsultations()
+    {
+        return Interlocked.Increment(ref _consultations);
     }
 
     /// <summary>
