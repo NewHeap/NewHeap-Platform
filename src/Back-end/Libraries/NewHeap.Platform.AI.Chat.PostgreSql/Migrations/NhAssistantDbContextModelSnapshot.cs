@@ -2524,6 +2524,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventKey", "TriggerId");
+
                     b.HasIndex("ConversationId", "ConsumedAt", "CreatedAt");
 
                     b.ToTable("AssistantQueuedInput", "nhai");
