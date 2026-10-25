@@ -58,7 +58,11 @@ public sealed class AssistantProposalDecisionServiceTests(AssistantDatabaseFixtu
                 FourEyes: true,
                 ApprovalsNeeded: 1,
                 CanDecide: true,
-                ReasonCode: null),
+                ReasonCode: null)
+            {
+                // The project's version is the one the proposal recorded.
+                SubjectChanged = false
+            },
             facts.Data);
 
         // Four eyes keep the initiator out, a participant and an outsider are no approvers and an
@@ -253,13 +257,124 @@ public sealed class AssistantProposalDecisionServiceTests(AssistantDatabaseFixtu
     }
 
     /// <summary>
-    /// A host whose model proposes once to activate <paramref name="projectId"/>.
+    /// LS16: the facts say whether the object changed since the proposal, by the precondition the
+    /// execution runs, and an approval of a changed object is refused as stale and closes the proposal
+    /// as the execution would, through the service and the endpoint alike, when the policy requires an
+    /// unchanged subject. A rejection is still recorded.
     /// </summary>
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, Guid projectId, TimeProvider? clock = null)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_changed_object_shows_in_the_facts_and_refuses_an_approval_that_requires_an_unchanged_subject(AssistantTestProvider provider)
     {
-        var model = new NhAiScriptedChatClient()
-            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-status")
-            .RespondWithText("I proposed to activate the project.");
+        Guid[] projects = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()];
+        await using var host = await CreateHostAsync(provider, projects[0], alsoProposing: projects[1..]);
+        var viaService = (await ProposeAsync(host, projects[0])).Approval;
+        var viaEndpoint = (await ProposeAsync(host, projects[1])).Approval;
+        var rejected = (await ProposeAsync(host, projects[2])).Approval;
+
+        // The projects changed after the run proposed.
+        host.Services.GetRequiredService<TestSubjects>().Version = "8";
+
+        var facts = (await FactsAsync(host, SecondApprover, viaService.Id)).Data!;
+        Assert.Equal((true, true, (string?)null), (facts.SubjectChanged, facts.CanDecide, facts.ReasonCode));
+        Assert.Equal(NhAssistantErrorCodes.ProposalStale, CodeOf(await DecideAsync(host, SecondApprover, viaService.Id, viaService.ProposalHash)));
+        Assert.Equal(
+            NhAssistantErrorCodes.ProposalStale,
+            CodeOf(await DecideAtEndpointAsync(host, SecondApprover, viaEndpoint.Id, approve: true, viaEndpoint.ProposalHash)));
+        var rejection = await DecideAsync(host, SecondApprover, rejected.Id, rejected.ProposalHash, NhAssistantProposalDecision.Reject);
+
+        foreach (var closed in new[] { viaService, viaEndpoint })
+        {
+            var stored = await FindApprovalAsync(host, closed.Id);
+            Assert.Equal(
+                (NhAssistantApprovalStatuses.Stale, "subject-changed", (string?)null),
+                (stored.Status, stored.ExecutionResultCode, stored.DecidedByActorId));
+            Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated && evt.ApprovalId == closed.Id);
+        }
+        Assert.Equal(NhAssistantApprovalStatuses.Rejected, rejection.Data!.Status);
+        Assert.Empty(host.Services.GetRequiredService<RecordingOperations>().Executions);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalApproved);
+        // A proposal that is no longer pending is not asked.
+        Assert.Null((await FactsAsync(host, SecondApprover, viaService.Id)).Data!.SubjectChanged);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Without_an_unchanged_subject_required_a_changed_object_shows_in_the_facts_and_the_approval_is_recorded(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, projectId, requireUnchangedSubject: false);
+        var (approval, _) = await ProposeAsync(host, projectId);
+        host.Services.GetRequiredService<TestSubjects>().Version = "8";
+
+        var facts = (await FactsAsync(host, SecondApprover, approval.Id)).Data!;
+        var decided = await DecideAsync(host, SecondApprover, approval.Id, approval.ProposalHash);
+
+        Assert.True(facts.SubjectChanged);
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, decided.Data!.Status);
+        Assert.Equal(approval.Id, Assert.Single(host.Services.GetRequiredService<RecordingOperations>().Executions));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_replaced_precondition_decides_whether_the_object_changed_and_without_versions_the_default_cannot_tell(AssistantTestProvider provider)
+    {
+        Guid[] projects = [Guid.NewGuid(), Guid.NewGuid()];
+        var archived = new ArchivedProjects();
+        await using var host = await CreateHostAsync(
+            provider,
+            projects[0],
+            configure: services =>
+            {
+                services.AddSingleton(archived);
+                services.Replace(ServiceDescriptor.Scoped<INhAiProposalPrecondition, ArchivedPrecondition>());
+            },
+            alsoProposing: projects[1..]);
+        var first = (await ProposeAsync(host, projects[0])).Approval;
+        var second = (await ProposeAsync(host, projects[1])).Approval;
+
+        // The version stays; the application's precondition alone finds the first project archived.
+        var before = (await FactsAsync(host, SecondApprover, first.Id)).Data!;
+        archived.Ids.Add(projects[0].ToString());
+        var after = (await FactsAsync(host, SecondApprover, first.Id)).Data!;
+        var refused = await DecideAsync(host, SecondApprover, first.Id, first.ProposalHash);
+
+        Assert.Equal((false, true), (before.SubjectChanged, after.SubjectChanged));
+        Assert.Equal(NhAssistantErrorCodes.ProposalStale, CodeOf(refused));
+        var stored = await FindApprovalAsync(host, first.Id);
+        Assert.Equal((NhAssistantApprovalStatuses.Stale, "project-archived"), (stored.Status, stored.ExecutionResultCode));
+        Assert.True((await DecideAsync(host, SecondApprover, second.Id, second.ProposalHash)).Success);
+
+        // The default precondition compares versions; without the current one it cannot tell.
+        await using var unversioned = await CreateHostAsync(provider, projects[0]);
+        var proposal = (await ProposeAsync(unversioned, projects[0])).Approval;
+        unversioned.Services.GetRequiredService<TestSubjects>().Version = null!;
+        Assert.Null((await FactsAsync(unversioned, SecondApprover, proposal.Id)).Data!.SubjectChanged);
+        Assert.True((await DecideAsync(unversioned, SecondApprover, proposal.Id, proposal.ProposalHash)).Success);
+    }
+
+    /// <summary>
+    /// A host whose model proposes once to activate <paramref name="projectId"/>, and then once for
+    /// each project in <paramref name="alsoProposing"/>.
+    /// </summary>
+    private async Task<AssistantTestHost> CreateHostAsync(
+        AssistantTestProvider provider,
+        Guid projectId,
+        TimeProvider? clock = null,
+        bool requireUnchangedSubject = true,
+        Action<IServiceCollection>? configure = null,
+        IReadOnlyList<Guid>? alsoProposing = null)
+    {
+        var model = new NhAiScriptedChatClient();
+        foreach (var project in new[] { projectId }.Concat(alsoProposing ?? []))
+        {
+            model
+                .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = project, status = "Active" } }, "call-status-" + project.ToString("N"))
+                .RespondWithText("I proposed to activate the project.");
+        }
         var host = await AssistantTestHost.CreateAsync(
             database,
             provider,
@@ -279,16 +394,23 @@ public sealed class AssistantProposalDecisionServiceTests(AssistantDatabaseFixtu
                 // Approved proposals are queued for execution; this host records the queueing.
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
+                configure?.Invoke(services);
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
-                .AddApprovalPolicy("channel-review", policy => policy
-                    .Lifetime(TimeSpan.FromDays(3))
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                    .Mode(NhAiApprovalMode.Deferred)
-                    .FourEyes()
-                    .BindTo(NhAiApprovalBinding.ToolContract)
-                    .RequireUnchangedSubject())
+                .AddApprovalPolicy("channel-review", policy =>
+                {
+                    policy
+                        .Lifetime(TimeSpan.FromDays(3))
+                        .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                        .Mode(NhAiApprovalMode.Deferred)
+                        .FourEyes()
+                        .BindTo(NhAiApprovalBinding.ToolContract);
+                    if (requireUnchangedSubject)
+                    {
+                        policy.RequireUnchangedSubject();
+                    }
+                })
                 .ConfigureAgent(AgentId, agent => agent
                     .Grant("projects.*")
                     .UseApprovalPolicy("channel-review"))
@@ -446,6 +568,26 @@ public sealed class AssistantProposalDecisionServiceTests(AssistantDatabaseFixtu
     {
         Assert.False(result.Success);
         return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+    }
+
+    /// <summary>
+    /// The projects the application archived since a proposal, which its own precondition finds stale.
+    /// </summary>
+    private sealed class ArchivedProjects
+    {
+        public System.Collections.Concurrent.ConcurrentBag<string> Ids { get; } = [];
+    }
+
+    private sealed class ArchivedPrecondition(ArchivedProjects archived) : INhAiProposalPrecondition
+    {
+        public ValueTask<NhAiPreconditionResult> CheckAsync(
+            NhAiProposalPreconditionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(archived.Ids.Contains(context.Subject.Id)
+                ? NhAiPreconditionResult.Stale("project-archived")
+                : NhAiPreconditionResult.Satisfied);
+        }
     }
 
     /// <summary>

@@ -24,9 +24,10 @@ public interface INhAssistantProposalDecisionService
     /// <summary>
     /// What a decision of <paramref name="person"/> would meet now, without proposal content: the
     /// current proposal hash, the expiry, whether four eyes apply, how many approvals the proposal
-    /// still needs and whether the person may decide it, with the refusal code otherwise. Nothing
-    /// changes: an expired proposal is not closed and the proposal guards do not run. Fails with
-    /// <c>assistant-approval-not-found</c> for an unknown proposal or one the person may not see.
+    /// still needs, whether the person may decide it, with the refusal code otherwise, and whether the
+    /// object changed since the proposal (<see cref="NhAssistantProposalDecisionFacts.SubjectChanged"/>).
+    /// Nothing changes: an expired or changed proposal is not closed and the proposal guards do not run.
+    /// Fails with <c>assistant-approval-not-found</c> for an unknown proposal or one the person may not see.
     /// </summary>
     Task<TaskResult<NhAssistantProposalDecisionFacts>> GetDecisionFactsAsync(
         NhAssistantDecidingPerson person,
@@ -46,8 +47,10 @@ public interface INhAssistantProposalDecisionService
     /// Fails with the endpoint's codes: <c>assistant-approval-not-found</c>,
     /// <c>assistant-proposal-hash-mismatch</c>, <c>assistant-approval-not-pending</c>,
     /// <c>assistant-approval-expired</c>, <c>assistant-four-eyes-required</c>,
-    /// <c>assistant-approval-policy-denied</c>, <c>assistant-proposal-stale</c>,
-    /// <c>assistant-proposal-check-failed</c>, <c>assistant-consult-asker-decides</c>, and
+    /// <c>assistant-approval-policy-denied</c>, <c>assistant-proposal-stale</c> (a proposal guard, or
+    /// an approval of a changed object when the policy requires an unchanged subject, which closes the
+    /// proposal as the execution would), <c>assistant-proposal-check-failed</c>,
+    /// <c>assistant-consult-asker-decides</c>, and
     /// <c>assistant-approval-decision-invalid</c> for a proposal decided in a conversation, an agent
     /// as the person or an idempotency key that is not usable.
     /// </para>
@@ -110,7 +113,7 @@ public enum NhAssistantProposalDecision
 /// decision before its expiry, otherwise zero. One approver decides a proposal; four eyes only says who
 /// that may be.</param>
 /// <param name="CanDecide">Whether the person may decide it now. The proposal guards run only when a
-/// person approves, so an approval may still be refused as stale.</param>
+/// person approves, so an approval may still be refused as stale; see also <see cref="SubjectChanged"/>.</param>
 /// <param name="ReasonCode">Why the person may not decide it, with the code a decision would fail
 /// with, such as <c>assistant-four-eyes-required</c>; <see langword="null"/> when they may.</param>
 public sealed record NhAssistantProposalDecisionFacts(
@@ -121,7 +124,20 @@ public sealed record NhAssistantProposalDecisionFacts(
     bool FourEyes,
     int ApprovalsNeeded,
     bool CanDecide,
-    string? ReasonCode);
+    string? ReasonCode)
+{
+    /// <summary>
+    /// Whether the object the proposal waits at changed since it was proposed, by the precondition the
+    /// execution runs (<see cref="INhAiProposalPrecondition"/>; by default the recorded and current
+    /// subject versions compared): <see langword="true"/> when it reports the proposal stale,
+    /// <see langword="false"/> when satisfied, and <see langword="null"/> when that is unknown: the
+    /// proposal is no longer pending, or the default precondition has no recorded or current version.
+    /// When the proposal's approval policy requires an unchanged subject (<c>RequireUnchangedSubject</c>),
+    /// an approval of a changed one is refused with <c>assistant-proposal-stale</c> and closes it as
+    /// stale; a rejection is still recorded.
+    /// </summary>
+    public bool? SubjectChanged { get; init; }
+}
 
 /// <summary>
 /// The decision <see cref="INhAssistantProposalDecisionService.DecideAsync"/> recorded, or the

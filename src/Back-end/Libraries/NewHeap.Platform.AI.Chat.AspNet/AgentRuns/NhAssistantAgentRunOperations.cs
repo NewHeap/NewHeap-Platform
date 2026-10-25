@@ -1000,19 +1000,17 @@ internal sealed class NhAssistantProposalExecution(
         var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
         if (policy?.RequireUnchangedSubject == true)
         {
-            var current = await subjects.DescribeAsync(agentTurn.Subject.Subject, cancellationToken);
-            var check = await precondition.CheckAsync(
-                new NhAiProposalPreconditionContext(
-                    proposal.ProposalId,
-                    proposal.ToolId,
-                    proposal.Arguments,
-                    agentTurn.Subject.Subject,
-                    approval.SubjectVersion,
-                    current?.Version),
+            // The decision runs the same check before it records an approval (LS16).
+            var check = await NhAssistantSubjectChangeCheck.CheckAsync(
+                precondition,
+                subjects,
+                approval,
+                proposal,
+                agentTurn.Subject.Subject,
                 cancellationToken);
-            if (check.Outcome == NhAiPreconditionOutcome.Stale)
+            if (check.Result.Outcome == NhAiPreconditionOutcome.Stale)
             {
-                return new NhAssistantGuardCheck(check, false);
+                return new NhAssistantGuardCheck(check.Result, false);
             }
         }
 
