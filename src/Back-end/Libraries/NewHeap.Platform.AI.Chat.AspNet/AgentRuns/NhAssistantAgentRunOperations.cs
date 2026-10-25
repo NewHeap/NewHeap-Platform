@@ -749,6 +749,7 @@ internal sealed class NhAssistantAgentRunOperation(
                 or NhAssistantErrorCodes.AgentPaused
                 or NhAssistantErrorCodes.AgentConfiguredOff
                 or NhAssistantErrorCodes.ClassificationNotPermitted
+                or NhAssistantErrorCodes.ModelRegionDenied
                 or NhAssistantErrorCodes.Disabled => NhAssistantRunFailureClasses.Policy,
             NhAssistantErrorCodes.SubjectNotFound
                 or NhAssistantErrorCodes.AgentNotConfigured

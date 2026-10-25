@@ -30,6 +30,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-turn-timeout',
   'assistant-model-unavailable',
   'assistant-classification-not-permitted',
+  'assistant-model-region-denied',
   'assistant-files-unavailable',
   'assistant-files-not-accepted',
   'assistant-file-reference-invalid',

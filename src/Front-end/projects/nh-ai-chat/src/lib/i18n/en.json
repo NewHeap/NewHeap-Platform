@@ -330,6 +330,7 @@
       "assistant-message-too-long": "The message is too long. Shorten it and send it again.",
       "assistant-model-unavailable": "The language model is temporarily unavailable. Try again in a moment.",
       "assistant-classification-not-permitted": "The model this agent uses may not receive data of the agent's classification. Ask an administrator to choose a model profile that permits it.",
+      "assistant-model-region-denied": "The model this agent uses may not run in the region the application works in. Ask an administrator to choose a model profile that permits the region.",
       "assistant-files-unavailable": "This application gives the assistant no files.",
       "assistant-files-not-accepted": "This agent does not accept files. An administrator can switch files on for it.",
       "assistant-file-reference-invalid": "A file could not be read because its reference is not valid.",
@@ -1310,7 +1311,8 @@
           "not-allowed": "The application does not allow this.",
           "routes-required": "Choose at least one route, or let it only answer.",
           "tools-not-allowed": "A chosen tool is outside the agent's own tools. Clear it, or add the tool to the agent first.",
-          "locked": "An agent package locks this field. Unlink the part first to change it."
+          "locked": "An agent package locks this field. Unlink the part first to change it.",
+          "region-not-permitted": "This model profile may not run in the region the application works in, nor may its fallbacks. Choose a profile that permits the region."
         },
         "settings": {
           "title": "Run settings",

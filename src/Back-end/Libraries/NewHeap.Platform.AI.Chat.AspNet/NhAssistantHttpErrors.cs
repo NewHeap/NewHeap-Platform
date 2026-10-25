@@ -83,6 +83,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.TurnTimeout,
             NhAssistantErrorCodes.ModelUnavailable,
             NhAssistantErrorCodes.ClassificationNotPermitted,
+            NhAssistantErrorCodes.ModelRegionDenied,
             NhAssistantErrorCodes.FileReferenceInvalid,
             NhAssistantErrorCodes.FileUploadInvalid,
             NhAssistantErrorCodes.FileTooManyPages,

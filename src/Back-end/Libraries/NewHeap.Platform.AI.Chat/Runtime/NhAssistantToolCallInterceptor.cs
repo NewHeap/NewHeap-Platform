@@ -175,6 +175,12 @@ internal sealed class NhAssistantTurnState
     public bool ClassificationNotPermitted { get; set; }
 
     /// <summary>
+    /// No profile of the turn's model call permits the execution region for its data classification;
+    /// the turn fails with <see cref="NhAssistantErrorCodes.ModelRegionDenied"/>.
+    /// </summary>
+    public bool RegionNotPermitted { get; set; }
+
+    /// <summary>
     /// The files this turn gave the model, from attachments and tool results; the turn's file limits
     /// bound them.
     /// </summary>

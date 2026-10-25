@@ -621,6 +621,14 @@ public static class NhAssistantErrorCodes
     public const string ClassificationNotPermitted = "assistant-classification-not-permitted";
 
     /// <summary>
+    /// Neither the turn's model profile nor any of its fallbacks permits the assistant's execution region
+    /// (<c>UseExecutionRegion</c>, <c>local</c> by default) for the turn's data classification. The turn
+    /// fails at once, and a run is not retried (failure class <c>policy</c>): another attempt would be
+    /// refused the same way until a profile of the chain permits the region.
+    /// </summary>
+    public const string ModelRegionDenied = "assistant-model-region-denied";
+
+    /// <summary>
     /// The application registered no file source (<c>UseFileSource</c>), so turns take no files.
     /// </summary>
     public const string FilesUnavailable = "assistant-files-unavailable";
@@ -1718,6 +1726,13 @@ public static class NhAssistantFieldErrors
     /// it keeps the package's value until an administrator unlinks the part.
     /// </summary>
     public const string Locked = "locked";
+
+    /// <summary>
+    /// The model profile, a registered one, permits the assistant's execution region
+    /// (<c>UseExecutionRegion</c>) neither itself nor through a fallback, so every model call of the data
+    /// skill or agent would be refused with <see cref="NhAssistantErrorCodes.ModelRegionDenied"/>.
+    /// </summary>
+    public const string RegionNotPermitted = "region-not-permitted";
 }
 
 /// <summary>

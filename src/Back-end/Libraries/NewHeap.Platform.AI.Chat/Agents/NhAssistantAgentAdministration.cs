@@ -486,13 +486,17 @@ internal sealed class NhAssistantAgentAdministration(
         // An agent created here uses a profile the application registered for the administration,
         // as a data skill does. The profile it has and the chat profile it gets by default stay
         // accepted, so an editor that sends the agent back unchanged is not refused. An agent in code
-        // takes its profile from its code.
+        // takes its profile from its code. A profile it chooses must run in the execution region, itself
+        // or through a fallback, or every model call of the agent would be refused (LS7); startup checks
+        // the default chat profile.
         if (input.ProfileName is { } profileName
             && adminAgent
             && !string.Equals(profileName, stored?.ProfileName, StringComparison.Ordinal)
             && !string.Equals(profileName, DefaultProfileName(), StringComparison.Ordinal))
         {
-            errors.Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound);
+            errors
+                .Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound)
+                .Require(validator.PermitsExecutionRegion(profileName), "profile", NhAssistantFieldErrors.RegionNotPermitted);
         }
         // An agent created here classifies its model calls by name, as a data skill does.
         if (input.DataClassification is { } classification && adminAgent)

@@ -63,6 +63,17 @@ public sealed class AssistantRegistrationTests
     }
 
     [Fact]
+    public async Task Startup_fails_when_a_profile_in_use_does_not_permit_the_execution_region()
+    {
+        // The chat profile permits only local, and it has no fallback.
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(builder =>
+            AddAssistant(builder.Services, assistant => assistant.UseExecutionRegion("eu"))));
+
+        Assert.Contains("'project-chat'", exception.Message);
+        Assert.Contains("execution region 'eu'", exception.Message);
+    }
+
+    [Fact]
     public async Task Startup_fails_without_the_aspnet_ai_integration()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(
