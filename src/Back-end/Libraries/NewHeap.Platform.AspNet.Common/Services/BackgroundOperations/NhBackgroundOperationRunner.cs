@@ -96,10 +96,7 @@ public sealed class NhBackgroundOperationRunner
         {
             if (_options.MaxConcurrentOperations != int.MaxValue)
             {
-                var globalLease = await leaseManager.AcquireAsync(
-                    $"processor:{_options.ProcessorKey}",
-                    new NhBackgroundOperationLeaseOptions { Slots = _options.MaxConcurrentOperations },
-                    CancellationToken.None);
+                var globalLease = await AcquireGlobalSlotAsync(leaseManager, claim.Queue);
                 if (globalLease is null)
                 {
                     await RescheduleForContentionAsync(claim);
@@ -450,6 +447,37 @@ public sealed class NhBackgroundOperationRunner
             GenericFailureMessageKey,
             diagnosticCorrelationId,
             retryAt,
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Takes one slot of the global limit. Without reservations every operation shares the
+    /// <c>processor:{key}</c> lease with all slots of the limit, as before. With reservations, an
+    /// operation on a queue that reserves slots takes one of its own reserved slots first and a shared
+    /// slot when they are in use; an operation on any other queue takes a shared slot only. The shared
+    /// lease has the slots the reservations leave, so no queue takes another's reserved slots and the
+    /// slots in use never exceed the global limit.
+    /// </summary>
+    private async Task<INhBackgroundOperationLeaseHandle?> AcquireGlobalSlotAsync(
+        NhBackgroundOperationLeaseManager leaseManager,
+        string queue)
+    {
+        var processorKey = $"processor:{_options.ProcessorKey}";
+        if (_options.ReservedQueueConcurrency.TryGetValue(queue, out var reservedSlots))
+        {
+            var reservedLease = await leaseManager.AcquireAsync(
+                $"{processorKey}:reserved:{queue.ToLowerInvariant()}",
+                new NhBackgroundOperationLeaseOptions { Slots = reservedSlots },
+                CancellationToken.None);
+            if (reservedLease is not null)
+            {
+                return reservedLease;
+            }
+        }
+
+        return await leaseManager.AcquireAsync(
+            processorKey,
+            new NhBackgroundOperationLeaseOptions { Slots = _options.SharedConcurrencySlots },
             CancellationToken.None);
     }
 

@@ -110,6 +110,44 @@ public sealed class NhBackgroundOperationConfigurationTests
     }
 
     [Fact]
+    public void ReservedQueueConcurrencyIsAShareOfTheGlobalLimitThatLeavesSharedSlots()
+    {
+        var builder = CreateBuilder();
+        builder.WithGlobalConcurrency(8)
+            .WithQueueConcurrency("Agent-Runs", 4)
+            .WithReservedQueueConcurrency(" Agent-Runs ", 2)
+            .WithReservedQueueConcurrency("exports", 1);
+
+        builder.Build();
+
+        builder.Options.ReservedQueueConcurrency["agent-runs"].Should().Be(2);
+        builder.Options.SharedConcurrencySlots.Should().Be(5);
+
+        var withoutGlobalLimit = CreateBuilder().WithReservedQueueConcurrency("agent-runs", 2);
+        withoutGlobalLimit.Invoking(x => x.Build()).Should().Throw<InvalidOperationException>()
+            .WithMessage("*WithGlobalConcurrency*");
+
+        var withoutSharedSlot = CreateBuilder()
+            .WithGlobalConcurrency(3)
+            .WithReservedQueueConcurrency("agent-runs", 2)
+            .WithReservedQueueConcurrency("exports", 1);
+        withoutSharedSlot.Invoking(x => x.Build()).Should().Throw<InvalidOperationException>()
+            .WithMessage("*reserve 3 slots of the global limit of 3*");
+
+        var aboveQueueLimit = CreateBuilder()
+            .WithGlobalConcurrency(8)
+            .WithQueueConcurrency("agent-runs", 2)
+            .WithReservedQueueConcurrency("agent-runs", 3);
+        aboveQueueLimit.Invoking(x => x.Build()).Should().Throw<InvalidOperationException>()
+            .WithMessage("*'agent-runs' reserves 3 slots but may run only 2*");
+
+        CreateBuilder().Invoking(x => x.WithReservedQueueConcurrency("agent runs", 1))
+            .Should().Throw<ArgumentException>().WithMessage("*queue names*");
+        CreateBuilder().Invoking(x => x.WithReservedQueueConcurrency("agent-runs", 0))
+            .Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public void AdministrationStaysDisabledUntilAPolicyIsConfigured()
     {
         var builder = CreateBuilder();

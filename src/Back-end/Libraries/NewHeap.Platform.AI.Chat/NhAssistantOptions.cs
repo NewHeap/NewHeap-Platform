@@ -15,6 +15,19 @@ public sealed class NhAssistantOptions
     public bool Enabled { get; set; }
 
     /// <summary>
+    /// Whether this host runs the scheduled triggers (<c>NewHeap:AI:Assistant:RunSchedules</c>), true by
+    /// default; read when the host starts. A host that runs them registers a Hangfire recurring job for
+    /// every schedule in code when it starts, and keeps the recurring jobs of schedules defined as data in
+    /// line with its snapshot: it adds and changes them, and removes those of schedules that were removed
+    /// or are out of effect. Set it to false on a host that shares the database, and perhaps the Hangfire
+    /// storage, of the scheduling host but does not run the schedules, such as a host without a Hangfire
+    /// server: it adds and removes no recurring job and needs no <c>IRecurringJobManager</c>, while
+    /// triggers, runs, the administration and the following of data changes work as usual. Keep it true
+    /// on the hosts whose Hangfire servers run the schedules, with the same agents and schedules.
+    /// </summary>
+    public bool RunSchedules { get; set; } = true;
+
+    /// <summary>
     /// Authorization policy every assistant endpoint requires unless
     /// <c>NhAssistantBuilder.UseAccessPolicy</c> sets one explicitly.
     /// </summary>

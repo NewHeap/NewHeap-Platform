@@ -776,6 +776,22 @@ library's provider tests also show that a failure code or message key longer
 than its column completes the attempt with the generic code and key, and that a
 failed write of a failed step keeps the step's own exception.
 
+## Agent run capacity and the run of an event
+
+`SampleAgentRunCapacityComposition` places the assistant's background operations
+on the queue `agent-runs` (SPM-326). The queue keeps two of the eight slots of
+the global limit for itself, so a burst of portfolio analyses cannot take every
+slot while an intake review waits, and runs at most four operations at the same
+time, so the agents leave the other shared slots to the rest of the work.
+`Program.cs` and the agent run sample host share the composition. When a
+project is created, the intake reviewer's receipt names the queued input that
+holds the event, and the maintenance page finds the review by the event's id
+(`GET /agent-maintenance/intake-reviews/{eventId}`) through
+`INhAssistantAgentRunLookup`: the input, the run it started and that run's
+status once it claimed the event. A redelivered event finds the review of its
+first delivery. The library tests prove the reserved slots on both providers,
+the lookup for every kind of fire and a host with `RunSchedules` off.
+
 ## Edit modal
 
 `ProjectEditModalComponent` supports both create and update operations. The

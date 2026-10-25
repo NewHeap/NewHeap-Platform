@@ -547,7 +547,18 @@ committed change always reaches its agent, and the receipt reads `deferred`
 after the commit when you need it. After the commit, for example from an outbox
 consumer, a trigger fires at once and the receipt names the run. Deferred triggers
 of one agent and subject fire in publishing order, and a retried operation fires
-once. The assistant's own endpoints, schedules, webhooks and follow-ups always fire
+once. Every receipt of a fire that wrote an input, or writes one after the commit, names it
+(`NhAssistantTriggerReceipt.InputId`): started, queued, superseded, coalesced and waiting fires and a
+deferred fire before the commit; a rejected, ignored or deduplicated fire names none. To find what
+became of an event, call `INhAssistantAgentRunLookup.FindByEventAsync(agentId, triggerId, eventKey)`
+with the trigger's dedupe key, or `FindByInputAsync(inputId)`: the `NhAssistantTriggerEventRun` names
+the input, its thread and subject, whether it still waits, and the run that consumed it, or while it
+waits the run the event started. The lookup goes through the queued inputs, because a run that
+coalesced several events records only the first event's key, and a redelivered event finds its first
+delivery. It is a server API for the application: it checks no person's access, so show its result
+only to people the application lets see the agent's work, and pass the caller's tenant to leave other
+tenants' work out (the whole application's work only for a tenant that takes part, `UseSingleTenant`).
+The assistant's own endpoints, schedules, webhooks and follow-ups always fire
 at once. Maintenance queues a run again whose operation never committed. Choose
 `NhAssistantTriggerConflict` for events that arrive while a run is active:
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
@@ -563,6 +574,16 @@ going, gives way without spending a retry and tries again 15 or 30 seconds later
 application's clock, twice as long after every attempt that gave way, at most five minutes. Call
 `AddAssistantAgentRuns()` inside `WithBackgroundOperations`.
 
+Give agent runs capacity of their own when other background work can fill the global limit.
+`AddAssistantAgentRuns(runs => runs.Queue("agent-runs").MaxConcurrency(4))` places every operation of
+the assistant (runs, proposal executions, revalidations, deferred trigger fires and replays) on that
+queue, which the process's Hangfire server serves on its own, and gives the queue that concurrency
+limit; `MaxConcurrency` needs a queue of their own and refuses to change a limit the queue already has.
+Reserve slots of the global limit for the queue with `WithReservedQueueConcurrency("agent-runs", 2)`:
+other work then never takes them, and the queue limit keeps agent work from taking every shared slot
+in turn. Operations queued before the queue changed keep their old queue, so keep serving it until
+they ended. The agents' own `maxConcurrentRuns` still applies per agent.
+
 Other sources start agents too. `AddScheduledTrigger` runs a Hangfire recurring job on
 a cron schedule and fires the trigger for each subject its `Subjects` query returns,
 at most `MaxSubjectsPerTick`; a repeated job in the same minute starts nothing twice.
@@ -570,6 +591,14 @@ Hangfire fires the cron on real time, but the minute a tick belongs to comes fro
 application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
 its clock to the next minute to tick again instead of waiting, and with a clock that stands
 still every later tick counts as the same minute and starts nothing.
+A host that runs the schedules registers the recurring jobs of the schedules in code when it starts and
+keeps those of data schedules in line with its snapshot, which removes the jobs of schedules its snapshot
+does not know. Set `NewHeap:AI:Assistant:RunSchedules` (`NhAssistantOptions.RunSchedules`, true by
+default) to `false` on every other host that shares the database, such as an API host next to the worker
+that runs Hangfire, or a host without a Hangfire server: it registers, changes and removes no recurring
+job and needs no `IRecurringJobManager`, while its triggers, runs, administration and the following of
+data changes work as usual and a tick that reaches it still fires. Keep it `true` on the hosts whose
+Hangfire servers run the schedules, and give them the agents and schedules the other hosts have.
 `AddWebhookTrigger` exposes `POST {prefix}/triggers/{id}` to an external system without
 a user: the caller signs `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and a shared
 secret of at least 32 characters read for every call, calls more than five minutes off
@@ -1559,7 +1588,15 @@ entry's name and the version only.
   background operations, or inside an ambient `TransactionScope`, which the
   background operations do not support; the platform cannot defer such a trigger.
 - Reading the run or thread from the receipt of a trigger published inside a
-  transaction; it reads `deferred` until the commit.
+  transaction; it reads `deferred` until the commit. Keep its `InputId` or the event's dedupe key and
+  find the run with `INhAssistantAgentRunLookup` after the commit.
+- Finding the run of an event through `AssistantRun.TriggerEventKey` alone: a run that coalesced
+  several events records the first event's key only.
+- Removing the assistant's schedule registrations by their internal types on a host that must not run
+  the schedules, or leaving `RunSchedules` true on a host without a Hangfire server or with other
+  agents, whose data schedule sync removes the jobs it does not know; set `RunSchedules` to `false`.
+- Placing agent runs on a queue of their own without a reservation when other work can fill the global
+  limit, or reserving slots without a queue limit when agent work must leave room for other work.
 - Treating `execution-unknown` as failed and executing a non-idempotent tool
   again automatically.
 - Waiting for an asynchronous system inside a tool's function, or polling it from an agent run, instead of
@@ -1717,6 +1754,19 @@ person's change and assert a run each, assert that the filter's `AgentActorId` a
 that a tool in a run reads the run's id as `AgentRunId` while `RunId` is the turn's, save an
 unknown filter and assert `assistant-trigger-filter-not-found`, and store a filter the code no longer
 registers and assert `filter-missing` and the problem `unknown-filter`, on both providers.
+
+For the trigger event lookup, on both providers, assert that the receipts of a started, a coalesced, a
+waiting and a deferred fire name their input, a deferred one before the commit, and a redelivery none;
+that `FindByEventAsync` returns a started event's input with its queued run, a coalesced event's input
+waiting without a run and then with the run that claimed it, a waiting event's input and after the resume
+the run of the resume, a deferred event only once its fire ran and a redelivery's first delivery; that
+`FindByInputAsync` returns the same; and that a lookup for another tenant finds nothing, also for the
+whole application's work, which the single tenant finds. For hosts that do not run schedules, assert that
+a host with `RunSchedules` false starts without Hangfire, fires its schedules and adds or removes no
+recurring job next to the scheduling host's storage, and that a host with the default registers the jobs
+of schedules in code and as data and removes a data schedule's job its snapshot does not know. For the
+agent runs' queue, assert that every assistant operation type uses it and that the queue gets its limit.
+SPM-326 is the executable reference.
 
 Publish the event twice and assert one run. Assert that the run's background
 operation is owned by the agent, that the deferred proposal is visible only to
@@ -2273,6 +2323,11 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs)
+- SPM-326 — Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
 - SPM-331 — The operations code assigns an MCP server to an agent, finds who uses a text asset and compares a shipped package with the host through the assistant's services
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)

@@ -321,6 +321,7 @@
     "SPM-323",
     "SPM-324",
     "SPM-325",
+    "SPM-326",
     "SPM-331"
   ],
   "gaps": {
@@ -3140,6 +3141,25 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOutcomeProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStepRecordingProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BackgroundOperationProviderHost.cs"
+    ],
+    "SPM-326": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunConfigurationRefresh.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationReservedConcurrencyProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventLookupTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScheduleHostTests.cs"
     ],
     "SPM-331": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
