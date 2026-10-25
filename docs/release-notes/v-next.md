@@ -125,6 +125,30 @@ which the process's Hangfire server serves on its own, and gives that queue its 
 |---|---|
 | None; both are additive, and the assistant's operations stay on the default queue unless `Queue` is chosen. | None. A host that moves them to a queue keeps serving the old queue until the operations queued before have ended, and gives every process of its `ProcessorKey` the same reservations. |
 
+## NewHeap.Platform.AspNet.Common and NewHeap.Platform.Events.Cap: opening a transaction asynchronously
+
+`NhTransactionFactoryAsync` is a cancellation-aware transaction factory next to `NhTransactionFactory`:
+`(prev, dbContext, serviceProvider, cancellationToken) => Task<IDbContextTransaction>`, registered as a
+singleton. `StartTransactionAsync`, and with it `StartOrGetTransactionScopeAsync`, runs the synchronous
+factories first and then the asynchronous ones, each in registration order and each receiving the
+transaction the one before returned; without a factory it calls `BeginTransactionAsync` as before. A
+cancelled token now stops the call before any factory runs, and when a factory throws or is cancelled,
+the transaction an earlier factory returned is disposed, so the context no longer keeps a transaction
+that a later scope would join without owning it. `NhTransactionFactory` stays for compatibility.
+
+`AddCap` registers an asynchronous factory instead of its synchronous one. It opens the transaction with
+`BeginTransactionAsync` and the caller's token, or wraps the transaction an earlier factory returned, and
+sets `CapTransactionScope.Current` only once that transaction exists, so a cancelled open leaves neither a
+transaction nor a CAP transaction. `CapEFDbTransaction.DisposeAsync` disposes the EF transaction
+asynchronously, and both disposals also dispose it after a SQL Server commit, where CAP had released it
+without disposing it. The outbox still commits and rolls back with the data.
+
+| Breaking change | Required action |
+|---|---|
+| `AddCap` registers `NhTransactionFactoryAsync` instead of `NhTransactionFactory`, so `GetServices<NhTransactionFactory>()` no longer returns CAP's factory. | Open transactions through `StartTransactionAsync` or `StartOrGetTransactionScopeAsync`; resolve `NhTransactionFactoryAsync` where code called CAP's factory itself. |
+| An application's `NhTransactionFactory` runs before CAP's factory whatever the registration order: one registered after `AddCap` receives `null` instead of CAP's transaction, and CAP wraps the transaction it returns. | Let such a factory open the transaction when it receives `null` (`prev ?? dbContext.Database.BeginTransaction(...)`), or register it as an `NhTransactionFactoryAsync` after `AddCap` to receive CAP's transaction. |
+| `StartTransactionAsync` with an already cancelled token throws `OperationCanceledException` also when only synchronous factories are registered, where they opened a transaction before. | Handle the cancellation, or pass a token that is not cancelled. |
+
 ## NewHeap.Platform.AI.Chat: fixed patterns without a match timeout
 
 The tool selector (`NhAssistantAgentDefinition`), the upload extension (`NhAssistantUploadOptions.MapExtension`)

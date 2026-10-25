@@ -299,7 +299,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-192 | Nested partial and bulk operations | transaction scope ownership + `UseTransaction = false` | Library mutations share the outer transaction and cannot commit it prematurely. |
 | SPM-193 | Event before commit | `INhEventPublisher` + CAP outbox | The project event is published after save but before commit in the same transaction. |
 | SPM-194 | Failure without commit | `TaskResult` + uncommitted scope dispose | A validation failure publishes no event and starts no commit. |
-| SPM-195 | SQL outbox and broker | CAP EF storage + Aspire RabbitMQ | The domain write and outbox record use SQL; RabbitMQ receives the message only after commit. |
+| SPM-195 | SQL outbox and broker | CAP EF storage + Aspire RabbitMQ | The domain write and outbox record use SQL in one transaction that CAP opens asynchronously with the service's cancellation token; RabbitMQ receives the message only after commit. |
 | SPM-196 | Publication failure rolls back | `PublishAsync` failure + `RollbackAsync` | A publication exception causes an explicit rollback and never a commit. |
 | SPM-197 | Only the owner commits | `NhDbTransactionScope.IsMyTransaction` | A nested scope cannot commit or roll back the transaction started by the outer service. |
 | SPM-198 | Partially successful bulk operation | `ContinueOnError` + outer transaction | Only successful items are stored and counted; one summary event precedes one commit. |

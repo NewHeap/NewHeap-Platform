@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "a14475980a56c13f6b4a904a70b80dcdc52481530b1d12252193a57da7f942b6",
-    "declarationCount": 11008,
+    "hash": "0145fd925cae2f0219b3920da4ce2f63187c6aab940a4775a0029a64a3714851",
+    "declarationCount": 11009,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -32410,6 +32410,10 @@
         "declaration": "public delegate IDbContextTransaction NhTransactionFactory(IDbContextTransaction? prev,DbContext dbContext,IServiceProvider serviceProvider);"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
+        "declaration": "public delegate Task<IDbContextTransaction> NhTransactionFactoryAsync( IDbContextTransaction? prev, DbContext dbContext, IServiceProvider serviceProvider, CancellationToken cancellationToken);"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
         "declaration": "public static class RepositoryBulkExtensions {"
       },
@@ -42151,7 +42155,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
-        "declaration": "public ValueTask DisposeAsync() {"
+        "declaration": "public async ValueTask DisposeAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
@@ -48484,7 +48488,9 @@
     "nh-backend-service-unit-of-work": [
       "StartOrGetTransactionScopeAsync",
       "UpdatePartialAsync",
-      "INhDbTransactionScope"
+      "INhDbTransactionScope",
+      "NhTransactionFactoryAsync",
+      "NhTransactionFactory"
     ],
     "nh-consumer-bootstrap-sequence": [
       "NewHeapPlatformCommonConfigurator",
@@ -48820,6 +48826,7 @@
     ],
     "nh-operations-events-jobs-notifications": [
       "CapTransactionScope",
+      "CapEFDbTransaction",
       "INhBackgroundOperationAdministrationService",
       "INhBackgroundOperationContext",
       "INhBackgroundOperationFanOutContext",
