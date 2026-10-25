@@ -8,8 +8,10 @@ the release notes and the sample cases are authoritative once it is built.
 ## Status
 
 Decided by Lars on 2026-10-25: LS1 to LS46, every one as advised (option (a)). The decisions are summarized
-below; the sections under "Choices" keep the options that were weighed. Not built yet; delivery is trains 21 to 23
-(LS46).
+below; the sections under "Choices" keep the options that were weighed. Built on 2026-10-25 in merge trains 21 to 23 (LS46): train 21 with lanes LA, LC, LB and LD; train 22 with RH (the
+`TriggerEventLookup` migrations), DN, AG (the `MetadataIndexValues` migrations) and MP; train 23 with CT, CS, AX, FE,
+DT and the hardening lane HT, which fixed a write-gate starvation of background operations and a race in the assistant's
+budget ledger. The lanes' own choices in the "Lane choices" table are for Lars to review.
 
 Already settled on 20.0.0, so not part of this plan:
 - The AI startup validator runs in its own scope (7.14.2).
