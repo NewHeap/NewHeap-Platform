@@ -1572,7 +1572,10 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
     ],
     "SPM-219": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",

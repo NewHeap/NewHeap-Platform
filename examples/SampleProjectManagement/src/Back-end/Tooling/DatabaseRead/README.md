@@ -42,6 +42,9 @@ only to `newheap-db`, such as the `dotnet tool run newheap-db` prefix. Do not
 probe the restricted sandbox first and do not grant a general `dotnet` or shell
 permission. A returned `network-access-required` hint is not proof of a sandbox
 restriction; a firewall, DNS failure or network ACL may have the same effect.
+A `tls-certificate-untrusted` classification with the
+`certificate-authority-trust-required` hint is not a network failure: trust the
+database server's certificate authority on the host instead of retrying.
 
 This catalog contains exactly one profile, so use `sample-development` without
 asking for a profile selection. Its provider, configuration path,
