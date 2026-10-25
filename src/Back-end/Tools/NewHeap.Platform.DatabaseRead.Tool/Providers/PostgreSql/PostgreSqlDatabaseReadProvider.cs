@@ -96,16 +96,8 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             "SELECT set_config('statement_timeout', @statementTimeout, true), " +
             "set_config('lock_timeout', @lockTimeout, true);";
         timeoutCommand.CommandTimeout = limits.TimeoutSeconds;
-
-        var statementTimeout = timeoutCommand.CreateParameter();
-        statementTimeout.ParameterName = "@statementTimeout";
-        statementTimeout.Value = $"{limits.TimeoutSeconds * 1000}ms";
-        timeoutCommand.Parameters.Add(statementTimeout);
-
-        var lockTimeout = timeoutCommand.CreateParameter();
-        lockTimeout.ParameterName = "@lockTimeout";
-        lockTimeout.Value = $"{limits.LockTimeoutMilliseconds}ms";
-        timeoutCommand.Parameters.Add(lockTimeout);
+        AddTextParameter(timeoutCommand, "@statementTimeout", $"{limits.TimeoutSeconds * 1000}ms");
+        AddTextParameter(timeoutCommand, "@lockTimeout", $"{limits.LockTimeoutMilliseconds}ms");
 
         await timeoutCommand.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -281,9 +273,9 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             ORDER BY candidate_namespace.nspname, candidate.relname
             LIMIT @maximumObjects;
             """;
-        AddParameter(command, "@schemaName", request.SchemaName);
-        AddParameter(command, "@searchTerm", request.SearchTerm);
-        AddParameter(command, "@maximumObjects", limits.MaximumRows + 1);
+        AddTextParameter(command, "@schemaName", request.SchemaName);
+        AddTextParameter(command, "@searchTerm", request.SearchTerm);
+        AddIntegerParameter(command, "@maximumObjects", limits.MaximumRows + 1);
 
         var objects = new List<DatabaseSchemaObjectSummaryResponse>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -446,8 +438,8 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
               )
             LIMIT 1;
             """;
-        AddParameter(command, "@schemaName", schemaName);
-        AddParameter(command, "@objectName", objectName);
+        AddTextParameter(command, "@schemaName", schemaName);
+        AddTextParameter(command, "@objectName", objectName);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -495,7 +487,7 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
               AND has_column_privilege(current_user, candidate.attrelid, candidate.attname, 'SELECT')
             ORDER BY candidate.attnum;
             """;
-        AddParameter(command, "@objectId", objectId);
+        AddOidParameter(command, "@objectId", objectId);
 
         var columns = new List<DatabaseSchemaColumnResponse>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -591,7 +583,7 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
               )
             ORDER BY candidate.indisprimary DESC, index_object.relname, index_column.position;
             """;
-        AddParameter(command, "@objectId", objectId);
+        AddOidParameter(command, "@objectId", objectId);
 
         var builders = new List<PostgreSqlIndexBuilder>();
         var byName = new Dictionary<string, PostgreSqlIndexBuilder>(StringComparer.Ordinal);
@@ -728,7 +720,7 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
               )
             ORDER BY candidate.oid, source_key.position;
             """;
-        AddParameter(command, "@objectId", objectId);
+        AddOidParameter(command, "@objectId", objectId);
 
         var builders = new List<PostgreSqlRelationshipBuilder>();
         var byId = new Dictionary<uint, PostgreSqlRelationshipBuilder>();
@@ -780,15 +772,32 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
-    private static void AddParameter(DbCommand command, string name, object? value)
+    /// <summary>
+    /// Binds a string that may be omitted. PostgreSQL cannot infer the type of an untyped null in
+    /// <c>@value IS NULL</c> and rejects the statement with SQLSTATE 42P08, so every text parameter
+    /// carries its type, with or without a value.
+    /// </summary>
+    private static void AddTextParameter(DbCommand command, string name, string? value)
     {
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = value ?? DBNull.Value;
-        if (parameter is NpgsqlParameter npgsqlParameter && value is uint)
+        AddParameter(command, name, NpgsqlDbType.Text, value);
+    }
+
+    private static void AddIntegerParameter(DbCommand command, string name, int value)
+    {
+        AddParameter(command, name, NpgsqlDbType.Integer, value);
+    }
+
+    private static void AddOidParameter(DbCommand command, string name, uint value)
+    {
+        AddParameter(command, name, NpgsqlDbType.Oid, value);
+    }
+
+    private static void AddParameter(DbCommand command, string name, NpgsqlDbType type, object? value)
+    {
+        var parameter = new NpgsqlParameter(name, type)
         {
-            npgsqlParameter.NpgsqlDbType = NpgsqlDbType.Oid;
-        }
+            Value = value ?? DBNull.Value
+        };
 
         command.Parameters.Add(parameter);
     }
