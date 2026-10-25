@@ -141,6 +141,9 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
         Assert.Equal(NhAssistantRunStatuses.Completed, first.Status);
         var triage = models.Triage.Requests[0];
         Assert.Empty(ToolNames(triage));
+        // The triage model is strict: it refuses a schema a strict provider would refuse.
+        var format = Assert.IsType<ChatResponseFormatJson>(triage.Options!.ResponseFormat);
+        Assert.Empty(NhAiStrictStructuredOutput.Validate(format.Schema!.Value));
         Assert.Contains($"- {Notes}: ", triage.Messages[^1].Text);
         Assert.Contains($"- {Risk}: ", triage.Messages[^1].Text);
         Assert.Contains("triage first", triage.Messages[^1].Text);
@@ -518,6 +521,14 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
     }
 
     [Fact]
+    public void The_triage_schema_is_strict()
+    {
+        using var schema = System.Text.Json.JsonDocument.Parse(NhAssistantTurnRunner.TriageSchema);
+
+        Assert.Empty(NhAiStrictStructuredOutput.Validate(schema.RootElement));
+    }
+
+    [Fact]
     public void A_skill_outside_the_agents_tools_or_a_trigger_for_an_unknown_skill_fails_validation()
     {
         var outside = new ServiceCollection();
@@ -602,6 +613,7 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
                         .WithBudget(maxInputTokens: 8_192, maxOutputTokens: 1_024, maxCalls: 16));
                     ai.AddChatProfile("triage-chat", profile => profile
                         .UseKeyedClient("triage-chat-model")
+                        .RequireCapabilities(NhAiModelCapability.StructuredOutput)
                         .WithStreaming(NhAiStreamingPolicy.Allowed)
                         .PermitDataClassifications(NhAiDataClassification.Internal)
                         .PermitExecutionRegions("local")
@@ -780,7 +792,8 @@ public sealed class AssistantAgentSkillTests(AssistantDatabaseFixture database) 
 
         public NhAiScriptedChatClient Skill { get; } = new();
 
-        public NhAiScriptedChatClient Triage { get; } = new();
+        /// <summary>The triage model checks its schema as a provider with strict structured output does.</summary>
+        public NhAiScriptedChatClient Triage { get; } = new() { StrictStructuredOutput = true };
     }
 }
 
