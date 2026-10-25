@@ -509,6 +509,36 @@ with the new code `assistant-consult-turn-limit` (HTTP 400), which the asking mo
 |---|---|
 | None. | None. |
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.AspNet.Mvc, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: turns that outlive their client and a person's turns from the application's channels
+
+`NhAssistantOptions.KeepTurnsAfterDisconnect` (`NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, off by
+default) keeps a person's turn of `POST conversations/{id}/messages` and
+`POST conversations/{id}/approvals/{approvalId}/decide` running after the client disconnected, up to
+`NhAssistantLimits.TurnTimeout`. The turn no longer follows the request's cancellation; its tools
+authorize the principal and the invocation context captured when it started, never the request again;
+its remaining stream writes are dropped; the conversation's snapshot and live updates carry its result.
+`POST cancel` still stops it. There is no resumable stream: the client reloads the conversation.
+
+`INhAssistantConversationTurns` sends a person's message (`SendAsync` with
+`NhAssistantConversationMessage`) and decides the approval their turn in a chat waits for (`DecideAsync`
+with `NhAssistantConversationDecision`) for the application's own channels, for a person the application
+authenticated (`NhAssistantDecidingPerson`). It applies the endpoints' rules: the person's conversation in
+their tenant, the assistant's access policy and the agent's policy, the message and decision rules. The
+person's context comes from the application's context resolver and must name the same actor and tenant
+(`assistant-context-unavailable` otherwise); `NhAssistantConversationTurnOptions` names the audited
+`Channel`, the `Language`, the person's `ActiveDivisionId` and whether the turn outlives the caller
+(`KeepTurnAfterCallerLeaves`, by default the host's `KeepTurnsAfterDisconnect`). The turn runs in services
+of its own and without the caller's request, so its tools authorize the person and no request credential
+reaches them; API bridge tools and MCP servers that forward the person's sign-in need the person's own
+request and are not available. It returns `NhAssistantConversationTurnResult` with the status, the
+assistant's message, the pending approvals and the usage. Only chats are served.
+
+| Breaking change | Required action |
+|---|---|
+| None; `KeepTurnsAfterDisconnect` is off by default and `INhAssistantConversationTurns` is new. | Set the option where closing the browser should not cancel a turn and let the client reload the conversation; start a person's turns from a channel through the service instead of the endpoints. |
+| `NhAiAspNetScopeAuthorizationResource` is no longer `sealed`; in a person's turn that does not depend on the request the gate passes a derived resource that also implements `INhDivisionScopedResource` with the person's active division. | None for handlers that match the record; a division handler reads the division from the resource. |
+| `NhAssistantAuditEvent.Channel` is also set on the events of turns the service runs, such as `ToolInvoked` and `ApprovalRequested`. | Let audit sinks that expect a channel only on decisions accept it on other events. |
+
 ## @newheap/platform-ai-chat: the inbox status filter and the consultation limit
 
 `AgentInboxFilter.status` (`AgentInboxStatus`: `pending`, `awaiting-application`, `execution-unknown`)

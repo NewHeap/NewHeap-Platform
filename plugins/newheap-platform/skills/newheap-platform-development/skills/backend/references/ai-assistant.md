@@ -85,6 +85,16 @@ as a non-human actor on behalf of the accountable owner taken from the registere
 `INhAiAuthenticatedInvocationContextResolver`, with the turn id as run id and the
 instruction version and hash as prompt identity.
 
+Set `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect` (`NhAssistantOptions.KeepTurnsAfterDisconnect`,
+off by default) when closing the browser should not cancel a person's turn, such as for long tool
+calls (SPM-332). The turn of `POST messages` and of `POST approvals/{approvalId}/decide` then no
+longer follows the request's cancellation and runs on until it ends or reaches
+`NhAssistantLimits.TurnTimeout`. Its tools authorize the principal and the invocation context
+captured when the turn started, never the request again; what the turn would still write to the
+closed stream is dropped; the conversation's snapshot and its live updates carry the result, so the
+client reloads the conversation: there is no stream to resume. `POST cancel` still stops it. The
+request's pipeline waits for the turn as before, so the request's services stay available to it.
+
 When the shared invoker requires approval, the assistant creates the exact
 `NhAiProposal` from the arguments the invoker evaluated, stores it with a pending
 approval, streams `approval.required` and pauses. The user decides with the
@@ -608,6 +618,73 @@ finished (SPM-312, `ProjectAnalysisAssistantNotices`): `ReadableBy` the person w
 division's name escaped, untrusted because of that name, by Web Push and in its test host's inbox,
 followed by a trusted instruction for the assistant in fixed text without people's data.
 
+## A person's turns through the application's channels
+
+When a person talks with the assistant outside the client, such as in a messaging app, the
+application sends their message and decides their approval with `INhAssistantConversationTurns`
+instead of calling its own HTTP endpoints. It is a server API; the application vouches for the
+person, as for `INhAssistantProposalDecisionService`: it authenticated them through its channel and
+passes their principal and actor id, and their tenant, as `NhAssistantDecidingPerson`:
+
+```csharp
+var sent = await turns.SendAsync(
+    new NhAssistantDecidingPerson(principal, userId.ToString("D")),
+    conversationId,
+    new NhAssistantConversationMessage(text) { ClientMessageId = deliveryId },
+    new NhAssistantConversationTurnOptions("messaging-chat")
+    {
+        // As the active-division header of the person's own request would name it.
+        ActiveDivisionId = divisionId,
+        // The provider's webhook may give up; the chat then holds the answer.
+        KeepTurnAfterCallerLeaves = true
+    },
+    cancellationToken);
+if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval)
+{
+    // Later, when the person answers the approval card:
+    await turns.DecideAsync(
+        person,
+        conversationId,
+        approval.ApprovalId,
+        new NhAssistantConversationDecision(NhAssistantProposalDecision.Approve, approval.ProposalHash),
+        new NhAssistantConversationTurnOptions("messaging-chat") { ActiveDivisionId = divisionId },
+        cancellationToken);
+}
+```
+
+- A turn is the endpoint's turn, through the same runner and with the same rules: the person's
+  conversation (the owner, or a participant of the same tenant), the assistant's access policy and
+  the agent's own policy (`assistant-agent-forbidden`), the message limits, the approval rules and the
+  person's own rights for every tool. Only chats are served; an agent's thread answers
+  `assistant-conversation-not-found`.
+- The person's invocation context comes from the application's
+  `INhAiAuthenticatedInvocationContextResolver`, run over a request that carries only the principal.
+  When it refuses the principal, or resolves another actor id or tenant than the person names, the
+  call fails with `assistant-context-unavailable`: the application cannot act in one person's
+  conversation with another person's rights. `ActiveDivisionId` counts as the request header does:
+  only when the host maps the active division and the person passes its policy; division policies
+  then read it from the authorization resource, which implements `INhDivisionScopedResource`.
+- The turn runs without the caller's request and in services of its own that end with the turn. Its
+  tools authorize the person, never the request around the call: a webhook's or another person's
+  request lends no principal and no credential. API bridge tools, which forward the person's own
+  request credential, are not offered, and MCP servers that forward the person's sign-in are not
+  reached.
+- `SendAsync` and `DecideAsync` return `NhAssistantConversationTurnResult` once the turn ended or
+  waits: its status (`completed`, `waiting-for-approval`, `cancelled`, `failed`), the error code, the
+  assistant's message as the conversation shows it, the pending approvals with their proposal hash,
+  and the usage. Expected refusals before the turn are failed results with the endpoint's codes; a
+  repeated `ClientMessageId` is `assistant-message-duplicate`.
+- The caller's cancellation throws `OperationCanceledException` and cancels the turn, unless
+  `KeepTurnAfterCallerLeaves` lets it run on up to `TurnTimeout`; `null` follows
+  `KeepTurnsAfterDisconnect`.
+- The audit records the channel (`NhAssistantAuditEvent.Channel`) on the turn's events, such as
+  `ToolInvoked`, `ApprovalRequested` and `ApprovalApproved`; the endpoints' turns record none.
+
+SampleProjectManagement's messaging channel (SPM-332, `SampleAssistantMessagingChannel`) links a chat
+for the signed-in person, rebuilds the person from the user store for every delivery and runs the
+turn in their active division; a repeated delivery starts no second turn and a link to someone else's
+chat finds nothing.
+
 ## Files in model turns
 
 Let turns read the application's files with `UseFileSource<T>()`, where `T` implements
@@ -876,6 +953,11 @@ or output of the running turn, also not text written before an approval pause.
   deployment decision; `RunMigrations` is off by default.
 - Relying on `POST cancel` across nodes; it reaches turns in the same process, and
   an abandoned running turn is recovered after its deadline.
+- Starting a person's turn from a channel by calling the application's own assistant endpoints with
+  a service credential, or by authorizing tools against the channel's request; use
+  `INhAssistantConversationTurns`, whose tools authorize the person it names. Never pass a principal
+  the application did not authenticate as that person.
+- Expecting `KeepTurnsAfterDisconnect` to resume a stream; the client reloads the conversation.
 - Trusting remote MCP annotations such as `readOnlyHint`; they are hints for the
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
@@ -952,6 +1034,13 @@ property, and assert the first succeeds and the second returns `ai-tool-input-in
 before a corrected retry succeeds. Assert that no prompt, argument, result or answer text reaches the audit,
 usage and business sinks or logs, that approval is bound to the proposal hash and
 owner, and that the SSE event and JSON property names match the contract.
+With `KeepTurnsAfterDisconnect`, disconnect a client while the model waits and assert that the turn
+completes and is stored, that its tool call after the disconnect authorizes the captured principal,
+that the turn is cancelled without the option and that `POST cancel` still stops it. Through
+`INhAssistantConversationTurns`, assert on both providers a sent message and a decided approval with
+the channel in the audit, refusals of a person outside the conversation, without the access or the
+agent's policy, of another actor or tenant than the principal, and a tool policy decided by the
+person and not by the request around the call (SPM-332).
 For administration, assert version conflicts, the admin policy, the seed behavior and
 the composed instruction order with an injection attempt in the custom instructions.
 For situational and page context, assert the block order and markers, the limits, that

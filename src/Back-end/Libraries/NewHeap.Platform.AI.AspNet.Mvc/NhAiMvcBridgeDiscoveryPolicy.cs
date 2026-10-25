@@ -11,6 +11,10 @@ namespace NewHeap.Platform.AI.AspNet.Mvc;
 /// current user satisfies every authorization policy of its action; a gateway tool is
 /// discoverable when the user may use at least one of its resources; every other descriptor is
 /// decided by the inner policy configured with <c>UseInnerDiscoveryPolicy</c> (default: deny).
+/// In a person's turn that does not depend on the request (a turn that outlives it, or one the
+/// application starts through <c>INhAssistantConversationTurns</c>) the person captured when it started
+/// is the user; a bridge tool then still needs the person's own request, whose credential the bridge
+/// forwards, so a turn without one is offered only the inner policy's tools.
 /// </summary>
 public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy
 {
@@ -53,18 +57,43 @@ public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy
         cancellationToken.ThrowIfCancellationRequested();
 
         var httpContext = _httpContextAccessor.HttpContext;
-        var user = httpContext?.User;
-        if (httpContext is null)
+        ClaimsPrincipal? user;
+        string? authenticatedActor;
+        if (NhAiPersonInvocationScopes.Current is { } person)
         {
-            return false;
+            // A person's turn that does not depend on the request is decided for the person captured
+            // when it started, without resolving the request again.
+            user = person.User;
+            authenticatedActor = person.Context.ActorId;
         }
-        var authenticated = await _contextResolver.ResolveAsync(httpContext, cancellationToken);
+        else
+        {
+            if (httpContext is null)
+            {
+                return false;
+            }
+            var authenticated = await _contextResolver.ResolveAsync(httpContext, cancellationToken);
+            if (!authenticated.Success)
+            {
+                return false;
+            }
+            user = httpContext.User;
+            authenticatedActor = authenticated.Data.ActorId;
+        }
+
         var accountableActor = context.ActorKind == NhAiActorKind.Human
             ? context.ActorId
             : context.AccountableOwnerId;
-        if (!authenticated.Success
-            || !string.Equals(authenticated.Data.ActorId, accountableActor, StringComparison.Ordinal))
+        if (!string.Equals(authenticatedActor, accountableActor, StringComparison.Ordinal))
         {
+            return false;
+        }
+
+        var bridged = _catalog.TryGetAction(descriptor, out _) || _catalog.TryGetGateway(descriptor, out _);
+        if (bridged && httpContext is null)
+        {
+            // The bridge calls the API with the credential of the person's own request; a person's turn
+            // that runs without one is offered no bridge tools.
             return false;
         }
         if (_catalog.TryGetAction(descriptor, out _))

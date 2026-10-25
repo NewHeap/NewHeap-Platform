@@ -269,6 +269,13 @@ and shows it exactly when it would without them. A thread without `writingMessag
 layout that does not pass it, shows the indicator at the end of the thread. A custom view that applies
 live events itself does the same.
 
+When the host sets `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, closing the page or losing the
+connection no longer cancels the turn: the server finishes it and drops what it would still stream.
+There is no stream to resume; the client loads the conversation again when the person comes back, and
+live updates show a turn that is still running, as for a colleague's turn (SPM-332). A turn the
+application started for the person from another channel, such as a messaging app
+(`INhAssistantConversationTurns`), appears the same way, through live updates and the next snapshot.
+
 Show the work of agents that run on their own with the components of
 `@newheap/platform-ai-chat/agent-runs`, a separate entry point that stays out of the
 initial bundle. `nh-assistant-agent-inbox` lists the proposals waiting for the

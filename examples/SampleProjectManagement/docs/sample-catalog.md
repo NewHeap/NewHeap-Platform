@@ -432,6 +432,18 @@ A test host of the environment `Testing` reaches the milestones server on loopba
 `NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
 runs the case.
 
+A person may continue a chat with the project assistant in a messaging app (SPM-332). Signed in to the
+portal, they link the chat with `POST assistant-channel/links`; the messaging provider then delivers
+their messages and their answer to an approval card with the link token, without a sign-in.
+`SampleAssistantMessagingChannel` rebuilds the person from the user store and runs each turn through
+`INhAssistantConversationTurns`: the endpoint's turn with its access rules, in the person's active
+division and with the person's own rights for every tool, never the rights of the provider's request.
+The answer carries the assistant's text and, when the turn waits, the approval card with its proposal
+hash; a `yes` approves it. A repeated delivery starts no second turn, a link to someone else's chat finds
+nothing, and the audit records the `messaging-chat` channel. In Development the sample also sets
+`NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
+the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
+
 The operations process also reads and changes agents through services (SPM-329).
 `SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
 `INhAssistantAgentDirectory`, with its run state and cost center, and gives an agent a new description

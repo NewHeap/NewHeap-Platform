@@ -46,6 +46,7 @@ approvals and tools without a presenter.
 | `NewHeap:AI:Assistant:Enabled` | `false` | Kill switch. Off: `GET status` returns `{ enabled: false, agents: [] }`, all other endpoints `404`. |
 | `NewHeap:AI:Assistant:AccessPolicy` | `app.assistant.access` | Policy every endpoint requires, unless `UseAccessPolicy` sets one. |
 | `NewHeap:AI:Assistant:AdminPolicy` | `app.assistant.admin` | Additional policy for `admin/*`, unless `UseAdminPolicy` sets one. |
+| `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect` | `false` | A person's turn keeps running after the client disconnected, up to the turn timeout, and authorizes its tools with the principal captured when it started; `POST cancel` still stops it and the client reloads the conversation. |
 | `NewHeap:AI:Assistant:Mcp:RequireHttps` | `true` | MCP servers must use https; plain http is allowed only to loopback in Development. |
 | `NewHeap:AI:Assistant:Mcp:AllowedHosts` | empty (any public host) | Optional allow-list of MCP hosts. Link-local and metadata addresses are always blocked. |
 | `NewHeap:AI:Assistant:Mcp:ForwardUserTokenHosts` | empty | Exact hosts that may receive the caller's token (`forward-user-token`). |
@@ -77,6 +78,11 @@ approvals and tools without a presenter.
 | `GET mcp-connections`, `PUT mcp-connections/{serverId}` `{ allowBackgroundUse }` | MCP servers that background runs may use with the caller's own account, and the caller's consent |
 | `POST mcp-connections/complete` `{ flowId, completionCode }` | activates the OAuth connection of an authorization the caller started; an organization connection also needs the admin policy |
 | `GET mcp/oauth/callback`, `GET mcp/oauth/client-metadata.json` | anonymous: the OAuth redirect URI, bound to its flow by `state`, and the host's Client ID Metadata Document |
+
+The application's own channels, such as a messaging app, send a person's message and decide their
+approval with `INhAssistantConversationTurns` (`SendAsync`, `DecideAsync`) instead of these endpoints:
+for a person the application authenticated (`NhAssistantDecidingPerson`), with the same rules, in an
+invocation scope of that person without the caller's request, and with the channel in the audit.
 
 Administration endpoints additionally require the admin policy:
 

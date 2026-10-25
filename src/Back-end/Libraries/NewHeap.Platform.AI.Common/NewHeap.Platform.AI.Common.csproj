@@ -25,5 +25,6 @@
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Common" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
   </ItemGroup>
 </Project>

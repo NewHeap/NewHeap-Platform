@@ -5579,6 +5579,31 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-332",
+    "title": "A person continues a chat and approves its proposal from a messaging app, and turns outlive a closed browser",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantConversationTurns (SendAsync, DecideAsync) with NhAssistantDecidingPerson, NhAssistantConversationMessage (ClientMessageId, Files), NhAssistantConversationDecision (NhAssistantProposalDecision, ExpectedProposalHash, Reason), NhAssistantConversationTurnOptions (Channel, Language, ActiveDivisionId, KeepTurnAfterCallerLeaves) and NhAssistantConversationTurnResult (NhAssistantMessageDto, NhAssistantApprovalPartDto, NhAssistantUsageDto); the Channel of NhAssistantAuditEvent; NhAssistantOptions.KeepTurnsAfterDisconnect (NewHeap:AI:Assistant:KeepTurnsAfterDisconnect)",
+    "outcome": "A signed-in person links one of their chats with the project assistant to a messaging app through `POST assistant-channel/links`, which issues a link token for the chat, the person and their active division. The messaging provider delivers the person's messages to `POST assistant-channel/messages` and their answer to an approval card to `POST assistant-channel/decisions` with that token and without a sign-in. `SampleAssistantMessagingChannel` vouches for the person because only the token it issued says who writes: it rebuilds their principal from the user store, as their sign-in would, and runs each turn through `INhAssistantConversationTurns`. The turn is the endpoint's turn with its access rules: the person's conversation, the assistant's access policy and the agent's policy. It runs in the person's active division with the person's own rights for every tool, without a request of the person and without the provider's request around it, so the search reads the person's division and the status change waits for the person's own approval card, which the answer carries with its proposal hash. A `yes` approves and the project's status changes once; an unclear answer, a forged token and a delivery the provider repeats (`assistant-message-duplicate`) start nothing, and a link to someone else's chat finds nothing (`assistant-conversation-not-found`). The audit records the `messaging-chat` channel on the turn's events. The turn keeps running when the provider's webhook gives up, and the portal shows the same chat. In Development the sample also sets `KeepTurnsAfterDisconnect`, so closing the browser no longer cancels a person's turn: it completes, its tools authorize the principal captured when it started, and the client reloads the chat. The library tests prove both on SQL Server and PostgreSQL: a disconnected turn completes with its tool authorized for the captured principal, is cancelled without the option and still stops on `POST cancel`; the service sends and decides, refuses a person outside the chat, without the access or the agent's policy, of another actor or tenant than the principal, and lets the person's policy, not the request around the call, decide a tool.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationTurnTests.cs"
+    ]
+  },
+  {
     "id": "SPM-335",
     "title": "A structured-output schema that a strict provider accepts, and a model call past its deadline as a failed result",
     "category": "AI tools and generated catalogs",
