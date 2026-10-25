@@ -11,6 +11,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// who started it (<c>DelegateFromInitiator</c>), checked again in the background without a
 /// request. Its status proposals are inline: the run pauses as a waiting background operation
 /// until that person approves, then continues and changes the status itself.
+/// SPM-334: in a person's chat the advisor may ask which status the project should get
+/// (<c>AllowQuestions</c>): the question offers the statuses as choices, the turn waits for the
+/// answer as for an approval, and only the person it asks answers; a colleague in a shared chat sees
+/// the question read-only.
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleStatusAdvisorComposition
@@ -42,6 +46,8 @@ public static class SampleStatusAdvisorComposition
                 .WorksOn(ProjectSubjects.Type)
                 .DelegateFromInitiator()
                 .UseApprovalPolicy(ApprovalPolicyId)
+                // SPM-334: structured questions with choices in people's chats with the advisor.
+                .AllowQuestions()
                 .Retry(2)
                 .Budget(
                     NhAssistantAgentBudget.PerDay(toolCalls: 50, tokens: 200_000),

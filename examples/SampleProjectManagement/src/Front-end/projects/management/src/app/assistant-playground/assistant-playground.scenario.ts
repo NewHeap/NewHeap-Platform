@@ -114,6 +114,7 @@ export const ASSISTANT_PLAYGROUND_PROMPTS = [
   { key: 'list', text: 'Which projects are active?' },
   { key: 'tools', text: 'Compare the open work across all projects.' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
+  { key: 'question', text: 'Ask me which status project Beta onboarding should get.' },
   { key: 'legacy-approval', text: 'Show a legacy approval fallback.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
   { key: 'long', text: 'Write a long status report for all projects.' },
@@ -695,6 +696,19 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     {
       match: /looking at|this page/i,
       steps: [{ text: describePageContext }]
+    },
+    {
+      // SPM-334: the agent asks a structured question; the person it asks answers with a choice.
+      match: /which status/i,
+      steps: [
+        {
+          question: {
+            question: 'Which status should project Beta onboarding get?',
+            choices: ['Active', 'On hold', 'Closed'],
+            answered: answer => [{ text: `Noted: **Beta onboarding** should be *${answer}*. I will propose that change next.` }]
+          }
+        }
+      ]
     },
     {
       match: /\b(hold|pause|status of)\b/i,
