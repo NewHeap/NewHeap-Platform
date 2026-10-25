@@ -3211,14 +3211,16 @@
       "id": "SPM-225",
       "categoryId": "18",
       "title": "Policy-bound Agent Framework adapter",
-      "surface": "`NhAiAgentDescriptor`, `INhAiAgentFrameworkAdapter`, `NhAiAgentCreateRequest.EffectsAsProposals` with `NhAiAgentInvocationScope.RequireApprovalForEffects`, Microsoft Agent Framework `ChatClientAgent`, named model profiles, and generated Agent-exposed tools",
-      "outcome": "A stable non-human project agent returns structured creation outcomes, resolves its consumer-owned model profile and receives only attested actor-specific tools inside its allow-list and autonomy ceiling; every model call crosses shared classification, budget, deadline, usage and telemetry governance. An agent with Propose autonomy only reads, also with the rights to change projects, until the runtime turns every change into a proposal: in a scope that requires approval for effects, `EffectsAsProposals` offers it the status tool as well.",
+      "surface": "`NhAiAgentDescriptor`, `INhAiAgentFrameworkAdapter`, `NhAiAgentCreateRequest.EffectsAsProposals` with `NhAiAgentInvocationScope.RequireApprovalForEffects`, Microsoft Agent Framework `ChatClientAgent`, named model profiles, and generated Agent-exposed tools, and `NhAiAgentCreateRequest.ChatHistoryProviderFactory` and `AIContextProvidersFactory` with Agent Framework `ChatHistoryProvider` and `AIContextProvider`, and `NhAiAgentModelCallException.Code`",
+      "outcome": "A stable non-human project agent returns structured creation outcomes, resolves its consumer-owned model profile and receives only attested actor-specific tools inside its allow-list and autonomy ceiling; every model call crosses shared classification, budget, deadline, usage and telemetry governance. An agent with Propose autonomy only reads, also with the rights to change projects, until the runtime turns every change into a proposal: in a scope that requires approval for effects, `EffectsAsProposals` offers it the status tool as well. The project agent keeps the messages of its session in the `InMemoryChatHistoryProvider` its request's `ChatHistoryProviderFactory` creates: the second question reaches the model with the first exchange, through the governed client and with only the published search tool. The library tests add an AI context provider whose instructions reach the model while a tool it adds fails the run before the model is called, and a failed governed call reaches the agent as `NhAiAgentModelCallException` with its failure code, such as `ai-model-timeout`.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiAgentHistorySamplesTests.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkProviderTests.cs"
       ]
     },
     {
@@ -3316,14 +3318,15 @@
       "id": "SPM-232",
       "categoryId": "18",
       "title": "Content-free AI model usage and streaming telemetry",
-      "surface": "`INhAiChatExecutor`, named profile and run-budget enforcement, OpenTelemetry activities and metrics, `INhAiUsageSink`, token/latency/TTFT accounting, and cancellation-safe streaming, and `NhAiUsageRecord.ModelCallId` with `NhAiBudgetRequest.ModelCallId`: one id per governed model call that its retries, budget reservation, `ai.model.invoke` activity (`newheap.ai.model_call_id`) and usage record share",
-      "outcome": "Model calls and streams preserve standard Microsoft AI responses while recording bounded profile, version, token, size, latency, finish and scope metadata; prompts, responses, model deployment identifiers and provider errors are absent from usage records, cancelled streams propagate cancellation, and dependency failures end in a safe `TaskResult` completion. Each governed model call has its own `ModelCallId`, which its retries, its budget reservation and its usage record share, while `InvocationId` keeps naming the invocation context that several calls share.",
+      "surface": "`INhAiChatExecutor`, named profile and run-budget enforcement, OpenTelemetry activities and metrics, `INhAiUsageSink`, token/latency/TTFT accounting, and cancellation-safe streaming, and `NhAiUsageRecord.ModelCallId` with `NhAiBudgetRequest.ModelCallId`: one id per governed model call that its retries, budget reservation, `ai.model.invoke` activity (`newheap.ai.model_call_id`) and usage record share, and the failed result `NhAiModelFailureCodes.Timeout` with `NhAiOutcomeKind.TimedOut` and `NhAiModelFinishReasons.TimedOut` for a governed deadline",
+      "outcome": "Model calls and streams preserve standard Microsoft AI responses while recording bounded profile, version, token, size, latency, finish and scope metadata; prompts, responses, model deployment identifiers and provider errors are absent from usage records, cancelled streams propagate cancellation, and dependency failures end in a safe `TaskResult` completion. Each governed model call has its own `ModelCallId`, which its retries, its budget reservation and its usage record share, while `InvocationId` keeps naming the invocation context that several calls share. A governed deadline, the profile's timeout or the run's deadline, ends a call or a stream with the failed result `ai-model-timeout` and a usage record and activity with outcome `TimedOut` and finish reason `timed-out`, while the caller's own cancellation still throws; both reserve the budget once and write one usage record.",
       "implementation": "implemented",
       "evidence": [
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatExecutionTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatExecutionTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
       ]
     },
     {
@@ -5632,6 +5635,26 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-335",
+      "categoryId": "18",
+      "title": "A structured-output schema that a strict provider accepts, and a model call past its deadline as a failed result",
+      "surface": "`NhAiDeterministicChatClient.StrictStructuredOutput`, `NhAiScriptedChatClient.StrictStructuredOutput`, `NhAiStrictStructuredOutput.Validate` with `NhAiStrictSchemaViolation`, `ChatOptions.ResponseFormat` with Microsoft.Extensions.AI `AIJsonUtilities.CreateJsonSchema` and `AIJsonSchemaTransformOptions`, `INhAiChatExecutor`, and `NhAiModelFailureCodes.Timeout`",
+      "outcome": "ProjectAiStatusDigestService asks the governed project model for a structured status digest. Its schema comes from ProjectAiStructuredOutput, the sample's own normalization: Microsoft.Extensions.AI generates it with closed objects and every property required, and the at-risk list's reference into the on-track list's items moves into `$defs`. A deterministic model with `StrictStructuredOutput` accepts the normalized schema and the digest parses, while the schema as `ChatResponseFormat.ForJsonSchema` generates it is refused with HTTP 400, as a provider in strict mode refuses it. A digest whose call passes the run's deadline returns the failed result `ai-model-timeout` instead of throwing. The library tests cover the strict rules for repeated types, referenced arrays, nullable objects and recursive definitions, and the timeout for calls and streams.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStructuredOutput.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiStructuredOutputSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiStrictStructuredOutput.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiStrictStructuredOutputTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
       ]
     }
   ]

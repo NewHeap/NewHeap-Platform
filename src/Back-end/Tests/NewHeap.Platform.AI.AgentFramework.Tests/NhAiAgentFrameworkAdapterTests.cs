@@ -160,8 +160,9 @@ public sealed class NhAiAgentFrameworkAdapterTests
                 scope.ServiceProvider);
 
         Assert.True(creation.Success);
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var refused = await Assert.ThrowsAsync<NhAiAgentModelCallException>(() =>
             creation.Data.Agent.RunAsync(new string('x', 16_384)));
+        Assert.Equal(NhAiModelFailureCodes.ProfileBudgetExceeded, refused.Code);
 
         var budgetManager = Assert.IsType<NhAiTestBudgetManager>(
             scope.ServiceProvider.GetRequiredService<INhAiBudgetManager>());
