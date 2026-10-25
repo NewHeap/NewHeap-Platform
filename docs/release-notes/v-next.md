@@ -245,6 +245,60 @@ token; every other request still takes its token from the `Authorization` header
 |---|---|
 | None; the default path stays. | None. A host that moved the assistant hub out of `/hub` and read the query token itself may remove that workaround. |
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP servers from the application's code
+
+`INhAssistantMcpServers` manages MCP servers, their tools and their agent assignments from the
+application's own code, with the checks of the `admin/mcp-servers` endpoints: `ListAsync`, `CreateAsync`
+and `UpdateAsync` with `NhAssistantMcpServerRequest` (and `NhAssistantMcpOAuthRequest` and
+`NhAssistantMcpReaderRequest`; `null` keeps a stored value, `""` clears it), `DeleteAsync`, `TestAsync`,
+`SyncAsync`, `ListToolsAsync`, `UpdateToolAsync` with `NhAssistantMcpToolSettingsRequest`, and
+`AssignAsync` and `UnassignAsync`. Secrets are protected with Data Protection and never returned, logged
+or audited; the audit is the administration's, with the actor the application names. An assignment
+writes only the assignment, so the agent's definition and version stay and neither an open editor nor a
+package import conflicts; it is audited as the new `AdminMcpServerAssignmentChanged` (`assigned` or
+`unassigned`), at most `NhAssistantMcpServerLimits.MaxServersPerAgent` (32) servers per agent. The
+service does not authorize the caller.
+
+| Breaking change | Required action |
+|---|---|
+| None; `INhAssistantMcpServers` and `NhAssistantAuditEventKind.AdminMcpServerAssignmentChanged` are new. | Replace code that writes MCP server, tool or assignment rows with the service; let audit sinks that map every kind accept the new one. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: loopback MCP servers outside Development
+
+`NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`, off by default) lets a
+host outside Development, such as a test host of the environment `Testing`, connect MCP servers and
+their OAuth URLs on loopback, also over plain http with `RequireHttps`. A Production host with the option
+on does not start. Link-local addresses and cloud metadata hosts stay blocked. Where loopback is allowed,
+the OAuth `RedirectUri`, `ClientUri` and `ReturnOrigins` may be http on loopback too, as in Development.
+
+| Breaking change | Required action |
+|---|---|
+| None; without the option loopback stays limited to Development. | Set the option in the configuration of test hosts that run MCP servers on loopback instead of running them as Development. |
+
+## NewHeap.Platform.AI.Chat.AspNet: which skills and agents name a text asset
+
+`INhAssistantInstructionAssetUsage.ListAsync(assetId)` lists every version of the data skills (agent,
+skill id, version, status) and the agents created in the administration that name a text asset of the
+application, with the asset version and hash each one uses (`NhAssistantInstructionAssetUsageDto`). An id
+that is not an asset id fails with `assetId: invalid`. It only reads: a new version of the asset still
+never takes effect by itself.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: the installed package and an agent's parts without an export
+
+`INhAssistantAgentPackages.GetPackageAsync(packageId)` returns the package the host imported
+(`NhAssistantInstalledAgentPackageDto`: version, format version, hash, agents, imported at and by) with
+the current links of its parts per agent, also after every agent was unlinked. `ReadAsync(agentIds)`
+returns the agents' parts and hashes exactly as `ExportAsync` builds them, without locks and without the
+`AdminAgentPackageExported` audit.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantAgentPackages` gained `GetPackageAsync` and `ReadAsync`. | A class of the application that implements the interface, such as a test double, implements both; read the installed version with `GetPackageAsync` instead of `GetLinkAsync`, and compare agents with `ReadAsync` instead of an export. |
+
 ## @newheap/platform-ai-chat: agent names in the administration and the region refusal
 
 The agent editor's title, the import dialog's name of a package agent the host does not have yet, and the

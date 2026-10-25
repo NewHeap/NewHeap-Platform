@@ -164,7 +164,7 @@ invalid run filter. Clients map the code, never the status, to a text.
   flow into `NhAssistantAuditEvent`. Editing the context or preferences while an
   approval is pending invalidates that approval.
 - **MCP servers.** Configure `ConfigureMcp`: `RequireHttps` (plain http only to
-  loopback in Development), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
+  loopback in Development or with `AllowLoopback`), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
   `ToolListCacheDuration` and `ConnectTimeout`. Secrets for `bearer` and `api-key`
   are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
   or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
@@ -180,6 +180,32 @@ invalid run filter. Clients map the code, never the status, to a text.
   administrator's sync writes `missing` and `schema-changed`. Test, sync and turns
   with the shared credential record `lastConnectAt` and `lastConnectCode`; a test or sync with an
   administrator's own credential does not, because it says nothing about the server for everyone else.
+- **MCP servers from code.** Manage servers, tools and assignments from the application's own code
+  with `INhAssistantMcpServers`, never by writing `AssistantMcpServer`, `AssistantMcpTool` or
+  `AssistantAgentMcpServer` rows: `ListAsync`, `CreateAsync` and `UpdateAsync` with
+  `NhAssistantMcpServerRequest` (the editor's input: `null` keeps a secret, reference, header use,
+  transport or set of readers, `""` clears it; `NhAssistantMcpOAuthRequest` and
+  `NhAssistantMcpReaderRequest` likewise), `DeleteAsync`, `TestAsync`, `SyncAsync`, `ListToolsAsync`
+  and `UpdateToolAsync` with `NhAssistantMcpToolSettingsRequest` run the administration's validation,
+  host guard and secret handling and return its DTOs and failure codes; secrets are protected with Data
+  Protection and never returned (`hasSecret`), logged or audited. The audit is the administration's
+  (`AdminMcpServerCreated`, `AdminMcpServerUpdated`, `AdminMcpServerDeleted`, `AdminMcpServerSynced`,
+  `AdminMcpToolUpdated`) with the actor the application names; the service does not authorize, so call
+  it for an administrator or a deployment the application trusts. `AssignAsync` and `UnassignAsync`
+  write only the assignment: the agent's definition, version and package links stay, so neither an
+  editor that holds the version nor a package import conflicts, and assignments are never part of a
+  package or its locks. Each change is audited as `AdminMcpServerAssignmentChanged` (`ObjectId` the
+  server, `AgentId` the agent, `ResultCode` `assigned` or `unassigned`); a call that changes nothing is
+  not. An agent has at most `NhAssistantMcpServerLimits.MaxServersPerAgent` servers (`mcpServerIds:
+  too-long`); an unknown server or agent fails with `assistant-mcp-server-not-found` or
+  `assistant-agent-not-found`. The agent editor's save still replaces the whole list of servers, so an
+  editor opened before an assignment drops it when it saves; both are audited.
+- **Loopback MCP servers in tests.** Loopback (`localhost`, `127.0.0.0/8`, `::1`) is allowed in
+  Development. A test host of another environment, such as `Testing`, that runs an MCP server on
+  `127.0.0.1` sets `NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`,
+  off by default); a Production host with it on does not start. Link-local addresses and cloud
+  metadata hosts stay blocked with it, and the OAuth `RedirectUri`, `ClientUri` and `ReturnOrigins`
+  may then be http on loopback too.
 - **MCP credentials.** Besides `none`, `bearer`, `api-key` and `forward-user-token`,
   a server can use `basic` (`userName` plus the write-only secret as password). A
   secret is stored with Data Protection or named by `secretReference`:
@@ -850,6 +876,9 @@ or output of the running turn, also not text written before an approval pause.
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
   http, link-local or metadata addresses for MCP servers.
+- Writing MCP server, tool or assignment rows from application code, or calling the administration's
+  endpoints from the application's own backend; use `INhAssistantMcpServers`, which keeps the checks,
+  secrets and audit. Turning `AllowLoopback` on outside test hosts.
 - Setting `headlessUse` to `organization` for a server whose credential lets an agent
   do more than the people it works for may; background runs then act with it.
 - Sharing the HS256 signing key with a first-party MCP server so that it can validate delegated
@@ -928,7 +957,13 @@ page text never reach audit or logs (SPM-254).
 For MCP, use an official SDK server (in memory or Streamable HTTP): tools are off after
 sync and visible only to the assigned agent after activation, mutations pause for
 approval, schema changes disable tools, blocked hosts are rejected and secrets are
-absent from responses, logs and audit. For background runs, assert on both providers
+absent from responses, logs and audit. Through `INhAssistantMcpServers`, assert on both providers that
+a created server never returns its secret, an update with a `null` secret keeps it, sync and tool
+updates audit as the administration does, an assignment offers the tools to the agent without a new
+agent version and is audited once, the per-agent limit refuses another server and the host guard
+refuses what the administration refuses. For loopback, assert that a `Testing` host reaches an MCP
+server on loopback with `AllowLoopback` and refuses it without, that link-local and metadata hosts stay
+blocked, and that a Production host with the option does not start (SPM-331). For background runs, assert on both providers
 that a `never` server is not contacted, an `organization` server is offered and
 called through a code grant or a person's rights, `requiredPolicy` is evaluated for
 that person, an approved deferred MCP proposal executes once, and a server set back to
@@ -1102,3 +1137,8 @@ division, and that audit and logs carry its hash but not its content (SPM-291).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantRegionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantRegionSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRegionChecks.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs)
+- SPM-331 — The operations code assigns an MCP server to an agent, finds who uses a text asset and compares a shipped package with the host through the assistant's services
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs)

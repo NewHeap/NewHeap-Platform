@@ -40,14 +40,8 @@ internal sealed partial class NhAssistantAgentPackageService(
         ArgumentNullException.ThrowIfNull(agentIds);
         ArgumentNullException.ThrowIfNull(options);
         ValidateActor(actorId);
-        var ids = agentIds.Select(id => id?.Trim() ?? string.Empty).ToArray();
-        var errors = new NhAssistantValidationErrors()
-            .Require(ids.Length > 0, "agentIds", NhAssistantFieldErrors.Required)
-            .Require(ids.Length <= NhAssistantAgentPackageFormat.MaxAgents, "agentIds", NhAssistantFieldErrors.TooLong)
-            .Require(
-                ids.All(NhAssistantNames.IsSegment) && ids.Distinct(StringComparer.Ordinal).Count() == ids.Length,
-                "agentIds",
-                NhAssistantFieldErrors.Invalid)
+        var ids = NormalizeAgentIds(agentIds);
+        var errors = CheckAgentIds(ids)
             .Require(options.Description is not { Length: > NhAssistantAgentPackageFormat.MaxDescriptionLength }, "description", NhAssistantFieldErrors.TooLong)
             .Require(options.Version is null or >= 1, "version", NhAssistantFieldErrors.Invalid)
             .Require(
@@ -60,17 +54,10 @@ internal sealed partial class NhAssistantAgentPackageService(
             return TaskResult<NhAssistantAgentPackageExportDto>.Failed(errors.ToResult());
         }
 
-        await catalog.ListAsync(includeDisabled: true, cancellationToken);
-        var rows = new List<AssistantAgent>(ids.Length);
-        foreach (var id in ids)
+        var rows = await FindAgentRowsAsync(ids, cancellationToken);
+        if (rows is null)
         {
-            var row = await admin.FindAgentAsync(id, cancellationToken);
-            if (row is null || await catalog.FindAsync(id, includeDisabled: true, cancellationToken) is null)
-            {
-                return TaskResult<NhAssistantAgentPackageExportDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
-            }
-
-            rows.Add(row);
+            return TaskResult<NhAssistantAgentPackageExportDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
         }
 
         // Exporting linked agents keeps their package (PK13); agents of two packages travel apart.
@@ -100,7 +87,7 @@ internal sealed partial class NhAssistantAgentPackageService(
         var lockErrors = new NhAssistantValidationErrors();
         foreach (var row in rows)
         {
-            var agent = await ExportAgentAsync(row, cancellationToken);
+            var agent = await ReadAgentAsync(row, cancellationToken);
             var locks = options.Locks?.GetValueOrDefault(row.Id);
             if (locks is not null)
             {
@@ -109,8 +96,7 @@ internal sealed partial class NhAssistantAgentPackageService(
 
             exported.Add(agent with
             {
-                Locks = locks is null || locks.Count == 0 ? null : NormalizeLocks(locks),
-                Hashes = HashesOf(agent)
+                Locks = locks is null || locks.Count == 0 ? null : NormalizeLocks(locks)
             });
         }
         if (!lockErrors.IsEmpty)
@@ -257,6 +243,116 @@ internal sealed partial class NhAssistantAgentPackageService(
     public Task<NhAssistantAgentPackageLinkDto?> GetLinkAsync(string agentId, CancellationToken cancellationToken = default)
     {
         return links.OfAgentAsync(agentId, cancellationToken);
+    }
+
+    public async Task<NhAssistantInstalledAgentPackageDto?> GetPackageAsync(string packageId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(packageId);
+        // Only a well-formed id can name a package, so a provider whose comparison ignores case finds
+        // nothing another provider would not.
+        if (!NhAssistantNames.IsSegment(packageId) || packageId.Length > NhAssistantAgentPackageFormat.MaxIdLength)
+        {
+            return null;
+        }
+
+        var package = await packages.FindPackageAsync(packageId, cancellationToken);
+        if (package is null)
+        {
+            return null;
+        }
+
+        return new NhAssistantInstalledAgentPackageDto(
+            package.Id,
+            package.Version,
+            package.FormatVersion,
+            package.Hash,
+            NhAssistantAgentPackageStore.AgentIdsOf(package),
+            package.ImportedAt,
+            package.ImportedBy,
+            await links.OfPackageAsync(package.Id, cancellationToken));
+    }
+
+    public async Task<TaskResult<IReadOnlyList<NhAssistantPackageAgent>>> ReadAsync(
+        IReadOnlyList<string> agentIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(agentIds);
+        var ids = NormalizeAgentIds(agentIds);
+        var errors = CheckAgentIds(ids);
+        if (!errors.IsEmpty)
+        {
+            return TaskResult<IReadOnlyList<NhAssistantPackageAgent>>.Failed(errors.ToResult());
+        }
+
+        var rows = await FindAgentRowsAsync(ids, cancellationToken);
+        if (rows is null)
+        {
+            return TaskResult<IReadOnlyList<NhAssistantPackageAgent>>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
+        }
+
+        // The builders of an export, without its locks and without its audit.
+        var agents = new NhAssistantPackageAgent[rows.Count];
+        for (var index = 0; index < rows.Count; index++)
+        {
+            agents[index] = await ReadAgentAsync(rows[index], cancellationToken);
+        }
+
+        IReadOnlyList<NhAssistantPackageAgent> read = agents;
+        return TaskResult<IReadOnlyList<NhAssistantPackageAgent>>.Succeeded(read);
+    }
+
+    /// <summary>
+    /// The agent ids an export or a read names, trimmed; a missing id is empty, which is invalid.
+    /// </summary>
+    private static string[] NormalizeAgentIds(IReadOnlyList<string> agentIds)
+    {
+        return agentIds.Select(id => id?.Trim() ?? string.Empty).ToArray();
+    }
+
+    /// <summary>
+    /// The checks of the agent ids of an export or a read: 1 to
+    /// <see cref="NhAssistantAgentPackageFormat.MaxAgents"/> distinct agent ids.
+    /// </summary>
+    private static NhAssistantValidationErrors CheckAgentIds(IReadOnlyList<string> ids)
+    {
+        return new NhAssistantValidationErrors()
+            .Require(ids.Count > 0, "agentIds", NhAssistantFieldErrors.Required)
+            .Require(ids.Count <= NhAssistantAgentPackageFormat.MaxAgents, "agentIds", NhAssistantFieldErrors.TooLong)
+            .Require(
+                ids.All(NhAssistantNames.IsSegment) && ids.Distinct(StringComparer.Ordinal).Count() == ids.Count,
+                "agentIds",
+                NhAssistantFieldErrors.Invalid);
+    }
+
+    /// <summary>
+    /// The rows of the agents in the order of <paramref name="ids"/>, once the agents in code are
+    /// stored; <see langword="null"/> when one of them does not exist.
+    /// </summary>
+    private async Task<IReadOnlyList<AssistantAgent>?> FindAgentRowsAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken)
+    {
+        await catalog.ListAsync(includeDisabled: true, cancellationToken);
+        var rows = new List<AssistantAgent>(ids.Count);
+        foreach (var id in ids)
+        {
+            var row = await admin.FindAgentAsync(id, cancellationToken);
+            if (row is null || await catalog.FindAsync(id, includeDisabled: true, cancellationToken) is null)
+            {
+                return null;
+            }
+
+            rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// One agent as an export puts it in a package, with the hash of every part and without locks.
+    /// </summary>
+    private async Task<NhAssistantPackageAgent> ReadAgentAsync(AssistantAgent row, CancellationToken cancellationToken)
+    {
+        var agent = await ExportAgentAsync(row, cancellationToken);
+        return agent with { Hashes = HashesOf(agent) };
     }
 
     /// <summary>

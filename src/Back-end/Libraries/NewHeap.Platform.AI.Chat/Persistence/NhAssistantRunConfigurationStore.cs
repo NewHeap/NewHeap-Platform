@@ -314,6 +314,30 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     }
 
     /// <summary>
+    /// Every version of every data skill whose instructions name the application's asset
+    /// <paramref name="assetId"/>, whatever its status, by agent and skill id and newest version first.
+    /// The asset columns have no index, so the query reads the skill versions; it is meant for an
+    /// administrator's question, not for a turn.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantAgentSkillDefinition>> ListSkillsNamingAssetAsync(
+        string assetId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var skills = await context.AgentSkillDefinitions
+            .AsNoTracking()
+            .Where(item => item.InstructionsAssetId == assetId && item.InstructionsAssetVersion != null)
+            .ToListAsync(cancellationToken);
+
+        // Ordinal, so both providers list the same order whatever their collation.
+        return skills
+            .OrderBy(item => item.AgentId, StringComparer.Ordinal)
+            .ThenBy(item => item.SkillId, StringComparer.Ordinal)
+            .ThenByDescending(item => item.Version)
+            .ToArray();
+    }
+
+    /// <summary>
     /// Every version of the agent's data triggers, by trigger id and newest version first; a trigger
     /// in effect has a live version.
     /// </summary>

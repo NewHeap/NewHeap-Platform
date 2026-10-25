@@ -5511,6 +5511,33 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTriggerEventLookupTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScheduleHostTests.cs"
       ]
+    },
+    {
+      "id": "SPM-331",
+      "categoryId": "18",
+      "title": "The operations code assigns an MCP server to an agent, finds who uses a text asset and compares a shipped package with the host through the assistant's services",
+      "surface": "`INhAssistantMcpServers` (`ListAsync`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`, `TestAsync`, `SyncAsync`, `ListToolsAsync`, `UpdateToolAsync`, `AssignAsync`, `UnassignAsync`) with `NhAssistantMcpServerRequest`, `NhAssistantMcpOAuthRequest`, `NhAssistantMcpReaderRequest`, `NhAssistantMcpToolSettingsRequest` and `NhAssistantMcpServerLimits`, returning `NhAssistantMcpServerDto`, `NhAssistantMcpToolDto` and `NhAssistantMcpServerTestResultDto`; the audit kind `AdminMcpServerAssignmentChanged` (`assigned`, `unassigned`) next to `AdminMcpServerCreated`, `AdminMcpServerUpdated`, `AdminMcpServerDeleted`, `AdminMcpServerSynced` and `AdminMcpToolUpdated`; the field error `mcpServerIds: too-long`; `NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`), refused at start in Production; `INhAssistantInstructionAssetUsage.ListAsync` with `NhAssistantInstructionAssetUsageDto`, `NhAssistantInstructionAssetSkillUseDto` and `NhAssistantInstructionAssetAgentUseDto` and the field error `assetId: invalid`; `INhAssistantAgentPackages.GetPackageAsync` with `NhAssistantInstalledAgentPackageDto` and `NhAssistantPackageAgentLinksDto`, and `INhAssistantAgentPackages.ReadAsync`",
+      "outcome": "SampleAssistantOperationsService is the sample's operations code. It connects the milestones MCP server through INhAssistantMcpServers instead of the administration's endpoints or the tables: the API key is protected with Data Protection and never returned, the synced lookup tool is enabled as read-only, and the server is assigned to the status advisor. The assignment is its own row: the advisor's definition and version stay as they were, the editor's next save does not conflict, and the audit records AdminMcpServerAssignmentChanged next to the server's own events, never the key. A second connection of the same server is refused as the administration refuses it, and disconnecting takes the server from the advisor and deletes it. The same service lists which data skills and agents use the risk review's text of SPM-320: the planner's risk review and a desk created in the administration both name version 1 with its hash, and version 2 changes neither until an administrator saves it as their next version. Finally it compares the desk's shipped package with the host: GetPackageAsync gives the installed version with its links, ReadAsync the desk's parts and hashes exactly as an export builds them, so a description changed on the host shows as the different part agent, and nothing was exported or audited as an export. A test host of the environment Testing reaches the milestones server on loopback only because it sets NewHeap:AI:Assistant:Mcp:AllowLoopback, which a Production host refuses at start, and cloud metadata hosts stay blocked. The library tests cover both relational providers for the service, the assignment, the usage, the package and the read.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackages.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpServerServiceTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs"
+      ]
     }
   ]
 }

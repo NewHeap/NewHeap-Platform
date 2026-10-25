@@ -54,6 +54,25 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// The agents created in the administration whose instructions name the application's asset
+    /// <paramref name="assetId"/>, ordered by id. An agent whose instructions are text has an asset id
+    /// of its own and is never one of them. The asset columns have no index.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantAgent>> ListAgentsNamingAssetAsync(string assetId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var agents = await context.Agents
+            .AsNoTracking()
+            .Where(agent => agent.Source == NhAssistantAgentSources.Admin
+                && agent.InstructionsFromAsset
+                && agent.InstructionsAssetId == assetId)
+            .ToListAsync(cancellationToken);
+
+        // Ordinal, so both providers list the same order whatever their collation.
+        return agents.OrderBy(agent => agent.Id, StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>
     /// Inserts missing code agents and refreshes code agents that are not overridden when their
     /// code definition changed. Overridden agents keep the administrator's values.
     /// </summary>
@@ -699,6 +718,90 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
             .Where(server => candidates.Contains(server.Id))
             .Select(server => server.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The agents a server is assigned to, ordered by id.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ListMcpAssignmentsAsync(string serverId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var agentIds = await context.AgentMcpServers
+            .AsNoTracking()
+            .Where(assignment => assignment.McpServerId == serverId)
+            .Select(assignment => assignment.AgentId)
+            .ToListAsync(cancellationToken);
+        return agentIds.Order(StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>
+    /// Assigns a server to an agent (<paramref name="assign"/>) or removes the assignment, as the
+    /// assignment's own row: the agent's row, its version and its definition stay as they are. Returns
+    /// whether the assignment changed: assigning an assigned server or removing a missing assignment
+    /// changes nothing. <see cref="NhAssistantStoreOutcome.NotFound"/> when the agent or the server does
+    /// not exist; <see cref="NhAssistantStoreOutcome.Rejected"/> when the agent already has
+    /// <paramref name="maxPerAgent"/> servers.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<bool>> SetMcpAssignmentAsync(
+        string agentId,
+        string serverId,
+        bool assign,
+        int maxPerAgent,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        if (!await context.Agents.AnyAsync(agent => agent.Id == agentId, cancellationToken)
+            || !await context.McpServers.AnyAsync(server => server.Id == serverId, cancellationToken))
+        {
+            return NhAssistantStoreResult<bool>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+
+        var existing = await context.AgentMcpServers.SingleOrDefaultAsync(
+            assignment => assignment.AgentId == agentId && assignment.McpServerId == serverId,
+            cancellationToken);
+        if (assign)
+        {
+            if (existing is not null)
+            {
+                return NhAssistantStoreResult<bool>.Ok(false);
+            }
+            if (await context.AgentMcpServers.CountAsync(assignment => assignment.AgentId == agentId, cancellationToken) >= maxPerAgent)
+            {
+                return NhAssistantStoreResult<bool>.Failed(NhAssistantStoreOutcome.Rejected);
+            }
+
+            context.AgentMcpServers.Add(new AssistantAgentMcpServer { AgentId = agentId, McpServerId = serverId });
+        }
+        else
+        {
+            if (existing is null)
+            {
+                return NhAssistantStoreResult<bool>.Ok(false);
+            }
+
+            context.AgentMcpServers.Remove(existing);
+        }
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return NhAssistantStoreResult<bool>.Ok(true);
+        }
+        catch (DbUpdateConcurrencyException) when (!assign)
+        {
+            // A concurrent removal removed the assignment first.
+            return NhAssistantStoreResult<bool>.Ok(false);
+        }
+        catch (DbUpdateException) when (assign)
+        {
+            // A concurrent assignment stored the same row first, or the agent or server went meanwhile.
+            await using var check = contextFactory.CreateDbContext();
+            return await check.AgentMcpServers.AnyAsync(
+                assignment => assignment.AgentId == agentId && assignment.McpServerId == serverId,
+                cancellationToken)
+                ? NhAssistantStoreResult<bool>.Ok(false)
+                : NhAssistantStoreResult<bool>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
     }
 
     public async Task<bool> AddMcpServerAsync(AssistantMcpServer server, CancellationToken cancellationToken)

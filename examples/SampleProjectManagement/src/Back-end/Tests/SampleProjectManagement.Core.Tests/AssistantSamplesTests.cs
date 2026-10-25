@@ -263,7 +263,7 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
             : await postgreSql.CreateMigratedDatabaseAsync("assistant_sample");
 
         await OnDatabaseCreatedAsync();
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = EnvironmentName });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
         ConfigureLogging(builder.Logging);
@@ -330,6 +330,12 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
 
     /// <summary>The address the host listens on.</summary>
     public Uri BaseAddress => _baseAddress!;
+
+    /// <summary>
+    /// The environment the host runs in: Development, as the sample runs locally, unless a derived
+    /// host runs as a test host of another environment (SPM-331).
+    /// </summary>
+    protected virtual string EnvironmentName => "Development";
 
     /// <summary>Maps endpoints after the assistant's, such as the API's controllers.</summary>
     protected virtual void MapEndpoints(WebApplication app)

@@ -391,7 +391,17 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.PackageVersion"/> the package; <see cref="NhAssistantAuditEvent.ResultCode"/>
     /// is <c>unlinked</c>, or <c>left-behind</c> when an upgrade no longer contains it.
     /// </summary>
-    AdminAgentPackageUnlinked = 83
+    AdminAgentPackageUnlinked = 83,
+
+    /// <summary>
+    /// An administrator or the application assigned an MCP server to an agent, or removed the
+    /// assignment, through <c>INhAssistantMcpServers</c>, without changing the agent's definition or
+    /// version. <see cref="NhAssistantAuditEvent.ObjectId"/> is the server,
+    /// <see cref="NhAssistantAuditEvent.AgentId"/> the agent and <see cref="NhAssistantAuditEvent.ResultCode"/>
+    /// <c>assigned</c> or <c>unassigned</c>. A call that changes nothing is not audited; an agent save
+    /// that replaces the agent's servers is audited as <see cref="AdminAgentUpdated"/>.
+    /// </summary>
+    AdminMcpServerAssignmentChanged = 90
 }
 
 /// <summary>

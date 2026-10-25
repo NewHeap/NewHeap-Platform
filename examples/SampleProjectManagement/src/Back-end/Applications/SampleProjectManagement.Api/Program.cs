@@ -382,6 +382,8 @@ builder.Services.AddScoped<SampleAgentMaintenanceService>();
 builder.Services.AddScoped<SampleIntakeReviewLookup>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
 builder.Services.AddScoped<SampleInstructionAssetService>();
+// SPM-331: the operations code connects MCP servers, finds who uses a text and compares packages through services.
+builder.Services.AddScoped<SampleAssistantOperationsService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();
