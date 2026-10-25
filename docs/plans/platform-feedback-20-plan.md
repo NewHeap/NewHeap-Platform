@@ -627,3 +627,15 @@ lists only the four TA2 refusals. LS6 completes the rest.
     LS33.
   - **Train 23, chat, AI and front end:** LS18 to LS21, LS37 to LS43.
 - **(b) One train per area**, more but smaller trains.
+
+## Lane choices
+
+| # | Choice |
+|---|---|
+| LD1 | Built by lane LD (2026-10-25): **the retry hint of `tls-certificate-untrusted` is `certificate-authority-trust-required`**, in the style of `network-access-required`; the message says only that the client did not trust the server's TLS certificate, for Lars to review. |
+| LD2 | Built by lane LD (2026-10-25): **SQL Server maps `SEC_E_UNTRUSTED_ROOT` (`-2146893019`), `CERT_E_UNTRUSTEDROOT` (`-2146762487`) and `CERT_E_CHAINING` (`-2146762486`)**; `SEC_E_WRONG_PRINCIPAL`, `CERT_E_CN_NO_MATCH`, `SEC_E_CERT_EXPIRED`, `CERT_E_EXPIRED`, `SEC_E_ILLEGAL_MESSAGE` and `SEC_E_ALGORITHM_MISMATCH` stay `connection-failed`, so the trust hint is never wrong where SqlClient names the failed check. SqlClient 6.1.1 reports `-2146893019` on both its native and its managed network layer, for Lars to review. |
+| LD3 | Built by lane LD (2026-10-25): **a certificate that .NET validation rejects, an `AuthenticationException` without an inner exception, is `tls-certificate-untrusted` on both providers**; Npgsql gives no SQLSTATE and does not say which check failed, so on PostgreSQL a host-name or expiry rejection reports the same classification, while a handshake failure with an inner platform error (no common protocol) stays `connection-failed`, for Lars to review. |
+| LD4 | Built by lane LD (2026-10-25): **the real TLS case for PostgreSQL is a local endpoint that answers the SSL request and presents a self-signed certificate to Npgsql with `SslMode=VerifyFull`**, because the shared container runs without TLS and turning it on would change every PostgreSQL test of the process; SQL Server uses the shared container with `TrustServerCertificate=false`, for Lars to review. |
+| LD5 | Built by lane LD (2026-10-25): **every PostgreSQL provider parameter carries its type (text, integer or oid), also the `set_config` values that are never null**, so no query can bind an untyped null; SQL Server's binding stays as it was, because SqlClient sends an untyped null as `nvarchar` and its omitted search already worked, for Lars to review. |
+| LD6 | Built by lane LD (2026-10-25): **the sample MCP maps `tls-certificate-untrusted` to a trust remedy that says retrying does not help**, as SPM-237 evidence next to its tool and provider tests; no new sample case, for Lars to review. |
+| LD7 | Built by lane LD (2026-10-25): **the `verificationCheck` note is a paragraph of the tool's v-next section, not a table row**, because it changes nothing for consumers; the section's one row is the TLS classification, for Lars to review. |

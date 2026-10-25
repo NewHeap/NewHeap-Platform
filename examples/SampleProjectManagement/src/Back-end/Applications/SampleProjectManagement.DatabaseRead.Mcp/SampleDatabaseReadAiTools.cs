@@ -367,6 +367,7 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             "lock-timeout" => "The diagnostic statement could not acquire a lock within its boundary.",
             "deadlock" => "The diagnostic statement was selected as a deadlock victim.",
             "connection-failed" => "The database connection could not be established. Confirm that the host permits the required outbound network access before retrying.",
+            "tls-certificate-untrusted" => "The host does not trust the database server's TLS certificate. Trust its certificate authority on the host; retrying does not help.",
             "authentication-failed" => "The database rejected the configured read-only principal.",
             "database-not-found" => "The configured database does not exist or is unavailable to the read-only principal.",
             _ when code == "schema-object-not-found" =>

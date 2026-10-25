@@ -6,6 +6,22 @@ namespace NewHeap.Platform.DatabaseRead;
 
 internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
 {
+    /// <summary>
+    /// <c>SEC_E_UNTRUSTED_ROOT</c>: the certificate chain was issued by an authority that is not
+    /// trusted. SqlClient reports it on both its native and its managed network layer.
+    /// </summary>
+    private const int SecurityUntrustedRoot = unchecked((int)0x80090325);
+
+    /// <summary>
+    /// <c>CERT_E_UNTRUSTEDROOT</c>: the chain ends in a root certificate that is not trusted.
+    /// </summary>
+    private const int CertificateUntrustedRoot = unchecked((int)0x800B0109);
+
+    /// <summary>
+    /// <c>CERT_E_CHAINING</c>: no chain could be built to a trusted root certificate.
+    /// </summary>
+    private const int CertificateChaining = unchecked((int)0x800B010A);
+
     private const string ReadOnlyVerificationSql =
         """
         SELECT CASE
@@ -176,6 +192,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             return ClassifySqlErrorNumbers(errorNumbers, exception, stage);
         }
 
+        if (DatabaseReadExceptionInspector.IsCertificateValidationFailure(exception))
+        {
+            return UntrustedCertificateFailure(null);
+        }
+
         if (stage == DatabaseReadExecutionStage.ConnectionOpen
             || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
         {
@@ -200,6 +221,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         var providerCode = errorNumbers.Count > 0
             ? errorNumbers[0].ToString(CultureInfo.InvariantCulture)
             : null;
+
+        if (DatabaseReadExceptionInspector.IsCertificateValidationFailure(exception))
+        {
+            return UntrustedCertificateFailure(providerCode);
+        }
 
         foreach (var errorNumber in errorNumbers)
         {
@@ -250,6 +276,8 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                 "The configured database does not exist or is unavailable to the principal."),
             18452 or 18456 => Failure("authentication-failed", providerCode, false,
                 "The database rejected the configured principal."),
+            SecurityUntrustedRoot or CertificateUntrustedRoot or CertificateChaining =>
+                UntrustedCertificateFailure(providerCode),
             0 or 2 or 20 or 40 or 53 or 64 or 233 or 10053 or 10054 or 10060 or 11001 => Failure(
                 "connection-failed",
                 providerCode,
@@ -268,6 +296,16 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             true,
             "network-access-required",
             "The database connection could not be established or was interrupted.");
+    }
+
+    private static DatabaseReadProviderFailure UntrustedCertificateFailure(string? providerCode)
+    {
+        return Failure(
+            "tls-certificate-untrusted",
+            providerCode,
+            false,
+            "certificate-authority-trust-required",
+            "The client did not trust the database server's TLS certificate.");
     }
 
     private static async Task<DatabaseSchemaResultResponse> SearchSchemaAsync(
