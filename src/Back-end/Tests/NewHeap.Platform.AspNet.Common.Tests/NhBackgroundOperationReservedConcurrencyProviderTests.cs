@@ -156,8 +156,15 @@ public sealed class NhBackgroundOperationReservedConcurrencyProviderTests
     /// <summary>
     /// Tells the test which handlers hold their slot and keeps them there until it releases them.
     /// </summary>
+    /// <remarks>
+    /// A handler holds its slot for at most <see cref="HoldPatience"/>, far longer than the test's own
+    /// waits of <see cref="BackgroundOperationProviderHost.Patience"/>: a handler that gave up first,
+    /// on a slow machine, would free its slot for the operation that must find none.
+    /// </remarks>
     private sealed class Gate
     {
+        private static readonly TimeSpan HoldPatience = TimeSpan.FromMinutes(5);
+
         private readonly ConcurrentDictionary<int, TaskCompletionSource> _started = new();
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -174,7 +181,7 @@ public sealed class NhBackgroundOperationReservedConcurrencyProviderTests
         public async Task<TaskResult> HoldAsync(int number, CancellationToken cancellationToken)
         {
             StartedFor(number).TrySetResult();
-            await _release.Task.WaitAsync(BackgroundOperationProviderHost.Patience, cancellationToken);
+            await _release.Task.WaitAsync(HoldPatience, cancellationToken);
             return TaskResult.Succeeded();
         }
 
