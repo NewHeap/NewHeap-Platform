@@ -34,8 +34,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// store, so its member snapshot stays empty. Listings that follow the snapshot, such as the approval
 /// inbox and the subject summary, ask the caller's live role on its subjects instead
 /// (<see cref="NhAssistantSystemApprovers"/>), and notifications reach its approvers among the people
-/// of the thread. Roles are kept for a few seconds per scope, so a listing asks the principal factory
-/// once per person.
+/// of the thread and the people the application lists (<see cref="INhAssistantSystemMembers"/>, LS15),
+/// each with the role the policies give them now. Roles are kept for a few seconds per scope, so a
+/// listing asks the principal factory once per person.
 /// </remarks>
 internal sealed class NhAssistantSystemSubjectResolver(
     IServiceProvider services,

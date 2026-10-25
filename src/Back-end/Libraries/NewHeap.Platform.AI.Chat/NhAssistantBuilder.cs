@@ -289,12 +289,13 @@ public sealed class NhAssistantBuilder
     /// the platform registers itself. People who pass its read policy (by default the assistant's
     /// access policy) read its threads; people who pass its approve policy (by default the
     /// administration policy) also take part in them and decide their proposals. Startup fails when a
-    /// policy is not registered.
+    /// policy is not registered. With <see cref="NhAssistantSystemSubjectBuilder.Members{TMembers}"/> the
+    /// application lists its people, so a thread nobody opened still reaches its approvers.
     /// </summary>
     public NhAssistantBuilder UseSystemSubject(Action<NhAssistantSystemSubjectBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        configure(new NhAssistantSystemSubjectBuilder(_state));
+        configure(new NhAssistantSystemSubjectBuilder(_state, Services));
         return this;
     }
 
@@ -928,10 +929,12 @@ public sealed class NhAssistantBuilder
 public sealed class NhAssistantSystemSubjectBuilder
 {
     private readonly NhAssistantRegistrationState _state;
+    private readonly IServiceCollection _services;
 
-    internal NhAssistantSystemSubjectBuilder(NhAssistantRegistrationState state)
+    internal NhAssistantSystemSubjectBuilder(NhAssistantRegistrationState state, IServiceCollection services)
     {
         _state = state;
+        _services = services;
     }
 
     /// <summary>
@@ -956,6 +959,23 @@ public sealed class NhAssistantSystemSubjectBuilder
     public NhAssistantSystemSubjectBuilder ApprovePolicy(string policyName)
     {
         _state.SystemApprovePolicy = Validate(policyName);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the application's list of the people of the whole application, app-wide and per
+    /// division (<see cref="INhAssistantSystemMembers"/>), scoped. The whole application keeps no
+    /// member snapshot, so without it an agent event in a thread of the whole application reaches only
+    /// the people of that thread: those who take part in it and those who decided its proposals. With
+    /// it, notifications consider the listed people next to them, at most
+    /// <see cref="INhAssistantSystemMembers.MaxMembers"/>. Roles still come from the read and approve
+    /// policies and the agent's view policy, evaluated for each person now: a listed person without the
+    /// approve policy hears nothing meant for approvers, and listing someone grants nothing.
+    /// </summary>
+    public NhAssistantSystemSubjectBuilder Members<TMembers>()
+        where TMembers : class, INhAssistantSystemMembers
+    {
+        _services.Replace(ServiceDescriptor.Scoped<INhAssistantSystemMembers, TMembers>());
         return this;
     }
 

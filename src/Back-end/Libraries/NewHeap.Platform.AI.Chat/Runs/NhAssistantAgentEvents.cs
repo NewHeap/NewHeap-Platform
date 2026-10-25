@@ -18,9 +18,15 @@ internal sealed class NhAssistantAgentNotifier(
     INhAssistantAgentNotificationPolicy policy,
     IEnumerable<INhAssistantAgentNotificationChannel> channels,
     INhAssistantNotifier pushNotifier,
-    ILogger<NhAssistantAgentNotifier> logger)
+    ILogger<NhAssistantAgentNotifier> logger,
+    IEnumerable<INhAssistantSystemMembers> systemMembers)
 {
     private readonly IReadOnlyList<INhAssistantAgentNotificationChannel> _channels = channels.ToArray();
+
+    /// <summary>
+    /// The application's list of the people of the whole application, when it registered one (LS15).
+    /// </summary>
+    private readonly INhAssistantSystemMembers? _systemMembers = systemMembers.LastOrDefault();
 
     /// <summary>
     /// Tells the person who asked how a consultation proposal that waited at the subject ended (CP16,
@@ -417,19 +423,26 @@ internal sealed class NhAssistantAgentNotifier(
     }
 
     /// <summary>
-    /// The whole application lists no members, so the people of its thread stand in for them: those
-    /// who take part in the thread's conversation and those who decided its proposals, at most
-    /// <see cref="MaxSystemRecipients"/>, each with the role the resolver gives them now, and only
-    /// those who pass the agent's view policy. The notification policy then picks the approvers among
-    /// them as for any subject.
+    /// The whole application keeps no member snapshot, so the people of its thread stand in for its
+    /// members: those who take part in the thread's conversation and those who decided its proposals, at
+    /// most <see cref="MaxSystemRecipients"/>, and next to them the people the application lists for the
+    /// subject (<see cref="INhAssistantSystemMembers"/>), at most <see cref="INhAssistantSystemMembers.MaxMembers"/>.
+    /// Each gets the role the resolver gives them now, and only those who pass the agent's view policy
+    /// count. The notification policy then picks the approvers among them as for any subject.
     /// </summary>
     private async Task<IReadOnlyList<NhAiSubjectMember>> SystemMembersAsync(
         AssistantThread thread,
         NhAiSubjectRef subject,
         CancellationToken cancellationToken)
     {
+        var people = new List<string>(await runs.GetThreadPeopleAsync(thread.ConversationId, MaxSystemRecipients, cancellationToken));
+        if (_systemMembers is not null)
+        {
+            people.AddRange(await ListedPeopleAsync(_systemMembers, subject, cancellationToken));
+        }
+
         var members = new List<NhAiSubjectMember>();
-        foreach (var actorId in await runs.GetThreadPeopleAsync(thread.ConversationId, MaxSystemRecipients, cancellationToken))
+        foreach (var actorId in people.Distinct(StringComparer.Ordinal))
         {
             var access = await subjects.ResolveForAgentAsync(subject, thread.AgentId, actorId, cancellationToken);
             if (access.Role != NhAiSubjectRole.None)
@@ -439,6 +452,33 @@ internal sealed class NhAssistantAgentNotifier(
         }
 
         return members;
+    }
+
+    /// <summary>
+    /// The people the application lists for the whole application app-wide or in the subject's division,
+    /// the first <see cref="INhAssistantSystemMembers.MaxMembers"/> usable ids.
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> ListedPeopleAsync(
+        INhAssistantSystemMembers systemMembers,
+        NhAiSubjectRef subject,
+        CancellationToken cancellationToken)
+    {
+        Guid? divisionId = NhAiSystemSubjects.TryGetDivision(subject, out var division) ? division : null;
+        var listed = new List<string>();
+        await foreach (var actorId in systemMembers.ListAsync(divisionId, cancellationToken))
+        {
+            if (listed.Count >= INhAssistantSystemMembers.MaxMembers)
+            {
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(actorId) && actorId.Length <= 256)
+            {
+                listed.Add(actorId);
+            }
+        }
+
+        return listed;
     }
 
     /// <summary>
