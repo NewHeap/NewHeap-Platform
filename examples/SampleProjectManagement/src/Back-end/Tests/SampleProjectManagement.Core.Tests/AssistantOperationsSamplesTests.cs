@@ -243,3 +243,62 @@ public sealed class AssistantOperationsSampleHost(SamplePostgreSqlServer postgre
         services.AddScoped<SampleAssistantOperationsService>();
     }
 }
+
+/// <summary>
+/// SPM-331: the sample's integration tests may run a host of the environment <c>Testing</c>. Such a
+/// host reaches an MCP server on loopback only because it sets
+/// <c>NewHeap:AI:Assistant:Mcp:AllowLoopback</c>, which a Production host refuses at start; cloud
+/// metadata hosts and link-local addresses stay blocked.
+/// </summary>
+public sealed class AssistantLoopbackSamplesTests(AssistantLoopbackSampleHost host)
+    : IClassFixture<AssistantLoopbackSampleHost>
+{
+    private const string ApiKey = "sample-milestones-key-331";
+
+    [Fact]
+    public async Task SPM_331_a_testing_host_reaches_a_loopback_mcp_server_with_allow_loopback()
+    {
+        const string actor = "spm-331-operator";
+        await using var milestones = await SampleMcpServer.StartAsync(ApiKey);
+        await using var scope = host.Services.CreateAsyncScope();
+        var servers = scope.ServiceProvider.GetRequiredService<INhAssistantMcpServers>();
+
+        var created = await servers.CreateAsync(Server(milestones.Url), actor);
+        var tested = await servers.TestAsync(SampleAssistantOperationsService.MilestonesServerId);
+        var metadata = await servers.CreateAsync(Server("http://169.254.169.254/latest/mcp") with { Id = "metadata" }, actor);
+
+        Assert.True(created.Success, string.Join("; ", created.GetResultItems().Select(item => item.Name)));
+        Assert.True(tested.Data!.Ok, tested.Data.Code);
+        Assert.Equal(1, tested.Data.ToolCount);
+        Assert.Contains(metadata.GetResultItems(), item => item.Name == NhAssistantAdminErrorCodes.McpHostBlocked);
+        Assert.True((await servers.DeleteAsync(SampleAssistantOperationsService.MilestonesServerId, actor)).Success);
+    }
+
+    private static NhAssistantMcpServerRequest Server(string url)
+    {
+        return new NhAssistantMcpServerRequest(
+            SampleAssistantOperationsService.MilestonesServerId,
+            "Milestones",
+            url,
+            NhAssistantMcpAuthModes.ApiKeyHeader,
+            null,
+            ApiKey,
+            null,
+            true);
+    }
+}
+
+/// <summary>
+/// SPM-331: the sample assistant in a host of the environment <c>Testing</c> that lets MCP servers use
+/// loopback, as an application's integration tests configure it.
+/// </summary>
+public sealed class AssistantLoopbackSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
+{
+    protected override string EnvironmentName => "Testing";
+
+    protected override void ConfigureSettings(IDictionary<string, string?> settings)
+    {
+        // Off by default and refused in Production; Development needs no setting.
+        settings["NewHeap:AI:Assistant:Mcp:AllowLoopback"] = "true";
+    }
+}
