@@ -77,18 +77,3 @@ root, and shows a block it cannot draw as source with the reason. No package dep
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.document.diagram-failed`, `diagram-no-reason` and `diagram-not-svg`. | An application that replaces the bundled translations adds the keys in each of its languages. |
-
-## newheap-platform: a public website and Angular pins from the peer range
-
-The consumer bootstrap and inspector accept the profile `public-website`: an API with a public Angular
-front end, without sign-in (the bootstrap refuses `--authentication` with it) and with persistence only
-when chosen. Its manifest records `frontend: "public"`, and the inspector's validate mode drops the
-portal's identity store, API base and modal requirements for it. The Angular framework pins of both
-front-end profiles are now the lowest version that every `@angular/*` peer range of
-`@newheap/platform-common` accepts (today 20.3.28, which the old pin 20.3.27 did not satisfy), read from
-the new `npmPeerDependencies` of `distribution.json` and the install lock.
-
-| Breaking change | Required action |
-|---|---|
-| The bootstrap writes Angular 20.3.28 instead of 20.3.27 into `src/Front-end/package.json` and refuses to overwrite a different file. | Before rerunning the bootstrap in a consumer bootstrapped earlier, raise its Angular packages to the generated pins; `@newheap/platform-common` requires `^20.3.28` anyway. |
-| A front-end bootstrap needs `npmPeerDependencies` in the compatibility metadata. | Reinstall the skill from this plugin version before bootstrapping a front end. |
