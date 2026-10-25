@@ -327,7 +327,8 @@
     "SPM-329",
     "SPM-330",
     "SPM-331",
-    "SPM-335"
+    "SPM-335",
+    "SPM-336"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1048,7 +1049,9 @@
     "SPM-115": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/app.component.ts"
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-accessibility.spec.ts"
     ],
     "SPM-116": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
@@ -3262,6 +3265,16 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiStrictStructuredOutputTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
+    ],
+    "SPM-336": [
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
     ]
   }
 }

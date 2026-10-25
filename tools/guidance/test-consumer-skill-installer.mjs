@@ -118,6 +118,7 @@ async function assertGroupedInstall(root, directory, targetName) {
   if (lock.schemaVersion !== 4 || lock.target !== targetName
     || lock.repositoryTarget !== `${directory}/skills/${consumerSkillBundleName}`
     || lock.skill !== consumerSkillBundleName
+    || !lock.npmPeerDependencies?.['@newheap/platform-common']?.['@angular/core']
     || lock.evidence?.catalog !== `skills/${consumerSkillBundleName}/references/immutable-evidence.md`
     || !lock.evidence?.sourceRef?.startsWith('newheap-platform-plugin-v')) {
     throw new Error(`${targetName} installation metadata does not identify the grouped discovery target.`);

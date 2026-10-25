@@ -239,6 +239,7 @@ async function applyTarget(state) {
     guidanceVersion: distribution.guidanceVersion,
     skillContentHash: distribution.skillContentHash,
     compatiblePackages: distribution.compatiblePackages,
+    npmPeerDependencies: distribution.npmPeerDependencies,
     evidence: distribution.evidence,
     source: 'newheap-platform-plugin',
     files: Object.fromEntries([...sourceFiles].map(([name, value]) => [name, value.hash]))

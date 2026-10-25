@@ -1,0 +1,30 @@
+@use '../../styles/tokens';
+@use '../../styles/markdown';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  line-height: 1.55;
+}
+
+// The parts between diagrams flow as one document.
+.document-part {
+  display: contents;
+}
+
+:host ::ng-deep .markdown {
+  @include markdown.content;
+
+  p, ul, ol, pre, blockquote, table { margin: 0 0 12px; }
+  h1, h2, h3, h4, h5, h6 { margin: 20px 0 8px; line-height: 1.3; scroll-margin-top: 16px; }
+  h1 { font-size: 1.6em; }
+  h2 { font-size: 1.35em; }
+  h3 { font-size: 1.15em; }
+  h4, h5, h6 { font-size: 1em; }
+
+  // A heading a link scrolled to takes focus without a ring; links keep theirs.
+  [tabindex='-1']:focus { outline: none; }
+}

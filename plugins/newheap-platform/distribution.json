@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.83",
   "guidanceVersion": "1.13.83",
-  "skillContentHash": "3caf39378bf5af18b2519e30c691fb9e2f9892d1b19f033af45b710af59f0d6b",
+  "skillContentHash": "9c3954262af0c917ab54896949353184a81c905e84d8340818c5ceef483eadaa",
   "skills": [
     "newheap-platform-development"
   ],
@@ -62,6 +62,42 @@
     "NewHeap.Platform.Media.Http": "5.0.0",
     "NewHeap.Platform.Media.MediaStorage.FileSystem": "5.0.0",
     "NewHeap.Platform.Media.MediaStorage.S3Bucket": "5.0.0"
+  },
+  "npmPeerDependencies": {
+    "@newheap/nh-toastr": {
+      "@angular/common": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/core": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@ngx-translate/core": "^17.0.0 || ^18.0.0",
+      "rxjs": "~7.8.0"
+    },
+    "@newheap/platform-ai-chat": {
+      "@angular/cdk": "^20.2.14",
+      "@angular/common": "^20.3.28",
+      "@angular/core": "^20.3.28",
+      "@angular/router": "^20.3.28",
+      "@microsoft/signalr": "^10.0.11",
+      "@ngx-translate/core": "^17.0.0",
+      "dompurify": "^3.4.0",
+      "marked": "^18.0.0",
+      "rxjs": "~7.8.0"
+    },
+    "@newheap/platform-common": {
+      "@angular/common": "^20.3.28",
+      "@angular/core": "^20.3.28",
+      "@angular/forms": "^20.3.28",
+      "@angular/platform-browser": "^20.3.28",
+      "@angular/router": "^20.3.28",
+      "@microsoft/signalr": "^10.0.11",
+      "@msgpack/msgpack": "^2.8.0",
+      "@ngx-translate/core": "^17.0.0",
+      "@swimlane/ngx-datatable": "^23.0.1",
+      "js-base64": "^3.7.7",
+      "luxon": "^3.5.0",
+      "ngx-bootstrap-multiselect": "^4.0.0",
+      "ngx-cookie-service": "^20.1.1",
+      "ngx-toastr": "^19.0.0",
+      "rxjs": "~7.8.0"
+    }
   },
   "evidence": {
     "sourceRef": "newheap-platform-plugin-v1.13.83",

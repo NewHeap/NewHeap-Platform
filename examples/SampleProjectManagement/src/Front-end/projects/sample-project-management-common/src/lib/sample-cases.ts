@@ -1644,13 +1644,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-115",
     "title": "Edit modal",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "modal service/options/base",
-    "outcome": "Create and edit work from both list and detail pages.",
+    "surface": "modal service/options/base; the keyboard of NhModalComponent (aria-modal, aria-labelledby, the translated close label nh-common.modal.close, focus and Escape) with INhModalComponent.onModalEscape",
+    "outcome": "Create and edit work from both list and detail pages. The edit modal works with the keyboard alone: it is a dialog named by its title with a labelled close button, its key field takes focus once the form is loaded, Tab and Shift+Tab stay inside it and skip disabled controls, Escape closes it through `closeDialog` as \"Cancel\" does, and focus returns to the button that opened it. A modal on top of it closes first, and a modal opened with `closeable: false` ignores Escape.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/app.component.ts"
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-accessibility.spec.ts"
     ]
   },
   {
@@ -5594,6 +5596,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiStrictStructuredOutputTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatTimeoutTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-336",
+    "title": "The project handbook reads a bundle of untrusted Markdown documents with relative links and diagrams",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantDocumentComponent (nh-assistant-document) of @newheap/platform-ai-chat with markdown, path, siblingPaths and diagramRenderer, the outputs linkClick (NhAssistantDocumentLinkEvent, NhAssistantDocumentLinkKind) and headingsChange (NhAssistantDocumentHeading), scrollToHeading, NhAssistantDiagramRenderer, and the texts nh-assistant.document.diagram-failed, diagram-no-reason and diagram-not-svg",
+    "outcome": "The management portal's handbook page shows three Markdown documents of one bundle with nh-assistant-document. Their text is untrusted: inline HTML shows as text, and a javascript: link or a path outside the bundle shows as its label without a link, while https: and mailto: links open in a new tab. A relative link such as `release.md#checklist` resolves from the open document's folder against the bundle's paths; the document reports it and the page opens that document at the heading. The headings the document reports are the page's \"On this page\" list. The portal supplies its own diagram renderer for its `flow` language, because the sample has no diagram package: its drawing module loads only when a document has a flow block, the document shows the sanitized SVG in a shadow root, and the release guide's block with a mistake shows its source with \"This diagram could not be drawn\" and the renderer's reason. The library specs prove escaped HTML, refused URLs, relative links, the renderer call with a sanitized result and a broken diagram shown as source.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html",
+      "src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts",
+      "src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
     ]
   }
 ] as const;

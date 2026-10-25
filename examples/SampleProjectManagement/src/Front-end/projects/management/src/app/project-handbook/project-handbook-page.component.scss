@@ -1,0 +1,36 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.handbook-lab');
+@include pg.panel('.handbook-index');
+@include pg.panel('.handbook-document');
+@include pg.badge('.case-badge');
+.case-badge { white-space: nowrap; }
+
+.handbook-grid { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 14px; margin-top: 18px; align-items: start; }
+.handbook-index h3 { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.handbook-index h3:not(:first-child) { margin-top: 18px; }
+.handbook-index ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.handbook-index button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  padding: 4px 8px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.handbook-index button:hover { background: var(--surface-muted); }
+.handbook-index button.active { border-color: var(--line); background: var(--surface); font-weight: 700; }
+.handbook-empty { margin: 0; color: var(--muted); font-size: 13px; }
+.handbook-document { min-height: 320px; }
+
+@media (max-width: 860px) { .handbook-grid { grid-template-columns: 1fr; } }

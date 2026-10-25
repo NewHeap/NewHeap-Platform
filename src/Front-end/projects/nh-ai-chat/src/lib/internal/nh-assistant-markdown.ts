@@ -3,14 +3,15 @@ import { Injectable, inject } from '@angular/core';
 import createDOMPurify, { DOMPurify } from 'dompurify';
 import { Marked, Tokens } from 'marked';
 
-const allowedTags = [
+/** The tags model text may render as; shared with `nh-assistant-document`. */
+export const nhAssistantMarkdownTags: readonly string[] = [
   'p', 'br', 'strong', 'em', 'del', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'a',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
 ];
-const allowedAttributes = ['href', 'title', 'start', 'align'];
+export const nhAssistantMarkdownAttributes: readonly string[] = ['href', 'title', 'start', 'align'];
 const allowedUris = /^(?:https?:|mailto:|\/(?!\/)|#)/i;
 
-function escapeHtml(text: string): string {
+export function nhAssistantEscapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -33,10 +34,10 @@ export class NhAssistantMarkdownRenderer {
     async: false,
     renderer: {
       html(token: Tokens.HTML | Tokens.Tag): string {
-        return escapeHtml(token.text);
+        return nhAssistantEscapeHtml(token.text);
       },
       image(token: Tokens.Image): string {
-        return escapeHtml(token.text);
+        return nhAssistantEscapeHtml(token.text);
       }
     }
   });
@@ -45,13 +46,13 @@ export class NhAssistantMarkdownRenderer {
   render(text: string): string {
     const purifier = this.getPurifier();
     if (!purifier) {
-      return `<p>${escapeHtml(text)}</p>`;
+      return `<p>${nhAssistantEscapeHtml(text)}</p>`;
     }
 
     const html = this.marked.parse(text, { async: false });
     return purifier.sanitize(html, {
-      ALLOWED_TAGS: allowedTags,
-      ALLOWED_ATTR: allowedAttributes,
+      ALLOWED_TAGS: [...nhAssistantMarkdownTags],
+      ALLOWED_ATTR: [...nhAssistantMarkdownAttributes],
       ALLOWED_URI_REGEXP: allowedUris,
       ALLOW_DATA_ATTR: false,
       ALLOW_ARIA_ATTR: false

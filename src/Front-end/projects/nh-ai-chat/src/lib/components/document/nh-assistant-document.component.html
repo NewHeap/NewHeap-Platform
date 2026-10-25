@@ -1,0 +1,7 @@
+@for (part of parts(); track $index) {
+  @if (part.kind === 'html') {
+    <div class="document-part markdown" [innerHTML]="part.html"></div>
+  } @else {
+    <nh-assistant-document-diagram [source]="part.source" [language]="part.language" [renderer]="diagramRenderer()" />
+  }
+}

@@ -5,6 +5,13 @@ import {NhModalConfirmComponent} from "../components/nh-confirm-modal/component"
 
 export interface INhModalComponent<C> {
   setModalComponentRef(ref: NhModalComponentRef<C>): void;
+
+  /**
+   * Called instead of closing when Escape reaches the topmost modal and the modal can close.
+   * Content without it closes as the close button does. Mutating and confirmation content
+   * call their `closeDialog`.
+   */
+  onModalEscape?(): void;
 }
 
 export class NhModalComponentRef<C> {
