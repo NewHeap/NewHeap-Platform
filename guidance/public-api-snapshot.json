@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.83",
   "backEnd": {
-    "hash": "a14475980a56c13f6b4a904a70b80dcdc52481530b1d12252193a57da7f942b6",
-    "declarationCount": 11008,
+    "hash": "98e6928b3368b43d60f9158058970f729166cedbc12a53a4d87bbf5023cbfa7e",
+    "declarationCount": 11033,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -159,7 +159,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
-        "declaration": "public sealed record NhAiAspNetScopeAuthorizationResource( string ScopeType, string ScopeId, string Purpose);"
+        "declaration": "public record NhAiAspNetScopeAuthorizationResource( string ScopeType, string ScopeId, string Purpose);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -664,6 +664,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiMcpDelegatedToken>> IssueAsync( NhAiMcpDelegatedTokenRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+        "declaration": "public static NhAiPersonInvocation FromRequest(HttpContext httpContext, NhAiInvocationContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+        "declaration": "public static async Task<TaskResult<NhAiPersonInvocation>> ResolveAsync( IServiceProvider services, ClaimsPrincipal user, Guid? activeDivisionId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiRequestActor.cs",
@@ -6122,6 +6130,10 @@
         "declaration": "public Task ExecuteAsync(HttpContext httpContext) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAskerDecisions.cs",
+        "declaration": "public static async Task<(AssistantApproval? Approval, string? ErrorCode)> FindAsync( IServiceProvider services, Guid conversationId, Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantCollaborationEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder enabled) {"
       },
@@ -6732,6 +6744,58 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantUpdateMcpToolRequest( bool? IsEnabled, string? Effect, string? DescriptionOverride);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public interface INhAssistantConversationTurns {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationMessage(string Text) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string? ClientMessageId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationDecision( NhAssistantProposalDecision Decision, string ExpectedProposalHash) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string? Reason { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationTurnOptions(string Channel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string Language { get; init; } = \"en\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Guid? ActiveDivisionId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public bool? KeepTurnAfterCallerLeaves { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantConversationTurnResult( Guid ConversationId, Guid TurnId, string Status, string? ErrorCode, NhAssistantMessageDto? Message, IReadOnlyList<NhAssistantApprovalPartDto> PendingApprovals, NhAssistantUsageDto Usage);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> SendAsync( NhAssistantDecidingPerson person, Guid conversationId, NhAssistantConversationMessage message, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> DecideAsync( NhAssistantDecidingPerson person, Guid conversationId, Guid approvalId, NhAssistantConversationDecision decision, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
@@ -18331,6 +18395,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool KeepTurnsAfterDisconnect { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public string AccessPolicy { get; set; } = DefaultAccessPolicy;"
       },
       {
@@ -21671,6 +21739,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public NhAiPersonInvocation? Person { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public string? Channel { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];"
       },
       {
@@ -21684,6 +21760,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public bool LeaveForApprovers { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public NhAiPersonInvocation? Person { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public string? Channel { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
@@ -21996,6 +22080,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public IReadOnlyDictionary<string, string>? McpConnectionOwners { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public string? Channel { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
@@ -24980,6 +25068,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public ValueTask<TaskResult<NhAiBudgetReservation>> ReserveAsync( NhAiBudgetRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public static NhAiPersonInvocation? Current => CurrentPerson.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public static IDisposable Begin(NhAiPersonInvocation person) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
@@ -48183,7 +48283,13 @@
       "NhAssistantMcpToolDto",
       "NhAssistantMcpServerTestResultDto",
       "AllowLoopback",
-      "MaxConsultationsPerTurn"
+      "MaxConsultationsPerTurn",
+      "KeepTurnsAfterDisconnect",
+      "INhAssistantConversationTurns",
+      "NhAssistantConversationMessage",
+      "NhAssistantConversationDecision",
+      "NhAssistantConversationTurnOptions",
+      "NhAssistantConversationTurnResult"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

@@ -326,7 +326,8 @@
     "SPM-328",
     "SPM-329",
     "SPM-330",
-    "SPM-331"
+    "SPM-331",
+    "SPM-332"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3241,6 +3242,23 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs"
+    ],
+    "SPM-332": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiPersonInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationTurnTests.cs"
     ]
   }
 }
