@@ -325,22 +325,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 cfg,
                 context =>
                 {
-                    var path = context.HttpContext.Request.Path;
-                    if (path.StartsWithSegments("/hub"))
-                    {
-                        var accessToken = context.Request.Query["access_token"];
-                        if (!string.IsNullOrEmpty(accessToken))
-                        {
-                            context.Token = accessToken;
-                        }
-
-                        var divisionId = context.Request.Query["divisionId"];
-                        if (!string.IsNullOrEmpty(divisionId))
-                        {
-                            context.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] = divisionId;
-                        }
-                    }
-
+                    // SignalR hubs below /hub and the configured hubs of NewHeap libraries take the
+                    // token and the active division from the query string.
+                    NhHubQueryTokens.Read(context);
                     return Task.CompletedTask;
                 },
                 async context =>

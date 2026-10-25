@@ -42,9 +42,12 @@ public sealed class NhAssistantOptions
 
     /// <summary>
     /// Path of the SignalR hub that sends live updates of conversations, mapped by
-    /// <c>MapNewHeapAssistant</c>. NewHeap hosts read the bearer token and active division from the
-    /// query string for paths below <c>/hub</c>, which SignalR needs for WebSockets. Set it empty to
-    /// turn live updates off; clients then reload snapshots instead.
+    /// <c>MapNewHeapAssistant</c> on the host's root, outside the route prefix it is given:
+    /// <c>/hub/assistant</c> by default (<c>NewHeap:AI:Assistant:HubPath</c>). NewHeap hosts read the
+    /// bearer token and active division from the query string, which SignalR needs for WebSockets, for
+    /// paths below <c>/hub</c> and for this path wherever it is, such as <c>/hubs/assistant</c> or
+    /// <c>/api/assistant/hub</c>. Set it empty to turn live updates off; clients then reload snapshots
+    /// instead.
     /// </summary>
     public string? HubPath { get; set; } = DefaultHubPath;
 }
