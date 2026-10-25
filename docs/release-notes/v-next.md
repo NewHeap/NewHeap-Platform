@@ -457,3 +457,54 @@ optional `indexedByEach` of `IndexByEach`, and `AgentMetadata` also its `indexVa
 | Breaking change | Required action |
 |---|---|
 | New translation keys `nh-assistant.errors.assistant-not-shadow-variant` and `nh-assistant.admin.shadow-variants.promote`, `promote-named`, `promote-confirm.*` and `promoted`. | An application that replaces the bundled translations adds the keys in each of its languages. |
+
+## @newheap/platform-common: modals for the keyboard and screen readers
+
+`nh-modal` owns its accessibility. The holder is a dialog with `aria-modal="true"`, named by its title
+through `aria-labelledby`, and the close button is a `type="button"` with the translated label
+`nh-common.modal.close` (English and Dutch in the new `NH_COMMON_TRANSLATIONS`; an application's own
+translation of the key wins). Opening moves focus to the content's `autofocus` element, else its first
+control, else the close button or the dialog; content that renders its fields after loading gets its
+first field focused once it appears, and `focusInitial()` does so again on request. Tab and Shift+Tab
+stay inside the topmost modal and skip disabled and hidden controls; closing, also by a route change,
+gives focus back to the element that opened the modal. Escape closes only the topmost modal that can
+close: content with the new optional `INhModalComponent.onModalEscape` decides, and mutating and
+confirmation content call `closeDialog` there. The `nh-modal-open` body class stays until the last open
+modal closes.
+
+| Breaking change | Required action |
+|---|---|
+| `NhModalMutateBaseTypeComponent` and `NhModalConfirmComponent` no longer listen to `document:keyup`; the shell handles Escape on keydown for the topmost modal and calls `onModalEscape`, so a stack closes from the top and `onKeyUp` (deprecated) is no longer called. | Override `onModalEscape` or `closeDialog` instead of `onKeyUp`, and remove own Escape listeners and focus traps from modal content. |
+| A modal opened with `closeable: false` no longer closes on Escape, also with mutating or confirmation content. | Offer an explicit action in such a modal when people must be able to leave it. |
+| The modal takes focus when it opens and gives it back when it closes. | Remove code that focused a field after opening a modal unless it chooses another field; mark the field with `autofocus` instead. |
+
+## @newheap/platform-ai-chat: documents with relative links and diagrams
+
+The new standalone `nh-assistant-document` (`NhAssistantDocumentComponent`) renders untrusted Markdown,
+such as the files of a skill or knowledge bundle, with the assistant's safety defaults: inline HTML as
+text, images as their alt text, and only links to its own headings, `https:`, `http:` and `mailto:`
+addresses or other documents of the bundle, which `siblingPaths` lists and relative links resolve
+against from `path`. `linkClick` (`NhAssistantDocumentLinkEvent`) reports a link without navigating to a
+sibling, `headingsChange` (`NhAssistantDocumentHeading`) the headings, and `scrollToHeading` scrolls to
+one. An optional `NhAssistantDiagramRenderer` the application supplies, and loads lazily inside
+`render`, draws fenced blocks of its languages; the document sanitizes the SVG, shows it in a shadow
+root, and shows a block it cannot draw as source with the reason. No package dependency was added.
+
+| Breaking change | Required action |
+|---|---|
+| New translation keys `nh-assistant.document.diagram-failed`, `diagram-no-reason` and `diagram-not-svg`. | An application that replaces the bundled translations adds the keys in each of its languages. |
+
+## newheap-platform: a public website and Angular pins from the peer range
+
+The consumer bootstrap and inspector accept the profile `public-website`: an API with a public Angular
+front end, without sign-in (the bootstrap refuses `--authentication` with it) and with persistence only
+when chosen. Its manifest records `frontend: "public"`, and the inspector's validate mode drops the
+portal's identity store, API base and modal requirements for it. The Angular framework pins of both
+front-end profiles are now the lowest version that every `@angular/*` peer range of
+`@newheap/platform-common` accepts (today 20.3.28, which the old pin 20.3.27 did not satisfy), read from
+the new `npmPeerDependencies` of `distribution.json` and the install lock.
+
+| Breaking change | Required action |
+|---|---|
+| The bootstrap writes Angular 20.3.28 instead of 20.3.27 into `src/Front-end/package.json` and refuses to overwrite a different file. | Before rerunning the bootstrap in a consumer bootstrapped earlier, raise its Angular packages to the generated pins; `@newheap/platform-common` requires `^20.3.28` anyway. |
+| A front-end bootstrap needs `npmPeerDependencies` in the compatibility metadata. | Reinstall the skill from this plugin version before bootstrapping a front end. |

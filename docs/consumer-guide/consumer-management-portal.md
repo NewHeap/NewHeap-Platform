@@ -14,7 +14,7 @@ When the product scope requires interactive administration, use the authenticate
 
 ## Preferred approach
 
-When the confirmed first increment requires employees or customers to administer information through screens, generate the management-portal profile: authenticated shell and navigation, a protected collection, NewHeap API service, loading and error states, and create/edit mutations opened through `NhModalService`. Derive backend CRUD controllers from `DbEntityProtectedNhBaseController` or the applicable protected NewHeap base and add explicit authorization plus Scalar metadata. Derive frontend API clients from `NhBaseApiService`, use NewHeap collection and lifecycle bases, derive mutating modal content from `NhModalMutateBaseComponent`, and use `NhModalConfirmComponent` for confirmation-only flows.
+When the confirmed first increment requires employees or customers to administer information through screens, generate the management-portal profile. Pages that anonymous visitors only read belong to the `public-website` profile instead, which has no sign-in, identity store or modal flows. The management-portal profile generates an authenticated shell and navigation, a protected collection, NewHeap API service, loading and error states, and create/edit mutations opened through `NhModalService`. Derive backend CRUD controllers from `DbEntityProtectedNhBaseController` or the applicable protected NewHeap base and add explicit authorization plus Scalar metadata. Derive frontend API clients from `NhBaseApiService`, use NewHeap collection and lifecycle bases, derive mutating modal content from `NhModalMutateBaseComponent`, and use `NhModalConfirmComponent` for confirmation-only flows.
 
 The default identity owner is the consumer, represented by a consumer `NhIdentityDbContext`. When the portal is a federated BFF and another system owns identities, record `capabilities.identityOwnership` as `external` in `newheap-consumer.json`. Keep application data in the consumer DbContext, enforce authorization explicitly on every custom `ControllerBase` endpoint, and validate memberships and permissions server-side. External identity ownership relaxes only the local identity-store and NewHeap CRUD-controller assumptions; it does not relax authentication, authorization or persistence requirements.
 
@@ -23,6 +23,7 @@ Keep the browser API base at `/api`, strip that prefix in the Angular proxy, and
 ## Avoid
 
 - Generating a portal before the product scope confirms an interactive interface.
+- Putting the pages of a public website behind the portal's login.
 - Generating a marketing site, generic dashboard template or unprotected Angular welcome page for an interactive management profile.
 - Reimplementing CRUD actions on plain `ControllerBase` when a NewHeap protected/base controller owns the contract.
 - Adding a local `NhIdentityDbContext` to a federated BFF whose identity lifecycle belongs to an external authority.

@@ -44040,8 +44040,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "a3a9bc1f74406033a007c037a420490ae1d843b2e9ce5be027466f69c77d6590",
-    "declarationCount": 864,
+    "hash": "324b61b99bb2dc0172a41b4a89b62e4a6c8cf341f02dbb83c6fbb75d3e1a11f6",
+    "declarationCount": 870,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -44402,6 +44402,18 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
         "declaration": "public componentRef: ComponentRef<C> | undefined;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "export interface NhModalStackEntry {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",
+        "declaration": "export class NhModalStack {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
@@ -44786,6 +44798,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/guards/nh-cancel-navigation.guard.ts",
         "declaration": "export interface ICancelNavigationComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
+        "declaration": "export const NH_COMMON_TRANSLATIONS: Readonly<Record<'en' | 'nl', TranslationObject>> = {en, nl};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
+        "declaration": "export function nhCommonText(translate: TranslateService | null, key: string): string {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-active-division.interceptor.ts",
@@ -47392,6 +47412,10 @@
         "declaration": "export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export {NH_COMMON_TRANSLATIONS} from './lib/i18n/nh-common-translations';"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
         "declaration": "@Component({"
       },
@@ -48533,7 +48557,10 @@
       "NhCollectionTypeBaseComponent",
       "NhModalMutateBaseComponent",
       "NhModalComponentImpl",
-      "NhModalService"
+      "NhModalService",
+      "NhModalComponent",
+      "INhModalComponent",
+      "NH_COMMON_TRANSLATIONS"
     ],
     "nh-frontend-root-configuration": [
       "NhCommonModule",
@@ -48780,7 +48807,12 @@
       "ApprovalResolution",
       "ResolveApprovalRequest",
       "NhAssistantApprovalResolutionChoice",
-      "resolveApproval"
+      "resolveApproval",
+      "NhAssistantDocumentComponent",
+      "NhAssistantDiagramRenderer",
+      "NhAssistantDocumentHeading",
+      "NhAssistantDocumentLinkEvent",
+      "NhAssistantDocumentLinkKind"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
