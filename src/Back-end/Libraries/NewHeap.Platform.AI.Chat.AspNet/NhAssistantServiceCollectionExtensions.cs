@@ -74,6 +74,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantMcpCredentialProvider, NhAssistantMcpForwardedTokenCredentialProvider>());
             services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
             services.TryAddScoped<NhAssistantMcpAdministration>();
+            // MCP servers, their tools and agent assignments for the application's own code (LS28).
+            services.TryAddScoped<NhAssistantMcpServerService>();
+            services.TryAddScoped<INhAssistantMcpServers>(provider => provider.GetRequiredService<NhAssistantMcpServerService>());
             services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
             // MCP servers set up as readers turn files into text with the same consent and credential
             // rules as the turn's MCP tools.
@@ -298,9 +301,17 @@ internal sealed class NhAssistantStartupValidator(
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime must be longer than zero and at most 5 minutes.");
         }
-        // Invalid OAuth URLs or limits fail here instead of at the first authorization.
+        // Loopback MCP servers are for development and test hosts, never for Production (LS29).
+        var environment = scope.ServiceProvider.GetService<IHostEnvironment>();
+        if (options.Value.Mcp.AllowLoopback && environment?.IsProduction() == true)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:AllowLoopback is for development and test hosts; turn it off in Production.");
+        }
+        // Invalid OAuth URLs or limits fail here instead of at the first authorization. The redirect
+        // URI and return origins may be http on loopback where MCP servers may use loopback.
         options.Value.Mcp.OAuth.Validate(
-            scope.ServiceProvider.GetService<IHostEnvironment>()?.IsDevelopment() == true);
+            NhAssistantMcpHostGuard.AllowsLoopbackIn(environment, options.Value.Mcp));
 
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options.Value);
         if (await policyProvider.GetPolicyAsync(accessPolicy) is null)

@@ -92,10 +92,12 @@ internal sealed record NhAssistantMcpConnectionPlan(
 }
 
 /// <summary>
-/// SSRF rules for MCP servers: https unless loopback in Development, the optional host allow-list,
-/// blocked metadata names and blocked address ranges after DNS resolution. OAuth URLs, which come
-/// from remote documents, always need https (http only to loopback in Development) and never reach
-/// a private network unless their host is in the allow-list.
+/// SSRF rules for MCP servers: https unless loopback where loopback is allowed, the optional host
+/// allow-list, blocked metadata names and blocked address ranges after DNS resolution. OAuth URLs,
+/// which come from remote documents, always need https (http only to loopback where loopback is
+/// allowed) and never reach a private network unless their host is in the allow-list. Loopback is
+/// allowed in Development and, with <see cref="NhAssistantMcpOptions.AllowLoopback"/>, in every other
+/// environment but Production.
 /// </summary>
 internal sealed class NhAssistantMcpHostGuard(
     IOptionsMonitor<NhAssistantOptions> options,
@@ -112,7 +114,24 @@ internal sealed class NhAssistantMcpHostGuard(
 
     private static readonly IPAddress AwsIpv6Metadata = IPAddress.Parse("fd00:ec2::254");
 
-    public bool AllowsLoopback => environment.IsDevelopment();
+    public bool AllowsLoopback => AllowsLoopbackIn(environment, options.CurrentValue.Mcp);
+
+    /// <summary>
+    /// Whether MCP servers and their OAuth URLs may use loopback in <paramref name="environment"/>:
+    /// always in Development, otherwise with <see cref="NhAssistantMcpOptions.AllowLoopback"/>, never in
+    /// Production, where the host does not start with the option on. Without an environment only the
+    /// option counts.
+    /// </summary>
+    public static bool AllowsLoopbackIn(IHostEnvironment? environment, NhAssistantMcpOptions mcp)
+    {
+        ArgumentNullException.ThrowIfNull(mcp);
+        if (environment?.IsDevelopment() == true)
+        {
+            return true;
+        }
+
+        return mcp.AllowLoopback && environment?.IsProduction() != true;
+    }
 
     /// <summary>
     /// Returns an error code when the URL or host name is not allowed, otherwise null.
@@ -224,7 +243,7 @@ internal sealed class NhAssistantMcpHostGuard(
     /// <summary>
     /// Returns an error code when an OAuth URL (metadata, token, registration, revocation or the
     /// authorization endpoint) is not allowed: <see cref="CheckUri"/> plus https, with http only to
-    /// loopback in Development.
+    /// loopback where <see cref="AllowsLoopback"/>.
     /// </summary>
     public string? CheckOAuthUri(Uri uri)
     {

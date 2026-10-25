@@ -53,8 +53,9 @@ public sealed class NhAssistantOptions
 }
 
 /// <summary>
-/// Connection rules for remote MCP servers. Link-local addresses, cloud metadata hosts and, outside
-/// Development, loopback are always blocked, also when they match <see cref="AllowedHosts"/>.
+/// Connection rules for remote MCP servers. Link-local addresses and cloud metadata hosts are always
+/// blocked, also when they match <see cref="AllowedHosts"/>; loopback is blocked outside Development
+/// unless <see cref="AllowLoopback"/> is on.
 /// </summary>
 public sealed class NhAssistantMcpOptions
 {
@@ -70,7 +71,8 @@ public sealed class NhAssistantMcpOptions
     public IList<string> ForwardUserTokenHosts { get; set; } = [];
 
     /// <summary>
-    /// Requires https. Plain http is then only allowed to loopback in Development.
+    /// Requires https. Plain http is then only allowed to loopback, in Development or with
+    /// <see cref="AllowLoopback"/>.
     /// </summary>
     public bool RequireHttps { get; set; } = true;
 
@@ -98,6 +100,16 @@ public sealed class NhAssistantMcpOptions
     public bool BlockPrivateNetworks { get; set; }
 
     /// <summary>
+    /// Lets MCP servers and the OAuth URLs they name use loopback (<c>localhost</c>, <c>127.0.0.0/8</c>
+    /// and <c>::1</c>), also over plain http, in an environment other than Development, such as a test
+    /// host of the environment <c>Testing</c> with an MCP server on <c>127.0.0.1</c>; the OAuth redirect
+    /// URI and return origins may then be http on loopback too. Off by default; the host does not start
+    /// in Production when it is on. Link-local addresses and cloud metadata hosts stay blocked
+    /// (<c>NewHeap:AI:Assistant:Mcp:AllowLoopback</c>).
+    /// </summary>
+    public bool AllowLoopback { get; set; }
+
+    /// <summary>
     /// The host as OAuth client of MCP authorization servers.
     /// </summary>
     public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();
@@ -110,7 +122,8 @@ public sealed class NhAssistantMcpOAuthOptions
 {
     /// <summary>
     /// The public absolute URL of the assistant's OAuth callback, <c>&lt;prefix&gt;/mcp/oauth/callback</c>.
-    /// Required for servers with <c>oauth</c>; https, or http on loopback in Development.
+    /// Required for servers with <c>oauth</c>; https, or http on loopback in Development or with
+    /// <see cref="NhAssistantMcpOptions.AllowLoopback"/>.
     /// </summary>
     public string? RedirectUri { get; set; }
 
