@@ -59,6 +59,7 @@ Test initial navigation, parameter changes inside the same shell, modal open, sa
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts)
   - [src/Front-end/projects/management/src/app/app.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/app.component.ts)
+  - [../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts)
 - SPM-116 — Large modal
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts)

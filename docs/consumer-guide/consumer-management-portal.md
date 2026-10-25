@@ -50,5 +50,6 @@ Run `inspect-newheap-consumer.mjs <consumer-root> --mode validate` and require e
   - [src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts)
   - [src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts)
   - [src/Front-end/projects/management/src/app/app.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/app.component.ts)
+  - [../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts)
 - SPM-217 — Scope-driven consumer bootstrap
   - [src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs)
