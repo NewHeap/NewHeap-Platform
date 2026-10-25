@@ -336,6 +336,8 @@ builder.Services.AddSampleProjectPlannerVariant();
 // SPM-320: skills defined as data may take their instructions from the sample's own text assets.
 builder.Services.AddSampleInstructionAssets();
 builder.Services.AddSampleProjectStarterBlocks();
+// SPM-327: the approval digest counts what waits per status, and the whole application lists its people.
+builder.Services.AddSampleDecisionDigest();
 // SPM-318 and SPM-319: hand-offs and shadow variants administrators define as data, within ceilings in code.
 builder.Services.AddSampleAgentLinksAsData();
 // SPM-305: assistant turns read files of the media library: chat uploads and project documents.
