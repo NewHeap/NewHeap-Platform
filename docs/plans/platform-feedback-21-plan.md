@@ -291,3 +291,8 @@ query token follows the configured hub paths, so the rule no longer protects any
     - agents and packages: FB8, FB11;
     - MCP: FB9, FB10.
 - **(b) One train** with five lanes. FB1 then conflicts with every assistant lane.
+
+## Lane choices
+
+| # | Choice |
+|---|---|
