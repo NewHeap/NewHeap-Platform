@@ -76,8 +76,9 @@ public sealed class AssistantMcpServerServiceTests(AssistantDatabaseFixture data
         // A tool update the administration would refuse is refused here too.
         var invalidEffect = await McpAsync(host, mcp => mcp.UpdateToolAsync(ServerId, "reschedule", new NhAssistantMcpToolSettingsRequest(true, "destructive"), Admin));
         Assert.Equal(["effect:invalid"], Fields(invalidEffect));
-        var unknownTool = await McpAsync(host, mcp => mcp.UpdateToolAsync(ServerId, "unknown", new NhAssistantMcpToolSettingsRequest(true, NhAssistantMcpToolEffects.ReadOnly), Admin));
-        Assert.Equal(NhAssistantAdminErrorCodes.McpToolNotFound, Code(unknownTool));
+        // A tool of an unknown server; a tool that no sync has seen waits for one (FB10).
+        var unknownServer = await McpAsync(host, mcp => mcp.UpdateToolAsync("unknown", "reschedule", new NhAssistantMcpToolSettingsRequest(true, NhAssistantMcpToolEffects.ReadOnly), Admin));
+        Assert.Equal(NhAssistantAdminErrorCodes.McpServerNotFound, Code(unknownServer));
         Assert.Equal(NhAssistantAdminErrorCodes.McpServerExists, Code(await McpAsync(host, mcp => mcp.CreateAsync(Server() with { Secret = Secret }, Admin))));
 
         var listed = Assert.Single(await McpAsync(host, mcp => mcp.ListAsync()));

@@ -476,7 +476,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(HttpStatusCode.OK, sync.StatusCode);
         Assert.Equal(HttpStatusCode.OK, enable.StatusCode);
         var lookup = tools.EnumerateArray().Single(tool => tool.GetProperty("remoteName").GetString() == "Lookup_Order");
-        AssertNames(lookup, "remoteName", "localId", "description", "descriptionOverride", "isEnabled", "effect", "status", "readOnlyHint");
+        AssertNames(lookup, "remoteName", "localId", "description", "descriptionOverride", "isEnabled", "effect", "status", "readOnlyHint", "awaitingSync");
         Assert.True(lookup.GetProperty("isEnabled").GetBoolean());
         Assert.True(lookup.GetProperty("readOnlyHint").GetBoolean());
         Assert.Equal("mcp.planning.lookup-order", lookup.GetProperty("localId").GetString());

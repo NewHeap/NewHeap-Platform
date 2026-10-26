@@ -11,6 +11,13 @@ internal enum NhAssistantStoreOutcome
     Rejected = 3
 }
 
+/// <summary>
+/// The tools of a server after a sync, and the tools reviewed before any sync that this sync saw first.
+/// </summary>
+internal sealed record NhAssistantMcpSyncResult(
+    IReadOnlyList<AssistantMcpTool> Tools,
+    IReadOnlyList<AssistantMcpTool> FirstSeen);
+
 internal sealed record NhAssistantStoreResult<T>(NhAssistantStoreOutcome Outcome, T? Value)
 {
     public bool Succeeded => Outcome == NhAssistantStoreOutcome.Succeeded;
@@ -997,10 +1004,23 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Whether a tool row holds the reviewed settings of a tool that no sync of its server has seen
+    /// yet: it has no input schema hash and the status <c>missing</c>, so no turn offers it.
+    /// </summary>
+    public static bool AwaitsSync(AssistantMcpTool tool)
+    {
+        return tool.InputSchemaHash.Length == 0;
+    }
+
+    /// <summary>
     /// Records the tools a sync discovered. New tools start disabled as mutations; a changed input
     /// schema disables the tool with status <c>schema-changed</c>; vanished tools become <c>missing</c>.
+    /// A tool whose settings were stored before any sync saw it (<see cref="AwaitsSync"/>) takes the
+    /// discovered schema and becomes <c>available</c> with those settings, found by its exact name or,
+    /// when no discovered tool has that name, by a name that differs only in case, because SQL Server
+    /// compares the key without case. A sync that does not see such a tool leaves it as it is.
     /// </summary>
-    public async Task<IReadOnlyList<AssistantMcpTool>> ApplySyncAsync(
+    public async Task<NhAssistantMcpSyncResult> ApplySyncAsync(
         string serverId,
         IReadOnlyList<AssistantMcpTool> discovered,
         CancellationToken cancellationToken)
@@ -1009,47 +1029,165 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         var existing = await context.McpTools
             .Where(tool => tool.ServerId == serverId)
             .ToDictionaryAsync(tool => tool.RemoteName, StringComparer.Ordinal, cancellationToken);
+        var discoveredNames = discovered.Select(tool => tool.RemoteName).ToHashSet(StringComparer.Ordinal);
         var now = DateTimeOffset.UtcNow;
+        var added = new List<AssistantMcpTool>();
+        var respelled = new List<AssistantMcpTool>();
+        var firstSeen = new List<AssistantMcpTool>();
         foreach (var remote in discovered)
         {
-            if (!existing.Remove(remote.RemoteName, out var stored))
+            if (existing.Remove(remote.RemoteName, out var stored))
             {
-                remote.ServerId = serverId;
-                remote.IsEnabled = false;
-                remote.Effect = NhAssistantMcpToolEffects.Mutation;
-                remote.Status = NhAssistantMcpToolStatuses.Available;
-                remote.UpdatedAt = now;
-                context.McpTools.Add(remote);
+                if (AwaitsSync(stored))
+                {
+                    TakeFirstSync(stored, remote, now);
+                    firstSeen.Add(stored);
+                    continue;
+                }
+
+                ApplyDiscovered(stored, remote, now);
                 continue;
             }
 
-            stored.Description = remote.Description;
-            stored.ReadOnlyHint = remote.ReadOnlyHint;
-            stored.LocalId = remote.LocalId;
-            stored.UpdatedAt = now;
-            if (!string.Equals(stored.InputSchemaHash, remote.InputSchemaHash, StringComparison.Ordinal))
+            remote.ServerId = serverId;
+            remote.Status = NhAssistantMcpToolStatuses.Available;
+            remote.UpdatedAt = now;
+            var reviewed = existing.Values.FirstOrDefault(tool => AwaitsSync(tool)
+                && !discoveredNames.Contains(tool.RemoteName)
+                && string.Equals(tool.RemoteName, remote.RemoteName, StringComparison.OrdinalIgnoreCase));
+            if (reviewed is not null)
             {
-                stored.InputSchemaHash = remote.InputSchemaHash;
-                stored.IsEnabled = false;
-                stored.Status = NhAssistantMcpToolStatuses.SchemaChanged;
+                // The reviewed settings move to the server's spelling of the name.
+                existing.Remove(reviewed.RemoteName);
+                respelled.Add(reviewed);
+                remote.IsEnabled = reviewed.IsEnabled;
+                remote.Effect = reviewed.Effect;
+                remote.DescriptionOverride = reviewed.DescriptionOverride;
+                firstSeen.Add(remote);
             }
-            else if (stored.Status == NhAssistantMcpToolStatuses.Missing)
+            else
             {
-                stored.Status = NhAssistantMcpToolStatuses.Available;
+                remote.IsEnabled = false;
+                remote.Effect = NhAssistantMcpToolEffects.Mutation;
             }
+
+            added.Add(remote);
         }
         foreach (var vanished in existing.Values)
         {
+            if (AwaitsSync(vanished))
+            {
+                // Still expected: its settings wait for the sync that sees it.
+                continue;
+            }
+
             vanished.IsEnabled = false;
             vanished.Status = NhAssistantMcpToolStatuses.Missing;
             vanished.UpdatedAt = now;
         }
+
+        // SQL Server compares the key without case, so a row that takes another spelling goes first.
+        await using var transaction = respelled.Count > 0
+            ? await context.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+        if (respelled.Count > 0)
+        {
+            context.McpTools.RemoveRange(respelled);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        context.McpTools.AddRange(added);
         await context.SaveChangesAsync(cancellationToken);
-        return await context.McpTools
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        var tools = await context.McpTools
             .AsNoTracking()
             .Where(tool => tool.ServerId == serverId)
             .OrderBy(tool => tool.RemoteName)
             .ToListAsync(cancellationToken);
+        return new NhAssistantMcpSyncResult(tools, firstSeen);
+    }
+
+    /// <summary>
+    /// Stores the reviewed settings of a tool that no sync of the server has seen yet as a row with the
+    /// status <c>missing</c> and no input schema hash (<see cref="AwaitsSync"/>), so no turn offers it
+    /// until a sync sees it. <see cref="NhAssistantStoreOutcome.NotFound"/> when the server does not
+    /// exist, <see cref="NhAssistantStoreOutcome.Rejected"/> when it already has
+    /// <paramref name="maxAwaitingSync"/> such rows, and <see cref="NhAssistantStoreOutcome.Conflict"/>
+    /// when another save stored a row of that name first.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantMcpTool>> AddMcpToolAwaitingSyncAsync(
+        AssistantMcpTool tool,
+        int maxAwaitingSync,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        if (!await context.McpServers.AnyAsync(server => server.Id == tool.ServerId, cancellationToken))
+        {
+            return NhAssistantStoreResult<AssistantMcpTool>.Failed(NhAssistantStoreOutcome.NotFound);
+        }
+
+        var awaiting = await context.McpTools.CountAsync(
+            item => item.ServerId == tool.ServerId && item.InputSchemaHash == string.Empty,
+            cancellationToken);
+        if (awaiting >= maxAwaitingSync)
+        {
+            return NhAssistantStoreResult<AssistantMcpTool>.Failed(NhAssistantStoreOutcome.Rejected);
+        }
+
+        tool.InputSchemaHash = string.Empty;
+        tool.Status = NhAssistantMcpToolStatuses.Missing;
+        tool.UpdatedAt = DateTimeOffset.UtcNow;
+        context.McpTools.Add(tool);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return NhAssistantStoreResult<AssistantMcpTool>.Ok(tool);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent save stored the row first, or the server went meanwhile.
+            return NhAssistantStoreResult<AssistantMcpTool>.Failed(NhAssistantStoreOutcome.Conflict);
+        }
+    }
+
+    /// <summary>
+    /// A tool the sync saw again: its server's description, hint and local id, and a changed input
+    /// schema disables it until an administrator enables it again.
+    /// </summary>
+    private static void ApplyDiscovered(AssistantMcpTool stored, AssistantMcpTool remote, DateTimeOffset now)
+    {
+        stored.Description = remote.Description;
+        stored.ReadOnlyHint = remote.ReadOnlyHint;
+        stored.LocalId = remote.LocalId;
+        stored.UpdatedAt = now;
+        if (!string.Equals(stored.InputSchemaHash, remote.InputSchemaHash, StringComparison.Ordinal))
+        {
+            stored.InputSchemaHash = remote.InputSchemaHash;
+            stored.IsEnabled = false;
+            stored.Status = NhAssistantMcpToolStatuses.SchemaChanged;
+        }
+        else if (stored.Status == NhAssistantMcpToolStatuses.Missing)
+        {
+            stored.Status = NhAssistantMcpToolStatuses.Available;
+        }
+    }
+
+    /// <summary>
+    /// The first sync that sees a tool reviewed before: it takes the server's description, hint, local
+    /// id and schema, and keeps the reviewed settings. No schema was known, so none changed.
+    /// </summary>
+    private static void TakeFirstSync(AssistantMcpTool stored, AssistantMcpTool remote, DateTimeOffset now)
+    {
+        stored.Description = remote.Description;
+        stored.ReadOnlyHint = remote.ReadOnlyHint;
+        stored.LocalId = remote.LocalId;
+        stored.InputSchemaHash = remote.InputSchemaHash;
+        stored.Status = NhAssistantMcpToolStatuses.Available;
+        stored.UpdatedAt = now;
     }
 
     public async Task<AssistantMcpTool?> UpdateMcpToolAsync(

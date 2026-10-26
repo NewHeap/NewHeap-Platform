@@ -787,6 +787,10 @@ public sealed record NhAssistantToolCatalogEntryDto(
 /// <c>PUT agents/{id}/metadata/{name}</c> checks them, with field errors <c>metadata.&lt;name&gt;</c>
 /// (<c>not-found</c> for an entry that is not registered). An agent in code changes its editable entries
 /// one by one (field error <c>metadata: not-allowed</c>).</param>
+/// <param name="McpServerIds">The MCP servers assigned to the agent, at most 32. Omitted keeps the
+/// agent's assignments on update, as assignments through <c>PUT</c> and
+/// <c>DELETE admin/mcp-servers/{id}/agents/{agentId}</c> made them, and assigns none to a new agent; an
+/// empty list removes them all, any other list replaces them.</param>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
     string? DisplayName,
@@ -1325,7 +1329,15 @@ public sealed record NhAssistantMcpToolDto(
     bool IsEnabled,
     string Effect,
     string Status,
-    bool? ReadOnlyHint);
+    bool? ReadOnlyHint)
+{
+    /// <summary>
+    /// The tool's reviewed settings were stored before any sync of its server saw it: its status is
+    /// <c>missing</c>, it has no server description or hint yet, and no turn offers it until the first
+    /// sync that sees it makes it <c>available</c> with these settings.
+    /// </summary>
+    public bool AwaitingSync { get; init; }
+}
 
 public sealed record NhAssistantUpdateMcpToolRequest(
     bool? IsEnabled,

@@ -83,7 +83,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPut("agents/{id}", UpdateAgentAsync)
             .WithName("NhAssistantAdminUpdateAgent")
             .WithSummary("Update an agent")
-            .WithDescription("Updates or overrides an agent when expectedVersion is current; otherwise 409. isEnabled is accepted and ignored: the run state changes with POST agents/{id}/state.")
+            .WithDescription("Updates or overrides an agent when expectedVersion is current; otherwise 409. An omitted mcpServerIds keeps the agent's MCP assignments, which PUT and DELETE mcp-servers/{id}/agents/{agentId} change one by one; an empty list removes them all. isEnabled is accepted and ignored: the run state changes with POST agents/{id}/state.")
             .Produces<NhAssistantAdminAgentDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -232,7 +232,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("mcp-servers/{id}/tools", GetMcpToolsAsync)
             .WithName("NhAssistantAdminGetMcpTools")
             .WithSummary("List MCP tools")
-            .WithDescription("Returns the synchronized tools of a server.")
+            .WithDescription("Returns the synchronized tools of a server and those whose reviewed settings wait for a sync that sees them (awaitingSync, status missing).")
             .Produces<NhAssistantMcpToolDto[]>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("mcp-servers/discover", DiscoverMcpServerAsync)
@@ -288,9 +288,23 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPut("mcp-servers/{id}/tools/{remoteName}", UpdateMcpToolAsync)
             .WithName("NhAssistantAdminUpdateMcpTool")
             .WithSummary("Update an MCP tool")
-            .WithDescription("Enables or disables a tool, sets its effect and overrides its description.")
+            .WithDescription("Enables or disables a tool, sets its effect and overrides its description. A remoteName that no sync has seen yet, such as a tool of a server the host cannot reach yet, stores these reviewed settings as a tool with status missing and awaitingSync: no turn offers it until the first sync that sees it makes it available with them. Such a name has at most 128 characters (remoteName: too-long), no control characters and no other spelling of a stored tool's name (remoteName: invalid); a server holds at most 100 of them (409 assistant-configuration-limit). A tool the server no longer offers cannot be enabled (400 assistant-mcp-tool-disabled).")
             .Produces<NhAssistantMcpToolDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPut("mcp-servers/{id}/agents/{agentId}", AssignMcpServerAsync)
+            .WithName("NhAssistantAdminAssignMcpServer")
+            .WithSummary("Assign an MCP server to an agent")
+            .WithDescription("Assigns the server to the agent, in code or created in the administration, so its enabled tools are offered in the agent's turns. Only the assignment changes: the agent's definition, version and package links stay, so an editor that holds the agent's version saves without a conflict. Assigning an assigned server changes nothing. An agent with 32 servers gets no more (400, mcpServerIds: too-long); an unknown server or agent answers 404. Audited as AdminMcpServerAssignmentChanged (assigned).")
+            .Produces<NhAssistantMcpServerDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapDelete("mcp-servers/{id}/agents/{agentId}", UnassignMcpServerAsync)
+            .WithName("NhAssistantAdminUnassignMcpServer")
+            .WithSummary("Remove an MCP server from an agent")
+            .WithDescription("Removes the server's assignment to the agent; the agent's definition and version stay. Removing an assignment the agent does not have changes nothing. An unknown server or agent answers 404. Audited as AdminMcpServerAssignmentChanged (unassigned).")
+            .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
     }
 
@@ -474,7 +488,9 @@ internal static class NhAssistantAdminEndpoints
         {
             return Validation();
         }
-        var (input, errors) = await ToInputAsync(body with { Id = id }, policies);
+        var (converted, errors) = await ToInputAsync(body with { Id = id }, policies);
+        // An omitted list keeps the agent's MCP assignments, as for the other fields; [] removes them.
+        var input = converted is null ? null : converted with { KeepMcpServers = body.McpServerIds is null };
         if (body.ExpectedVersion is null)
         {
             errors.Add("expectedVersion", NhAssistantFieldErrors.Required);
@@ -1027,6 +1043,39 @@ internal static class NhAssistantAdminEndpoints
             actor,
             httpContext.RequestAborted);
         return updated.Success ? Json(NhAssistantMcpServerDtos.ToDto(updated.Data!), Context.NhAssistantMcpToolDto) : Failure(updated);
+    }
+
+    private static Task<IResult> AssignMcpServerAsync(string id, string agentId, HttpContext httpContext, INhAssistantMcpServers servers)
+    {
+        return SetMcpAssignmentAsync(id, agentId, assign: true, httpContext, servers);
+    }
+
+    private static Task<IResult> UnassignMcpServerAsync(string id, string agentId, HttpContext httpContext, INhAssistantMcpServers servers)
+    {
+        return SetMcpAssignmentAsync(id, agentId, assign: false, httpContext, servers);
+    }
+
+    /// <summary>
+    /// One assignment through <see cref="INhAssistantMcpServers"/>, with its checks, codes and audit:
+    /// only the assignment's row changes, never the agent's definition or version.
+    /// </summary>
+    private static async Task<IResult> SetMcpAssignmentAsync(
+        string id,
+        string agentId,
+        bool assign,
+        HttpContext httpContext,
+        INhAssistantMcpServers servers)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+
+        var changed = assign
+            ? await servers.AssignAsync(id, agentId, actor, httpContext.RequestAborted)
+            : await servers.UnassignAsync(id, agentId, actor, httpContext.RequestAborted);
+        return changed.Success ? Json(changed.Data!, Context.NhAssistantMcpServerDto) : Failure(changed);
     }
 
     // ----- Mapping and helpers -----

@@ -67,8 +67,10 @@ public interface INhAssistantMcpServers
 
     /// <summary>
     /// Lists the remote tools and stores them: new tools start disabled as mutations, a changed input
-    /// schema disables a tool until it is enabled again. A failed connection fails with its code.
-    /// Audited as <c>AdminMcpServerSynced</c>.
+    /// schema disables a tool until it is enabled again. A tool whose settings were reviewed before any
+    /// sync saw it becomes <c>available</c> with those settings and the schema this sync sees, audited as
+    /// <c>AdminMcpToolSeenAfterReview</c>; one this sync does not see keeps waiting. A failed connection
+    /// fails with its code. Audited as <c>AdminMcpServerSynced</c>.
     /// </summary>
     Task<TaskResult<IReadOnlyList<NhAssistantMcpToolDto>>> SyncAsync(
         string serverId,
@@ -76,19 +78,29 @@ public interface INhAssistantMcpServers
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The synced tools of a server, ordered by remote name. Fails with
-    /// <c>assistant-mcp-server-not-found</c>.
+    /// The tools of a server, ordered by remote name: the synced ones and those whose reviewed settings
+    /// wait for a sync (<see cref="NhAssistantMcpToolDto.AwaitingSync"/>, status <c>missing</c>). Fails
+    /// with <c>assistant-mcp-server-not-found</c>.
     /// </summary>
     Task<TaskResult<IReadOnlyList<NhAssistantMcpToolDto>>> ListToolsAsync(
         string serverId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Enables or disables a synced tool, sets its effect (<c>read-only</c> or <c>mutation</c>) and its
+    /// Enables or disables a tool, sets its effect (<c>read-only</c> or <c>mutation</c>) and its
     /// description override, as <c>PUT admin/mcp-servers/{id}/tools/{remoteName}</c> does; enabling a
-    /// tool accepts its current remote schema. Fails with field errors, with
-    /// <c>assistant-mcp-tool-not-found</c> and with <c>assistant-mcp-tool-disabled</c> for a tool the
-    /// server no longer offers. Audited as <c>AdminMcpToolUpdated</c>.
+    /// synced tool accepts its current remote schema. A <paramref name="remoteName"/> that no sync has
+    /// seen yet, such as a tool of a server the host cannot reach yet, stores these reviewed settings as a
+    /// tool with the status <c>missing</c>, no schema and <see cref="NhAssistantMcpToolDto.AwaitingSync"/>:
+    /// no turn offers it until the first sync that sees it makes it <c>available</c> with them, after which
+    /// a changed schema disables it as for any tool. Such a name has at most 128 characters
+    /// (<c>remoteName: too-long</c>), no control characters and no other spelling of a stored tool's name
+    /// (<c>remoteName: invalid</c>), and a server has at most
+    /// <see cref="NhAssistantMcpServerLimits.MaxToolsAwaitingSync"/> of them
+    /// (<c>assistant-configuration-limit</c>). Fails with field errors, with
+    /// <c>assistant-mcp-server-not-found</c> and with <c>assistant-mcp-tool-disabled</c> for a tool the
+    /// server no longer offers. Audited as <c>AdminMcpToolUpdated</c>, or <c>AdminMcpToolReviewedBeforeSync</c>
+    /// for a tool no sync has seen that gets its row.
     /// </summary>
     Task<TaskResult<NhAssistantMcpToolDto>> UpdateToolAsync(
         string serverId,
@@ -220,9 +232,10 @@ public sealed record NhAssistantMcpReaderRequest(
     int Priority = 0);
 
 /// <summary>
-/// How a synced tool is offered: enabled or not, its effect (<see cref="NhAssistantMcpToolEffects"/>,
+/// How a tool is offered: enabled or not, its effect (<see cref="NhAssistantMcpToolEffects"/>,
 /// <c>read-only</c> or <c>mutation</c>, which requires approval) and a description of at most 1,000
-/// characters that replaces the server's; <see langword="null"/> or blank uses the server's.
+/// characters that replaces the server's; <see langword="null"/> or blank uses the server's. For a tool
+/// that no sync has seen yet these are its reviewed settings, which the first sync that sees it keeps.
 /// </summary>
 public sealed record NhAssistantMcpToolSettingsRequest(
     bool IsEnabled,
@@ -238,6 +251,13 @@ public static class NhAssistantMcpServerLimits
     /// The most MCP servers one agent is assigned to, as the agent editor's <c>mcpServerIds</c> allows.
     /// </summary>
     public const int MaxServersPerAgent = 32;
+
+    /// <summary>
+    /// The most tools of one server whose reviewed settings wait for a sync that sees them
+    /// (<see cref="NhAssistantMcpToolDto.AwaitingSync"/>); another one is refused with
+    /// <c>assistant-configuration-limit</c>.
+    /// </summary>
+    public const int MaxToolsAwaitingSync = 100;
 }
 
 /// <summary>
@@ -248,6 +268,17 @@ internal static class NhAssistantMcpAssignmentAudit
     public const string Assigned = "assigned";
 
     public const string Unassigned = "unassigned";
+}
+
+/// <summary>
+/// The result codes of <see cref="NhAssistantAuditEventKind.AdminMcpToolReviewedBeforeSync"/> and
+/// <see cref="NhAssistantAuditEventKind.AdminMcpToolSeenAfterReview"/>: whether the tool is enabled.
+/// </summary>
+internal static class NhAssistantMcpToolAudit
+{
+    public const string Enabled = "enabled";
+
+    public const string Disabled = "disabled";
 }
 
 /// <inheritdoc cref="INhAssistantMcpServers"/>
@@ -623,6 +654,9 @@ internal static class NhAssistantMcpServerDtos
             tool.IsEnabled,
             tool.Effect,
             tool.Status,
-            tool.ReadOnlyHint);
+            tool.ReadOnlyHint)
+        {
+            AwaitingSync = NhAssistantAdminStore.AwaitsSync(tool)
+        };
     }
 }

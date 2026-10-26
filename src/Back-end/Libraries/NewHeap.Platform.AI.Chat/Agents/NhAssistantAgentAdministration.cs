@@ -50,8 +50,8 @@ internal sealed record NhAssistantAgentInput(
 
     /// <summary>
     /// For an update: the agent keeps its MCP assignments and <see cref="McpServerIds"/>, which is then
-    /// empty, is ignored, as <c>INhAssistantAgentDefinitions</c> does unless its request names them. The
-    /// administration's endpoint replaces them.
+    /// empty, is ignored, as <c>INhAssistantAgentDefinitions</c> and the administration's endpoint do
+    /// unless the request names them.
     /// </summary>
     public bool KeepMcpServers { get; init; }
 }
