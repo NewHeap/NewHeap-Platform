@@ -10,8 +10,10 @@ is built.
 ## Status
 
 Decided by Lars on 2026-10-26: FB1 to FB15, every one as advised (option (a)). The decisions are summarized
-below; the sections under "Choices" keep the options that were weighed. Not built yet: FB15 plans train 24
-(FB1, FB12, FB13) and train 25 (FB2 to FB11).
+below; the sections under "Choices" keep the options that were weighed. Built on 2026-10-26 in merge trains 24
+and 25 (FB15): train 24 with lanes RG (the Request Delegate Generator) and BO (background operations); train 25
+with RF (the `ApprovalCulture` migrations), CV, CP and MT. The lanes' own choices in the "Lane choices" table are
+for Lars to review.
 
 ## Decisions
 
