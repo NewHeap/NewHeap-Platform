@@ -169,6 +169,25 @@ describe('The status table of the mock API', () => {
     expect((await decide('denied', 'sha256:other')).status).toBe(409);
     expect((await decide('unknown')).status).toBe(404);
   });
+
+  it('reads a replaced shadow proposal with its successor and keeps both out of the inbox', async () => {
+    await configure(scenario({
+      proposals: [
+        {
+          approvalId: 'older', agentId: 'projects', subjectType: 'project', subjectId: 'p-1', toolId: 'projects.close',
+          status: 'shadow-superseded', supersededByApprovalId: 'newer', executionResultCode: 'assistant-proposal-superseded'
+        },
+        { approvalId: 'newer', agentId: 'projects', subjectType: 'project', subjectId: 'p-1', toolId: 'projects.close', status: 'shadow' }
+      ]
+    }));
+
+    const older = (await call('GET', 'approvals/older')).body.proposal;
+    expect([older.status, older.supersededByApprovalId]).toEqual(['shadow-superseded', 'newer']);
+    expect((await call('GET', 'approvals/newer')).body.proposal.supersededByApprovalId).toBeUndefined();
+    expect((await call('GET', 'approvals/inbox')).body.total).toBe(0);
+    expect((await call('POST', 'approvals/older/decisions', { decision: 'approve', expectedProposalHash: 'sha256:older' })).body.code)
+      .toBe('assistant-approval-not-pending');
+  });
 });
 
 describe('MCP connections of the mock API', () => {

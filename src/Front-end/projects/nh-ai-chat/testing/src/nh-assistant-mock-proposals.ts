@@ -122,7 +122,8 @@ export class NhAssistantMockProposals {
           parent: item.parent ?? null,
           canGiveFeedback: false,
           consultationId: item.consultationId ?? null,
-          consultationRoute: route
+          consultationRoute: route,
+          ...(item.supersededByApprovalId ? { supersededByApprovalId: item.supersededByApprovalId } : {})
         },
         divisionId: item.divisionId ?? null,
         canDecide,
