@@ -256,6 +256,7 @@ public sealed class NhAssistantDbContext : DbContext
             approval.Property(item => item.StaleByActorId).HasMaxLength(256);
             approval.Property(item => item.ArgumentsHash).HasMaxLength(64);
             approval.Property(item => item.RationalesJson).HasMaxLength(NhAssistantLimits.MaxStaleExplanationsSerializedLength);
+            approval.Property(item => item.DecisionCulture).HasMaxLength(AssistantApproval.MaxDecisionCultureLength);
             // Finds an open or recently rejected proposal with the same identity.
             approval.HasIndex(item => new { item.ToolId, item.ArgumentsHash });
             approval.HasIndex(item => item.ConsultationId);

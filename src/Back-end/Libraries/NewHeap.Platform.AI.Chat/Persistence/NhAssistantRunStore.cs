@@ -2337,6 +2337,9 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(
                         approval => approval.StaleExplanationsJson,
                         approval => decision.StaleExplanationsJson ?? approval.StaleExplanationsJson)
+                    .SetProperty(
+                        approval => approval.DecisionCulture,
+                        approval => decision.DecisionCulture ?? approval.DecisionCulture)
                     .SetProperty(approval => approval.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         if (updated != 1)
@@ -3338,6 +3341,11 @@ internal sealed record NhAssistantApprovalTransition
     public string? StaleExplanationsJson { get; init; }
     public string? StaleByActorId { get; init; }
     public Guid? SupersededByApprovalId { get; init; }
+
+    /// <summary>
+    /// The UI culture of the person's turn that handed the inline approval to the application.
+    /// </summary>
+    public string? DecisionCulture { get; init; }
 }
 
 internal sealed record NhAssistantInboxFilter(

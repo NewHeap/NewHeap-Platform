@@ -344,7 +344,7 @@ public sealed class AssistantApproval
     public string? ArgumentsHash { get; set; }
 
     /// <summary>
-    /// The newer proposal that replaced this withdrawn one.
+    /// The newer proposal that replaced this withdrawn or <c>shadow-superseded</c> one.
     /// </summary>
     public Guid? SupersededByApprovalId { get; set; }
 
@@ -353,7 +353,24 @@ public sealed class AssistantApproval
     /// </summary>
     public string? RationalesJson { get; set; }
 
+    /// <summary>
+    /// The UI culture of the person's turn that approved the proposal inline and handed it to the
+    /// application (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>), such as
+    /// <c>nl-NL</c>, at most <see cref="MaxDecisionCultureLength"/> characters. What the person's chat
+    /// reads about the close of the hand-off (the report, an uncertain outcome and a passed deadline)
+    /// is written in it when the application supports it as a UI culture, otherwise in the default
+    /// request culture. <see langword="null"/> for other approvals and those handed off before it was
+    /// recorded; an agent thread always writes in the default culture.
+    /// </summary>
+    public string? DecisionCulture { get; set; }
+
     public Guid ConcurrencyStamp { get; set; }
+
+    /// <summary>
+    /// The longest culture name <see cref="DecisionCulture"/> keeps, the length a language tag is
+    /// recommended to fit in; a longer name is not recorded.
+    /// </summary>
+    public const int MaxDecisionCultureLength = 35;
 }
 
 /// <summary>
