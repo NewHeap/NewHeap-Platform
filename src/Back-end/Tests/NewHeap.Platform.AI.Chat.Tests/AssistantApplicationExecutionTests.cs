@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -176,6 +177,42 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
             // The same report is a duplicate in each outcome.
             Assert.True((await ReportAsync(host, new NhAssistantExecutionReport(approval.Id, approval.ProposalHash, item.Outcome, item.Code))).Data!.Duplicate);
         }
+    }
+
+    /// <summary>
+    /// FB4: an agent thread keeps the application's default culture for what a report posts (DN8), also
+    /// when the approval names a culture the application supports and the report arrives in another one.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_agent_thread_reads_a_report_in_the_default_culture_whatever_the_approval_names(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, projectId, new AssistantTestClock(Start), englishAndDutch: true);
+        var thread = await ThreadAsync(host, projectId);
+        var approval = await SeedAwaitingAsync(host, thread.ConversationId);
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            Assert.Equal(1, await context.Approvals
+                .Where(item => item.Id == approval.Id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.DecisionCulture, "nl")));
+        }
+
+        var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("nl");
+            Assert.True((await ReportAsync(host, new NhAssistantExecutionReport(approval.Id, approval.ProposalHash, NhAssistantExecutionOutcome.Completed, "order-placed") { Summary = "Order 4711 placed." })).Success);
+        }
+        finally
+        {
+            (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = previous;
+        }
+
+        var message = Assert.Single(await ApplicationMessagesAsync(host, thread.ConversationId));
+        var part = NhAssistantContent.DeserializeParts(message.PartsJson).Single(item => item.Type == NhAssistantStoredPart.ApplicationType);
+        Assert.Equal("Execution of an approved proposal", part.Title);
     }
 
     /// <summary>
@@ -439,7 +476,8 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
         Guid projectId,
         AssistantTestClock clock,
         NhAiApprovalMode mode = NhAiApprovalMode.Deferred,
-        string? declaredTool = null)
+        string? declaredTool = null,
+        bool englishAndDutch = false)
     {
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-status")
@@ -463,6 +501,15 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.AddSingleton<RecordingChannel>();
                 services.AddSingleton<TestApplicationExecutions>();
+                if (englishAndDutch)
+                {
+                    services.Configure<Microsoft.AspNetCore.Builder.RequestLocalizationOptions>(options =>
+                    {
+                        options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("en");
+                        options.SupportedCultures = [CultureInfo.GetCultureInfo("en"), CultureInfo.GetCultureInfo("nl")];
+                        options.SupportedUICultures = [CultureInfo.GetCultureInfo("en"), CultureInfo.GetCultureInfo("nl")];
+                    });
+                }
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()

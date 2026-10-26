@@ -154,6 +154,68 @@ public sealed class AssistantInlineApplicationExecutionTests(AssistantDatabaseFi
         Assert.Single(await ApplicationMessagesAsync(host, waitingChat.Id));
     }
 
+    /// <summary>
+    /// FB4: the approval records the UI culture of the person's turn that approved the hand-off, and the
+    /// chat reads the report, an uncertain outcome and a passed deadline in it, title included, whatever
+    /// culture the report or the maintenance works in. An approval without a culture, such as one handed
+    /// off before it was recorded, or with one the application no longer supports, reads in the
+    /// application's default culture.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_chat_reads_the_close_of_its_hand_off_in_the_culture_of_the_turn_that_approved_it(AssistantTestProvider provider)
+    {
+        var clock = new AssistantTestClock(Start);
+        var model = new NhAiScriptedChatClient();
+        for (var chat = 0; chat < 5; chat++)
+        {
+            model = Script(model, "The application has the order.");
+        }
+
+        await using var host = await CreateHostAsync(provider, model, alsoInline: true, clock);
+        var dutch = await HandOffAsync(host, "nl");
+        var english = await HandOffAsync(host, "en");
+        var older = await HandOffAsync(host, "nl");
+        var unsupported = await HandOffAsync(host, "nl");
+        var overdue = await HandOffAsync(host, "nl");
+        Assert.Equal(
+            ((string?)"nl", (string?)"en"),
+            ((await FindApprovalAsync(host, dutch.Approval)).DecisionCulture, (await FindApprovalAsync(host, english.Approval)).DecisionCulture));
+        await SetDecisionCultureAsync(host, older.Approval, null);
+        await SetDecisionCultureAsync(host, unsupported.Approval, "fr-FR");
+
+        // The reports arrive while the application works in the other language.
+        using (Culture("en"))
+        {
+            await ReportCompletedAsync(host, dutch.Approval);
+        }
+        using (Culture("nl"))
+        {
+            await ReportCompletedAsync(host, english.Approval);
+            await ReportCompletedAsync(host, older.Approval);
+            await ReportCompletedAsync(host, unsupported.Approval);
+        }
+
+        var completedNl = "De applicatie heeft het goedgekeurde voorstel uitgevoerd (" + NhAssistantMarkdown.Escape("order-placed") + ").";
+        var completedEn = "The application carried out the approved proposal (" + NhAssistantMarkdown.Escape("order-placed") + ").";
+        Assert.Equal((completedNl, "Uitvoering van een goedgekeurd voorstel"), await PostedAsync(host, dutch.Conversation));
+        Assert.Equal((completedEn, "Execution of an approved proposal"), await PostedAsync(host, english.Conversation));
+        Assert.Equal((completedEn, "Execution of an approved proposal"), await PostedAsync(host, older.Conversation));
+        Assert.Equal((completedEn, "Execution of an approved proposal"), await PostedAsync(host, unsupported.Conversation));
+
+        // A deadline that passes on the maintenance's default culture reads as the turn's culture too.
+        using (Culture("en"))
+        {
+            clock.Advance(ReportWithin);
+            await RunMaintenanceAsync(host);
+        }
+
+        var (overdueText, overdueTitle) = await PostedAsync(host, overdue.Conversation);
+        Assert.StartsWith("Het is niet bekend of de applicatie het goedgekeurde voorstel heeft uitgevoerd", overdueText, StringComparison.Ordinal);
+        Assert.Equal("Uitvoering van een goedgekeurd voorstel", overdueTitle);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -460,9 +522,55 @@ public sealed class AssistantInlineApplicationExecutionTests(AssistantDatabaseFi
     /// </summary>
     private static IDisposable English()
     {
+        return Culture("en");
+    }
+
+    /// <summary>
+    /// Runs the code that follows in <paramref name="name"/>, as a request or service turn in that UI
+    /// culture would.
+    /// </summary>
+    private static IDisposable Culture(string name)
+    {
         var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en");
+        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(name);
         return new CultureRestore(previous.CurrentCulture, previous.CurrentUICulture);
+    }
+
+    /// <summary>
+    /// A person's chat in which a turn in <paramref name="culture"/> asks for the order and approves it,
+    /// which hands it to the application.
+    /// </summary>
+    private static async Task<(Guid Conversation, Guid Approval)> HandOffAsync(AssistantTestHost host, string culture)
+    {
+        using var turn = Culture(culture);
+        var conversation = await host.CreateConversationAsync();
+        var approval = (await host.SendAsync(conversation.Id, "Activate the project.", language: culture)).Single<NhAssistantApprovalRequiredEvent>().Approval;
+        Assert.True((await host.DecideAsync(conversation.Id, approval, approve: true)).Start.Success);
+        Assert.Equal(NhAssistantApprovalStatuses.AwaitingApplication, (await FindApprovalAsync(host, approval.ApprovalId)).Status);
+        return (conversation.Id, approval.ApprovalId);
+    }
+
+    private static async Task SetDecisionCultureAsync(AssistantTestHost host, Guid approvalId, string? culture)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.Equal(1, await context.Approvals
+            .Where(approval => approval.Id == approvalId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(approval => approval.DecisionCulture, culture)));
+    }
+
+    private static async Task ReportCompletedAsync(AssistantTestHost host, Guid approvalId)
+    {
+        var handOff = Executor(host).HandOffs.Single(item => item.ApprovalId == approvalId);
+        Assert.True((await ReportAsync(host, NhAssistantExecutionReport.For(handOff, NhAssistantExecutionOutcome.Completed, "order-placed"))).Success);
+    }
+
+    /// <summary>
+    /// The text and title of the one application message posted into the chat.
+    /// </summary>
+    private static async Task<(string Text, string? Title)> PostedAsync(AssistantTestHost host, Guid conversationId)
+    {
+        var parts = NhAssistantContent.DeserializeParts(Assert.Single(await ApplicationMessagesAsync(host, conversationId)).PartsJson);
+        return (NhAssistantContent.TextOf(parts), parts.Single(part => part.Type == NhAssistantStoredPart.ApplicationType).Title);
     }
 
     private sealed class CultureRestore(CultureInfo culture, CultureInfo uiCulture) : IDisposable
