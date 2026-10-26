@@ -97,9 +97,8 @@ public sealed class AssistantRequestDelegateTests(AssistantDatabaseFixture datab
         {
             using var response = await client.GetAsync(path);
             Assert.True(HttpStatusCode.NotFound == response.StatusCode, $"{path} answered {(int)response.StatusCode}");
-            Assert.Equal(
-                NhAssistantErrorCodes.Disabled,
-                (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync())).RootElement.GetProperty("code").GetString());
+            using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            Assert.Equal(NhAssistantErrorCodes.Disabled, body.RootElement.GetProperty("code").GetString());
         }
     }
 
@@ -108,8 +107,9 @@ public sealed class AssistantRequestDelegateTests(AssistantDatabaseFixture datab
     /// process CPU time of <c>MapNewHeapAssistant</c> plus the first read of every endpoint, for the
     /// first host of the process and for 20 hosts after three warm-up hosts, as a test process starts
     /// them. Run it alone in a Release build:
-    /// <c>NH_MEASURE_ENDPOINTS=1 dotnet test -c Release --filter FullyQualifiedName~AssistantRequestDelegateTests
-    /// --logger "console;verbosity=detailed"</c>. Process CPU time advances in steps of the operating
+    /// <c>NH_MEASURE_ENDPOINTS=1 dotnet test -c Release --filter
+    /// FullyQualifiedName~Measure_mapping_and_building_the_assistant_endpoints --logger "console;verbosity=detailed"</c>.
+    /// Process CPU time advances in steps of the operating
     /// system's clock tick, about 15.6 ms on Windows, so compare its mean.
     /// </summary>
     [EndpointMeasurementFact]
