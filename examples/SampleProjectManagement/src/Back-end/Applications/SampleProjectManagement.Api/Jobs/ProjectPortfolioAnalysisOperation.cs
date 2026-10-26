@@ -151,6 +151,15 @@ public sealed class ProjectPortfolioAnalysisOperation :
 public sealed class ProjectAnalysisChildOperation :
     INhBackgroundOperationHandler<ProjectAnalysisChildRequest>
 {
+    private readonly ProjectAnalysisArchive? _archive;
+
+    /// <param name="archive">SPM-325: the other system that keeps every project's latest analysis;
+    /// <see langword="null"/> in a host without it.</param>
+    public ProjectAnalysisChildOperation(ProjectAnalysisArchive? archive = null)
+    {
+        _archive = archive;
+    }
+
     public async Task<TaskResult> ExecuteAsync(
         ProjectAnalysisChildRequest request,
         INhBackgroundOperationContext context,
@@ -214,6 +223,15 @@ public sealed class ProjectAnalysisChildOperation :
         if (!processResult.Success)
         {
             return processResult;
+        }
+
+        // SPM-325: the archive is another system, called outside a step. Its client reports a
+        // cancelled call as an error of its own, and the handler lets that error travel instead of
+        // translating it: while the owner's cancellation is requested, the runner records the
+        // operation as cancelled, logs the error as a warning and does not retry it.
+        if (_archive is not null)
+        {
+            await _archive.StoreAsync(request.ProjectId, request.Passes, cancellationToken);
         }
 
         await context.SetResultAsync(

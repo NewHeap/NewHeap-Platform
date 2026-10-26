@@ -263,6 +263,10 @@ builder.Services
     .WithBackgroundOperations(operations =>
     {
         operations.Options.OperationUrlPrefix = "/background-operations";
+        // The live-update hub keeps its default path, /hub/background-operations, which the Angular
+        // client's hubUrlSuffix follows. HubPath may be any absolute application path outside the
+        // operations' API under /background-operations, such as /hubs/background-operations; the
+        // bearer token is read from the query string at that path (SPM-083).
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)
@@ -287,6 +291,8 @@ builder.Services
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         // No fan-out-specific registration is needed. The child inherits
         // owner/division/priority/correlation and uses its normal handler queue.
+        // SPM-325: the child stores its analysis in ProjectAnalysisArchive, another system
+        // registered below, outside a step.
         operations.Add<ProjectAnalysisChildRequest, ProjectAnalysisChildOperation>(
             "sample-project-analysis-child");
         // Enrollment reminders and session revocation for the two-factor policy.
@@ -359,6 +365,8 @@ builder.Services.AddMcpServer()
     .WithNewHeapPlatformAITools();
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
+// SPM-325: the stand-in for the other system that keeps every project's latest analysis.
+builder.Services.AddSingleton(new ProjectAnalysisArchive(TimeSpan.Zero));
 builder.Services.AddSingleton<SampleEventLog>();
 builder.Services.AddSingleton<SampleStartupState>();
 builder.Services.AddSingleton<SampleMediaEventLog>();
