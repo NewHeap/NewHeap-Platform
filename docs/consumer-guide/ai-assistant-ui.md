@@ -153,7 +153,13 @@ management portal does, maps a new name when the library adds one, such as `atta
 attachments (SPM-305).
 
 Use `NhAssistantStore.submit` for the panel's composer: it sends while idle and queues
-follow-ups while `running` or `waiting-for-approval`. The queue is FIFO per conversation,
+follow-ups while `running` or `waiting-for-approval`. A chat whose waiting question or approval
+already reads as expired by the browser's clock (its `expiresAt` passed, `NhAssistantStore.waitExpired`)
+takes the message at once, also one that waited in the queue, because the server closes the expired
+wait and starts the message's turn (SPM-341); the composer then no longer says that the chat waits,
+and the store reads the conversation again after that turn. The server stays the judge: a
+`409 assistant-conversation-busy` by its own clock is handled as any refused message. A still valid
+wait keeps queueing, and an agent's thread keeps its own rules. The queue is FIFO per conversation,
 keeps the page context captured when each message was queued and continues when the
 user opens another conversation or closes the drawer. It lives only in this tab's
 memory and clears on account changes, loss of access, deletion or leaving the conversation.
@@ -246,7 +252,8 @@ decision. The reducer follows `question.asked` and `question.answered` and keeps
 in `Conversation.pendingQuestion`; the composer then says the conversation waits for an answer
 (`waiting-for-answer`), naming the addressee when it is someone else. A refused answer, such as an
 expired question, shows its localized error and reads the conversation again. The mock API plays a
-`question` step and answers as the server does. An agent message of a chat with `SkillsInChat` names
+`question` step and answers as the server does, and a message after an expired question or approval
+closes it there too. An agent message of a chat with `SkillsInChat` names
 the skill it worked in (`Message.skillId`, SPM-333) for applications that show or count it.
 
 Render `approval.presentation` as the primary explanation. When it is absent, use the
@@ -1222,3 +1229,8 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs)
+- SPM-341 — A person starts, reads and stops a chat and answers its question from a messaging app
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs)

@@ -94,3 +94,17 @@ records the channel in the audit.
 | A message in a chat whose question or approval passed its lifetime is no longer refused with `409 assistant-conversation-busy`: what the chat waited for closes as expired and the message starts its turn. | None, unless a client or test expected the busy refusal after the wait ended; expect the new turn, and the expiry codes on the closed question or approval. |
 | A waiting question sends the Web Push kind `question-waiting` to its addressee instead of `approval-required` to the person whose turn asked it. | None for the library's push worker, which shows any kind. A service worker or client of its own that branches on the kind handles `question-waiting`. |
 | None for `NhAiInvocationContext.ConversationId`, `NhAiInvocationContext.Channel`, `INhAiTurnPerson`, `INhAssistantConversations` and `NhAssistantConversationTurnResult.PendingQuestion`: they are additive. | None. A tool, policy or turn context provider that read the person from the request reads `INhAiTurnPerson` instead, so it also knows the person in a channel's turn. |
+
+## @newheap/platform-ai-chat: a message after an expired wait
+
+`NhAssistantStore.submit` sends a message at once in a chat whose waiting question or approval reads as
+expired by the browser's clock, instead of queueing it, and a message that waited in the queue goes out
+when the wait ends; the server closes the expired wait and starts the message's turn. The new
+`NhAssistantStore.waitExpired` signal says so, the panel's composer then no longer says that the chat
+waits, and the store reads the conversation again after that turn. A refusal by the server's own
+clock (`assistant-conversation-busy`) is handled as before. The mock API closes an expired question or
+approval on the next message as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| A message in a chat whose question or approval passed its `expiresAt` is sent instead of queued until the chat is idle. | None. A host that renders its own composer status reads `waitExpired` to stop saying that the chat waits. |
