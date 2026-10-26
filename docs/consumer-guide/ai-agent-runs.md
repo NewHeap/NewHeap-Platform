@@ -1036,6 +1036,27 @@ which skill answered; the next turn starts without a skill again. Turn it on for
 people also chat with, such as a planner whose skills each fit a kind of question; leave it off for
 an agent whose skills only make sense on events.
 
+Give an agent that only works in people's chats its chat settings with `ConfigureAgent` and
+`ChatOnly()` (SPM-343), not with a `WorksOn` that hides it or with run settings it never uses. It
+keeps what a chat applies: `Skill` with `SkillsInChat`, `AllowQuestions`, `MaxConsultationsPerTurn`
+for the consultations it starts, `MaxTokensPerRun`, `AcceptsFiles`, `DataClassification`,
+`UseApprovalPolicy` for its proposals in a chat and `Metadata`. It works on no subject
+(`NhAssistantAgentRunOptions.ChatOnly`, `WorksOn` covers nothing): no object's page and no subject's
+list of agents shows it, `POST threads/start`, `POST threads/open`, run now,
+`INhAssistantAgentTriggers.StartAsync` and a hand-off are refused with
+`assistant-agent-does-not-work-on`, as are a data trigger, the agent's shadow switch and a board;
+nothing consults it, a replay never runs into or from it, run maintenance leaves it out and it needs no
+background operations. The host refuses to start when the agent also calls a builder method that only
+applies to runs on subjects (`WorksOn`, `WorksOnAllObjects`, `WorksOnApplication`, `PerDivision`,
+`RunPolicy`, `ViewPolicy`, `InGroup`, `AcceptHandOffs`, `AllowConsultation`, `ConsultableAsData`,
+`Shadow`, `ShadowOf`, `HideFromChat`, `StartsOff`, `Enabled`, `Accountability`, `ServiceAccount`,
+`Grant`, `DelegateFromInitiator`, `ActWithAccountableRights`, `ElevatedReads`, `AllowGatewayReads`,
+`Retry`, `Budget`, `Triage`, `Memory` or `UseRuleHandler`), and when a trigger starts it, another
+agent is its shadow variant or accepts hand-offs from it, or `UseHandOffsAsData` or
+`UseShadowVariantsAsData` names it. Its skills may still be data. The administration shows it as
+chat-only (`ChatOnly` of `NhAssistantAdminAgentDto`, `NhAssistantCodeRunSettingsDto` and
+`NhAssistantAgentInEffectDto`).
+
 Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
 and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
 most specific one wins: the skill's, then the agent's, then `NhAiDataClassification.Internal`. It
@@ -1183,6 +1204,26 @@ live agent that may no longer have data variants `assistant-shadow-variants-not-
 version `assistant-version-conflict`. The steps run in that order and a failure stops there, with the
 variant still in place. The audit records `AdminAgentShadowVariantPromoted` (the live agent, its new
 version and the variant) after the events of each step. SPM-330.
+
+Promote a variant whose parts all came from one agent package as that package's next version of the
+live agent, not by importing the package onto the live agent again: `PromoteShadowVariantAsync` with
+`NhAssistantShadowVariantPromotionRequest { AsPackageVersion = true }` (`asPackageVersion` of `POST
+admin/agents/{id}/promote`; `GET admin/agents/{id}/shadow-variants` names a data variant's `PackageId`
+and `PackageVersion`) applies every part of the variant to the live agent with the import's own plan
+and rules, in one transaction (SPM-344): its definition without a variant's display name, chat offer
+and `shadowOf`, its run settings, skills, triggers, consultations, hand-offs and the metadata entries
+it carries, with the package's locks and hashes. The live agent keeps its display name, chat offer
+and technical account (it takes the variant's only when it has none), an agent in code takes the
+fields it can override and keeps its run settings in code; the live agent's parts are linked to the
+variant's package id and version, it leaves the package it belonged to before, which keeps its row,
+and the variant is deleted with its links. A part of the variant without a link refuses with
+`assistant-package-not-linked`, `MoveSkills` with `moveSkills: not-allowed`, and a part the import
+would refuse refuses everything with the import's `assistant-package-refused`, whose field errors
+name it as `parts.{part}.{field}`; nothing changes then. The parts' change events are audited as an
+import audits them, then one `AdminAgentShadowVariantPromoted` with
+`NhAssistantShadowVariantPromotions.PromotedAsPackageVersion` and the package's id, version and hash
+(`NhAssistantShadowVariantPromotionDto.Package` reports every part's outcome). Without the option the
+promotion is unchanged and a package-linked variant stays `assistant-package-locked`.
 
 Move agents and their configuration as data between hosts as one versioned agent package with
 `INhAssistantAgentPackages`, never as a series of saves an application calls one after the other. A
@@ -1736,6 +1777,11 @@ instructions in full: call them for an administrator or process the application 
 - Expecting a data shadow variant to go live: its mode never changes; promote it onto its live agent
   with `PromoteShadowVariantAsync`, which copies its definition and removes it, or create the live agent
   separately.
+- Importing a package onto the live agent again, unlinking and deleting its variant by hand, to put a
+  package version evaluated as a shadow variant live: promote it with `AsPackageVersion`, which does
+  all of it in one transaction.
+- Hiding an agent that only chats with an empty `WorksOn` statement, `StartsOff` or a narrow
+  `RunPolicy`: say `ChatOnly()`, which startup checks, and keep run settings off it.
 - Changing agents through the agent tables or the administration's HTTP endpoints from the application,
   or reading `NhAssistantAdminAgentDto` to show an agent: use `INhAssistantAgentDefinitions` and
   `INhAssistantAgentDirectory`, and send the version read with the change.
@@ -2018,7 +2064,9 @@ it, that rules and triage route to a skill with only its tools, instructions and
 triage can end a run with nothing to do, that `use_skill` switches at most twice and that a person's
 turn starts without a skill, that a chat offers `use_skill` only with `SkillsInChat`, without triage,
 narrows the tools to the skill's, applies the skill's token ceiling and records the skill on the
-turn's message, that a stopped skill refuses its triggers before any lambda while the
+turn's message, that a chat-only agent keeps its skills and questions in a chat while every start
+path refuses it with `assistant-agent-does-not-work-on`, no subject lists it and startup refuses each
+run-only setting with it, that a stopped skill refuses its triggers before any lambda while the
 other skills work, that a paused skill lets its events wait and resumes one run per thread, that
 a skill's budget stops its runs, that a skill's rules hand over to the skill's own model with its
 tools, instructions, profile and ceiling, and that a follow-up run continues in the skill of the
@@ -2492,3 +2540,13 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)
+- SPM-343 — The chat helper works in people's chats only, with its skill and questions, and on no project
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
+  - [src/Front-end/projects/management/public/i18n/en.json](../../examples/SampleProjectManagement/src/Front-end/projects/management/public/i18n/en.json)
+- SPM-344 — An operator promotes the kickoff desk's next version from its shadow variant as the package's version
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs)

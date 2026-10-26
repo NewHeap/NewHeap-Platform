@@ -5685,5 +5685,44 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-343",
+    "title": "The chat helper works in people's chats only, with its skill and questions, and on no project",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantAgentRunBuilder.ChatOnly and NhAssistantAgentRunOptions.ChatOnly, with the run settings a chat keeps (Skill with SkillsInChat, AllowQuestions, MaxConsultationsPerTurn, MaxTokensPerRun, AcceptsFiles, DataClassification, UseApprovalPolicy, Metadata) and the host start that refuses every setting that only applies to runs on subjects, a trigger, a variant, a hand-off source and UseHandOffsAsData or UseShadowVariantsAsData naming the agent; assistant-agent-does-not-work-on for POST threads/start, POST threads/open, INhAssistantAgentTriggers.StartAsync, a hand-off, a data trigger, POST admin/agents/{id}/shadow and a board; ChatOnly of NhAssistantAdminAgentDto, NhAssistantCodeRunSettingsDto and NhAssistantAgentInEffectDto; chatOnly of AdminAgent, the agents page's chat-only badge and hint and the mock API's chat-only agents in @newheap/platform-ai-chat",
+    "outcome": "SampleChatHelperComposition adds the chat helper with `ChatOnly()`: it offers its meeting notes skill with `use_skill` and structured questions in people's chats, and may start two consultations of the intake reviewer in one turn. In a chat the helper's model loads the skill and the helper's message records it. The helper works on no subject: no project's page lists it, a start on a project answers `409 assistant-agent-does-not-work-on`, nothing triggers it and it needs no background operations of its own; the administration lists it as chat-only. The library tests prove on SQL Server and PostgreSQL that the chat keeps its skills and questions, that every start path, a data trigger, the shadow switch, a board and a replay refuse it and that no subject lists it, and that the host refuses each run-only setting, a trigger, a variant, a hand-off source and a ceiling that names it; the Angular specs prove the agents page's badge and hint without run actions in English and Dutch and the mock API's refusals.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantChatOnlyAgentTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-chat-only-agents.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-344",
+    "title": "An operator promotes the kickoff desk's next version from its shadow variant as the package's version",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantShadowVariantPromotionRequest.AsPackageVersion of INhAssistantAgentDefinitions.PromoteShadowVariantAsync and asPackageVersion of POST admin/agents/{id}/promote (NhAssistantShadowVariantPromotionInputDto); Package of NhAssistantShadowVariantPromotionDto and NhAssistantShadowVariantPromotedDto (NhAssistantAgentPackageImportDto); PackageId and PackageVersion of NhAssistantShadowVariantDto; the codes assistant-package-not-linked and assistant-package-refused with parts.{part}.{field}; NhAssistantAuditEventKind.AdminAgentShadowVariantPromoted with NhAssistantShadowVariantPromotions.PromotedAsPackageVersion and the package's id, version and hash; the shadow variants' package badge, the promotion's \"As the package's next version\" and the mock API's promotion in @newheap/platform-ai-chat",
+    "outcome": "SampleAgentPackagesComposition names the package in which the next version of the kickoff desk of SPM-321 waits as a shadow variant (`NextKickoffVersion`): the exported desk under the trial's id, with new instructions and review skill and the same locks. The operator imports it next to the live desks; the shadow variants of the kickoff desk name its package version. The promotion without the option is refused with `assistant-package-locked`, as before. Promoted with `asPackageVersion`, the variant's instructions, run settings and review skill apply to the live kickoff desk with the import's rules in one transaction: the desk keeps its name and technical account, its instructions are locked by the new package version, its review skill's next version is live, and it is linked to the variant's package version, while the intake desk stays in its package. The variant is gone with its links and one audit event records the promotion with the package. The library tests prove on SQL Server and PostgreSQL the locks, hashes, run settings, skills, triggers and metadata of the promotion, the relink, an unlinked part refused with `assistant-package-not-linked`, a part the import refuses refusing everything, an agent in code that keeps its run settings in code, the promotion without the option unchanged and the one audit event; the Angular specs prove the package badge and the promotion as the package's version in English and Dutch and in the mock API.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPackageVersionPromotionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-shadow-variants.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-package-version-promotion.spec.ts"
+    ]
   }
 ] as const;

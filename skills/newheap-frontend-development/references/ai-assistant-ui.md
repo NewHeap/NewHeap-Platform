@@ -521,8 +521,19 @@ variant's run configuration to give it run settings. "Promote onto {agent}" on a
 confirm first, says what the live agent keeps, offers to move the variant's skills too and calls
 `promoteShadowVariant` with the live agent's version and the variant's (`ShadowVariant.version`); the
 page then shows the live agent's new version (`ShadowVariantPromotion`) and the variant leaves the list,
-and a change in the meantime shows `assistant-version-conflict` in the confirmation. The mock API plays
-the same rules with `handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+and a change in the meantime shows `assistant-version-conflict` in the confirmation. A data variant
+linked to an agent package shows its package and version (`ShadowVariant.packageId`,
+`packageVersion`), and its confirmation also offers "As the package's next version", which sends
+`asPackageVersion: true` instead of moving skills: all its parts replace the live agent's as an import
+does, with the package's locks, and the live agent is linked to that package version
+(`ShadowVariantPromotion.package` lists every part's outcome; SPM-344). The mock API plays the same
+rules with `handOffsAsData`, `shadowVariantsAsData`, `codeHandOffs` and its agent packages.
+
+An agent in code that works in people's chats only (`chatOnly` of `AdminAgent`, `ChatOnly()` in code;
+SPM-343) shows a "Chat only" badge and a hint instead of what it works on, and its card offers no "Run
+now", runs, run state changes or shadow mode; its run configuration stays for its skills as data. A
+mock scenario declares one with `chatOnly: true` on a code agent; the mock then refuses its starts and
+its shadow mode with `assistant-agent-does-not-work-on`.
 
 Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
 card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id
@@ -848,6 +859,8 @@ an application that shows documents without it starts `NhAssistantTranslationMer
   a refused save only at the top of the page instead of at its fields and next to the save button.
 - Offering an agent that only works on its own in the chat; keep it out with `offeredInChat: false`
   or `HideFromChat()`.
+- Offering "Run now", run states or shadow mode for a chat-only agent (`chatOnly`); it never runs on
+  its own and the server refuses them.
 - Typing object type ids or policy names in a custom agent screen; offer the run catalog's
   `subjectTypes` by name and its `agentPolicies`, and send what an agent works on as one set of fields.
 - Listing the run catalog's `subjectTypes` as kinds of objects without leaving out `isSystem`, or
