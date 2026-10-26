@@ -34,6 +34,9 @@ proves the migrations themselves creates an empty database of its own.
 
 Start a test host once per class fixture and share it between the tests of that
 class. Build other expensive things, such as models, keys and seed data, once.
+The NewHeap assistant's endpoints get their request delegates when the package is
+built, so mapping the assistant adds a few milliseconds to a host start instead of
+compiling every endpoint again; profile the rest of a slow host start first.
 
 Register a test `TimeProvider` as the host's application clock, replacing any
 earlier registration, and move it forward instead of waiting. NewHeap libraries
