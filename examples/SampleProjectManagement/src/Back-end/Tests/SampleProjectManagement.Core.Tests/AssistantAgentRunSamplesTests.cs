@@ -310,6 +310,19 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal((false, receipt.RunId), (claimed!.Waiting, claimed.RunId));
         Assert.True(NhAssistantRunStatuses.IsTerminal(claimed.RunStatus!));
 
+        // The page reads the review run's facts by its id, as the owner's runs view shows them, without
+        // reading the assistant's tables.
+        var facts = await FindIntakeReviewRunAsync(evt.EventId);
+        Assert.Equal(
+            (receipt.RunId!.Value, SampleIntakeReviewerComposition.AgentId, ProjectSubjects.For(project), review.ConversationId, false),
+            (facts!.RunId, facts.AgentId, facts.Subject, facts.ConversationId, facts.Shadow));
+        Assert.Equal(
+            (SampleIntakeReviewerComposition.TriggerId, run.Status, run.FailureCode, run.Attempt, run.ProposalCount, run.Summary),
+            (facts.TriggerId, facts.Status, facts.FailureCode, facts.Attempt, facts.ProposalCount, facts.Summary));
+        Assert.Equal((string?)NhAssistantTriggerKinds.Event, facts.TriggerKind);
+        Assert.NotNull(facts.EndedAt);
+        Assert.Null(await FindIntakeReviewRunAsync(Guid.NewGuid()));
+
         // A redelivered event writes no input; the page still finds the review of its first delivery.
         var redelivered = Assert.Single(await host.PublishAsync(evt));
         Assert.Equal((NhAssistantTriggerOutcomes.Deduplicated, (Guid?)null), (redelivered.Outcome, redelivered.InputId));
@@ -320,6 +333,12 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<SampleIntakeReviewLookup>().FindAsync(eventId, CancellationToken.None);
+    }
+
+    private async Task<NhAssistantAgentRunFacts?> FindIntakeReviewRunAsync(Guid eventId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<SampleIntakeReviewLookup>().FindRunAsync(eventId, CancellationToken.None);
     }
 
     [Fact]
@@ -3864,9 +3883,27 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(NhAssistantApprovalStatuses.Executed, reported.Data!.Status);
         var conversation = await ReadConversationAsync(owner, chat);
         var message = Assert.Single(conversation.Messages, item => item.Role == NhAssistantMessageRoles.Application);
-        // The report writes in the application's default culture, as a report has no request of a person.
+        // The report has no request of a person: it writes in the culture of the person's turn that
+        // approved the order, English for the owner's client, though the application defaults to Dutch.
         Assert.Contains(NhAssistantMarkdown.Escape("order-placed"), TextOf(message), StringComparison.Ordinal);
         Assert.Contains(NhAssistantMarkdown.Escape(order.OrderNumber), TextOf(message), StringComparison.Ordinal);
+        Assert.StartsWith("The application carried out the approved proposal", TextOf(message), StringComparison.Ordinal);
+        Assert.Equal("Execution of an approved proposal", message.Application!.Title);
+
+        // A person whose client reads Dutch approves an order in their chat: the desk's report reads
+        // Dutch, title included.
+        using var dutch = host.CreateClient(host.OwnerId.ToString());
+        dutch.DefaultRequestHeaders.AcceptLanguage.Clear();
+        dutch.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
+        var dutchChat = await host.CreateConversationAsync(dutch);
+        var dutchCard = (await host.SendAsync(dutch, dutchChat, $"Please order 1 monitor for project {project:D}."))
+            .Single(evt => evt.Name == "approval.required").Data;
+        await host.DecideAsync(dutch, dutchChat, dutchCard, "approve");
+        var monitor = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == dutchCard.GetProperty("approvalId").GetGuid());
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await desk.ConfirmAsync(monitor.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Status);
+        var dutchReport = Assert.Single((await ReadConversationAsync(dutch, dutchChat)).Messages, item => item.Role == NhAssistantMessageRoles.Application);
+        Assert.StartsWith("De applicatie heeft het goedgekeurde voorstel uitgevoerd", TextOf(dutchReport), StringComparison.Ordinal);
+        Assert.Equal("Uitvoering van een goedgekeurd voorstel", dutchReport.Application!.Title);
 
         // A second order the supplier does not confirm in time becomes uncertain; the person who approved
         // it hands it to the order desk again from the chat, which keeps its order number.
@@ -3896,6 +3933,50 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var handed = await WaitForChatApprovalAsync(owner, second, headsets.HandOff.ApprovalId, NhAssistantApprovalStatuses.AwaitingApplication);
         Assert.Null(handed.CanResolve);
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await desk.ConfirmAsync(again.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Status);
+    }
+
+    [Fact]
+    public async Task SPM_339_the_intake_reviewer_in_shadow_replaces_its_order_of_the_same_item_as_it_would_live()
+    {
+        // SPM-339: shadow proposals name their objects as live ones do, so the intake policy's duplicate
+        // rule (Supersede) keeps one shadow order per item and project instead of one per quantity.
+        const string reviewer = SampleIntakeReviewerComposition.AgentId;
+        var project = await host.CreateProjectAsync("SHADOW-ORDER", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+        try
+        {
+            await ChangeShadowAsync(reviewer, SampleShadowChange.Shadow, "Evaluate the equipment orders");
+            var shadowThread = await StartIntakeReviewerAsync(administrator, project, $"Please order 3 laptops for project {project:D}.");
+            var first = await WaitForProposalAsync(administrator, shadowThread, NhAssistantApprovalStatuses.Shadow, ProjectAiEquipmentTools.OrderEquipmentToolId);
+            await WaitForRunCountAsync(administrator, shadowThread, 1);
+
+            // The next run orders more laptops: the newer shadow order replaces the first one.
+            Assert.Equal(shadowThread, await StartIntakeReviewerAsync(administrator, project, $"Please order 5 laptops for project {project:D}."));
+            await WaitForRunCountAsync(administrator, shadowThread, 2);
+            var proposals = await administrator.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{shadowThread}/proposals", Json, TestContext.Current.CancellationToken);
+            var replaced = Assert.Single(proposals!, proposal => proposal.ApprovalId == first.ApprovalId);
+            var newer = Assert.Single(proposals!, proposal => proposal.ApprovalId != first.ApprovalId);
+            Assert.Equal(
+                (NhAssistantApprovalStatuses.ShadowSuperseded, (Guid?)newer.ApprovalId, NhAssistantApprovalStatuses.Shadow),
+                (replaced.Status, replaced.SupersededByApprovalId, newer.Status));
+            var laptops = ProjectEquipmentProposalGuard.Key(project, "laptops");
+            Assert.Equal(new NhAssistantProposalObjectDto(laptops.Type, laptops.Id), Assert.Single(newer.Objects));
+            Assert.Contains(
+                host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+                evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalSuperseded && evt.ApprovalId == first.ApprovalId);
+
+            // Shadow work orders nothing and waits in nobody's inbox.
+            Assert.DoesNotContain(desk.Orders, order => order.ProjectId == project);
+            using var colleague = host.CreateClient(host.ColleagueId.ToString());
+            Assert.DoesNotContain(await InboxAsync(colleague, NhAssistantApprovalStatuses.Pending), id => id == first.ApprovalId || id == newer.ApprovalId);
+        }
+        finally
+        {
+            // Other samples share the host and its reviewer.
+            await ChangeShadowAsync(reviewer, SampleShadowChange.Code, null);
+        }
     }
 
     /// <summary>

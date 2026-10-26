@@ -18,7 +18,11 @@ namespace SampleProjectManagement.Api.Composition;
 /// <c>execution-unknown</c> and an approver hands it to the order desk again or marks it resolved.
 /// SPM-328: with <c>AlsoInline</c> a person who approves an order in their own chat with the project
 /// assistant hands it to the order desk too, instead of running the tool's function; the chat goes on
-/// with "the order desk has it", and the desk's report is posted into that chat.
+/// with "the order desk has it", and the desk's report is posted into that chat, in the language of the
+/// person's turn that approved it.
+/// SPM-339: <see cref="ProjectEquipmentProposalGuard"/> names the item and project an order changes, so
+/// a newer order of the same item replaces the open one under the intake policy, also among the
+/// reviewer's shadow proposals while it is evaluated in shadow.
 /// Call it after <c>AddSampleIntakeReviewer</c>.
 /// </summary>
 public static class SampleEquipmentOrderComposition
@@ -40,6 +44,8 @@ public static class SampleEquipmentOrderComposition
             // person approves in their own chat (SPM-328); every other tool keeps executing in its function.
             .ExecuteInApplication(ProjectAiEquipmentTools.OrderEquipmentToolId, ReportWithin, execution => execution.AlsoInline())
             .UseProposalExecutor<SampleEquipmentOrderExecutor>()
+            // SPM-339: one open order per item and project; the guard names the order and checks nothing.
+            .AddProposalGuard<ProjectEquipmentProposalGuard>(ProjectAiEquipmentTools.OrderEquipmentToolId)
             .ConfigureAgent(SampleIntakeReviewerComposition.AgentId, agent => agent
                 .Grant(ProjectAiEquipmentTools.OrderEquipmentToolId)));
         return services;
