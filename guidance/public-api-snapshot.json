@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.85",
   "backEnd": {
-    "hash": "8f4a417420f6b8d2f1f57792b64e9dc5604b74e51ab6d9623c590868817f4fd2",
-    "declarationCount": 11122,
+    "hash": "3f6274335c592f8c823b639d77917f2a8ec13cfe62bfe3d3a4edbaf74ec1d54b",
+    "declarationCount": 11129,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5195,6 +5195,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+        "declaration": "public const int MaxRemoteNameLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
         "declaration": "public Task<IReadOnlyList<(AssistantMcpServer Server, IReadOnlyList<string> AgentIds)>> ListAsync( CancellationToken cancellationToken) {"
       },
       {
@@ -5811,11 +5815,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int MaxToolsAwaitingSync = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
         "declaration": "public const string Assigned = \"assigned\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
         "declaration": "public const string Unassigned = \"unassigned\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const string Enabled = \"enabled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const string Disabled = \"disabled\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
@@ -6803,7 +6819,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantMcpToolDto( string RemoteName, string LocalId, string Description, string? DescriptionOverride, bool IsEnabled, string Effect, string Status, bool? ReadOnlyHint);"
+        "declaration": "public sealed record NhAssistantMcpToolDto( string RemoteName, string LocalId, string Description, string? DescriptionOverride, bool IsEnabled, string Effect, string Status, bool? ReadOnlyHint) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool AwaitingSync { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -19355,7 +19375,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
-        "declaration": "public async Task<IReadOnlyList<AssistantMcpTool>> ApplySyncAsync( string serverId, IReadOnlyList<AssistantMcpTool> discovered, CancellationToken cancellationToken) {"
+        "declaration": "public static bool AwaitsSync(AssistantMcpTool tool) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<NhAssistantMcpSyncResult> ApplySyncAsync( string serverId, IReadOnlyList<AssistantMcpTool> discovered, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<AssistantMcpTool>> AddMcpToolAwaitingSyncAsync( AssistantMcpTool tool, int maxAwaitingSync, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
@@ -48667,6 +48695,10 @@
       "NhAssistantMcpServerDto",
       "NhAssistantMcpToolDto",
       "NhAssistantMcpServerTestResultDto",
+      "MaxToolsAwaitingSync",
+      "AwaitingSync",
+      "AdminMcpToolReviewedBeforeSync",
+      "AdminMcpToolSeenAfterReview",
       "AllowLoopback",
       "MaxConsultationsPerTurn",
       "KeepTurnsAfterDisconnect",
@@ -49058,6 +49090,8 @@
       "McpReader",
       "McpReaderInput",
       "getMcpAuthModes",
+      "assignMcpServer",
+      "unassignMcpServer",
       "provideNhAssistant",
       "NhAssistantConfig",
       "NhAssistantToolCallGroupComponent",

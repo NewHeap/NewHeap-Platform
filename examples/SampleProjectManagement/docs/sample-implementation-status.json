@@ -331,7 +331,9 @@
     "SPM-333",
     "SPM-334",
     "SPM-335",
-    "SPM-336"
+    "SPM-336",
+    "SPM-345",
+    "SPM-346"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3324,6 +3326,30 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
+    ],
+    "SPM-345": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpAdministrationEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
+    ],
+    "SPM-346": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpToolsAwaitingSyncTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpAdministrationEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
     ]
   }
 }

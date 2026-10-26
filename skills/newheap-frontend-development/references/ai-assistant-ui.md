@@ -93,6 +93,16 @@ configures `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` and lists its page origi
 `ReturnOrigins`; the mock API provides `NhAssistantMockAuthorizationWindow`, which plays
 the callback as `mcpAuthorization` of the scenario says.
 
+The agent editor creates a new agent with its MCP servers, but saves an existing agent without
+`mcpServerIds`, so a server assigned since the editor opened stays; it then calls `unassignMcpServer`
+and `assignMcpServer` for the servers the administrator changed only, removals first. When one of them
+fails, the definition stays saved, the editor shows that not every change went through and its next
+save continues on the saved version with the changes that are left (SPM-345). A host that saves agents
+with its own form does the same: omit `mcpServerIds` on `updateAgent` to keep the assignments and send
+`[]` only to remove them all. The tools list of a server shows a tool whose settings were reviewed before
+any sync saw it (`McpTool.awaitingSync`) as not seen yet; its settings can change there, and the first
+sync that finds it makes it available with them (SPM-346).
+
 When each person connects their own account (`connectionScope: 'user'`), the thread shows
 `nh-assistant-connection-required` for an answer that went on without the person's connection
 (`connection.required` and the `connection-required` part): it connects the viewer's own account

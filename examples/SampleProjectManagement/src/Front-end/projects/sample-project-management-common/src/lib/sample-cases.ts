@@ -5685,5 +5685,45 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-345",
+    "title": "An agent editor's save keeps an MCP server that was assigned while it was open, and the administration assigns servers one by one",
+    "category": "AI tools and generated catalogs",
+    "surface": "PUT admin/agents/{id} with mcpServerIds omitted, which keeps the agent's assignments, or [], which removes them; PUT and DELETE admin/mcp-servers/{id}/agents/{agentId} over INhAssistantMcpServers.AssignAsync and UnassignAsync, answering NhAssistantMcpServerDto with the service's codes (assistant-mcp-server-not-found, assistant-agent-not-found, mcpServerIds: too-long) behind the admin policy; the audit kind AdminMcpServerAssignmentChanged (assigned, unassigned); NhAssistantAdminApiService.assignMcpServer and unassignMcpServer, the optional AdminAgentInput.mcpServerIds, and the agent editor (nh-assistant-admin-agent-editor), which saves an existing agent without the list and then unassigns and assigns only the servers the administrator changed, with the text nh-assistant.admin.agent-editor.mcp-servers-failed",
+    "outcome": "The operations code connects the milestones server to the status advisor, and an administrator creates a milestone desk without servers; an editor opens the desk at version 1. Meanwhile another administrator assigns the milestones server to the desk with PUT admin/mcp-servers/milestones/agents/sample-milestone-desk: the server lists both agents, the desk keeps version 1, and a person without the admin policy is refused. The editor then saves version 1 without mcpServerIds, as the library's agent editor does for an existing agent: there is no conflict, the desk's next version keeps the milestones server, and DELETE removes the assignment again without another version. The audit records the assignment and its removal for the desk. The library's agent editor sends no list on an update and assigns or unassigns only the servers the administrator changed, removals first; when one fails, the definition stays saved, the editor shows that not every change went through and its next save continues on the new version. The library tests cover both relational providers for the endpoints, the omitted and the empty list, the admin policy and the audit.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpAdministrationEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agent-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-346",
+    "title": "The operations code reviews the milestone lookup before the host can reach the server, and the first sync keeps its settings",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantMcpServers.UpdateToolAsync and PUT admin/mcp-servers/{id}/tools/{remoteName} for a tool that no sync has seen yet, stored as missing without a schema with NhAssistantMcpToolDto.AwaitingSync, the field errors remoteName: too-long and remoteName: invalid and NhAssistantMcpServerLimits.MaxToolsAwaitingSync (assistant-configuration-limit); SyncAsync, whose first sight of the tool makes it available with the reviewed settings; the audit kinds AdminMcpToolReviewedBeforeSync and AdminMcpToolSeenAfterReview (enabled, disabled); McpTool.awaitingSync and the tools list's texts nh-assistant.admin.tools.status.awaiting-sync and nh-assistant.admin.tools.awaiting-sync-warning",
+    "outcome": "SampleAssistantOperationsService.PrepareMilestonesAsync prepares the milestones server before this host can reach it, as a move that brings the server along would: it stores the server with its API key, stores the reviewed settings of the next_milestone lookup (enabled, read-only, the assistant's description) before any sync has seen the tool, and assigns the server to the status advisor. Nothing contacts the server; the administration lists the lookup as missing and awaiting its sync, and no turn offers it. SyncMilestonesAsync is the first sync once the host reaches the server: the lookup takes its schema and becomes available, enabled and read-only with the reviewed description, and the audit records the review before the sync and the first sight after it, both enabled. The library tests cover both relational providers for a server that cannot be reached, a sync that does not see the tool, a name in another spelling than the server's, a later change of the schema, the refused names and the limit.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpToolsAwaitingSyncTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpAdministrationEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
+    ]
   }
 ] as const;

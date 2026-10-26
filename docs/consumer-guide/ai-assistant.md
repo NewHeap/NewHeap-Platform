@@ -160,7 +160,10 @@ invalid run filter. Clients map the code, never the status, to a text.
   `AssistantAgent` at startup and stay the default. Administrators override, disable
   and reset them (the source stays `code`) and create their own agents. Every change
   carries `expectedVersion`; a stale version returns `409`. Tool selectors apply to
-  local and bridge tools; MCP tools are assigned per server with `mcpServerIds`.
+  local and bridge tools; MCP tools are assigned per server with `mcpServerIds`. An update that
+  omits `mcpServerIds` keeps the agent's assignments, `[]` removes them, and a new agent without the
+  list has none; `PUT` and `DELETE admin/mcp-servers/{id}/agents/{agentId}` change one assignment
+  without a new agent version (SPM-345).
 - **Application context.** `UseDefaultApplicationContext` seeds version 1 once; a
   changed seed never replaces an existing context. Administrators edit it with
   `expectedVersion`, and the history is kept.
@@ -180,7 +183,11 @@ invalid run filter. Clients map the code, never the status, to a text.
   or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;
   administrators activate them and may mark them read-only, and a changed input
-  schema disables a tool again. Enabled tools of the servers assigned to an agent are
+  schema disables a tool again. The reviewed settings of a tool that no sync has seen yet, such as
+  a tool of a server the host cannot reach yet, are stored with `PUT admin/mcp-servers/{id}/tools/{remoteName}`
+  or `UpdateToolAsync` as a `missing` tool without a schema (`awaitingSync`) that no turn offers; the
+  first sync that sees it makes it `available` with those settings, after which a changed schema
+  disables it as any tool (SPM-346). Enabled tools of the servers assigned to an agent are
   imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
   approval, idempotency, budget and audit apply unchanged. An unreachable server is
   skipped for the turn. The client attaches the credential to every HTTP request and
@@ -208,8 +215,19 @@ invalid run filter. Clients map the code, never the status, to a text.
   server, `AgentId` the agent, `ResultCode` `assigned` or `unassigned`); a call that changes nothing is
   not. An agent has at most `NhAssistantMcpServerLimits.MaxServersPerAgent` servers (`mcpServerIds:
   too-long`); an unknown server or agent fails with `assistant-mcp-server-not-found` or
-  `assistant-agent-not-found`. The agent editor's save still replaces the whole list of servers, so an
-  editor opened before an assignment drops it when it saves; both are audited.
+  `assistant-agent-not-found`. The administration's `PUT` and `DELETE
+  admin/mcp-servers/{id}/agents/{agentId}` call them behind the admin policy, and an agent save that
+  omits `mcpServerIds` keeps the assignments, so an editor opened before an assignment no longer drops
+  it (SPM-345). `UpdateToolAsync` also takes a remote name that no sync has seen yet and stores its
+  reviewed settings as a tool awaiting its sync (`NhAssistantMcpToolDto.AwaitingSync`, status `missing`,
+  no schema), audited as `AdminMcpToolReviewedBeforeSync`: the name has at most 128 characters
+  (`remoteName: too-long`), no control characters and no other spelling of a stored tool's name
+  (`remoteName: invalid`), and a server holds at most `NhAssistantMcpServerLimits.MaxToolsAwaitingSync`
+  of them (`assistant-configuration-limit`). A tool awaiting its sync may be enabled; a tool the
+  server stopped listing may not (`assistant-mcp-tool-disabled`). The first sync that sees it, also in
+  the server's spelling when only the case differs, makes it `available` with its settings and audits
+  `AdminMcpToolSeenAfterReview` (`enabled` when its agents are offered it from now on); a sync that
+  does not see it leaves it waiting (SPM-346).
 - **Loopback MCP servers in tests.** Loopback (`localhost`, `127.0.0.0/8`, `::1`) is allowed in
   Development. A test host of another environment, such as `Testing`, that runs an MCP server on
   `127.0.0.1` sets `NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`,
@@ -1084,7 +1102,13 @@ absent from responses, logs and audit. Through `INhAssistantMcpServers`, assert 
 a created server never returns its secret, an update with a `null` secret keeps it, sync and tool
 updates audit as the administration does, an assignment offers the tools to the agent without a new
 agent version and is audited once, the per-agent limit refuses another server and the host guard
-refuses what the administration refuses. For loopback, assert that a `Testing` host reaches an MCP
+refuses what the administration refuses. Assert that an agent save without `mcpServerIds` keeps an
+assignment made after the editor read the agent, that `[]` clears them, and that the assignment
+endpoints answer `403` without the admin policy and the service's codes and audit with it (SPM-345).
+For a tool that no sync has seen, assert that it is stored `missing` without a schema and never
+offered, that a sync that cannot reach the server or does not see it leaves it waiting, that the first
+sync that sees it keeps its settings and a later schema change disables it, and that refused names and
+the limit audit nothing (SPM-346). For loopback, assert that a `Testing` host reaches an MCP
 server on loopback with `AllowLoopback` and refuses it without, that link-local and metadata hosts stay
 blocked, and that a Production host with the option does not start (SPM-331). For background runs, assert on both providers
 that a `never` server is not contacted, an `organization` server is offered and
@@ -1275,3 +1299,13 @@ division, and that audit and logs carry its hash but not its content (SPM-291).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs)
+- SPM-345 — An agent editor's save keeps an MCP server that was assigned while it was open, and the administration assigns servers one by one
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs)
+- SPM-346 — The operations code reviews the milestone lookup before the host can reach the server, and the first sync keeps its settings
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs)

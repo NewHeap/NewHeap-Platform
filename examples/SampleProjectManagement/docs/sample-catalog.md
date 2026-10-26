@@ -432,6 +432,17 @@ A test host of the environment `Testing` reaches the milestones server on loopba
 `NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
 runs the case.
 
+An agent editor that was opened before an MCP server was assigned no longer drops it when it saves
+(SPM-345). An administrator assigns the milestones server to a milestone desk with
+`PUT admin/mcp-servers/milestones/agents/sample-milestone-desk`, which changes only the assignment;
+the editor then saves the desk's version without `mcpServerIds`, so the desk's next version keeps the
+server, and `DELETE` removes the assignment again. The library's agent editor saves an existing agent
+that way and then assigns or unassigns only the servers the administrator changed. The operations code
+can also prepare the milestones server before the host can reach it (SPM-346):
+`PrepareMilestonesAsync` stores the lookup's reviewed settings before any sync has seen the tool, the
+administration lists it as not seen yet and no turn offers it, and `SyncMilestonesAsync`, the first sync,
+makes it available with those settings. `AssistantMcpAssignmentSamplesTests` runs both cases.
+
 A person may continue a chat with the project assistant in a messaging app (SPM-332). Signed in to the
 portal, they link the chat with `POST assistant-channel/links`; the messaging provider then delivers
 their messages and their answer to an approval card with the link token, without a sign-in.
