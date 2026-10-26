@@ -7,6 +7,7 @@ import {
 import { NhAssistantAdminAgentsComponent } from './agents/nh-assistant-admin-agents.component';
 import { NhAssistantAdminContextComponent } from './context/nh-assistant-admin-context.component';
 import { NhAssistantAdminMcpServersComponent } from './mcp/nh-assistant-admin-mcp-servers.component';
+import { startNhAssistantAdminTranslations } from './i18n/nh-assistant-admin-translations';
 
 export type NhAssistantAdminTab = 'context' | 'agents' | 'mcp-servers';
 
@@ -45,6 +46,8 @@ export class NhAssistantAdminComponent {
   readonly ready = signal(false);
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     afterNextRender(() => {
       void this.store.initialize().then(() => this.ready.set(true));
     });

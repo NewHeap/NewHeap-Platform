@@ -32,6 +32,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantRunResultComponent } from '@newheap/platform-ai-chat/agent-runs';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
@@ -130,6 +131,8 @@ export class NhAssistantAgentRunHistoryComponent {
   private applied: AgentRunFilter = {};
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
     effect(() => {
       this.agentId();

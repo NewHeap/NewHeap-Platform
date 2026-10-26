@@ -11,7 +11,7 @@ export * from './lib/models/assistant-agent-package.models';
 export * from './lib/models/assistant-document.models';
 export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
-export * from './lib/i18n/nh-assistant-translations';
+export { NH_ASSISTANT_TRANSLATIONS, NhAssistantTranslationMerger } from './lib/i18n/nh-assistant-translations';
 export * from './lib/i18n/nh-assistant-error-codes';
 export * from './lib/services/nh-assistant-sse-parser';
 export { NhAssistantStatusCodes } from './lib/services/nh-assistant-transport';
@@ -65,6 +65,8 @@ export {
 } from './lib/internal/nh-assistant-picker.component';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
+// The merge of bundled texts, shared with the administration, which brings its own texts.
+export { nhAssistantMergeTranslations as ɵnhAssistantMergeTranslations } from './lib/i18n/nh-assistant-translations';
 // The upload media type rule, shared with the mock API of the testing entry point.
 export { nhAssistantMediaTypeOf as ɵnhAssistantMediaTypeOf } from './lib/internal/nh-assistant-files';
 export {

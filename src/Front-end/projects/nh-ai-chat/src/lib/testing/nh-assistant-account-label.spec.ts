@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom, of, throwError } from 'rxjs';
+import { NH_ASSISTANT_ADMIN_TRANSLATIONS } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
@@ -44,6 +45,7 @@ describe('Accounts in the administration', () => {
     });
     const translate = TestBed.inject(TranslateService);
     translate.setTranslation('en', NH_ASSISTANT_TRANSLATIONS.en, true);
+    translate.setTranslation('en', NH_ASSISTANT_ADMIN_TRANSLATIONS.en, true);
     await firstValueFrom(translate.use('en'));
   });
 

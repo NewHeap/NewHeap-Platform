@@ -3,6 +3,7 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom, throwError, toArray } from 'rxjs';
 import { NhAssistantAgentConsultationRoutesComponent } from '../../../admin/src/agents/nh-assistant-agent-consultation-routes.component';
+import { startNhAssistantAdminTranslations } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 import { ApprovalPart } from '../models/assistant-api.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
@@ -95,6 +96,9 @@ async function configure(script = scenario()): Promise<void> {
     ]
   });
   await firstValueFrom(TestBed.inject(TranslateService).use('en'));
+  // The exported admin component that hosts this part starts the administration's texts; the
+  // spec renders the part on its own.
+  TestBed.runInInjectionContext(() => startNhAssistantAdminTranslations());
 }
 
 async function failure(promise: Promise<unknown>): Promise<NhAssistantApiError> {

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
-import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { NH_ASSISTANT_ADMIN_TRANSLATIONS, NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
 import { NH_ASSISTANT_ERROR_CODES } from '../i18n/nh-assistant-error-codes';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -287,7 +287,10 @@ describe('instruction assets in the administration', () => {
     const codes = ['assistant-instructions-asset-not-found', 'assistant-instructions-asset-unavailable', 'assistant-agent-instructions-unavailable'];
     expect(NH_ASSISTANT_ERROR_CODES).toEqual(jasmine.arrayContaining(codes));
     for (const language of ['en', 'nl'] as const) {
-      const keys = new Set(flatten(NH_ASSISTANT_TRANSLATIONS[language]));
+      const keys = new Set([
+        ...flatten(NH_ASSISTANT_TRANSLATIONS[language]),
+        ...flatten(NH_ASSISTANT_ADMIN_TRANSLATIONS[language])
+      ]);
       const missing = [
         ...problems.map(code => `nh-assistant.admin.run-config.problems.code.${code}`),
         ...problems.map(code => `nh-assistant.admin.instruction-assets.problems.${code}`),

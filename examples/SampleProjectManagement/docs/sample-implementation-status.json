@@ -1972,7 +1972,9 @@
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-agents.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin-mcp.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/agent-texts.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-display-name.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-display-name.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/i18n/nh-assistant-admin-translations.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/nh-assistant-translations.spec.ts"
     ],
     "SPM-254": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

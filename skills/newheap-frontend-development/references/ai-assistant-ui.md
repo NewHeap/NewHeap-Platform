@@ -137,7 +137,10 @@ point keeps the administration out of the initial bundle. Load the pages that sh
 administration, boards and inboxes with `loadComponent`, and never import one of the
 application's own barrels lazily: a dynamic import keeps all exports of the module, so a barrel
 the shell imports statically brings every page it exports into the initial bundle. The root entry
-point, with the launcher, panel, store and bundled texts, loads with the application.
+point, with the launcher, panel, store and its bundled texts, loads with the application; it is one
+module, so whatever a lazy page imports from it loads with the application as well. The
+administration's `nh-assistant.admin.` texts ship with `@newheap/platform-ai-chat/admin`
+(`NH_ASSISTANT_ADMIN_TRANSLATIONS`), and each of its components merges them when it is created.
 
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
 a region, such as `nl-NL`, receives the texts of its base language, so do not merge the
@@ -156,7 +159,9 @@ the administration by what was typed; a package agent the host does not have yet
 package names it. Translate the server's `assistant-model-region-denied` and the field error
 `region-not-permitted` as well when the host provides its own texts. A host that provides every text itself (`translations: 'host'`) covers
 `nh-assistant.errors.<code>` for each code in `NH_ASSISTANT_ERROR_CODES` (the server's
-`NH_ASSISTANT_SERVER_ERROR_CODES` plus the client-side codes). Theme the panel through the `--nh-assistant-*` custom
+`NH_ASSISTANT_SERVER_ERROR_CODES` plus the client-side codes), and takes the administration's
+texts from `NH_ASSISTANT_ADMIN_TRANSLATIONS` or `@newheap/platform-ai-chat/admin/i18n/en.json` and
+`nl.json` next to `NH_ASSISTANT_TRANSLATIONS` or `@newheap/platform-ai-chat/i18n/*.json`. Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
 management portal does, maps a new name when the library adds one, such as `attach` and `file` for

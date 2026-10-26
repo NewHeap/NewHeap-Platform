@@ -4,6 +4,7 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { Observable, firstValueFrom, of, throwError } from 'rxjs';
 import { NhAssistantAccountPickerComponent } from '../../../admin/src/agents/run-config/nh-assistant-account-picker.component';
+import { NH_ASSISTANT_ADMIN_TRANSLATIONS } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 import { NhAssistantSubjectPickerComponent } from '../../../agent-runs/src/internal/nh-assistant-subject-picker.component';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
 import { NhAssistantPickerComponent, NhAssistantPickerOption } from '../internal/nh-assistant-picker.component';
@@ -42,6 +43,7 @@ function apiError(status: number, code: string): NhAssistantApiError {
 async function useEnglish(): Promise<void> {
   const translate = TestBed.inject(TranslateService);
   translate.setTranslation('en', NH_ASSISTANT_TRANSLATIONS.en, true);
+  translate.setTranslation('en', NH_ASSISTANT_ADMIN_TRANSLATIONS.en, true);
   await firstValueFrom(translate.use('en'));
 }
 

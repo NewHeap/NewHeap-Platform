@@ -12,6 +12,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** Unsaved changes of one tool row. */
 interface ToolDraft {
@@ -60,6 +61,8 @@ export class NhAssistantAdminMcpToolsComponent {
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.rowSubscription?.unsubscribe();
