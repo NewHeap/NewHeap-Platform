@@ -504,9 +504,26 @@ public static class NhAssistantApprovalStatuses
     /// </summary>
     public const string Shadow = "shadow";
 
+    /// <summary>
+    /// A shadow proposal that a newer shadow proposal of the agent for the same objects replaced
+    /// within its proposal lifetime, as the approval policy's
+    /// <see cref="NhAiDuplicateProposals.Supersede"/> replaces a pending live proposal; the newer one
+    /// is named by its <c>supersededByApprovalId</c>. Never notified or executed.
+    /// </summary>
+    public const string ShadowSuperseded = "shadow-superseded";
+
     public static bool IsClosed(string status)
     {
-        return status is Rejected or Expired or Withdrawn or Stale or Executed or ExecutionFailed or Resolved or Shadow;
+        return status is Rejected or Expired or Withdrawn or Stale or Executed or ExecutionFailed or Resolved or Shadow or ShadowSuperseded;
+    }
+
+    /// <summary>
+    /// Whether a proposal in this status was recorded by a shadow run: <see cref="Shadow"/> or
+    /// <see cref="ShadowSuperseded"/>. Nobody decides, is notified of or counts such a proposal.
+    /// </summary>
+    public static bool IsShadow(string status)
+    {
+        return status is Shadow or ShadowSuperseded;
     }
 
     /// <summary>

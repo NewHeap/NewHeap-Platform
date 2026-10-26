@@ -1066,6 +1066,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("DecisionCulture")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
                     b.Property<DateTimeOffset?>("EscalatedAt")
                         .HasColumnType("datetimeoffset");
 

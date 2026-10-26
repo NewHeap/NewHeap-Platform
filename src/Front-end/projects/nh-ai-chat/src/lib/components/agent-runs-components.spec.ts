@@ -342,6 +342,23 @@ describe('agent-run components', () => {
       expect(button(fixture, 'proposal.hand-to-application')).toBeUndefined();
     });
 
+    it('shows a shadow proposal a newer one replaced with its status and its successor, without decisions', () => {
+      const newer = proposal('shadow', 'approval-2');
+      fixture.componentInstance.proposals.set([
+        { ...proposal('shadow-superseded'), executionResultCode: 'assistant-proposal-superseded', supersededByApprovalId: newer.approvalId },
+        newer
+      ]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const headers = Array.from(element.querySelectorAll('.card-header')).map(header => header.textContent ?? '');
+      expect(headers.some(header => header.includes('nh-assistant.agent-runs.proposal.status.shadow-superseded'))).toBeTrue();
+      expect(headers.some(header => /proposal\.status\.shadow(?!-)/.test(header))).toBeTrue();
+      expect(button(fixture, 'proposal.show-successor')).toBeDefined();
+      expect(button(fixture, 'proposal.approve')).toBeUndefined();
+    });
+
     it('hands an uncertain proposal the application executes to it again instead of running it', () => {
       const unknown: AgentProposal = {
         ...proposal('execution-unknown'),

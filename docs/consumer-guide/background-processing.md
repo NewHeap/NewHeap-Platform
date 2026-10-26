@@ -216,7 +216,7 @@ For reserved queue concurrency, on SQL Server and PostgreSQL, hold the shared sl
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisArchive.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectAnalysisArchive.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackgroundOperationCancellationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackgroundOperationCancellationSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs)
-- SPM-326 — Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started
+- SPM-326 — Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started and reads its facts
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs)

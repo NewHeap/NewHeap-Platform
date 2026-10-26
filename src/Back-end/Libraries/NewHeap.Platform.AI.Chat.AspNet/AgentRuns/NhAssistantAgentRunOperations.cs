@@ -300,6 +300,29 @@ internal static class NhAssistantRunCulture
         return new Restore(previous.CurrentCulture, previous.CurrentUICulture);
     }
 
+    /// <summary>
+    /// Uses the UI culture named <paramref name="uiCulture"/>, such as the one a person's turn worked
+    /// in, when the application supports it (<see cref="RequestLocalizationOptions.SupportedUICultures"/>),
+    /// with the supported culture of the same name for formatting or else the default one; otherwise,
+    /// and without a name, the application's default request culture, as <see cref="Use(RequestLocalizationOptions)"/>.
+    /// </summary>
+    public static IDisposable Use(RequestLocalizationOptions options, string? uiCulture)
+    {
+        var supported = string.IsNullOrEmpty(uiCulture)
+            ? null
+            : options.SupportedUICultures?.FirstOrDefault(item => string.Equals(item.Name, uiCulture, StringComparison.OrdinalIgnoreCase));
+        if (supported is null)
+        {
+            return Use(options);
+        }
+
+        var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        CultureInfo.CurrentCulture = options.SupportedCultures?.FirstOrDefault(item => string.Equals(item.Name, supported.Name, StringComparison.OrdinalIgnoreCase))
+            ?? options.DefaultRequestCulture.Culture;
+        CultureInfo.CurrentUICulture = supported;
+        return new Restore(previous.CurrentCulture, previous.CurrentUICulture);
+    }
+
     private sealed class Restore(CultureInfo culture, CultureInfo uiCulture) : IDisposable
     {
         public void Dispose()

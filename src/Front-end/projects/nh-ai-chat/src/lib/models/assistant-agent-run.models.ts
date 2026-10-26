@@ -23,7 +23,8 @@ export type AgentProposalStatus =
   | 'execution-failed'
   | 'execution-unknown'
   | 'resolved'
-  | 'shadow';
+  | 'shadow'
+  | 'shadow-superseded';
 
 export type AgentGrantSource = 'none' | 'delegated' | 'agent' | 'delegated-read' | 'accountable';
 

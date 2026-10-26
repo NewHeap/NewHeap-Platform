@@ -126,3 +126,44 @@ public sealed class ProjectStatusProposalGuard(
             : NhAiPreconditionResult.Satisfied;
     }
 }
+
+/// <summary>
+/// SPM-339: names what an equipment order changes, the order of one item for one project, so a newer
+/// order of the same item for the same project (another quantity) is a newer proposal for the same
+/// objects. The intake policy's duplicate rule then keeps one open order per item: a newer one replaces
+/// the open one, live and in shadow, as an agent whose arguments change on every run would otherwise
+/// pile up orders. The guard closes nothing: the order desk decides what an order still needs.
+/// </summary>
+public sealed class ProjectEquipmentProposalGuard : INhAiProposalGuard
+{
+    public const string KeyType = "project-equipment";
+
+    public static NhAiProposalKey Key(Guid projectId, string item)
+    {
+        return new NhAiProposalKey(KeyType, projectId.ToString("D") + "/" + item.Trim().ToLowerInvariant());
+    }
+
+    public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>(
+            Read(context) is { Item.Length: > 0 and <= ProjectAiEquipmentTools.MaxItemLength } input
+                ? [Key(input.ProjectId, input.Item)]
+                : []);
+    }
+
+    public ValueTask<NhAiPreconditionResult> CheckAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult(NhAiPreconditionResult.Satisfied);
+    }
+
+    private static ProjectAiEquipmentOrderInput? Read(NhAiProposalGuardContext context)
+    {
+        return context.ToolId == ProjectAiEquipmentTools.OrderEquipmentToolId
+            ? context.Arguments.Deserialize<ProjectAiEquipmentOrderInput>(JsonSerializerOptions.Web)
+            : null;
+    }
+}

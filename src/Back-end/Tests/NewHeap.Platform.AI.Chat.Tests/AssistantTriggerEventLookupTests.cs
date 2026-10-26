@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
@@ -180,6 +181,70 @@ public sealed class AssistantTriggerEventLookupTests(AssistantDatabaseFixture da
         Assert.Null(await FindByInputAsync(host, report.InputId.Value, OtherTenant));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_run_is_read_by_its_id_with_its_facts_within_its_tenant(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var projectId = Guid.NewGuid();
+        var project = Assert.Single(await PublishAsync(host, new OrderChanged(projectId, "order-1:v1", "created")));
+        var report = Assert.Single(await PublishAsync(host, new ApplicationReport("report-2026-10")));
+        var runId = project.RunId!.Value;
+
+        // The queued run names its agent, thread and trigger before it works.
+        var queued = (await FindRunAsync(host, runId))!;
+        Assert.Equal(
+            (runId, AgentId, new NhAiSubjectRef("project", projectId.ToString("N")), project.ConversationId!.Value, false),
+            (queued.RunId, queued.AgentId, queued.Subject, queued.ConversationId, queued.Shadow));
+        Assert.Equal(
+            (OrderTrigger, (string?)NhAssistantTriggerKinds.Event, (int?)null, false, NhAssistantRunKinds.Model, NhAssistantRunStatuses.Queued),
+            (queued.TriggerId, queued.TriggerKind, queued.TriggerVersion, queued.TriggerCandidate, queued.Kind, queued.Status));
+        Assert.Equal(
+            ((string?)null, (string?)null, 0, (string?)null, (string?)null, false, (DateTimeOffset?)null, (DateTimeOffset?)null),
+            (queued.FailureClass, queued.Summary, queued.ProposalCount, queued.Result, queued.FailureCode, queued.ResultTruncated, queued.StartedAt, queued.EndedAt));
+
+        // Once it ended, the facts say how: its attempt, proposals, summary, result and times.
+        var startedAt = new DateTimeOffset(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
+        await UpdateRunAsync(host, runId, run => run
+            .SetProperty(item => item.Status, NhAssistantRunStatuses.Failed)
+            .SetProperty(item => item.FailureClass, NhAssistantRunFailureClasses.Budget)
+            .SetProperty(item => item.FailureCode, NhAssistantErrorCodes.BudgetExhausted)
+            .SetProperty(item => item.Attempt, 2)
+            .SetProperty(item => item.Kind, NhAssistantRunKinds.RuleThenModel)
+            .SetProperty(item => item.ProposalCount, 3)
+            .SetProperty(item => item.Summary, "Proposed three orders.")
+            .SetProperty(item => item.Result, "## Orders\n\nThree orders wait for approval.")
+            .SetProperty(item => item.ResultTruncated, true)
+            .SetProperty(item => item.StartedAt, startedAt)
+            .SetProperty(item => item.EndedAt, startedAt.AddMinutes(2)));
+        var ended = (await FindRunAsync(host, runId, Tenant))!;
+        Assert.Equal(
+            (NhAssistantRunStatuses.Failed, (string?)NhAssistantRunFailureClasses.Budget, (string?)NhAssistantErrorCodes.BudgetExhausted, 2, NhAssistantRunKinds.RuleThenModel, 3),
+            (ended.Status, ended.FailureClass, ended.FailureCode, ended.Attempt, ended.Kind, ended.ProposalCount));
+        Assert.Equal(
+            ((string?)"Proposed three orders.", (string?)"## Orders\n\nThree orders wait for approval.", true),
+            (ended.Summary, ended.Result, ended.ResultTruncated));
+        Assert.Equal(
+            ((DateTimeOffset?)startedAt, (DateTimeOffset?)startedAt.AddMinutes(2)),
+            (ended.StartedAt?.ToUniversalTime(), ended.EndedAt?.ToUniversalTime()));
+        Assert.Equal(queued.CreatedAt, ended.CreatedAt);
+
+        // An unknown run and a run of another tenant read as not found.
+        Assert.Null(await FindRunAsync(host, Guid.NewGuid()));
+        Assert.Null(await FindRunAsync(host, Guid.NewGuid(), Tenant));
+        Assert.Null(await FindRunAsync(host, runId, OtherTenant));
+
+        // The whole application's run is stored without a tenant: the single tenant takes part in it,
+        // another tenant does not.
+        var whole = (await FindRunAsync(host, report.RunId!.Value, Tenant))!;
+        Assert.Equal(
+            (report.RunId.Value, NhAiSystemSubjects.Global, ReportTrigger, report.ConversationId!.Value),
+            (whole.RunId, whole.Subject, whole.TriggerId, whole.ConversationId));
+        Assert.Equal(whole, await FindRunAsync(host, report.RunId.Value));
+        Assert.Null(await FindRunAsync(host, report.RunId.Value, OtherTenant));
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
     {
         // The application's own database holds its orders and the background operations, so a trigger
@@ -329,6 +394,24 @@ public sealed class AssistantTriggerEventLookupTests(AssistantDatabaseFixture da
     private static Task<NhAssistantTriggerEventRun?> FindByInputAsync(AssistantTestHost host, Guid inputId, string? tenantId = null)
     {
         return LookupAsync(host, lookup => lookup.FindByInputAsync(inputId, tenantId));
+    }
+
+    private static async Task<NhAssistantAgentRunFacts?> FindRunAsync(AssistantTestHost host, Guid runId, string? tenantId = null)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantAgentRunLookup>().FindRunAsync(runId, tenantId);
+    }
+
+    /// <summary>
+    /// Writes what a run's execution would have written, without running it.
+    /// </summary>
+    private static async Task UpdateRunAsync(
+        AssistantTestHost host,
+        Guid runId,
+        Action<UpdateSettersBuilder<NewHeap.Platform.AI.Chat.Entities.AssistantRun>> set)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.Equal(1, await context.Runs.Where(run => run.Id == runId).ExecuteUpdateAsync(set));
     }
 
     private static async Task<NhAssistantTriggerEventRun?> LookupAsync(

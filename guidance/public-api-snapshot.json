@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.85",
   "backEnd": {
-    "hash": "3f6274335c592f8c823b639d77917f2a8ec13cfe62bfe3d3a4edbaf74ec1d54b",
-    "declarationCount": 11129,
+    "hash": "fbddd6494c7f247718c915593e2a14f61bac2ee195820295104262b2c2b2fabf",
+    "declarationCount": 11147,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4031,6 +4031,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public sealed record NhAssistantAgentRunFacts( Guid RunId, string AgentId, NhAiSubjectRef Subject, Guid ConversationId, bool Shadow, string TriggerId, string? TriggerKind, int? TriggerVersion, bool TriggerCandidate, string Kind, string Status, string? FailureClass, string? FailureCode, int Attempt, int ProposalCount, string? Summary, string? Result, bool ResultTruncated, DateTimeOffset CreatedAt, DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
         "declaration": "public sealed record NhAssistantTriggerEventRun( Guid InputId, string AgentId, string? TriggerId, string? EventKey, NhAiSubjectRef Subject, Guid ConversationId, bool Shadow, DateTimeOffset ReceivedAt, bool Waiting, DateTimeOffset? ConsumedAt, Guid? RunId, string? RunStatus);"
       },
       {
@@ -4040,6 +4044,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
         "declaration": "public async Task<NhAssistantTriggerEventRun?> FindByInputAsync( Guid inputId, string? tenantId = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
+        "declaration": "public async Task<NhAssistantAgentRunFacts?> FindRunAsync( Guid runId, string? tenantId = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
@@ -4128,6 +4136,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
         "declaration": "public static IDisposable Use(RequestLocalizationOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public static IDisposable Use(RequestLocalizationOptions options, string? uiCulture) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
@@ -8042,6 +8054,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261026094607_ApprovalCulture.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261026094607_ApprovalCulture.cs",
+        "declaration": "public partial class ApprovalCulture : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261026094607_ApprovalCulture.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261026094607_ApprovalCulture.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -8891,6 +8919,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261025090105_MetadataIndexValues.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261026094556_ApprovalCulture.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261026094556_ApprovalCulture.cs",
+        "declaration": "public partial class ApprovalCulture : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261026094556_ApprovalCulture.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261026094556_ApprovalCulture.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -14439,7 +14483,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? DecisionCulture { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public Guid ConcurrencyStamp { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public const int MaxDecisionCultureLength = 35;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
@@ -16499,7 +16551,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ShadowSuperseded = \"shadow-superseded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static bool IsClosed(string status) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static bool IsShadow(string status) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -20611,6 +20671,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantApproval>> FindOpenShadowProposalsForObjectsAsync( string scopeKey, string agentId, string toolId, IReadOnlyCollection<NhAiProposalKey> keys, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<ILookup<Guid, NhAiProposalKey>> GetApprovalKeysAsync( IReadOnlyCollection<Guid> approvalIds, CancellationToken cancellationToken) {"
       },
       {
@@ -20732,6 +20796,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public Guid? SupersededByApprovalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public string? DecisionCulture { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -21527,7 +21595,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
-        "declaration": "public async Task<NhAssistantDuplicateCheck> CheckShadowAsync( AssistantThread thread, string toolId, string argumentsHash, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<NhAssistantDuplicateCheck> CheckShadowAsync( AssistantThread thread, string toolId, string argumentsHash, IReadOnlyCollection<NhAiProposalKey> keys, NhAiApprovalPolicy? policy, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
@@ -21592,6 +21660,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
         "declaration": "public async Task<AssistantApproval?> SupersedeAsync( AssistantApproval approval, AssistantThread thread, Guid supersededBy, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+        "declaration": "public async Task<AssistantApproval?> SupersedeShadowAsync( AssistantApproval approval, AssistantThread thread, Guid supersededBy, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
@@ -48055,6 +48127,8 @@
       "NhAssistantAgentRunOperationsBuilder",
       "INhAssistantAgentRunLookup",
       "NhAssistantTriggerEventRun",
+      "NhAssistantAgentRunFacts",
+      "FindRunAsync",
       "NhAiAgentAccountability",
       "NhAiGrantSource",
       "NhAiAgentGrant",
@@ -48070,6 +48144,7 @@
       "NhAiSubjectAuthorizationResource",
       "NhAssistantRunStatuses",
       "NhAssistantApprovalModes",
+      "NhAssistantApprovalStatuses",
       "AddScheduledTrigger",
       "NhAssistantScheduleBuilder",
       "NhAssistantScheduledTick",

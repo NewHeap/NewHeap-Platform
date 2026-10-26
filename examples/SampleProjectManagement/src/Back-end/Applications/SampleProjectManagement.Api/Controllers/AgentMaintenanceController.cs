@@ -16,7 +16,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// work on its own and resume it, each with a reason.
 /// SPM-293 and SPM-294: they also put an agent or a skill in shadow or live and replace the
 /// technical account an agent answers to, without a deploy.
-/// SPM-326: they find the intake review that a project's creation event started.
+/// SPM-326: they find the intake review that a project's creation event started and read the facts
+/// of its run.
 /// </summary>
 [ApiController]
 [Route("agent-maintenance")]
@@ -41,6 +42,24 @@ public sealed class AgentMaintenanceController(
         }
 
         return Ok(review);
+    }
+
+    [HttpGet("intake-reviews/{eventId:guid}/run")]
+    [EndpointSummary("Read the facts of the intake review a project's creation started")]
+    [EndpointDescription("eventId is the id of the project-created event. Returns the review run's agent, project, thread, trigger, status, failure class and code, attempt, proposal count, summary and result (model output, untrusted Markdown) and its times, read by the run's id without the person checks of GET runs/{id}. 404 while no input holds the event or the event names no run.")]
+    [ProducesResponseType<NhAssistantAgentRunFacts>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> FindIntakeReviewRun([FromRoute] Guid eventId, CancellationToken cancellationToken)
+    {
+        var run = await intakeReviews.FindRunAsync(eventId, cancellationToken);
+        if (run is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(run);
     }
 
     [HttpGet]

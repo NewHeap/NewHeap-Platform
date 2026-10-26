@@ -351,7 +351,11 @@ A person can also order equipment in their own chat with the project assistant (
 is declared with `AlsoInline`, so approving the card in the chat hands the order to the order desk as
 well, instead of running the tool's function: the turn ends saying the desk has it, and the desk's report
 is posted into that chat as a message of the application with the outcome, the supplier's code and its
-summary. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
+summary. The approval records the UI culture of the person's turn, so the report, an uncertain outcome
+and a passed deadline read in that language, title included: English for a person whose client reads
+English, although the application defaults to Dutch, and Dutch for one whose client reads Dutch. An
+approval handed off before the culture was recorded reads in the default culture, and agent threads
+keep it. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
 offers the person who approved it to hand it to the order desk again or to mark it done.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
@@ -359,6 +363,14 @@ waits for a decision, but within its seven-day lifetime it counts as open, as th
 it: when a task of the project is saved again, the next shadow run finds the same proposal, records
 nothing new and is audited as `AgentProposalDeduplicated`, so evaluating the closer in shadow compares
 what it would really propose live. `AssistantAgentRunSamplesTests` runs it.
+
+In shadow the intake reviewer keeps one order per item, as it would live (SPM-339). Shadow proposals
+name their objects as live ones do: `ProjectEquipmentProposalGuard` names the project and item of an
+equipment order. While an operator evaluates the reviewer in shadow, an administrator starts it to order
+three laptops for a project and then five: within the proposal's lifetime the newer shadow order
+replaces the first under the intake policy's `Supersede`, the first becomes `shadow-superseded` and
+names its successor, and the audit records `AgentProposalSuperseded`. Nothing reaches the order desk and
+neither order waits in an inbox. A policy with `Skip` reports the newer one as already open instead.
 
 A changed data trigger can be tried in shadow before it replaces the live one (SPM-316). The planner's
 status follow-up skips the planner's own changes (SPM-308); `SampleAgentConfigurationService` saves the
@@ -899,8 +911,13 @@ holds the event, and the maintenance page finds the review by the event's id
 (`GET /agent-maintenance/intake-reviews/{eventId}`) through
 `INhAssistantAgentRunLookup`: the input, the run it started and that run's
 status once it claimed the event. A redelivered event finds the review of its
-first delivery. The library tests prove the reserved slots on both providers,
-the lookup for every kind of fire and a host with `RunSchedules` off.
+first delivery. The page then reads the review run's facts by its id
+(`GET /agent-maintenance/intake-reviews/{eventId}/run`) with
+`INhAssistantAgentRunLookup.FindRunAsync`: its agent, project, thread, trigger,
+status, failure, attempt, proposal count, summary and result, without reading the
+assistant's tables. The library tests prove the reserved slots on both providers,
+the lookup for every kind of fire, the run facts within their tenant and a host
+with `RunSchedules` off.
 
 ## Edit modal
 

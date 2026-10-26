@@ -106,28 +106,58 @@ internal sealed class NhAssistantProposalDuplicates(NhAssistantRunStore runs, Ti
     }
 
     /// <summary>
-    /// The duplicate check of a shadow proposal (LS9): a shadow proposal with the same identity (tool
-    /// and canonical arguments) of the agent in its shadow threads within the scope, recorded within its
-    /// proposal lifetime, counts as open, so the new one is not recorded and is reported as
-    /// <see cref="NhAssistantProposeOutcome.AlreadyOpen"/>, as a live proposal would be. Shadow
-    /// proposals store no object keys and are never rejected or superseded, so only this identity rule
-    /// applies; the evaluation then compares what the live agent would really have proposed.
+    /// The duplicate check of a shadow proposal, among the agent's shadow proposals in its shadow
+    /// threads within the scope that were recorded within their proposal lifetime, which count as open
+    /// because nobody decides them. First the identity rule (LS9): one with the same identity (tool and
+    /// canonical arguments) makes the new one unnecessary, reported as
+    /// <see cref="NhAssistantProposeOutcome.AlreadyOpen"/>, as a live proposal would be. Then the
+    /// policy's rule for a newer proposal for the same objects, as the guards named them (FB3):
+    /// <see cref="NhAiDuplicateProposals.Skip"/> reports the new one as already open,
+    /// <see cref="NhAiDuplicateProposals.Supersede"/> records it and replaces the older ones, which
+    /// become <see cref="NhAssistantApprovalStatuses.ShadowSuperseded"/>, and
+    /// <see cref="NhAiDuplicateProposals.Allow"/> keeps both. The rejection cooldown does not apply,
+    /// because nobody rejects a shadow proposal. The evaluation then compares what the live agent
+    /// would really have proposed.
     /// </summary>
     public async Task<NhAssistantDuplicateCheck> CheckShadowAsync(
         AssistantThread thread,
         string toolId,
         string argumentsHash,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        NhAiApprovalPolicy? policy,
         CancellationToken cancellationToken)
     {
+        var now = _applicationClock.GetUtcNow();
         var open = await runs.FindOpenShadowProposalAsync(
             thread.ScopeKey,
             thread.AgentId,
             toolId,
             argumentsHash,
-            _applicationClock.GetUtcNow(),
+            now,
             cancellationToken);
-        return open is null
-            ? NhAssistantDuplicateCheck.None
-            : new NhAssistantDuplicateCheck(NhAssistantProposeOutcome.AlreadyOpen, open, []);
+        if (open is not null)
+        {
+            return new NhAssistantDuplicateCheck(NhAssistantProposeOutcome.AlreadyOpen, open, []);
+        }
+        if (keys.Count == 0 || policy is null || policy.Duplicates == NhAiDuplicateProposals.Allow)
+        {
+            return NhAssistantDuplicateCheck.None;
+        }
+
+        var sameObjects = await runs.FindOpenShadowProposalsForObjectsAsync(
+            thread.ScopeKey,
+            thread.AgentId,
+            toolId,
+            keys,
+            now,
+            cancellationToken);
+        if (sameObjects.Count == 0)
+        {
+            return NhAssistantDuplicateCheck.None;
+        }
+
+        return policy.Duplicates == NhAiDuplicateProposals.Skip
+            ? new NhAssistantDuplicateCheck(NhAssistantProposeOutcome.AlreadyOpen, sameObjects[0], [])
+            : NhAssistantDuplicateCheck.None with { Superseded = sameObjects };
     }
 }

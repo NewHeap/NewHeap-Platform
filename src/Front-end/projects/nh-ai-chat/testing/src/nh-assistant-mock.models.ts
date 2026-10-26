@@ -832,6 +832,11 @@ export interface NhAssistantMockProposal {
   executionReportDueAt?: string | null;
   /** The execution's result code, such as `report-overdue`. Default none. */
   executionResultCode?: string | null;
+  /**
+   * The newer proposal for the same objects that replaced this one, as the server names it for a
+   * `withdrawn` proposal and a `shadow-superseded` shadow proposal. Default none.
+   */
+  supersededByApprovalId?: string | null;
 }
 
 /** One request the mock API received, for assertions in tests. */

@@ -83,7 +83,9 @@ internal sealed class NhAssistantApplicationExecutions(
     /// <summary>
     /// Hands a person's inline approval in their own conversation to the application (LS17), as
     /// <see cref="HandOffAsync"/> does for an approved deferred proposal. The decision ran the proposal
-    /// guards already; no background operation carries the hand-off.
+    /// guards already; no background operation carries the hand-off. In a person's chat the approval
+    /// records the UI culture of the turn that approved it, in which the chat later reads the close of
+    /// the hand-off (FB4).
     /// </summary>
     public async Task<NhAssistantHandOffOutcome?> HandOffInlineAsync(
         AssistantApproval approval,
@@ -97,7 +99,16 @@ internal sealed class NhAssistantApplicationExecutions(
         var thread = await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken);
         var home = thread is null ? HomeOf(conversation, approval) : HomeOf(thread);
         var proposal = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
-        return await HandOffCoreAsync(approval, home, proposal, execution, InlineHandOffStatuses, operationId: null, inline: true, cancellationToken);
+        return await HandOffCoreAsync(
+            approval,
+            home,
+            proposal,
+            execution,
+            InlineHandOffStatuses,
+            operationId: null,
+            inline: true,
+            cancellationToken,
+            decisionCulture: thread is null ? CultureOfTurn() : null);
     }
 
     /// <summary>
@@ -335,7 +346,9 @@ internal sealed class NhAssistantApplicationExecutions(
 
     /// <summary>
     /// Hands the proposal to the executor from <paramref name="fromStatuses"/>, once, and returns how it
-    /// ended; <see langword="null"/> when another worker moved the proposal first.
+    /// ended; <see langword="null"/> when another worker moved the proposal first. A
+    /// <paramref name="decisionCulture"/> is recorded with the hand-off; without one the approval keeps
+    /// the culture it recorded, as a resolution's new hand-off does.
     /// </summary>
     private async Task<NhAssistantHandOffOutcome?> HandOffCoreAsync(
         AssistantApproval approval,
@@ -345,7 +358,8 @@ internal sealed class NhAssistantApplicationExecutions(
         IReadOnlyCollection<string> fromStatuses,
         Guid? operationId,
         bool inline,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? decisionCulture = null)
     {
         var executor = services.GetService<INhAssistantProposalExecutor>()
             ?? throw new InvalidOperationException(
@@ -360,7 +374,8 @@ internal sealed class NhAssistantApplicationExecutions(
                 ExecutionOperationId = operationId,
                 CountExecutionAttempt = true,
                 ExecutionReportDueAt = dueAt,
-                ClearExecutedAt = true
+                ClearExecutedAt = true,
+                DecisionCulture = decisionCulture
             },
             CancellationToken.None);
         if (!handed)
@@ -492,8 +507,13 @@ internal sealed class NhAssistantApplicationExecutions(
             CancellationToken.None);
         if (home.Thread is not { } thread)
         {
-            // A chat has no approvers to notify: the person reads the outcome in their conversation.
-            await PostAsync(current, home, ReportText(outcome, code, summary), "execution-report-");
+            // A chat has no approvers to notify: the person reads the outcome in their conversation, in
+            // the culture of the turn that approved it.
+            using (UseChatCulture(current))
+            {
+                await PostAsync(current, home, ReportText(outcome, code, summary), "execution-report-");
+            }
+
             return current;
         }
 
@@ -549,7 +569,12 @@ internal sealed class NhAssistantApplicationExecutions(
             CancellationToken.None);
         if (home.Thread is not { } thread)
         {
-            await PostAsync(current, home, ReportText(NhAssistantExecutionOutcome.NeedsAttention, code, null), "execution-unknown-");
+            // The executor's failure and the passed deadline read as the report does.
+            using (UseChatCulture(current))
+            {
+                await PostAsync(current, home, ReportText(NhAssistantExecutionOutcome.NeedsAttention, code, null), "execution-unknown-");
+            }
+
             return true;
         }
 
@@ -564,6 +589,27 @@ internal sealed class NhAssistantApplicationExecutions(
             failureCode: code);
         await FollowUpAsync(current, thread);
         return true;
+    }
+
+    /// <summary>
+    /// The culture a person's chat reads the close of its handed-off proposal in (FB4): the UI culture of
+    /// the turn that approved it, when the application still supports it, otherwise the application's
+    /// default request culture, as for an approval handed off before the culture was recorded. An agent
+    /// thread keeps the default culture of reports and deadlines (DN8).
+    /// </summary>
+    private IDisposable UseChatCulture(AssistantApproval approval)
+    {
+        return NhAssistantRunCulture.Use(localization.Value, approval.DecisionCulture);
+    }
+
+    /// <summary>
+    /// The UI culture the current turn works in, as a person's request or service turn set it; a name
+    /// longer than the approval keeps is not recorded.
+    /// </summary>
+    private static string? CultureOfTurn()
+    {
+        var name = CultureInfo.CurrentUICulture.Name;
+        return name.Length is > 0 and <= AssistantApproval.MaxDecisionCultureLength ? name : null;
     }
 
     /// <summary>

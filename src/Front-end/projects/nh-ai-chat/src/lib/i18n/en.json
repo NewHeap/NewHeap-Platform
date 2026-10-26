@@ -195,7 +195,8 @@
         "execution-failed": "Failed",
         "execution-unknown": "Outcome unknown",
         "resolved": "Resolved",
-        "shadow": "Shadow"
+        "shadow": "Shadow",
+        "shadow-superseded": "Shadow, replaced"
       },
       "waiting-for": "Waiting for {{name}} to decide. The action uses their permissions.",
       "waiting-for-participant": "Waiting for the participant who started this task to decide.",
@@ -2493,7 +2494,8 @@
           "execution-failed": "Failed",
           "execution-unknown": "Outcome unknown",
           "resolved": "Resolved",
-          "shadow": "Shadow"
+          "shadow": "Shadow",
+          "shadow-superseded": "Shadow, replaced"
         },
         "from-consultation": "From a consultation",
         "from-consultation-hint": "Another assistant consulted the agent for a person, and the agent proposed this.",

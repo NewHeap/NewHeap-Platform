@@ -335,7 +335,8 @@ export interface ToolCallPart {
  * Chat approvals are `pending`, `approved`, `rejected` or `expired`; proposals of agents that run on
  * their own continue through execution (`executing`, `executed`, `execution-failed`,
  * `execution-unknown`, `resolved`, and `awaiting-application` while the application executes the
- * proposal of a tool it declared with `ExecuteInApplication`) or end as `withdrawn`, `stale` or `shadow`.
+ * proposal of a tool it declared with `ExecuteInApplication`) or end as `withdrawn`, `stale` or `shadow`;
+ * a shadow proposal that a newer one for the same objects replaced is `shadow-superseded`.
  */
 export type ApprovalStatus =
   | 'pending'
@@ -350,7 +351,8 @@ export type ApprovalStatus =
   | 'execution-failed'
   | 'execution-unknown'
   | 'resolved'
-  | 'shadow';
+  | 'shadow'
+  | 'shadow-superseded';
 
 export interface ApprovalPresentationField {
   label: string;

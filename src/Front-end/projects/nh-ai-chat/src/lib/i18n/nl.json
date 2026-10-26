@@ -195,7 +195,8 @@
         "execution-failed": "Mislukt",
         "execution-unknown": "Uitkomst onbekend",
         "resolved": "Afgehandeld",
-        "shadow": "Schaduw"
+        "shadow": "Schaduw",
+        "shadow-superseded": "Schaduw, vervangen"
       },
       "waiting-for": "Wacht op de beslissing van {{name}}. De actie gebruikt diens rechten.",
       "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
@@ -2493,7 +2494,8 @@
           "execution-failed": "Mislukt",
           "execution-unknown": "Uitkomst onbekend",
           "resolved": "Afgehandeld",
-          "shadow": "Schaduw"
+          "shadow": "Schaduw",
+          "shadow-superseded": "Schaduw, vervangen"
         },
         "from-consultation": "Uit een raadpleging",
         "from-consultation-hint": "Een andere assistent raadpleegde de agent voor iemand, en de agent stelde dit voor.",
