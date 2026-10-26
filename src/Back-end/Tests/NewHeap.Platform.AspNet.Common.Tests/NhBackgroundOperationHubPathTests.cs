@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
@@ -78,6 +79,8 @@ public sealed class NhBackgroundOperationHubPathTests
         var change = await connection.ReceiveMessageAsync(type: 1);
         change.GetProperty("target").GetString().Should().Be(nameof(INhBackgroundOperationHubClient.OperationChanged));
         change.GetProperty("arguments")[0].GetProperty("operationId").GetGuid().Should().Be(operationId);
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
 
     /// <summary>
@@ -92,6 +95,7 @@ public sealed class NhBackgroundOperationHubPathTests
             EnvironmentName = Environments.Development
         });
         builder.WebHost.UseTestServer();
+        builder.Logging.ClearProviders();
         var databaseName = Guid.NewGuid().ToString("N");
         builder.Services.AddDbContext<HubPathDbContext>(options => options.UseInMemoryDatabase(databaseName));
         builder.Services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
