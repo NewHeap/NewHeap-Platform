@@ -1,95 +1,5 @@
 # v-next
 
-## NewHeap.Platform.AI.Chat.AspNet: request delegates generated at build time
-
-The library builds with ASP.NET Core's Request Delegate Generator (`EnableRequestDelegateGenerator`), so
-the request delegates of all the assistant's minimal API endpoints (141 in this release) are written when the package is built.
-A host that calls `MapNewHeapAssistant` no longer compiles them with `RequestDelegateFactory` while it
-starts. Applications change nothing.
-
-Measured with `AssistantRequestDelegateTests.Measure_mapping_and_building_the_assistant_endpoints`
-(`NH_MEASURE_ENDPOINTS=1`, Release, Windows 11, Intel Core Ultra 9 275HX, .NET 10.0.12): the time of
-`MapNewHeapAssistant` plus the first read of every endpoint, for 20 hosts in one process after three
-warm-up hosts, and for the first host of the process. The ranges cover four runs before and five after;
-the first host was recorded in two and four of them.
-
-| Per host | Before | After |
-|---|---:|---:|
-| Wall-clock time, median | 225–231 ms | 6.5–7.0 ms |
-| Process CPU time, mean | 248–270 ms | 6–11 ms |
-| First host of the process, wall-clock time | 270–271 ms | 91–95 ms |
-
-Routes, endpoint names, summaries, `Produces` metadata, tags, filters, authorization, the binding of
-route and query values (a malformed value still answers 400) and the 404 of a disabled assistant are
-unchanged; the sample's OpenAPI document is the same. The endpoints' metadata now also holds the
-generator's `GeneratedCodeAttribute`, and the generator's `IParameterBindingMetadata` reports
-`HasTryParse` false for `string` parameters, which need no parsing.
-
-| Breaking change | Required action |
-|---|---|
-| None. | None. |
-
-## NewHeap.Platform.AspNet.Common: background-operation errors during a cancellation and the hub path
-
-The runner's failure path now checks the platform's stop signals before it records an error that a
-handler threw outside a step, as the recording of a failed step already does:
-
-- While the attempt's cancellation is requested, the error no longer fails the operation. It ends
-  `Cancelled` (`cancelled`, `background-operation.cancelled`), or `TimedOut` (`soft-timeout`) when
-  the soft time-out fired first, and nothing retries the error, which is logged as a warning with the
-  operation and attempt. This covers a client library that reports a cancelled call as an error of
-  its own as well as an unrelated error after the owner cancelled.
-- A lost fence and contention for the operation lock that the heartbeat recorded still win: the
-  stopped attempt records nothing, or the operation is rescheduled as busy without spending a retry.
-- Without such a signal the error fails the attempt as `handler-failed` with the operation's retry
-  rules, as before.
-
-`NhBackgroundOperationsOptions.HubPath` no longer has to lie below `/hub`. Since the query token
-follows the configured hub paths, any absolute application path below the root works, such as
-`/hubs/background-operations`, except a path on the operations' own API under
-`/background-operations`. The default stays `/hub/background-operations`.
-
-| Breaking change | Required action |
-|---|---|
-| An error that a handler throws outside a step while its cancellation is requested ends the operation `Cancelled`, or `TimedOut` after a fired soft time-out, without a retry, instead of `handler-failed` with a scheduled retry or a terminal failure; it is logged as a warning without a diagnostic correlation id. | None, unless monitoring, a notification policy or a test expected `handler-failed` for such an error; expect `Cancelled`. |
-| An error that a handler throws outside a step after the heartbeat stopped the attempt for lock contention reschedules the operation as `concurrency-busy` without spending a retry, instead of recording `handler-failed`. | None. |
-| None for `HubPath`: a path outside `/hub` is now accepted, while a relative, empty or root path and a path under `/background-operations` are still refused. | None. A host that moves the hub points the Angular client's `hubUrlSuffix` at the same path. |
-
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP assignments one by one and tools reviewed before a sync
-
-`PUT admin/agents/{id}` now treats an omitted `mcpServerIds` as it treats the other optional fields: the
-agent keeps its MCP assignments. `[]` still removes them all, a list still replaces them, and a new agent
-without the list still has none. An editor that read an agent before an assignment therefore no longer
-drops it when it saves.
-
-The new `PUT` and `DELETE admin/mcp-servers/{id}/agents/{agentId}` assign a server to one agent or remove
-the assignment through `INhAssistantMcpServers.AssignAsync` and `UnassignAsync`, behind the admin policy:
-only the assignment changes, never the agent's definition or version; a call that changes nothing is not
-audited; they answer the server with its `assignedAgentIds`, `404` for an unknown server or agent and
-`400` with `mcpServerIds: too-long` for an agent with 32 servers. Each change is audited as
-`AdminMcpServerAssignmentChanged`.
-
-`INhAssistantMcpServers.UpdateToolAsync` and `PUT admin/mcp-servers/{id}/tools/{remoteName}` also take a
-tool that no sync has seen yet, such as a tool of a server the host cannot reach yet. They store its
-reviewed settings (enabled, effect, description) as a tool with the status `missing`, no schema and the new
-`NhAssistantMcpToolDto.AwaitingSync`, which no turn offers. Its name has at most 128 characters
-(`remoteName: too-long`), no control characters and no other spelling of a stored tool's name
-(`remoteName: invalid`); a server holds at most `NhAssistantMcpServerLimits.MaxToolsAwaitingSync` (100)
-of them (`409 assistant-configuration-limit`). Such a tool can be enabled while it waits; a tool the server
-stopped listing still cannot (`assistant-mcp-tool-disabled`). The first sync that sees the tool, also in
-the server's spelling when only the case differs, makes it `available` with these settings and the schema
-it saw; a later change of the schema disables it as for any tool, and a sync that does not see it leaves it
-waiting. New audit kinds: `AdminMcpToolReviewedBeforeSync` (113) for the stored settings and
-`AdminMcpToolSeenAfterReview` (114) for the first sync that saw the tool, each with `ObjectId`
-`<server>/<remote name>` and `ResultCode` `enabled` or `disabled`. No migration: the row uses the existing
-columns.
-
-| Breaking change | Required action |
-|---|---|
-| `PUT admin/agents/{id}` without `mcpServerIds` keeps the agent's MCP assignments instead of removing them all. | A client that removed every assignment by leaving the list out sends `mcpServerIds: []`. |
-| `PUT admin/mcp-servers/{id}/tools/{remoteName}` and `UpdateToolAsync` store a remote name that no sync has seen as a tool awaiting its sync instead of failing with `404 assistant-mcp-tool-not-found`, and a tool of an unknown server fails with `assistant-mcp-server-not-found`. | A client that relied on `assistant-mcp-tool-not-found` for an unknown name reads `awaitingSync` of the answer or lists the tools first. |
-| None for the assignment endpoints, `AwaitingSync`, `MaxToolsAwaitingSync` and the audit kinds 113 and 114. | None; an audit sink that maps every kind adds the two new ones. |
-
 ## @newheap/platform-ai-chat: the agent editor assigns MCP servers one by one
 
 The agent editor of `@newheap/platform-ai-chat/admin` still creates a new agent with its MCP servers, but
@@ -108,60 +18,6 @@ settings change there and the first sync makes it available with them. The mock 
 | `AdminAgentInput.mcpServerIds` is optional; `AdminAgent.mcpServerIds` stays required. | Code that reads `mcpServerIds` from an `AdminAgentInput` handles `undefined`; a host form that saves an agent omits the list to keep the assignments and sends `[]` only to remove them all. |
 | A host that translates every text itself (`translations: 'host'`) misses three new keys. | Add `nh-assistant.admin.agent-editor.mcp-servers-failed`, `nh-assistant.admin.tools.status.awaiting-sync` and `nh-assistant.admin.tools.awaiting-sync-warning`. |
 
-## NewHeap.Platform.AI.Chat.AspNet: a run's facts by its id
-
-`INhAssistantAgentRunLookup.FindRunAsync(runId, tenantId)` reads one agent run for the application, such
-as the run a receipt or `FindByEventAsync` named: `NhAssistantAgentRunFacts` gives its agent, subject and
-thread, whether it is shadow work, its trigger with the trigger's kind, version and candidate flag, how it
-worked, its status, failure class and code, attempt, proposal count, summary, its result with
-`ResultTruncated` (in the caller's UI culture when the run's rules wrote it per culture) and when it was
-created, started and ended. It returns `null` for an unknown run. Like the event lookup it checks no
-person's access, and with a tenant it finds only that tenant's work and the whole application's work for
-a tenant that takes part (`UseSingleTenant`). The result is model output: render it only with a safe
-Markdown renderer, never as HTML. The event lookup is unchanged.
-
-| Breaking change | Required action |
-|---|---|
-| `INhAssistantAgentRunLookup` gains `FindRunAsync`. | A class of the application that implements the interface, such as a test fake, implements `FindRunAsync`; callers change nothing. |
-
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow proposals that replace each other
-
-A shadow proposal now stores the objects its guards name (`INhAiProposalGuard.GetKeysAsync`), as a live
-proposal does; no migration is needed. After the identity rule, the approval policy's
-`NhAiDuplicateProposals` applies among the agent's shadow proposals in its shadow threads of the scope
-that are still within their proposal lifetime: `Skip` reports a newer shadow proposal for the same objects
-as `AlreadyOpen` and records nothing, `Supersede` records it and closes the older one with the new status
-`shadow-superseded` (`NhAssistantApprovalStatuses.ShadowSuperseded`, with `supersededByApprovalId` and
-the `AgentProposalSuperseded` audit event), and `Allow` keeps both. The rejection cooldown does not apply
-to shadow proposals. Revalidation, inboxes, `INhAssistantProposalCounts`, the feedback report and
-notifications keep leaving shadow proposals out, `shadow-superseded` ones included
-(`NhAssistantApprovalStatuses.IsShadow`). The evaluation of a shadow variant counts every proposal once,
-in the run that made it, so a replaced shadow proposal pairs with the live proposal that a newer one
-replaced too.
-
-| Breaking change | Required action |
-|---|---|
-| The guards of a tool now name the objects of its shadow proposals too: `GetKeysAsync` runs when a shadow run proposes. | None, unless a guard's `GetKeysAsync` must not run for shadow work; it gets the shadow thread's subject and scope. |
-| A newer shadow proposal for the same objects within the older one's lifetime replaces it (`Supersede`, the default) or is not recorded (`Skip`), instead of being recorded next to it. | None, unless a report counted every shadow proposal; count the `AgentProposalSuperseded` and `AgentProposalDeduplicated` events of shadow threads for them. |
-| Proposals can have the status `shadow-superseded`, which `NhAssistantApprovalStatuses.IsClosed` treats as closed. | A client or report that lists the approval statuses accepts `shadow-superseded`, or uses `IsShadow` for both shadow statuses. |
-
-## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: a chat report in the conversation's language
-
-When a person approves a tool declared with `AlsoInline` in their own chat, the approval records the UI
-culture of that turn (`AssistantApproval.DecisionCulture`). The application message that a report, an
-uncertain hand-off and a passed report deadline post into the chat, its title included, is written in that
-culture when the application still supports it as a UI culture (`RequestLocalizationOptions.SupportedUICultures`),
-otherwise in the default request culture, as for an approval handed off before the culture was recorded. A
-resolution that hands the proposal to the application again keeps the recorded culture. An agent thread
-keeps the default request culture for what reports and deadlines post (DN8). The migration
-`ApprovalCulture` adds the nullable column `DecisionCulture` (at most 35 characters) to
-`AssistantApproval` on SQL Server and PostgreSQL.
-
-| Breaking change | Required action |
-|---|---|
-| The assistant schema gains the migration `ApprovalCulture` (one nullable column). | Apply it with `RunMigrations` or in the deployment step that applies the assistant's migrations. |
-| The posts of a chat's inline hand-off use the culture of the turn that approved it instead of the application's default request culture. | None, unless a test or integration expected the default culture's text in the chat; expect the approving person's language. |
-
 ## @newheap/platform-ai-chat: shadow proposals that a newer one replaced
 
 `AgentProposalStatus` and `ApprovalStatus` gain `shadow-superseded`, the status of a shadow proposal that
@@ -173,55 +29,6 @@ proposal.
 | Breaking change | Required action |
 |---|---|
 | `AgentProposalStatus` and `ApprovalStatus` gain `shadow-superseded`. | A `switch` or `Record` over the statuses that must be exhaustive handles `shadow-superseded`, for example like `shadow`. |
-
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: chat-only agents
-
-`run.ChatOnly()` on `ConfigureAgent` gives an agent that only works in people's chats its chat
-settings without run settings: its skills in chat (`Skill` with `SkillsInChat`), `AllowQuestions`,
-`MaxConsultationsPerTurn` for the consultations it starts, `MaxTokensPerRun`, `AcceptsFiles`,
-`DataClassification`, `UseApprovalPolicy` and `Metadata`. It works on no subject: no object's page and
-no subject's list of agents shows it, `POST threads/start`, `POST threads/open`, run now,
-`INhAssistantAgentTriggers.StartAsync` and a hand-off are refused with
-`assistant-agent-does-not-work-on`, as are a data trigger, its shadow switch and a board; nothing
-triggers or consults it, a replay never runs into or from it, run maintenance leaves it out and it
-needs no background operations. It has no shadow threads, so its skills always work live: a skill
-defined as data works live at once instead of starting in shadow, the skill's shadow switch
-(`POST admin/agents/{id}/skills/{skillId}/shadow`, `SetSkillShadowAsync`) is refused with
-`assistant-agent-does-not-work-on`, and the agent's and its skills' `NhAssistantShadowState.Locked` is
-`true`, so the administration offers no shadow switch. The host refuses to start when the agent also uses a setting that only
-applies to runs on subjects (such as `WorksOn`, `AcceptHandOffs`, `Shadow`, `HideFromChat`,
-`AllowConsultation`, `Grant` or `Retry`; the exception names them) or a skill that starts in shadow
-(`Skill(...).Shadow()`), when a trigger starts it, another
-agent is its shadow variant or accepts hand-offs from it, or `UseHandOffsAsData` or
-`UseShadowVariantsAsData` names it. `NhAssistantAgentRunOptions.ChatOnly` reports it, and the
-administration shows it as `ChatOnly` of `NhAssistantAdminAgentDto`, `NhAssistantCodeRunSettingsDto`
-and `NhAssistantAgentInEffectDto`.
-
-| Breaking change | Required action |
-|---|---|
-| `NhAssistantAdminAgentDto` (`GET admin/agents`), `NhAssistantCodeRunSettingsDto` and `NhAssistantAgentInEffectDto` gain `ChatOnly` (`chatOnly` in JSON). | None, unless a client or test compares the full set of properties; add `chatOnly`. |
-
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: promote a variant as the package's next version
-
-`PromoteShadowVariantAsync` with `NhAssistantShadowVariantPromotionRequest { AsPackageVersion = true }`
-(`asPackageVersion` of `POST admin/agents/{id}/promote`) promotes a shadow variant whose every part is
-linked to one agent package as that package's next version of its live agent. In one transaction it
-applies the variant's parts with the import's own rules (its definition, run settings, skills,
-triggers, consultations, hand-offs and metadata, with the package's locks and hashes; the live agent
-keeps its display name, chat offer and technical account, an agent in code its run settings in code),
-links the live agent's parts to the variant's package id and version, takes the live agent out of the
-package it belonged to and deletes the variant with its links. A part without a link refuses with
-`assistant-package-not-linked` and a part the import refuses refuses everything with
-`assistant-package-refused` (`parts.{part}.{field}` names it). One `AdminAgentShadowVariantPromoted`
-event with the result `promoted-as-package-version` and the package's id, version and hash records it;
-`NhAssistantShadowVariantPromotionDto.Package` and the answer's `package` report every part's outcome.
-`GET admin/agents/{id}/shadow-variants` names a data variant's `PackageId` and `PackageVersion`.
-Without the option the promotion is unchanged.
-
-| Breaking change | Required action |
-|---|---|
-| `NhAssistantShadowVariantDto` gains `PackageId` and `PackageVersion`, `NhAssistantShadowVariantPromotionInputDto` gains `AsPackageVersion` and `NhAssistantShadowVariantPromotedDto` gains `Package` (left out when null). | None, unless a client or test compares the full set of properties; add them. |
-| `AdminAgentShadowVariantPromoted` can carry the result `promoted-as-package-version` (`NhAssistantShadowVariantPromotions`) with `PackageId`, `PackageVersion` and `PackageHash`. | None, unless an audit consumer expects only `promoted`; accept the new result. |
 
 ## @newheap/platform-ai-chat: chat-only agents and promotion as the package's next version
 
@@ -237,46 +44,6 @@ chat-only code agent with `chatOnly: true`, whose starts and shadow mode it refu
 | Breaking change | Required action |
 |---|---|
 | The mock API's shadow variants carry `packageId` and `packageVersion` (`null` without a package), as the server's do. | None, unless a test compares a variant with `toEqual`; add both properties. |
-
-## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a channel's chats, the turn's person, question notices and expired waits
-
-An application's own channel, such as a messaging app, now does everything a person does in the
-client without calling the assistant's endpoints. `INhAssistantConversations` (`CreateAsync`,
-`GetAsync`, `CancelAsync` with `NhAssistantNewConversation` and `NhAssistantConversationOptions`)
-creates, reads and stops a person's chat with the checks and codes of `POST conversations`,
-`GET conversations/{id}` and `POST conversations/{id}/cancel`, and
-`INhAssistantConversationTurns.AnswerAsync` (`NhAssistantConversationAnswer`) answers the question
-the chat waits for in the order of the answer endpoint. `NhAssistantConversationTurnResult.PendingQuestion`
-carries that question. Like the turns, the services serve chats only and run for the person the
-application vouches for, without the caller's request.
-
-Every assistant turn names its conversation and the channel that started it on
-`NhAiInvocationContext.ConversationId` and `NhAiInvocationContext.Channel`, which turn context
-providers, tool discovery, retrieval and every tool call receive: the chat, the agent's thread or the
-consulted agent's thread, and the channel of `NhAssistantConversationTurnOptions` (also in the
-consultations such a turn starts), `null` for the endpoints' turns and runs. Neither enters a proposal
-hash, approval evidence or an audit record. The new `INhAiTurnPerson`, a singleton that
-`AddNewHeapPlatformAIAspNet` and `AddNewHeapAssistant` register, gives the person of the current turn
-(`User`, `ActorId`, `TenantId`): the request's user in a turn of the endpoints, the person the
-application vouched for in a channel's turn or a turn that outlived its request, and nothing outside a
-person's turn.
-
-A turn that waits for a question keeps `waiting-for-approval`. Web Push now tells the question's
-addressee with a notice of its own (`question-waiting`, English and Dutch texts, high urgency) and
-the person whose turn asked nothing when it asks someone else; approvals notify as before. A new
-message in a chat whose question or inline approval passed its lifetime on the application's clock
-closes it as a late answer or decision does, with the same codes (`assistant-question-expired`,
-`assistant-approval-expired`) and audit (`QuestionExpired`, `ApprovalExpired`), releases the waiting
-turn and then starts its own turn; a still valid one keeps the chat busy, and reads write nothing.
-Agent threads keep their own rules. A question's expiry that a channel's answer or message finds now
-records the channel in the audit.
-
-| Breaking change | Required action |
-|---|---|
-| `INhAssistantConversationTurns` gained `AnswerAsync`. | An application's own implementation, such as a test double, implements `AnswerAsync`; callers change nothing. |
-| A message in a chat whose question or approval passed its lifetime is no longer refused with `409 assistant-conversation-busy`: what the chat waited for closes as expired and the message starts its turn. | None, unless a client or test expected the busy refusal after the wait ended; expect the new turn, and the expiry codes on the closed question or approval. |
-| A waiting question sends the Web Push kind `question-waiting` to its addressee instead of `approval-required` to the person whose turn asked it. | None for the library's push worker, which shows any kind. A service worker or client of its own that branches on the kind handles `question-waiting`. |
-| None for `NhAiInvocationContext.ConversationId`, `NhAiInvocationContext.Channel`, `INhAiTurnPerson`, `INhAssistantConversations` and `NhAssistantConversationTurnResult.PendingQuestion`: they are additive. | None. A tool, policy or turn context provider that read the person from the request reads `INhAiTurnPerson` instead, so it also knows the person in a channel's turn. |
 
 ## @newheap/platform-ai-chat: a message after an expired wait
 
