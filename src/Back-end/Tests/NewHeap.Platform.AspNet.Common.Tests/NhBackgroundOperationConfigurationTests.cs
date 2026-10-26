@@ -315,11 +315,102 @@ public sealed class NhBackgroundOperationConfigurationTests
                 options =>
                 {
                     options.LiveUpdatesEnabled = true;
-                    options.HubPath = "/hub-malicious";
+                    options.HubPath = "realtime/operations";
                 },
-                "*HubPath must be under /hub*"
+                "*HubPath must be an absolute application path*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "";
+                },
+                "*HubPath must be an absolute application path*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "/";
+                },
+                "*HubPath must be an absolute application path below the root*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "//malicious.example/hub";
+                },
+                "*HubPath must be an absolute application path*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "/hubs/operations?access_token=leak";
+                },
+                "*HubPath must be an absolute application path*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "/background-operations/live";
+                },
+                "*HubPath must lie outside the background operations' API under /background-operations*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubPath = "/Background-Operations";
+                },
+                "*HubPath must lie outside the background operations' API under /background-operations*"
             }
         };
+    }
+
+    /// <summary>
+    /// FB13: the hub may lie at any absolute application path below the root outside the background
+    /// operations' own API, not only below <c>/hub</c>; the query token follows the configured path.
+    /// </summary>
+    [Theory]
+    [InlineData("/hub/background-operations")]
+    [InlineData("/hubs/background-operations")]
+    [InlineData("/realtime/operations/")]
+    [InlineData("/api/hub/operations")]
+    [InlineData("/hub-operations")]
+    [InlineData("/background-operations-live")]
+    public void A_hub_path_outside_hub_and_outside_the_operations_api_is_accepted(string hubPath)
+    {
+        var options = CreateOptions();
+        options.LiveUpdatesEnabled = true;
+        options.HubPath = hubPath;
+
+        var action = options.Validate;
+
+        action.Should().NotThrow();
+    }
+
+    /// <summary>
+    /// The refused hub path is the route of the background operations' own controllers.
+    /// </summary>
+    [Fact]
+    public void The_refused_api_route_is_the_route_of_the_background_operation_controllers()
+    {
+        var ownerRoute = typeof(Controllers.NhBackgroundOperationController)
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RouteAttribute), inherit: false)
+            .Cast<Microsoft.AspNetCore.Mvc.RouteAttribute>()
+            .Single()
+            .Template;
+        var administrationRoute = typeof(Controllers.NhBackgroundOperationAdministrationController)
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RouteAttribute), inherit: false)
+            .Cast<Microsoft.AspNetCore.Mvc.RouteAttribute>()
+            .Single()
+            .Template;
+
+        ownerRoute.Should().Be(NhBackgroundOperationsOptions.ApiRoute);
+        administrationRoute.Should().StartWith(NhBackgroundOperationsOptions.ApiRoute + "/");
     }
 
     private static NhBackgroundOperationBuilder CreateBuilder()

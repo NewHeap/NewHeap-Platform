@@ -17,7 +17,7 @@ using System.ComponentModel;
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
 [ApiController]
-[Route("background-operations")]
+[Route(NhBackgroundOperationsOptions.ApiRoute)]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + ",Identity.Application")]
 public sealed class NhBackgroundOperationController : ProtectedNhBaseController
 {
