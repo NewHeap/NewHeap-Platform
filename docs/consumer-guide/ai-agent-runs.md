@@ -96,7 +96,12 @@ tool call keeps waiting as a deferred call does until the report ends it. In an 
 above applies. In a chat, which has no approvers, nobody is notified and no follow-up run starts: every
 close is posted into that conversation as an application message without the trusted flag, the outcome
 with its code and the report's summary, so the report, a refused hand-off and a passed deadline reach
-the person who approved. The person who approved resolves an uncertain chat proposal with the rules of
+the person who approved. The approval records the UI culture of the person's turn that approved it
+(`AssistantApproval.DecisionCulture`, the `ApprovalCulture` migrations), and these posts, their title
+included, use that culture when the application still supports it as a UI culture
+(`RequestLocalizationOptions.SupportedUICultures`), otherwise the default request culture, as for an
+approval handed off before the culture was recorded; an agent thread keeps the default culture of reports
+and deadlines (DN8). The person who approved resolves an uncertain chat proposal with the rules of
 an agent thread's `resolve` through `POST conversations/{id}/approvals/{approvalId}/resolve`
 (`NhAssistantResolveExecutionRequest`): `hand-to-application` runs the execution guards and hands it to
 the application again with a new attempt and a new deadline, `mark-resolved` confirms it, `re-execute`
@@ -597,6 +602,15 @@ coalesced several events records only the first event's key, and a redelivered e
 delivery. It is a server API for the application: it checks no person's access, so show its result
 only to people the application lets see the agent's work, and pass the caller's tenant to leave other
 tenants' work out (the whole application's work only for a tenant that takes part, `UseSingleTenant`).
+To read what a run did, call `INhAssistantAgentRunLookup.FindRunAsync(runId, tenantId)` with the run a
+receipt or the event lookup named: the `NhAssistantAgentRunFacts` give its agent, subject and thread,
+whether it is shadow work, its trigger with the trigger's kind, version and candidate flag, how it worked
+(`Kind`), its status, failure class and code, attempt, proposal count, summary, and its result with
+`ResultTruncated` in the caller's UI culture when the rules wrote it per culture, and when it was
+created, started and ended; `null` for an unknown run and another tenant's. It applies the same tenant
+rule and no person check, as `GET runs/{id}` would for a person, so the application need not read the
+assistant's tables. The result is model output: render it only with a safe Markdown renderer, never as
+HTML.
 The assistant's own endpoints, schedules, webhooks and follow-ups always fire
 at once. Maintenance queues a run again whose operation never committed. Choose
 `NhAssistantTriggerConflict` for events that arrive while a run is active:
@@ -1538,9 +1552,18 @@ notifies or shows as a new proposal. A person's own proposals in a chat turn are
 A shadow proposal never waits for a decision, so it counts as open for exactly its proposal
 lifetime: an identical one (the same tool and canonical arguments) of the agent in its shadow
 threads of the scope is not recorded again and the model or the rules receive `AlreadyOpen`, as
-live would, with the `AgentProposalDeduplicated` audit event. Shadow proposals store no object
-keys and are never rejected or superseded, so only this identity rule applies; the evaluation of
-a shadow variant then compares what the live agent would really propose (SPM-324).
+live would, with the `AgentProposalDeduplicated` audit event (SPM-324). Shadow proposals also store
+the objects their guards name, as live ones do, so after the identity rule the policy's rule for a
+newer proposal for the same objects applies among the agent's shadow proposals in its shadow threads
+of the scope that are still within their lifetime (SPM-339): `Skip` reports the newer one as
+`AlreadyOpen`, `Supersede` records it and closes the older one as `shadow-superseded`
+(`NhAssistantApprovalStatuses.ShadowSuperseded`) with `supersededByApprovalId` and the
+`AgentProposalSuperseded` audit event, and `Allow` keeps both. The rejection cooldown does not
+apply, because nobody rejects a shadow proposal. Shadow proposals, `shadow-superseded` ones included
+(`NhAssistantApprovalStatuses.IsShadow`), stay out of revalidation by subject or object, inboxes,
+`INhAssistantProposalCounts`, feedback and notifications. The evaluation of a shadow variant counts
+every proposal once, in the run that made it: a replaced shadow proposal pairs with the live proposal
+that a newer one replaced too, as `withdrawn`, so it compares what the live agent would really propose.
 
 Run an agent by fixed rules when its decisions follow from data. Implement
 `INhAssistantAgentRuleHandler` and register it with `UseRuleHandler<THandler>()` on
@@ -1692,6 +1715,11 @@ instructions in full: call them for an administrator or process the application 
   find the run with `INhAssistantAgentRunLookup` after the commit.
 - Finding the run of an event through `AssistantRun.TriggerEventKey` alone: a run that coalesced
   several events records the first event's key only.
+- Reading a run's status, summary or result from the assistant's tables; read them with
+  `INhAssistantAgentRunLookup.FindRunAsync`, and never render its result as HTML.
+- Writing a guard without object keys for a tool whose arguments change on every run, such as a due
+  date of today, when its agent is evaluated in shadow: without keys every changed argument is a new
+  shadow proposal and the evaluation counts more than the live agent would propose.
 - Removing the assistant's schedule registrations by their internal types on a host that must not run
   the schedules, or leaving `RunSchedules` true on a host without a Hangfire server or with other
   agents, whose data schedule sync removes the jobs it does not know; set `RunSchedules` to `false`.
@@ -1868,7 +1896,9 @@ that `FindByEventAsync` returns a started event's input with its queued run, a c
 waiting without a run and then with the run that claimed it, a waiting event's input and after the resume
 the run of the resume, a deferred event only once its fire ran and a redelivery's first delivery; that
 `FindByInputAsync` returns the same; and that a lookup for another tenant finds nothing, also for the
-whole application's work, which the single tenant finds. For hosts that do not run schedules, assert that
+whole application's work, which the single tenant finds. For `FindRunAsync` assert the facts of a
+queued and an ended run, `null` for an unknown run and for another tenant's run, and the whole
+application's run for the tenant that takes part. For hosts that do not run schedules, assert that
 a host with `RunSchedules` false starts without Hangfire, fires its schedules and adds or removes no
 recurring job next to the scheduling host's storage, and that a host with the default registers the jobs
 of schedules in code and as data and removes a data schedule's job its snapshot does not know. For the
@@ -2202,7 +2232,9 @@ notifies nobody without `Members<T>()`, that with it the listed approvers are no
 readers, people without a role and unusable ids are not, that a division counts only people who work
 there and that a list is read up to its bound. For `AlsoInline` assert the hand-off of a chat approval,
 the turn's tool result, the report posted into that chat without the trusted flag, the deadline and a
-refused executor, that only the person who approved resolves an uncertain chat proposal, that a
+refused executor, that the report, the uncertain post and the deadline post read in the culture of the
+turn that approved it, title included, that an approval without a supported culture reads in the default
+one and that an agent thread keeps the default, that only the person who approved resolves an uncertain chat proposal, that a
 proposal in another status is refused and that handing it again starts a new attempt with a new deadline,
 and that without it the inline approval still runs the function. For
 `MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
@@ -2457,7 +2489,7 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs)
-- SPM-326 — Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started
+- SPM-326 — Agent runs keep reserved slots on a queue of their own, and the application finds the run a trigger event started and reads its facts
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentRunCapacityComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleIntakeReviewLookup.cs)
@@ -2492,3 +2524,8 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)
+- SPM-339 — The intake reviewer in shadow replaces its open order of the same item, as it would live
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs)
