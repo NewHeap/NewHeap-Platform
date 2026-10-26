@@ -226,11 +226,19 @@ public sealed class NhBackgroundOperationRunner
             }
             catch (Exception exception)
             {
-                await CompleteUnexpectedFailureAsync(
-                    claim,
-                    descriptor,
-                    exception,
-                    "handler-failed");
+                if (!await CompleteStoppedHandlerErrorAsync(
+                        claim,
+                        descriptor,
+                        stopState,
+                        timeoutSource,
+                        exception))
+                {
+                    await CompleteUnexpectedFailureAsync(
+                        claim,
+                        descriptor,
+                        exception,
+                        "handler-failed");
+                }
             }
             finally
             {
@@ -395,6 +403,88 @@ public sealed class NhBackgroundOperationRunner
         }
 
         await CompleteTimedOutAsync(claim);
+    }
+
+    /// <summary>
+    /// Lets the platform's own stop signals win over an error that the handler threw outside a step,
+    /// as they win over a step's own error when the step's write finds them: a lost fence, contention
+    /// for the operation's lock and a durable cancellation request of this attempt. The handler's
+    /// error is then logged as a warning with the operation and attempt, and the attempt is recorded
+    /// as that stop says, so nothing retries an error that its owner cancelled:
+    /// <list type="bullet">
+    /// <item>a stop the heartbeat recorded first (cancellation, contention or lost ownership) ends the
+    /// attempt as it ends a cancelled execution;</item>
+    /// <item>an error of the attempt's own write that found its fence lost writes nothing;</item>
+    /// <item>otherwise the fenced durable cancellation of the attempt is checked, and when it is
+    /// requested the operation ends <c>Cancelled</c>, or <c>TimedOut</c> when the soft time-out fired
+    /// first, as a cancelled execution is classified.</item>
+    /// </list>
+    /// Returns <see langword="false"/> when no signal stopped the attempt: a heartbeat failure or none
+    /// at all. The error then fails the attempt as <c>handler-failed</c> with the operation's retry
+    /// rules, as before.
+    /// </summary>
+    private async Task<bool> CompleteStoppedHandlerErrorAsync(
+        NhBackgroundOperationAttemptClaim claim,
+        NhBackgroundOperationDescriptor descriptor,
+        NhBackgroundOperationExecutionStopState stopState,
+        CancellationTokenSource timeoutSource,
+        Exception exception)
+    {
+        var stop = stopState.Get().Reason;
+        if (stop is NhBackgroundOperationExecutionStopReason.DurableCancellation
+            or NhBackgroundOperationExecutionStopReason.Contention
+            or NhBackgroundOperationExecutionStopReason.OwnershipLost)
+        {
+            LogHandlerErrorAfterStop(claim, exception, stop);
+            await HandleExecutionStopAsync(claim, descriptor, stopState);
+            return true;
+        }
+
+        if (exception is NhBackgroundOperationOwnershipLostException)
+        {
+            _logger.LogWarning(
+                "Background operation {OperationId} attempt {AttemptId} stopped after losing durable ownership.",
+                claim.OperationId,
+                claim.AttemptId);
+            return true;
+        }
+
+        if (!await _persistence.IsCancellationRequestedAsync(claim, CancellationToken.None))
+        {
+            return false;
+        }
+
+        LogHandlerErrorAfterStop(
+            claim,
+            exception,
+            NhBackgroundOperationExecutionStopReason.DurableCancellation);
+        if (timeoutSource.IsCancellationRequested)
+        {
+            await CompleteTimedOutAsync(claim);
+            return true;
+        }
+
+        await CompleteCancelledAsync(claim);
+        return true;
+    }
+
+    private void LogHandlerErrorAfterStop(
+        NhBackgroundOperationAttemptClaim claim,
+        Exception exception,
+        NhBackgroundOperationExecutionStopReason stop)
+    {
+        _logger.LogWarning(
+            exception,
+            "Background operation {OperationId} attempt {AttemptId} threw an error outside a step while it was stopped by {StopSignal}; the attempt ends as that stop says, not as a handler failure, and the error is not retried.",
+            claim.OperationId,
+            claim.AttemptId,
+            stop switch
+            {
+                NhBackgroundOperationExecutionStopReason.DurableCancellation => "a cancellation request",
+                NhBackgroundOperationExecutionStopReason.Contention => "contention for the operation lock",
+                NhBackgroundOperationExecutionStopReason.OwnershipLost => "lost ownership",
+                _ => stop.ToString()
+            });
     }
 
     private Task CompleteCancelledAsync(NhBackgroundOperationAttemptClaim claim)
