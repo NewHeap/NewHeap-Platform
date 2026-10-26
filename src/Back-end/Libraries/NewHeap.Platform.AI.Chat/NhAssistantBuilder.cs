@@ -1559,6 +1559,13 @@ internal sealed class NhAssistantRegistrationState
                     $"ConfigureAgent references agent '{agentId}', which is not added with AddAgent.");
             }
 
+            // A chat-only agent works on no subject: a setting that applies to runs only refuses it.
+            if (options.ChatOnly && options.RunSettings.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' is chat-only (ChatOnly), so it works on no subject and cannot use {string.Join(", ", options.RunSettings)}. Remove them, or remove ChatOnly so the agent runs on subjects.");
+            }
+
             var policies = options.ToolApprovalPolicies.Values.Append(options.ApprovalPolicyId);
             foreach (var policyId in policies.OfType<string>())
             {
@@ -1589,6 +1596,11 @@ internal sealed class NhAssistantRegistrationState
                     throw new InvalidOperationException(
                         $"Agent '{agentId}' is a shadow variant of '{liveAgentId}', which is not a live agent.");
                 }
+                if (live.ChatOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' is a shadow variant of '{liveAgentId}', which is chat-only (ChatOnly) and has no runs to evaluate against.");
+                }
                 if (options.Groups.Count > 0)
                 {
                     throw new InvalidOperationException(
@@ -1602,6 +1614,11 @@ internal sealed class NhAssistantRegistrationState
                 {
                     throw new InvalidOperationException(
                         $"Agent '{agentId}' accepts hand-offs from '{source}', which is not configured with ConfigureAgent.");
+                }
+                foreach (var source in handOff.Sources.Where(source => _agentRuns[source].ChatOnly))
+                {
+                    throw new InvalidOperationException(
+                        $"Agent '{agentId}' accepts hand-offs from '{source}', which is chat-only (ChatOnly) and has no runs that hand work on.");
                 }
                 if (!options.WorksOn.Covers(handOff.SubjectType))
                 {
@@ -1666,6 +1683,11 @@ internal sealed class NhAssistantRegistrationState
             {
                 throw new InvalidOperationException(
                     $"Trigger '{trigger.Id}' starts agent '{trigger.AgentId}', which is not configured with ConfigureAgent.");
+            }
+            if (_agentRuns[trigger.AgentId].ChatOnly)
+            {
+                throw new InvalidOperationException(
+                    $"Trigger '{trigger.Id}' starts agent '{trigger.AgentId}', which is chat-only (ChatOnly) and is never started.");
             }
 
             if (trigger.ApprovalPolicyId is not null)
@@ -1799,6 +1821,11 @@ internal sealed class NhAssistantRegistrationState
                 throw new InvalidOperationException(
                     $"UseHandOffsAsData connects agent '{agentId}' about '{rule.SubjectType}', which is not configured with ConfigureAgent.");
             }
+            foreach (var agentId in rule.Targets.Concat(rule.Sources).Where(agentId => _agentRuns[agentId].ChatOnly))
+            {
+                throw new InvalidOperationException(
+                    $"UseHandOffsAsData connects agent '{agentId}' about '{rule.SubjectType}', which is chat-only (ChatOnly) and works on no subject.");
+            }
             foreach (var target in rule.Targets.Where(target => !_agentRuns[target].WorksOn.Covers(rule.SubjectType)))
             {
                 throw new InvalidOperationException(
@@ -1830,6 +1857,11 @@ internal sealed class NhAssistantRegistrationState
             {
                 throw new InvalidOperationException(
                     $"UseShadowVariantsAsData allows variants of '{agentId}', which is not a live agent.");
+            }
+            if (live.ChatOnly)
+            {
+                throw new InvalidOperationException(
+                    $"UseShadowVariantsAsData allows variants of '{agentId}', which is chat-only (ChatOnly) and has no runs to evaluate against.");
             }
         }
     }

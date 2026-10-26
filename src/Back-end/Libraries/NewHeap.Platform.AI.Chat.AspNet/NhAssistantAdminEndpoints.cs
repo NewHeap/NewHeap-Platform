@@ -1229,6 +1229,7 @@ internal static class NhAssistantAdminEndpoints
             RunPolicy = agent.WorksOn.RunPolicy,
             ViewPolicy = agent.WorksOn.ViewPolicy,
             WorksOnDeclared = agent.WorksOn.Declared,
+            ChatOnly = agent.ChatOnly,
             OffBeforeStop = state.OffBeforeStop,
             InstructionsAsset = agent.InstructionsAsset,
             InstructionsProblem = agent.InstructionsProblem

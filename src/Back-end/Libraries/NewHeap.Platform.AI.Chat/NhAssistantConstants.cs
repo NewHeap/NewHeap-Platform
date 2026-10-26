@@ -895,7 +895,9 @@ public static class NhAssistantErrorCodes
     /// <summary>
     /// The agent does not work on subjects of this type: a trigger, a manual start, a hand-off, a
     /// consultation or a request named a type its <c>WorksOn</c>, or what an administrator stored,
-    /// does not list. The refused start is audited with this code.
+    /// does not list. The refused start is audited with this code. A chat-only agent
+    /// (<c>ChatOnly()</c>) works on no subject at all, so every start of it is refused with this code,
+    /// and so are a data trigger, the shadow switch and a board for it.
     /// </summary>
     public const string AgentDoesNotWorkOn = "assistant-agent-does-not-work-on";
 

@@ -984,6 +984,14 @@ public sealed record NhAssistantAdminAgentDto(
     public bool WorksOnDeclared { get; init; } = true;
 
     /// <summary>
+    /// Whether the agent works in people's chats only (<c>ChatOnly()</c> in code): it works on no
+    /// subject, so it has no triggers, is on no object's page and cannot be run now, handed work,
+    /// consulted, put in shadow or replayed. Always <see langword="false"/> for an agent created in the
+    /// administration.
+    /// </summary>
+    public bool ChatOnly { get; init; }
+
+    /// <summary>
     /// The object types the agent is known to work on, as a hint next to "all objects": those it
     /// accepts hand-offs and consultations about, those its triggers name up front and those of its
     /// existing threads, ordered by id.

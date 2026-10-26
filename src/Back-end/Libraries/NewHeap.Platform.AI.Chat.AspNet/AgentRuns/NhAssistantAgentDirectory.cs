@@ -132,6 +132,12 @@ public sealed record NhAssistantAgentInEffectDto(
     public bool InShadow { get; init; }
 
     /// <summary>
+    /// Whether the agent works in people's chats only (<c>ChatOnly()</c> in code): it works on no
+    /// subject and is never started on its own.
+    /// </summary>
+    public bool ChatOnly { get; init; }
+
+    /// <summary>
     /// The agent's state as <see cref="INhAssistantAgentControl.GetAsync"/> returns it: who changed it
     /// when and why, its skills, its shadow mode and technical account.
     /// </summary>
@@ -225,6 +231,7 @@ internal sealed class NhAssistantAgentDirectory(
             // A data shadow variant names its live agent also while its run settings are out of effect.
             ShadowOf = state.ShadowOf ?? agent.ShadowOfAgentId,
             InShadow = state.Shadow?.Shadow == true,
+            ChatOnly = agent.ChatOnly,
             State = state,
             Metadata = metadata.ToView(agent, rows).Metadata,
             UpdatedAt = agent.UpdatedAt

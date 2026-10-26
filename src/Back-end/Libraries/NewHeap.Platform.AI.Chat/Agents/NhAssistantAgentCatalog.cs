@@ -83,6 +83,13 @@ internal sealed record NhAssistantAgent(
     public NhAssistantAgentWorksOn WorksOn { get; init; } = NhAssistantAgentWorksOn.Undeclared;
 
     /// <summary>
+    /// Whether the agent works in people's chats only (<c>ChatOnly()</c> in code): it works on no
+    /// subject and is never started on its own. Always <see langword="false"/> for an agent created in
+    /// the administration.
+    /// </summary>
+    public bool ChatOnly { get; init; }
+
+    /// <summary>
     /// The classification of the data the agent's model calls carry: <c>DataClassification(...)</c>
     /// in code for an agent in code, the stored one for an agent created in the administration;
     /// <see langword="null"/> for <see cref="NhAiDataClassification.Internal"/>. A skill's own wins.
@@ -266,6 +273,9 @@ internal sealed class NhAssistantAgentCatalog(
             WorksOn = row.Source == NhAssistantAgentSources.Code
                 ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
                 : NhAssistantAgentWorksOn.FromRow(row),
+            ChatOnly = row.Source == NhAssistantAgentSources.Code
+                && registration.CodeAgentRuns.TryGetValue(row.Id, out var chatOptions)
+                && chatOptions.ChatOnly,
             DataClassification = ClassificationOf(row),
             InstructionsAsset = reference,
             InstructionsProblem = instructionsProblem,

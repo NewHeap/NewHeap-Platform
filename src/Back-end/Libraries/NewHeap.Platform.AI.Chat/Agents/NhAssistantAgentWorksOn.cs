@@ -39,6 +39,13 @@ public sealed record NhAssistantAgentWorksOn
     public static NhAssistantAgentWorksOn Undeclared { get; } = new() { AllSubjects = true };
 
     /// <summary>
+    /// What a chat-only agent works on (<c>ChatOnly()</c>): no object type and not the application,
+    /// declared, so every start, trigger, hand-off and consultation is refused with
+    /// <see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/>.
+    /// </summary>
+    internal static NhAssistantAgentWorksOn Nothing { get; } = new() { Declared = true };
+
+    /// <summary>
     /// The object types the agent works on, ordered by id; empty with <see cref="AllSubjects"/> or
     /// when the agent works on the application only.
     /// </summary>

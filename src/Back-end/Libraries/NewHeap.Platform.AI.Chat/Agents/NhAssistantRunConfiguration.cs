@@ -771,6 +771,11 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
         {
             return NhAssistantRunConfigurationProblems.UnknownAgent;
         }
+        // A chat-only agent works on no subject, so no trigger fits it.
+        if (options.ChatOnly)
+        {
+            return NhAssistantRunConfigurationProblems.NotWorkedOn;
+        }
         var filters = NhAssistantDataTriggerFilters.Read(trigger.FiltersJson);
         if (!NhAiSubjectRef.IsValidType(trigger.Id)
             || NhAssistantTriggerIds.IsReserved(trigger.Id)

@@ -109,9 +109,33 @@ public sealed class NhAssistantAgentRunOptions
     /// What the agent works on: in code from <c>WorksOn</c>, <c>WorksOnAllObjects</c>,
     /// <c>WorksOnApplication</c>, <c>PerDivision</c>, <c>RunPolicy</c> and <c>ViewPolicy</c>; for an
     /// agent created in the administration as its administrator stored it. Without a statement the
-    /// agent works on all object types and not on the application.
+    /// agent works on all object types and not on the application. A chat-only agent
+    /// (<see cref="ChatOnly"/>) works on nothing.
     /// </summary>
     public NhAssistantAgentWorksOn WorksOn { get; internal set; } = NhAssistantAgentWorksOn.Undeclared;
+
+    /// <summary>
+    /// The agent works in people's chats only (<see cref="NhAssistantAgentRunBuilder.ChatOnly"/>): it
+    /// keeps the chat settings of its run configuration (its skills in chat, questions, the
+    /// consultations it starts, token ceilings, files, classification, approval policies and
+    /// metadata), but <see cref="WorksOn"/> covers no subject. It is on no object's page and in no
+    /// subject's list of agents, and it is never started by hand or by a trigger, handed work,
+    /// consulted, replayed or swept by run maintenance.
+    /// </summary>
+    public bool ChatOnly { get; internal set; }
+
+    private readonly SortedSet<string> _runSettings = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The builder methods the agent called that only apply to runs on subjects, by name; host start
+    /// refuses them on a chat-only agent.
+    /// </summary>
+    internal IReadOnlyCollection<string> RunSettings => _runSettings;
+
+    internal void MarkRunSetting(string name)
+    {
+        _runSettings.Add(name);
+    }
 
     /// <summary>
     /// The groups the agent joins in code with <c>InGroup</c>, ordered by id. An administrator's
@@ -485,6 +509,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder Accountability(NhAiAgentAccountability accountability)
     {
+        _options.MarkRunSetting(nameof(Accountability));
         if (accountability == NhAiAgentAccountability.ServiceAccount)
         {
             throw new ArgumentException(
@@ -504,6 +529,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder ServiceAccount(string actorId)
     {
+        _options.MarkRunSetting(nameof(ServiceAccount));
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         if (actorId.Length > 256)
         {
@@ -521,6 +547,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder Grant(params string[] toolSelectors)
     {
+        _options.MarkRunSetting(nameof(Grant));
         ArgumentNullException.ThrowIfNull(toolSelectors);
         if (toolSelectors.Length == 0)
         {
@@ -558,6 +585,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder DelegateFromInitiator(bool enabled = true)
     {
+        _options.MarkRunSetting(nameof(DelegateFromInitiator));
         _options.DelegateFromInitiator = enabled;
         return this;
     }
@@ -574,12 +602,14 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder ActWithAccountableRights(bool enabled = true)
     {
+        _options.MarkRunSetting(nameof(ActWithAccountableRights));
         _options.ActWithAccountableRights = enabled;
         return this;
     }
 
     public NhAssistantAgentRunBuilder ElevatedReads(NhAiElevatedReads elevatedReads)
     {
+        _options.MarkRunSetting(nameof(ElevatedReads));
         _options.ElevatedReads = elevatedReads;
         return this;
     }
@@ -594,6 +624,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder AllowGatewayReads(bool enabled = true)
     {
+        _options.MarkRunSetting(nameof(AllowGatewayReads));
         _options.AllowGatewayReads = enabled;
         return this;
     }
@@ -625,6 +656,7 @@ public sealed class NhAssistantAgentRunBuilder
 
     public NhAssistantAgentRunBuilder Retry(int retryCount)
     {
+        _options.MarkRunSetting(nameof(Retry));
         if (retryCount is < 0 or > NhAssistantAgentConfigurationLimits.MaxRetryCount)
         {
             throw new ArgumentOutOfRangeException(nameof(retryCount));
@@ -639,6 +671,7 @@ public sealed class NhAssistantAgentRunBuilder
         int maxConcurrentRuns = 4,
         int maxRunsPerSubjectPerDay = 10)
     {
+        _options.MarkRunSetting(nameof(Budget));
         ArgumentNullException.ThrowIfNull(perDay);
         if (maxConcurrentRuns < 1 || maxRunsPerSubjectPerDay < 1)
         {
@@ -681,6 +714,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder Triage(Action<NhAssistantTriageBuilder> configure)
     {
+        _options.MarkRunSetting(nameof(Triage));
         ArgumentNullException.ThrowIfNull(configure);
         configure(new NhAssistantTriageBuilder(_options));
         if (_options.TriageProfileName is null)
@@ -688,6 +722,38 @@ public sealed class NhAssistantAgentRunBuilder
             throw new InvalidOperationException($"The triage of agent '{_options.AgentId}' needs UseProfile.");
         }
 
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the agent work in people's chats only (FB8): it keeps the settings that apply to a chat,
+    /// such as <see cref="Skill"/> with <see cref="SkillsInChat"/>, <see cref="AllowQuestions"/>,
+    /// <see cref="MaxConsultationsPerTurn"/> for the consultations it starts,
+    /// <see cref="MaxTokensPerRun"/>, <see cref="AcceptsFiles"/>, <see cref="DataClassification"/>,
+    /// <see cref="UseApprovalPolicy(string)"/> and <see cref="Metadata{TValue}"/>, but works on no
+    /// subject. It is on no object's page and in no subject's list of agents; a start by hand
+    /// (<c>threads/start</c>, <c>threads/open</c>, run now) and a hand-off are refused with
+    /// <c>assistant-agent-does-not-work-on</c>, nothing triggers or consults it, a replay never runs
+    /// into or from it, it joins no board and run maintenance leaves it out, so it needs no background
+    /// operations. The host refuses to start when the agent also calls a method that only applies to
+    /// runs on subjects: <see cref="WorksOn"/>, <see cref="WorksOnAllObjects"/>,
+    /// <see cref="WorksOnApplication"/>, <see cref="PerDivision"/>, <see cref="RunPolicy"/>,
+    /// <see cref="ViewPolicy"/>, <see cref="InGroup"/>, <see cref="AcceptHandOffs"/>,
+    /// <see cref="AllowConsultation"/>, <see cref="ConsultableAsData"/>, <see cref="Shadow"/>,
+    /// <see cref="ShadowOf"/>, <see cref="HideFromChat"/>, <see cref="StartsOff"/>,
+    /// <see cref="Enabled"/>, <see cref="Accountability"/>, <see cref="ServiceAccount"/>,
+    /// <see cref="Grant"/>, <see cref="DelegateFromInitiator"/>,
+    /// <see cref="ActWithAccountableRights"/>, <see cref="ElevatedReads"/>,
+    /// <see cref="AllowGatewayReads"/>, <see cref="Retry"/>, <see cref="Budget"/>,
+    /// <see cref="Triage"/>, <see cref="Memory{TMemory}"/> or <see cref="UseRuleHandler{THandler}"/>;
+    /// and when a trigger starts it, another agent is its shadow variant or accepts hand-offs from it,
+    /// or <c>UseHandOffsAsData</c> or <c>UseShadowVariantsAsData</c> names it. Data triggers are
+    /// refused for it; skills defined as data are not.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ChatOnly()
+    {
+        _options.ChatOnly = true;
+        _options.WorksOn = NhAssistantAgentWorksOn.Nothing;
         return this;
     }
 
@@ -757,6 +823,7 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder Memory<TMemory>(int schemaVersion)
         where TMemory : class
     {
+        _options.MarkRunSetting(nameof(Memory));
         if (schemaVersion < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -777,6 +844,7 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder UseRuleHandler<THandler>()
         where THandler : class, INhAssistantAgentRuleHandler
     {
+        _options.MarkRunSetting(nameof(UseRuleHandler));
         _options.RuleHandlerType = typeof(THandler);
         return this;
     }
@@ -788,6 +856,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder Shadow(bool enabled = true)
     {
+        _options.MarkRunSetting(nameof(Shadow));
         _options.Shadow = enabled;
         return this;
     }
@@ -803,6 +872,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder ShadowOf(string liveAgentId)
     {
+        _options.MarkRunSetting(nameof(ShadowOf));
         NhAssistantNames.ValidateSegment(liveAgentId, nameof(liveAgentId));
         if (string.Equals(liveAgentId, _options.AgentId, StringComparison.Ordinal))
         {
@@ -821,6 +891,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder Enabled(bool enabled)
     {
+        _options.MarkRunSetting(nameof(Enabled));
         _options.Enabled = enabled;
         return this;
     }
@@ -834,6 +905,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder StartsOff()
     {
+        _options.MarkRunSetting(nameof(StartsOff));
         _options.StartsOff = true;
         return this;
     }
@@ -882,6 +954,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder HideFromChat()
     {
+        _options.MarkRunSetting(nameof(HideFromChat));
         _options.HiddenFromChat = true;
         return this;
     }
@@ -895,6 +968,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder WorksOn(params string[] subjectTypes)
     {
+        _options.MarkRunSetting(nameof(WorksOn));
         ArgumentNullException.ThrowIfNull(subjectTypes);
         if (subjectTypes.Length == 0)
         {
@@ -938,6 +1012,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder WorksOnAllObjects()
     {
+        _options.MarkRunSetting(nameof(WorksOnAllObjects));
         var current = Declared();
         if (current.SubjectTypes.Count > 0)
         {
@@ -957,6 +1032,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder WorksOnApplication()
     {
+        _options.MarkRunSetting(nameof(WorksOnApplication));
         _options.WorksOn = Declared() with { Application = true };
         return this;
     }
@@ -968,6 +1044,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder PerDivision(bool enabled = true)
     {
+        _options.MarkRunSetting(nameof(PerDivision));
         _options.WorksOn = _options.WorksOn with { PerDivision = enabled };
         return this;
     }
@@ -980,6 +1057,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder RunPolicy(string policyName)
     {
+        _options.MarkRunSetting(nameof(RunPolicy));
         _options.WorksOn = _options.WorksOn with { RunPolicy = ValidatePolicyName(policyName) };
         return this;
     }
@@ -991,6 +1069,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder ViewPolicy(string policyName)
     {
+        _options.MarkRunSetting(nameof(ViewPolicy));
         _options.WorksOn = _options.WorksOn with { ViewPolicy = ValidatePolicyName(policyName) };
         return this;
     }
@@ -1002,6 +1081,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder InGroup(string groupId)
     {
+        _options.MarkRunSetting(nameof(InGroup));
         if (!NhAssistantAgentGroupDefinition.IsValidId(groupId))
         {
             throw new ArgumentException(
@@ -1071,6 +1151,7 @@ public sealed class NhAssistantAgentRunBuilder
         string subjectType,
         Action<NhAssistantConsultationBuilder>? configure = null)
     {
+        _options.MarkRunSetting(nameof(AllowConsultation));
         if (!NhAiSubjectRef.IsValidType(subjectType))
         {
             throw new ArgumentException("A subject type is a dash-case identifier.", nameof(subjectType));
@@ -1093,6 +1174,7 @@ public sealed class NhAssistantAgentRunBuilder
     /// </summary>
     public NhAssistantAgentRunBuilder ConsultableAsData(Action<NhAssistantConsultationCeilingBuilder>? configure = null)
     {
+        _options.MarkRunSetting(nameof(ConsultableAsData));
         var ceiling = new NhAssistantConsultationCeiling();
         configure?.Invoke(new NhAssistantConsultationCeilingBuilder(ceiling));
         _options.ConsultationCeiling = ceiling;
@@ -1112,6 +1194,7 @@ public sealed class NhAssistantAgentRunBuilder
         string subjectType,
         Action<NhAssistantHandOffBuilder> configure)
     {
+        _options.MarkRunSetting(nameof(AcceptHandOffs));
         if (!NhAiSubjectRef.IsValidType(subjectType))
         {
             throw new ArgumentException("A subject type is a dash-case identifier.", nameof(subjectType));

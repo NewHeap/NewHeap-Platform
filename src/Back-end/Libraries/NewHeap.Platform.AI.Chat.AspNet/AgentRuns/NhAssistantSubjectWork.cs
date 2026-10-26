@@ -158,8 +158,10 @@ internal sealed class NhAssistantSubjectWork(
             .Where(thread => thread.Shadow && !IsVariant(thread.AgentId))
             .ToDictionary(thread => thread.AgentId, StringComparer.Ordinal);
         var agentIds = threads.Keys.Union(shadowThreads.Keys, StringComparer.Ordinal).ToList();
+        // A chat-only agent works on no subject, so it is in no subject's list (FB8).
         if (agentId is not null
-            && registration.AgentRuns.ContainsKey(agentId)
+            && registration.AgentRuns.TryGetValue(agentId, out var requested)
+            && !requested.ChatOnly
             && IsVisible(agentId, administrator)
             && !agentIds.Contains(agentId, StringComparer.Ordinal))
         {
