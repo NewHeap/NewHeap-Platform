@@ -9,6 +9,12 @@
     <PackageDescription>ASP.NET Core assistant endpoints with server-sent event streaming and approval decisions for NewHeap AI.</PackageDescription>
     <PackageTags>newheap platform ai chat assistant aspnetcore sse</PackageTags>
     <IsPackable>true</IsPackable>
+    <!--
+      The Request Delegate Generator writes the request delegates of the minimal API endpoints when the
+      library is built, so a host start does not compile them with RequestDelegateFactory. With it on,
+      the SDK adds the generator's interceptors namespace, Microsoft.AspNetCore.Http.Generated.
+    -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
   </PropertyGroup>
 
   <ItemGroup>
