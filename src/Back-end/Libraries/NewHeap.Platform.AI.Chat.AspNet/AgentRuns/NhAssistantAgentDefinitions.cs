@@ -257,7 +257,7 @@ internal sealed class NhAssistantAgentDefinitions(
             request.Metadata,
             request.InstructionsAsset)
         {
-            // Unlike the endpoint, which replaces them, a request that names no servers keeps them.
+            // As at the endpoint, a request that names no servers keeps them.
             KeepMcpServers = request.McpServerIds is null
         };
         return await InEffectAsync(await administration.UpdateAsync(input, expectedVersion, actorId, cancellationToken), cancellationToken);

@@ -871,6 +871,7 @@
         "mcp-servers": "MCP-servers",
         "mcp-servers-hint": "Ingeschakelde tools van deze servers zijn beschikbaar voor deze agent.",
         "mcp-servers-empty": "Er zijn geen MCP-servers ingesteld.",
+        "mcp-servers-failed": "De agent is opgeslagen, maar niet elke wijziging van de MCP-servers is doorgevoerd. Sla opnieuw op om de rest nog eens te proberen.",
         "use": {
           "title": "Hoe wordt deze agent gebruikt?",
           "chat": "In de chat",
@@ -1133,10 +1134,12 @@
         "status": {
           "available": "Beschikbaar",
           "schema-changed": "Invoer gewijzigd",
-          "missing": "Ontbreekt op de server"
+          "missing": "Ontbreekt op de server",
+          "awaiting-sync": "Nog niet gezien"
         },
         "schema-changed-warning": "De invoer van de tool is op de server gewijzigd, daarom staat de tool uit. Controleer de tool voordat je hem opnieuw aanzet.",
         "missing-warning": "De server biedt deze tool niet meer aan.",
+        "awaiting-sync-warning": "Nog geen synchronisatie heeft deze tool gezien. Agents krijgen hem pas aangeboden als een synchronisatie hem op de server vindt; dan wordt hij beschikbaar met deze instellingen.",
         "save": "Tool opslaan",
         "back": "Terug naar de servers"
       },

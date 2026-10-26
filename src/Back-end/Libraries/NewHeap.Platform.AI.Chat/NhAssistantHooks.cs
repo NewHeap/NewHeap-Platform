@@ -435,7 +435,28 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.InvocationId"/> is the question, <see cref="NhAssistantAuditEvent.ObjectId"/>
     /// the addressee and <see cref="NhAssistantAuditEvent.ResultCode"/> <c>assistant-question-expired</c>.
     /// </summary>
-    QuestionExpired = 102
+    QuestionExpired = 102,
+
+    /// <summary>
+    /// An administrator or the application stored the reviewed settings of an MCP tool that no sync of
+    /// its server has seen yet, such as a tool of a server the host cannot reach yet. The tool stays
+    /// <c>missing</c>, without a schema, and no turn offers it until a sync sees it.
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is <c>&lt;server&gt;/&lt;remote name&gt;</c> and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>enabled</c> or <c>disabled</c>. A later change of
+    /// its settings is audited as <see cref="AdminMcpToolUpdated"/>.
+    /// </summary>
+    AdminMcpToolReviewedBeforeSync = 113,
+
+    /// <summary>
+    /// The first sync that saw an MCP tool reviewed before any sync
+    /// (<see cref="AdminMcpToolReviewedBeforeSync"/>) made it <c>available</c> with its reviewed settings
+    /// and the schema it saw, next to the server's <see cref="AdminMcpServerSynced"/>.
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is <c>&lt;server&gt;/&lt;remote name&gt;</c> in the
+    /// server's spelling, <see cref="NhAssistantAuditEvent.ActorId"/> the actor of the sync and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>enabled</c>, when the turns of its agents offer
+    /// it from now on, or <c>disabled</c>.
+    /// </summary>
+    AdminMcpToolSeenAfterReview = 114
 }
 
 /// <summary>

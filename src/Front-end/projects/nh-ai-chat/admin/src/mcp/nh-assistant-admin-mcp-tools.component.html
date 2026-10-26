@@ -32,8 +32,8 @@
           <div class="card-header">
             <strong class="mono">{{ tool.remoteName }}</strong>
             <span class="badge"
-              [class.warning]="tool.status === 'schema-changed'"
-              [class.danger]="tool.status === 'missing'">{{ 'nh-assistant.admin.tools.status.' + tool.status | translate }}</span>
+              [class.warning]="tool.status === 'schema-changed' || tool.awaitingSync"
+              [class.danger]="tool.status === 'missing' && !tool.awaitingSync">{{ 'nh-assistant.admin.tools.status.' + (tool.awaitingSync ? 'awaiting-sync' : tool.status) | translate }}</span>
             <span class="badge" [class.success]="tool.isEnabled">{{ (tool.isEnabled ? 'nh-assistant.admin.enabled' : 'nh-assistant.admin.disabled') | translate }}</span>
             @if (tool.readOnlyHint !== null) {
               <span class="badge hint" [attr.title]="'nh-assistant.admin.tools.description' | translate">
@@ -46,18 +46,22 @@
           @if (tool.status === 'schema-changed') {
             <p class="message warning" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.tools.schema-changed-warning' | translate }}</p>
           }
-          @if (tool.status === 'missing') {
+          @if (tool.awaitingSync) {
+            <p class="message warning" data-tool-awaiting-sync><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.tools.awaiting-sync-warning' | translate }}</p>
+          } @else if (tool.status === 'missing') {
             <p class="message error"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.tools.missing-warning' | translate }}</p>
           }
 
-          <p class="muted"><span class="label">{{ 'nh-assistant.admin.tools.remote-description' | translate }}</span>{{ tool.description }}</p>
+          @if (!tool.awaitingSync) {
+            <p class="muted"><span class="label">{{ 'nh-assistant.admin.tools.remote-description' | translate }}</span>{{ tool.description }}</p>
+          }
 
           <div class="grid">
             <label class="check">
               <input
                 type="checkbox"
                 [checked]="draft(tool).isEnabled"
-                [disabled]="tool.status === 'missing'"
+                [disabled]="tool.status === 'missing' && !tool.awaitingSync"
                 (change)="change(tool, { isEnabled: checked($event) })" />
               <span>{{ 'nh-assistant.admin.tools.enabled' | translate }}</span>
             </label>

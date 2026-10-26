@@ -97,6 +97,9 @@ internal sealed partial class NhAssistantMcpAdministration(
     public const string AdministratorReason = "administrator";
     public const string ServerChangedReason = "server-changed";
 
+    /// <summary>The longest remote tool name a sync stores, as the tool table holds it.</summary>
+    public const int MaxRemoteNameLength = 128;
+
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
 
     public Task<IReadOnlyList<(AssistantMcpServer Server, IReadOnlyList<string> AgentIds)>> ListAsync(
@@ -246,7 +249,9 @@ internal sealed partial class NhAssistantMcpAdministration(
 
     /// <summary>
     /// Lists the remote tools and records them. New tools start disabled as mutations; a changed input
-    /// schema disables a tool until an administrator activates it again.
+    /// schema disables a tool until an administrator activates it again. A tool whose settings were
+    /// reviewed before any sync saw it becomes available with them, audited as
+    /// <see cref="NhAssistantAuditEventKind.AdminMcpToolSeenAfterReview"/>.
     /// </summary>
     public async Task<TaskResult<IReadOnlyList<AssistantMcpTool>>> SyncAsync(
         string id,
@@ -276,13 +281,13 @@ internal sealed partial class NhAssistantMcpAdministration(
             return TaskResult<IReadOnlyList<AssistantMcpTool>>.Failed(lease);
         }
 
-        IReadOnlyList<AssistantMcpTool> tools;
+        NhAssistantMcpSyncResult synced;
         await using (lease.Data)
         {
             var discovered = lease.Data.Tools
                 .GroupBy(tool => tool.Name, StringComparer.Ordinal)
                 .Select(group => group.First())
-                .Where(tool => tool.Name.Length <= 128)
+                .Where(tool => tool.Name.Length <= MaxRemoteNameLength)
                 .Select(tool => new AssistantMcpTool
                 {
                     RemoteName = tool.Name,
@@ -292,7 +297,7 @@ internal sealed partial class NhAssistantMcpAdministration(
                     ReadOnlyHint = tool.ProtocolTool.Annotations?.ReadOnlyHint
                 })
                 .ToArray();
-            tools = await store.ApplySyncAsync(id, discovered, cancellationToken);
+            synced = await store.ApplySyncAsync(id, discovered, cancellationToken);
         }
         await store.UpdateMcpServerAsync(id, item =>
         {
@@ -306,7 +311,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         }, cancellationToken);
         await cache.InvalidateAsync(id);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerSynced, id, actorId, cancellationToken);
-        return TaskResult<IReadOnlyList<AssistantMcpTool>>.Succeeded(tools);
+        foreach (var tool in synced.FirstSeen.OrderBy(item => item.RemoteName, StringComparer.Ordinal))
+        {
+            // An enabled tool is offered from now on, with the schema this sync saw.
+            await AuditToolAsync(NhAssistantAuditEventKind.AdminMcpToolSeenAfterReview, id, tool, actorId, cancellationToken);
+        }
+
+        return TaskResult<IReadOnlyList<AssistantMcpTool>>.Succeeded(synced.Tools);
     }
 
     public async Task<TaskResult<IReadOnlyList<AssistantMcpTool>>> ListToolsAsync(string id, CancellationToken cancellationToken)
@@ -318,6 +329,14 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult<IReadOnlyList<AssistantMcpTool>>.Succeeded(await store.ListMcpToolsAsync(id, cancellationToken));
     }
 
+    /// <summary>
+    /// Enables or disables a tool, sets its effect and its description override. A tool that no sync
+    /// has seen yet, such as one of a server the host cannot reach yet, gets a row of its own with these
+    /// settings, the status <c>missing</c> and no schema hash: no turn offers it until the first sync that
+    /// sees it makes it <c>available</c> with them. Its remote name is checked as a sync takes one, and a
+    /// name that differs only in case from a stored tool of the server is refused, because SQL Server
+    /// compares the key without case.
+    /// </summary>
     public async Task<TaskResult<AssistantMcpTool>> UpdateToolAsync(
         string serverId,
         string remoteName,
@@ -334,32 +353,153 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return TaskResult<AssistantMcpTool>.Failed(errors.ToResult());
         }
-        var tools = await store.ListMcpToolsAsync(serverId, cancellationToken);
-        var current = tools.FirstOrDefault(tool => tool.RemoteName == remoteName);
-        if (current is null)
+
+        var settings = new ToolSettings(isEnabled, effect!, string.IsNullOrWhiteSpace(descriptionOverride) ? null : descriptionOverride.Trim());
+        for (var attempt = 0; ; attempt++)
         {
-            return TaskResult<AssistantMcpTool>.Failed(NhAssistantAdminErrorCodes.McpToolNotFound, "The MCP tool was not found.");
+            if (await store.FindMcpServerAsync(serverId, cancellationToken) is null)
+            {
+                return NotFound<AssistantMcpTool>();
+            }
+
+            var tools = await store.ListMcpToolsAsync(serverId, cancellationToken);
+            var current = tools.FirstOrDefault(tool => tool.RemoteName == remoteName);
+            if (current is not null)
+            {
+                return await ChangeToolAsync(serverId, current, settings, actorId, cancellationToken);
+            }
+
+            var nameErrors = RemoteNameErrors(remoteName, tools);
+            if (!nameErrors.IsEmpty)
+            {
+                return TaskResult<AssistantMcpTool>.Failed(nameErrors.ToResult());
+            }
+
+            var added = await store.AddMcpToolAwaitingSyncAsync(
+                ToolAwaitingSync(serverId, remoteName, settings),
+                NhAssistantMcpServerLimits.MaxToolsAwaitingSync,
+                cancellationToken);
+            switch (added.Outcome)
+            {
+                case NhAssistantStoreOutcome.Succeeded:
+                    await AuditToolAsync(NhAssistantAuditEventKind.AdminMcpToolReviewedBeforeSync, serverId, added.Value!, actorId, cancellationToken);
+                    return TaskResult<AssistantMcpTool>.Succeeded(added.Value!);
+                case NhAssistantStoreOutcome.Rejected:
+                    return TaskResult<AssistantMcpTool>.Failed(
+                        NhAssistantErrorCodes.ConfigurationLimit,
+                        $"A server has at most {NhAssistantMcpServerLimits.MaxToolsAwaitingSync} tools that no sync has seen.");
+                case NhAssistantStoreOutcome.Conflict when attempt == 0:
+                    // Another save stored the tool or removed the server first: read again.
+                    continue;
+                case NhAssistantStoreOutcome.Conflict:
+                    return TaskResult<AssistantMcpTool>.Failed(NhAssistantValidationErrors.Failed("remoteName", NhAssistantFieldErrors.Invalid));
+                default:
+                    return NotFound<AssistantMcpTool>();
+            }
         }
-        if (isEnabled && current.Status == NhAssistantMcpToolStatuses.Missing)
+    }
+
+    /// <summary>
+    /// Changes the settings of a stored tool. A tool the server no longer lists cannot be enabled; one
+    /// that no sync has seen yet can, and stays <c>missing</c> until a sync sees it.
+    /// </summary>
+    private async Task<TaskResult<AssistantMcpTool>> ChangeToolAsync(
+        string serverId,
+        AssistantMcpTool current,
+        ToolSettings settings,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (settings.IsEnabled && current.Status == NhAssistantMcpToolStatuses.Missing && !NhAssistantAdminStore.AwaitsSync(current))
         {
             return TaskResult<AssistantMcpTool>.Failed(
                 NhAssistantAdminErrorCodes.McpToolDisabled,
                 "A tool that the server no longer offers cannot be enabled.");
         }
-        var updated = await store.UpdateMcpToolAsync(serverId, remoteName, tool =>
+
+        var updated = await store.UpdateMcpToolAsync(serverId, current.RemoteName, tool =>
         {
-            tool.IsEnabled = isEnabled;
-            tool.Effect = effect;
-            tool.DescriptionOverride = string.IsNullOrWhiteSpace(descriptionOverride) ? null : descriptionOverride.Trim();
-            if (isEnabled)
+            tool.IsEnabled = settings.IsEnabled;
+            tool.Effect = settings.Effect;
+            tool.DescriptionOverride = settings.DescriptionOverride;
+            if (settings.IsEnabled && !NhAssistantAdminStore.AwaitsSync(tool))
             {
                 // Explicit re-activation accepts the current remote schema.
                 tool.Status = NhAssistantMcpToolStatuses.Available;
             }
         }, cancellationToken);
-        await AuditAsync(NhAssistantAuditEventKind.AdminMcpToolUpdated, serverId + "/" + remoteName, actorId, cancellationToken);
-        return TaskResult<AssistantMcpTool>.Succeeded(updated!);
+        if (updated is null)
+        {
+            // The server and its tools were deleted meanwhile.
+            return TaskResult<AssistantMcpTool>.Failed(NhAssistantAdminErrorCodes.McpToolNotFound, "The MCP tool was not found.");
+        }
+
+        await AuditAsync(NhAssistantAuditEventKind.AdminMcpToolUpdated, serverId + "/" + current.RemoteName, actorId, cancellationToken);
+        return TaskResult<AssistantMcpTool>.Succeeded(updated);
     }
+
+    /// <summary>
+    /// The field errors of the remote name of a tool that no sync has seen yet, checked as a sync takes
+    /// one: one to <see cref="MaxRemoteNameLength"/> characters (<c>remoteName: too-long</c>) without
+    /// control characters (<c>remoteName: invalid</c>), and no other spelling of the name of a stored
+    /// tool of the server (<c>remoteName: invalid</c>).
+    /// </summary>
+    private static NhAssistantValidationErrors RemoteNameErrors(string remoteName, IReadOnlyList<AssistantMcpTool> tools)
+    {
+        var blank = string.IsNullOrWhiteSpace(remoteName);
+        return new NhAssistantValidationErrors()
+            .Require(!blank, "remoteName", NhAssistantFieldErrors.Required)
+            .Require(remoteName.Length <= MaxRemoteNameLength, "remoteName", NhAssistantFieldErrors.TooLong)
+            .Require(blank || !remoteName.Any(char.IsControl), "remoteName", NhAssistantFieldErrors.Invalid)
+            .Require(
+                !tools.Any(tool => string.Equals(tool.RemoteName, remoteName, StringComparison.OrdinalIgnoreCase)),
+                "remoteName",
+                NhAssistantFieldErrors.Invalid);
+    }
+
+    /// <summary>
+    /// The row of a tool that no sync has seen yet: its local id as a sync would name it, no server
+    /// description or hint, and the reviewed settings.
+    /// </summary>
+    private static AssistantMcpTool ToolAwaitingSync(string serverId, string remoteName, ToolSettings settings)
+    {
+        return new AssistantMcpTool
+        {
+            ServerId = serverId,
+            RemoteName = remoteName,
+            LocalId = NhAssistantMcpToolSource.LocalId(serverId, remoteName),
+            Description = string.Empty,
+            IsEnabled = settings.IsEnabled,
+            Effect = settings.Effect,
+            DescriptionOverride = settings.DescriptionOverride,
+            ReadOnlyHint = null
+        };
+    }
+
+    /// <summary>
+    /// A tool's content-free audit: the server and tool as <c>&lt;server&gt;/&lt;remote name&gt;</c>, and
+    /// whether the tool is enabled (<c>enabled</c> or <c>disabled</c>).
+    /// </summary>
+    private async Task AuditToolAsync(
+        NhAssistantAuditEventKind kind,
+        string serverId,
+        AssistantMcpTool tool,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var evt = new NhAssistantAuditEvent(kind, Guid.Empty, Guid.Empty, actorId, string.Empty, 0, DateTimeOffset.UtcNow)
+        {
+            ObjectId = serverId + "/" + tool.RemoteName,
+            ResultCode = tool.IsEnabled ? NhAssistantMcpToolAudit.Enabled : NhAssistantMcpToolAudit.Disabled
+        };
+        foreach (var sink in _auditSinks)
+        {
+            await sink.RecordAsync(evt, cancellationToken);
+        }
+    }
+
+    /// <summary>The reviewed settings of one tool.</summary>
+    private sealed record ToolSettings(bool IsEnabled, string Effect, string? DescriptionOverride);
 
     private async Task<TaskResult<NhAssistantMcpLease>> ConnectAsync(AssistantMcpServer server, string? actorId, CancellationToken cancellationToken)
     {
@@ -546,9 +686,11 @@ internal sealed partial class NhAssistantMcpAdministration(
             return;
         }
 
+        // A tool that no sync has seen yet has no schema a reader could be checked against.
         IReadOnlySet<string> synced = existing is null
             ? new HashSet<string>(StringComparer.Ordinal)
             : (await store.ListMcpToolsAsync(existing.Id, cancellationToken))
+                .Where(tool => !NhAssistantAdminStore.AwaitsSync(tool))
                 .Select(tool => tool.RemoteName)
                 .ToHashSet(StringComparer.Ordinal);
         var readTools = new HashSet<string>(StringComparer.Ordinal);

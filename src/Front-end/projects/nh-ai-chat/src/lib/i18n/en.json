@@ -871,6 +871,7 @@
         "mcp-servers": "MCP servers",
         "mcp-servers-hint": "Enabled tools of these servers become available to this agent.",
         "mcp-servers-empty": "No MCP servers are configured.",
+        "mcp-servers-failed": "The agent is saved, but not every change to its MCP servers went through. Save again to retry the rest.",
         "use": {
           "title": "How is this agent used?",
           "chat": "In the chat",
@@ -1133,10 +1134,12 @@
         "status": {
           "available": "Available",
           "schema-changed": "Input changed",
-          "missing": "Missing on server"
+          "missing": "Missing on server",
+          "awaiting-sync": "Not seen yet"
         },
         "schema-changed-warning": "The tool's input changed on the server, so the tool was disabled. Review the tool before you enable it again.",
         "missing-warning": "The server no longer lists this tool.",
+        "awaiting-sync-warning": "No sync has seen this tool yet. Agents are not offered it until a sync finds it on the server; it then becomes available with these settings.",
         "save": "Save tool",
         "back": "Back to the servers"
       },

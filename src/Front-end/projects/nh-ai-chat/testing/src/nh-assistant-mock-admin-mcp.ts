@@ -61,6 +61,8 @@ export interface NhAssistantMockMcpContext {
   chatAgentIds(): string[];
   /** Removes a deleted server from the agents it was assigned to. */
   removeServer(serverId: string): void;
+  /** Assigns a server to an agent or removes the assignment, without a new agent version. */
+  setAssignment(serverId: string, agentId: string, assign: boolean): 'agent-not-found' | 'too-long' | 'changed' | 'unchanged';
   /** Whether the caller passes the administration policy. */
   canAdminister(): boolean;
 }
@@ -96,6 +98,9 @@ const readerPriority = { min: -1000, max: 1000 } as const;
 const classifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
 const controlCharacters = /[\u0000-\u001f\u007f]/;
+/** The longest remote tool name a sync stores, and the most tools of a server that wait for a sync. */
+const maxRemoteName = 128;
+const maxToolsAwaitingSync = 100;
 
 /** Records one field error of a server change; the first value per field wins. */
 type AddFieldError = (field: string, value: 'required' | 'invalid' | 'too-long' | 'not-found') => void;
@@ -553,20 +558,21 @@ export class NhAssistantMockAdminMcp {
     if (length === 5 && action === 'tools' && method === 'PUT' && child !== undefined) {
       const tool = stored.tools.get(child);
       const input = body as { isEnabled?: unknown; effect?: unknown; descriptionOverride?: unknown } | undefined;
-      if (!tool) {
-        return failure('assistant-mcp-tool-not-found');
-      }
       if (typeof input?.isEnabled !== 'boolean' || (input.effect !== 'read-only' && input.effect !== 'mutation') ||
         (input.descriptionOverride !== null && typeof input.descriptionOverride !== 'string')) {
         return validationFailure();
       }
-      if (input.isEnabled && tool.status === 'missing') {
-        return validationFailure('isEnabled');
-      }
-
       const override = typeof input.descriptionOverride === 'string' && input.descriptionOverride.trim().length > 0
         ? input.descriptionOverride.slice(0, 1_000)
         : null;
+      if (!tool) {
+        return this.reviewBeforeSync(stored, child, input.isEnabled, input.effect as McpToolEffect, override);
+      }
+      // A tool the server no longer lists cannot be enabled; one that no sync has seen yet can.
+      if (input.isEnabled && tool.status === 'missing' && !tool.awaitingSync) {
+        return failure('assistant-mcp-tool-disabled');
+      }
+
       const updated = {
         ...tool,
         isEnabled: input.isEnabled,
@@ -577,16 +583,87 @@ export class NhAssistantMockAdminMcp {
       stored.tools.set(child, updated);
       return { status: 200, body: toTool(updated) };
     }
+    if (length === 5 && action === 'agents' && child !== undefined) {
+      if (method !== 'PUT' && method !== 'DELETE') {
+        return { status: 405 };
+      }
+      // Only the assignment changes, never the agent's version, as on the server.
+      const changed = this.context.setAssignment(stored.server.id, child, method === 'PUT');
+      if (changed === 'agent-not-found') {
+        return failure('assistant-agent-not-found');
+      }
+      if (changed === 'too-long') {
+        return failure('assistant-validation', { mcpServerIds: ['too-long'] });
+      }
+      return { status: 200, body: this.toServer(stored) };
+    }
 
     return failure('assistant-not-found');
+  }
+
+  /**
+   * The reviewed settings of a tool that no sync has seen yet, as the server stores them: a missing tool
+   * without a schema that waits for its sync, with a name a sync could store and no other spelling of
+   * a stored tool's name; at most 100 per server.
+   */
+  private reviewBeforeSync(
+    stored: StoredServer,
+    remoteName: string,
+    isEnabled: boolean,
+    effect: McpToolEffect,
+    descriptionOverride: string | null
+  ): NhAssistantMockResult {
+    if (remoteName.trim().length === 0) {
+      return failure('assistant-validation', { remoteName: ['required'] });
+    }
+    if (remoteName.length > maxRemoteName) {
+      return failure('assistant-validation', { remoteName: ['too-long'] });
+    }
+    const lower = remoteName.toLowerCase();
+    if (controlCharacters.test(remoteName) || [...stored.tools.keys()].some(name => name.toLowerCase() === lower)) {
+      return failure('assistant-validation', { remoteName: ['invalid'] });
+    }
+    if ([...stored.tools.values()].filter(tool => tool.awaitingSync).length >= maxToolsAwaitingSync) {
+      return failure('assistant-configuration-limit');
+    }
+
+    const tool = {
+      remoteName,
+      localId: `mcp.${stored.server.id}.${kebab(remoteName)}`,
+      description: '',
+      descriptionOverride,
+      isEnabled,
+      effect,
+      status: 'missing' as const,
+      readOnlyHint: null,
+      awaitingSync: true,
+      inputSchemaHash: ''
+    };
+    stored.tools.set(remoteName, tool);
+    return { status: 200, body: toTool(tool) };
   }
 
   private sync(stored: StoredServer): void {
     const seen = new Set<string>();
     for (const remote of stored.remoteTools) {
       seen.add(remote.remoteName);
-      const existing = stored.tools.get(remote.remoteName);
+      const existing = stored.tools.get(remote.remoteName) ?? this.reviewedInOtherSpelling(stored, remote.remoteName);
       const description = remote.description.slice(0, 1_000);
+      if (existing?.awaitingSync) {
+        // The first sync that sees a reviewed tool keeps its settings and takes the server's spelling.
+        stored.tools.delete(existing.remoteName);
+        stored.tools.set(remote.remoteName, {
+          ...existing,
+          remoteName: remote.remoteName,
+          localId: `mcp.${stored.server.id}.${kebab(remote.remoteName)}`,
+          description,
+          status: 'available',
+          readOnlyHint: remote.readOnlyHint ?? null,
+          awaitingSync: false,
+          inputSchemaHash: remote.inputSchemaHash
+        });
+        continue;
+      }
       if (!existing) {
         stored.tools.set(remote.remoteName, {
           remoteName: remote.remoteName,
@@ -614,10 +691,19 @@ export class NhAssistantMockAdminMcp {
     }
 
     for (const [name, tool] of stored.tools) {
-      if (!seen.has(name)) {
+      // A reviewed tool that this sync does not see keeps waiting with its settings.
+      if (!seen.has(name) && !tool.awaitingSync) {
         stored.tools.set(name, { ...tool, isEnabled: false, status: 'missing' });
       }
     }
+  }
+
+  /** A reviewed tool that waits for its sync under another spelling of a name no remote tool has. */
+  private reviewedInOtherSpelling(stored: StoredServer, remoteName: string): (McpTool & { inputSchemaHash: string }) | undefined {
+    const lower = remoteName.toLowerCase();
+    const names = new Set(stored.remoteTools.map(remote => remote.remoteName));
+    return [...stored.tools.values()]
+      .find(tool => tool.awaitingSync && !names.has(tool.remoteName) && tool.remoteName.toLowerCase() === lower);
   }
 
   /**
@@ -1343,7 +1429,7 @@ function allowedServerUrl(value: string): boolean {
 }
 
 function toTool({ inputSchemaHash, ...tool }: McpTool & { inputSchemaHash: string }): McpTool {
-  return tool;
+  return { ...tool, awaitingSync: tool.awaitingSync === true };
 }
 
 function toTools(stored: StoredServer): McpTool[] {

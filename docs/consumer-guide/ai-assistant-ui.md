@@ -93,6 +93,16 @@ configures `NewHeap:AI:Assistant:Mcp:OAuth:RedirectUri` and lists its page origi
 `ReturnOrigins`; the mock API provides `NhAssistantMockAuthorizationWindow`, which plays
 the callback as `mcpAuthorization` of the scenario says.
 
+The agent editor creates a new agent with its MCP servers, but saves an existing agent without
+`mcpServerIds`, so a server assigned since the editor opened stays; it then calls `unassignMcpServer`
+and `assignMcpServer` for the servers the administrator changed only, removals first. When one of them
+fails, the definition stays saved, the editor shows that not every change went through and its next
+save continues on the saved version with the changes that are left (SPM-345). A host that saves agents
+with its own form does the same: omit `mcpServerIds` on `updateAgent` to keep the assignments and send
+`[]` only to remove them all. The tools list of a server shows a tool whose settings were reviewed before
+any sync saw it (`McpTool.awaitingSync`) as not seen yet; its settings can change there, and the first
+sync that finds it makes it available with them (SPM-346).
+
 When each person connects their own account (`connectionScope: 'user'`), the thread shows
 `nh-assistant-connection-required` for an answer that went on without the person's connection
 (`connection.required` and the `connection-required` part): it connects the viewer's own account
@@ -1222,3 +1232,13 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs)
+- SPM-345 — An agent editor's save keeps an MCP server that was assigned while it was open, and the administration assigns servers one by one
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs)
+- SPM-346 — The operations code reviews the milestone lookup before the host can reach the server, and the first sync keeps its settings
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs)

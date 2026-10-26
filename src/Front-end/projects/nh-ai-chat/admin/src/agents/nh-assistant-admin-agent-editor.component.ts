@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Observable, Subscription, map, of, startWith, switchMap, tap } from 'rxjs';
+import { Observable, Subscription, catchError, concatMap, from, last, map, of, startWith, switchMap, tap, throwError } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentGroups,
@@ -78,7 +78,9 @@ let nextId = 0;
  * of agent metadata, where the application's own editor saves the value; a change of a field of an
  * agent created here is its next version, which the next save of the definition continues on. Fields
  * of the definition that the agent's package locks show read-only with a lock and the package's id and
- * version, with "Unlink" for the definition; a save keeps their values.
+ * version, with "Unlink" for the definition; a save keeps their values. A new agent is created with its
+ * MCP servers; an existing agent's save sends no `mcpServerIds`, so an assignment made since the editor
+ * opened stays, and then assigns or unassigns only the servers the administrator changed, one by one.
  */
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
@@ -181,10 +183,16 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly submitted = signal(false);
   readonly saving = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
+  /**
+   * The definition was saved, but a change of the MCP servers failed; the next save retries the
+   * changes that are left.
+   */
+  readonly assignmentsFailed = signal(false);
 
   /**
-   * A new agent that was created while its groups could not be saved yet: the next save completes it
-   * as an existing agent.
+   * The agent as a save left it when part of the save failed: a new agent that was created while its
+   * groups could not be saved yet, or an agent whose definition was saved while a change of its MCP
+   * servers failed. The next save completes it as an existing agent.
    */
   private readonly created = signal<AdminAgent | null>(null);
   /** The agent the next save updates; `null` while a new agent is not created yet. */
@@ -390,6 +398,7 @@ export class NhAssistantAdminAgentEditorComponent {
 
     const policy = this.requiredPolicy().trim();
     const fromAsset = this.instructionsSource() === 'asset';
+    const chosenServers = [...this.mcpServerIds()];
     const input: AdminAgentInput = {
       id: this.isNew() ? this.agentId() : this.editing()!.id,
       displayName: keyOrText(this.displayName(), this.keyedName),
@@ -398,7 +407,9 @@ export class NhAssistantAdminAgentEditorComponent {
       instructions: fromAsset ? '' : this.instructions(),
       ...(fromAsset ? { instructionsAsset: this.instructionsAsset() } : {}),
       toolSelectors: this.toolSelectors(),
-      mcpServerIds: this.mcpServerIds(),
+      // A new agent is created with its servers. Omitted, an existing agent keeps its assignments,
+      // also one made since the editor opened; the servers changed here follow one by one.
+      ...(this.isNew() ? { mcpServerIds: chosenServers } : {}),
       requiredPolicy: policy.length > 0 ? policy : null,
       autonomy: this.autonomy(),
       ...(this.choosesUse() ? { offeredInChat: this.use() !== 'background' } : {}),
@@ -427,7 +438,8 @@ export class NhAssistantAdminAgentEditorComponent {
     const request: Observable<AdminAgent> = existing
       ? groupsSaved.pipe(
         switchMap(membership => this.admin.updateAgent(existing.id, { ...input, expectedVersion: this.fieldsVersion() ?? existing.version }).pipe(
-          map(agent => withGroups(agent, membership)))))
+          map(agent => withGroups(agent, membership)))),
+        switchMap(agent => this.saveAssignments(agent, existing.mcpServerIds, chosenServers)))
       : this.admin.createAgent(input).pipe(
         tap(agent => this.created.set(agent)),
         switchMap(agent => groups.length > 0
@@ -436,6 +448,7 @@ export class NhAssistantAdminAgentEditorComponent {
 
     this.saving.set(true);
     this.error.set(null);
+    this.assignmentsFailed.set(false);
     this.subscription?.unsubscribe();
     this.subscription = request.subscribe({
       next: agent => {
@@ -451,6 +464,40 @@ export class NhAssistantAdminAgentEditorComponent {
         this.error.set(toNhAssistantError(error));
       }
     });
+  }
+
+  /**
+   * The MCP servers the administrator added or removed, after the definition was saved, one call per
+   * server: removals first, so an agent with as many servers as allowed can swap one, then additions.
+   * Only the assignments change, never the agent's version. The first failure stops the rest: the
+   * editor then keeps the saved agent with the changes that succeeded, so the next save continues on
+   * its version with the changes that are left.
+   */
+  private saveAssignments(agent: AdminAgent, loaded: readonly string[], chosen: readonly string[]): Observable<AdminAgent> {
+    const changes = [
+      ...loaded.filter(serverId => !chosen.includes(serverId)).map(serverId => ({ serverId, assign: false })),
+      ...chosen.filter(serverId => !loaded.includes(serverId)).map(serverId => ({ serverId, assign: true }))
+    ];
+    if (changes.length === 0) {
+      return of(agent);
+    }
+
+    let current = agent;
+    return from(changes).pipe(
+      concatMap(change => change.assign
+        ? this.admin.assignMcpServer(change.serverId, agent.id)
+        : this.admin.unassignMcpServer(change.serverId, agent.id)),
+      map(server => {
+        current = withAssignment(current, server);
+        return current;
+      }),
+      last(),
+      catchError((error: unknown) => {
+        this.created.set(current);
+        this.fieldsVersion.set(null);
+        this.assignmentsFailed.set(true);
+        return throwError(() => error);
+      }));
   }
 
   /** What the agent works on, as the six fields the server reads together. */
@@ -499,6 +546,7 @@ export class NhAssistantAdminAgentEditorComponent {
     this.fieldsVersion.set(null);
     this.submitted.set(false);
     this.error.set(null);
+    this.assignmentsFailed.set(false);
   }
 
   /** The translation of a key of an agent in code, or `null` when the text is not a key with a translation. */
@@ -515,6 +563,12 @@ export class NhAssistantAdminAgentEditorComponent {
 function sameGroups(left: readonly string[], right: readonly string[]): boolean {
   const sorted = [...right].sort();
   return left.length === sorted.length && left.every((group, index) => group === sorted[index]);
+}
+
+/** The agent with the assignment of one server as the server reports it in `assignedAgentIds`. */
+function withAssignment(agent: AdminAgent, server: McpServer): AdminAgent {
+  const others = agent.mcpServerIds.filter(serverId => serverId !== server.id);
+  return { ...agent, mcpServerIds: server.assignedAgentIds.includes(agent.id) ? [...others, server.id] : others };
 }
 
 /** The agent with the groups the server answered, or as it is without an answer. */
