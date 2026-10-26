@@ -14,6 +14,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** Maximum length of the application context and of agent instructions. */
 export const NH_ASSISTANT_MAX_INSTRUCTIONS = 20_000;
@@ -57,6 +58,8 @@ export class NhAssistantAdminContextComponent {
   readonly accountNames = new NhAssistantAccountNames();
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
     this.load(false);
   }

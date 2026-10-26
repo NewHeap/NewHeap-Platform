@@ -37,6 +37,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { focusFirstInvalid } from '../agents/run-config/run-config-shared';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /**
  * The longest values the server accepts per field of a server (`POST`/`PUT admin/mcp-servers`); the
@@ -356,6 +357,8 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly discoveryErrorKeys = computed(() => nhAssistantErrorKeys(this.discoveryError()));
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.discoverySubscription?.unsubscribe();

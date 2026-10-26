@@ -64,6 +64,7 @@ import { NhAssistantAgentPackageExportDialogComponent } from './agent-packages/n
 import { NhAssistantAgentPackageImportDialogComponent } from './agent-packages/nh-assistant-agent-package-import-dialog.component';
 import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
 import { agentDefinitionLockOf, agentPackageOf, isPackageLocked } from './agent-packages/package-parts';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
@@ -238,6 +239,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly readableId = readableId;
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.actionSubscription?.unsubscribe();

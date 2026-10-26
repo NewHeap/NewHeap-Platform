@@ -52,6 +52,7 @@ import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-a
 import { NhAssistantTriggerFormComponent } from './run-config/nh-assistant-trigger-form.component';
 import { describePolicy, runConfigLimits } from './run-config/run-config-shared';
 import { TriggerChange, isConflict, triggerChanges, triggerFieldKeys, versionSummary } from './run-config/trigger-versions';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
@@ -270,6 +271,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   });
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.loadSubscription?.unsubscribe();
       this.actionSubscription?.unsubscribe();

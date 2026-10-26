@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
+import {
+  NH_ASSISTANT_ADMIN_TRANSLATIONS,
+  startNhAssistantAdminTranslations
+} from '../../../admin/src/i18n/nh-assistant-admin-translations';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NH_ASSISTANT_ERROR_CODES } from './nh-assistant-error-codes';
 import { NH_ASSISTANT_TRANSLATIONS } from './nh-assistant-translations';
@@ -36,6 +40,28 @@ describe('NH_ASSISTANT_TRANSLATIONS', () => {
     const english = flatten(NH_ASSISTANT_TRANSLATIONS.en);
     for (const code of ['validation', 'unauthenticated', 'forbidden', 'not-found', 'conflict', 'upstream', 'timeout']) {
       expect(english.has(`nh-assistant.result-codes.api-bridge-${code}`)).withContext(code).toBeTrue();
+    }
+  });
+
+  it('leaves the administration texts to the admin entry point, so they do not load with the panel', () => {
+    for (const language of ['en', 'nl'] as const) {
+      const keys = [...flatten(NH_ASSISTANT_TRANSLATIONS[language]).keys()];
+
+      expect(keys.filter(key => key.startsWith('nh-assistant.admin.'))).withContext(language).toEqual([]);
+    }
+  });
+});
+
+describe('NH_ASSISTANT_ADMIN_TRANSLATIONS', () => {
+  it('has identical, non-empty key sets for en and nl under the nh-assistant.admin prefix', () => {
+    const english = flatten(NH_ASSISTANT_ADMIN_TRANSLATIONS.en);
+    const dutch = flatten(NH_ASSISTANT_ADMIN_TRANSLATIONS.nl);
+
+    expect(english.size).toBeGreaterThan(0);
+    expect([...english.keys()].sort()).toEqual([...dutch.keys()].sort());
+    for (const [key, value] of [...english, ...dutch]) {
+      expect(key.startsWith('nh-assistant.admin.')).withContext(key).toBeTrue();
+      expect(typeof value === 'string' && value.trim().length > 0).withContext(key).toBeTrue();
     }
   });
 });
@@ -76,7 +102,10 @@ describe('error translations', () => {
       'no-approver', 'unknown-policy', 'limit-above-ceiling', 'requests-not-allowed', 'mcp-not-allowed'
     ];
     for (const language of ['en', 'nl'] as const) {
-      const keys = flatten(NH_ASSISTANT_TRANSLATIONS[language]);
+      const keys = new Map([
+        ...flatten(NH_ASSISTANT_TRANSLATIONS[language]),
+        ...flatten(NH_ASSISTANT_ADMIN_TRANSLATIONS[language])
+      ]);
       const missing = [
         'nh-assistant.admin.run-config.problems.kind.consultation',
         'nh-assistant.admin.run-config.field-errors.not-allowed',
@@ -101,6 +130,9 @@ describe('error translations', () => {
 });
 
 const NH_ASSISTANT_DUTCH_CLOSE = (NH_ASSISTANT_TRANSLATIONS.nl as { 'nh-assistant': { panel: { close: string } } })['nh-assistant'].panel.close;
+const NH_ASSISTANT_DUTCH_CONTEXT_TITLE = (
+  NH_ASSISTANT_ADMIN_TRANSLATIONS.nl as { 'nh-assistant': { admin: { context: { title: string } } } }
+)['nh-assistant'].admin.context.title;
 
 describe('bundled translations', () => {
   function setup(translations?: 'bundled' | 'host'): TranslateService {
@@ -176,5 +208,31 @@ describe('bundled translations', () => {
     await firstValueFrom(translate.use('en'));
 
     expect(translate.instant('nh-assistant.panel.title')).toBe('nh-assistant.panel.title');
+  });
+
+  it('adds the administration texts once an admin component starts them, and lets host keys win', async () => {
+    const translate = setup();
+    await firstValueFrom(translate.use('nl'));
+    translate.setTranslation('nl', { 'nh-assistant': { admin: { title: 'Beheer' } } }, true);
+
+    expect(translate.instant('nh-assistant.admin.context.title')).toBe('nh-assistant.admin.context.title');
+
+    TestBed.runInInjectionContext(() => startNhAssistantAdminTranslations());
+
+    expect(translate.instant('nh-assistant.admin.context.title')).toBe(NH_ASSISTANT_DUTCH_CONTEXT_TITLE);
+    expect(translate.instant('nh-assistant.admin.title')).toBe('Beheer');
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Assistent');
+
+    await firstValueFrom(translate.use('en-GB'));
+    expect(translate.instant('nh-assistant.admin.context.title')).toBe('Application context');
+  });
+
+  it('leaves the administration texts to the host in host mode', async () => {
+    const translate = setup('host');
+    await firstValueFrom(translate.use('en'));
+
+    TestBed.runInInjectionContext(() => startNhAssistantAdminTranslations());
+
+    expect(translate.instant('nh-assistant.admin.context.title')).toBe('nh-assistant.admin.context.title');
   });
 });

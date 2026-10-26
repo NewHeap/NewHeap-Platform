@@ -13,6 +13,11 @@
       "output": "i18n"
     },
     {
+      "input": "admin/src/i18n",
+      "glob": "*.json",
+      "output": "admin/i18n"
+    },
+    {
       "input": "push",
       "glob": "*.js",
       "output": "push"

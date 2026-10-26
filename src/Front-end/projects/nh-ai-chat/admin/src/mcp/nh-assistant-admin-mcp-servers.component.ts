@@ -18,6 +18,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAdminMcpServerEditorComponent } from './nh-assistant-admin-mcp-server-editor.component';
 import { NhAssistantAdminMcpToolsComponent } from './nh-assistant-admin-mcp-tools.component';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** Result of the latest connection test per server. */
 interface TestState {
@@ -77,6 +78,8 @@ export class NhAssistantAdminMcpServersComponent {
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.actions.unsubscribe();

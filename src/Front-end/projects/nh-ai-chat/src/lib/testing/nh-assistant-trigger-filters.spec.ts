@@ -9,6 +9,7 @@ import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.s
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { NhAssistantTriggerFormComponent } from '../../../admin/src/agents/run-config/nh-assistant-trigger-form.component';
+import { startNhAssistantAdminTranslations } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 
 /** Each searchable picker waits for its search, so a form flow takes several seconds. */
 const formFlowTimeout = 20_000;
@@ -60,6 +61,9 @@ async function configure(): Promise<void> {
     ]
   });
   await firstValueFrom(TestBed.inject(TranslateService).use('en'));
+  // The exported admin component that hosts this part starts the administration's texts; the
+  // spec renders the part on its own.
+  TestBed.runInInjectionContext(() => startNhAssistantAdminTranslations());
 }
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<HTMLElement> {

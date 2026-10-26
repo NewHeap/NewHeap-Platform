@@ -19,6 +19,9 @@
     "./i18n/*.json": {
       "default": "./i18n/*.json"
     },
+    "./admin/i18n/*.json": {
+      "default": "./admin/i18n/*.json"
+    },
     "./push/*": {
       "default": "./push/*"
     }

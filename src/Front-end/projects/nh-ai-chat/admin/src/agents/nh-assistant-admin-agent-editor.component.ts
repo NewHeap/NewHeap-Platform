@@ -39,6 +39,7 @@ import { RunConfigFieldError } from './run-config/run-config-shared';
 import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
 import { NhAssistantPackageLockedMarkComponent } from './agent-packages/nh-assistant-package-locked-mark.component';
 import { PackageLockView, agentDefinitionLockOf, isPackageFieldLocked } from './agent-packages/package-parts';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** True when a tool id matches a selector glob (`*` matches any characters). */
 export function nhAssistantSelectorMatches(toolId: string, selector: string): boolean {
@@ -301,6 +302,8 @@ export class NhAssistantAdminAgentEditorComponent {
     .filter(tool => this.toolSelectors().some(selector => nhAssistantSelectorMatches(tool.id, selector))).length);
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
 
     effect(() => {

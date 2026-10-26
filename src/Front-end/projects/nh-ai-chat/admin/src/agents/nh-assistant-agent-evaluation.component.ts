@@ -14,6 +14,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** Periods the evaluation offers, in days before now; the server allows at most 92. */
 export type NhAssistantEvaluationPeriod = 7 | 30 | 90;
@@ -96,6 +97,8 @@ export class NhAssistantAgentEvaluationComponent {
   private range = periodRange(7);
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.replaySubscription?.unsubscribe();

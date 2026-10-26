@@ -33,6 +33,7 @@ import {
   NhAssistantAgentMetadataSlot,
   NhAssistantAgentMetadataStatus
 } from './nh-assistant-agent-metadata-slot';
+import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
@@ -160,6 +161,8 @@ export class NhAssistantAgentMetadataComponent {
   readonly errorKeys = nhAssistantErrorKeys;
 
   constructor() {
+    startNhAssistantAdminTranslations();
+
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.disposeSlots();
