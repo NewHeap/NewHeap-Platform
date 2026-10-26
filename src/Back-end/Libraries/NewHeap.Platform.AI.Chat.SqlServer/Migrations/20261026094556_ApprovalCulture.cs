@@ -1,0 +1,31 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
+{
+    /// <inheritdoc />
+    public partial class ApprovalCulture : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<string>(
+                name: "DecisionCulture",
+                schema: "nhai",
+                table: "AssistantApproval",
+                type: "nvarchar(35)",
+                maxLength: 35,
+                nullable: true);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "DecisionCulture",
+                schema: "nhai",
+                table: "AssistantApproval");
+        }
+    }
+}

@@ -1066,6 +1066,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("DecisionCulture")
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)");
+
                     b.Property<DateTimeOffset?>("EscalatedAt")
                         .HasColumnType("timestamp with time zone");
 
