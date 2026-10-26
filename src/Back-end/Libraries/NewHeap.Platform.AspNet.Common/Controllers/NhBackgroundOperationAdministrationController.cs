@@ -23,7 +23,7 @@ namespace NewHeap.Platform.AspNet.Common.Controllers;
 /// active division plus global operations.
 /// </summary>
 [ApiController]
-[Route(NhBackgroundOperationsOptions.ApiRoute + "/administration")]
+[Route("background-operations/administration")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + ",Identity.Application")]
 public sealed class NhBackgroundOperationAdministrationController : ProtectedNhBaseController
 {

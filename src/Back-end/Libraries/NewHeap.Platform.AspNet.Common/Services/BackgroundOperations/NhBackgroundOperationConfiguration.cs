@@ -23,7 +23,8 @@ public sealed class NhBackgroundOperationsOptions
 {
     /// <summary>
     /// The route of the background operations' own API: the owner endpoints, and below them the
-    /// administration endpoints. The live-update hub may not lie on it.
+    /// administration endpoints. The live-update hub may not lie on it. The controllers' route
+    /// attributes repeat it, and a test keeps them equal.
     /// </summary>
     internal const string ApiRoute = "background-operations";
 
