@@ -553,7 +553,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         await RunTurnAsync(host, first, "Round 1.");
         var second = await StartRunAsync(host, projectId, shadow: true);
         var secondResult = await RunTurnAsync(host, second, "Round 2.");
-        // Another value is another finding.
+        // Another value is another finding, which replaces the first for the same project (FB3).
         status = "OnHold";
         await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 3.");
         // Once the first proposal's lifetime (three days) ended, the unchanged finding is proposed again.
@@ -568,13 +568,175 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.Equal(0, secondResult.ProposalCount);
         Assert.Empty(await RunStore(host).GetRunApprovalsAsync(second.Run.Id, CancellationToken.None));
         Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[2].Outcome);
+        Assert.Equal(outcomes[0].ApprovalId, Assert.Single(outcomes[2].Superseded));
         Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[3].Outcome);
+        Assert.Empty(outcomes[3].Superseded);
         Assert.NotEqual(outcomes[0].ApprovalId, outcomes[3].ApprovalId);
         Assert.Equal(NhAssistantApprovalStatuses.Shadow, Assert.Single(await RunStore(host).GetRunApprovalsAsync(fourth.Run.Id, CancellationToken.None)).Status);
         var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated);
         Assert.Equal((outcomes[0].ApprovalId, NhAssistantErrorCodes.ProposalAlreadyOpen), (audit.ApprovalId, audit.ResultCode));
         await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
         Assert.Equal(3, await context.Approvals.CountAsync(item => item.ConversationId == first.Thread.ConversationId));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_newer_shadow_proposal_for_the_same_objects_replaces_the_older_one_within_its_lifetime(AssistantTestProvider provider)
+    {
+        // FB3: shadow proposals name their objects as live ones do, so the policy's Supersede keeps one
+        // shadow proposal per object, as live would, instead of piling one up per changed argument.
+        var projectId = Guid.NewGuid();
+        var clock = new AssistantTestClock(new DateTimeOffset(2031, 6, 2, 9, 0, 0, TimeSpan.Zero));
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), shadow: true, clock: clock);
+        var script = Script(host);
+        var status = "Active";
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, status), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed in shadow.");
+        };
+
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 1.");
+        status = "OnHold";
+        var second = await StartRunAsync(host, projectId, shadow: true);
+        var secondResult = await RunTurnAsync(host, second, "Round 2.");
+
+        var outcomes = script.Proposals.ToArray();
+        Assert.Equal((NhAssistantProposeOutcome.Created, NhAssistantProposeOutcome.Created), (outcomes[0].Outcome, outcomes[1].Outcome));
+        Assert.Equal(outcomes[0].ApprovalId, Assert.Single(outcomes[1].Superseded));
+        Assert.Equal(1, secondResult.ProposalCount);
+        var replaced = await FindAsync(host, outcomes[0].ApprovalId!.Value);
+        Assert.Equal(
+            (NhAssistantApprovalStatuses.ShadowSuperseded, (string?)NhAssistantErrorCodes.ProposalSuperseded, outcomes[1].ApprovalId, (DateTimeOffset?)null, (string?)null),
+            (replaced.Status, replaced.ExecutionResultCode, replaced.SupersededByApprovalId, replaced.DecidedAt, replaced.DecidedByActorId));
+        var newer = await FindAsync(host, outcomes[1].ApprovalId!.Value);
+        Assert.Equal(NhAssistantApprovalStatuses.Shadow, newer.Status);
+        var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalSuperseded);
+        Assert.Equal((replaced.Id, outcomes[1].ApprovalId!.Value.ToString("D")), (audit.ApprovalId, audit.ObjectId));
+
+        // Both name the project they change, as a live proposal does.
+        var keys = await RunStore(host).GetApprovalKeysAsync([replaced.Id, newer.Id], CancellationToken.None);
+        var key = new NhAiProposalKey(ProjectStatusGuard.KeyType, projectId.ToString());
+        Assert.Equal(key, Assert.Single(keys[replaced.Id]));
+        Assert.Equal(key, Assert.Single(keys[newer.Id]));
+
+        // The identity rule stays first: the same finding again is already open.
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 3.");
+        var third = script.Proposals.ToArray()[2];
+        Assert.Equal((NhAssistantProposeOutcome.AlreadyOpen, newer.Id), (third.Outcome, third.ApprovalId));
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated && evt.ApprovalId == newer.Id);
+
+        // Outside the newer one's lifetime (three days) another finding is recorded next to it.
+        status = "Closed";
+        clock.Advance(TimeSpan.FromDays(3) + TimeSpan.FromMinutes(1));
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 4.");
+        var fourth = script.Proposals.ToArray()[3];
+        Assert.Equal(NhAssistantProposeOutcome.Created, fourth.Outcome);
+        Assert.Empty(fourth.Superseded);
+        Assert.Equal(NhAssistantApprovalStatuses.Shadow, (await FindAsync(host, newer.Id)).Status);
+        Assert.Equal(NhAssistantApprovalStatuses.Shadow, (await FindAsync(host, fourth.ApprovalId!.Value)).Status);
+        Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalSuperseded);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer, NhAiDuplicateProposals.Skip)]
+    [InlineData(AssistantTestProvider.PostgreSql, NhAiDuplicateProposals.Skip)]
+    [InlineData(AssistantTestProvider.SqlServer, NhAiDuplicateProposals.Allow)]
+    [InlineData(AssistantTestProvider.PostgreSql, NhAiDuplicateProposals.Allow)]
+    public async Task A_policy_skips_or_allows_a_newer_shadow_proposal_for_the_same_objects(
+        AssistantTestProvider provider,
+        NhAiDuplicateProposals duplicates)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), policy => policy.Duplicates(duplicates), shadow: true);
+        var script = Script(host);
+        var status = "Active";
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, status), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed in shadow.");
+        };
+
+        var first = await StartRunAsync(host, projectId, shadow: true);
+        await RunTurnAsync(host, first, "Round 1.");
+        status = "OnHold";
+        var second = await StartRunAsync(host, projectId, shadow: true);
+        var secondResult = await RunTurnAsync(host, second, "Round 2.");
+
+        var outcomes = script.Proposals.ToArray();
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var statuses = await context.Approvals
+            .Where(item => item.ConversationId == first.Thread.ConversationId)
+            .Select(item => item.Status)
+            .ToListAsync();
+        if (duplicates == NhAiDuplicateProposals.Skip)
+        {
+            // The older one stays; the newer one is reported as already open and recorded nowhere.
+            Assert.Equal((NhAssistantProposeOutcome.AlreadyOpen, outcomes[0].ApprovalId), (outcomes[1].Outcome, outcomes[1].ApprovalId));
+            Assert.Equal(0, secondResult.ProposalCount);
+            Assert.Empty(await RunStore(host).GetRunApprovalsAsync(second.Run.Id, CancellationToken.None));
+            Assert.Equal([NhAssistantApprovalStatuses.Shadow], statuses);
+            var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated);
+            Assert.Equal((outcomes[0].ApprovalId, NhAssistantErrorCodes.ProposalAlreadyOpen), (audit.ApprovalId, audit.ResultCode));
+        }
+        else
+        {
+            Assert.Equal(NhAssistantProposeOutcome.Created, outcomes[1].Outcome);
+            Assert.Empty(outcomes[1].Superseded);
+            Assert.Equal([NhAssistantApprovalStatuses.Shadow, NhAssistantApprovalStatuses.Shadow], statuses);
+        }
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Shadow_proposals_with_object_keys_stay_out_of_revalidation_and_counts(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), shadow: true);
+        var script = Script(host);
+        var status = "Active";
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(ChangeStatusTool, new ProjectStatusInput(projectId, status), null, cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed in shadow.");
+        };
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 1.");
+        status = "OnHold";
+        await RunTurnAsync(host, await StartRunAsync(host, projectId, shadow: true), "Round 2.");
+        var outcomes = script.Proposals.ToArray();
+        Assert.Equal(outcomes[0].ApprovalId, Assert.Single(outcomes[1].Superseded));
+
+        // The project got the status of the newer one: a live proposal for it would close as stale,
+        // but neither shadow proposal, the replaced one included, is revalidated.
+        host.Services.GetRequiredService<TestProjectStates>().Statuses[projectId] = "OnHold";
+        var key = new NhAiProposalKey(ProjectStatusGuard.KeyType, projectId.ToString());
+        NhAssistantRevalidationResult byObject;
+        NhAssistantRevalidationResult bySubject;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var revalidation = scope.ServiceProvider.GetRequiredService<INhAssistantProposalRevalidation>();
+            byObject = await revalidation.RevalidateKeysAsync([key], null, CancellationToken.None);
+            bySubject = await revalidation.RevalidateSubjectAsync(Subject(projectId), CancellationToken.None);
+        }
+
+        Assert.Equal((0, 0), (byObject.Checked, bySubject.Checked));
+        Assert.Empty(byObject.Invalidated);
+        Assert.False(await RunStore(host).HasOpenProposalsByKeysAsync(NhAiSubjectInfo.CreateScopeKey(null, null), [key], CancellationToken.None));
+        Assert.Equal(NhAssistantApprovalStatuses.ShadowSuperseded, (await FindAsync(host, outcomes[0].ApprovalId!.Value)).Status);
+        Assert.Equal(NhAssistantApprovalStatuses.Shadow, (await FindAsync(host, outcomes[1].ApprovalId!.Value)).Status);
+
+        // The project's approver counts nothing in their inbox.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var person = new NhAssistantDecidingPerson(
+                new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Approver)], "test")),
+                Approver);
+            var counts = await scope.ServiceProvider.GetRequiredService<INhAssistantProposalCounts>()
+                .CountAsync(person, NhAssistantInboxStatuses.All, CancellationToken.None);
+            Assert.All(NhAssistantInboxStatuses.All, inboxStatus => Assert.Equal(0, counts[inboxStatus]));
+        }
     }
 
     [Theory]

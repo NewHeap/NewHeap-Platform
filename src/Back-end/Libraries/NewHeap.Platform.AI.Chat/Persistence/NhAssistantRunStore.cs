@@ -2687,15 +2687,64 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         }
 
         await using var context = contextFactory.CreateDbContext();
-        var first = keys.First();
-        var candidates = await AgentProposals(context, scopeKey, agentId)
+        var proposals = AgentProposals(context, scopeKey, agentId)
             .Where(approval => approval.ToolId == toolId
                 && statuses.Contains(approval.Status)
-                && (decidedSince == null || approval.DecidedAt >= decidedSince)
-                && context.ApprovalKeys.Any(key => key.ApprovalId == approval.Id
-                    && key.ScopeKey == scopeKey
-                    && key.KeyType == first.Type
-                    && key.KeyId == first.Id))
+                && (decidedSince == null || approval.DecidedAt >= decidedSince));
+        return await ExactlyForObjectsAsync(context, proposals, scopeKey, keys, cancellationToken);
+    }
+
+    /// <summary>
+    /// The shadow proposals of the agent and tool in its shadow threads within the scope that change
+    /// exactly <paramref name="keys"/> and whose proposal lifetime has not ended at
+    /// <paramref name="now"/> (the application's clock), newest first. A shadow proposal never waits
+    /// for a decision, so within its lifetime it counts as open for the policy's duplicate rule, as a
+    /// pending live one does; one that a newer one replaced already does not.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantApproval>> FindOpenShadowProposalsForObjectsAsync(
+        string scopeKey,
+        string agentId,
+        string toolId,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var proposals = context.Approvals
+            .AsNoTracking()
+            .Where(approval => context.Threads.Any(thread => thread.ConversationId == approval.ConversationId
+                    && thread.ScopeKey == scopeKey
+                    && thread.AgentId == agentId
+                    && thread.Shadow)
+                && approval.ToolId == toolId
+                && approval.Status == NhAssistantApprovalStatuses.Shadow
+                && approval.ExpiresAt > now
+                && !(approval.ConsultationId != null && approval.Mode == NhAssistantApprovalModes.Inline));
+        return await ExactlyForObjectsAsync(context, proposals, scopeKey, keys, cancellationToken);
+    }
+
+    /// <summary>
+    /// The newest twenty of <paramref name="proposals"/> that change exactly <paramref name="keys"/>
+    /// within the scope, newest first.
+    /// </summary>
+    private static async Task<IReadOnlyList<AssistantApproval>> ExactlyForObjectsAsync(
+        NhAssistantDbContext context,
+        IQueryable<AssistantApproval> proposals,
+        string scopeKey,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        CancellationToken cancellationToken)
+    {
+        var first = keys.First();
+        var candidates = await proposals
+            .Where(approval => context.ApprovalKeys.Any(key => key.ApprovalId == approval.Id
+                && key.ScopeKey == scopeKey
+                && key.KeyType == first.Type
+                && key.KeyId == first.Id))
             .OrderByDescending(approval => approval.CreatedAt)
             .Take(20)
             .ToListAsync(cancellationToken);

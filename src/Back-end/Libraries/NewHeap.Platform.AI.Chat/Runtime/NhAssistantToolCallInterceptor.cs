@@ -1175,15 +1175,19 @@ internal sealed class NhAssistantToolCallInterceptor(
         // Proposals of a person's own turn wait in the conversation; only agent proposals can be
         // revalidated or deduplicated.
         var agentProposal = agentTurn is not null && !shadow && !(mode == NhAiApprovalMode.Inline && agentTurn.RunId is null);
-        var keys = agentProposal
+        // A shadow proposal names its objects as a live one does, so the policy's rule for a newer
+        // proposal for the same objects applies among shadow proposals too (FB3). Its status keeps it
+        // out of revalidation, inboxes and counts.
+        var keys = agentProposal || shadow
             ? await GuardKeysAsync(home!, descriptor.Id, proposal, now, cancellationToken)
             : [];
         var duplicate = agentProposal && duplicates is not null && policy is not null
             ? await duplicates.CheckAsync(home!, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
             // A shadow proposal never waits, so it counts as open within its lifetime: an unchanged
-            // finding is not proposed again, as live would not (LS9).
+            // finding is not proposed again, as live would not (LS9), and a newer one for the same
+            // objects follows the policy's rule among shadow proposals (FB3).
             : shadow && duplicates is not null
-                ? await duplicates.CheckShadowAsync(home!, descriptor.Id, argumentsHash, cancellationToken)
+                ? await duplicates.CheckShadowAsync(home!, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
                 : NhAssistantDuplicateCheck.None;
         if (duplicate is { Outcome: not NhAssistantProposeOutcome.Created, Existing: { } existing })
         {
@@ -1290,9 +1294,17 @@ internal sealed class NhAssistantToolCallInterceptor(
         var superseded = new List<Guid>();
         foreach (var older in duplicate.Superseded)
         {
-            // The newer proposal for the same objects replaces the pending one.
-            if (invalidation is not null
-                && await invalidation.SupersedeAsync(older, home!, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None) is not null)
+            // The newer proposal for the same objects replaces the pending one, or in shadow the
+            // shadow one within its lifetime.
+            if (invalidation is null)
+            {
+                continue;
+            }
+
+            var replaced = shadow
+                ? await invalidation.SupersedeShadowAsync(older, home!, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None)
+                : await invalidation.SupersedeAsync(older, home!, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None);
+            if (replaced is not null)
             {
                 superseded.Add(older.Id);
             }

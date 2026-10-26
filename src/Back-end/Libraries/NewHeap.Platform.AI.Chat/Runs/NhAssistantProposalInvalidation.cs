@@ -145,6 +145,49 @@ internal sealed class NhAssistantProposalInvalidation(
         return current;
     }
 
+    /// <summary>
+    /// Closes a shadow proposal that the newer shadow proposal <paramref name="supersededBy"/> for the
+    /// same objects replaced within its lifetime (FB3): it becomes
+    /// <see cref="NhAssistantApprovalStatuses.ShadowSuperseded"/> and names its successor, as a
+    /// withdrawn live proposal does, and the audit records
+    /// <see cref="NhAssistantAuditEventKind.AgentProposalSuperseded"/>. Nobody decided it, so no
+    /// decision time is recorded, and nobody is notified; no run waits for a shadow proposal. Returns
+    /// the closed proposal, or <see langword="null"/> when another run replaced it first.
+    /// </summary>
+    public async Task<AssistantApproval?> SupersedeShadowAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        Guid supersededBy,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var closed = await runs.TryTransitionApprovalAsync(
+            approval.Id,
+            [NhAssistantApprovalStatuses.Shadow],
+            NhAssistantApprovalStatuses.ShadowSuperseded,
+            new NhAssistantApprovalTransition
+            {
+                ExecutionResultCode = NhAssistantErrorCodes.ProposalSuperseded,
+                SupersededByApprovalId = supersededBy
+            },
+            cancellationToken);
+        if (!closed)
+        {
+            return null;
+        }
+
+        var current = await store.FindApprovalAsync(approval.Id, CancellationToken.None) ?? approval;
+        // A shadow thread's update reaches only its own audience, the administrators.
+        await workUpdates.PublishAsync(
+            current.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            current.Id,
+            current.RunId,
+            CancellationToken.None);
+        await events.SupersededAsync(current, thread, supersededBy, actorId, CancellationToken.None);
+        return current;
+    }
+
     private async Task WakeAsync(AssistantApproval approval)
     {
         var waker = services.GetService<INhAssistantInlineRunWaker>();

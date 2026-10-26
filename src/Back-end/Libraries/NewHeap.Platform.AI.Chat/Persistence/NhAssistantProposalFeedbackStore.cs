@@ -173,6 +173,7 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                 && approval.CreatedAt >= filter.From
                 && approval.CreatedAt < filter.To
                 && approval.Status != NhAssistantApprovalStatuses.Shadow
+                && approval.Status != NhAssistantApprovalStatuses.ShadowSuperseded
             select new
             {
                 approval.ToolId,

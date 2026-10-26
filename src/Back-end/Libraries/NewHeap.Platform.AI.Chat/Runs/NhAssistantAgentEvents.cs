@@ -323,7 +323,7 @@ internal sealed class NhAssistantAgentNotifier(
     private bool IsShadow(AssistantThread thread, IReadOnlyList<AssistantApproval> approvals)
     {
         return thread.Shadow
-            || approvals.Any(approval => approval.Status == NhAssistantApprovalStatuses.Shadow)
+            || approvals.Any(approval => NhAssistantApprovalStatuses.IsShadow(approval.Status))
             || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.ShadowOfAgentId is not null);
     }
 

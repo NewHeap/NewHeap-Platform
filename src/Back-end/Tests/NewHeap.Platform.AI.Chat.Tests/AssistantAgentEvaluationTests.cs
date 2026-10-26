@@ -178,6 +178,66 @@ public sealed class AssistantAgentEvaluationTests(AssistantDatabaseFixture datab
         Assert.DoesNotContain("OnHold", lines, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// FB3: a newer proposal for the same project replaces the older one on both sides, the live one
+    /// as <c>withdrawn</c> and the shadow one as <c>shadow-superseded</c>. The evaluation counts each
+    /// proposal once, in the run that made it: the replaced pair agrees in the first run, the newer pair
+    /// in the second, and the replaced live proposal counts among the other decisions.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_replaced_shadow_proposal_counts_once_in_its_run_as_the_replaced_live_proposal_does(AssistantTestProvider provider)
+    {
+        var models = new EvaluationModels();
+        var project = Guid.NewGuid();
+        foreach (var model in new[] { models.Live, models.Variant })
+        {
+            model
+                .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId = project, status = "OnHold" } }, "call-1")
+                .RespondWithText("Proposed.")
+                .RespondWithFunctionCall(ChangeStatus, new { input = new { projectId = project, status = "Active" } }, "call-2")
+                .RespondWithText("Proposed.");
+        }
+
+        await using var host = await CreateHostAsync(provider, models);
+        var from = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var variantThread = Guid.Empty;
+        var variantRuns = new List<Guid>();
+        foreach (var change in new[] { "plan step 1", "plan step 2" })
+        {
+            var receipt = Assert.Single(await PublishAsync(host, change, project));
+            await ExecuteAsync(host, receipt.RunId!.Value);
+            variantThread = await ThreadOfAsync(host, Variant, project);
+            var mirrored = (await RunsOfAsync(host, variantThread)).Single(run => !variantRuns.Contains(run.Id));
+            variantRuns.Add(mirrored.Id);
+            await ExecuteAsync(host, mirrored.Id);
+        }
+
+        var first = Assert.Single(await Runs(host).GetRunApprovalsAsync(variantRuns[0], CancellationToken.None));
+        var second = Assert.Single(await Runs(host).GetRunApprovalsAsync(variantRuns[1], CancellationToken.None));
+        Assert.Equal(
+            (NhAssistantApprovalStatuses.ShadowSuperseded, (Guid?)second.Id, NhAssistantApprovalStatuses.Shadow),
+            (first.Status, first.SupersededByApprovalId, second.Status));
+
+        var report = await CompareAsync(host, from);
+        Assert.Equal(2, report.Runs.Paired);
+        var tool = Assert.Single(report.Tools);
+        Assert.Equal((2, 0, 0), (tool.Agreed, tool.LiveOnly, tool.VariantOnly));
+        Assert.Equal((1, 1), (tool.LiveDecisions.Pending, tool.LiveDecisions.Other));
+        Assert.Empty(report.Differences);
+
+        await using var exporting = host.Services.CreateAsyncScope();
+        var records = await exporting.ServiceProvider.GetRequiredService<NhAssistantEvaluationService>()
+            .ExportAsync(Planner, Variant, from, DateTimeOffset.UtcNow.AddMinutes(1), CancellationToken.None);
+        Assert.Equal(
+            [NhAssistantApprovalStatuses.ShadowSuperseded, NhAssistantApprovalStatuses.Shadow],
+            records.Select(record => Assert.Single(record.Variant.Proposals).Status).ToArray());
+        Assert.Equal(
+            [NhAssistantApprovalStatuses.Withdrawn, NhAssistantApprovalStatuses.Pending],
+            records.Select(record => Assert.Single(record.Live.Proposals).Status).ToArray());
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -283,6 +343,7 @@ public sealed class AssistantAgentEvaluationTests(AssistantDatabaseFixture datab
             configure: services =>
             {
                 services.AddSingleton(new TestSubjects());
+                services.AddSingleton<TestProjectStates>();
                 services.AddSingleton<ScheduledProjects>();
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
@@ -305,6 +366,8 @@ public sealed class AssistantAgentEvaluationTests(AssistantDatabaseFixture datab
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
+                // The guard names the project a status proposal changes, live and in shadow.
+                .AddProposalGuard<ProjectStatusGuard>(["projects.change-status"])
                 .AddApprovalPolicy("project-review", policy => policy
                     .Mode(NhAiApprovalMode.Deferred)
                     .Lifetime(TimeSpan.FromDays(3))
