@@ -440,6 +440,21 @@ providers are allowed. Facts are cut off at 20 per turn, 2,000 characters in tot
 characters per label and 300 per value. A failing provider is skipped for the turn and
 logged with its exception type only.
 
+Read the person from `INhAiTurnPerson`, not from `IHttpContextAccessor`: a turn that the application
+starts through `INhAssistantConversationTurns`, or one that outlives its request, has no request of
+the person (SPM-342). The AI host registers it as a singleton, so a turn context provider, a tool or an
+authorization policy injects it and reads `User`, `ActorId` and `TenantId`: the request's user in a
+turn of the endpoints, the person the application vouched for in a channel's turn, and the asker in a
+consultation that such a turn starts; all three are `null` outside a person's turn, such as in an
+agent run. Every assistant turn also names its conversation and channel on the invocation context
+that the provider, tool discovery, retrieval and every tool call receive:
+`NhAiInvocationContext.ConversationId` is the chat, the agent's thread of a run or of a person's turn
+in it, or the consulted agent's thread in a consultation; `NhAiInvocationContext.Channel` is the
+channel code of `NhAssistantConversationTurnOptions` in a channel's turn and in the consultations it
+starts, and `null` for the endpoints' own turns and for runs. Neither takes part in a proposal hash,
+approval evidence or an audit record, so they never invalidate a pending approval. A provider may tell
+the model which channel it answers in, as the sample's provider does for its messaging app.
+
 Clients send the page they show as `clientContext` with `POST messages`: `route` (200
 characters), optional `title` (120) and at most five `entities` (`type` in dash-case, `id`
 of at most 64 characters, optional `label` of 120). The server validates again, cuts off
@@ -536,7 +551,9 @@ host in `AllowedEndpointHosts` (the Chrome, Edge, Firefox and Safari push servic
 default), so the server never posts to an address a client chose. When a turn that ran
 at least `MinimumTurnDuration` (10 seconds) completes or fails, the owner and
 participants receive an RFC 8291 encrypted, VAPID-signed notification; an approval
-notifies only the person who decides it, and cancelled turns stay silent. The payload
+notifies only the person who decides it, a question only its addressee with a notice of its own
+(`question-waiting`, in English or Dutch), also when another person's turn asked it, and cancelled
+turns stay silent. The payload
 carries the conversation id, a kind and short localized texts with the conversation
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
@@ -563,7 +580,14 @@ answer as the call's result (`choice`, `answer`, `answeredBy`) and `question.ans
 turn is the turn of the person who answered and runs with their rights, and it continues in the skill
 the turn worked in. A question waits for `NhAssistantLimits.ApprovalLifetime` on the application's
 clock: a later answer is refused with `409 assistant-question-expired`, which releases the
-conversation, and stopping the turn cancels the question. The question needs no storage of its own:
+conversation, and stopping the turn cancels the question. A new message in a chat whose question or
+inline approval passed its lifetime closes it first, exactly as a late answer or decision does (the
+same codes and audit, the waiting turn released), and then starts its own turn; while it is still
+valid the message is refused with `409 assistant-conversation-busy`. Nothing closes it on time and a
+read writes nothing, so the conversation's view shows an expired question as `expired` until then.
+Agent threads keep their own rules. Web Push tells the addressee with a question notice of its own,
+and an application answers for a person it authenticated with
+`INhAssistantConversationTurns.AnswerAsync`. The question needs no storage of its own:
 it lives in its call and the message part. The audit records `QuestionAsked`, `QuestionAnswered` and
 `QuestionExpired` with the addressee, never the question or the answer. Runs, people's turns in agent
 threads and consultations never ask; use deferred proposals there.
@@ -696,21 +720,57 @@ if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval
   request lends no principal and no credential. API bridge tools, which forward the person's own
   request credential, are not offered, and MCP servers that forward the person's sign-in are not
   reached.
-- `SendAsync` and `DecideAsync` return `NhAssistantConversationTurnResult` once the turn ended or
-  waits: its status (`completed`, `waiting-for-approval`, `cancelled`, `failed`), the error code, the
-  assistant's message as the conversation shows it, the pending approvals with their proposal hash,
-  and the usage. Expected refusals before the turn are failed results with the endpoint's codes; a
-  repeated `ClientMessageId` is `assistant-message-duplicate`.
+- `SendAsync`, `DecideAsync` and `AnswerAsync` return `NhAssistantConversationTurnResult` once the
+  turn ended or waits: its status (`completed`, `waiting-for-approval`, `cancelled`, `failed`), the
+  error code, the assistant's message as the conversation shows it, the pending approvals with their
+  proposal hash, the question it waits for (`PendingQuestion`) and the usage. Expected refusals before
+  the turn are failed results with the endpoint's codes; a repeated `ClientMessageId` is
+  `assistant-message-duplicate`.
+- `AnswerAsync(person, conversationId, questionId, new NhAssistantConversationAnswer(choice), options)`
+  answers the question with the zero-based choice in the answer endpoint's order: an unknown question
+  `assistant-question-not-found`, another person's `assistant-question-forbidden` (before the status),
+  one that no longer waits `assistant-question-not-pending`, a choice outside it
+  `assistant-question-answer-invalid` and an expired one `assistant-question-expired`, which closes it
+  and releases the chat. The rest of the turn runs with the rights of the person who answered.
 - The caller's cancellation throws `OperationCanceledException` and cancels the turn, unless
   `KeepTurnAfterCallerLeaves` lets it run on up to `TurnTimeout`; `null` follows
   `KeepTurnsAfterDisconnect`.
 - The audit records the channel (`NhAssistantAuditEvent.Channel`) on the turn's events, such as
   `ToolInvoked`, `ApprovalRequested` and `ApprovalApproved`; the endpoints' turns record none.
 
+`INhAssistantConversations` creates, reads and stops the person's chat for the same channels, with
+the checks and codes of `POST conversations`, `GET conversations/{id}` and `POST
+conversations/{id}/cancel`, which audit none of them:
+
+```csharp
+var created = await conversations.CreateAsync(
+    person,
+    new NhAssistantNewConversation("project-assistant") { Title = "Launch project" },
+    new NhAssistantConversationOptions { ActiveDivisionId = divisionId },
+    cancellationToken);
+var chat = await conversations.GetAsync(person, created.Data!.Id, options, cancellationToken);
+await conversations.CancelAsync(person, created.Data!.Id, options, cancellationToken);
+```
+
+- `CreateAsync` starts an empty chat in the person's tenant with an agent offered in the chat:
+  `assistant-agent-not-found` otherwise, `assistant-title-invalid` above 200 characters and
+  `assistant-agent-forbidden` without the access or the agent's policy. `GetAsync` returns the
+  endpoint's `NhAssistantConversationDto`, with the share token for the owner; a participant must also
+  pass the agent's policy. `CancelAsync` stops the running turn in this process, or rejects the
+  waiting approval and cancels the waiting question; only the owner or the person who started the
+  turn may (`assistant-turn-forbidden`), and the agent's policy is not checked.
+- Each call resolves the person as the turns do (`assistant-context-unavailable`), checks the
+  assistant's access policy with the person's resource (`assistant-agent-forbidden`) and serves chats
+  only: an agent's thread answers `assistant-conversation-not-found`. It runs without the caller's
+  request, in services of its own and in the culture of `NhAssistantConversationOptions.Language`.
+
 SampleProjectManagement's messaging channel (SPM-332, `SampleAssistantMessagingChannel`) links a chat
 for the signed-in person, rebuilds the person from the user store for every delivery and runs the
 turn in their active division; a repeated delivery starts no second turn and a link to someone else's
-chat finds nothing.
+chat finds nothing. SPM-341 starts a chat with another agent from the messaging app, reads the linked
+chat, answers its question card by the choice's number or text and stops its turn. SPM-342 names the
+turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
+from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
 
 ## Files in model turns
 
@@ -985,6 +1045,11 @@ or output of the running turn, also not text written before an approval pause.
   `INhAssistantConversationTurns`, whose tools authorize the person it names. Never pass a principal
   the application did not authenticate as that person.
 - Expecting `KeepTurnsAfterDisconnect` to resume a stream; the client reloads the conversation.
+- Reading the turn's person from `IHttpContextAccessor` in a tool, policy or turn context provider; a
+  channel's turn and a turn that outlived its request have no request of the person. Inject
+  `INhAiTurnPerson`.
+- Calling the endpoints to create, read, stop or answer a person's chat from a channel; use
+  `INhAssistantConversations` and `INhAssistantConversationTurns.AnswerAsync`.
 - Trusting remote MCP annotations such as `readOnlyHint`; they are hints for the
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
@@ -1070,7 +1135,15 @@ that the turn is cancelled without the option and that `POST cancel` still stops
 `INhAssistantConversationTurns`, assert on both providers a sent message and a decided approval with
 the channel in the audit, refusals of a person outside the conversation, without the access or the
 agent's policy, of another actor or tenant than the principal, and a tool policy decided by the
-person and not by the request around the call (SPM-332).
+person and not by the request around the call (SPM-332). Through `INhAssistantConversations` and
+`AnswerAsync`, assert on both providers a chat created, read and stopped, an answered question with
+the channel in the audit, the answer's refusals in their order and its expiry on a test clock, and the
+refusals of another person, another tenant and an agent thread. Assert that a test turn context
+provider, a tool policy and a tool see `ConversationId`, `Channel` and `INhAiTurnPerson` in a turn of
+the endpoints and in a channel's turn (SPM-341, SPM-342). With a test clock, assert that a message
+closes a question and an approval that passed their lifetime with the late answer's or decision's
+codes and audit and then starts its turn, and that a still valid one keeps the chat busy. With Web
+Push, assert that a question notifies its addressee only, and an approval the person whose turn it is.
 For administration, assert version conflicts, the admin policy, the seed behavior and
 the composed instruction order with an injection attempt in the custom instructions.
 For situational and page context, assert the block order and markers, the limits, that

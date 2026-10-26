@@ -331,7 +331,9 @@
     "SPM-333",
     "SPM-334",
     "SPM-335",
-    "SPM-336"
+    "SPM-336",
+    "SPM-341",
+    "SPM-342"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3324,6 +3326,34 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-document-markdown.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/document/nh-assistant-document.component.spec.ts"
+    ],
+    "SPM-341": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPersonCalls.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Expiry.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationServiceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantQuestionNoticeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantExpiredWaitTests.cs"
+    ],
+    "SPM-342": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAgentCause.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiTurnPerson.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetTurnPerson.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationServiceTests.cs"
     ]
   }
 }
