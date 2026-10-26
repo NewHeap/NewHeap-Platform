@@ -21,11 +21,28 @@ public enum NhBackgroundOperationIdempotency
 
 public sealed class NhBackgroundOperationsOptions
 {
+    /// <summary>
+    /// The route of the background operations' own API: the owner endpoints, and below them the
+    /// administration endpoints. The live-update hub may not lie on it. The controllers' route
+    /// attributes repeat it, and a test keeps them equal.
+    /// </summary>
+    internal const string ApiRoute = "background-operations";
+
     public string ProcessorKey { get; set; } = "default";
     public bool DispatchWorkersEnabled { get; set; } = true;
     public bool ReconciliationEnabled { get; set; } = true;
     public bool CleanupEnabled { get; set; } = true;
     public bool LiveUpdatesEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The application path at which the live-update hub is mapped while
+    /// <see cref="LiveUpdatesEnabled"/> is set, <c>/hub/background-operations</c> by default. Any
+    /// absolute application path below the root works, such as <c>/hubs/background-operations</c>,
+    /// except a path on the background operations' own API under <c>/background-operations</c>.
+    /// NewHeap's bearer setup reads the token and the active division from the query string at this
+    /// path, as browser WebSockets and server-sent events need; point the Angular client's
+    /// <c>hubUrlSuffix</c> at the same path.
+    /// </summary>
     public string HubPath { get; set; } = "/hub/background-operations";
     public bool UserNotificationProjectionEnabled { get; set; } = true;
     public string OperationUrlPrefix { get; set; } = "/background-operations";
@@ -97,10 +114,9 @@ public sealed class NhBackgroundOperationsOptions
             throw new InvalidOperationException("Background operation AdministrationPolicy must be null or a policy name.");
         }
 
-        if (LiveUpdatesEnabled
-            && !IsApplicationPath(HubPath, "/hub"))
+        if (LiveUpdatesEnabled)
         {
-            throw new InvalidOperationException("Background operation HubPath must be under /hub so the configured bearer-token transport applies.");
+            ValidateHubPath();
         }
 
         if (UserNotificationProjectionEnabled
@@ -186,6 +202,24 @@ public sealed class NhBackgroundOperationsOptions
     /// The slots of the global limit that every queue shares: what the reservations leave.
     /// </summary>
     internal int SharedConcurrencySlots => MaxConcurrentOperations - ReservedQueueConcurrency.Values.Sum();
+
+    /// <summary>
+    /// The hub path is an absolute application path below the root. The root names no hub, and the
+    /// query token is never read for it. A path on the background operations' own API is refused,
+    /// because the hub's endpoints would share its routes.
+    /// </summary>
+    private void ValidateHubPath()
+    {
+        if (!IsApplicationPath(HubPath) || HubPath.TrimEnd('/').Length == 0)
+        {
+            throw new InvalidOperationException("Background operation HubPath must be an absolute application path below the root, such as /hub/background-operations.");
+        }
+
+        if (IsApplicationPath(HubPath, $"/{ApiRoute}"))
+        {
+            throw new InvalidOperationException($"Background operation HubPath must lie outside the background operations' API under /{ApiRoute}.");
+        }
+    }
 
     private void ValidateReservedQueueConcurrency()
     {

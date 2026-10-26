@@ -85,6 +85,35 @@ public sealed class NhHubQueryTokensTests
         Assert.False(api.HttpContext.Request.Headers.ContainsKey(Constants.HttpHeaderKeys.ActiveDivisionId));
     }
 
+    /// <summary>
+    /// FB13: background operations registered with their live-update hub outside <c>/hub</c>. The
+    /// platform's bearer setup reads the query token at that hub path, and not for the operations'
+    /// own API.
+    /// </summary>
+    [Fact]
+    public async Task The_platform_bearer_setup_reads_the_query_token_for_a_background_operations_hub_outside_hub()
+    {
+        using var application = BuildPlatform(services => services
+            .AddSingleton(Substitute.For<INhBackgroundOperationScheduler>())
+            .AddNewHeapBackgroundOperations<HubTokenDbContext>(operations =>
+            {
+                operations.Options.DispatchWorkersEnabled = false;
+                operations.Options.ReconciliationEnabled = false;
+                operations.Options.CleanupEnabled = false;
+                operations.Options.UserNotificationProjectionEnabled = false;
+                operations.Options.LiveUpdatesEnabled = true;
+                operations.Options.HubPath = "/realtime/operations";
+            }));
+        var options = application.Services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>().Get(JwtBearerDefaults.AuthenticationScheme);
+        var scheme = new AuthenticationScheme(JwtBearerDefaults.AuthenticationScheme, null, typeof(JwtBearerHandler));
+
+        var moved = await ReceiveAsync(application.Services, options, scheme, "/realtime/operations/negotiate");
+        var api = await ReceiveAsync(application.Services, options, scheme, "/background-operations");
+
+        Assert.Equal(("token-1", "division-1"), (moved.Token, moved.HttpContext.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId].ToString()));
+        Assert.Null(api.Token);
+    }
+
     private static async Task<MessageReceivedContext> ReceiveAsync(
         IServiceProvider services,
         JwtBearerOptions options,

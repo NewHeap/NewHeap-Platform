@@ -863,6 +863,18 @@ library's provider tests also show that a failure code or message key longer
 than its column completes the attempt with the generic code and key, and that a
 failed write of a failed step keeps the step's own exception.
 
+After its passes the child stores its analysis in `ProjectAnalysisArchive`, the
+sample's stand-in for another system, outside a step. Like some client
+libraries, the archive reports a cancelled call as an error of its own, and the
+handler lets that error travel instead of translating it. When the owner cancels
+during that call, the heartbeat sees the request and cancels the call, and the
+runner, which finds the attempt's durable cancellation, ends the operation
+`Cancelled` with its single attempt and logs the archive's error as a warning;
+without a cancellation request the error would fail the attempt as
+`handler-failed` and retry it. The second test of
+`BackgroundOperationCancellationSamplesTests` proves it with heartbeats 200 ms
+apart.
+
 ## Agent run capacity and the run of an event
 
 `SampleAgentRunCapacityComposition` places the assistant's background operations
