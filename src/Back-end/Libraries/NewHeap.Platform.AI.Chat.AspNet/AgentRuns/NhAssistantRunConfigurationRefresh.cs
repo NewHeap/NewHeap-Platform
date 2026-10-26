@@ -122,8 +122,9 @@ internal sealed class NhAssistantDataScheduleSync(
 
 /// <summary>
 /// Loads the run configuration defined as data when the host starts and checks the stamp every
-/// half minute, so a host that fires and starts nothing still follows changes made elsewhere, and
-/// the recurring jobs of data schedules follow them too.
+/// half minute, so a host that fires and starts nothing, such as one whose only agents with run
+/// settings are chat-only, still follows changes made elsewhere, and the recurring jobs of data
+/// schedules follow them too. It is a hosted service, not a background operation.
 /// </summary>
 internal sealed class NhAssistantRunConfigurationRefresh(
     NhAssistantRunConfigurations configurations,
@@ -134,13 +135,16 @@ internal sealed class NhAssistantRunConfigurationRefresh(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // A host that runs no agents on their own, in code or as data, follows nothing, unless
-        // consultations are data: then every assistant host follows them, also one that only chats
-        // (AC23), so its tool lists, MCP export and consult tools see a change another host made.
-        var runsAgents = registration.CodeAgentRuns.Count > 0
+        // A host follows the run configuration while it has agents with run settings: in code, a
+        // chat-only agent (ChatOnly) included, whose skills defined as data a chat uses and only this
+        // refresh brings into effect, since a chat turn does not check the stamp; or as data, which
+        // the agent run operation needs. A host without them follows nothing, unless consultations
+        // are data: then every assistant host follows them, also one that only chats (AC23), so its
+        // tool lists, MCP export and consult tools see a change another host made.
+        var hasAgentRunSettings = registration.CodeAgentRuns.Count > 0
             || services.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>()
                 ?.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _) == true;
-        if (!configurations.Enabled || (!runsAgents && registration.ConsultationsAsData is null))
+        if (!configurations.Enabled || (!hasAgentRunSettings && registration.ConsultationsAsData is null))
         {
             return;
         }
