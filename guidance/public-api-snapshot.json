@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.85",
   "backEnd": {
-    "hash": "c46553dc1468924c61acedaaf3e251feddc30891c5e0741379ba4cac0f307f34",
+    "hash": "c40cfc8249437f1e5ac8f3aab9d2f883fb97b4784d943b8d607789067d89b802",
     "declarationCount": 11194,
     "declarations": [
       {
@@ -12251,7 +12251,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
-        "declaration": "public static bool IsSkillShadow(NhAssistantSkillOptions skill, AssistantAgentSkillState? row) {"
+        "declaration": "public static bool IsSkillShadow(NhAssistantAgentRunOptions agent, NhAssistantSkillOptions skill, AssistantAgentSkillState? row) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",

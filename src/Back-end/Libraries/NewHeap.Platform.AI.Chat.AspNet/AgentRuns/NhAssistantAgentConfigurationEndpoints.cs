@@ -67,7 +67,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapPut("agents/{id}/skills/{skillId}", SaveSkillAsync)
             .WithName("NhAssistantAdminSaveDataSkill")
             .WithSummary("Add or change a skill defined as data")
-            .WithDescription("A new skill starts in shadow; put it live with POST agents/{id}/skills/{skillId}/shadow. A change stores the next version when expectedVersion is the live version, otherwise 409: with apply live (default) it takes effect at once in the skill's mode; with apply shadow it becomes the candidate that runs in the agent's shadow threads next to the live version until it is promoted or discarded. Tools stay within the agent's own selectors and every name must be registered in code (400). A skill in code cannot change (409).")
+            .WithDescription("A new skill starts in shadow; put it live with POST agents/{id}/skills/{skillId}/shadow. A skill of a chat-only agent works live at once. A change stores the next version when expectedVersion is the live version, otherwise 409: with apply live (default) it takes effect at once in the skill's mode; with apply shadow it becomes the candidate that runs in the agent's shadow threads next to the live version until it is promoted or discarded. Tools stay within the agent's own selectors and every name must be registered in code (400). A skill in code cannot change (409).")
             .Produces<NhAssistantDataSkillDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)

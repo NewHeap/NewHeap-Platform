@@ -10,7 +10,8 @@ import { provideNhAssistant } from '../provide-nh-assistant';
 /**
  * Chat-only agents (FB8): an agent in code with `ChatOnly()` works on no subject. The administration
  * says so on its card instead of what it works on and offers no "Run now", runs, run state changes or
- * shadow mode; the mock API refuses its starts and its shadow mode as the server does.
+ * shadow mode, also not for its skills, which always work live; the mock API refuses its starts and
+ * its shadow modes as the server does.
  */
 
 function scenario(): NhAssistantMockScenario {
@@ -22,7 +23,8 @@ function scenario(): NhAssistantMockScenario {
       agents: [
         {
           source: 'code', id: 'chat-helper', displayName: 'Chat helper', description: 'Helps in the chat.', instructions: 'Help.',
-          toolSelectors: ['projects.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose', isEnabled: true, chatOnly: true
+          toolSelectors: ['projects.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose', isEnabled: true, chatOnly: true,
+          skills: [{ skillId: 'notes', description: 'Writes notes.' }]
         },
         {
           source: 'code', id: 'planner', displayName: 'Project planner', description: 'Plans projects.', instructions: 'Plan.',
@@ -89,8 +91,13 @@ describe('Chat-only agents in the administration', () => {
     expect(helper.querySelector('[data-works-on]')).toBeNull();
     expect(helper.querySelector('[data-run-now-agent]')).toBeNull();
     expect(helper.querySelector('[data-runs-agent]')).toBeNull();
-    expect(helper.querySelector('[data-state-action]')).toBeNull();
+    expect(Array.from(helper.querySelectorAll('[data-state-action]')).filter(action => !action.closest('li.skill'))).toEqual([]);
     expect(helper.querySelector('[data-shadow-action]')).toBeNull();
+    // Its skills always work live: no shadow badge and no shadow action.
+    const notes = helper.querySelector('li.skill[data-skill="notes"]');
+    expect(notes).not.toBeNull();
+    expect(notes!.querySelector('[data-shadow-badge]')).toBeNull();
+    expect(notes!.querySelector('[data-shadow-action]')).toBeNull();
     // Its skills as data stay in its run configuration.
     expect(helper.querySelector('[data-run-config-agent="chat-helper"]')).not.toBeNull();
 
@@ -115,5 +122,11 @@ describe('Chat-only agents in the administration', () => {
 
     const shadow = await call('POST', 'admin/agents/chat-helper/shadow', { mode: 'shadow' });
     expect([shadow.status, shadow.body.code]).toEqual([409, 'assistant-agent-does-not-work-on']);
+
+    // Its skills always work live, and the mode cannot change.
+    const notes = listed.skills!.find(skill => skill.skillId === 'notes')!;
+    expect([notes.shadow?.shadow, notes.shadow?.locked, listed.shadow?.locked]).toEqual([false, true, true]);
+    const skillShadow = await call('POST', 'admin/agents/chat-helper/skills/notes/shadow', { mode: 'shadow' });
+    expect([skillShadow.status, skillShadow.body.code]).toEqual([409, 'assistant-agent-does-not-work-on']);
   });
 });

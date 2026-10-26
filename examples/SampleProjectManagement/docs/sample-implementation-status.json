@@ -3396,7 +3396,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorksOn.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantChatOnlyAgentTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-chat-only-agents.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-chat-only-agents.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs"
     ],
     "SPM-344": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",

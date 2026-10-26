@@ -184,9 +184,14 @@ no subject's list of agents shows it, `POST threads/start`, `POST threads/open`,
 `INhAssistantAgentTriggers.StartAsync` and a hand-off are refused with
 `assistant-agent-does-not-work-on`, as are a data trigger, its shadow switch and a board; nothing
 triggers or consults it, a replay never runs into or from it, run maintenance leaves it out and it
-needs no background operations. The host refuses to start when the agent also uses a setting that only
+needs no background operations. It has no shadow threads, so its skills always work live: a skill
+defined as data works live at once instead of starting in shadow, the skill's shadow switch
+(`POST admin/agents/{id}/skills/{skillId}/shadow`, `SetSkillShadowAsync`) is refused with
+`assistant-agent-does-not-work-on`, and the agent's and its skills' `NhAssistantShadowState.Locked` is
+`true`, so the administration offers no shadow switch. The host refuses to start when the agent also uses a setting that only
 applies to runs on subjects (such as `WorksOn`, `AcceptHandOffs`, `Shadow`, `HideFromChat`,
-`AllowConsultation`, `Grant` or `Retry`; the exception names them), when a trigger starts it, another
+`AllowConsultation`, `Grant` or `Retry`; the exception names them) or a skill that starts in shadow
+(`Skill(...).Shadow()`), when a trigger starts it, another
 agent is its shadow variant or accepts hand-offs from it, or `UseHandOffsAsData` or
 `UseShadowVariantsAsData` names it. `NhAssistantAgentRunOptions.ChatOnly` reports it, and the
 administration shows it as `ChatOnly` of `NhAssistantAdminAgentDto`, `NhAssistantCodeRunSettingsDto`

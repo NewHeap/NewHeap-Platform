@@ -1067,7 +1067,10 @@ applies to runs on subjects (`WorksOn`, `WorksOnAllObjects`, `WorksOnApplication
 `Grant`, `DelegateFromInitiator`, `ActWithAccountableRights`, `ElevatedReads`, `AllowGatewayReads`,
 `Retry`, `Budget`, `Triage`, `Memory` or `UseRuleHandler`), and when a trigger starts it, another
 agent is its shadow variant or accepts hand-offs from it, or `UseHandOffsAsData` or
-`UseShadowVariantsAsData` names it. Its skills may still be data. The administration shows it as
+`UseShadowVariantsAsData` names it. Its skills may still be data, and they always work live: a skill
+in code that starts in shadow (`Skill(...).Shadow()`) refuses host start, a skill defined as data works
+live at once, and the skill's shadow switch is refused with `assistant-agent-does-not-work-on`; the
+agent's and its skills' shadow states are `Locked`. The administration shows it as
 chat-only (`ChatOnly` of `NhAssistantAdminAgentDto`, `NhAssistantCodeRunSettingsDto` and
 `NhAssistantAgentInEffectDto`).
 

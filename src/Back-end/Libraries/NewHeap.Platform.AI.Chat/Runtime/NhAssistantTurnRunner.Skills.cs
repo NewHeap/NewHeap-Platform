@@ -184,7 +184,7 @@ internal sealed partial class NhAssistantTurnRunner
         state.ShadowSkills = shadowThread
             ? new HashSet<string>(StringComparer.Ordinal)
             : options.Skills.Values
-                .Where(skill => NhAssistantShadowModes.IsSkillShadow(skill, stored.GetValueOrDefault(skill.Id)))
+                .Where(skill => NhAssistantShadowModes.IsSkillShadow(options, skill, stored.GetValueOrDefault(skill.Id)))
                 .Select(skill => skill.Id)
                 .ToHashSet(StringComparer.Ordinal);
     }

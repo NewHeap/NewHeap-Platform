@@ -1566,6 +1566,13 @@ internal sealed class NhAssistantRegistrationState
                     $"Agent '{agentId}' is chat-only (ChatOnly), so it works on no subject and cannot use {string.Join(", ", options.RunSettings)}. Remove them, or remove ChatOnly so the agent runs on subjects.");
             }
 
+            // Nor has it shadow threads, so its skills always work live.
+            if (options.ChatOnly && options.Skills.Values.Where(skill => skill.Shadow).Select(skill => skill.Id).ToArray() is { Length: > 0 } shadowSkills)
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' is chat-only (ChatOnly), so its skills always work live and cannot start in shadow: {string.Join(", ", shadowSkills)}. Remove Shadow() from them, or remove ChatOnly.");
+            }
+
             var policies = options.ToolApprovalPolicies.Values.Append(options.ApprovalPolicyId);
             foreach (var policyId in policies.OfType<string>())
             {

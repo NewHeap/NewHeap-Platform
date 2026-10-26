@@ -22,7 +22,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// answer as the result of the advisor's call.
 /// SPM-343, the chat helper works in people's chats only (<c>ChatOnly()</c>): it offers its meeting
 /// notes skill and questions in the chat, but it is on no project's page and a start on a project is
-/// refused with <c>assistant-agent-does-not-work-on</c>; the administration says it is chat-only.
+/// refused with <c>assistant-agent-does-not-work-on</c>; the administration says it is chat-only, and its
+/// skill always works live.
 /// </summary>
 public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSampleHost host)
     : IClassFixture<AssistantAgentRunSampleHost>
@@ -149,6 +150,17 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         var listed = (await host.GetJsonAsync(administrator, "/api/assistant/admin/agents")).EnumerateArray()
             .Single(agent => agent.GetProperty("id").GetString() == SampleChatHelperComposition.AgentId);
         Assert.True(listed.GetProperty("chatOnly").GetBoolean());
+
+        // Its meeting notes skill always works live: its shadow mode is locked and cannot change.
+        var notes = listed.GetProperty("skills").EnumerateArray()
+            .Single(skill => skill.GetProperty("skillId").GetString() == SampleChatHelperComposition.MeetingNotesSkill);
+        Assert.Equal((false, true), (notes.GetProperty("shadow").GetProperty("shadow").GetBoolean(), notes.GetProperty("shadow").GetProperty("locked").GetBoolean()));
+        using var shadow = await administrator.PostAsync(
+            $"/api/assistant/admin/agents/{SampleChatHelperComposition.AgentId}/skills/{SampleChatHelperComposition.MeetingNotesSkill}/shadow",
+            AssistantSampleHost.Json(new { mode = "shadow" }),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, shadow.StatusCode);
+        Assert.Equal(NhAssistantErrorCodes.AgentDoesNotWorkOn, (await AssistantSampleHost.ReadJsonAsync(shadow)).GetProperty("code").GetString());
     }
 
     private static async Task<Guid> CreateConversationAsync(HttpClient client, string agentId)

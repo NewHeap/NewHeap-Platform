@@ -168,7 +168,8 @@ public interface INhAssistantAgentControl
     /// keep their mode. Work that reaches a skill in shadow goes to the agent's shadow thread: a
     /// trigger that names it fires there, a run that rules or triage route to it hands its events
     /// there, and <c>use_skill</c> in a live thread does not offer it. A skill of an agent in shadow
-    /// works in shadow whatever its own mode.
+    /// works in shadow whatever its own mode. The skills of a chat-only agent (<c>ChatOnly()</c>)
+    /// always work live, so it refuses them with <c>assistant-agent-does-not-work-on</c>.
     /// </summary>
     Task<TaskResult<NhAssistantSkillState>> SetSkillShadowAsync(
         string agentId,
@@ -303,7 +304,8 @@ public sealed record NhAssistantConsultationRouteState(
 /// <param name="Configured">The mode in code: <c>Shadow()</c> on the agent or the skill.</param>
 /// <param name="Override">The mode an administrator set at runtime; <see langword="null"/> follows
 /// the code.</param>
-/// <param name="Locked">A shadow variant always works in shadow; its mode cannot change.</param>
+/// <param name="Locked">The mode cannot change: a shadow variant always works in shadow, and a chat-only
+/// agent and its skills always work live.</param>
 /// <param name="ChangedAt">When the mode last changed at runtime.</param>
 /// <param name="ChangedBy">Who changed it last.</param>
 /// <param name="Reason">The reason given with the last change.</param>
@@ -637,6 +639,11 @@ internal sealed class NhAssistantAgentControl(
         {
             return TaskResult<NhAssistantSkillState>.Failed(NhAssistantErrorCodes.ShadowVariant, "A shadow variant always works in shadow.");
         }
+        if (options.ChatOnly)
+        {
+            // A chat-only agent has no shadow threads, so its skills always work live (FB8).
+            return TaskResult<NhAssistantSkillState>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "A chat-only agent works on no subject, so its skills always work live.");
+        }
 
         var stored = await store.GetSkillStatesAsync(agentId, cancellationToken);
         var row = stored.GetValueOrDefault(skillId);
@@ -958,10 +965,10 @@ internal sealed class NhAssistantAgentControl(
                 0)
             {
                 Shadow = new NhAssistantShadowState(
-                    agentShadow || NhAssistantShadowModes.IsSkillShadow(skill, row),
+                    agentShadow || NhAssistantShadowModes.IsSkillShadow(options, skill, row),
                     skill.Shadow,
                     row?.ShadowOverride,
-                    options.ShadowOfAgentId is not null,
+                    options.ShadowOfAgentId is not null || options.ChatOnly,
                     row?.ShadowChangedAt,
                     row?.ShadowChangedBy,
                     row?.ShadowReason)
@@ -1111,7 +1118,7 @@ internal sealed class NhAssistantAgentControl(
                     NhAssistantShadowModes.IsAgentShadow(runOptions, agent.ShadowOverride),
                     runOptions.Shadow,
                     agent.ShadowOverride,
-                    runOptions.ShadowOfAgentId is not null,
+                    runOptions.ShadowOfAgentId is not null || runOptions.ChatOnly,
                     agent.ShadowChangedAt,
                     agent.ShadowChangedBy,
                     agent.ShadowReason),

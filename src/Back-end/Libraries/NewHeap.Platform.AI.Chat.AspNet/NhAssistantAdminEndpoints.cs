@@ -119,7 +119,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents/{id}/skills/{skillId}/shadow", SetSkillShadowAsync)
             .WithName("NhAssistantAdminSetSkillShadow")
             .WithSummary("Put one skill of an agent in shadow or live")
-            .WithDescription("mode shadow: work that reaches the skill goes to the agent's shadow threads, which only administrators see, where nobody is notified and nothing executes. live: the skill works live. code: the mode in code decides again. A skill of an agent in shadow works in shadow whatever its own mode; a shadow variant cannot change (409).")
+            .WithDescription("mode shadow: work that reaches the skill goes to the agent's shadow threads, which only administrators see, where nobody is notified and nothing executes. live: the skill works live. code: the mode in code decides again. A skill of an agent in shadow works in shadow whatever its own mode; a shadow variant and a chat-only agent, whose skills always work live, cannot change (409).")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)

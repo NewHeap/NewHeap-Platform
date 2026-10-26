@@ -25,11 +25,13 @@ internal sealed class NhAssistantShadowModes(
 
     /// <summary>
     /// Whether the skill itself works in shadow, given its stored state; the agent's mode comes on top.
+    /// A chat-only agent has no shadow threads, so its skills always work live, a data skill too (FB8).
     /// </summary>
-    public static bool IsSkillShadow(NhAssistantSkillOptions skill, AssistantAgentSkillState? row)
+    public static bool IsSkillShadow(NhAssistantAgentRunOptions agent, NhAssistantSkillOptions skill, AssistantAgentSkillState? row)
     {
+        ArgumentNullException.ThrowIfNull(agent);
         ArgumentNullException.ThrowIfNull(skill);
-        return row?.ShadowOverride ?? skill.Shadow;
+        return !agent.ChatOnly && (row?.ShadowOverride ?? skill.Shadow);
     }
 
     /// <summary>
@@ -76,7 +78,7 @@ internal sealed class NhAssistantShadowModes(
 
         var stored = await store.GetSkillStatesAsync(agentId, cancellationToken);
         return options.Skills.Values
-            .Where(skill => IsSkillShadow(skill, stored.GetValueOrDefault(skill.Id)))
+            .Where(skill => IsSkillShadow(options, skill, stored.GetValueOrDefault(skill.Id)))
             .Select(skill => skill.Id)
             .ToHashSet(StringComparer.Ordinal);
     }

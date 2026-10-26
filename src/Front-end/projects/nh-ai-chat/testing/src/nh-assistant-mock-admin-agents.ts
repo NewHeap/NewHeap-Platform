@@ -113,6 +113,8 @@ export class NhAssistantMockAdminAgents {
     } of agents) {
       const variant = typeof shadowOf === 'string';
       const agentShadow = variant || shadow === true;
+      // A chat-only agent has no shadow threads: it and its skills always work live.
+      const live = source === 'code' && chatOnly === true;
       const initial = this.toAgent(input, source, 1, false);
       this.agents.set(input.id, {
         agent: {
@@ -125,7 +127,7 @@ export class NhAssistantMockAdminAgents {
             : {}),
           knownSubjectTypes: knownSubjectTypes ?? [],
           shadowOf: shadowOf ?? null,
-          shadow: shadowState(agentShadow, variant || shadow === true, null, variant),
+          shadow: shadowState(agentShadow, variant || shadow === true, null, variant || live),
           serviceAccount: serviceAccount === undefined
             ? null
             : { actorId: serviceAccount, configuredActorId: serviceAccount, overridden: false, changedAt: null, changedBy: null, reason: null },
@@ -143,7 +145,7 @@ export class NhAssistantMockAdminAgents {
             dailyTokens: null,
             cancelledRuns: 0,
             startedRuns: 0,
-            shadow: shadowState(agentShadow || skill.shadow === true, skill.shadow === true, null, variant)
+            shadow: shadowState(!live && (agentShadow || skill.shadow === true), skill.shadow === true, null, variant || live)
           }))
         },
         codeDefinition: source === 'code' ? structuredClone(input) : null,
@@ -446,6 +448,10 @@ export class NhAssistantMockAdminAgents {
     if (request === null) {
       return validationFailure();
     }
+    // The skills of a chat-only agent always work live.
+    if (stored.agent.chatOnly === true) {
+      return failure('assistant-agent-does-not-work-on');
+    }
     const agentShadow = stored.agent.shadow ?? shadowState(false, false, null, false);
     if (agentShadow.locked) {
       return failure('assistant-shadow-variant');
@@ -632,13 +638,13 @@ export class NhAssistantMockAdminAgents {
     if (request === null) {
       return validationFailure();
     }
-    const current = stored.agent.shadow ?? shadowState(false, false, null, false);
-    if (current.locked) {
-      return failure('assistant-shadow-variant');
-    }
     // A chat-only agent has no runs that could work in shadow threads.
     if (stored.agent.chatOnly === true) {
       return failure('assistant-agent-does-not-work-on');
+    }
+    const current = stored.agent.shadow ?? shadowState(false, false, null, false);
+    if (current.locked) {
+      return failure('assistant-shadow-variant');
     }
 
     const override = request.mode === 'code' ? null : request.mode === 'shadow';

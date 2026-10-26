@@ -1515,7 +1515,7 @@ internal sealed class NhAssistantAgentTriggers(
         var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
             || (fire.SkillId is { } shadowSkill
                 && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
-                && NhAssistantShadowModes.IsSkillShadow(skillOptions, skillRow))
+                && NhAssistantShadowModes.IsSkillShadow(options, skillOptions, skillRow))
             || (!fire.TriggerCandidate && IsTriggerShadow(fire.TriggerId))
             || fire.SkillCandidate
             || fire.TriggerCandidate;

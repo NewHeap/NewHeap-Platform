@@ -115,6 +115,13 @@ public sealed class AssistantChatOnlyAgentTests(AssistantDatabaseFixture databas
             .ConfigureAgent(ChatHelper, run => run.ChatOnly())
             .UseShadowVariantsAsData(variants => variants.Of(ChatHelper))));
         Assert.Contains("UseShadowVariantsAsData allows variants of 'chat-helper', which is chat-only", variantsAsData.Message);
+
+        // Nor has it shadow threads, so a skill of it cannot start in shadow.
+        var shadowSkill = Assert.Throws<InvalidOperationException>(() => Validate(assistant => assistant
+            .ConfigureAgent(ChatHelper, run => run
+                .ChatOnly()
+                .Skill(Notes, skill => skill.Description("Writes notes about a project.").Shadow()))));
+        Assert.Contains("'chat-helper' is chat-only (ChatOnly), so its skills always work live and cannot start in shadow: notes", shadowSkill.Message);
     }
 
     [Fact]
@@ -244,6 +251,27 @@ public sealed class AssistantChatOnlyAgentTests(AssistantDatabaseFixture databas
             await admin.PostAsJsonAsync($"/api/assistant/admin/agents/{ChatHelper}/shadow", new { mode = "shadow" }),
             HttpStatusCode.Conflict,
             NhAssistantErrorCodes.AgentDoesNotWorkOn);
+
+        // Its skills always work live: a skill's shadow switch is refused, and the agent and its
+        // skills say their mode cannot change, so the administration offers no switch.
+        await AssertErrorAsync(
+            await admin.PostAsJsonAsync($"/api/assistant/admin/agents/{ChatHelper}/skills/{Notes}/shadow", new { mode = "shadow" }),
+            HttpStatusCode.Conflict,
+            NhAssistantErrorCodes.AgentDoesNotWorkOn);
+        Assert.Equal((false, true), (listed.GetProperty("shadow").GetProperty("shadow").GetBoolean(), listed.GetProperty("shadow").GetProperty("locked").GetBoolean()));
+        var notes = listed.GetProperty("skills").EnumerateArray().Single(skill => skill.GetProperty("skillId").GetString() == Notes);
+        Assert.Equal((false, true), (notes.GetProperty("shadow").GetProperty("shadow").GetBoolean(), notes.GetProperty("shadow").GetProperty("locked").GetBoolean()));
+
+        // A skill defined as data, which starts in shadow elsewhere, works live at once.
+        using (var saved = await admin.PutAsJsonAsync($"/api/assistant/admin/agents/{ChatHelper}/skills/minutes", new { description = "Writes the minutes of a meeting." }))
+        {
+            await ReadJsonAsync(saved);
+        }
+        var minutes = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == ChatHelper)
+            .GetProperty("skills").EnumerateArray()
+            .Single(skill => skill.GetProperty("skillId").GetString() == "minutes");
+        Assert.Equal((false, true), (minutes.GetProperty("shadow").GetProperty("shadow").GetBoolean(), minutes.GetProperty("shadow").GetProperty("locked").GetBoolean()));
         await AssertErrorAsync(
             await admin.PutAsJsonAsync($"/api/assistant/admin/agents/{ChatHelper}/triggers/helper-on-change", new { source = "event", @event = "project.changed" }),
             HttpStatusCode.Conflict,
