@@ -214,6 +214,9 @@ public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixtu
             .Single(agent => agent.GetProperty("id").GetString() == Kickoff)
             .GetProperty("version").GetInt32();
         var path = $"/api/assistant/admin/agents/{Trial}/promote";
+        // The list of variants names the package a data variant is linked to.
+        var listed = Assert.Single((await ReadJsonAsync(await admin.GetAsync($"/api/assistant/admin/agents/{Kickoff}/shadow-variants"))).GetProperty("variants").EnumerateArray());
+        Assert.Equal((Trial, NextDesks, 2), (listed.GetProperty("agentId").GetString(), listed.GetProperty("packageId").GetString(), listed.GetProperty("packageVersion").GetInt32()));
 
         using (var forbidden = await reader.PostAsJsonAsync(path, new { expectedVersion = version, asPackageVersion = true }))
         {
