@@ -855,7 +855,15 @@ public sealed record NhAssistantShadowVariantPromotionInputDto(
     int? ExpectedVersion,
     bool? MoveSkills = null,
     int? ExpectedVariantVersion = null,
-    string? Reason = null);
+    string? Reason = null)
+{
+    /// <summary>
+    /// The variant's parts, every one linked to one agent package, become that package's next version
+    /// of the live agent with the import's rules (FB11); omitted or <see langword="false"/> promotes
+    /// through the update path.
+    /// </summary>
+    public bool? AsPackageVersion { get; init; }
+}
 
 /// <summary>
 /// The answer of <c>POST admin/agents/{id}/promote</c>.
@@ -866,7 +874,15 @@ public sealed record NhAssistantShadowVariantPromotionInputDto(
 public sealed record NhAssistantShadowVariantPromotedDto(
     NhAssistantAdminAgentDto Agent,
     string VariantId,
-    IReadOnlyList<string> MovedSkills);
+    IReadOnlyList<string> MovedSkills)
+{
+    /// <summary>
+    /// For a promotion as the package's version: the package the live agent is linked to now, with its
+    /// version, hash and every part's outcome as an import reports it; left out otherwise.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageImportDto? Package { get; init; }
+}
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>

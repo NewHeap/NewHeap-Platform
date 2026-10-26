@@ -26,7 +26,8 @@ internal sealed partial class NhAssistantAgentPackageService
         NhAssistantAgentPackage package,
         NhAssistantAgentPackageImportOptions options,
         string actorId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAssistantPackagePromotion? promotion = null)
     {
         var checkedPackage = NhAssistantAgentPackageFormat.Check(package);
         if (!checkedPackage.Success)
@@ -55,15 +56,20 @@ internal sealed partial class NhAssistantAgentPackageService
         var stored = await runConfiguration.LoadAsync(cancellationToken);
         var agentIds = package.Agents.Select(agent => agent.Id).Concat(installedAgents).Distinct(StringComparer.Ordinal).ToArray();
         var allLinks = await packages.ListLinksAsync(agentIds, cancellationToken);
-        var plan = new NhAssistantPackagePlan(package, NhAssistantAgentPackageFormat.HashOf(package), installed);
-        var reason = "package " + package.Package.Id + "@" + package.Package.Version.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var plan = new NhAssistantPackagePlan(package, NhAssistantAgentPackageFormat.HashOf(package), installed)
+        {
+            Promotion = promotion
+        };
+        var reason = promotion?.Reason
+            ?? "package " + package.Package.Id + "@" + package.Package.Version.ToString(System.Globalization.CultureInfo.InvariantCulture);
         foreach (var source in package.Agents)
         {
             await PlanAgentAsync(plan, source, options, stored, allLinks, installedAgents, actorId, reason, cancellationToken);
         }
 
-        // An agent an upgrade no longer contains stays, unlinked (PK5).
-        foreach (var agentId in installedAgents.Where(id => package.Agents.All(agent => agent.Id != id)))
+        // An agent an upgrade no longer contains stays, unlinked (PK5); a promotion of a variant
+        // leaves the package's other agents as they are.
+        foreach (var agentId in installedAgents.Where(id => promotion is null && package.Agents.All(agent => agent.Id != id)))
         {
             plan.LeftBehindAgents.Add(agentId);
             plan.Parts.Add(new NhAssistantPlannedPart(agentId, NhAssistantPackagePartKinds.Agent, string.Empty)
@@ -132,6 +138,7 @@ internal sealed partial class NhAssistantAgentPackageService
         var agent = new NhAssistantPlannedAgent(source, hostRow)
         {
             Member = installedAgents.Contains(source.Id, StringComparer.Ordinal) || Relinks(options, source.Id, null),
+            PromotedVariantId = plan.Promotion?.VariantId,
             Links = allLinks.Where(link => link.AgentId == source.Id && link.PackageId == packageId).ToArray(),
             HostMetadata = hostRow is null ? [] : await metadataStore.ListAsync(source.Id, cancellationToken)
         };
@@ -177,7 +184,8 @@ internal sealed partial class NhAssistantAgentPackageService
         var source = agent.Source;
         var hostRow = agent.HostRow;
         part.Link = agent.Links.FirstOrDefault(link => link.PartKind == NhAssistantPackagePartKinds.Agent);
-        if (allLinks.Any(link => link.AgentId == source.Id && link.PackageId != packageId))
+        // A promotion takes the live agent out of the package it belonged to (FB11).
+        if (agent.PromotedVariantId is null && allLinks.Any(link => link.AgentId == source.Id && link.PackageId != packageId))
         {
             // The agent belongs to another package.
             part.Refuse(TaskResult.Failed(NhAssistantAdminErrorCodes.AgentExists, "An agent with this id already exists."));
@@ -544,7 +552,8 @@ internal sealed partial class NhAssistantAgentPackageService
                 part.Refuse(TaskResult.Failed(NhAssistantErrorCodes.TriggerInCode, "The trigger is registered in code."));
                 continue;
             }
-            if (versions.Any(item => item.AgentId != agent.Id))
+            // The trigger ids of a variant that is promoted become the live agent's (FB11).
+            if (versions.Any(item => item.AgentId != agent.Id && item.AgentId != agent.PromotedVariantId))
             {
                 // Trigger ids stay (PK5): one that belongs to another agent is refused, as a save refuses it.
                 part.Refuse("triggerId", NhAssistantFieldErrors.Invalid);

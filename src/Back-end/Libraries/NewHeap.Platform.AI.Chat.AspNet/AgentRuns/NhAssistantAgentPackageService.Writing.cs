@@ -26,6 +26,17 @@ internal sealed partial class NhAssistantAgentPackageService
         var triggers = stored.Triggers.ToList();
         var consultations = stored.Consultations.ToList();
         var handOffs = stored.HandOffs.ToList();
+        if (plan.Promotion is { } promotion)
+        {
+            // The promotion deletes the variant with everything that belongs to it (FB11).
+            adminAgents.Remove(promotion.VariantId);
+            agentRuns.RemoveAll(item => item.AgentId == promotion.VariantId);
+            skills.RemoveAll(item => item.AgentId == promotion.VariantId);
+            triggers.RemoveAll(item => item.AgentId == promotion.VariantId);
+            consultations.RemoveAll(item => item.AgentId == promotion.VariantId);
+            handOffs.RemoveAll(item => item.AgentId == promotion.VariantId);
+        }
+
         foreach (var agent in plan.Agents.Where(item => !item.InCode && item.Row is not null))
         {
             var row = agent.Row!;
@@ -316,6 +327,11 @@ internal sealed partial class NhAssistantAgentPackageService
             }
         }
 
+        if (plan.Promotion is { } promotion)
+        {
+            return await WritePromotionAsync(plan, promotion, links, unlinked, actorId, now, cancellationToken);
+        }
+
         var package = new AssistantAgentPackage
         {
             Id = info.Id,
@@ -332,6 +348,64 @@ internal sealed partial class NhAssistantAgentPackageService
             links,
             unlinked,
             plan.Installed?.Version,
+            cancellationToken);
+        return outcome == NhAssistantStoreOutcome.Succeeded;
+    }
+
+    /// <summary>
+    /// Writes a promotion of a package-linked variant (FB11) in the one transaction of an import: the
+    /// variant goes first with everything that belongs to it, its links included, so its trigger ids
+    /// are free; the live agent leaves the package it belonged to before; then the live agent's parts
+    /// and links are written as an import writes them. The package keeps its version, hash and import,
+    /// and holds the live agent in place of the variant.
+    /// </summary>
+    private async Task<bool> WritePromotionAsync(
+        NhAssistantPackagePlan plan,
+        NhAssistantPackagePromotion promotion,
+        IReadOnlyList<AssistantAgentPackageLink> links,
+        List<(string AgentId, string PartKind, string PartKey)> unlinked,
+        string actorId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var installed = plan.Installed!;
+        // The live agent's links to the package it belonged to before end with the promotion.
+        foreach (var link in await packages.ListLinksAsync(promotion.LiveAgentId, cancellationToken))
+        {
+            if (link.PackageId != installed.Id)
+            {
+                unlinked.Add((link.AgentId, link.PartKind, link.PartKey));
+            }
+        }
+
+        var package = new AssistantAgentPackage
+        {
+            Id = installed.Id,
+            Version = installed.Version,
+            FormatVersion = installed.FormatVersion,
+            Hash = installed.Hash,
+            ImportedAt = installed.ImportedAt,
+            ImportedBy = installed.ImportedBy
+        };
+        var agentIds = NhAssistantAgentPackageStore.AgentIdsOf(installed)
+            .Where(id => !string.Equals(id, promotion.VariantId, StringComparison.Ordinal))
+            .Append(promotion.LiveAgentId)
+            .ToArray();
+        var outcome = await packages.ImportAsync(
+            async (context, token) =>
+            {
+                if (!await NhAssistantAgentPackageStore.PromoteAsync(context, promotion.VariantId, promotion.VariantVersion, promotion.LiveAgentId, installed.Id, token))
+                {
+                    return false;
+                }
+
+                return await WritePartsAsync(context, plan, actorId, now, token);
+            },
+            package,
+            agentIds,
+            links,
+            unlinked,
+            installed.Version,
             cancellationToken);
         return outcome == NhAssistantStoreOutcome.Succeeded;
     }
@@ -583,6 +657,34 @@ internal sealed partial class NhAssistantAgentPackageService
     private async Task AuditImportAsync(NhAssistantPackagePlan plan, string actorId, CancellationToken cancellationToken)
     {
         var info = plan.Package.Package;
+        await AuditWrittenAsync(plan, actorId, cancellationToken);
+        foreach (var part in plan.Parts.Where(item => item.Outcome == NhAssistantPackagePartOutcomes.LeftBehind))
+        {
+            await events.PackageUnlinkedAsync(
+                part.AgentId,
+                plan.LeftBehindAgents.Contains(part.AgentId, StringComparer.Ordinal) ? NhAssistantPackagePartKinds.WholeAgent : part.Part,
+                info.Id,
+                info.Version,
+                NhAssistantAgentPackageAudit.LeftBehind,
+                actorId,
+                cancellationToken);
+        }
+
+        await events.PackageImportedAsync(
+            info.Id,
+            info.Version,
+            plan.Hash,
+            plan.Agents.Count,
+            plan.Installed is null ? NhAssistantAgentPackageAudit.Created : NhAssistantAgentPackageAudit.Upgraded,
+            actorId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Audits every agent and part the plan wrote as its save audits it.
+    /// </summary>
+    private async Task AuditWrittenAsync(NhAssistantPackagePlan plan, string actorId, CancellationToken cancellationToken)
+    {
         foreach (var agent in plan.Agents)
         {
             if (agent.HostRow is null)
@@ -604,27 +706,6 @@ internal sealed partial class NhAssistantAgentPackageService
                 await AuditPartAsync(agent, part, actorId, cancellationToken);
             }
         }
-
-        foreach (var part in plan.Parts.Where(item => item.Outcome == NhAssistantPackagePartOutcomes.LeftBehind))
-        {
-            await events.PackageUnlinkedAsync(
-                part.AgentId,
-                plan.LeftBehindAgents.Contains(part.AgentId, StringComparer.Ordinal) ? NhAssistantPackagePartKinds.WholeAgent : part.Part,
-                info.Id,
-                info.Version,
-                NhAssistantAgentPackageAudit.LeftBehind,
-                actorId,
-                cancellationToken);
-        }
-
-        await events.PackageImportedAsync(
-            info.Id,
-            info.Version,
-            plan.Hash,
-            plan.Agents.Count,
-            plan.Installed is null ? NhAssistantAgentPackageAudit.Created : NhAssistantAgentPackageAudit.Upgraded,
-            actorId,
-            cancellationToken);
     }
 
     private async Task AuditPartAsync(NhAssistantPlannedAgent agent, NhAssistantPlannedPart part, string actorId, CancellationToken cancellationToken)

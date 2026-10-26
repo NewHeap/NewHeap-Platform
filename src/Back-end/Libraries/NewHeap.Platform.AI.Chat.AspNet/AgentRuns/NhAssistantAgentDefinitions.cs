@@ -71,6 +71,23 @@ public interface INhAssistantAgentDefinitions
     /// live agent has in code, and the failures of the update, the skill saves and the deletion. The
     /// steps run in that order and a failure stops there: the variant stays until the last step.
     /// Audited as <c>AdminAgentShadowVariantPromoted</c> after the events of its steps.
+    /// <para>
+    /// With <see cref="NhAssistantShadowVariantPromotionRequest.AsPackageVersion"/> (FB11) a variant
+    /// whose every part is linked to one agent package becomes that package's next version of the live
+    /// agent: its parts apply to the live agent with the import's own rules (its definition without the
+    /// display name, chat offer and live agent of a variant, its run settings, skills, triggers,
+    /// consultations, hand-offs and the metadata entries the package carries, with the package's locks),
+    /// the live agent's parts are linked to the variant's package id and version, the live agent leaves
+    /// the package it belonged to before, and the variant is deleted with its links, all in one
+    /// transaction. An agent in code takes the fields it can override and keeps its run settings in
+    /// code. It fails, changing nothing, with <c>assistant-package-not-linked</c> when a part of the
+    /// variant is not linked, <c>moveSkills: not-allowed</c> together with
+    /// <see cref="NhAssistantShadowVariantPromotionRequest.MoveSkills"/>, and the import's
+    /// <c>assistant-package-refused</c> (<c>parts: invalid</c> with <c>parts.{part}.{field}</c>) when
+    /// the import would refuse a part. Audited once as <c>AdminAgentShadowVariantPromoted</c> with the
+    /// result <c>promoted-as-package-version</c> and the package's id, version and hash, after the
+    /// change events of the parts it wrote.
+    /// </para>
     /// </summary>
     Task<TaskResult<NhAssistantShadowVariantPromotionDto>> PromoteShadowVariantAsync(
         string variantId,
@@ -177,7 +194,16 @@ public sealed record NhAssistantShadowVariantPromotionRequest(
     int ExpectedVersion,
     bool MoveSkills = false,
     int? ExpectedVariantVersion = null,
-    string? Reason = null);
+    string? Reason = null)
+{
+    /// <summary>
+    /// The variant's parts, every one linked to one agent package, become that package's next version
+    /// of the live agent with the import's rules, in one transaction (FB11); see
+    /// <see cref="INhAssistantAgentDefinitions.PromoteShadowVariantAsync"/>. Off by default: the
+    /// promotion goes through the update path.
+    /// </summary>
+    public bool AsPackageVersion { get; init; }
+}
 
 /// <summary>
 /// The outcome of a promotion of a shadow variant.
@@ -189,7 +215,16 @@ public sealed record NhAssistantShadowVariantPromotionRequest(
 public sealed record NhAssistantShadowVariantPromotionDto(
     NhAssistantAgentInEffectDto Agent,
     string VariantId,
-    IReadOnlyList<string> MovedSkills);
+    IReadOnlyList<string> MovedSkills)
+{
+    /// <summary>
+    /// For a promotion as the package's version
+    /// (<see cref="NhAssistantShadowVariantPromotionRequest.AsPackageVersion"/>): the package the live
+    /// agent is linked to now, with its version, hash and the outcome of every part as an import reports
+    /// it; <see langword="null"/> otherwise.
+    /// </summary>
+    public NhAssistantAgentPackageImportDto? Package { get; init; }
+}
 
 internal sealed class NhAssistantAgentDefinitions(
     NhAssistantAgentAdministration administration,
@@ -294,6 +329,11 @@ internal sealed class NhAssistantAgentDefinitions(
             return Refused(NhAssistantValidationErrors.Failed("reason", NhAssistantFieldErrors.TooLong));
         }
 
+        if (request.AsPackageVersion)
+        {
+            return await PromoteAsPackageVersionAsync(variantId, request, actorId, cancellationToken);
+        }
+
         var (refused, variant, live) = await ResolvePromotionAsync(variantId, request, cancellationToken);
         if (refused is not null)
         {
@@ -356,14 +396,67 @@ internal sealed class NhAssistantAgentDefinitions(
     }
 
     /// <summary>
+    /// The promotion of a package-linked variant as its package's next version of the live agent
+    /// (FB11): the package service plans and writes it as an import, then one audit event records it.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantShadowVariantPromotionDto>> PromoteAsPackageVersionAsync(
+        string variantId,
+        NhAssistantShadowVariantPromotionRequest request,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        // The skills are parts of the package version; they move with it.
+        if (request.MoveSkills)
+        {
+            return Refused(NhAssistantValidationErrors.Failed("moveSkills", NhAssistantFieldErrors.NotAllowed));
+        }
+
+        var (refused, variant, live) = await ResolvePromotionAsync(variantId, request, cancellationToken, asPackageVersion: true);
+        if (refused is not null)
+        {
+            return Refused(refused);
+        }
+
+        var promoted = await services.GetRequiredService<NhAssistantAgentPackageService>()
+            .PromoteVariantAsync(variant!, live!, actorId, request.Reason, cancellationToken);
+        if (!promoted.Success)
+        {
+            return Refused(promoted);
+        }
+
+        var agent = await directory.GetAsync(live!.Id, cancellationToken);
+        if (agent is null)
+        {
+            return Refused(TaskResult.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found."));
+        }
+
+        var package = promoted.Data!;
+        await AuditPromotedAsync(live.Id, variant!.Id, agent.Version, actorId, cancellationToken, package);
+        var skillPrefix = NhAssistantPackagePartKinds.Skill + ":";
+        var skills = package.Parts
+            .Where(part => part.AgentId == live.Id
+                           && part.Part.StartsWith(skillPrefix, StringComparison.Ordinal)
+                           && part.Outcome is NhAssistantPackagePartOutcomes.Created or NhAssistantPackagePartOutcomes.Changed or NhAssistantPackagePartOutcomes.Unchanged)
+            .Select(part => part.Part[skillPrefix.Length..])
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return TaskResult<NhAssistantShadowVariantPromotionDto>.Succeeded(new NhAssistantShadowVariantPromotionDto(agent, variant.Id, skills)
+        {
+            Package = package
+        });
+    }
+
+    /// <summary>
     /// The variant and its live agent, or why they cannot be promoted: the variant is a shadow variant
     /// created as data at its expected version, and its live agent may still have data variants
-    /// (HD10), at its expected version, and the variant is not held by an agent package.
+    /// (HD10), at its expected version, and the variant is not held by an agent package, unless the
+    /// promotion takes it as the package's version.
     /// </summary>
     private async Task<(TaskResult? Refused, NhAssistantAgent? Variant, NhAssistantAgent? Live)> ResolvePromotionAsync(
         string variantId,
         NhAssistantShadowVariantPromotionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool asPackageVersion = false)
     {
         var variant = await catalog.FindAsync(variantId, includeDisabled: true, cancellationToken);
         if (variant is null)
@@ -395,8 +488,9 @@ internal sealed class NhAssistantAgentDefinitions(
             return (TaskResult.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The agent was changed by someone else."), null, null);
         }
 
-        // The variant is deleted last; an agent package that holds it keeps it (PK9).
-        if (await locks.CheckDeletionAsync(variant.Id, cancellationToken) is { } locked)
+        // The variant is deleted last; an agent package that holds it keeps it (PK9), unless the
+        // promotion makes it the package's version, which deletes it with its links.
+        if (!asPackageVersion && await locks.CheckDeletionAsync(variant.Id, cancellationToken) is { } locked)
         {
             return (locked, null, null);
         }
@@ -478,7 +572,13 @@ internal sealed class NhAssistantAgentDefinitions(
         };
     }
 
-    private async Task AuditPromotedAsync(string liveAgentId, string variantId, int version, string actorId, CancellationToken cancellationToken)
+    private async Task AuditPromotedAsync(
+        string liveAgentId,
+        string variantId,
+        int version,
+        string actorId,
+        CancellationToken cancellationToken,
+        NhAssistantAgentPackageImportDto? package = null)
     {
         var evt = new NhAssistantAuditEvent(
             NhAssistantAuditEventKind.AdminAgentShadowVariantPromoted,
@@ -491,7 +591,10 @@ internal sealed class NhAssistantAgentDefinitions(
         {
             ObjectId = variantId,
             LiveAgentId = liveAgentId,
-            ResultCode = "promoted"
+            ResultCode = package is null ? NhAssistantShadowVariantPromotions.Promoted : NhAssistantShadowVariantPromotions.PromotedAsPackageVersion,
+            PackageId = package?.PackageId,
+            PackageVersion = package?.PackageVersion,
+            PackageHash = package?.Hash
         };
         foreach (var sink in _auditSinks)
         {
@@ -528,4 +631,19 @@ internal sealed class NhAssistantAgentDefinitions(
             throw new ArgumentOutOfRangeException(nameof(actorId), $"An actor id has at most {MaxActorIdLength} characters.");
         }
     }
+}
+
+/// <summary>
+/// The result codes of <c>AdminAgentShadowVariantPromoted</c>.
+/// </summary>
+public static class NhAssistantShadowVariantPromotions
+{
+    /// <summary>The variant's definition went onto its live agent through the update path.</summary>
+    public const string Promoted = "promoted";
+
+    /// <summary>
+    /// The variant's parts became its package's next version of the live agent
+    /// (<see cref="NhAssistantShadowVariantPromotionRequest.AsPackageVersion"/>).
+    /// </summary>
+    public const string PromotedAsPackageVersion = "promoted-as-package-version";
 }
