@@ -86,6 +86,8 @@ const mockChatProfile = 'chat';
 
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
 const dataClassifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
+/** The most MCP servers one agent is assigned to, as the server allows. */
+const maxServersPerAgent = 32;
 
 /**
  * The agents of the mock administration: agents in code and agents created as data, their state,
@@ -226,6 +228,30 @@ export class NhAssistantMockAdminAgents {
     return live.agent;
   }
 
+  /**
+   * Assigns an MCP server to an agent or removes the assignment, as `PUT` and
+   * `DELETE admin/mcp-servers/{id}/agents/{agentId}` do: only the assignment changes, never the agent's
+   * version; an agent has at most 32 servers.
+   */
+  setMcpAssignment(agentId: string, serverId: string, assign: boolean): 'agent-not-found' | 'too-long' | 'changed' | 'unchanged' {
+    const stored = this.agents.get(agentId);
+    if (!stored) {
+      return 'agent-not-found';
+    }
+    const assigned = stored.agent.mcpServerIds.includes(serverId);
+    if (assigned === assign) {
+      return 'unchanged';
+    }
+    if (assign && stored.agent.mcpServerIds.length >= maxServersPerAgent) {
+      return 'too-long';
+    }
+    stored.agent = {
+      ...stored.agent,
+      mcpServerIds: assign ? [...stored.agent.mcpServerIds, serverId] : stored.agent.mcpServerIds.filter(id => id !== serverId)
+    };
+    return 'changed';
+  }
+
   /** Removes a deleted MCP server from the agents it was assigned to. */
   removeServer(serverId: string): void {
     for (const agent of this.agents.values()) {
@@ -288,7 +314,7 @@ export class NhAssistantMockAdminAgents {
         return refused;
       }
 
-      const created = this.toAgent(input, 'admin', 1, false);
+      const created = this.toAgent({ ...input, mcpServerIds: input.mcpServerIds ?? [] }, 'admin', 1, false);
       // A data shadow variant always works in shadow and is never offered in the chat.
       const agent: AdminAgent = shadowOf === null
         ? created
@@ -352,7 +378,13 @@ export class NhAssistantMockAdminAgents {
       }
 
       const { expectedVersion, ...definition } = input;
-      const updated = this.toAgent(definition, stored.agent.source, stored.agent.version + 1, stored.agent.source === 'code', stored.agent);
+      // An omitted list keeps the agent's assignments; an empty list removes them.
+      const updated = this.toAgent(
+        { ...definition, mcpServerIds: definition.mcpServerIds ?? stored.agent.mcpServerIds },
+        stored.agent.source,
+        stored.agent.version + 1,
+        stored.agent.source === 'code',
+        stored.agent);
       // A data shadow variant keeps its live agent and stays out of the chat.
       stored.agent = stored.agent.source === 'admin' && stored.agent.shadowOf ? { ...updated, offeredInChat: false } : updated;
       return { status: 200, body: stored.agent };
@@ -853,7 +885,9 @@ export class NhAssistantMockAdminAgents {
       typeof input.description === 'string' &&
       typeof input.instructions === 'string' && input.instructions.length <= maxInstructions &&
       Array.isArray(input.toolSelectors) && input.toolSelectors.every(selector => /^[a-z0-9*][a-z0-9.*-]*$/.test(selector)) &&
-      Array.isArray(input.mcpServerIds) && input.mcpServerIds.every(serverId => this.rules.hasServer(serverId)) &&
+      // Omitted, a new agent has no servers and an update keeps them, as on the server.
+      (input.mcpServerIds === undefined || input.mcpServerIds === null ||
+        (Array.isArray(input.mcpServerIds) && input.mcpServerIds.every(serverId => this.rules.hasServer(serverId)))) &&
       (input.requiredPolicy === null || (typeof input.requiredPolicy === 'string' && (!policies || policies.includes(input.requiredPolicy)))) &&
       autonomyLevels.includes(input.autonomy) &&
       (input.isEnabled === undefined || typeof input.isEnabled === 'boolean');
@@ -883,6 +917,8 @@ export class NhAssistantMockAdminAgents {
     const classification = chosenClassification(dataClassification) as AssistantDataClassification | null;
     return this.withWarnings({
       ...definition,
+      // The callers name the servers; an omitted list keeps those of the agent, or none.
+      mcpServerIds: definition.mcpServerIds ?? previous?.mcpServerIds ?? [],
       // An agent created here keeps its profile when the input omits it; code decides for the others.
       profile: chosenProfile ?? previous?.profile ?? mockChatProfile,
       // The same for its classification; an agent in code keeps the one of its scenario.

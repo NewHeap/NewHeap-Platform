@@ -101,6 +101,7 @@ export class NhAssistantMockAdmin {
       agents: () => this.agents.all(),
       chatAgentIds: () => this.agents.chatAgents().map(agent => agent.id),
       removeServer: serverId => this.agents.removeServer(serverId),
+      setAssignment: (serverId, agentId, assign) => this.agents.setMcpAssignment(agentId, serverId, assign),
       canAdminister: () => this.canAdminister
     });
     this.presetRunConfigurations(admin.agents ?? []);

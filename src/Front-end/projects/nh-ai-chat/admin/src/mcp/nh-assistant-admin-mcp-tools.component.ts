@@ -25,7 +25,9 @@ let nextId = 0;
 /**
  * The tools of one MCP server. Every tool starts disabled as a change that needs approval;
  * the administrator enables it and chooses the effect. Remote annotations appear as hints
- * only, and a changed remote input schema is shown as a warning.
+ * only, and a changed remote input schema is shown as a warning. A tool whose settings were reviewed
+ * before any sync saw it (`awaitingSync`) shows as not seen yet: its settings change here, and the
+ * first sync that finds it on the server makes it available with them.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-tools',

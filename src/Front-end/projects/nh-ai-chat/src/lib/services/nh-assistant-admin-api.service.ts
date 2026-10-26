@@ -139,6 +139,10 @@ export class NhAssistantAdminApiService {
     return this.request<AdminAgent>('POST', 'admin/agents', input);
   }
 
+  /**
+   * Saves an agent's definition when `expectedVersion` is current. Omit `mcpServerIds` to keep its MCP
+   * assignments, which `assignMcpServer` and `unassignMcpServer` change one by one; `[]` removes them.
+   */
   updateAgent(agentId: string, request: UpdateAdminAgentRequest): Observable<AdminAgent> {
     return this.request<AdminAgent>('PUT', `admin/agents/${encodeURIComponent(agentId)}`, request);
   }
@@ -328,9 +332,30 @@ export class NhAssistantAdminApiService {
     return this.api.completeMcpAuthorization(request);
   }
 
+  /**
+   * Enables or disables a tool, sets its effect and its description. A remote name that no sync has
+   * seen yet stores these reviewed settings as a tool that awaits its sync (`awaitingSync`).
+   */
   updateMcpTool(serverId: string, remoteName: string, request: UpdateMcpToolRequest): Observable<McpTool> {
     const path = `admin/mcp-servers/${encodeURIComponent(serverId)}/tools/${encodeURIComponent(remoteName)}`;
     return this.request<McpTool>('PUT', path, request);
+  }
+
+  /**
+   * Assigns a server to an agent (`PUT admin/mcp-servers/{id}/agents/{agentId}`). Only the assignment
+   * changes, never the agent's definition or version; assigning an assigned server changes nothing.
+   * Answers the server with its `assignedAgentIds`.
+   */
+  assignMcpServer(serverId: string, agentId: string): Observable<McpServer> {
+    return this.request<McpServer>('PUT', `${mcpServerPath(serverId)}/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /**
+   * Removes a server's assignment to an agent (`DELETE admin/mcp-servers/{id}/agents/{agentId}`); the
+   * agent's definition and version stay. Answers the server with its `assignedAgentIds`.
+   */
+  unassignMcpServer(serverId: string, agentId: string): Observable<McpServer> {
+    return this.request<McpServer>('DELETE', `${mcpServerPath(serverId)}/agents/${encodeURIComponent(agentId)}`);
   }
 
   /**

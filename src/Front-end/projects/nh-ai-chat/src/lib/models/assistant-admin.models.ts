@@ -101,7 +101,12 @@ export interface AdminAgentInput {
   description: string;
   instructions: string;
   toolSelectors: string[];
-  mcpServerIds: string[];
+  /**
+   * The MCP servers assigned to the agent, at most 32. Omitted keeps the agent's assignments on update,
+   * which `assignMcpServer` and `unassignMcpServer` change one by one, and assigns none to a new agent;
+   * an empty list removes them all.
+   */
+  mcpServerIds?: string[];
   requiredPolicy: string | null;
   autonomy: AssistantAutonomy;
   /**
@@ -254,6 +259,8 @@ export type UpdateAdminAgentRequest = AdminAgentInput & { expectedVersion: numbe
 export type AgentRunState = 'active' | 'paused' | 'stopped' | 'off' | 'configured-off';
 
 export interface AdminAgent extends AdminAgentInput {
+  /** The MCP servers assigned to the agent. */
+  mcpServerIds: string[];
   /** `false` while the agent is stopped; read `runState` for the full state. */
   isEnabled: boolean;
   version: number;
@@ -753,9 +760,18 @@ export interface McpTool {
   status: McpToolStatus;
   /** Remote annotation. Untrusted: shown as a hint only, never used as a default. */
   readOnlyHint: boolean | null;
+  /**
+   * The tool's reviewed settings were stored before any sync of its server saw it, for example for a
+   * server the host cannot reach yet: its status is `missing` and no agent is offered it until the first
+   * sync that sees it makes it `available` with these settings. Missing on older servers.
+   */
+  awaitingSync?: boolean;
 }
 
-/** Body of `PUT admin/mcp-servers/{id}/tools/{remoteName}`. */
+/**
+ * Body of `PUT admin/mcp-servers/{id}/tools/{remoteName}`. For a remote name that no sync has seen yet
+ * these are the reviewed settings the first sync that sees the tool keeps.
+ */
 export interface UpdateMcpToolRequest {
   isEnabled: boolean;
   effect: McpToolEffect;

@@ -453,6 +453,9 @@
     }
   </fieldset>
 
+  @if (assignmentsFailed()) {
+    <p class="message warning" role="status" data-agent-editor-mcp-failed><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.agent-editor.mcp-servers-failed' | translate }}</p>
+  }
   @if (error(); as failure) {
     <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
   }

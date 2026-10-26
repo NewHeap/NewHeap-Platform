@@ -445,7 +445,8 @@ describe('provideNhAssistantMockApi administration', () => {
       failure(firstValueFrom(admin.createMcpServer(serverInput))),
       failure(firstValueFrom(admin.resetAgent(newAgent.id))),
       failure(firstValueFrom(admin.getMcpTools('unknown'))),
-      failure(firstValueFrom(admin.updateMcpTool('files', 'unknown', { isEnabled: false, effect: 'mutation', descriptionOverride: null }))),
+      // A tool no sync has seen waits for one; a tool of an unknown server is refused.
+      failure(firstValueFrom(admin.updateMcpTool('unknown', 'readFile', { isEnabled: false, effect: 'mutation', descriptionOverride: null }))),
       failure(firstValueFrom(admin.resetAgent('unknown')))
     ]);
 
@@ -454,7 +455,7 @@ describe('provideNhAssistantMockApi administration', () => {
       [409, 'assistant-mcp-server-exists'],
       [409, 'assistant-agent-not-code'],
       [404, 'assistant-mcp-server-not-found'],
-      [404, 'assistant-mcp-tool-not-found'],
+      [404, 'assistant-mcp-server-not-found'],
       [404, 'assistant-not-found']
     ]);
     expect(failures.every(item => item.messageKey === `nh-assistant.errors.${item.code}`)).toBeTrue();
