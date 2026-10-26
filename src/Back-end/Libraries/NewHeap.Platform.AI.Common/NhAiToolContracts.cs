@@ -377,6 +377,23 @@ public sealed record NhAiInvocationContext(
     /// </summary>
     public Guid? AgentRunId { get; init; }
 
+    /// <summary>
+    /// The assistant conversation the invocation belongs to, set by the assistant in every turn: the
+    /// person's chat, the agent's thread of a run or of a person's turn in it, and the consulted agent's
+    /// thread in a consultation. <see langword="null"/> outside an assistant turn. It identifies the
+    /// conversation only: no proposal hash, approval evidence or audit record compares it.
+    /// </summary>
+    public Guid? ConversationId { get; init; }
+
+    /// <summary>
+    /// The application's channel that started the assistant turn through
+    /// <c>INhAssistantConversationTurns</c>, a dash-case code such as <c>messaging-chat</c>, also in a
+    /// consultation that turn started; <see langword="null"/> for a turn of the assistant's own
+    /// endpoints, an agent run and outside an assistant turn. Like <see cref="ConversationId"/> it takes
+    /// part in no proposal hash or approval evidence.
+    /// </summary>
+    public string? Channel { get; init; }
+
     public string? AccountableOwnerId { get; init; }
     public IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes { get; init; } = [];
     public IReadOnlySet<string> CapabilityGrants { get; init; } = new HashSet<string>(StringComparer.Ordinal);

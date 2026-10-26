@@ -230,13 +230,19 @@ internal sealed class NhAssistantWebPushNotifier(
 
     /// <summary>
     /// The person who started the turn hears about an approval request, which needs them, and about a
-    /// long turn; everyone else only about a long turn that finished or failed. Cancelled turns and
-    /// quick turns are silent: the user is still looking at them.
+    /// long turn; everyone else only about a long turn that finished or failed. A turn that waits for a
+    /// question tells the question's addressee, also when someone else's turn asked it, and nobody
+    /// else (CS6). Cancelled turns and quick turns are silent: the user is still looking at them.
     /// </summary>
     internal static string? KindFor(NhAssistantTurnOutcome outcome, string actorId, TimeSpan minimumDuration)
     {
         var isActor = string.Equals(actorId, outcome.ActorId, StringComparison.Ordinal);
         var ranLong = outcome.Duration >= minimumDuration;
+        if (outcome.Status == NhAssistantTurnStatuses.WaitingForApproval && outcome.QuestionAddresseeActorId is { } addressee)
+        {
+            return string.Equals(actorId, addressee, StringComparison.Ordinal) ? NhAssistantPushKinds.QuestionWaiting : null;
+        }
+
         return outcome.Status switch
         {
             NhAssistantTurnStatuses.WaitingForApproval => isActor ? NhAssistantPushKinds.ApprovalRequired : null,
@@ -305,6 +311,7 @@ internal sealed class NhAssistantWebPushNotifier(
                     authorizations[item.Endpoint.GetLeftPart(UriPartial.Authority)],
                     payload,
                     kind is NhAssistantPushKinds.ApprovalRequired
+                        or NhAssistantPushKinds.QuestionWaiting
                         or NhAssistantPushKinds.AgentProposals
                         or NhAssistantPushKinds.AgentRunProposals
                         or NhAssistantPushKinds.AgentExecutionUnknown ? "high" : "normal",
@@ -406,6 +413,11 @@ internal static class NhAssistantPushKinds
     public const string TurnFailed = "turn-failed";
     public const string TurnFailedByOther = "turn-failed-by-other";
     public const string ApprovalRequired = "approval-required";
+
+    /// <summary>
+    /// A question of the assistant waits for the recipient's answer (LS21, CS6).
+    /// </summary>
+    public const string QuestionWaiting = "question-waiting";
     public const string Invited = "invited";
     public const string AgentProposals = "agent-proposals";
     public const string AgentProposalExpiring = "agent-proposal-expiring";
@@ -512,6 +524,7 @@ internal static class NhAssistantPushTexts
         var body = kind switch
         {
             NhAssistantPushKinds.ApprovalRequired => dutch ? "Er wacht een actie op goedkeuring." : "An action is waiting for approval.",
+            NhAssistantPushKinds.QuestionWaiting => dutch ? "De assistent wacht op je antwoord op een vraag." : "The assistant is waiting for your answer to a question.",
             NhAssistantPushKinds.TurnCompleted => dutch ? "Het antwoord staat klaar." : "The answer is ready.",
             NhAssistantPushKinds.TurnCompletedByOther => dutch ? $"{name} heeft een antwoord gekregen." : $"{name} received an answer.",
             NhAssistantPushKinds.TurnFailed => dutch ? "De taak kon niet worden afgerond." : "The task could not be completed.",

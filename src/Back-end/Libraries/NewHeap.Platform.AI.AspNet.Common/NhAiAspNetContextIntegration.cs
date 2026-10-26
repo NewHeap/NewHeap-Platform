@@ -85,6 +85,8 @@ public static class NhAiAspNetServiceCollectionExtensions
                 INhAiAuthenticatedInvocationContextResolver,
                 NhAiAuthenticatedInvocationContextResolver>();
             services.TryAddScoped<INhAiCallerCredentialAccessor, NhAiHttpContextCallerCredentialAccessor>();
+            // The person of the current assistant turn, for tools, policies and turn context providers.
+            services.TryAddSingleton<INhAiTurnPerson, NhAiAspNetTurnPerson>();
             services.TryAddScoped<INhAiBackgroundOperationRunAdapter, NhAiBackgroundOperationRunAdapter>();
             services.TryAddScoped<
                 INhAiBackgroundOperationIngestionAdapter,

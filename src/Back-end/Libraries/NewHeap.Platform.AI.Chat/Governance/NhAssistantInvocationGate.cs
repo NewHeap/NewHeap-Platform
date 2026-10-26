@@ -9,7 +9,8 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// authorizes every tool policy as the signed-in user. Inside an assistant tool call the authorized
 /// context is then bound to the turn: the agent acts as a non-human actor on behalf of the
 /// accountable user, with the turn id as run id, the agent prompt identity, the turn deadline,
-/// the call's idempotency key and, for an approved retry, the proposal and approval ids.
+/// the call's idempotency key and, for an approved retry, the proposal and approval ids. In every turn,
+/// also of an agent thread, it names the turn's conversation and the channel that started the turn.
 /// </summary>
 internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) : INhAiToolInvocationGate
 {
@@ -40,6 +41,8 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             return TaskResult<NhAiInvocationContext>.Succeeded(context with
             {
                 InvocationId = call.InvocationId,
+                ConversationId = turn.ConversationId,
+                Channel = turn.Channel,
                 Deadline = deadline,
                 RemainingBudget = new NhAiModelBudget(int.MaxValue, int.MaxValue, remainingCalls, null),
                 IdempotencyKey = call.IdempotencyKey,
@@ -65,6 +68,8 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             Purpose = Purpose,
             RunId = turn.TurnId.ToString(),
             CorrelationId = context.CorrelationId ?? turn.TurnId.ToString(),
+            ConversationId = turn.ConversationId,
+            Channel = turn.Channel,
             AgentVersion = turn.Agent.Version.ToString(CultureInfo.InvariantCulture),
             ModelProfileName = turn.ModelProfileName,
             PromptVersion = turn.PromptVersion,
