@@ -12,7 +12,8 @@ namespace SampleProjectManagement.Api.Services;
 /// through the administration's endpoints or its tables, so the checks, the protected secrets and the
 /// audit of the administration apply. It connects the milestones MCP server to the status advisor,
 /// finds which skills and agents use the risk review's text, and compares a shipped agent package with
-/// the host without exporting it.
+/// the host without exporting it. SPM-346: it also prepares the milestones server before the host can
+/// reach it, with the lookup's reviewed settings, which the first sync keeps.
 /// </summary>
 public sealed class SampleAssistantOperationsService(
     INhAssistantMcpServers mcpServers,
@@ -30,6 +31,11 @@ public sealed class SampleAssistantOperationsService(
     public const string NextMilestoneTool = "next_milestone";
 
     /// <summary>
+    /// SPM-346: the description the operations code reviewed for the lookup before any sync saw it.
+    /// </summary>
+    public const string NextMilestoneDescription = "Finds the next milestone of one project.";
+
+    /// <summary>
     /// Connects the milestones server with its API key, which Data Protection keeps and nothing
     /// returns, syncs its tools, enables the milestone lookup as read-only and assigns the server to the
     /// status advisor. The assignment leaves the advisor's definition and version as they are; every
@@ -42,18 +48,7 @@ public sealed class SampleAssistantOperationsService(
         CancellationToken cancellationToken)
     {
         var actor = operatorId.ToString("D");
-        var created = await mcpServers.CreateAsync(
-            new NhAssistantMcpServerRequest(
-                MilestonesServerId,
-                "Milestones",
-                url,
-                NhAssistantMcpAuthModes.ApiKeyHeader,
-                null,
-                apiKey,
-                null,
-                true),
-            actor,
-            cancellationToken);
+        var created = await mcpServers.CreateAsync(MilestonesServer(url, apiKey), actor, cancellationToken);
         if (!created.Success)
         {
             return created;
@@ -78,6 +73,59 @@ public sealed class SampleAssistantOperationsService(
         }
 
         return await mcpServers.AssignAsync(MilestonesServerId, SampleStatusAdvisorComposition.AgentId, actor, cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-346: prepares the milestones server before this host can reach it, for example while it moves
+    /// along with the application. The server is stored with its API key, which nothing returns, the
+    /// lookup's reviewed settings (enabled, read-only, the assistant's description) are stored before any
+    /// sync has seen the tool, and the server is assigned to the status advisor. Nothing contacts the
+    /// server: the lookup stays <c>missing</c>, awaiting its sync, and no turn offers it until the first sync
+    /// that sees it.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantMcpToolDto>> PrepareMilestonesAsync(
+        string url,
+        string apiKey,
+        Guid operatorId,
+        CancellationToken cancellationToken)
+    {
+        var actor = operatorId.ToString("D");
+        var created = await mcpServers.CreateAsync(MilestonesServer(url, apiKey), actor, cancellationToken);
+        if (!created.Success)
+        {
+            return TaskResult<NhAssistantMcpToolDto>.Failed(created);
+        }
+
+        // A tool that no sync has seen yet keeps these settings until a sync sees it.
+        var reviewed = await mcpServers.UpdateToolAsync(
+            MilestonesServerId,
+            NextMilestoneTool,
+            new NhAssistantMcpToolSettingsRequest(true, NhAssistantMcpToolEffects.ReadOnly, NextMilestoneDescription),
+            actor,
+            cancellationToken);
+        if (!reviewed.Success)
+        {
+            return reviewed;
+        }
+
+        var assigned = await mcpServers.AssignAsync(MilestonesServerId, SampleStatusAdvisorComposition.AgentId, actor, cancellationToken);
+        return assigned.Success ? reviewed : TaskResult<NhAssistantMcpToolDto>.Failed(assigned);
+    }
+
+    /// <summary>
+    /// SPM-346: the first sync once the host reaches the milestones server. It takes the lookup's schema
+    /// and keeps the settings reviewed before, so the status advisor is offered the lookup at once; a
+    /// later change of its schema disables it as for any synced tool.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantMcpToolDto>> SyncMilestonesAsync(Guid operatorId, CancellationToken cancellationToken)
+    {
+        var synced = await mcpServers.SyncAsync(MilestonesServerId, operatorId.ToString("D"), cancellationToken);
+        if (!synced.Success)
+        {
+            return TaskResult<NhAssistantMcpToolDto>.Failed(synced);
+        }
+
+        return TaskResult<NhAssistantMcpToolDto>.Succeeded(synced.Data!.Single(tool => tool.RemoteName == NextMilestoneTool));
     }
 
     /// <summary>
@@ -147,6 +195,22 @@ public sealed class SampleAssistantOperationsService(
             installed?.Version,
             shipped.Package.Version,
             different));
+    }
+
+    /// <summary>
+    /// The milestones server with its API key, which Data Protection keeps.
+    /// </summary>
+    private static NhAssistantMcpServerRequest MilestonesServer(string url, string apiKey)
+    {
+        return new NhAssistantMcpServerRequest(
+            MilestonesServerId,
+            "Milestones",
+            url,
+            NhAssistantMcpAuthModes.ApiKeyHeader,
+            null,
+            apiKey,
+            null,
+            true);
     }
 
     private static bool IsServerMissing(TaskResult result)
