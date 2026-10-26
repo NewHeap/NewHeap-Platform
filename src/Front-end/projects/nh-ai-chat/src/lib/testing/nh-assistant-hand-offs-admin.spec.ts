@@ -217,7 +217,7 @@ describe('Hand-offs and shadow variants as data in the mock API', () => {
       agentId: 'planner',
       allowsDataVariants: true,
       maxDataVariants: 1,
-      variants: [{ agentId: 'planner-v2', displayName: 'Planner v2', source: 'data', hasRunSettings: false, inEffect: false, problem: null, version: 1 }]
+      variants: [{ agentId: 'planner-v2', displayName: 'Planner v2', source: 'data', hasRunSettings: false, inEffect: false, problem: null, version: 1, packageId: null, packageVersion: null }]
     });
     expect(((await call('GET', 'admin/agents/reviewer/shadow-variants')).body as AgentShadowVariants).allowsDataVariants).toBeFalse();
   });

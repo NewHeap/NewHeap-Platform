@@ -292,6 +292,12 @@ export interface AdminAgent extends AdminAgentInput {
    */
   worksOnDeclared?: boolean;
   /**
+   * Whether the agent works in people's chats only (`ChatOnly()` in code): it works on no subject,
+   * so it has no triggers, is on no object's page and is never run now, handed work, consulted, put
+   * in shadow or replayed. Missing on older servers and always `false` for an agent created here.
+   */
+  chatOnly?: boolean;
+  /**
    * The object types the agent is known to work on, as a hint next to "All objects": those it
    * accepts hand-offs and consultations about, those its triggers name and those of its threads.
    */

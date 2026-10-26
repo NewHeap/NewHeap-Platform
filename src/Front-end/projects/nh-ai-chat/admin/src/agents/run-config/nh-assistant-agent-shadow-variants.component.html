@@ -133,6 +133,11 @@
               <strong data-shadow-variant-name>{{ variantName(variant) }}</strong>
               <span class="mono muted">{{ variant.agentId }}</span>
               <span class="badge">{{ 'nh-assistant.admin.shadow-variants.source.' + variant.source | translate }}</span>
+              @if (variant.packageId) {
+                <span class="badge" data-shadow-variant-package>
+                  <nh-assistant-icon name="lock" />{{ 'nh-assistant.admin.shadow-variants.package' | translate: { package: variant.packageId, version: variant.packageVersion } }}
+                </span>
+              }
               @if (!variant.hasRunSettings) {
                 <span class="badge" data-shadow-variant-needs-settings>{{ 'nh-assistant.admin.shadow-variants.needs-settings' | translate }}</span>
               } @else if (variant.inEffect) {
@@ -171,15 +176,29 @@
                 <!-- The promotion changes the live agent: it asks first and says what stays. -->
                 <div class="stack card" role="group" [attr.aria-labelledby]="id + '-promote-title'" data-promote-confirm>
                   <h5 [id]="id + '-promote-title'">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.title' | translate: { variant: variantName(variant), name: liveName() } }}</h5>
-                  <p class="hint" data-promote-explain>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.' + (agent().source === 'code' ? 'code' : 'admin') | translate: { name: liveName() } }}</p>
+                  @if (!asPackageVersion() || !variant.packageId) {
+                    <p class="hint" data-promote-explain>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.' + (agent().source === 'code' ? 'code' : 'admin') | translate: { name: liveName() } }}</p>
+                  }
                   <p class="hint">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.removed' | translate }}</p>
-                  <label class="check described">
-                    <input type="checkbox" data-promote-move-skills [checked]="moveSkills()" [disabled]="promoteBusy()" (change)="moveSkills.set(checked($event))" />
-                    <span>
-                      <span>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills' | translate }}</span>
-                      <span class="muted">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills-hint' | translate }}</span>
-                    </span>
-                  </label>
+                  @if (variant.packageId) {
+                    <!-- A package's version applies all its parts with the import's rules. -->
+                    <label class="check described">
+                      <input type="checkbox" data-promote-as-package-version [checked]="asPackageVersion()" [disabled]="promoteBusy()" (change)="asPackageVersion.set(checked($event))" />
+                      <span>
+                        <span>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.as-package-version' | translate }}</span>
+                        <span class="muted">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.as-package-version-hint' | translate: { package: variant.packageId, version: variant.packageVersion, name: liveName() } }}</span>
+                      </span>
+                    </label>
+                  }
+                  @if (!asPackageVersion() || !variant.packageId) {
+                    <label class="check described">
+                      <input type="checkbox" data-promote-move-skills [checked]="moveSkills()" [disabled]="promoteBusy()" (change)="moveSkills.set(checked($event))" />
+                      <span>
+                        <span>{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills' | translate }}</span>
+                        <span class="muted">{{ 'nh-assistant.admin.shadow-variants.promote-confirm.move-skills-hint' | translate }}</span>
+                      </span>
+                    </label>
+                  }
                   @if (promoteError(); as failure) {
                     <div class="form-error" role="alert" data-promote-error>
                       <nh-assistant-icon name="warning" />

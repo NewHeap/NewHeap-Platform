@@ -816,6 +816,10 @@
         "chat": {
           "hidden": "Niet in de chat"
         },
+        "chat-only": {
+          "badge": "Alleen chat",
+          "hint": "Werkt alleen in de chat: hij staat op de pagina van geen enkel object, heeft geen triggers en draait niet zelfstandig."
+        },
         "version-label": "Versie",
         "tool-count-one": "{{count}} toolselector",
         "server-count-one": "{{count}} MCP-server",
@@ -2042,6 +2046,7 @@
           "data": "Hier gemaakt"
         },
         "needs-settings": "Heeft runinstellingen nodig",
+        "package": "Pakket {{package}} versie {{version}}",
         "in-effect": "Krijgt de gebeurtenissen van deze agent",
         "open": "Runconfiguratie",
         "set-up": "Runs instellen",
@@ -2055,6 +2060,8 @@
           "removed": "Daarna wordt de variant verwijderd; hij gaat zelf nooit live.",
           "move-skills": "Ook zijn vaardigheden verplaatsen",
           "move-skills-hint": "Elke vaardigheid wordt de volgende live versie van de vaardigheid met hetzelfde id, of een nieuwe vaardigheid die in schaduw begint.",
+          "as-package-version": "Als de volgende versie van het pakket",
+          "as-package-version-hint": "Al zijn onderdelen uit pakket {{package}} versie {{version}} vervangen die van {{name}} zoals een import dat doet, met de vergrendelingen, runinstellingen, vaardigheden, triggers en metadata van het pakket. {{name}} houdt zijn naam en wordt aan die pakketversie gekoppeld; zijn vaardigheden komen mee.",
           "confirm": "Promoveren",
           "promoting": "Promoveren…"
         },

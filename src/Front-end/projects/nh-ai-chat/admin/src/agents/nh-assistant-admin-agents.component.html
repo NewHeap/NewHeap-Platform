@@ -137,6 +137,9 @@
               @if (agent.offeredInChat === false) {
                 <span class="badge" data-hidden-from-chat>{{ 'nh-assistant.admin.agents.chat.hidden' | translate }}</span>
               }
+              @if (agent.chatOnly) {
+                <span class="badge" data-chat-only>{{ 'nh-assistant.admin.agents.chat-only.badge' | translate }}</span>
+              }
               @if (agent.package; as linked) {
                 <span class="badge" data-package-badge><nh-assistant-icon name="lock" />{{ 'nh-assistant.admin.packages.linked-badge' | translate: { package: linked.packageId, version: linked.packageVersion } }}</span>
               }
@@ -212,7 +215,10 @@
                 }
               </p>
             }
-            @if (worksOn(agent); as works) {
+            @if (agent.chatOnly) {
+              <!-- A chat-only agent works on no subject: it has nothing to run on. -->
+              <p class="muted" data-chat-only-hint>{{ 'nh-assistant.admin.agents.chat-only.hint' | translate }}</p>
+            } @else if (worksOn(agent); as works) {
               <!-- What the agent works on; an agent in code shows its code setting. -->
               <p class="muted" data-works-on>
                 <span>{{ 'nh-assistant.admin.agents.works-on.label' | translate }}</span>
@@ -284,7 +290,7 @@
                   {{ stateKey('action', agent.runState, action) | translate }}
                 </button>
               }
-              @if (agent.runState !== 'configured-off') {
+              @if (agent.runState !== 'configured-off' && !agent.chatOnly) {
                 @for (mode of shadowActions(agent.shadow); track mode) {
                   <button
                     class="secondary"
@@ -324,7 +330,7 @@
                   <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.run-config' | translate }}
                 </button>
               }
-              @if (hasRunConfiguration(agent)) {
+              @if (hasRunConfiguration(agent) && !agent.chatOnly) {
                 <button class="secondary" type="button" [attr.data-runs-agent]="agent.id" (click)="openRuns(agent)">
                   <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.runs' | translate }}
                 </button>

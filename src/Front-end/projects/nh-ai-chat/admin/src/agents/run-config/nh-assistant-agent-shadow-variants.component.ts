@@ -37,7 +37,9 @@ export type ShadowVariantsClosed = 'not-allowed' | 'limit';
  * continues in its run configuration; `openVariant` opens the run configuration of a data variant.
  * After a confirmation, a data variant is promoted onto this agent (LS31): its definition becomes this
  * agent's next version, its skills move along when asked, and the variant is removed; `promoted` hands
- * the outcome to the page, which shows the agent's new version.
+ * the outcome to the page, which shows the agent's new version. A variant linked to an agent package
+ * (FB11) also offers "As the package's next version": all its parts replace this agent's as an import
+ * does and this agent is linked to that package version.
  */
 @Component({
   selector: 'nh-assistant-agent-shadow-variants',
@@ -88,6 +90,8 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
   /** The data variant whose promotion onto this agent is being confirmed; `null` while none is. */
   readonly promoting = signal<string | null>(null);
   readonly moveSkills = signal(false);
+  /** The variant's package version becomes this agent's; its skills come along then. */
+  readonly asPackageVersion = signal(false);
   readonly promoteBusy = signal(false);
   readonly promoteError = signal<NhAssistantError | null>(null);
   readonly promoteErrorKeys = computed(() => nhAssistantErrorKeys(this.promoteError()));
@@ -204,6 +208,7 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
   startPromote(variant: ShadowVariant): void {
     this.promoting.set(variant.agentId);
     this.moveSkills.set(false);
+    this.asPackageVersion.set(false);
     this.promoteError.set(null);
     this.promotedNote.set(null);
     afterNextRender(() => {
@@ -231,10 +236,13 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
     this.promoteBusy.set(true);
     this.promoteError.set(null);
     this.promoteSubscription?.unsubscribe();
+    // As the package's version the skills are parts of it: they move along without being asked.
+    const asPackageVersion = this.asPackageVersion() && !!variant.packageId;
     this.promoteSubscription = this.admin.promoteShadowVariant(variant.agentId, {
       expectedVersion: this.agent().version,
-      moveSkills: this.moveSkills(),
-      expectedVariantVersion: variant.version ?? null
+      moveSkills: asPackageVersion ? false : this.moveSkills(),
+      expectedVariantVersion: variant.version ?? null,
+      ...(asPackageVersion ? { asPackageVersion: true } : {})
     }).subscribe({
       next: promotion => {
         this.promoteBusy.set(false);
