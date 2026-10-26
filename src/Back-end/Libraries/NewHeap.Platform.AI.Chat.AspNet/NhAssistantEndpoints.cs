@@ -95,7 +95,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations/{id:guid}/messages", SendMessageAsync)
             .WithName("NhAssistantSendMessage")
             .WithSummary("Send a message")
-            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle. In an agent's thread whose run is working, the message and its files wait for the next run instead and the answer is 202 with the trigger receipt; the run opens the files with the caller's rights.")
+            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle; in a chat whose question or approval passed its lifetime, that closes as expired first, as a late answer or decision closes it, and the message starts its turn. In an agent's thread whose run is working, the message and its files wait for the next run instead and the answer is 202 with the trigger receipt; the run opens the files with the caller's rights.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)

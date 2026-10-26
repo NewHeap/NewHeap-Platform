@@ -19,11 +19,18 @@ namespace SampleProjectManagement.Core.Tests;
 /// the chat in the portal; the messaging provider delivers their messages and their answer to an
 /// approval card, and the sample's channel runs each turn as that person through
 /// <c>INhAssistantConversationTurns</c>: in their active division, with their own rights for every tool,
-/// without a request of the person, and with the channel in the audit.
+/// without a request of the person, and with the channel in the audit. SPM-341: the person also starts,
+/// reads and stops a chat and answers its question card through <c>INhAssistantConversations</c> and
+/// <c>AnswerAsync</c>. SPM-342: the turn's situation names the person and the channel, and the status
+/// change names the conversation and the channel of the turn that made it.
 /// </summary>
 public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChannelSampleHost host)
     : IClassFixture<AssistantMessagingChannelSampleHost>
 {
+    private const string LaunchQuestion = "Which status should the launch project get?";
+
+    private static readonly string[] LaunchChoices = ["Active", "On hold", "Closed"];
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     [Fact]
@@ -102,6 +109,109 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         Assert.Empty(conversation.GetProperty("messages").EnumerateArray());
     }
 
+    [Fact]
+    public async Task SPM_341_a_person_starts_reads_answers_and_stops_a_chat_from_the_messaging_app()
+    {
+        host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("ask_question", new { question = LaunchQuestion, choices = LaunchChoices }, "call-ask")
+            .RespondWithText("I will put the launch project on hold.")
+            .RespondWithFunctionCall("ask_question", new { question = LaunchQuestion, choices = LaunchChoices }, "call-ask-again"));
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var linked = await LinkAsync(owner, await host.CreateConversationAsync(owner));
+
+        // The person starts a chat with the status advisor from the messaging app, which continues there.
+        using (var unknown = await PostAsync(messaging, "chats", new { token = linked, agentId = "no-such-agent" }))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.AgentNotFound, (await ErrorOfAsync(unknown)).Code);
+        }
+        var started = await ReadAsync<AssistantChannelChatViewModel>(await PostAsync(
+            messaging,
+            "chats",
+            new { token = linked, agentId = SampleStatusAdvisorComposition.AgentId, title = "Launch project" }));
+        Assert.Equal(("idle", "Launch project", null), (started.Chat.Status, started.Chat.Title, started.Chat.LastAnswer));
+        var token = started.Token;
+
+        // The advisor asks; the messaging app shows the question card, also when it reads the chat later.
+        var asked = await AnswerOfAsync(await SendAsync(messaging, "delivery-341-1", token, "Change the status of the launch project."));
+        Assert.Equal("waiting-for-approval", asked.Status);
+        var card = asked.Question!;
+        Assert.Equal(LaunchQuestion, card.Question);
+        Assert.Equal(LaunchChoices, card.Choices);
+        var waiting = await ReadAsync<AssistantChannelChatStateViewModel>(await PostAsync(messaging, "chat", new { token }));
+        Assert.Equal(("waiting-for-approval", card.QuestionId), (waiting.Status, waiting.Question!.QuestionId));
+
+        // A reply that names no choice answers nothing; the card's number answers.
+        using (var unclear = await PostAsync(messaging, "answers", new { token, questionId = card.QuestionId, text = "perhaps" }))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, unclear.StatusCode);
+            Assert.Equal(SampleAssistantMessagingChannel.DeliveryInvalidCode, (await ErrorOfAsync(unclear)).Code);
+        }
+        var answered = await AnswerOfAsync(await PostAsync(messaging, "answers", new { token, questionId = card.QuestionId, text = "2" }));
+        Assert.Equal(("completed", "I will put the launch project on hold.", null), (answered.Status, answered.Text, answered.Question));
+        // A repeated delivery of the same reply finds the question answered.
+        using (var again = await PostAsync(messaging, "answers", new { token, questionId = card.QuestionId, text = "2" }))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.QuestionNotPending, (await ErrorOfAsync(again)).Code);
+        }
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
+        Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.QuestionAnswered
+            && evt.InvocationId == card.QuestionId
+            && evt.Channel == SampleAssistantMessagingChannel.Channel);
+
+        // The person stops the next question from the messaging app; someone else's link finds nothing.
+        var second = await AnswerOfAsync(await SendAsync(messaging, "delivery-341-2", token, "Ask me again."));
+        Assert.NotNull(second.Question);
+        var chatId = (await host.GetJsonAsync(owner, "/api/assistant/conversations")).GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("title").GetString() == "Launch project")
+            .GetProperty("id")
+            .GetGuid();
+        var outsiderToken = await LinkAsync(outsider, chatId);
+        using (var foreign = await PostAsync(messaging, "stops", new { token = outsiderToken }))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, (await ErrorOfAsync(foreign)).Code);
+        }
+        using (var stopped = await PostAsync(messaging, "stops", new { token }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, stopped.StatusCode);
+        }
+        var idle = await ReadAsync<AssistantChannelChatStateViewModel>(await PostAsync(messaging, "chat", new { token }));
+        Assert.Equal(("idle", null), (idle.Status, idle.Question));
+        // The portal shows the same chat with the stopped question.
+        var portal = await host.GetJsonAsync(owner, $"/api/assistant/conversations/{chatId}");
+        Assert.Contains("\"status\":\"cancelled\"", portal.GetProperty("messages").GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SPM_342_the_turn_of_the_messaging_app_names_its_person_conversation_and_channel()
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = (int)ProjectStatus.OnHold } })
+            .RespondWithText("The project is on hold now.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(owner);
+        var token = await LinkAsync(owner, conversationId);
+
+        var waiting = await AnswerOfAsync(await SendAsync(messaging, "delivery-342", token, "Put the launch project on hold."));
+        var approved = await AnswerOfAsync(await DecideAsync(messaging, token, waiting.Approval!, "yes"));
+
+        Assert.Equal("completed", approved.Status);
+        // The situation names the person from the user store and the channel, without their request.
+        var instructions = model.Requests[0].Options!.Instructions!;
+        Assert.Contains("- User: owner@sample.localhost", instructions, StringComparison.Ordinal);
+        Assert.Contains("- Channel: messaging app; answer in a few short sentences of plain text", instructions, StringComparison.Ordinal);
+        // The status change names the chat and the channel of the turn that made it.
+        var cause = host.Projects.ChangeCauses.Single(change => change.ProjectId == projectId).Cause!;
+        Assert.Equal((conversationId, SampleAssistantMessagingChannel.Channel), (cause.ConversationId, cause.Channel));
+    }
+
     private static async Task<string> LinkAsync(HttpClient client, Guid conversationId)
     {
         using var response = await client.PostAsync(
@@ -126,6 +236,23 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
             "/assistant-channel/decisions",
             AssistantSampleHost.Json(new { token, approvalId = card.ApprovalId, proposalHash = card.ProposalHash, text }),
             TestContext.Current.CancellationToken);
+    }
+
+    private static Task<HttpResponseMessage> PostAsync(HttpClient client, string path, object body)
+    {
+        return client.PostAsync(
+            "/assistant-channel/" + path,
+            AssistantSampleHost.Json(body),
+            TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<T> ReadAsync<T>(HttpResponseMessage response)
+    {
+        using (response)
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return (await response.Content.ReadFromJsonAsync<T>(Json, TestContext.Current.CancellationToken))!;
+        }
     }
 
     private static async Task<AssistantChannelAnswerViewModel> AnswerOfAsync(HttpResponseMessage response)

@@ -58,6 +58,18 @@ public sealed class ProjectStatusChangedEvent : INhEvent
     /// </summary>
     public Guid? ChangedByAgentRunId { get; init; }
 
+    /// <summary>
+    /// SPM-342: the assistant conversation whose turn changed the status, as the tool's invocation
+    /// context names it (<c>ConversationId</c>); <see langword="null"/> for a person or a job.
+    /// </summary>
+    public Guid? ChangedInConversationId { get; init; }
+
+    /// <summary>
+    /// SPM-342: the application's channel that started that turn, such as <c>messaging-chat</c>
+    /// (<c>Channel</c>); <see langword="null"/> for the portal's own turns, runs, a person or a job.
+    /// </summary>
+    public string? ChangedThroughChannel { get; init; }
+
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-status-changed";
 }

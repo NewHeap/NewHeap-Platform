@@ -581,6 +581,12 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
 
     public ConcurrentQueue<(Guid ProjectId, ProjectStatus Status)> StatusChanges { get; } = new();
 
+    /// <summary>
+    /// The agent cause of every status change, as the tool passes it on for the status event (SPM-308,
+    /// SPM-342).
+    /// </summary>
+    public ConcurrentQueue<(Guid ProjectId, ProjectAgentCause? Cause)> ChangeCauses { get; } = new();
+
     public ConcurrentQueue<Guid> VerifiedProjects { get; } = new();
 
     public Task<ProjectAiApprovalItem?> GetForAiApprovalAsync(
@@ -617,6 +623,7 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
         var previous = _statuses.GetValueOrDefault(projectId, ProjectStatus.Draft);
         _statuses[projectId] = status;
         StatusChanges.Enqueue((projectId, status));
+        ChangeCauses.Enqueue((projectId, agentCause));
         return Task.FromResult(TaskResult<ProjectAiStatusChangeReport>.Succeeded(
             new ProjectAiStatusChangeReport(projectId, previous, status, true)));
     }
