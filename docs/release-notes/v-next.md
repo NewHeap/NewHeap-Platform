@@ -286,3 +286,19 @@ approval on the next message as the server does.
 | Breaking change | Required action |
 |---|---|
 | A message in a chat whose question or approval passed its `expiresAt` is sent instead of queued until the chat is idle. | None. A host that renders its own composer status reads `waitExpired` to stop saying that the chat waits. |
+
+## @newheap/platform-ai-chat: the administration's texts load with the administration
+
+The English and Dutch texts of the administration (`nh-assistant.admin.`) moved from the root entry
+point to `@newheap/platform-ai-chat/admin`, so a host no longer loads them with the panel in its
+initial bundle (about 170 kB of minified JavaScript for both languages, which grew with every
+administration feature). `NH_ASSISTANT_ADMIN_TRANSLATIONS` holds them, the package publishes them as
+`admin/i18n/en.json` and `nl.json`, and `NhAssistantAdminTranslationMerger` merges them as
+`NhAssistantTranslationMerger` merges the other texts. Every component of the admin entry point
+starts it when it is created, unless the assistant uses `translations: 'host'`; keys the host defines
+under `nh-assistant.admin.` still win.
+
+| Breaking change | Required action |
+|---|---|
+| `NH_ASSISTANT_TRANSLATIONS` and `i18n/en.json`/`nl.json` no longer contain the `nh-assistant.admin.` texts. | A host that provides every text itself (`translations: 'host'`) or copies the bundles adds `NH_ASSISTANT_ADMIN_TRANSLATIONS` from `@newheap/platform-ai-chat/admin`, or `@newheap/platform-ai-chat/admin/i18n/en.json` and `nl.json`. |
+| With bundled texts, the `nh-assistant.admin.` texts are merged once an administration component is created. | None, unless a host page shows `nh-assistant.admin.` keys without one; it calls `inject(NhAssistantAdminTranslationMerger).start()`. |

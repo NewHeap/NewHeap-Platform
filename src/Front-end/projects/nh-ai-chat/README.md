@@ -241,7 +241,9 @@ invitation link. Participants can view members and leave. Custom hosts using
 ## Administration
 
 The administration page is a separate entry point, so it stays out of the initial
-bundle. Route to it lazily behind the host's admin permission and pass the route as
+bundle, and its `nh-assistant.admin.` texts come with it: every component of
+`@newheap/platform-ai-chat/admin` merges them when it is created, unless the assistant
+uses `translations: 'host'`. Route to it lazily behind the host's admin permission and pass the route as
 `adminRoute`:
 
 ```typescript
@@ -536,7 +538,15 @@ Error events are shown through their `messageKey`, then `nh-assistant.errors.<co
 then a generic text. Tool result codes use `nh-assistant.result-codes.<code>` and
 fall back to the code. With `translations: 'host'`, copy the bundles from
 `NH_ASSISTANT_TRANSLATIONS` or from `@newheap/platform-ai-chat/i18n/en.json` and
-`nl.json`.
+`nl.json`, and the administration's `nh-assistant.admin.` texts from
+`NH_ASSISTANT_ADMIN_TRANSLATIONS` (`@newheap/platform-ai-chat/admin`) or from
+`@newheap/platform-ai-chat/admin/i18n/en.json` and `nl.json`.
+
+The root entry point bundles the texts of the panel and its other components, which load
+with the application. The administration ships its texts in its own entry point, so they
+load with its lazy route; a host page that shows
+`nh-assistant.admin.` keys without an administration component starts
+`NhAssistantAdminTranslationMerger` itself.
 
 ## Mock API
 
