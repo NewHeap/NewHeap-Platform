@@ -340,6 +340,8 @@ builder.Services.AddSampleIntakeReviewer();
 // SPM-314: the order desk executes the intake reviewer's approved equipment orders and reports how they went.
 builder.Services.AddSampleEquipmentOrders();
 builder.Services.AddSampleStatusAdvisor();
+// SPM-343: the chat helper works in people's chats only, with its skills and questions.
+builder.Services.AddSampleChatHelper();
 // SPM-294: the closer answers to the technical account in configuration, when there is one.
 builder.Services.AddSampleProjectCloser(builder.Configuration[SampleProjectCloserComposition.ServiceAccountKey]);
 builder.Services.AddSampleProjectPlanner();

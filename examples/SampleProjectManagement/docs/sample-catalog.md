@@ -408,6 +408,18 @@ instructions is refused with `instructions: locked`; once the administrator unli
 definition with `POST admin/agents/{id}/package/unlink`, they change, and the next upgrade keeps them as
 `kept-local`. `AssistantAgentRunSamplesTests` runs the case.
 
+The next version of the kickoff desk can also be evaluated first (SPM-344).
+`SampleAgentPackagesComposition.NextKickoffVersion` turns the exported desk into a shadow variant of the
+live desk in a package of its own, `sample-project-desks-next`, with new instructions and review skill
+and the same locks; the shadow variants of the kickoff desk name that package version. Promoted the
+usual way the variant stays, since its package holds it (`assistant-package-locked`). Promoted with
+`asPackageVersion`, its instructions, run settings and review skill apply to the live desk in one
+transaction with the import's rules: the desk keeps its name and operations account, its new
+instructions are locked by the new package version, the review skill's next version is live, and the
+desk is linked to `sample-project-desks-next` while the intake desk stays in `sample-project-desks`.
+The variant is gone with its links and one audit event records the promotion with the package.
+`AssistantAgentRunSamplesTests` runs the case.
+
 A skill defined as data may take its instructions from the application's own text assets instead of
 text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
 `SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published
@@ -454,6 +466,14 @@ the turn waits as for an approval. A colleague in the shared chat sees the quest
 they answer; the person whose turn asked answers through `POST conversations/{id}/questions/{questionId}/answer`,
 and the turn continues with the answer. The management playground shows the question card with one
 button per choice on the mock API. `AssistantChatSkillQuestionSamplesTests` runs both cases.
+
+The chat helper works in people's chats only (SPM-343). `SampleChatHelperComposition` configures it with
+`ChatOnly()`: it keeps its meeting notes skill, offered with `use_skill`, structured questions and a
+limit on the consultations of the intake reviewer it starts in one turn, but it works on no subject. No
+project's page lists it, a start on a project answers `409 assistant-agent-does-not-work-on`, nothing
+triggers it and it needs no background operations of its own; the administration shows it as chat-only.
+The host would refuse to start if it also said what it works on, accepted hand-offs or worked in shadow.
+`AssistantChatSkillQuestionSamplesTests` runs the case.
 
 The operations process also reads and changes agents through services (SPM-329).
 `SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
