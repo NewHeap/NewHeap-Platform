@@ -596,7 +596,10 @@ export class NhAssistantMockBackend {
     if (filesCode) {
       return this.error(filesCode);
     }
-    if (!acceptsMessage(conversation.status)) {
+    // Like the server: a question or an approval that passed its lifetime closes as expired, and the
+    // message starts its turn (CS9).
+    this.closeExpiredWait(conversation);
+    if (!acceptsMessage(this.conversations.get(conversation.id)?.status ?? conversation.status)) {
       return this.empty(409);
     }
 
@@ -780,6 +783,29 @@ export class NhAssistantMockBackend {
       });
       await this.playSteps(conversation.id, assistantMessageId, steps, emit);
     });
+  }
+
+  /**
+   * Closes the question or the approval a chat waits for once its lifetime passed, as a late answer or
+   * decision closes it on the server; one that is still valid keeps the chat busy. Agent threads keep
+   * their own rules.
+   */
+  private closeExpiredWait(conversation: Conversation): void {
+    if (conversation.status !== 'waiting-for-approval' || conversation.kind === 'thread') {
+      return;
+    }
+    const now = Date.now();
+    const question = this.pendingQuestions.get(conversation.id);
+    if (question && Date.parse(question.question.expiresAt) <= now) {
+      this.pendingQuestions.delete(conversation.id);
+      this.update(conversation.id, current => withClosedQuestion(current, question.question.questionId, 'expired'));
+      return;
+    }
+    const pending = this.pendingApprovals.get(conversation.id);
+    if (pending && Date.parse(pending.approval.expiresAt) <= now) {
+      this.pendingApprovals.delete(conversation.id);
+      this.update(conversation.id, current => withExpiredApproval(current, pending.approval.approvalId, pending.invocationId));
+    }
   }
 
   private cancel(conversation: Conversation): Response {
@@ -1424,6 +1450,28 @@ function withClosedQuestion(conversation: Conversation, questionId: string, stat
     status: 'idle',
     pendingQuestion: null,
     messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(closed) }))
+  };
+}
+
+/**
+ * An approval that passed its lifetime, as the server closes it when the next message arrives: it
+ * expired, its call failed with `assistant-approval-expired`, and the conversation takes the message.
+ */
+function withExpiredApproval(conversation: Conversation, approvalId: string, invocationId: string): Conversation {
+  const expired = (part: MessagePart): MessagePart => {
+    if (part.type === 'approval' && part.approvalId === approvalId) {
+      return { ...part, status: 'expired' };
+    }
+    if (part.type === 'tool-call' && part.invocationId === invocationId) {
+      return { ...part, status: 'failed', resultCode: 'assistant-approval-expired' };
+    }
+    return part;
+  };
+  return {
+    ...conversation,
+    status: 'idle',
+    pendingApproval: null,
+    messages: conversation.messages.map(message => ({ ...message, parts: message.parts.map(expired) }))
   };
 }
 

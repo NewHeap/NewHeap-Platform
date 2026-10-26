@@ -184,11 +184,35 @@ interface NhAssistantSession {
 }
 
 /**
- * True when the server accepts a new message in a conversation with this status. A failed turn
- * leaves the conversation open: the person can ask again in the same conversation or agent thread.
+ * True when the server accepts a new message in this conversation. A failed turn leaves the
+ * conversation open: the person can ask again in the same conversation or agent thread. A chat whose
+ * waiting question or approval passed its lifetime at `now` takes the message too (`waitExpired`).
  */
-function acceptsMessage(status: ConversationStatus | undefined): boolean {
-  return status === 'idle' || status === 'failed';
+function acceptsMessage(conversation: Conversation | null | undefined, now: number): boolean {
+  const status = conversation?.status;
+  return status === 'idle' || status === 'failed' || waitExpired(conversation, now);
+}
+
+/**
+ * True when a chat waits for a question or an approval whose `expiresAt` passed at `now`. The server
+ * closes it as expired when the next message arrives and then starts that message's turn (CS9), so the
+ * client sends the message instead of queueing it. The server stays the judge: while its own clock
+ * still counts the wait, it refuses the message as `assistant-conversation-busy`, which the client
+ * handles as any refusal. An agent's thread keeps its own rules and never takes a message this way.
+ */
+function waitExpired(conversation: Conversation | null | undefined, now: number): boolean {
+  const expiresAt = waitExpiresAt(conversation);
+  return expiresAt !== null && expiresAt <= now;
+}
+
+/** The end of the wait of a chat that waits for a question or an approval; `null` otherwise. */
+function waitExpiresAt(conversation: Conversation | null | undefined): number | null {
+  if (!conversation || conversation.status !== 'waiting-for-approval' || conversation.kind === 'thread') {
+    return null;
+  }
+  const value = conversation.pendingQuestion?.expiresAt ?? conversation.pendingApproval?.expiresAt;
+  const expiresAt = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(expiresAt) ? expiresAt : null;
 }
 
 const conversationPageSize = 50;
@@ -196,6 +220,8 @@ const cancelGracePeriodMs = 5_000;
 const maxSessions = 20;
 const refreshDelayMs = 300;
 const newConversationKey = '';
+/** The longest the store sleeps before it looks at the end of a wait again; below the timer limit. */
+const maxWaitCheckDelayMs = 60 * 60 * 1000;
 
 /**
  * Signal-based state of one assistant scope: availability, agents, the conversation list and
@@ -240,6 +266,11 @@ export class NhAssistantStore {
   private readonly queueDispatchState = signal<string | null>(null);
   private readonly steeringState = signal<string | null>(null);
   private readonly submittingState = signal(false);
+  /**
+   * The client's clock as the store last read it, moved forward when the wait of an open conversation
+   * ends, so a message is sent instead of queued from then on.
+   */
+  private readonly clockState = signal(Date.now());
   /** Agent proposals the current user rejected in this session and may give feedback on. */
   private readonly feedbackApprovalsState = signal<ReadonlySet<string>>(new Set());
   /** The attachments of the next message per conversation; `''` for a new conversation. */
@@ -320,9 +351,15 @@ export class NhAssistantStore {
    */
   readonly canSend = computed(() => {
     const conversation = this.activeConversation();
-    const blocked = conversation !== null && !acceptsMessage(conversation.status);
+    const blocked = conversation !== null && !acceptsMessage(conversation, this.clockState());
     return this.enabled() && this.selectedAgentIdState() !== null && !this.streaming() && !this.conversationLoadingState() && !blocked;
   });
+  /**
+   * True while the open chat waits for a question or an approval whose lifetime passed by the
+   * client's clock: a message is then sent at once, and the server closes the wait as expired before
+   * the message's turn starts. The composer no longer says that the conversation waits.
+   */
+  readonly waitExpired = computed(() => waitExpired(this.activeConversation(), this.clockState()));
   /** Messages not yet accepted by the server, for the open conversation. Never persisted. */
   readonly queuedMessages = computed<readonly NhAssistantQueuedMessage[]>(() =>
     this.queuedState().filter(item => item.conversationId === this.activeIdState()));
@@ -515,11 +552,38 @@ export class NhAssistantStore {
         const session = sessions.get(item.conversationId);
         return item.state === 'queued' && !paused.has(item.conversationId)
           && !queued.slice(0, index).some(previous => previous.conversationId === item.conversationId)
-          && acceptsMessage(session?.conversation.status) && !session?.streaming && !session?.deciding && !session?.error;
+          && acceptsMessage(session?.conversation, this.clockState()) && !session?.streaming && !session?.deciding && !session?.error;
       });
       if (next) {
         untracked(() => void this.dispatchQueued(next));
       }
+    });
+
+    // The end of a wait moves the clock, so queued and new messages go out from then on.
+    effect(onCleanup => {
+      const clock = this.clockState();
+      const sessions = this.sessionsState();
+      const now = Date.now();
+      let next: number | null = null;
+      for (const session of sessions.values()) {
+        const expiresAt = waitExpiresAt(session.conversation);
+        if (expiresAt === null) {
+          continue;
+        }
+        if (expiresAt > clock && expiresAt <= now) {
+          // A wait ended while nothing looked, such as one the store read only now.
+          untracked(() => this.clockState.set(now));
+          return;
+        }
+        if (expiresAt > now && (next === null || expiresAt < next)) {
+          next = expiresAt;
+        }
+      }
+      if (next === null || !this.browser) {
+        return;
+      }
+      const timer = setTimeout(() => this.clockState.set(Date.now()), Math.min(next - now + 1, maxWaitCheckDelayMs));
+      onCleanup(() => clearTimeout(timer));
     });
 
     this.liveSubscription.add(this.live.changed$.subscribe(change => this.onLiveChanged(change)));
@@ -830,7 +894,7 @@ export class NhAssistantStore {
     let conversation = queued ? this.sessionsState().get(queued.conversationId)?.conversation ?? null : this.activeConversation();
     const session = queued ? this.sessionsState().get(queued.conversationId) : null;
     const available = queued ? this.enabled() && !this.pausedQueuesState().has(queued.conversationId)
-      && acceptsMessage(conversation?.status) && !session?.streaming
+      && acceptsMessage(conversation, this.clockState()) && !session?.streaming
       && !session?.deciding && this.agents().some(agent => agent.id === conversation?.agentId) : this.canSend();
     const maxChars = this.limits()?.maxMessageChars ?? Number.MAX_SAFE_INTEGER;
     if (trimmed.length === 0 || trimmed.length > maxChars || !available) {
@@ -862,6 +926,9 @@ export class NhAssistantStore {
     const conversationId = conversation.id;
     const clientMessageId = createClientMessageId();
     const previousStatus = conversation.status;
+    // A chat accepts a message while it waits only when the wait passed its lifetime; the server then
+    // closes what it waited for, which the client reads again once the turn ended.
+    const closesWait = previousStatus === 'waiting-for-approval';
     const parts: MessagePart[] = [
       { type: 'text', text: trimmed },
       ...files.map(file => ({ type: 'file' as const, name: file.name, mediaType: file.mediaType, size: file.size }))
@@ -935,8 +1002,9 @@ export class NhAssistantStore {
         complete: () => {
           this.pendingSendResolves.delete(conversationId);
           resolve(started || waitsForRun);
-          // A waiting message started no turn here: the thread's own state comes from the server.
-          this.afterTurn(conversationId, failedAfterStart || waitsForRun);
+          // A waiting message started no turn here: the thread's own state comes from the server, as
+          // does the question or approval that an expired wait closed.
+          this.afterTurn(conversationId, failedAfterStart || waitsForRun || closesWait);
         }
       });
       this.sendingState.set(null);
