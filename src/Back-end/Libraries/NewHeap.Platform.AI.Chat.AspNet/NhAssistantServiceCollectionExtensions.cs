@@ -134,6 +134,10 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
             // A person's turns in their chat for the application's own channels, without their request (LS19).
             services.TryAddScoped<INhAssistantConversationTurns, NhAssistantConversationTurns>();
+            // Creating, reading and stopping a person's chat for the same channels (FB5).
+            services.TryAddScoped<INhAssistantConversations, NhAssistantConversations>();
+            // The person of the turn, for the application's tools, policies and turn context providers.
+            services.TryAddSingleton<INhAiTurnPerson, NewHeap.Platform.AI.AspNet.NhAiAspNetTurnPerson>();
             // What a person's inbox lists, counted per status for the application's digests (LS14).
             services.TryAddScoped<INhAssistantProposalCounts, NhAssistantProposalCounts>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
