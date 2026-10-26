@@ -20,6 +20,20 @@ namespace SampleProjectManagement.Core.Services;
 public sealed record ProjectAgentCause(string AgentActorId, string? SubjectType, string? SubjectId, Guid? AgentRunId = null)
 {
     /// <summary>
+    /// SPM-342: the assistant conversation of the turn whose tool made the change, as the tool's
+    /// invocation context names it (<see cref="NhAiInvocationContext.ConversationId"/>): the person's
+    /// chat, or the agent's thread of a run.
+    /// </summary>
+    public Guid? ConversationId { get; init; }
+
+    /// <summary>
+    /// SPM-342: the application's channel that started that turn, such as the messaging app's
+    /// <c>messaging-chat</c> (<see cref="NhAiInvocationContext.Channel"/>); <see langword="null"/> for
+    /// the portal's own turns and for runs.
+    /// </summary>
+    public string? Channel { get; init; }
+
+    /// <summary>
     /// The cause of a tool call: the agent, the subject of its ambient invocation scope and its run
     /// when an agent calls the tool, <see langword="null"/> when a person does.
     /// </summary>
@@ -33,6 +47,10 @@ public sealed record ProjectAgentCause(string AgentActorId, string? SubjectType,
 
         // The run's id is AgentRunId; RunId is the id of the agent's turn.
         var subject = NhAiAgentInvocationScopes.Current?.Subject.Subject;
-        return new ProjectAgentCause(context.ActorId, subject?.Type, subject?.Id, context.AgentRunId);
+        return new ProjectAgentCause(context.ActorId, subject?.Type, subject?.Id, context.AgentRunId)
+        {
+            ConversationId = context.ConversationId,
+            Channel = context.Channel
+        };
     }
 }

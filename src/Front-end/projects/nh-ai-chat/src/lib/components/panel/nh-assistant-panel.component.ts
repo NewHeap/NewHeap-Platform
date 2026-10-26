@@ -112,7 +112,8 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     if (this.store.streaming() || this.conversation()?.status === 'running') {
       return 'running';
     }
-    if (this.conversation()?.status !== 'waiting-for-approval') {
+    if (this.conversation()?.status !== 'waiting-for-approval' || this.store.waitExpired()) {
+      // A wait whose lifetime passed holds nothing back: the next message is sent and closes it.
       return null;
     }
     // A turn that asked a question waits for its answer, not for an approval.

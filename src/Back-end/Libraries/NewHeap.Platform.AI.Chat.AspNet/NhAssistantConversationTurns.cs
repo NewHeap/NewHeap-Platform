@@ -1,6 +1,3 @@
-using System.Globalization;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,20 +11,25 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet;
 
 /// <summary>
-/// Sends a person's message to their chat and decides the approval their turn waits for, for the
-/// application's own channels, such as a messaging app in which a person talks with the assistant. It
+/// Sends a person's message to their chat, decides the approval their turn waits for and answers the
+/// question it asks, for the application's own channels, such as a messaging app in which a person talks
+/// with the assistant; <see cref="INhAssistantConversations"/> creates, reads and stops the chat. It
 /// is a server API for the application's code; there is no endpoint for it. The application vouches for
 /// the person, as for <see cref="INhAssistantProposalDecisionService"/>: it authenticated them through
 /// its channel and passes their principal, actor id and tenant, as the assistant's context resolver
 /// gives them for the person's own requests.
 /// <para>
-/// A turn is the turn of <c>POST conversations/{id}/messages</c> and
-/// <c>POST conversations/{id}/approvals/{approvalId}/decide</c>, through the same runner, with the same
+/// A turn is the turn of <c>POST conversations/{id}/messages</c>,
+/// <c>POST conversations/{id}/approvals/{approvalId}/decide</c> and
+/// <c>POST conversations/{id}/questions/{questionId}/answer</c>, through the same runner, with the same
 /// access rules: the person's conversation in their tenant, the assistant's access policy, the agent's
 /// own policy, the decision rules and the person's tools. It runs without a request of the person, in
 /// services of its own and without the caller's request: an invocation scope of the person makes their
 /// principal and invocation context ambient, so the person's tools authorize that principal, never the
-/// caller's request. Tools of the API bridge need the person's own request and are not offered.
+/// caller's request. Tools of the API bridge need the person's own request and are not offered. The
+/// turn's tools, policies and turn context providers find the conversation and the channel on the
+/// invocation context (<see cref="NhAiInvocationContext.ConversationId"/>,
+/// <see cref="NhAiInvocationContext.Channel"/>) and the person through <see cref="INhAiTurnPerson"/>.
 /// </para>
 /// <para>
 /// Only chats are served; an agent's thread answers <c>assistant-conversation-not-found</c>, as an agent
@@ -38,7 +40,9 @@ public interface INhAssistantConversationTurns
 {
     /// <summary>
     /// Sends <paramref name="message"/> as <paramref name="person"/> and returns the turn's result once it
-    /// ended or waits for an approval.
+    /// ended or waits for an approval or a question. A chat whose question or approval passed its lifetime
+    /// takes the message: what it waited for closes as expired first, as a late answer or decision closes
+    /// it (CS9).
     /// <para>
     /// Fails with the endpoint's codes: <c>assistant-disabled</c>; <c>assistant-context-unavailable</c>
     /// when the application's resolver refuses the principal or resolves another actor or tenant than the
@@ -91,6 +95,31 @@ public interface INhAssistantConversationTurns
         NhAssistantConversationDecision decision,
         NhAssistantConversationTurnOptions options,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Answers the question the person's chat waits for (LS21), as
+    /// <c>POST conversations/{id}/questions/{questionId}/answer</c> does, and returns the resumed turn's
+    /// result: the answer is the result of the agent's <c>ask_question</c> call, and the turn continues
+    /// with the rights of the person who answered.
+    /// <para>
+    /// Fails with the codes of <see cref="SendAsync"/> for the person and the conversation, and for the
+    /// question in the endpoint's order: <c>assistant-question-not-found</c>,
+    /// <c>assistant-question-forbidden</c> (the question asks another person, checked before its status
+    /// so nobody else learns it), <c>assistant-question-not-pending</c>,
+    /// <c>assistant-question-answer-invalid</c> (a choice outside the question) and
+    /// <c>assistant-question-expired</c>, which also closes the question and releases the chat. The
+    /// caller's cancellation works as for <see cref="SendAsync"/>.
+    /// </para>
+    /// </summary>
+    /// <param name="questionId">The question, from <see cref="NhAssistantConversationTurnResult.PendingQuestion"/>.</param>
+    /// <param name="answer">The chosen answer.</param>
+    Task<TaskResult<NhAssistantConversationTurnResult>> AnswerAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        Guid questionId,
+        NhAssistantConversationAnswer answer,
+        NhAssistantConversationTurnOptions options,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -129,6 +158,13 @@ public sealed record NhAssistantConversationDecision(
     /// </summary>
     public string? Reason { get; init; }
 }
+
+/// <summary>
+/// A person's answer through <see cref="INhAssistantConversationTurns.AnswerAsync"/>.
+/// </summary>
+/// <param name="Choice">The zero-based index of the chosen answer among the question's
+/// <see cref="NhAssistantQuestionPartDto.Choices"/>.</param>
+public sealed record NhAssistantConversationAnswer(int Choice);
 
 /// <summary>
 /// How a turn through <see cref="INhAssistantConversationTurns"/> runs.
@@ -183,7 +219,15 @@ public sealed record NhAssistantConversationTurnResult(
     string? ErrorCode,
     NhAssistantMessageDto? Message,
     IReadOnlyList<NhAssistantApprovalPartDto> PendingApprovals,
-    NhAssistantUsageDto Usage);
+    NhAssistantUsageDto Usage)
+{
+    /// <summary>
+    /// The question the conversation waits for after the turn (LS21), which
+    /// <see cref="INhAssistantConversationTurns.AnswerAsync"/> answers when it asks the person; the
+    /// status is then <c>waiting-for-approval</c>. <see langword="null"/> when it waits for none.
+    /// </summary>
+    public NhAssistantQuestionPartDto? PendingQuestion { get; init; }
+}
 
 /// <summary>
 /// Runs a person's turn without the caller's request, in services of its own that live as long as the
@@ -201,7 +245,7 @@ internal sealed class NhAssistantConversationTurns(
         NhAssistantConversationTurnOptions options,
         CancellationToken cancellationToken = default)
     {
-        ValidatePerson(person);
+        NhAssistantPersonCalls.ValidatePerson(person);
         ArgumentNullException.ThrowIfNull(message);
         ValidateOptions(options);
 
@@ -245,7 +289,7 @@ internal sealed class NhAssistantConversationTurns(
         NhAssistantConversationTurnOptions options,
         CancellationToken cancellationToken = default)
     {
-        ValidatePerson(person);
+        NhAssistantPersonCalls.ValidatePerson(person);
         ArgumentNullException.ThrowIfNull(decision);
         ArgumentException.ThrowIfNullOrWhiteSpace(decision.ExpectedProposalHash, nameof(decision));
         if (!Enum.IsDefined(decision.Decision))
@@ -295,6 +339,40 @@ internal sealed class NhAssistantConversationTurns(
             cancellationToken);
     }
 
+    public Task<TaskResult<NhAssistantConversationTurnResult>> AnswerAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        Guid questionId,
+        NhAssistantConversationAnswer answer,
+        NhAssistantConversationTurnOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+        ArgumentNullException.ThrowIfNull(answer);
+        ValidateOptions(options);
+
+        return RunAsync(
+            person,
+            conversationId,
+            options,
+            // The runner checks the question in the endpoint's order (CS10) and claims the chat for the
+            // person who answers.
+            (turn, token) => turn.Services.GetRequiredService<INhAssistantTurnRunner>().StartAnswerTurnAsync(
+                new NhAssistantAnswerTurnRequest(
+                    conversationId,
+                    turn.Person.Context,
+                    questionId,
+                    answer.Choice,
+                    turn.TurnCancellation,
+                    turn.Language)
+                {
+                    Person = turn.Person,
+                    Channel = options.Channel
+                },
+                token),
+            cancellationToken);
+    }
+
     /// <summary>
     /// Runs the turn in a flow of its own: without the caller's request, so nothing in the turn reads
     /// the caller's request or its principal, and in services of its own that end with the turn. The
@@ -316,16 +394,16 @@ internal sealed class NhAssistantConversationTurns(
         }
 
         var keep = turnOptions.KeepTurnAfterCallerLeaves ?? current.KeepTurnsAfterDisconnect;
-        Task<TaskResult<NhAssistantConversationTurnResult>> turn;
-        using (ExecutionContext.SuppressFlow())
-        {
-            turn = Task.Run(() => RunWithoutCallerAsync(person, conversationId, turnOptions, keep, start, cancellationToken));
-        }
-
-        return await turn.WaitAsync(cancellationToken);
+        return await NhAssistantPersonCalls.RunWithoutCallerAsync(
+            scopeFactory,
+            turnOptions.Language,
+            (services, language) => RunInScopeAsync(services, language, person, conversationId, turnOptions, keep, start, cancellationToken),
+            cancellationToken);
     }
 
-    private async Task<TaskResult<NhAssistantConversationTurnResult>> RunWithoutCallerAsync(
+    private async Task<TaskResult<NhAssistantConversationTurnResult>> RunInScopeAsync(
+        IServiceProvider services,
+        string language,
         NhAssistantDecidingPerson person,
         Guid conversationId,
         NhAssistantConversationTurnOptions turnOptions,
@@ -333,11 +411,6 @@ internal sealed class NhAssistantConversationTurns(
         Func<PreparedTurn, CancellationToken, Task<TaskResult<NhAssistantTurnHandle>>> start,
         CancellationToken cancellationToken)
     {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var services = scope.ServiceProvider;
-        var language = LanguageOf(turnOptions.Language);
-        UseCulture(services, language);
-
         var prepared = await PrepareAsync(services, person, conversationId, turnOptions, cancellationToken);
         if (!prepared.Success)
         {
@@ -373,41 +446,27 @@ internal sealed class NhAssistantConversationTurns(
     /// <summary>
     /// Resolves the person and checks the endpoints' access rules before the turn claims the conversation.
     /// </summary>
-    private async Task<TaskResult<(NhAiPersonInvocation Person, NhAssistantConversationAccess Access)>> PrepareAsync(
+    private static async Task<TaskResult<(NhAiPersonInvocation Person, NhAssistantConversationAccess Access)>> PrepareAsync(
         IServiceProvider services,
         NhAssistantDecidingPerson person,
         Guid conversationId,
         NhAssistantConversationTurnOptions turnOptions,
         CancellationToken cancellationToken)
     {
-        var resolved = await NhAiPersonInvocations.ResolveAsync(services, person.User, turnOptions.ActiveDivisionId, cancellationToken);
-        // The application names the person; their own principal must say the same, or the turn would
-        // act in one person's conversation with another person's rights.
-        if (!resolved.Success
-            || !string.Equals(resolved.Data.Context.ActorId, person.ActorId, StringComparison.Ordinal)
-            || !string.Equals(resolved.Data.Context.TenantId, person.TenantId, StringComparison.Ordinal))
+        var resolved = await NhAssistantPersonCalls.ResolveAsync(services, person, turnOptions.ActiveDivisionId, cancellationToken);
+        if (!resolved.Success)
         {
-            return Failed(NhAssistantErrorCodes.ContextUnavailable, "The person's invocation context is not available.");
+            return TaskResult<(NhAiPersonInvocation, NhAssistantConversationAccess)>.Failed(resolved);
         }
 
         var personInvocation = resolved.Data;
-        var caller = personInvocation.Context;
-        if (await services.GetRequiredService<NhAssistantRunStore>().FindThreadByConversationAsync(conversationId, cancellationToken) is not null)
+        var chat = await NhAssistantPersonCalls.FindChatAsync(services, personInvocation.Context, conversationId, cancellationToken);
+        if (!chat.Success)
         {
-            // An agent's thread follows its subject's access and runs; this service serves chats only.
-            return Failed(NhAssistantErrorCodes.ConversationNotFound, "The assistant conversation was not found.");
+            return TaskResult<(NhAiPersonInvocation, NhAssistantConversationAccess)>.Failed(chat);
         }
 
-        var access = await services.GetRequiredService<INhAssistantStore>().FindAccessAsync(
-            conversationId,
-            caller.ActorId,
-            caller.TenantId,
-            cancellationToken);
-        if (access is null)
-        {
-            return Failed(NhAssistantErrorCodes.ConversationNotFound, "The assistant conversation was not found.");
-        }
-
+        var access = chat.Data;
         var effective = await services.GetRequiredService<NhAssistantAgentCatalog>()
             .FindAsync(access.Conversation.AgentId, includeDisabled: false, cancellationToken);
         if (effective is null)
@@ -416,12 +475,7 @@ internal sealed class NhAssistantConversationTurns(
         }
 
         // Every endpoint requires the assistant's access policy, and a turn the agent's own policy.
-        var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(
-            services.GetRequiredService<NhAssistantRegistrationState>(),
-            options.CurrentValue);
-        var authorization = await services.GetRequiredService<IAuthorizationService>()
-            .AuthorizeAsync(person.User, personInvocation.AuthorizationResource, accessPolicy);
-        if (!authorization.Succeeded
+        if (!await NhAssistantPersonCalls.PassesAccessPolicyAsync(services, person, personInvocation)
             || !await services.GetRequiredService<NhAssistantAgentAccess>().CanUseAsync(person.User, effective.Definition))
         {
             return Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant agent.");
@@ -471,12 +525,14 @@ internal sealed class NhAssistantConversationTurns(
             .FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, CancellationToken.None);
         NhAssistantMessageDto? message = null;
         NhAssistantApprovalPartDto[] pending = [];
+        NhAssistantQuestionPartDto? question = null;
         if (access is not null)
         {
             var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(access, CancellationToken.None);
             var conversation = NhAssistantDtoMapper.ToDto(view, caller.ActorId);
             message = conversation.Messages.FirstOrDefault(item => item.Id == messageId);
             pending = conversation.PendingApproval is NhAssistantApprovalPartDto approval ? [approval] : [];
+            question = conversation.PendingQuestion as NhAssistantQuestionPartDto;
         }
 
         return new NhAssistantConversationTurnResult(
@@ -486,37 +542,10 @@ internal sealed class NhAssistantConversationTurns(
             errorCode,
             message,
             pending,
-            new NhAssistantUsageDto(usage.InputTokens, usage.OutputTokens, usage.ToolCalls));
-    }
-
-    /// <summary>
-    /// Runs the turn in the application's supported culture of its language, as the endpoints run a
-    /// request that names only a language.
-    /// </summary>
-    private static void UseCulture(IServiceProvider services, string language)
-    {
-        var supported = services.GetService<IOptions<RequestLocalizationOptions>>()?.Value.SupportedUICultures ?? [];
-        var culture = supported.FirstOrDefault(item =>
-            string.Equals(item.TwoLetterISOLanguageName, language, StringComparison.OrdinalIgnoreCase));
-        if (culture is null)
+            new NhAssistantUsageDto(usage.InputTokens, usage.OutputTokens, usage.ToolCalls))
         {
-            return;
-        }
-
-        CultureInfo.CurrentCulture = culture;
-        CultureInfo.CurrentUICulture = culture;
-    }
-
-    private static string LanguageOf(string? language)
-    {
-        return language is not null && language.StartsWith("nl", StringComparison.OrdinalIgnoreCase) ? "nl" : "en";
-    }
-
-    private static void ValidatePerson(NhAssistantDecidingPerson person)
-    {
-        ArgumentNullException.ThrowIfNull(person);
-        ArgumentNullException.ThrowIfNull(person.User, nameof(person));
-        ArgumentException.ThrowIfNullOrWhiteSpace(person.ActorId, nameof(person));
+            PendingQuestion = question
+        };
     }
 
     private static void ValidateOptions(NhAssistantConversationTurnOptions turnOptions)

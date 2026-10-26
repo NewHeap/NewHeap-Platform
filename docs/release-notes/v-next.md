@@ -232,3 +232,57 @@ chat-only code agent with `chatOnly: true`, whose starts and shadow mode it refu
 | Breaking change | Required action |
 |---|---|
 | The mock API's shadow variants carry `packageId` and `packageVersion` (`null` without a package), as the server's do. | None, unless a test compares a variant with `toEqual`; add both properties. |
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a channel's chats, the turn's person, question notices and expired waits
+
+An application's own channel, such as a messaging app, now does everything a person does in the
+client without calling the assistant's endpoints. `INhAssistantConversations` (`CreateAsync`,
+`GetAsync`, `CancelAsync` with `NhAssistantNewConversation` and `NhAssistantConversationOptions`)
+creates, reads and stops a person's chat with the checks and codes of `POST conversations`,
+`GET conversations/{id}` and `POST conversations/{id}/cancel`, and
+`INhAssistantConversationTurns.AnswerAsync` (`NhAssistantConversationAnswer`) answers the question
+the chat waits for in the order of the answer endpoint. `NhAssistantConversationTurnResult.PendingQuestion`
+carries that question. Like the turns, the services serve chats only and run for the person the
+application vouches for, without the caller's request.
+
+Every assistant turn names its conversation and the channel that started it on
+`NhAiInvocationContext.ConversationId` and `NhAiInvocationContext.Channel`, which turn context
+providers, tool discovery, retrieval and every tool call receive: the chat, the agent's thread or the
+consulted agent's thread, and the channel of `NhAssistantConversationTurnOptions` (also in the
+consultations such a turn starts), `null` for the endpoints' turns and runs. Neither enters a proposal
+hash, approval evidence or an audit record. The new `INhAiTurnPerson`, a singleton that
+`AddNewHeapPlatformAIAspNet` and `AddNewHeapAssistant` register, gives the person of the current turn
+(`User`, `ActorId`, `TenantId`): the request's user in a turn of the endpoints, the person the
+application vouched for in a channel's turn or a turn that outlived its request, and nothing outside a
+person's turn.
+
+A turn that waits for a question keeps `waiting-for-approval`. Web Push now tells the question's
+addressee with a notice of its own (`question-waiting`, English and Dutch texts, high urgency) and
+the person whose turn asked nothing when it asks someone else; approvals notify as before. A new
+message in a chat whose question or inline approval passed its lifetime on the application's clock
+closes it as a late answer or decision does, with the same codes (`assistant-question-expired`,
+`assistant-approval-expired`) and audit (`QuestionExpired`, `ApprovalExpired`), releases the waiting
+turn and then starts its own turn; a still valid one keeps the chat busy, and reads write nothing.
+Agent threads keep their own rules. A question's expiry that a channel's answer or message finds now
+records the channel in the audit.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantConversationTurns` gained `AnswerAsync`. | An application's own implementation, such as a test double, implements `AnswerAsync`; callers change nothing. |
+| A message in a chat whose question or approval passed its lifetime is no longer refused with `409 assistant-conversation-busy`: what the chat waited for closes as expired and the message starts its turn. | None, unless a client or test expected the busy refusal after the wait ended; expect the new turn, and the expiry codes on the closed question or approval. |
+| A waiting question sends the Web Push kind `question-waiting` to its addressee instead of `approval-required` to the person whose turn asked it. | None for the library's push worker, which shows any kind. A service worker or client of its own that branches on the kind handles `question-waiting`. |
+| None for `NhAiInvocationContext.ConversationId`, `NhAiInvocationContext.Channel`, `INhAiTurnPerson`, `INhAssistantConversations` and `NhAssistantConversationTurnResult.PendingQuestion`: they are additive. | None. A tool, policy or turn context provider that read the person from the request reads `INhAiTurnPerson` instead, so it also knows the person in a channel's turn. |
+
+## @newheap/platform-ai-chat: a message after an expired wait
+
+`NhAssistantStore.submit` sends a message at once in a chat whose waiting question or approval reads as
+expired by the browser's clock, instead of queueing it, and a message that waited in the queue goes out
+when the wait ends; the server closes the expired wait and starts the message's turn. The new
+`NhAssistantStore.waitExpired` signal says so, the panel's composer then no longer says that the chat
+waits, and the store reads the conversation again after that turn. A refusal by the server's own
+clock (`assistant-conversation-busy`) is handled as before. The mock API closes an expired question or
+approval on the next message as the server does.
+
+| Breaking change | Required action |
+|---|---|
+| A message in a chat whose question or approval passed its `expiresAt` is sent instead of queued until the chat is idle. | None. A host that renders its own composer status reads `waitExpired` to stop saying that the chat waits. |

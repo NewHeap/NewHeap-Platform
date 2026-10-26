@@ -424,33 +424,51 @@ public sealed class SampleAssistantAuditLog
 }
 
 /// <summary>
-/// Business audit sink of the sample. It receives identifiers, codes and timestamps only.
+/// Situational facts for the sample assistant: the display name and roles of the person whose turn it
+/// is, read from their authenticated principal only. The assistant marks them as data, not
+/// instructions. SPM-342: the person comes from <see cref="INhAiTurnPerson"/>, so a turn that the
+/// messaging app starts for a person without their request (SPM-332) knows them as a turn of the portal
+/// does, and a turn of a channel (<see cref="NhAiInvocationContext.Channel"/>) tells the model which
+/// channel it answers in, so it keeps its answer short enough for a chat message.
 /// </summary>
-/// <summary>
-/// Situational facts for the sample assistant: the signed-in user's display name and roles, read
-/// from the authenticated principal only. The assistant marks them as data, not instructions.
-/// </summary>
-public sealed class SampleAssistantTurnContextProvider(IHttpContextAccessor httpContextAccessor) : INhAssistantTurnContextProvider
+public sealed class SampleAssistantTurnContextProvider(INhAiTurnPerson person) : INhAssistantTurnContextProvider
 {
     public ValueTask<IReadOnlyList<NhAssistantContextFact>> GetFactsAsync(
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var user = httpContextAccessor.HttpContext?.User;
+        var user = person.User;
         var facts = new List<NhAssistantContextFact>
         {
-            new("User", user?.FindFirst(ClaimTypes.Name)?.Value ?? context.ActorId)
+            new("User", user?.FindFirst(ClaimTypes.Name)?.Value ?? person.ActorId ?? context.ActorId)
         };
         var roles = user?.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Order(StringComparer.Ordinal).ToArray() ?? [];
         if (roles.Length > 0)
         {
             facts.Add(new NhAssistantContextFact("Roles", string.Join(", ", roles)));
         }
+        if (context.Channel is { } channel)
+        {
+            facts.Add(new NhAssistantContextFact("Channel", ChannelText(channel)));
+        }
         return ValueTask.FromResult<IReadOnlyList<NhAssistantContextFact>>(facts);
+    }
+
+    /// <summary>
+    /// What the model reads about the channel of the turn.
+    /// </summary>
+    internal static string ChannelText(string channel)
+    {
+        return channel == Services.SampleAssistantMessagingChannel.Channel
+            ? "messaging app; answer in a few short sentences of plain text"
+            : channel;
     }
 }
 
+/// <summary>
+/// Business audit sink of the sample. It receives identifiers, codes and timestamps only.
+/// </summary>
 public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhAssistantBusinessAuditSink
 {
     public ValueTask RecordAsync(NhAssistantAuditEvent evt, CancellationToken ct)

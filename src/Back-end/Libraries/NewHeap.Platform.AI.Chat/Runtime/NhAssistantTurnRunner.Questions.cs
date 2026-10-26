@@ -102,7 +102,7 @@ internal sealed partial class NhAssistantTurnRunner
         if (_applicationClock.GetUtcNow() >= part.ExpiresAt)
         {
             // The wait follows the application's clock, as an approval's lifetime does.
-            await ExpireQuestionAsync(conversation, invocation, part, actorId);
+            await ExpireQuestionAsync(conversation, invocation, part, actorId, request.Channel);
             return Failed(NhAssistantErrorCodes.QuestionExpired, "Nobody answered the question in time.");
         }
 
@@ -134,6 +134,7 @@ internal sealed partial class NhAssistantTurnRunner
             conversation,
             invocation.TurnId,
             request.RequestAborted,
+            request.CallerContext,
             request.Person,
             (events, token) => RunAnswerTurnAsync(access, effectiveAgent, invocation, part, waitingParts, request, events, token));
     }
@@ -202,8 +203,7 @@ internal sealed partial class NhAssistantTurnRunner
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, invocation.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events);
-        state.Scope.Channel = request.Channel;
+        var state = await CreateStateAsync(conversation, effectiveAgent, invocation.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, channel: request.Channel);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(invocation.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -306,13 +306,17 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// Closes a question that nobody answered within its wait and releases the waiting turn, so the
-    /// conversation takes the next message.
+    /// conversation takes the next message. A late answer finds it, and so does a new message (CS9).
     /// </summary>
+    /// <param name="actorId">The person whose answer or message found the question expired.</param>
+    /// <param name="channel">The application's channel of that answer or message, which the audit
+    /// records; <see langword="null"/> for the endpoints.</param>
     private async Task ExpireQuestionAsync(
         AssistantConversation conversation,
         AssistantToolInvocation invocation,
         NhAssistantStoredPart part,
-        string actorId)
+        string actorId,
+        string? channel)
     {
         var expired = await store.TryCloseQuestionAsync(
             invocation.Id,
@@ -325,7 +329,10 @@ internal sealed partial class NhAssistantTurnRunner
             CancellationToken.None);
         if (expired)
         {
-            var evt = QuestionEvent(conversation, NhAssistantAuditEventKind.QuestionExpired, invocation, part, actorId, NhAssistantErrorCodes.QuestionExpired);
+            var evt = QuestionEvent(conversation, NhAssistantAuditEventKind.QuestionExpired, invocation, part, actorId, NhAssistantErrorCodes.QuestionExpired) with
+            {
+                Channel = channel
+            };
             foreach (var sink in _businessSinks)
             {
                 await sink.RecordAsync(evt, CancellationToken.None);

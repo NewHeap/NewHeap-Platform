@@ -3,13 +3,22 @@ namespace NewHeap.Platform.AI.Chat.Notifications;
 /// <summary>
 /// How a turn ended, for notifying people who are not looking at the conversation.
 /// </summary>
+/// <param name="ActorId">The person whose turn it was.</param>
 /// <param name="Status">One of <see cref="NhAssistantTurnStatuses"/>.</param>
 internal sealed record NhAssistantTurnOutcome(
     Guid ConversationId,
     Guid TurnId,
     string ActorId,
     string Status,
-    TimeSpan Duration);
+    TimeSpan Duration)
+{
+    /// <summary>
+    /// The person the question asks when the turn waits for a question (LS21), who may be someone else
+    /// than <see cref="ActorId"/> in a shared chat; <see langword="null"/> when the turn waits for an
+    /// approval or does not wait.
+    /// </summary>
+    public string? QuestionAddresseeActorId { get; init; }
+}
 
 /// <summary>
 /// Notifies the owner and participants of a conversation outside the application, such as through

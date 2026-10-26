@@ -485,7 +485,8 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
 
     /// <summary>
     /// Changes the status and publishes the status event with its cause: the person, or the agent
-    /// whose tool made the change and the subject it worked in (SPM-308).
+    /// whose tool made the change and the subject it worked in (SPM-308), with the conversation and the
+    /// channel of the turn (SPM-342).
     /// </summary>
     private async Task<TaskResult<Project?>> UpdateStatusCoreAsync(
         Guid id,
@@ -520,7 +521,9 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             ChangedByAgentActorId = agentCause?.AgentActorId,
             ChangedInSubjectType = agentCause?.SubjectType,
             ChangedInSubjectId = agentCause?.SubjectId,
-            ChangedByAgentRunId = agentCause?.AgentRunId
+            ChangedByAgentRunId = agentCause?.AgentRunId,
+            ChangedInConversationId = agentCause?.ConversationId,
+            ChangedThroughChannel = agentCause?.Channel
         });
         await transaction.CommitAsync(cancellationToken);
         return result;

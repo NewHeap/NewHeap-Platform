@@ -177,6 +177,28 @@ public sealed class AssistantWebPushTests
         Assert.Equal(expectedKind, kind);
     }
 
+    [Theory]
+    [InlineData("actor-1", "actor-1", "question-waiting")]
+    [InlineData("actor-2", "actor-2", "question-waiting")]
+    [InlineData("actor-2", "actor-1", null)]
+    [InlineData("actor-1", "actor-3", null)]
+    public void A_waiting_question_notifies_its_addressee_and_nobody_else(string addressee, string recipient, string? expectedKind)
+    {
+        // The turn of actor-1 asks; a quick turn, so only the wait itself notifies.
+        var outcome = new NhAssistantTurnOutcome(Guid.NewGuid(), Guid.NewGuid(), "actor-1", NhAssistantTurnStatuses.WaitingForApproval, TimeSpan.FromSeconds(1))
+        {
+            QuestionAddresseeActorId = addressee
+        };
+
+        Assert.Equal(expectedKind, NhAssistantWebPushNotifier.KindFor(outcome, recipient, TimeSpan.FromSeconds(10)));
+        Assert.Equal(
+            ("Assistant", "The assistant is waiting for your answer to a question."),
+            NhAssistantPushTexts.ForTurn("question-waiting", "en", null, "Sam"));
+        Assert.Equal(
+            ("Planning", "De assistent wacht op je antwoord op een vraag."),
+            NhAssistantPushTexts.ForTurn("question-waiting", "nl", "Planning", "Sam"));
+    }
+
     [Fact]
     public void Notification_texts_are_localized_and_never_contain_more_than_title_and_status()
     {

@@ -1267,6 +1267,120 @@ describe('NhAssistantStore', () => {
     });
   });
 
+  describe('a wait that passed its lifetime (CS9)', () => {
+    const past = '2020-01-01T00:00:00Z';
+
+    async function waitingForQuestion(store: NhAssistantStore, expiresAt: string): Promise<void> {
+      await store.initialize();
+      const sent = store.send('Change the status of Alpha');
+      await flush();
+      stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+      stream.next({
+        type: 'question.asked',
+        data: {
+          type: 'question',
+          questionId: 'question-1',
+          question: 'Which status should Alpha get?',
+          choices: ['Active', 'On hold'],
+          addresseeActorId: 'user-1',
+          expiresAt,
+          status: 'pending'
+        }
+      });
+      stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'waiting-for-approval', usage, errorCode: null } });
+      stream.complete();
+      await sent;
+    }
+
+    /** Submits a message and lets the store send or queue it; resolves what `submit` resolved. */
+    async function submitWhileWaiting(store: NhAssistantStore, text: string): Promise<boolean> {
+      stream = new Subject<NhAssistantSseEvent>();
+      const submitted = store.submit(text);
+      await flush();
+      if (api.sendMessage.calls.count() > 1) {
+        stream.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+      }
+      return submitted;
+    }
+
+    it('sends a message at once when the question the chat waits for expired', async () => {
+      const store = setup();
+      await waitingForQuestion(store, past);
+
+      expect(store.activeConversation()!.status).toBe('waiting-for-approval');
+      expect(store.waitExpired()).toBeTrue();
+      expect(store.canSend()).toBeTrue();
+
+      expect(await submitWhileWaiting(store, 'Never mind')).toBeTrue();
+      expect(api.sendMessage).toHaveBeenCalledTimes(2);
+      expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Never mind');
+      expect(store.queuedMessages()).toEqual([]);
+      expect(store.activeConversation()!.status).toBe('running');
+    });
+
+    it('sends a message at once when the approval the chat waits for expired', async () => {
+      const store = setup();
+      await waitingForApproval(store, { ...approval, expiresAt: past });
+
+      expect(store.waitExpired()).toBeTrue();
+      expect(await submitWhileWaiting(store, 'Something else')).toBeTrue();
+      expect(api.sendMessage).toHaveBeenCalledTimes(2);
+      expect(store.queuedMessages()).toEqual([]);
+      expect(api.decideApproval).not.toHaveBeenCalled();
+    });
+
+    it('keeps a message queued while the question or the approval is still valid', async () => {
+      const store = setup();
+      await waitingForQuestion(store, '2099-01-01T00:00:00Z');
+
+      expect(store.waitExpired()).toBeFalse();
+      expect(store.canSend()).toBeFalse();
+      expect(await submitWhileWaiting(store, 'Later')).toBeTrue();
+      await processQueue();
+      expect(api.sendMessage).toHaveBeenCalledTimes(1);
+      expect(store.queuedMessages().map(item => item.state)).toEqual(['queued']);
+    });
+
+    it('sends what waited in the queue once the wait ends', async () => {
+      const store = setup();
+      await waitingForApproval(store, { ...approval, expiresAt: new Date(Date.now() + 300).toISOString() });
+      stream = new Subject<NhAssistantSseEvent>();
+      await store.submit('After the wait');
+
+      // The end of the wait moves the store's clock; poll with a generous bound.
+      for (let attempt = 0; attempt < 200 && api.sendMessage.calls.count() < 2; attempt++) {
+        await processQueue();
+        await wait(50);
+      }
+
+      expect(api.sendMessage).toHaveBeenCalledTimes(2);
+      expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('After the wait');
+      expect(store.queuedMessages().map(item => item.state)).toEqual(['sending']);
+    });
+
+    it('handles a busy refusal after the wait as before, so the server stays the judge', async () => {
+      const store = setup();
+      await waitingForQuestion(store, past);
+      // By its own clock the server still waits for the answer, as the conversation it returns says.
+      const waiting = store.activeConversation()!;
+      api.getConversation.and.returnValue(of(waiting));
+      stream = new Subject<NhAssistantSseEvent>();
+
+      const sent = store.submit('Too early by the server\'s clock');
+      await flush();
+      stream.next({ type: 'error', data: { code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' } });
+      stream.complete();
+
+      expect(await sent).toBeFalse();
+      await flush();
+      expect(store.error()?.code).toBe('assistant-conversation-busy');
+      expect(store.activeConversation()!.status).toBe('waiting-for-approval');
+      expect(store.activeConversation()!.pendingQuestion?.questionId).toBe('question-1');
+      expect(store.queuedMessages()).toEqual([]);
+      expect(store.consumeRestoredDraft()).toBe('Too early by the server\'s clock');
+    });
+  });
+
   it('keeps the chosen agent while the assistant feature is temporarily disabled', async () => {
     const scope = `store-disabled-${crypto.randomUUID()}`;
     const store = setup(() => scope);

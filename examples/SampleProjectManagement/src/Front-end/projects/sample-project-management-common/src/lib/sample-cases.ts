@@ -5717,6 +5717,54 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-341",
+    "title": "A person starts, reads and stops a chat and answers its question from a messaging app",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantConversations (CreateAsync, GetAsync, CancelAsync) with NhAssistantNewConversation (AgentId, Title) and NhAssistantConversationOptions (Language, ActiveDivisionId); INhAssistantConversationTurns.AnswerAsync with NhAssistantConversationAnswer; NhAssistantConversationTurnResult.PendingQuestion; a new message that closes a question or approval past its lifetime; the Web Push kind question-waiting for a question's addressee; NhAssistantStore.waitExpired and submit over an expired wait in @newheap/platform-ai-chat",
+    "outcome": "The person continues in the messaging app what they would do in the portal. `POST assistant-channel/chats` starts a new chat with the status advisor for the person a link token names, through `INhAssistantConversations.CreateAsync` with the checks of `POST /api/assistant/conversations` (an unknown agent answers `assistant-agent-not-found`), and answers with the link token of the new chat. A message there makes the advisor ask which status the launch project gets: the answer carries the question card from `PendingQuestion`, and `POST assistant-channel/chat` reads the linked chat through `GetAsync` with the same card. The person replies with the number of a choice or its text: `SampleAssistantMessagingChannel` maps it to the zero-based choice and answers through `AnswerAsync` in the answer endpoint's order, so a reply that names no choice answers nothing, the advisor continues with the person's choice and the audit records the `messaging-chat` channel on `QuestionAnswered`; the same reply again finds the question answered (`assistant-question-not-pending`). `POST assistant-channel/stops` stops the next waiting question through `CancelAsync`, as the portal's stop button does, and the portal shows it cancelled; someone else's link to the chat finds nothing (`assistant-conversation-not-found`). In the portal the panel sends a message over a question or approval that reads as expired by the browser's clock instead of queueing it, and the server closes the wait first. The library tests prove on SQL Server and PostgreSQL that the services create, read and stop a chat, answer a question and expire it on the application's clock, and refuse another person, another tenant and an agent thread; that a question notifies only its addressee by Web Push while an approval still notifies the person whose turn it is; and that a new message closes a question or approval whose lifetime passed with the late answer's or decision's codes and audit, then starts its turn, while a still valid one keeps the chat busy. The Angular specs prove that the store sends over an expired question or approval, keeps a message queued while the wait is valid, sends a queued message when the wait ends and handles a busy refusal as before, and that the mock API closes an expired question on the next message.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPersonCalls.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Expiry.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationServiceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantQuestionNoticeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantExpiredWaitTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-questions.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
+    ]
+  },
+  {
+    "id": "SPM-342",
+    "title": "The turn of a messaging app names its person, conversation and channel to the situation and the tools",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAiTurnPerson (User, ActorId, TenantId); NhAiInvocationContext.ConversationId and NhAiInvocationContext.Channel in INhAssistantTurnContextProvider and in a governed tool's invocation context",
+    "outcome": "`SampleAssistantTurnContextProvider` reads the person of the turn from `INhAiTurnPerson` instead of the request, so a turn that the messaging app starts for a person without their request names them in the situation as a turn of the portal does (`User: owner@sample.localhost`, from the claims the channel rebuilt from the user store), and it reads `Channel` to tell the model it answers in the messaging app with a few short sentences of plain text. The project tools' `ProjectAgentCause` reads `ConversationId` and `Channel` from the tool's invocation context, and the status change the person approves from the messaging app publishes `ProjectStatusChangedEvent` with `ChangedInConversationId` and `ChangedThroughChannel`, so the application traces the change to the chat and the channel. The library tests prove on SQL Server and PostgreSQL that a turn context provider, a tool policy and a tool see the conversation, the channel (none for the portal's own turns) and the turn's person in a turn of the endpoints and in a channel's turn, and that nobody is named outside a person's turn.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAgentCause.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiTurnPerson.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetTurnPerson.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationServiceTests.cs"
+    ]
+  },
+  {
     "id": "SPM-343",
     "title": "The chat helper works in people's chats only, with its skill and questions, and on no project",
     "category": "AI tools and generated catalogs",

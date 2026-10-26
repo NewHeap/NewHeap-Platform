@@ -240,6 +240,30 @@ describe('questions through the mock API', () => {
     expect(text).toContain('Alpha is on hold now.');
   });
 
+  it('sends a message over an expired question, which closes it and starts the turn, as the server does', async () => {
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+
+    await store.send('Let it expire');
+    await waitFor(() => !store.streaming() && store.activeConversation()?.pendingQuestion != null);
+    const expiring = store.activeConversation()!.pendingQuestion!;
+    await waitFor(() => store.waitExpired());
+
+    expect(await store.submit('Something else')).toBeTrue();
+    const questions = () => store.activeConversation()!.messages
+      .flatMap(message => message.parts)
+      .filter(part => part.type === 'question') as QuestionPart[];
+    // Once the turn ended, the client reads the closed question again from the server.
+    await waitFor(() => !store.streaming() && questions()[0]?.status === 'expired');
+
+    const conversation = store.activeConversation()!;
+    expect(store.queuedMessages()).toEqual([]);
+    expect(store.error()).toBeNull();
+    expect(questions()[0].questionId).toBe(expiring.questionId);
+    expect(conversation.messages.some(message => message.role === 'user'
+      && message.parts.some(part => part.type === 'text' && part.text === 'Something else'))).toBeTrue();
+  });
+
   it('refuses another person and an expired question as the server does', async () => {
     const api = TestBed.inject(NhAssistantApiService);
     const backend = TestBed.inject(NhAssistantMockBackend);

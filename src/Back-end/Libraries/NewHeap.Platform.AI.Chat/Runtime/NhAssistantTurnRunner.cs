@@ -166,6 +166,13 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.MessageDuplicate, "The assistant message was already received.");
         }
+        if (request.AgentTurn is null
+            && !string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal))
+        {
+            // A chat whose question or approval passed its lifetime takes the message: what it waited
+            // for closes as expired first (CS9). One that is still valid keeps the chat busy.
+            await CloseExpiredWaitAsync(conversation, actorId, request.Channel, cancellationToken);
+        }
 
         var turnId = Guid.NewGuid();
         var claimed = await store.TryBeginTurnAsync(
@@ -184,6 +191,7 @@ internal sealed partial class NhAssistantTurnRunner(
             conversation,
             turnId,
             request.RequestAborted,
+            request.CallerContext,
             request.Person,
             (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, events, token));
     }
@@ -305,6 +313,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 conversation,
                 waitingTurnId,
                 request.RequestAborted,
+                request.CallerContext,
                 request.Person,
                 (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, events, token));
         }
@@ -313,6 +322,7 @@ internal sealed partial class NhAssistantTurnRunner(
             conversation,
             approval.TurnId,
             request.RequestAborted,
+            request.CallerContext,
             request.Person,
             (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, request, events, token));
     }
@@ -1198,7 +1208,8 @@ internal sealed partial class NhAssistantTurnRunner(
             ActorKind = agentTurn.InitiatorActorId is null ? NhAiActorKind.Agent : NhAiActorKind.Human,
             AccountableOwnerId = agentTurn.AccountableOwnerId,
             TenantId = conversation.TenantId,
-            CorrelationId = agentTurn.RunId?.ToString("N")
+            CorrelationId = agentTurn.RunId?.ToString("N"),
+            ConversationId = conversation.Id
         };
     }
 
@@ -1212,7 +1223,12 @@ internal sealed partial class NhAssistantTurnRunner(
         CancellationToken cancellationToken)
     {
         return services.GetRequiredService<NhAssistantRetrievalService>()
-            .RetrieveAsync(state.Scope.Agent, context, query, state.Language, cancellationToken);
+            .RetrieveAsync(
+                state.Scope.Agent,
+                WithTurn(context, state.Scope.ConversationId, state.Scope.Channel),
+                query,
+                state.Language,
+                cancellationToken);
     }
 
     /// <summary>
@@ -1621,6 +1637,8 @@ internal sealed partial class NhAssistantTurnRunner(
 
     /// <param name="requestAborted">Cancels the turn with its caller; <see cref="CancellationToken.None"/>
     /// for a turn that outlives it, which <c>POST cancel</c> and its timeout still end.</param>
+    /// <param name="caller">The invocation context of the person whose turn it is, whom
+    /// <see cref="INhAiTurnPerson"/> names for the whole turn.</param>
     /// <param name="person">The person captured when the turn started, made ambient for the whole turn
     /// so its tools authorize that person instead of the request; <see langword="null"/> for a turn that
     /// lives within its request.</param>
@@ -1628,6 +1646,7 @@ internal sealed partial class NhAssistantTurnRunner(
         AssistantConversation conversation,
         Guid turnId,
         CancellationToken requestAborted,
+        NhAiInvocationContext caller,
         NhAiPersonInvocation? person,
         Func<ChannelWriter<NhAssistantTurnEvent>, CancellationToken, Task> run)
     {
@@ -1637,9 +1656,12 @@ internal sealed partial class NhAssistantTurnRunner(
             SingleWriter = false
         });
         var cancellation = cancellations.Register(conversation.Id, turnId, requestAborted);
+        var turnPerson = new NhAiTurnPersonMarker(caller.ActorId, caller.TenantId, person?.User);
         var completion = Task.Run(async () =>
         {
             using var personScope = person is null ? null : NhAiPersonInvocationScopes.Begin(person);
+            // Tools, policies and turn context providers learn whose turn it is (INhAiTurnPerson).
+            using var turnPersonScope = NhAiTurnPersonScopes.Begin(turnPerson);
             try
             {
                 await run(channel.Writer, cancellation.Token);
@@ -1691,8 +1713,7 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn);
-        state.Scope.Channel = request.Channel;
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -1850,8 +1871,7 @@ internal sealed partial class NhAssistantTurnRunner(
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn);
-        state.Scope.Channel = request.Channel;
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -2485,7 +2505,13 @@ internal sealed partial class NhAssistantTurnRunner(
                 state.Scope.TurnId,
                 state.Scope.OwnerActorId,
                 outcomeStatus,
-                DateTimeOffset.UtcNow - state.StartedAt),
+                DateTimeOffset.UtcNow - state.StartedAt)
+            {
+                // A question needs its addressee, not necessarily the person whose turn it is (CS6).
+                QuestionAddresseeActorId = outcomeStatus == NhAssistantTurnStatuses.WaitingForApproval
+                    ? state.PendingQuestion?.AddresseeActorId
+                    : null
+            },
             CancellationToken.None);
     }
 
@@ -2855,6 +2881,20 @@ internal sealed partial class NhAssistantTurnRunner(
         return prompt with { ApplicationMap = map, ApplicationMapHash = NhAssistantAgentCatalog.ComputeHash(map) };
     }
 
+    /// <summary>
+    /// The context with the turn's conversation and the channel that started it, as tools, turn
+    /// context providers and retrieval sources read them (<see cref="NhAiInvocationContext.ConversationId"/>,
+    /// <see cref="NhAiInvocationContext.Channel"/>).
+    /// </summary>
+    private static NhAiInvocationContext WithTurn(NhAiInvocationContext context, Guid conversationId, string? channel)
+    {
+        return context with
+        {
+            ConversationId = conversationId,
+            Channel = channel
+        };
+    }
+
     private static NhAiInvocationContext CreateAgentInvocationContext(NhAssistantTurnState state, NhAiInvocationContext callerContext)
     {
         var agent = state.Scope.Agent;
@@ -2868,6 +2908,8 @@ internal sealed partial class NhAssistantTurnRunner(
             RunId = state.Scope.TurnId.ToString(),
             CorrelationId = callerContext.CorrelationId ?? state.Scope.TurnId.ToString(),
             AgentRunId = state.AgentTurn?.RunId,
+            ConversationId = state.Scope.ConversationId,
+            Channel = state.Scope.Channel,
             AgentVersion = agent.Version.ToString(CultureInfo.InvariantCulture),
             ModelProfileName = agent.ProfileName,
             PromptVersion = state.Scope.PromptVersion,
@@ -2982,10 +3024,18 @@ internal sealed partial class NhAssistantTurnRunner(
         NhAssistantClientContext? clientContext,
         NhAssistantSpeakers? speakers,
         ChannelWriter<NhAssistantTurnEvent> events,
-        NhAssistantAgentTurnContext? agentTurn = null)
+        NhAssistantAgentTurnContext? agentTurn = null,
+        string? channel = null)
     {
         var agent = effectiveAgent.Definition;
-        var prompt = await ComposePromptAsync(agent, turnId, callerContext, language, clientContext, speakers);
+        // The turn context providers read the conversation and the channel from the context.
+        var prompt = await ComposePromptAsync(
+            agent,
+            turnId,
+            WithTurn(callerContext, conversation.Id, channel),
+            language,
+            clientContext,
+            speakers);
         var assistantMessage = new AssistantMessage
         {
             Id = Guid.NewGuid(),
@@ -3018,7 +3068,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 Deadline = DateTimeOffset.UtcNow.Add(limits.TurnTimeout),
                 Limits = limits,
                 BudgetPurpose = agentTurn is null ? NhAiBudgetPurposes.Chat : NhAiBudgetPurposes.AgentRun,
-                RunId = agentTurn?.RunId
+                RunId = agentTurn?.RunId,
+                Channel = channel
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
@@ -3057,7 +3108,16 @@ internal sealed partial class NhAssistantTurnRunner(
     {
         var agent = effectiveAgent.Definition;
         var consultation = request.Consultation;
-        var prompt = await ComposePromptAsync(agent, consultation.ConsultationId, callerContext, request.Language, null, speakers);
+        // A consultation works in the consulted agent's thread, for the turn that asked: it keeps the
+        // channel that started that turn.
+        var channel = NhAssistantExecutionScope.CurrentTurn?.Channel;
+        var prompt = await ComposePromptAsync(
+            agent,
+            consultation.ConsultationId,
+            WithTurn(callerContext, conversation.Id, channel),
+            request.Language,
+            null,
+            speakers);
         var limits = registration.Limits.Clone();
         limits.MaxToolCallsPerTurn = consultation.Options.MaxToolCalls;
         limits.TurnTimeout = request.Timeout;
@@ -3080,7 +3140,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 Limits = limits,
                 Consultation = consultation,
                 BudgetPurpose = NhAiBudgetPurposes.Consultation,
-                RunId = request.AgentTurn.RunId
+                RunId = request.AgentTurn.RunId,
+                Channel = channel
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
