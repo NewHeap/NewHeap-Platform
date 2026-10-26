@@ -37,6 +37,19 @@ public sealed record NhAssistantShadowVariantDto(
     /// <c>expectedVariantVersion</c> (<c>POST admin/agents/{id}/promote</c>).
     /// </summary>
     public int Version { get; init; }
+
+    /// <summary>
+    /// The agent package a data variant's parts are linked to, which a promotion may take as that
+    /// package's next version of the live agent (<c>asPackageVersion</c>, FB11);
+    /// <see langword="null"/> for a variant without links.
+    /// </summary>
+    public string? PackageId { get; init; }
+
+    /// <summary>
+    /// The version of <see cref="PackageId"/> the variant's parts are linked to;
+    /// <see langword="null"/> without links.
+    /// </summary>
+    public int? PackageVersion { get; init; }
 }
 
 /// <summary>
@@ -47,7 +60,8 @@ internal sealed class NhAssistantShadowVariants(
     NhAssistantRunConfigurations configurations,
     NhAssistantRunConfigurationStore store,
     NhAssistantRunConfigurationValidator validator,
-    NhAssistantAgentCatalog agents)
+    NhAssistantAgentCatalog agents,
+    NhAssistantAgentPackageStore packages)
 {
     /// <summary>
     /// The variants of <paramref name="liveAgentId"/>; <see langword="null"/> for an agent that does
@@ -84,6 +98,10 @@ internal sealed class NhAssistantShadowVariants(
         }
 
         var stored = await store.ListShadowVariantsAsync(liveAgentId, cancellationToken);
+        // The package of each data variant, in one read of their links.
+        var links = (await packages.ListLinksAsync(stored.Select(variant => variant.AgentId).ToArray(), cancellationToken))
+            .GroupBy(link => link.AgentId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         foreach (var variant in stored)
         {
             var problem = problems
@@ -100,7 +118,9 @@ internal sealed class NhAssistantShadowVariants(
                 && string.Equals(options.ShadowOfAgentId, liveAgentId, StringComparison.Ordinal),
                 problem)
             {
-                Version = versions.GetValueOrDefault(variant.AgentId, 1)
+                Version = versions.GetValueOrDefault(variant.AgentId, 1),
+                PackageId = links.GetValueOrDefault(variant.AgentId)?.PackageId,
+                PackageVersion = links.GetValueOrDefault(variant.AgentId)?.PackageVersion
             });
         }
 

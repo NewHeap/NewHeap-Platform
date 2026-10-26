@@ -20,6 +20,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// they answer, and the person it asks answers through
 /// <c>POST conversations/{id}/questions/{questionId}/answer</c>, after which the turn continues with the
 /// answer as the result of the advisor's call.
+/// SPM-343, the chat helper works in people's chats only (<c>ChatOnly()</c>): it offers its meeting
+/// notes skill and questions in the chat, but it is on no project's page and a start on a project is
+/// refused with <c>assistant-agent-does-not-work-on</c>; the administration says it is chat-only.
 /// </summary>
 public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSampleHost host)
     : IClassFixture<AssistantAgentRunSampleHost>
@@ -106,6 +109,46 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
         Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.QuestionAsked && evt.ObjectId == host.OwnerId.ToString());
         Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.QuestionAnswered && evt.ActorId == host.OwnerId.ToString());
+    }
+
+    [Fact]
+    public async Task SPM_343_the_chat_helper_offers_its_skill_and_questions_in_the_chat_and_works_on_no_project()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(
+                "use_skill",
+                new { skill = SampleChatHelperComposition.MeetingNotesSkill, reason = "The person tells about a meeting." },
+                "call-notes")
+            .RespondWithText("Decided: the launch moves to May. Open: the budget.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await CreateConversationAsync(owner, SampleChatHelperComposition.AgentId);
+
+        var events = await host.SendAsync(owner, conversationId, "We met about the launch project and moved it to May.");
+
+        // In the chat it keeps its run settings for chat: its skill with use_skill, and questions.
+        Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+        Assert.Contains("use_skill", ToolNames(model.Requests[0]));
+        Assert.Contains("ask_question", ToolNames(model.Requests[0]));
+        var conversation = await host.GetJsonAsync(owner, $"/api/assistant/conversations/{conversationId}");
+        Assert.Equal(SampleChatHelperComposition.MeetingNotesSkill, conversation.GetProperty("messages").EnumerateArray().Last().GetProperty("skillId").GetString());
+
+        // It works on no project: no project's page lists it and a start on one is refused.
+        var project = await host.CreateProjectAsync("CHATONLY", ownerId: host.OwnerId);
+        var agents = await host.GetJsonAsync(owner, $"/api/assistant/subjects/project/{project:D}/agents");
+        Assert.DoesNotContain(agents.GetProperty("agents").EnumerateArray(), agent => agent.GetProperty("agentId").GetString() == SampleChatHelperComposition.AgentId);
+        using var start = await owner.PostAsync(
+            "/api/assistant/threads/start",
+            AssistantSampleHost.Json(new { agentId = SampleChatHelperComposition.AgentId, subjectType = "project", subjectId = project.ToString("D") }),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, start.StatusCode);
+        Assert.Equal(NhAssistantErrorCodes.AgentDoesNotWorkOn, (await AssistantSampleHost.ReadJsonAsync(start)).GetProperty("code").GetString());
+
+        // The administration says it is chat-only.
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var listed = (await host.GetJsonAsync(administrator, "/api/assistant/admin/agents")).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == SampleChatHelperComposition.AgentId);
+        Assert.True(listed.GetProperty("chatOnly").GetBoolean());
     }
 
     private static async Task<Guid> CreateConversationAsync(HttpClient client, string agentId)

@@ -34,6 +34,12 @@ internal sealed class NhAssistantPackagePlan(NhAssistantAgentPackage package, st
     /// </summary>
     public List<string> LeftBehindAgents { get; } = [];
 
+    /// <summary>
+    /// The promotion of a package-linked shadow variant this plan applies to its live agent
+    /// (FB11); <see langword="null"/> for an import.
+    /// </summary>
+    public NhAssistantPackagePromotion? Promotion { get; init; }
+
     public bool Importable => Parts.All(part => part.Outcome != NhAssistantPackagePartOutcomes.Refused);
 
     public IEnumerable<NhAssistantPlannedPart> PartsOf(string agentId, string kind)
@@ -41,6 +47,18 @@ internal sealed class NhAssistantPackagePlan(NhAssistantAgentPackage package, st
         return Parts.Where(part => part.AgentId == agentId && part.Kind == kind);
     }
 }
+
+/// <summary>
+/// A shadow variant whose parts all belong to one package, promoted as that package's version onto
+/// its live agent (FB11): the plan applies the variant's parts to the live agent with the import's
+/// rules, and the write deletes the variant in the same transaction.
+/// </summary>
+/// <param name="VariantId">The variant, which the promotion deletes.</param>
+/// <param name="VariantVersion">The variant's version the promotion was decided on.</param>
+/// <param name="LiveAgentId">The live agent that takes the package version.</param>
+/// <param name="Reason">Stored with the versions of the parts it saves; <see langword="null"/> uses the
+/// import's.</param>
+internal sealed record NhAssistantPackagePromotion(string VariantId, int VariantVersion, string LiveAgentId, string? Reason);
 
 /// <summary>
 /// One agent of a package as the import plans it.
@@ -66,6 +84,12 @@ internal sealed class NhAssistantPlannedAgent(NhAssistantPackageAgent source, As
     /// without a link are local.
     /// </summary>
     public bool Member { get; set; }
+
+    /// <summary>
+    /// The shadow variant whose package version the agent takes (FB11): its links to another package
+    /// end, and the variant's trigger ids become its own; <see langword="null"/> for an import.
+    /// </summary>
+    public string? PromotedVariantId { get; init; }
 
     /// <summary>
     /// The input the definition maps to.

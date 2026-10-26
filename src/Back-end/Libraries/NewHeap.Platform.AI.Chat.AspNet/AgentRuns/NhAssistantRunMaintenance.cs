@@ -130,7 +130,8 @@ internal sealed class NhAssistantRunMaintenance(
 
     internal async Task RunOnceAsync(CancellationToken cancellationToken)
     {
-        if (registration.AgentRuns.Count == 0)
+        // Chat-only agents never run, so they leave nothing to maintain (FB8).
+        if (registration.AgentRuns.Values.All(options => options.ChatOnly))
         {
             // Without agent runs only a person's inline approval handed to the application waits for
             // a report (LS17); its deadline still makes it uncertain.

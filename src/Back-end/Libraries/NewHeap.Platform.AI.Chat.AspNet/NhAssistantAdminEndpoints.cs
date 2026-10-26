@@ -173,7 +173,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents/{id}/promote", PromoteShadowVariantAsync)
             .WithName("NhAssistantAdminPromoteShadowVariant")
             .WithSummary("Promote a shadow variant onto its live agent")
-            .WithDescription("Copies the definition of the shadow variant {id}, created as data, onto its live agent as the live agent's next version when expectedVersion is the live agent's version (and expectedVariantVersion, when sent, the variant's), with the checks, package locks and audit of an update; then deletes the variant, which never goes live itself. The live agent keeps its display name, MCP assignments, metadata, run settings, triggers, state and shadow mode; an agent in code takes only the fields it can override. With moveSkills the variant's data skills become the next live versions of the live agent's skills of the same id, or new skills, which start in shadow. 404 for an unknown agent, 409 assistant-not-shadow-variant for an agent that is no data variant, 409 assistant-shadow-variants-not-allowed when the live agent may no longer have data variants, 409 assistant-version-conflict for a stale version and 409 assistant-skill-in-code for a skill the live agent has in code. Audited as AdminAgentShadowVariantPromoted.")
+            .WithDescription("Copies the definition of the shadow variant {id}, created as data, onto its live agent as the live agent's next version when expectedVersion is the live agent's version (and expectedVariantVersion, when sent, the variant's), with the checks, package locks and audit of an update; then deletes the variant, which never goes live itself. The live agent keeps its display name, MCP assignments, metadata, run settings, triggers, state and shadow mode; an agent in code takes only the fields it can override. With moveSkills the variant's data skills become the next live versions of the live agent's skills of the same id, or new skills, which start in shadow. With asPackageVersion a variant whose every part is linked to one agent package becomes that package's next version of the live agent in one transaction: its parts apply with the import's rules (locks, hashes, run settings, skills, triggers, consultations, hand-offs and metadata; the live agent keeps its display name and chat offer, and an agent in code its run settings), the live agent is linked to the variant's package id and version and leaves the package it belonged to, and the variant is deleted with its links; the answer then carries the package with every part's outcome. 404 for an unknown agent and 404 assistant-package-not-linked for a part of the variant without a link, 400 moveSkills: not-allowed with asPackageVersion, 409 assistant-not-shadow-variant for an agent that is no data variant, 409 assistant-shadow-variants-not-allowed when the live agent may no longer have data variants, 409 assistant-version-conflict for a stale version, 409 assistant-skill-in-code for a skill the live agent has in code and 409 assistant-package-refused (parts: invalid with parts.{part}.{field}) when the import would refuse a part, changing nothing. Audited as AdminAgentShadowVariantPromoted, with the result promoted-as-package-version and the package for a package version.")
             .Produces<NhAssistantShadowVariantPromotedDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -782,7 +782,10 @@ internal static class NhAssistantAdminEndpoints
                 expectedVersion,
                 body.MoveSkills == true,
                 body.ExpectedVariantVersion,
-                string.IsNullOrWhiteSpace(body.Reason) ? null : body.Reason.Trim()),
+                string.IsNullOrWhiteSpace(body.Reason) ? null : body.Reason.Trim())
+            {
+                AsPackageVersion = body.AsPackageVersion == true
+            },
             actor,
             httpContext.RequestAborted);
         if (!promoted.Success)
@@ -798,7 +801,10 @@ internal static class NhAssistantAdminEndpoints
         }
 
         return Json(
-            new NhAssistantShadowVariantPromotedDto(await ToDtoAsync(live, httpContext), promoted.Data.VariantId, promoted.Data.MovedSkills),
+            new NhAssistantShadowVariantPromotedDto(await ToDtoAsync(live, httpContext), promoted.Data.VariantId, promoted.Data.MovedSkills)
+            {
+                Package = promoted.Data.Package
+            },
             Context.NhAssistantShadowVariantPromotedDto);
     }
 
@@ -1278,6 +1284,7 @@ internal static class NhAssistantAdminEndpoints
             RunPolicy = agent.WorksOn.RunPolicy,
             ViewPolicy = agent.WorksOn.ViewPolicy,
             WorksOnDeclared = agent.WorksOn.Declared,
+            ChatOnly = agent.ChatOnly,
             OffBeforeStop = state.OffBeforeStop,
             InstructionsAsset = agent.InstructionsAsset,
             InstructionsProblem = agent.InstructionsProblem

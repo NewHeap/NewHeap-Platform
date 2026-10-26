@@ -531,8 +531,19 @@ variant's run configuration to give it run settings. "Promote onto {agent}" on a
 confirm first, says what the live agent keeps, offers to move the variant's skills too and calls
 `promoteShadowVariant` with the live agent's version and the variant's (`ShadowVariant.version`); the
 page then shows the live agent's new version (`ShadowVariantPromotion`) and the variant leaves the list,
-and a change in the meantime shows `assistant-version-conflict` in the confirmation. The mock API plays
-the same rules with `handOffsAsData`, `shadowVariantsAsData` and `codeHandOffs`.
+and a change in the meantime shows `assistant-version-conflict` in the confirmation. A data variant
+linked to an agent package shows its package and version (`ShadowVariant.packageId`,
+`packageVersion`), and its confirmation also offers "As the package's next version", which sends
+`asPackageVersion: true` instead of moving skills: all its parts replace the live agent's as an import
+does, with the package's locks, and the live agent is linked to that package version
+(`ShadowVariantPromotion.package` lists every part's outcome; SPM-344). The mock API plays the same
+rules with `handOffsAsData`, `shadowVariantsAsData`, `codeHandOffs` and its agent packages.
+
+An agent in code that works in people's chats only (`chatOnly` of `AdminAgent`, `ChatOnly()` in code;
+SPM-343) shows a "Chat only" badge and a hint instead of what it works on, and its card offers no "Run
+now", runs, run state changes or shadow mode; its run configuration stays for its skills as data. A
+mock scenario declares one with `chatOnly: true` on a code agent; the mock then refuses its starts and
+its shadow mode with `assistant-agent-does-not-work-on`.
 
 Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
 card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id
@@ -858,6 +869,8 @@ an application that shows documents without it starts `NhAssistantTranslationMer
   a refused save only at the top of the page instead of at its fields and next to the save button.
 - Offering an agent that only works on its own in the chat; keep it out with `offeredInChat: false`
   or `HideFromChat()`.
+- Offering "Run now", run states or shadow mode for a chat-only agent (`chatOnly`); it never runs on
+  its own and the server refuses them.
 - Typing object type ids or policy names in a custom agent screen; offer the run catalog's
   `subjectTypes` by name and its `agentPolicies`, and send what an agent works on as one set of fields.
 - Listing the run catalog's `subjectTypes` as kinds of objects without leaving out `isSystem`, or
@@ -1217,11 +1230,6 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentLinksAsDataComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentDefinitionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
-- SPM-336 — The project handbook reads a bundle of untrusted Markdown documents with relative links and diagrams
-  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts)
-  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html)
-  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts)
-  - [src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts)
 - SPM-333 — A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
@@ -1232,6 +1240,21 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Questions.cs)
+- SPM-336 — The project handbook reads a bundle of untrusted Markdown documents with relative links and diagrams
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.ts)
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook-page.component.html)
+  - [src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/project-handbook.documents.ts)
+  - [src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/project-handbook/sample-flow-diagram-renderer.ts)
+- SPM-343 — The chat helper works in people's chats only, with its skill and questions, and on no project
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
+  - [src/Front-end/projects/management/public/i18n/en.json](../../examples/SampleProjectManagement/src/Front-end/projects/management/public/i18n/en.json)
+- SPM-344 — An operator promotes the kickoff desk's next version from its shadow variant as the package's version
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs)
 - SPM-345 — An agent editor's save keeps an MCP server that was assigned while it was open, and the administration assigns servers one by one
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs)

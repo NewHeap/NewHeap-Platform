@@ -272,6 +272,48 @@ internal sealed class NhAssistantAgentPackageStore(NhAssistantDbContextFactory c
     }
 
     /// <summary>
+    /// The first writes of a promotion of a package-linked shadow variant as its package's version
+    /// (FB11), in the transaction of <see cref="ImportAsync"/>: deletes the variant at
+    /// <paramref name="variantVersion"/> with everything that belongs to it, its links included, and
+    /// takes the live agent out of every other package's agents. Returns <see langword="false"/> when
+    /// the variant changed or is gone, which rolls everything back.
+    /// </summary>
+    public static async Task<bool> PromoteAsync(
+        NhAssistantDbContext context,
+        string variantId,
+        int variantVersion,
+        string liveAgentId,
+        string packageId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var variant = await context.Agents.SingleOrDefaultAsync(item => item.Id == variantId, cancellationToken);
+        if (variant is null || variant.Version != variantVersion)
+        {
+            return false;
+        }
+
+        context.Agents.Remove(variant);
+        await context.SaveChangesAsync(cancellationToken);
+
+        // The text match finds candidates; the array decides.
+        var quoted = JsonSerializer.Serialize(liveAgentId);
+        var others = (await context.AgentPackages
+                .Where(item => item.Id != packageId && item.AgentIdsJson.Contains(quoted))
+                .ToListAsync(cancellationToken))
+            .Where(item => AgentIdsOf(item).Contains(liveAgentId, StringComparer.Ordinal))
+            .ToArray();
+        foreach (var other in others)
+        {
+            other.AgentIdsJson = WriteAgentIds(AgentIdsOf(other).Where(id => !string.Equals(id, liveAgentId, StringComparison.Ordinal)));
+            other.ConcurrencyStamp = Guid.NewGuid();
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
     /// The agent ids a package row holds, ordered by id; empty for a value that does not read.
     /// </summary>
     public static IReadOnlyList<string> AgentIdsOf(AssistantAgentPackage package)

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.85",
   "backEnd": {
-    "hash": "fbddd6494c7f247718c915593e2a14f61bac2ee195820295104262b2c2b2fabf",
-    "declarationCount": 11147,
+    "hash": "685f1748467ede2edef0b4c1585569bd796210939906e97f4ba495f0f8468b46",
+    "declarationCount": 11165,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2219,6 +2219,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool ChatOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantAgentRunSettingsDto( int Version, string Accountability, string? ServiceAccountActorId, bool DelegateFromInitiator, bool AllowGatewayReads, string ElevatedReads, string? ApprovalPolicy, int RetryCount, int? DailyToolCalls, long? DailyTokens, int MaxConcurrentRuns, int MaxRunsPerSubjectPerDay, long? MaxTokensPerRun, string? TriageProfile, string? RuleHandler, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem) {"
       },
       {
@@ -2715,11 +2719,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
-        "declaration": "public sealed record NhAssistantShadowVariantPromotionRequest( int ExpectedVersion, bool MoveSkills = false, int? ExpectedVariantVersion = null, string? Reason = null);"
+        "declaration": "public sealed record NhAssistantShadowVariantPromotionRequest( int ExpectedVersion, bool MoveSkills = false, int? ExpectedVariantVersion = null, string? Reason = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
-        "declaration": "public sealed record NhAssistantShadowVariantPromotionDto( NhAssistantAgentInEffectDto Agent, string VariantId, IReadOnlyList<string> MovedSkills);"
+        "declaration": "public bool AsPackageVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public sealed record NhAssistantShadowVariantPromotionDto( NhAssistantAgentInEffectDto Agent, string VariantId, IReadOnlyList<string> MovedSkills) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public NhAssistantAgentPackageImportDto? Package { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
@@ -2736,6 +2748,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
         "declaration": "public async Task<TaskResult<NhAssistantShadowVariantPromotionDto>> PromoteShadowVariantAsync( string variantId, NhAssistantShadowVariantPromotionRequest request, string actorId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public static class NhAssistantShadowVariantPromotions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public const string Promoted = \"promoted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public const string PromotedAsPackageVersion = \"promoted-as-package-version\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDirectory.cs",
@@ -2792,6 +2816,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDirectory.cs",
         "declaration": "public bool InShadow { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDirectory.cs",
+        "declaration": "public bool ChatOnly { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDirectory.cs",
@@ -3315,6 +3343,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public NhAssistantPackagePromotion? Promotion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
         "declaration": "public bool Importable => Parts.All(part => part.Outcome != NhAssistantPackagePartOutcomes.Refused);"
       },
       {
@@ -3340,6 +3372,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
         "declaration": "public bool Member { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
+        "declaration": "public string? PromotedVariantId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackagePlan.cs",
@@ -4991,6 +5027,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "declaration": "public string? PackageId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
+        "declaration": "public int? PackageVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
         "declaration": "public async Task<NhAssistantShadowVariantsDto?> ListAsync(string liveAgentId, CancellationToken cancellationToken) {"
       },
       {
@@ -6555,11 +6599,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantShadowVariantPromotionInputDto( int? ExpectedVersion, bool? MoveSkills = null, int? ExpectedVariantVersion = null, string? Reason = null);"
+        "declaration": "public sealed record NhAssistantShadowVariantPromotionInputDto( int? ExpectedVersion, bool? MoveSkills = null, int? ExpectedVariantVersion = null, string? Reason = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantShadowVariantPromotedDto( NhAssistantAdminAgentDto Agent, string VariantId, IReadOnlyList<string> MovedSkills);"
+        "declaration": "public bool? AsPackageVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantShadowVariantPromotedDto( NhAssistantAdminAgentDto Agent, string VariantId, IReadOnlyList<string> MovedSkills) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageImportDto? Package { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -6624,6 +6676,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public bool WorksOnDeclared { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool ChatOnly { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -9087,6 +9143,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public bool ChatOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public NhAiDataClassification? DataClassification { get; init; }"
       },
       {
@@ -10195,6 +10255,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool ChatOnly { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public IReadOnlyList<string> Groups { get; internal set; } = [];"
       },
       {
@@ -10352,6 +10416,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder Triage(Action<NhAssistantTriageBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder ChatOnly() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -19544,6 +19612,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
         "declaration": "public async Task<NhAssistantStoreOutcome> ImportAsync( Func<NhAssistantDbContext, CancellationToken, Task<bool>> writes, AssistantAgentPackage package, IReadOnlyCollection<string> agentIds, IReadOnlyList<AssistantAgentPackageLink> links, IReadOnlyCollection<(string AgentId, string PartKind, string PartKey)> unlinked, int? expectedVersion, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
+        "declaration": "public static async Task<bool> PromoteAsync( NhAssistantDbContext context, string variantId, int variantVersion, string liveAgentId, string packageId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
@@ -48565,7 +48637,9 @@
       "NhAssistantResolveExecutionRequest",
       "NhAssistantApprovalPartDto",
       "SkillsInChat",
-      "NhAssistantMessageDto"
+      "NhAssistantMessageDto",
+      "ChatOnly",
+      "NhAssistantShadowVariantPromotions"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

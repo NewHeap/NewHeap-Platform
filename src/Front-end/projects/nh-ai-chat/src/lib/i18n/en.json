@@ -817,6 +817,10 @@
         "chat": {
           "hidden": "Not in the chat"
         },
+        "chat-only": {
+          "badge": "Chat only",
+          "hint": "Works in the chat only: it is on no object's page, has no triggers and does not run on its own."
+        },
         "version-label": "Version",
         "tool-count-one": "{{count}} tool selector",
         "server-count-one": "{{count}} MCP server",
@@ -2046,6 +2050,7 @@
           "data": "Created here"
         },
         "needs-settings": "Needs run settings",
+        "package": "Package {{package}} version {{version}}",
         "in-effect": "Receives this agent's events",
         "open": "Run configuration",
         "set-up": "Set up runs",
@@ -2059,6 +2064,8 @@
           "removed": "The variant is removed afterwards; it never goes live itself.",
           "move-skills": "Move its skills too",
           "move-skills-hint": "Each skill becomes the next live version of the skill with the same id, or a new skill that starts in shadow.",
+          "as-package-version": "As the package's next version",
+          "as-package-version-hint": "All its parts from package {{package}} version {{version}} replace those of {{name}} as an import does, with the package's locks, run settings, skills, triggers and metadata. {{name}} keeps its name and is linked to that package version; its skills come along.",
           "confirm": "Promote",
           "promoting": "Promoting…"
         },

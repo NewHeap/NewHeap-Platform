@@ -593,6 +593,11 @@ internal sealed class NhAssistantAgentControl(
         {
             return TaskResult<NhAssistantAgentState>.Failed(NhAssistantErrorCodes.ShadowVariant, "A shadow variant always works in shadow.");
         }
+        if (options.ChatOnly)
+        {
+            // A chat-only agent has no runs that could work in shadow threads (FB8).
+            return TaskResult<NhAssistantAgentState>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "A chat-only agent works on no subject.");
+        }
 
         if (agent.ShadowOverride != shadow)
         {

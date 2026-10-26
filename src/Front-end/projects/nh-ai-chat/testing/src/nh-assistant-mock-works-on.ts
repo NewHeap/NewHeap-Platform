@@ -88,7 +88,11 @@ export function mockWorksOnErrors(
 }
 
 /** Whether an agent works on subjects of the type, as the server's rule decides it. */
-export function mockWorksOnCovers(agent: Partial<MockWorksOn>, subjectType: string): boolean {
+export function mockWorksOnCovers(agent: Partial<MockWorksOn> & { chatOnly?: boolean }, subjectType: string): boolean {
+  // A chat-only agent (`ChatOnly()` in code) works on no subject at all.
+  if (agent.chatOnly === true) {
+    return false;
+  }
   if (subjectType === mockSystemSubjectType) {
     return agent.worksOnApplication === true;
   }

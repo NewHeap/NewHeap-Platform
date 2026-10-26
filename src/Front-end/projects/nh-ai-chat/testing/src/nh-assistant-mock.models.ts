@@ -282,6 +282,11 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   /** The object types the agent is known to work on, shown as a hint next to "All objects". */
   knownSubjectTypes?: string[];
   /**
+   * A code agent that works in people's chats only (`ChatOnly()`): it works on no subject, so the
+   * mock refuses its starts, its shadow mode and lists it on no object's page, as the server does.
+   */
+  chatOnly?: boolean;
+  /**
    * How a code agent runs, as its code says (`codeRunSettings` of its run configuration). By default
    * it answers to its `serviceAccount` when it has one and to itself otherwise, with the platform's
    * approval policy and the model.

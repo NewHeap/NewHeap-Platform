@@ -859,7 +859,15 @@ public sealed record NhAssistantShadowVariantPromotionInputDto(
     int? ExpectedVersion,
     bool? MoveSkills = null,
     int? ExpectedVariantVersion = null,
-    string? Reason = null);
+    string? Reason = null)
+{
+    /// <summary>
+    /// The variant's parts, every one linked to one agent package, become that package's next version
+    /// of the live agent with the import's rules (FB11); omitted or <see langword="false"/> promotes
+    /// through the update path.
+    /// </summary>
+    public bool? AsPackageVersion { get; init; }
+}
 
 /// <summary>
 /// The answer of <c>POST admin/agents/{id}/promote</c>.
@@ -870,7 +878,15 @@ public sealed record NhAssistantShadowVariantPromotionInputDto(
 public sealed record NhAssistantShadowVariantPromotedDto(
     NhAssistantAdminAgentDto Agent,
     string VariantId,
-    IReadOnlyList<string> MovedSkills);
+    IReadOnlyList<string> MovedSkills)
+{
+    /// <summary>
+    /// For a promotion as the package's version: the package the live agent is linked to now, with its
+    /// version, hash and every part's outcome as an import reports it; left out otherwise.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageImportDto? Package { get; init; }
+}
 
 /// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
 /// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
@@ -986,6 +1002,14 @@ public sealed record NhAssistantAdminAgentDto(
     /// <c>WorksOnApplication</c>. An agent that does not say works on all object types.
     /// </summary>
     public bool WorksOnDeclared { get; init; } = true;
+
+    /// <summary>
+    /// Whether the agent works in people's chats only (<c>ChatOnly()</c> in code): it works on no
+    /// subject, so it has no triggers, is on no object's page and cannot be run now, handed work,
+    /// consulted, put in shadow or replayed. Always <see langword="false"/> for an agent created in the
+    /// administration.
+    /// </summary>
+    public bool ChatOnly { get; init; }
 
     /// <summary>
     /// The object types the agent is known to work on, as a hint next to "all objects": those it

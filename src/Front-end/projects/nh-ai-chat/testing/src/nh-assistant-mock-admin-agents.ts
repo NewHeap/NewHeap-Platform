@@ -108,7 +108,7 @@ export class NhAssistantMockAdminAgents {
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
     for (const {
-      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions,
+      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions, chatOnly,
       codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, codeHandOffs: ______, ...input
     } of agents) {
       const variant = typeof shadowOf === 'string';
@@ -119,6 +119,10 @@ export class NhAssistantMockAdminAgents {
           ...initial,
           // Code says what its agents work on; a scenario agent that says nothing works on all objects.
           ...(source === 'code' ? { ...(mockWorksOnFromInput(input) ?? mockUndeclaredWorksOn), worksOnDeclared: worksOnDeclared ?? mockWorksOnFromInput(input) !== null } : {}),
+          // A chat-only agent in code (`ChatOnly()`) works on nothing, said on purpose.
+          ...(source === 'code' && chatOnly === true
+            ? { chatOnly: true, worksOnSubjectTypes: [], worksOnAllSubjects: false, worksOnApplication: false, perDivision: false, worksOnDeclared: true }
+            : {}),
           knownSubjectTypes: knownSubjectTypes ?? [],
           shadowOf: shadowOf ?? null,
           shadow: shadowState(agentShadow, variant || shadow === true, null, variant),
@@ -631,6 +635,10 @@ export class NhAssistantMockAdminAgents {
     const current = stored.agent.shadow ?? shadowState(false, false, null, false);
     if (current.locked) {
       return failure('assistant-shadow-variant');
+    }
+    // A chat-only agent has no runs that could work in shadow threads.
+    if (stored.agent.chatOnly === true) {
+      return failure('assistant-agent-does-not-work-on');
     }
 
     const override = request.mode === 'code' ? null : request.mode === 'shadow';

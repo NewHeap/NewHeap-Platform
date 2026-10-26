@@ -108,6 +108,13 @@ internal sealed class NhAssistantAgentGroups(
                 NhAssistantErrorCodes.ShadowVariant,
                 "A shadow variant works for administrators only; boards show live agents.");
         }
+        // A chat-only agent has no result for the whole application that a board could show (FB8).
+        if (wanted.Count > 0 && agent.ChatOnly)
+        {
+            return TaskResult<NhAssistantAgentGroupMembershipDto>.Failed(
+                NhAssistantErrorCodes.AgentDoesNotWorkOn,
+                "A chat-only agent works on no subject; boards show agents that work on the application.");
+        }
 
         // Only a choice that differs from code is stored; one that equals code lets code decide again.
         var codeGroups = CodeGroupsOf(agentId);

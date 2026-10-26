@@ -3,7 +3,7 @@
  * changes them (`admin/agents/{id}/hand-offs` and `admin/agents/{id}/shadow-variants`).
  */
 import { AdminAgent } from './assistant-admin.models';
-import { PackagePartLink } from './assistant-agent-package.models';
+import { AgentPackageImport, PackagePartLink } from './assistant-agent-package.models';
 
 /** A hand-off the agent accepts in code (`AcceptHandOffs`), read only. */
 export interface CodeHandOff {
@@ -98,6 +98,14 @@ export interface ShadowVariant {
   hasRunSettings: boolean;
   /** Whether the variant receives the live agent's triggers now. */
   inEffect: boolean;
+  /**
+   * The agent package a data variant's parts are linked to: a promotion may then take it as that
+   * package's next version of the live agent (`asPackageVersion`). `null` or missing without links
+   * and on older servers.
+   */
+  packageId?: string | null;
+  /** The version of `packageId` the variant's parts are linked to. */
+  packageVersion?: number | null;
   /** Why a data variant with run settings is out of effect, such as `outside-ceiling`. */
   problem: string | null;
   /** The version of the variant's definition, which a promotion sends as `expectedVariantVersion`. */
@@ -128,6 +136,12 @@ export interface ShadowVariantPromotionRequest {
   expectedVariantVersion?: number | null;
   /** Optional, at most 500 characters, stored with the skill versions the promotion saves. */
   reason?: string | null;
+  /**
+   * The variant's parts, every one linked to one agent package, become that package's next version
+   * of the live agent with the import's rules: locks, run settings, skills, triggers and metadata; the
+   * live agent keeps its name and is linked to the variant's package version. Not with `moveSkills`.
+   */
+  asPackageVersion?: boolean;
 }
 
 /** The answer of a promotion: the live agent after it, and what moved. */
@@ -138,4 +152,9 @@ export interface ShadowVariantPromotion {
   variantId: string;
   /** The skills that moved to the live agent, ordered by id. */
   movedSkills: string[];
+  /**
+   * For a promotion as the package's version: the package the live agent is linked to now, with every
+   * part's outcome; missing otherwise.
+   */
+  package?: AgentPackageImport;
 }

@@ -615,7 +615,9 @@ internal sealed class NhAssistantReplayService(
         var to = (request.To ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var from = (request.From ?? to - DefaultPeriod).ToUniversalTime();
         var maxRuns = request.MaxRuns ?? DefaultMaxRuns;
-        if (!registration.AgentRuns.ContainsKey(sourceId)
+        // A chat-only agent has no runs to replay (FB8).
+        if (!registration.AgentRuns.TryGetValue(sourceId, out var source)
+            || source.ChatOnly
             || from >= to
             || to - from > NhAssistantEvaluationLimits.MaxPeriod
             || maxRuns is < 1 or > NhAssistantEvaluationLimits.MaxReplayRuns)

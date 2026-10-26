@@ -12,6 +12,7 @@ import {
   AgentPackagePartOutcome,
   AgentPackageWarning,
   AgentRunConfiguration,
+  AgentShadowVariants,
   NH_ASSISTANT_AGENT_PACKAGE_FORMAT,
   NH_ASSISTANT_AGENT_PACKAGE_FORMAT_VERSION,
   NH_ASSISTANT_AGENT_PACKAGE_MAX_AGENTS,
@@ -223,7 +224,143 @@ export class NhAssistantMockAgentPackages {
     if (segments[1] === 'agents' && segments[3] === 'package' && segments[4] === 'unlink' && segments.length === 5) {
       return method === 'POST' ? this.unlink(segments[2], body) : { status: 405 };
     }
+    // A promotion as the package's version is an import of the variant's parts onto its live agent.
+    if (segments[1] === 'agents' && segments[3] === 'promote' && segments.length === 4
+      && (body as { asPackageVersion?: unknown } | null | undefined)?.asPackageVersion === true) {
+      return method === 'POST' ? this.promoteAsPackageVersion(segments[2], body) : { status: 405 };
+    }
     return null;
+  }
+
+  /**
+   * `POST admin/agents/{id}/promote` with `asPackageVersion` (FB11): a data shadow variant whose every
+   * part is linked to one package becomes that package's next version of its live agent. Its parts,
+   * as an export reads them, are imported onto the live agent with the import's rules and relinked;
+   * the live agent keeps its name and chat offer, an agent in code its run settings in code. The
+   * variant leaves first, with its links, so its trigger ids are free, and the live agent leaves the
+   * package it belonged to; a refused part puts everything back and answers the import's
+   * `409 assistant-package-refused`. A part without a link answers `404 assistant-package-not-linked`.
+   */
+  private promoteAsPackageVersion(variantId: string, body: unknown): NhAssistantMockResult {
+    const listed = this.context.call('GET', 'admin/agents');
+    if (listed.status !== 200) {
+      return listed;
+    }
+    const request = (body ?? {}) as { expectedVersion?: unknown; expectedVariantVersion?: unknown; moveSkills?: unknown; reason?: unknown };
+    if (typeof request.expectedVersion !== 'number') {
+      return failure('assistant-validation', { expectedVersion: ['required'] });
+    }
+    if (request.moveSkills === true) {
+      return failure('assistant-validation', { moveSkills: ['not-allowed'] });
+    }
+    const variantRead = this.read(variantId);
+    if (!variantRead) {
+      return failure('assistant-agent-not-found');
+    }
+    const variant = variantRead.agent;
+    if (variant.source !== 'admin' || !variant.shadowOf) {
+      return failure('assistant-not-shadow-variant');
+    }
+    const liveRead = this.read(variant.shadowOf);
+    if (!liveRead) {
+      return failure('assistant-agent-not-found');
+    }
+    const live = liveRead.agent;
+    if (request.expectedVersion !== live.version
+      || (typeof request.expectedVariantVersion === 'number' && request.expectedVariantVersion !== variant.version)) {
+      return failure('assistant-version-conflict');
+    }
+
+    // Every part of the variant is linked to its package.
+    const link = this.links.get(variantId);
+    const parts = this.packageAgentOf(variantRead);
+    if (!link || [...partsOf(parts).keys()].some(part => !link.parts.has(part))) {
+      return failure('assistant-package-not-linked');
+    }
+
+    const inCode = live.source === 'code';
+    const carried = parts.definition;
+    const definition = !carried
+      ? null
+      : inCode
+        ? {
+          description: carried.description,
+          instructions: carried.instructions,
+          toolSelectors: carried.toolSelectors,
+          requiredPolicy: carried.requiredPolicy,
+          autonomy: carried.autonomy
+        }
+        : { ...carried, displayName: live.displayName, offeredInChat: live.offeredInChat !== false, shadowOf: null, startsOff: null, startsInShadow: null };
+    const locks = Object.fromEntries([...link.parts]
+      .filter(([part, partLink]) => partLink.lockedFields.length > 0 && (part !== 'runSettings' || !inCode))
+      .map(([part, partLink]) => [part, [...partLink.lockedFields]]));
+    const agent = withoutNulls({
+      ...parts,
+      id: live.id,
+      source: live.source,
+      definition,
+      runSettings: inCode ? null : parts.runSettings,
+      groups: null,
+      hashes: null,
+      locks: Object.keys(locks).length > 0 ? locks : null
+    }) as PackageAgent;
+    const agentPackage: AgentPackage = {
+      format: NH_ASSISTANT_AGENT_PACKAGE_FORMAT,
+      formatVersion: NH_ASSISTANT_AGENT_PACKAGE_FORMAT_VERSION,
+      package: { id: link.packageId, version: link.packageVersion },
+      agents: [agent]
+    };
+    // The live agent's technical account stays; without one it takes the variant's.
+    const account = liveRead.configuration?.runSettings?.serviceAccountActorId
+      ?? variantRead.configuration?.runSettings?.serviceAccountActorId
+      ?? null;
+
+    // All of it or nothing: the variant leaves first, and the package's other agents stay linked.
+    const restore = [this.context.snapshot(), this.snapshot()];
+    const others = [...this.links].filter(([agentId, item]) => item.packageId === link.packageId && agentId !== variantId);
+    this.links.delete(variantId);
+    const deleted = this.context.call('DELETE', `admin/agents/${encodeURIComponent(variantId)}`);
+    if (deleted.status >= 300) {
+      restore.forEach(put => put());
+      return deleted;
+    }
+    for (const [agentId] of others) {
+      this.links.delete(agentId);
+    }
+    this.links.delete(live.id);
+    for (const installed of this.installed.values()) {
+      installed.agents = installed.agents.filter(agentId => agentId !== live.id && agentId !== variantId);
+    }
+    const imported = this.importPackage({
+      package: agentPackage,
+      options: { relink: [{ agentId: live.id }], serviceAccounts: account ? { [live.id]: account } : null }
+    }, true);
+    if (imported.status !== 200) {
+      restore.forEach(put => put());
+      return imported;
+    }
+    for (const [agentId, item] of others) {
+      this.links.set(agentId, item);
+    }
+    this.installed.set(link.packageId, {
+      version: link.packageVersion,
+      agents: [...others.map(([agentId]) => agentId), live.id].sort()
+    });
+
+    const result = imported.body as { packageId: string; packageVersion: number; hash: string; parts: AgentPackagePart[] };
+    const promoted = this.read(live.id)!.agent;
+    return {
+      status: 200,
+      body: {
+        agent: this.withAgentPackage(promoted),
+        variantId,
+        movedSkills: result.parts
+          .filter(part => part.part.startsWith('skill:') && part.outcome !== 'refused' && part.outcome !== 'left-behind' && part.outcome !== 'kept-local')
+          .map(part => part.part.slice('skill:'.length))
+          .sort(),
+        package: result
+      }
+    };
   }
 
   /**
@@ -339,6 +476,22 @@ export class NhAssistantMockAgentPackages {
           return { ...result, body: this.withLink(agentId, `metadata:${id}`, body as object) };
         }
         return { ...result, body: (body as AgentMetadata[]).map(entry => this.withLink(agentId, `metadata:${entry.name}`, entry)) };
+      case 'shadow-variants': {
+        // A data variant names the package its parts are linked to.
+        const listing = body as AgentShadowVariants;
+        return {
+          ...result,
+          body: {
+            ...listing,
+            variants: listing.variants.map(variant => {
+              const link = this.links.get(variant.agentId);
+              return variant.source === 'data' && link && link.parts.size > 0
+                ? { ...variant, packageId: link.packageId, packageVersion: link.packageVersion }
+                : variant;
+            })
+          }
+        };
+      }
       default:
         return result;
     }

@@ -335,7 +335,9 @@ export class NhAssistantMockHandOffs {
         ...data.map(agent => {
           const hasRunSettings = this.agents.isConfigured(agent);
           return {
-            agentId: agent.id, displayName: agent.displayName, source: 'data' as const, hasRunSettings, inEffect: hasRunSettings, problem: null, version: agent.version
+            agentId: agent.id, displayName: agent.displayName, source: 'data' as const, hasRunSettings, inEffect: hasRunSettings, problem: null, version: agent.version,
+            packageId: null as string | null,
+            packageVersion: null as number | null
           };
         })
       ]

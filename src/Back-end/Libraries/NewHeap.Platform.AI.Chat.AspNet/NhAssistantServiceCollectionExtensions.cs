@@ -439,7 +439,8 @@ internal sealed class NhAssistantStartupValidator(
         // A classification that no profile of the chain permits is no reason to stop the host: the
         // profiles may change without a deploy of the agent. The model calls fail until then.
         NhAssistantClassificationChecks.LogCodeWarnings(state, profiles, logger);
-        if (state.CodeAgentRuns.Count > 0)
+        // A chat-only agent never runs, so it needs no background operations (FB8).
+        if (state.CodeAgentRuns.Values.Any(run => !run.ChatOnly))
         {
             var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();
             if (operations is null

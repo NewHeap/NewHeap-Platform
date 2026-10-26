@@ -109,7 +109,8 @@ interface CatalogRead {
  * opens the import dialog of agent packages, and "Export as package" on an agent the export dialog
  * with that agent chosen. An agent that belongs to a package says so on its card with "Unlink the
  * agent"; it cannot be deleted until it is unlinked, nor reset while its package locks fields of
- * its definition.
+ * its definition. A chat-only agent (`chatOnly`) says so instead of what it works on and offers no
+ * "Run now", runs, run state changes or shadow mode: it never runs on its own.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
@@ -332,6 +333,7 @@ export class NhAssistantAdminAgentsComponent {
   canRunNow(agent: AdminAgent): boolean {
     return this.catalog() !== null
       && this.hasRunConfiguration(agent)
+      && agent.chatOnly !== true
       && (agent.runState === 'active' || agent.runState === 'paused' || agent.runState === 'off');
   }
 
@@ -602,6 +604,10 @@ export class NhAssistantAdminAgentsComponent {
 
   /** The state changes the agent allows: none for an agent that is disabled in code. */
   stateActions(agent: AdminAgent): AgentStateAction[] {
+    // A chat-only agent has no runs to pause or stop; one changed elsewhere can still be resumed.
+    if (agent.chatOnly) {
+      return agent.runState === 'paused' || agent.runState === 'off' || agent.runState === 'stopped' ? ['active'] : [];
+    }
     switch (agent.runState) {
       case 'active':
         return ['paused', 'off', 'stopped'];

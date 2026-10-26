@@ -1050,6 +1050,12 @@ public sealed record NhAssistantCodeRunSettingsDto(
     /// The agent accepts files in code (<c>AcceptsFiles()</c>).
     /// </summary>
     public bool AcceptsFiles { get; init; }
+
+    /// <summary>
+    /// The agent works in people's chats only (<c>ChatOnly()</c>): it works on no subject, has no
+    /// triggers and is never started on its own.
+    /// </summary>
+    public bool ChatOnly { get; init; }
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
@@ -1934,7 +1940,8 @@ internal sealed class NhAssistantAgentConfiguration(
             code.RuleHandlerType is not null)
         {
             StartsOff = code.StartsOff,
-            AcceptsFiles = code.AcceptsFiles
+            AcceptsFiles = code.AcceptsFiles,
+            ChatOnly = code.ChatOnly
         };
     }
 
@@ -2566,6 +2573,11 @@ internal sealed class NhAssistantAgentConfiguration(
         if (refused is not null)
         {
             return TaskResult<NhAssistantDataTriggerDto>.Failed(refused);
+        }
+        if (registration.CodeAgentRuns.TryGetValue(agentId, out var code) && code.ChatOnly)
+        {
+            // A chat-only agent works on no subject, so nothing triggers it (FB8).
+            return TaskResult<NhAssistantDataTriggerDto>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "A chat-only agent works on no subject.");
         }
         if (registration.CodeTriggers.ContainsKey(triggerId))
         {

@@ -568,6 +568,10 @@
         "name": "Statusadviseur",
         "description": "Stelt met jouw rechten een statuswijziging voor; je keurt die goed voordat ze wordt uitgevoerd."
       },
+      "sample-project-chat-helper": {
+        "name": "Chathulp",
+        "description": "Werkt alleen in de chat: maakt vergadernotities en vraagt je om een keuze als dat nodig is."
+      },
       "sample-project-closer": {
         "name": "Projectafsluiter",
         "description": "Stelt volgens vaste regels voor een actief project te voltooien zodra alle taken zijn afgerond."
