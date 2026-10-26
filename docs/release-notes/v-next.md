@@ -3,7 +3,7 @@
 ## NewHeap.Platform.AI.Chat.AspNet: request delegates generated at build time
 
 The library builds with ASP.NET Core's Request Delegate Generator (`EnableRequestDelegateGenerator`), so
-the request delegates of the assistant's 139 minimal API endpoints are written when the package is built.
+the request delegates of all the assistant's minimal API endpoints (141 in this release) are written when the package is built.
 A host that calls `MapNewHeapAssistant` no longer compiles them with `RequestDelegateFactory` while it
 starts. Applications change nothing.
 
