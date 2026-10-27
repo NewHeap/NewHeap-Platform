@@ -58,6 +58,16 @@ public static class ProjectSubjects
     {
         return projectId.ToString("D");
     }
+
+    /// <summary>
+    /// SPM-276: the scope key the resolver describes a project of the division with. The assistant
+    /// keeps a project's agent threads under it, so forgetting a deleted project names it and leaves
+    /// the threads of an equal id in another scope alone.
+    /// </summary>
+    public static string ScopeKeyOf(Guid divisionId)
+    {
+        return NhAiSubjectInfo.CreateScopeKey(null, divisionId);
+    }
 }
 
 /// <summary>
@@ -169,7 +179,7 @@ public sealed class ProjectSubjectAccessResolver(SampleProjectManagementDbContex
         Guid? ownerUserId,
         DateTimeOffset lastModified)
     {
-        return new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, divisionId))
+        return new NhAiSubjectInfo(subject, ProjectSubjects.ScopeKeyOf(divisionId))
         {
             DivisionId = divisionId,
             // Any project edit changes the version, so an approved proposal for an edited project
