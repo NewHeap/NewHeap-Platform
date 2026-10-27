@@ -78,14 +78,3 @@ that window are refused with 403 without an audit row, so the login audit stays 
 | Breaking change | Required action |
 |---|---|
 | Denied attempts beyond `LoginAttemptLimit` per `LoginAttemptWindow` no longer appear in the login audit. | None, unless monitoring counts `IpDenied` rows to measure outside traffic; count refused requests in the host's request logs instead. |
-
-## @newheap/platform-ai-chat: the impersonation refusal has a text
-
-The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include
-`assistant-not-allowed-while-impersonating`, which the server answers when an impersonation session tries
-to connect an account, allow background use or register push notifications for the impersonated person.
-The mock API's status table maps it to 403.
-
-| Breaking change | Required action |
-|---|---|
-| None. | None. |
