@@ -45,9 +45,9 @@ internal static class NhAssistantApplicationMessageRecipients
 /// its own category (<see cref="Category"/>), one group per conversation, the conversation's title and
 /// a fixed text in the recipient's language from <see cref="INhActorDirectory"/>, otherwise the
 /// current UI culture; never the message itself. Only people whom the conversation's read rule admits
-/// when the message is posted hear about it (<see cref="NhAssistantConversationReaders"/>), as its
-/// snapshot would answer them; recipients whose actor id is not a user id are skipped. It never throws:
-/// a failed notification does not fail the post.
+/// when the message is posted, and whom the platform still resolves, hear about it
+/// (<see cref="NhAssistantConversationReaders"/>), as its snapshot would answer them; recipients whose
+/// actor id is not a user id are skipped. It never throws: a failed notification does not fail the post.
 /// </summary>
 internal sealed class NhAssistantInAppApplicationMessageNotifier(
     INhAssistantStore store,
@@ -74,7 +74,7 @@ internal sealed class NhAssistantInAppApplicationMessageNotifier(
             var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
             var rule = await readers.RuleOfAsync(conversation, cancellationToken);
             var recipients = new List<NhActorRef>();
-            foreach (var actorId in await readers.ContentReadersAsync(
+            foreach (var actorId in await readers.NotificationReadersAsync(
                          rule,
                          NhAssistantApplicationMessageRecipients.Of(conversation, participants),
                          cancellationToken))

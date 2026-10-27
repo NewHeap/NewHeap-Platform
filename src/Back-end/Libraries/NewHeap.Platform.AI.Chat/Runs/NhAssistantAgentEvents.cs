@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -9,7 +10,9 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// Tells people outside a thread about agent events: it reads the subject's member snapshot,
 /// asks the notification policy for recipients and hands them to Web Push and every registered
 /// channel. The proposals of a run reach each person once per run (<see cref="NotifyProposalsAsync"/>).
-/// Shadow runs and shadow agents never notify. A failed notification never fails a run.
+/// Shadow runs and shadow agents never notify. People the platform no longer resolves, such as a
+/// deleted, blocked or locked-out account, are left out for every subject, whatever the policy picks.
+/// A failed notification never fails a run.
 /// </summary>
 internal sealed class NhAssistantAgentNotifier(
     NhAssistantRunStore runs,
@@ -18,6 +21,7 @@ internal sealed class NhAssistantAgentNotifier(
     INhAssistantAgentNotificationPolicy policy,
     IEnumerable<INhAssistantAgentNotificationChannel> channels,
     INhAssistantNotifier pushNotifier,
+    NhAssistantConversationReaders readers,
     ILogger<NhAssistantAgentNotifier> logger,
     IEnumerable<INhAssistantSystemMembers> systemMembers)
 {
@@ -375,7 +379,8 @@ internal sealed class NhAssistantAgentNotifier(
 
     /// <summary>
     /// The people the policy picks for <paramref name="context"/>, without agents and unusable ids.
-    /// Whatever the policy picks, the whole application's work reaches only people who see it.
+    /// Whatever the policy picks, the whole application's work reaches only people who see it, and no
+    /// work reaches a person the platform no longer resolves.
     /// </summary>
     private async Task<string[]> RecipientsAsync(
         NhAssistantAgentNotificationContext context,
@@ -392,7 +397,7 @@ internal sealed class NhAssistantAgentNotifier(
             recipients = await ReadersAsync(context.Subject, thread.AgentId, recipients, cancellationToken);
         }
 
-        return recipients;
+        return [.. await readers.ResolvedAsync(recipients, cancellationToken)];
     }
 
     /// <summary>

@@ -49,15 +49,19 @@ internal static class NhAssistantPlatformPrincipals
 /// Answers the recipient rules of deliveries without a request of the person with the application's
 /// principal factory, as headless runs rebuild people (<see cref="NhAssistantPlatformPrincipals"/>). A
 /// rebuilt person must pass the policy. A factory that resolves people and rebuilds nobody means the
-/// person is unknown or may no longer sign in, so they pass nothing. A host whose factory cannot tell,
-/// or an access source without a fresh context of the person, keeps delivering as before. A failing
-/// lookup passes nothing for that person and is logged.
+/// person is unknown or may no longer sign in, such as a deleted, blocked or locked-out account, so they
+/// pass nothing and are not resolved. A host whose factory cannot tell, or an access source without a
+/// fresh context of the person, keeps delivering as before. A failing lookup passes nothing for that
+/// person and is logged.
 /// </summary>
 internal sealed partial class NhAssistantPrincipalRecipientRules(
     IServiceProvider services,
     IAuthorizationService authorization,
     ILogger<NhAssistantPrincipalRecipientRules> logger) : INhAssistantRecipientRules
 {
+    /// <summary>The subject a person is resolved for, as the MCP owner sweep resolves them.</summary>
+    private static readonly NhAiSubjectInfo WholeApplication = new(NhAiSystemSubjects.Global, NhAiSubjectInfo.CreateScopeKey(null, null));
+
     public async ValueTask<bool> PassesPolicyAsync(
         string actorId,
         NhAiSubjectInfo subject,
@@ -90,6 +94,32 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The assistant could not rebuild a recipient to check a policy; nothing is delivered to that person this time.")]
+    /// <summary>
+    /// Whether the factory that resolves people (<see cref="NhAssistantPlatformPrincipals.Resolving"/>)
+    /// rebuilds the person for the whole application, the question <c>NhAssistantMcpOwnerSweep</c>
+    /// asks: an unknown person, or one who may no longer sign in, is not resolved. Without such a
+    /// factory everyone is.
+    /// </summary>
+    public async ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        var principals = NhAssistantPlatformPrincipals.Resolving(services);
+        if (principals is null)
+        {
+            return true;
+        }
+
+        try
+        {
+            return await principals.CreateAsync(actorId, WholeApplication, cancellationToken) is not null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            LogLookupFailed(logger, exception);
+            return false;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The assistant could not rebuild a recipient; nothing is delivered to that person this time.")]
     private static partial void LogLookupFailed(ILogger logger, Exception exception);
 }

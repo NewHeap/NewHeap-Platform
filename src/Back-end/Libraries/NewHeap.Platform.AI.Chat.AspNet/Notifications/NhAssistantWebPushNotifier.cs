@@ -22,7 +22,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Notifications;
 /// Notifications about a conversation reach only the people its read rule admits when they are sent
 /// (<see cref="NhAssistantConversationReaders"/>), as its snapshot would answer them: a stored
 /// participant whose role on a thread's subject ended, or who no longer passes the agent's policy,
-/// hears nothing. Failures are logged with status codes or exception types only.
+/// hears nothing, nor does a person whose account the platform deleted, blocked or locked out. Failures
+/// are logged with status codes or exception types only.
 /// </summary>
 internal sealed class NhAssistantWebPushNotifier(
     INhAssistantStore store,
@@ -247,7 +248,7 @@ internal sealed class NhAssistantWebPushNotifier(
 
     /// <summary>
     /// The recipients among <paramref name="kindsByActor"/> whom the conversation's read rule admits
-    /// now, with their kinds.
+    /// now and the platform still resolves, with their kinds.
     /// </summary>
     private async Task<IReadOnlyDictionary<string, string>> ReadersOfAsync(
         AssistantConversation conversation,
@@ -260,7 +261,7 @@ internal sealed class NhAssistantWebPushNotifier(
         }
 
         var rule = await readers.RuleOfAsync(conversation, cancellationToken);
-        var admitted = await readers.ContentReadersAsync(rule, kindsByActor.Keys, cancellationToken);
+        var admitted = await readers.NotificationReadersAsync(rule, kindsByActor.Keys, cancellationToken);
         return admitted.ToDictionary(actorId => actorId, actorId => kindsByActor[actorId], StringComparer.Ordinal);
     }
 

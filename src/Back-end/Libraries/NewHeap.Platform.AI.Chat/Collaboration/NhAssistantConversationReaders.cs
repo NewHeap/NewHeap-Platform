@@ -160,6 +160,41 @@ internal sealed class NhAssistantConversationReaders(
     }
 
     /// <summary>
+    /// The people among <paramref name="actorIds"/> who may read the conversation's content now and
+    /// whom the platform still resolves, each once, in their first order: the recipients of a
+    /// notification about the conversation, which reaches people outside any session of theirs.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> NotificationReadersAsync(
+        NhAssistantConversationReadRule rule,
+        IEnumerable<string> actorIds,
+        CancellationToken cancellationToken)
+    {
+        var readers = await ContentReadersAsync(rule, actorIds, cancellationToken);
+        return await ResolvedAsync(readers, cancellationToken);
+    }
+
+    /// <summary>
+    /// The people among <paramref name="actorIds"/> whom the platform still resolves: not those whose
+    /// account it deleted, blocked or locked out (<see cref="INhAssistantRecipientRules.IsResolvedAsync"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ResolvedAsync(
+        IEnumerable<string> actorIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actorIds);
+        var resolved = new List<string>();
+        foreach (var actorId in actorIds.Distinct(StringComparer.Ordinal))
+        {
+            if (await recipients.IsResolvedAsync(actorId, cancellationToken))
+            {
+                resolved.Add(actorId);
+            }
+        }
+
+        return resolved;
+    }
+
+    /// <summary>
     /// Whether the agent works and the person passes its required policy.
     /// </summary>
     private async ValueTask<bool> PassesAgentAsync(
@@ -217,6 +252,13 @@ internal interface INhAssistantRecipientRules
         NhAiSubjectInfo subject,
         string policy,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the platform still resolves the person: <see langword="false"/> for an unknown person and
+    /// one whose account it deleted, blocked or locked out, so that they may no longer sign in;
+    /// <see langword="true"/> when the platform cannot tell.
+    /// </summary>
+    ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -229,6 +271,11 @@ internal sealed class NhAssistantEveryoneReceives : INhAssistantRecipientRules
         NhAiSubjectInfo subject,
         string policy,
         CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(true);
+    }
+
+    public ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(true);
     }

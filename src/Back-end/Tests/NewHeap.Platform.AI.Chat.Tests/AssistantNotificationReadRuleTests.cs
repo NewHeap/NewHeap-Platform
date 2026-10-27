@@ -118,8 +118,8 @@ public sealed class AssistantNotificationReadRuleTests(AssistantDatabaseFixture 
 
         var participants = await host.ParticipantsAsync(thread.ConversationId);
         Assert.Equal(
-            [(alice, NhAssistantParticipantSources.Subject), (dana, NhAssistantParticipantSources.Invitation)],
-            participants.Select(participant => (participant.ActorId, participant.JoinedVia)).Order().ToArray());
+            new[] { (alice, NhAssistantParticipantSources.Subject), (dana, NhAssistantParticipantSources.Invitation) }.Order(),
+            participants.Select(participant => (participant.ActorId, participant.JoinedVia)).Order());
         Assert.DoesNotContain(participants, participant => participant.ActorId == bob);
     }
 
