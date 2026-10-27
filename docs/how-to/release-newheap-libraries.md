@@ -34,38 +34,14 @@ unit version; their Common dependency retains the independently published
 `nuget-common` version. Local development uses the Common project, while release
 packaging restores the central public Common package version.
 
-The public repository, `@newheap` npm scope, NuGet.org `NewHeap` owner, branch protection, immutable GitHub Releases, publication environments, and trusted-publisher identities are already established. They are release infrastructure, not steps to repeat before an ordinary release.
+The public repository, `@newheap` npm scope, NuGet.org `NewHeap` owner, branch protection, immutable GitHub Releases, and trusted-publisher identities are already established. They are release infrastructure, not steps to repeat before an ordinary release.
 
-- Stable registry publication runs only in the `publish` job of `publish-release.yml`, which uses the GitHub environment `public-package-release`. Only that job may request an OIDC token, so the token that nuget.org and npm accept carries the environment claim `public-package-release`. The release-branch checks in the workflow files run from the dispatched ref; the environment's protection is what GitHub enforces outside them.
-- npm trusted publishers are configured per package for `NewHeap/NewHeap-Platform`, the top-level calling workflow `prepare-release.yml` and the environment `public-package-release`. Existing packages should disallow traditional publication tokens after OIDC has been verified.
-- The NuGet.org owner policy for stable releases trusts `NewHeap/NewHeap-Platform`, `publish-release.yml` and the environment `public-package-release`; repository variable `NUGET_USER` contains the NuGet.org profile name, not an email address.
+- npm trusted publishers are configured per package for `NewHeap/NewHeap-Platform` and the top-level calling workflow `prepare-release.yml`. Existing packages should disallow traditional publication tokens after OIDC has been verified.
+- The NuGet.org owner policy trusts `NewHeap/NewHeap-Platform` and `publish-release.yml`; repository variable `NUGET_USER` contains the NuGet.org profile name, not an email address.
 - Optional public previews use the separate `publish-preview.yml` policy and protected `public-package-preview` environment.
-- Publication jobs require `id-token: write`; external Actions remain pinned to full commit SHAs. `npm run release:test` fails when a publisher workflow lets any job other than `publish` request an OIDC token, or runs `publish` outside its environment.
+- Publication jobs require `id-token: write`; external Actions remain pinned to full commit SHAs.
 
 Treat changes to these identities, policies, or protections as security-sensitive administration. If authentication fails, stop and repair the workflow-policy match. Never bypass it with a permanent registry token.
-
-### Publication environments
-
-Both environments are configured under the repository's **Settings > Environments**:
-
-| Setting | `public-package-release` | `public-package-preview` |
-|---|---|---|
-| Deployment branches and tags | Selected branches only: the branch rule `main`, no tag rules | Selected branches only: the branch rule `main`, no tag rules |
-| Required reviewers | The release maintainers | The release maintainers |
-| Allow administrators to bypass configured protection rules | Off | Off |
-| Environment secrets and variables | None; publication uses OIDC | None; publication uses OIDC |
-
-The deployment branch rule rejects a run of a same-named workflow file from any other branch or from a pull request before GitHub starts the job, so such a run never receives a token with the environment claim. Required reviewers also cover a commit that reaches `main` without the release contract, such as a direct push or a workflow token that may update `main`. GitHub creates an environment without protection when a workflow first names one that does not exist, so configure an environment before a workflow uses it.
-
-The registry policies must name the environment exactly:
-
-| Registry policy | Repository owner | Repository | Workflow file | Environment |
-|---|---|---|---|---|
-| nuget.org Trusted Publishing, owner `NewHeap`, stable | `NewHeap` | `NewHeap-Platform` | `publish-release.yml` | `public-package-release` |
-| nuget.org Trusted Publishing, owner `NewHeap`, previews | `NewHeap` | `NewHeap-Platform` | `publish-preview.yml` | `public-package-preview` |
-| npm Trusted Publisher of each `@newheap` package (GitHub Actions) | `NewHeap` | `NewHeap-Platform` | `prepare-release.yml` | `public-package-release` |
-
-Change the environment name in the workflow, in `publicationEnvironments` of `tools/release/lib.mjs` and in every policy together. Otherwise the next release fails at registry sign-in.
 
 ## Add a new package name
 
@@ -73,7 +49,7 @@ This section applies only when `release/manifest.json` gains a NuGet ID or npm n
 
 1. Verify the exact public name is available or already controlled by NewHeap before merging the manifest change. Keep package metadata, repository URLs, licensing, and release-unit membership reviewable as normal source changes.
 2. Confirm the established owner or trusted-publisher policy covers the new target. npm trusted publishing is package-specific, while the NuGet policy is owned by the `NewHeap` account.
-3. A brand-new npm package may need one exceptional bootstrap publication because its package settings do not exist yet. If so, use a reviewed, temporary main-only workflow and a short-lived granular token scoped to that single public package. Package and verify it through the normal tooling, then immediately configure its trusted publisher for `prepare-release.yml` and the environment `public-package-release`, disallow traditional publication tokens, delete the secret and workflow, and revoke the token.
+3. A brand-new npm package may need one exceptional bootstrap publication because its package settings do not exist yet. If so, use a reviewed, temporary main-only workflow and a short-lived granular token scoped to that single public package. Package and verify it through the normal tooling, then immediately configure its trusted publisher for `prepare-release.yml`, disallow traditional publication tokens, delete the secret and workflow, and revoke the token.
 4. Release the owning unit with **Prepare release** and an appropriate SemVer bump. Adding a new package name does not by itself require a major bump: use patch or minor during rapid development when the existing packages remain compatible, and reserve major for an actual breaking contract. Never add new package membership to a unit version that has already been published, and never use `all` merely to test a new registry identity.
 
 No bootstrap credential or temporary publication workflow may remain in the established repository.
@@ -86,14 +62,12 @@ Run **Publish preview packages**. Leave `publish` disabled to create a 14-day wo
 
 Do not edit unit version fields in `release/manifest.json`, `guidance/version.json` or the plugin manifest in a feature branch. They stay on the last published version while guidance generation updates only content hashes, package compatibility metadata and content that actually changed. Structural release-manifest changes remain reviewable as ordinary feature work. The generated consumer references route through one release-pinned immutable-evidence catalog instead of embedding the version in every file.
 
-1. Run **Prepare release** on `main`; select one unit or `all` and a `patch`, `minor`, or `major` bump. This selection and the deployment approval in step 4 are the only normal manual release actions.
+1. Run **Prepare release** on `main`; select one unit or `all` and a `patch`, `minor`, or `major` bump. This selection is the only normal manual release action.
 2. The workflow validates release tooling, guidance, executable samples, change impact, and the public API snapshot. It computes and writes every coupled version, refreshes the immutable-evidence catalog, and creates one generated release commit. The coupled versions include the versions that the package locks in `linkedPackageLocks` of `tools/release/lib.mjs`, such as the SampleProjectManagement front end, record for the npm packages they link from source; `npm run release:test` fails when such a lock differs from the package versions.
 3. The release contract fast-forwards unchanged `main` to that exact commit and invokes the publisher for the validated SHA.
-4. The publisher's `publish` job waits for a required reviewer to approve its `public-package-release` deployment. Check that the run was started from `main` for the expected unit and commit before approving. The job then packs immutable artifacts, obtains short-lived registry credentials through OIDC, pushes the selected packages, and verifies the exact public versions anonymously with bounded retries.
+4. The publisher packs immutable artifacts, obtains short-lived registry credentials through OIDC, pushes the selected packages, and verifies the exact public versions anonymously with bounded retries.
 5. Finalization publishes only complete GitHub Release drafts containing package artifacts and `SHA256SUMS`.
-6. After a successful individual NuGet or npm release, the top-level workflow queues a separate plugin patch release so its immutable artifact records the new `compatiblePackages`. That run asks for its own `public-package-release` approval. A plugin release never queues itself, and `all` already includes the plugin.
-
-`main` already contains the release commit while the deployment waits for approval. If the review is rejected, nothing is packed or published; use **Re-run failed jobs** on that run, which GitHub allows for 30 days after the run started, to ask for approval again for the same commit. After that, or when a pending review expires, a new **Prepare release** publishes the next version and the skipped version stays unpublished.
+6. After a successful individual NuGet or npm release, the top-level workflow queues a separate plugin patch release so its immutable artifact records the new `compatiblePackages`. A plugin release never queues itself, and `all` already includes the plugin.
 
 If registry publication succeeds but finalization is interrupted, run **Finalize pending release** for the current unit or `all`. Recovery never bumps or republishes; it verifies the current public versions, commit, artifacts, and checksums before publishing drafts.
 
