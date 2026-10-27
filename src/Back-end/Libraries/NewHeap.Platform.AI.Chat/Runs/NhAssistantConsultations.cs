@@ -439,6 +439,14 @@ internal sealed class NhAssistantConsultationService(
                 "The consultation would nest deeper than allowed or ask an agent that is already asking.");
         }
 
+        // Shadow work never reaches a live agent: a run in shadow consults nobody, as it hands off to no
+        // live agent, and an agent in shadow answers nobody (below). Nothing is recorded, proposed or
+        // notified for it.
+        if (asking is { ShadowRun: true })
+        {
+            return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "A run in shadow consults no agent.");
+        }
+
         var timeout = Timeout(options, NhAssistantExecutionScope.CurrentTurn);
         if (timeout < TimeSpan.FromSeconds(1))
         {

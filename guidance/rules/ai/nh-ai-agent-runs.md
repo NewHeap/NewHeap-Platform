@@ -761,7 +761,10 @@ in the shadow thread takes its events, and `use_skill` in a live thread does not
 that started finish in the mode they started in; a run still queued when the mode changes starts in
 the new one, and waiting events move along when they resume. The live thread, its open proposals
 and people's chat in it stay as they are, but only administrators start an agent in shadow by
-hand, and consultations and requests are refused. A shadow variant always works in shadow
+hand, and consultations and requests are refused. Shadow work never reaches a live agent: a run in a
+shadow thread that calls a consult or request tool is refused with `assistant-consult-agent-unavailable`,
+as a hand-off to a live agent is, so it records no consultation, leaves no proposal for the subject's
+approvers, notifies nobody and starts no run. A shadow variant always works in shadow
 (`assistant-shadow-variant`). `SetServiceAccountAsync(agentId, actorId | null)` lets another
 technical account answer for an agent that answers to one in code (`ServiceAccount(actorId)`
 stays the default; `assistant-service-account-not-used` otherwise). The account must exist and be
@@ -2356,7 +2359,9 @@ with `assistant-agent-forbidden` and leave no consultation, run or input, that s
 override is served, and that a consultation with its own asker policy keeps admitting its askers.
 Assert that an agent of the whole application with a `ViewPolicy` refuses the consultation to a reader
 of the whole application who fails it, with `assistant-consult-subject-unavailable`, before a
-consultation is recorded or its model runs, and serves someone who passes it.
+consultation is recorded or its model runs, and serves someone who passes it. Run a delegating agent
+whose new data trigger is still in shadow and assert that its consult and request calls of a live agent
+are refused, and that the live agent gets no consultation, thread, proposal or run.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an

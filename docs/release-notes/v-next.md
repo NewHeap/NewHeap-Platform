@@ -282,3 +282,15 @@ subject types are unchanged.
 | Breaking change | Required action |
 |---|---|
 | A consultation of an agent about the whole application answers `assistant-consult-subject-unavailable` to an asker who fails the agent's view policy. | None; give the people who consult such an agent its view policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow runs consult and request no live agent
+
+A run in an agent's shadow thread that calls the generated consult or request tool of another agent is
+now refused with `assistant-consult-agent-unavailable`, as a hand-off from shadow work to a live agent
+already is. The consulted agent records no consultation in its live thread, leaves no proposal for its
+subject's approvers, notifies nobody and starts no run, so evaluating an agent in shadow, a new data
+trigger included, never changes live work. Runs in live threads and people's own chats are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| The consult and request tools refuse a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult and request other agents. |

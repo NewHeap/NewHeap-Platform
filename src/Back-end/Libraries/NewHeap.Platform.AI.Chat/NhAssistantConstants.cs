@@ -1213,7 +1213,8 @@ public static class NhAssistantErrorCodes
     public const string ConsultSubjectUnavailable = "assistant-consult-subject-unavailable";
 
     /// <summary>
-    /// The consulted agent is disabled, in shadow mode or cannot hold a thread for the subject.
+    /// The consulted agent is disabled, in shadow mode or cannot hold a thread for the subject, or the
+    /// asking run works in shadow, whose work never reaches a live agent.
     /// </summary>
     public const string ConsultAgentUnavailable = "assistant-consult-agent-unavailable";
 

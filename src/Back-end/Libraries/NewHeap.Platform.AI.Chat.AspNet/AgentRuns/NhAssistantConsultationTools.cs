@@ -607,8 +607,10 @@ internal sealed class NhAssistantConsultationToolHandler(
         {
             return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable);
         }
-        // An agent in shadow takes no requests: its work stays with administrators.
-        if (await services.GetRequiredService<NhAssistantShadowModes>().IsAgentShadowAsync(options.AgentId, cancellationToken))
+        // An agent in shadow takes no requests: its work stays with administrators. A run in shadow asks
+        // for none either: shadow work never starts live work, as for a hand-off.
+        if (NhAssistantExecutionScope.CurrentTurn is { ShadowRun: true }
+            || await services.GetRequiredService<NhAssistantShadowModes>().IsAgentShadowAsync(options.AgentId, cancellationToken))
         {
             return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultAgentUnavailable);
         }
