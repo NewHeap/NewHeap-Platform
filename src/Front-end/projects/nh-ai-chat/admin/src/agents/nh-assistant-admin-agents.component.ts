@@ -82,7 +82,11 @@ interface StateChange {
 const maxStateReason = 500;
 
 /** Refusals of a technical account that concern the account field itself. */
-const accountRefusals = new Set(['assistant-service-account-not-found', 'assistant-service-account-not-used']);
+const accountRefusals = new Set([
+  'assistant-service-account-not-found',
+  'assistant-service-account-not-permitted',
+  'assistant-service-account-not-used'
+]);
 
 /** The run catalog as `load` reads it: the catalog, or why it could not be read. */
 interface CatalogRead {

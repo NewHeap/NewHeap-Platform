@@ -467,6 +467,7 @@
       "assistant-not-shadow-variant": "Only a shadow variant created here can be promoted onto its live agent.",
       "assistant-service-account-not-used": "This agent does not answer to a technical account.",
       "assistant-service-account-not-found": "No account that may sign in exists with this id.",
+      "assistant-service-account-not-permitted": "You may not let the agent work with this account: it would lend the agent rights you do not have.",
       "assistant-skill-in-code": "This skill is part of the code and cannot change here.",
       "assistant-trigger-in-code": "This trigger is part of the code and cannot change here.",
       "assistant-trigger-filter-not-found": "The event has no filter with this name. Choose from the filters the event offers.",

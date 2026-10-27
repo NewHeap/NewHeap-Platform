@@ -300,3 +300,20 @@ message, keep their rights.
 |---|---|
 | A delegating agent's turn that also answers another person's message calls tools only with the agent's grants or accountable rights; a gateway read there falls back to them as well. | None; the other person's message gets an answer within the agent's own rights, or that person starts the agent. |
 | An earlier file of another person that nobody read with that person's rights is not opened in a later turn of someone else. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: only a person who may act for an account binds it to an agent
+
+The account an agent answers to lends its rights to the agent's headless runs. Setting it
+(`SetServiceAccountAsync`, `POST admin/agents/{id}/service-account`), naming it in an agent's run settings
+(`SaveRunSettingsAsync`, `PUT admin/agents/{id}/run-settings`) and in a package import
+(`NhAssistantAgentPackageImportOptions.ServiceAccounts`) now requires that the person may act for it: the
+account is that person, it is the agent's account in code, the person holds the platform permission
+`nh.platform.auth.impersonate.allowed`, or the person passes every authorization policy of the agent's tools
+that the account passes, evaluated against the agent without a division. The person is the request's user,
+or the principal `INhAiPrincipalFactory` rebuilds; a change by application code with a technical actor id
+that the factory does not know is the application's own decision, as before. Saving an account that is
+already bound again checks only that it still exists.
+
+| Breaking change | Required action |
+|---|---|
+| Binding an account that would lend the agent rights the administrator does not hold is refused with `403 assistant-service-account-not-permitted` (`NhAssistantErrorCodes.ServiceAccountNotPermitted`); the import refuses the part. | Let an administrator who holds the account's rights, or who may act as any user, bind it, or bind it from the application's code. |

@@ -953,6 +953,13 @@ public static class NhAssistantErrorCodes
     public const string ServiceAccountNotFound = "assistant-service-account-not-found";
 
     /// <summary>
+    /// The person who binds the account an agent answers to may not act for it: the account would lend
+    /// the agent rights to its tools that the person does not hold. The person themself, the agent's
+    /// account in code and an account without such rights may always be bound.
+    /// </summary>
+    public const string ServiceAccountNotPermitted = "assistant-service-account-not-permitted";
+
+    /// <summary>
     /// The skill is declared in code; only skills defined as data change at runtime.
     /// </summary>
     public const string SkillInCode = "assistant-skill-in-code";

@@ -765,7 +765,17 @@ allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-acco
 `UsePrincipalsFromAccessSource` the access source must return a fresh context for it.
 New runs and the agent's threads answer to it; runs that started and the proposals they made keep
 the account they were made with. The account lends its rights to gateway reads: choose one with
-no more rights than the agent needs.
+no more rights than the agent needs. Only a person who may act for the account binds it, here, in
+an agent's run settings and in a package import: the account is that person, the agent's account in
+code, the person may act as any user (the platform permission `nh.platform.auth.impersonate.allowed`),
+or the person holds the account's rights to the agent's tools as well, that is every authorization
+policy of the agent's tools that the account passes, evaluated against the agent without a division,
+so a right the account holds only in a division is not compared. Otherwise the change is refused
+with `403 assistant-service-account-not-permitted`
+and nothing changes; saving an account that is already bound again checks only that it still exists.
+The person is the request's user when they sent the request, otherwise the principal
+`INhAiPrincipalFactory` rebuilds; application code that binds with a technical actor id, which the
+factory knows as no person, decides on its own.
 
 Add skills and triggers to an agent configured in code as data, without a deploy, when an
 application manages them in screens or imports them from packages. Code registers the building

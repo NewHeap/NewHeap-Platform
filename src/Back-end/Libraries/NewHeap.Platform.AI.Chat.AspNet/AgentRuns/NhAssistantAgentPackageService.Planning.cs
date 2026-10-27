@@ -449,9 +449,20 @@ internal sealed partial class NhAssistantAgentPackageService
             part.Refuse(refused);
             return;
         }
-        if (serviceAccount is not null && !await Configuration.AccountExistsAsync(agent.Id, serviceAccount, cancellationToken))
+        // The importing person names the account its runs act with, so they must be able to act for
+        // it, as when the run settings are saved; the tools are the package's, else the host's.
+        if (serviceAccount is not null
+            && await Configuration.CheckAccountAsync(
+                agent.Id,
+                agent.Source.Definition?.ToolSelectors
+                    ?? (await catalog.FindAsync(agent.Id, includeDisabled: true, cancellationToken))?.Definition.ToolSelectors
+                    ?? [],
+                serviceAccount,
+                actorId,
+                bound: string.Equals(current?.ServiceAccountActorId, serviceAccount, StringComparison.Ordinal),
+                cancellationToken) is { Success: false } notPermitted)
         {
-            part.Refuse(TaskResult.Failed(NhAssistantErrorCodes.ServiceAccountNotFound, "No account that may sign in exists with that id."));
+            part.Refuse(notPermitted);
             return;
         }
 
