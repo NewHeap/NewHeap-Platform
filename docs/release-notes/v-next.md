@@ -272,3 +272,14 @@ the value was inserted as markup. The script text still parses to the same value
 | Breaking change | Required action |
 |---|---|
 | The JSON-LD script text holds `\u003c` instead of `<`, and escapes U+2028 and U+2029. | None, unless a test compares the script's raw text; compare the parsed JSON instead. |
+
+## @newheap/platform-common: stripHtml parses in an inert document
+
+`NhMetaService.stripHtml` now parses its input in a document without a browsing context, created
+with `DOMParser` (or, where that is missing as in a server render, by the application document's
+`implementation`), instead of in an element of the application's document. Images in the markup
+no longer load and their inline event handlers no longer run; the returned text is the same.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |

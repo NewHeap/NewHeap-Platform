@@ -262,9 +262,11 @@ export class PlatformPlaygroundComponent {
   applySeo(): void {
     this.clearSeo();
     this.titleService.setTitle('Sample Project Management | NewHeap');
+    // A description often starts as rich text. stripHtml returns its text and parses the markup in an
+    // inert document, so nothing in it loads or runs.
     this.metaService.updateTag({
       name: 'description',
-      content: 'Executable examples for the NewHeap Platform libraries.'
+      content: this.metaService.stripHtml('<p>Executable examples for the <strong>NewHeap Platform</strong> libraries.</p>')
     });
     this.headService.addLinkTag(
       'canonical',

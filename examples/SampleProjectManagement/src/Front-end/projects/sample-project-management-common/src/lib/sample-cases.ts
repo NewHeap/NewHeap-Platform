@@ -2144,12 +2144,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-151",
     "title": "Title, metadata, and head",
     "category": "Utilities, SEO, SSR, and observability",
-    "surface": "services/directive",
-    "outcome": "Title, description, and canonical URL change.",
+    "surface": "services/directive; NhMetaService.stripHtml",
+    "outcome": "Title, description, and canonical URL change. The description is the text of rich-text markup from `NhMetaService.stripHtml`, which parses the markup in an inert document, so its images never load and its inline handlers never run.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-meta.service.spec.ts"
     ]
   },
   {

@@ -740,11 +740,15 @@ explicit; the library's interceptor spec proves the matching rule.
 
 The platform playground sets the title, the description and a canonical link
 (SPM-151) and builds JSON-LD with `NhJsonLdService`, review placeholder keys and
-`<nh-json-ld nhToHead>` (SPM-152). Review text is written by people, so the
-sample's review body contains markup such as `</SCRIPT>`. `nh-json-ld` writes
-every `<` in the serialized JSON as a JSON unicode escape and escapes the line
-and paragraph separators, so that text stays data inside the one
-structured-data script element and parses back unchanged.
+`<nh-json-ld nhToHead>` (SPM-152). The description starts as rich text:
+`NhMetaService.stripHtml` returns its text and parses the markup in an inert
+document, so images in it never load and inline handlers never run.
+
+Review text is written by people, so the sample's review body contains markup
+such as `</SCRIPT>`. `nh-json-ld` writes every `<` in the serialized JSON as a
+JSON unicode escape and escapes the line and paragraph separators, so that text
+stays data inside the one structured-data script element and parses back
+unchanged.
 
 ## Backend configuration for runtime and automation
 

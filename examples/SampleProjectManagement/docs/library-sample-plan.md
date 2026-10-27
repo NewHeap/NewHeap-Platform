@@ -233,7 +233,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-148 | Custom form control | value accessor/provider | Reactive forms and disabled state work. |
 | SPM-149 | Cookies | cookie service | Consent can be set, read, and deleted. |
 | SPM-150 | Internet status | connection service | The offline banner and reconnect retry work. |
-| SPM-151 | Title, metadata, and head | services/directive | Title, description, and canonical URL change. |
+| SPM-151 | Title, metadata, and head | services/directive; `NhMetaService.stripHtml` | Title, description, and canonical URL change. The description is the text of rich-text markup from `NhMetaService.stripHtml`, which parses the markup in an inert document, so its images never load and its inline handlers never run. |
 | SPM-152 | JSON-LD | service/component/keys | Valid structured data appears in the document head. A review body with markup such as `</SCRIPT>` stays data inside the one structured-data script element and parses back unchanged. |
 | SPM-153 | Breadcrumb and sitemap | page/app/router metadata | Both derive from the same route configuration. |
 | SPM-154 | Loader and error boundary | components/handlers | Loading, empty, and error states are separate. |
