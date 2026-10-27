@@ -2,14 +2,19 @@
 // to the naming its SQL Server filter relies on.
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
   angularTestArguments,
+  buildsThroughSolution,
+  checkoutKey,
   defaultMaxParallel,
   dotnetTestArguments,
+  durationsFilePath,
   failedSpecs,
   isTestProject,
   jobReport,
@@ -27,9 +32,19 @@ import {
   sqlServerFlagParameters,
   summaryLines,
   testableFrontEndLibraries,
+  solutionOf,
   testPlan,
-  typicalTestSeconds
+  typicalTestSeconds,
+  validDurations
 } from './affected-lib.mjs';
+import {
+  createRunFolder,
+  readDurations,
+  removeRunFolder,
+  solutionFileName,
+  writeDurations,
+  writeSolution
+} from './affected-state.mjs';
 
 const common = 'src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj';
 const chat = 'src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NewHeap.Platform.AI.Chat.csproj';
@@ -360,4 +375,96 @@ scanTests(join(repositoryRoot, 'src/Back-end/Tests'));
 scanTests(join(repositoryRoot, 'examples/SampleProjectManagement/src/Back-end/Tests'));
 assert.deepEqual(flagged, [], 'Name the provider of these tests instead of a SQL Server flag; see "Test project ownership" in AGENTS.md.');
 
-console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers, their test processes, provider names in tests, the single build, the bounded slowest-first schedule and its reports.');
+// The durations live in the user's own cache folder, never in the shared temp folder; a variable that
+// is missing or relative falls back to the home folder.
+const windowsKey = checkoutKey('C:\\Repo');
+assert.equal(windowsKey, checkoutKey('c:\\repo'));
+assert.equal(
+  durationsFilePath({ platform: 'win32', env: { LOCALAPPDATA: 'D:\\Profiles\\dev\\Local' }, home: 'C:\\Users\\dev', repositoryRoot: 'C:\\Repo' }),
+  `D:\\Profiles\\dev\\Local\\newheap\\test-affected\\${windowsKey}\\durations.json`);
+assert.equal(
+  durationsFilePath({ platform: 'win32', env: {}, home: 'C:\\Users\\dev', repositoryRoot: 'C:\\Repo' }),
+  `C:\\Users\\dev\\AppData\\Local\\newheap\\test-affected\\${windowsKey}\\durations.json`);
+const posixKey = checkoutKey('/work/repo');
+assert.equal(
+  durationsFilePath({ platform: 'linux', env: { XDG_CACHE_HOME: '/home/dev/.cache-xdg' }, home: '/home/dev', repositoryRoot: '/work/repo' }),
+  `/home/dev/.cache-xdg/newheap/test-affected/${posixKey}/durations.json`);
+for (const env of [{}, { XDG_CACHE_HOME: 'relative/cache' }, { TMPDIR: '/tmp' }]) {
+  assert.equal(
+    durationsFilePath({ platform: 'linux', env, home: '/home/dev', repositoryRoot: '/work/repo' }),
+    `/home/dev/.cache/newheap/test-affected/${posixKey}/durations.json`);
+}
+assert.equal(
+  durationsFilePath({ platform: 'darwin', env: {}, home: '/Users/dev', repositoryRoot: '/work/repo' }),
+  `/Users/dev/.cache/newheap/test-affected/${posixKey}/durations.json`);
+// Only seconds of test projects count; anything else in the file is left out.
+assert.deepEqual(
+  validDurations({ [commonTests]: 12, [chatTests]: -1, [mediaTests]: '9', 'not-a-project': 5, [`${commonTests}x`]: 3 }),
+  { [commonTests]: 12 });
+assert.deepEqual(validDurations([12]), {});
+assert.deepEqual(validDurations(null), {});
+assert.equal(buildsThroughSolution([commonTests]), false);
+assert.equal(buildsThroughSolution([commonTests, chatTests]), true);
+
+// Concurrent runs and other local accounts cannot interfere: earlier versions wrote the solution and
+// the durations into a folder with a predictable name in the shared temp folder, which another account
+// could create first and fill with links to files it wants overwritten. Each run now writes its
+// solution into a new private folder of its own, as a new file, and leaves such a folder alone.
+const sandbox = await mkdtemp(join(tmpdir(), 'newheap-test-affected-lib-'));
+try {
+  const planted = join(sandbox, 'newheap-test-affected', checkoutKey(repositoryRoot));
+  await mkdir(planted, { recursive: true });
+  const victims = { [solutionFileName]: join(sandbox, 'victim-solution.txt'), 'durations.json': join(sandbox, 'victim-durations.txt') };
+  for (const [name, victim] of Object.entries(victims)) {
+    await writeFile(victim, `original ${name}`, 'utf8');
+    try {
+      await symlink(victim, join(planted, name), 'file');
+    } catch {
+      // Windows without the symbolic-link privilege: a planted file stands in for the link.
+      await writeFile(join(planted, name), 'planted', 'utf8');
+    }
+  }
+
+  const firstRun = await createRunFolder(sandbox);
+  const secondRun = await createRunFolder(sandbox);
+  assert.notEqual(firstRun, secondRun);
+  for (const runFolder of [firstRun, secondRun]) {
+    assert.equal(dirname(runFolder), sandbox);
+    assert.match(basename(runFolder), /^newheap-test-affected-.{6}$/);
+    assert.deepEqual(await readdir(runFolder), []);
+    if (process.platform !== 'win32') {
+      assert.equal((await stat(runFolder)).mode & 0o777, 0o700);
+    }
+  }
+
+  const solution = join(firstRun, solutionFileName);
+  await writeSolution(solution, solutionOf(['/work/repo/A.Tests.csproj']));
+  assert.equal(await readFile(solution, 'utf8'), solutionOf(['/work/repo/A.Tests.csproj']));
+  if (process.platform !== 'win32') {
+    assert.equal((await stat(solution)).mode & 0o777, 0o600);
+  }
+  // The write never follows or replaces what is already there, a planted link included.
+  await assert.rejects(writeSolution(solution, 'replaced'), { code: 'EEXIST' });
+  await assert.rejects(writeSolution(join(planted, solutionFileName), 'replaced'), { code: 'EEXIST' });
+
+  const durations = join(sandbox, 'cache', 'newheap', 'test-affected', 'checkout', 'durations.json');
+  assert.deepEqual(await readDurations(durations), {});
+  await writeDurations(durations, { [commonTests]: 3 });
+  await writeDurations(durations, { [commonTests]: 4, [chatTests]: 40 });
+  assert.deepEqual(await readDurations(durations), { [commonTests]: 4, [chatTests]: 40 });
+  assert.deepEqual(await readdir(dirname(durations)), ['durations.json'], 'No partly written durations stay behind.');
+  if (process.platform !== 'win32') {
+    assert.equal((await stat(dirname(durations))).mode & 0o777, 0o700);
+  }
+
+  await removeRunFolder(firstRun);
+  await removeRunFolder(secondRun);
+  assert.deepEqual((await readdir(sandbox)).sort(), ['cache', 'newheap-test-affected', 'victim-durations.txt', 'victim-solution.txt']);
+  for (const [name, victim] of Object.entries(victims)) {
+    assert.equal(await readFile(victim, 'utf8'), `original ${name}`);
+  }
+} finally {
+  await rm(sandbox, { recursive: true, force: true });
+}
+
+console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers, their test processes, provider names in tests, the single build, the bounded slowest-first schedule, its reports, and run state kept in private run folders and the user\'s cache.');

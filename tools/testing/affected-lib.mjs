@@ -1,6 +1,8 @@
 // Pure helpers of `npm run test:affected`: which test projects and front-end libraries a change
 // reaches, whether it needs both database providers, and how the build and test jobs are planned,
 // started and reported. Kept free of I/O so they can be tested.
+import { createHash } from 'node:crypto';
+import { posix, win32 } from 'node:path';
 
 /** Normalizes a repository-relative path to forward slashes without a leading `./`. */
 export function normalizePath(path) {
@@ -298,6 +300,48 @@ export function solutionOf(projectPaths) {
   return ['<Solution>', ...projectPaths.map(path => `  <Project Path="${escape(path)}" />`), '</Solution>', ''].join('\n');
 }
 
+/** Whether the build goes through a generated solution: it does for more than one test project. */
+export function buildsThroughSolution(testProjects) {
+  return testProjects.length > 1;
+}
+
+/** A short key of one checkout, so that worktrees keep their durations apart. */
+export function checkoutKey(repositoryRoot) {
+  return createHash('sha256').update(repositoryRoot.toLowerCase()).digest('hex').slice(0, 12);
+}
+
+/**
+ * Where the durations of the last runs of one checkout are kept: in the user's own cache folder,
+ * `%LOCALAPPDATA%` on Windows and `$XDG_CACHE_HOME` or `~/.cache` elsewhere, never in the shared temp
+ * folder, where another local account could create the folder first. A missing or relative variable
+ * falls back to the home folder.
+ * @param {{ platform: string, env: Record<string, string | undefined>, home: string, repositoryRoot: string }} options
+ */
+export function durationsFilePath({ platform, env, home, repositoryRoot }) {
+  const paths = platform === 'win32' ? win32 : posix;
+  const configured = platform === 'win32' ? env.LOCALAPPDATA : env.XDG_CACHE_HOME;
+  const cacheRoot = configured && paths.isAbsolute(configured)
+    ? configured
+    : platform === 'win32'
+      ? paths.join(home, 'AppData', 'Local')
+      : paths.join(home, '.cache');
+  return paths.join(cacheRoot, 'newheap', 'test-affected', checkoutKey(repositoryRoot), 'durations.json');
+}
+
+/**
+ * The durations of a parsed durations file: test project paths with their seconds. Anything else in
+ * the file is left out, and a file that holds no object gives none.
+ * @returns {Record<string, number>}
+ */
+export function validDurations(parsed) {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {};
+  }
+
+  return Object.fromEntries(Object.entries(parsed)
+    .filter(([project, seconds]) => project.endsWith('.csproj') && Number.isFinite(seconds) && seconds >= 0));
+}
+
 /**
  * Everything `npm run test:affected` runs, as jobs in the order they start. The first job builds
  * every affected .NET test project once; the test jobs need it and run with `--no-build`, so
@@ -328,7 +372,7 @@ export function testPlan({
   previousSeconds = {},
   windowsShell = false
 }) {
-  const throughSolution = testProjects.length > 1;
+  const throughSolution = buildsThroughSolution(testProjects);
   const root = normalizePath(repositoryRoot).replace(/\/$/, '');
   const single = (name, lane, command, args, cwd) => ({ name, lane, processes: [{ label: name, command, args, cwd }] });
   const build = testProjects.length === 0
