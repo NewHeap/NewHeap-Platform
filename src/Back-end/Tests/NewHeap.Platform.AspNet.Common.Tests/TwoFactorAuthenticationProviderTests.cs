@@ -185,6 +185,75 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.Equal(0, await stack.CountRefreshTokensAsync(lockoutDisabled.Id));
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task StoredRecoveryCodeEntriesRedeemNothingOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider);
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("recovery-entries@example.test");
+        await stack.EnrollAsync(user, environment);
+        var storedEntries = (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';');
+        Assert.Equal(10, storedEntries.Length);
+
+        // A stored entry completes no challenge, as it is, in capitals or padded, and counts as a
+        // failed attempt.
+        string[] presentedEntries = [storedEntries[0], storedEntries[1].ToUpperInvariant(), $"  {storedEntries[2]}  "];
+        for (var attempt = 0; attempt < presentedEntries.Length; attempt++)
+        {
+            var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+            AssertFailure(
+                await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+                {
+                    ChallengeToken = challenge.ChallengeToken,
+                    Method = NhTwoFactorMethods.RecoveryCode,
+                    Code = presentedEntries[attempt],
+                }),
+                NhTwoFactorFailureCodes.InvalidCode);
+
+            user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            Assert.Equal(attempt + 1, await stack.UserManager.GetAccessFailedCountAsync(user));
+        }
+
+        // Nor does it pass the reauthentication of a sensitive change.
+        AssertFailure(
+            await stack.TwoFactor.RegenerateRecoveryCodesAsync(
+                user,
+                new NhTwoFactorReauthentication { Method = NhTwoFactorMethods.RecoveryCode, Code = storedEntries[3] },
+                user.Id),
+            NhTwoFactorFailureCodes.ReauthenticationFailed);
+
+        Assert.Equal(10, await stack.UserManager.CountRecoveryCodesAsync(user));
+        Assert.Equal(storedEntries, (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(user.Id));
+
+        // A plaintext code stored before NewHeap hashed recovery codes still redeems, once.
+        const string legacyCode = "7KQ2M-PX4RB";
+        await stack.ReplaceStoredRecoveryCodesAsync(user.Id, [legacyCode, .. storedEntries[1..]]);
+
+        var legacyChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        var redeemed = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = legacyChallenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = legacyCode,
+        });
+        Assert.True(redeemed.Success, string.Join("; ", redeemed.AllErrorMessages));
+        Assert.NotNull(redeemed.Data!.Session);
+        Assert.Equal(9, await stack.UserManager.CountRecoveryCodesAsync(user));
+
+        var reusedChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = reusedChallenge.ChallengeToken,
+                Method = NhTwoFactorMethods.RecoveryCode,
+                Code = legacyCode,
+            }),
+            NhTwoFactorFailureCodes.InvalidCode);
+    }
+
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
@@ -1125,6 +1194,9 @@ public sealed class TwoFactorAuthenticationProviderTests
 
     private sealed class TwoFactorStack : IDisposable
     {
+        /// <summary>The name Identity's user store keeps the recovery codes under.</summary>
+        private const string RecoveryCodesTokenName = "RecoveryCodes";
+
         private readonly ServiceProvider _serviceProvider;
         private readonly RoleManager<NhUserRole> _roleManager;
         private readonly IOptions<IdentityOptions> _identityOptions;
@@ -1271,6 +1343,31 @@ public sealed class TwoFactorAuthenticationProviderTests
         internal Task<int> CountRefreshTokensAsync(Guid userId)
         {
             return Context.Set<NhUserAuthRefreshToken>().CountAsync(x => x.UserId == userId);
+        }
+
+        /// <summary>
+        /// The recovery codes as the Identity token row stores them, separated by <c>;</c>.
+        /// </summary>
+        internal async Task<string> StoredRecoveryCodesAsync(Guid userId)
+        {
+            var value = await Context.Set<IdentityUserToken<Guid>>()
+                .Where(x => x.UserId == userId && x.Name == RecoveryCodesTokenName)
+                .Select(x => x.Value)
+                .SingleAsync();
+
+            return value!;
+        }
+
+        /// <summary>
+        /// Overwrites the stored recovery codes, as a row written before an upgrade would hold them.
+        /// </summary>
+        internal async Task ReplaceStoredRecoveryCodesAsync(Guid userId, IEnumerable<string> storedCodes)
+        {
+            var row = await Context.Set<IdentityUserToken<Guid>>()
+                .SingleAsync(x => x.UserId == userId && x.Name == RecoveryCodesTokenName);
+            row.Value = string.Join(';', storedCodes);
+
+            await Context.SaveChangesAsync();
         }
 
         public void Dispose()

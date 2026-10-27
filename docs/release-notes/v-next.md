@@ -56,3 +56,16 @@ failed attempt.
 | Breaking change | Required action |
 |---|---|
 | A blocked account receives `User locked out` on a first factor and `two-factor-locked-out` on a pending challenge or enrollment, instead of a session. | None. |
+
+## NewHeap.Platform.AspNet.Common: a stored recovery-code hash redeems nothing
+
+`NhUserManager.RedeemTwoFactorRecoveryCodeAsync` compared input that matched no hash once more with the
+stored entries as it was, so that plaintext codes stored before NewHeap hashed recovery codes keep
+working. A copy of a stored `nhv1:` hash therefore completed a recovery-code challenge or
+reauthentication. Input with a `:`, which every stored hash and no generated code contains, now skips
+that comparison and fails as a wrong code: it counts as a failed attempt and leaves the codes unchanged.
+A plaintext code stored before the upgrade still redeems once.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
