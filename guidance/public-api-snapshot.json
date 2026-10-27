@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "1aa8649e2da944f96c7befb47b657569390720af088c248efec74dc46b7c2fac",
-    "declarationCount": 11210,
+    "hash": "43cc0e04aacbad43f6126ab3548f87008d73bde195968fcad84d5c4bee7050a3",
+    "declarationCount": 11214,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4371,6 +4371,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public NhAssistantStartClearance? StartClearance { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>( TEvent evt, CancellationToken cancellationToken = default)"
       },
       {
@@ -4719,11 +4723,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync( string agentId, NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
         "declaration": "public async Task<TaskResult> CheckStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
         "declaration": "public async Task<bool> CanStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public bool Covers(NhAssistantTriggerFire fire) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantObjectAgents.cs",

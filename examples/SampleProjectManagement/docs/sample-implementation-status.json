@@ -2817,7 +2817,8 @@
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-runs.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantManualStartRuleTests.cs"
     ],
     "SPM-304": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",

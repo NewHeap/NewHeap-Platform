@@ -415,7 +415,16 @@ gives that code, as every assistant endpoint does: `403 assistant-subject-access
 `assistant-trigger-rate-limited` (the agent's runs per subject and day, `NhAssistantTriggerReasons.RateLimited`),
 `404` for an unknown agent or subject, `503 assistant-trigger-rolled-back` when the run could not be
 queued, and `400 assistant-subject-invalid` for a malformed subject reference. `POST threads/open`
-answers the same refusal when it would create the thread. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
+answers the same refusal when it would create the thread. The same rule decides every other run a
+person asks for, with the agent's required policy as it is in effect now: a restart
+(`POST runs/{runId}/retry` with `mode` `restart`, which also needs the approver role) answers its
+refusal like `POST threads/start`; a message to a busy agent thread waits for a run only when its
+sender may start the agent, and anyone else gets `409 assistant-conversation-busy` with nothing
+waiting for them; and the generated request tool starts a run only for an asker who may start the
+agent, with the asker's role for the agent's thread (`assistant-consult-subject-unavailable` without
+it, `assistant-agent-forbidden` when the rule refuses). A message to a busy thread therefore never lets
+an approver of the whole application who fails the run policy, or a participant of an agent in shadow,
+start a run. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
 the agents that work on a subject, an object or the whole application, and that the caller may use:
 per agent `CanStart`, the thread people open, the newest run (`NhAssistantLatestRunDto`: status, time
 and the first 300 characters of its result, for a run without a stored answer the summary it ended
@@ -1453,8 +1462,8 @@ asker of a proposal that waited at the subject is told how it ended, with either
 (`ConsultationProposalDecided`). The consult writes no message into the
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
-(`NhAssistantTriggerIds.AgentRequest`, participant role) and notifies the initiator with
-`RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
+(`NhAssistantTriggerIds.AgentRequest`) under the rule of a start by hand, as `POST threads/start`
+would for the asker, and notifies the initiator with `RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
 connection a personal MCP server needed (`McpConnectionPersonId`), at most once per server and day;
 custom notification policies and channels handle every kind. An application whose `INhAiToolDiscoveryPolicy` lists tool prefixes
 must allow `assistant.consult.` and `assistant.request.`. Bound consultations with
@@ -1905,6 +1914,9 @@ instructions in full: call them for an administrator or process the application 
   nobody would read it app-wide.
 - Relying on the approve policy of the whole application to let people run its agents by hand; give
   the agent a `RunPolicy` (by default the administration policy decides).
+- A path of your own that creates a run for a person, such as a restart, a waiting message or a
+  request, without the rule of `POST threads/start`; call `INhAssistantAgentTriggers.StartAsync` only
+  after checking that the person may start the agent.
 - Showing a run's result from `NhAssistantLatestRunDto.Result`, `NhAssistantRunHistoryDto.Result` or
   `NhAssistantRunResultDto.Result` as HTML; it is model output and may carry MCP tool output.
 - Writing a rule handler's result once with `NhAssistantRuleResult.Done(summary)` in an application
@@ -2218,7 +2230,11 @@ approve policy, the administration policy without one), that the agent's stateme
 starts with `409`, that a person without access to a division does not see it, that a reader of an
 object may not start, and that `GET subjects/{type}/{id}/agents` lists only agents that work on the
 subject and that the caller may use, with the newest run, the first 300 characters of its result and
-the open, unexpired proposals. Assert that a run started by hand that acts for the accountable account
+the open, unexpired proposals. Assert on both providers that a message to a busy agent thread, a
+restart and the request tool create no run and no waiting input for an approver of the whole
+application who fails the run policy, a person who fails the required policy or a participant of an
+agent in shadow, and that someone who may start the agent gets the run. Assert that a run started by
+hand that acts for the accountable account
 leaves a personal MCP server out while a scheduled run and the accountable person's own start use
 that person's connection. Assert that the generator emits a declared subject, keeps the contract hash of tools
 without one and refuses invalid declarations. On both providers, run an agent for the whole application

@@ -597,25 +597,43 @@ internal sealed class NhAssistantConsultationToolHandler(
         }
 
         // A subject of another tenant than the asker's, and the whole application for an asker bound
-        // to a tenant that takes no part in it, is unknown, as for a consultation.
+        // to a tenant that takes no part in it, is unknown, as for a consultation. The asker's role is
+        // the one for the agent's thread: the whole application's only for its view policy's people.
         var subject = new NhAiSubjectRef(options.SubjectType, subjectId);
         var tenant = AskerTenantOf(context);
-        var access = await subjects.ResolveAsync(subject, asker, cancellationToken);
-        var info = access.Has(NhAiSubjectRole.Participant) ? await subjects.DescribeAsync(subject, cancellationToken) : null;
+        var access = await subjects.ResolveForAgentAsync(subject, options.AgentId, asker, cancellationToken);
+        var info = access.Role == NhAiSubjectRole.None ? null : await subjects.DescribeAsync(subject, cancellationToken);
         if (info is null || (tenant is not null && !tenant.Reaches(registration, info)))
         {
-            await events.RequestAsync(options.AgentId, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable, null, null, CancellationToken.None);
-            return TaskResult<NhAssistantAgentRequestReceipt>.Failed(
-                NhAssistantErrorCodes.ConsultSubjectUnavailable,
-                "The subject does not exist or you may not ask the agent about it.");
+            return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable);
         }
         // An agent in shadow takes no requests: its work stays with administrators.
         if (await services.GetRequiredService<NhAssistantShadowModes>().IsAgentShadowAsync(options.AgentId, cancellationToken))
         {
-            await events.RequestAsync(options.AgentId, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultAgentUnavailable, null, null, CancellationToken.None);
-            return TaskResult<NhAssistantAgentRequestReceipt>.Failed(
-                NhAssistantErrorCodes.ConsultAgentUnavailable,
-                "The agent cannot take requests.");
+            return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultAgentUnavailable);
+        }
+
+        // A request starts the agent with the asker as initiator: the rule of a start by hand decides
+        // (K9), with the agent as it is in effect now and the asker's own principal.
+        var principal = await PrincipalOfAsync(asker, info, cancellationToken);
+        if (principal is null)
+        {
+            return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable);
+        }
+
+        var agent = await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(options.AgentId, includeDisabled: false, cancellationToken);
+        var clearance = await services.GetRequiredService<NhAssistantManualStarts>()
+            .ClearAsync(agent, subject, access, asker, principal, cancellationToken);
+        if (!clearance.Success)
+        {
+            // Too little access to the subject reads as an unknown subject, so a request cannot probe.
+            var code = NhAssistantResults.CodeOf(clearance, NhAssistantErrorCodes.AgentForbidden);
+            return await RefuseRequestAsync(
+                options,
+                subject,
+                asker,
+                askingAgentId,
+                code == NhAssistantErrorCodes.SubjectAccessDenied ? NhAssistantErrorCodes.ConsultSubjectUnavailable : code);
         }
 
         // A retried call of the same tool invocation starts no second run.
@@ -630,7 +648,8 @@ internal sealed class NhAssistantConsultationToolHandler(
                 NhAssistantTriggerConflict.Queue,
                 TimeSpan.Zero)
             {
-                Tenant = tenant
+                Tenant = tenant,
+                StartClearance = clearance.Data
             },
             cancellationToken);
         var rejected = receipt.Outcome == NhAssistantTriggerOutcomes.Rejected;
@@ -651,6 +670,35 @@ internal sealed class NhAssistantConsultationToolHandler(
 
         return TaskResult<NhAssistantAgentRequestReceipt>.Succeeded(
             new NhAssistantAgentRequestReceipt(receipt.Outcome, receipt.RunId, receipt.ConversationId));
+    }
+
+    /// <summary>
+    /// Audits a request refused before any thread, input or run was made, and answers the asking
+    /// model with the code.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantAgentRequestReceipt>> RefuseRequestAsync(
+        NhAssistantConsultationOptions options,
+        NhAiSubjectRef subject,
+        string asker,
+        string? askingAgentId,
+        string code)
+    {
+        await events.RequestAsync(options.AgentId, subject, asker, askingAgentId, code, null, null, CancellationToken.None);
+        var message = code == NhAssistantErrorCodes.ConsultSubjectUnavailable
+            ? "The subject does not exist or you may not ask the agent about it."
+            : "The agent cannot take this request.";
+        return TaskResult<NhAssistantAgentRequestReceipt>.Failed(code, message);
+    }
+
+    /// <summary>
+    /// The asker's principal for the rules a call checks: the request's own when the request is the
+    /// asker's, otherwise the one the application's principal factory rebuilds for the subject.
+    /// <see langword="null"/> when neither is available, which refuses the call.
+    /// </summary>
+    private async Task<ClaimsPrincipal?> PrincipalOfAsync(string asker, NhAiSubjectInfo subject, CancellationToken cancellationToken)
+    {
+        return await RequestPrincipalOfAsync(asker, cancellationToken)
+               ?? await services.GetRequiredService<INhAiPrincipalFactory>().CreateAsync(asker, subject, cancellationToken);
     }
 
     /// <summary>

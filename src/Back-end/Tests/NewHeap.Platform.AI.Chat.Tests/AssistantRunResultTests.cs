@@ -492,7 +492,7 @@ public sealed class AssistantRunResultTests(AssistantDatabaseFixture database) :
     {
         await using var scope = app.Services.CreateAsyncScope();
         var receipt = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>()
-            .StartNowAsync(agentId, subject, actorId, message, CancellationToken.None);
+            .StartNowAsync(new NhAssistantStartClearance(agentId, subject, actorId), message, CancellationToken.None);
         Assert.Equal(NhAssistantTriggerOutcomes.Started, receipt.Outcome);
         return receipt;
     }

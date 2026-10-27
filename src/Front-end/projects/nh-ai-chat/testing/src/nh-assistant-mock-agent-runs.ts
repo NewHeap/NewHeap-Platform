@@ -503,8 +503,9 @@ export class NhAssistantMockAgentRuns {
 
   /**
    * `POST runs/{id}/retry`: resumes a failed or cancelled run (`queued`), or restarts the agent in the
-   * same thread like a start by hand; needs the approver role on the thread. The mock's resumed
-   * attempt ends at once as the scenario's `runNow` says.
+   * same thread like a start by hand; needs the approver role on the thread, and a restart also passes
+   * the start checks of `POST threads/start`. The mock's resumed attempt ends at once as the
+   * scenario's `runNow` says.
    */
   private retry(runId: string, body: unknown, language: string | null): NhAssistantMockResult {
     const mode = (body as { mode?: unknown } | undefined)?.mode ?? 'resume';
@@ -531,7 +532,17 @@ export class NhAssistantMockAgentRuns {
       return failure('assistant-agent-not-found');
     }
     if (mode === 'restart') {
-      return this.startNow(agent, found.thread.subject);
+      // A restart starts the agent again for the caller: the rule of a start by hand decides, with the
+      // caller's live role.
+      const subject = this.subjects.describe(found.thread.subject.subjectType, found.thread.subject.subjectId, language, this.context.administers());
+      if (!subject) {
+        return failure('assistant-subject-access-denied');
+      }
+      const refusal = this.refusal(agent, subject);
+      if (refusal) {
+        return failure(refusal);
+      }
+      return this.startNow(agent, subject);
     }
 
     const runNow = this.scenario.runNow?.[agent.id] ?? {};

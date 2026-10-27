@@ -241,3 +241,20 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Chat.AspNet: one start rule for every run a person asks for
+
+A message to a busy agent thread, a restart of a failed run (`POST runs/{runId}/retry` with `mode`
+`restart`) and the generated request tool now create a run only for a person who may start the agent
+by hand, as `POST threads/start` decides: the agent's required policy as it is in effect now, on an
+object the participant role, on the whole application the agent's run and view policies, and only
+administrators for an agent in shadow. These paths checked a thread or participant role only, so an
+approver of the whole application without the run policy, or a participant of an agent in shadow,
+could start runs that the start by hand refuses them. Hosts whose approvers pass the run policies of
+their agents, and agents that are not in shadow, see no change on objects.
+
+| Breaking change | Required action |
+|---|---|
+| A message to a busy agent thread from someone who may not start the agent answers `409 assistant-conversation-busy`, and nothing waits for them. | None; give the people who leave messages for runs the agent's required policy and, for the whole application, its run policy. |
+| `POST runs/{runId}/retry` with `mode` `restart` refuses as `POST threads/start` does, for example `403 assistant-agent-forbidden`. | Give the people who restart runs the agent's required policy and, for the whole application, its run policy. |
+| The request tool follows the same rule, also when its consultation names a `Policy` of its own: it answers `assistant-agent-forbidden` when the rule refuses and `assistant-consult-subject-unavailable` without a role for the agent's thread; on the whole application the run policy decides instead of the approve policy. | Give the people who request runs the agent's required policy and, for the whole application, its run policy. |
