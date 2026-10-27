@@ -1086,6 +1086,11 @@ membership returns `404`, because the inherited update and delete first
 resolve their row through the controller's `GetQueryableAsync`. A lockout the
 manager sets on a membership removes that member's claims for Sample North from
 the next request until the lockout ends; the other members keep theirs.
+Membership is also what a division check without requirements asks for, such as
+the gate of the division-exclusive portfolio operations: the division editor
+works in Sample North only, and a member without division roles is still a
+member. `SampleRuntimeAuthorizationClaims` keeps the membership claim out of the
+token with the other division claims and restores it per request.
 
 ## Authentication service overrides and request claims
 

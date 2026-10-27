@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -162,6 +163,21 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
         }));
 
         return id;
+    }
+
+    /// <summary>Gives the user an application permission, such as the division access-all permission.</summary>
+    public async Task AddPermissionAsync(Guid userId, string permission)
+    {
+        await using var scope = CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var user = await users.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException($"User {userId} does not exist.");
+
+        var result = await users.AddClaimAsync(user, new Claim(NhPlatformClaimTypes.Permission, permission));
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+        }
     }
 
     /// <summary>Makes the user a member of the division with the given division roles.</summary>

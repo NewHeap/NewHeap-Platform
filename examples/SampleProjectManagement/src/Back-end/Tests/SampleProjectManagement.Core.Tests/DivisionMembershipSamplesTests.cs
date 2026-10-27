@@ -14,6 +14,7 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Identity.Claims;
 using SampleProjectManagement.Api.Authorization;
 using SampleProjectManagement.Api.Controllers;
@@ -79,6 +80,53 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
                 membership => membership.UserId == securityOfficer && membership.DivisionId == North,
                 TestContext.Current.CancellationToken));
         }
+    }
+
+    [Fact]
+    public async Task MembershipAloneDecidesADivisionCheckWithoutRequirements()
+    {
+        await using var application = await BuildSeededApplicationAsync("division_membership_access");
+        var manager = await FindUserIdAsync(application, SampleAuthorizationDefaults.ManagerEmail);
+        var divisionEditor = await FindUserIdAsync(application, SampleAuthorizationDefaults.DivisionEditorEmail);
+        var securityOfficer = await FindUserIdAsync(application, SampleAuthorizationDefaults.SecurityOfficerEmail);
+
+        // The gate of the division-exclusive operations: the division editor works in Sample North
+        // only, and a division id that does not exist is no division to work in.
+        Assert.True(await HasDivisionAccessAsync(application, divisionEditor, North));
+        Assert.False(await HasDivisionAccessAsync(application, divisionEditor, South));
+        Assert.False(await HasDivisionAccessAsync(application, divisionEditor, Guid.NewGuid()));
+        Assert.False(await MayWorkInAsync(application, divisionEditor, South));
+        Assert.False(await HasDivisionAccessAsync(application, securityOfficer, North));
+
+        // A member without division roles is a member all the same, without any division permission.
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            var membership = new NhDivisionUserMutateModel { DivisionId = North, UserId = securityOfficer };
+            Assert.IsType<OkObjectResult>(await CreateController(scope, manager, North).Create(membership));
+        }
+
+        Assert.True(await HasDivisionAccessAsync(application, securityOfficer, North));
+        Assert.True(await MayWorkInAsync(application, securityOfficer, North));
+        Assert.False(await HasProjectViewAsync(application, securityOfficer, North));
+    }
+
+    /// <summary>The division check without requirements, as the sample's operations gate it.</summary>
+    private static async Task<bool> HasDivisionAccessAsync(WebApplication application, Guid userId, Guid divisionId)
+    {
+        await using var scope = application.Services.CreateAsyncScope();
+        var request = CreateRequest(scope, userId, divisionId);
+
+        return await request.HasDivisionAccessAsync(divisionId, cancellationToken: TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>The platform's question for background work and agents, outside a request.</summary>
+    private static async Task<bool> MayWorkInAsync(WebApplication application, Guid userId, Guid divisionId)
+    {
+        await using var scope = application.Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider
+            .GetRequiredService<INhDivisionAccess>()
+            .HasAccessAsync(NhActorRef.ForUser(userId), divisionId, TestContext.Current.CancellationToken);
     }
 
     [Fact]

@@ -70,8 +70,10 @@ internal sealed class NhNoDivisionAccess : INhDivisionAccess
 }
 
 /// <summary>
-/// NewHeap Identity: the division claims of the user. For the signed-in user of the request it is
-/// the same check as <see cref="HttpContextExtensions.HasDivisionAccessAsync"/>.
+/// NewHeap Identity: membership of the division, read from the user's current division claims. A
+/// user who is no member of the division, or a division that does not exist, is denied. For the
+/// signed-in user of the request it is the same check as
+/// <see cref="HttpContextExtensions.HasDivisionAccessAsync"/>.
 /// </summary>
 internal sealed class NhIdentityDivisionAccess : INhDivisionAccess
 {

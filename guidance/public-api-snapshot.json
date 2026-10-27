@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "dc17ebe78d7f68af05c86d463962e20a06f2ff2ff1218208a904144f25b639f4",
-    "declarationCount": 11194,
+    "hash": "64332aa7b3faf1fdd8bed238b92d0e4ca1450697146833157138d3fa2a326661",
+    "declarationCount": 11195,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -40560,6 +40560,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
         "declaration": "public const string DivisionPermission = \"nh.platform.division.permission\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
+        "declaration": "public const string DivisionMember = \"nh.platform.division.member\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",

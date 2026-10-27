@@ -43,3 +43,20 @@ request now leave out the locked-out division.
 | Breaking change | Required action |
 |---|---|
 | A member whose division membership is locked out gets no claims for that division until the lockout ends, also when the division has other members or the lockout has no end date. | None, unless an application relied on locked-out members keeping access; end or remove the lockout instead. Tokens issued before the update keep their claims until they expire, while division policies deny at once. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: division access requires membership
+
+`NhUserManager.DivisionAccessAsync` requires membership of the requested division for every
+decision, also when no claim or role is required, and treats a `null` and an empty requirement
+alike. `HttpContextExtensions.HasDivisionAccessAsync`, NewHeap Identity's `INhDivisionAccess` and a
+`RequireActiveDivisionAccess()` policy without arguments therefore deny a user who is no member of
+the division, and a division id that does not exist; the division access-all permission still grants
+every division. `GetValidClaimsByUserIdAsync` adds a `NhPlatformClaimTypes.DivisionMember` claim
+(`nh.platform.division.member`, the division id as value) for every active membership, also one
+without division roles, and a division role in the division counts as membership as well.
+
+| Breaking change | Required action |
+|---|---|
+| A division check without requirements denies a user who is no member of the division (it allowed any signed-in user), and one with an empty claim and role list allows a member (it denied everyone). | None, unless people without a membership relied on such a check; add their membership or grant the division access-all permission. |
+| Issued tokens and reloaded claims gain one `nh.platform.division.member` claim per division the user is a member of. | None, unless an application keeps division claims out of the token by type or rebuilds division claims itself; treat the membership claim like the division role and permission claims, or keep a division role on every membership. |
+| `NhPlatformClaimTypes` gains `DivisionMember`. | None. |
