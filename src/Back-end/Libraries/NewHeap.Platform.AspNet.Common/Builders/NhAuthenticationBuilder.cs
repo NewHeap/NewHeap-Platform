@@ -200,9 +200,27 @@ public class NhAuthenticationBuilder<
 
         if (MicrosoftOAuthOptionsValue.Enabled)
         {
+            var invalidTenantIds = MicrosoftOAuthOptionsValue.Settings.AllowedTenantIds
+                .Where(tenantId => !Guid.TryParse(tenantId, out _))
+                .ToList();
+            if (invalidTenantIds.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "MicrosoftAuthSettings.AllowedTenantIds lists tenant ids as GUIDs; these entries are not: " +
+                    string.Join(", ", invalidTenantIds.Select(tenantId => $"'{tenantId}'")) + ".");
+            }
+
             services.AddSingleton<NhMicrosoftOauthAuthenticationGetUrlHandler>();
             services.AddSingleton<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
             services.AddHttpClient<MicrosoftAuthService>();
+
+            // The OAuth state is a protected flow, bound to the browser by a correlation cookie.
+            services.AddDataProtection();
+            services.TryAddSingleton(TimeProvider.System);
+            services.TryAddSingleton(serviceProvider => new NhMicrosoftOAuthStateProtector(
+                serviceProvider.GetRequiredService<IDataProtectionProvider>(),
+                serviceProvider.GetRequiredService<TimeProvider>()));
+
             services.Configure<MicrosoftAuthSettings>(opt =>
             {
                 opt.AuthDomains = MicrosoftOAuthOptionsValue.Settings.AuthDomains;
@@ -211,6 +229,9 @@ public class NhAuthenticationBuilder<
                 opt.ClientSecret = MicrosoftOAuthOptionsValue.Settings.ClientSecret;
                 opt.ProfileEndpoint = MicrosoftOAuthOptionsValue.Settings.ProfileEndpoint;
                 opt.TenantId = MicrosoftOAuthOptionsValue.Settings.TenantId;
+                opt.AllowedReturnOrigins = MicrosoftOAuthOptionsValue.Settings.AllowedReturnOrigins;
+                opt.AllowedTenantIds = MicrosoftOAuthOptionsValue.Settings.AllowedTenantIds;
+                opt.LinkAccountsByEmail = MicrosoftOAuthOptionsValue.Settings.LinkAccountsByEmail;
             });
             
             services.Configure<AuthenticationMethodPickerOptions>(opt =>

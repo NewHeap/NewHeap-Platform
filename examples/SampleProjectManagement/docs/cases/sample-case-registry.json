@@ -944,13 +944,23 @@
       "id": "SPM-062",
       "categoryId": "5",
       "title": "Microsoft OAuth",
-      "surface": "handlers/service/models",
-      "outcome": "The URL, callback, and failure path work.",
+      "surface": "`AddMicrosoftOAuth`, `AddMicrosoftOauthEndpoints`, `MicrosoftAuthSettings`, `MicrosoftAuthService`, `NhReturnUrls`, `NhMicrosoftOAuthLogins` and `NhMicrosoftOAuthTestPlatform`",
+      "outcome": "The management app starts a Microsoft sign-in and the callback completes it only in that browser: the OAuth state is a protected, ten-minute flow with a PKCE verifier and nonce, bound by a correlation cookie for the configured callback path behind the app's /api proxy, and used once. A callback from another browser or with a state the application did not issue, changed or let expire answers 400 without a session, and the sign-in returns only to a path of the application or one of the sample's allowed origins. The sign-in finds its local account by the ID token's tenant and object id: the first sign-in of an account in the developer's directory, named in `AllowedTenantIds`, links the local account whose user name is its mail once, and an account of another directory with the same mail signs in to nothing.",
       "implementation": "implemented",
       "evidence": [
-        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMicrosoftOAuthComposition.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MicrosoftOAuthSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOauthAuthenticationGetUrlHandler.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MicrosoftOAuthProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthIdentity.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhMicrosoftOAuthIdentityTests.cs"
       ]
     },
     {
@@ -1140,7 +1150,7 @@
       "categoryId": "5",
       "title": "Password management",
       "surface": "recover/reset/change models",
-      "outcome": "All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device. With two-factor authentication enabled the credential completes only the first factor, so an enrolled account receives a second-factor challenge instead of a session.",
+      "outcome": "All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device. With two-factor authentication enabled the credential completes only the first factor, so an enrolled account receives a second-factor challenge instead of a session. The recovery mail links to the reset page on the application origin in the `AccountRecovery` settings, never to a reset URL, host or origin of the anonymous request, and the token in that link resets the password.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -1148,7 +1158,10 @@
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccountRecoveryComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PasswordRecoverySamplesTests.cs"
       ]
     },
     {

@@ -164,11 +164,8 @@ builder.Services
     .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(options =>
     {
         options.WithAuthenticationService<SampleAuthenticationService>();
-        options.AddMicrosoftOAuth(oauth =>
-        {
-            builder.Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings")
-                .Bind(oauth.Settings);
-        });
+        // SPM-062: see SampleMicrosoftOAuthComposition for the callback and return-URL setup.
+        options.AddMicrosoftOAuth(oauth => oauth.Settings.ConfigureSampleMicrosoftOAuth(builder.Configuration));
         options.AddUserNamePasswordAuthentication(authentication =>
         {
             authentication.EnableRefreshToken = true;
@@ -395,6 +392,8 @@ builder.Services.AddNhMedia(media =>
     media.AddEventHandler<ProjectDocumentEventHandler>();
 });
 builder.Services.AddScoped<ProjectMediaSampleService>();
+// SPM-075: the recovery mail links to the reset page on the configured application origin.
+builder.Services.AddSampleAccountRecovery(builder.Configuration);
 builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();

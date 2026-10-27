@@ -927,3 +927,68 @@ kilobytes of workbook whose cells repeat one long shared string become millions 
 | Breaking change | Required action |
 |---|---|
 | None for readers that ignore the budget; their text is refused at the token limit as before. | In a reader copied from the sample, bound the text by `request.MaxTextCharacters` while it is made, read each part once and check the cancellation token per row, as the sample's reader now does. |
+
+## NewHeap.Platform.Common, NewHeap.Platform.AspNet.Common and NewHeap.Platform.AspNet.Common.Test: Microsoft sign-in bound to the browser that started it
+
+The Microsoft OAuth callback (`GET authentication/oath/microsoft/authorize`) now completes only a
+sign-in that `POST authentication/oath/microsoft` started in the same browser. The OAuth state is a
+protected flow (ASP.NET Core Data Protection) with the return URL, a nonce and a PKCE code verifier,
+valid for ten minutes; an HttpOnly, Secure, `SameSite=Lax` correlation cookie for the path of
+`CallbackUrl` binds it to the browser, and the callback removes the cookie so the state completes
+once. Before, the state was the return URL and a random value that nothing checked, so a callback with
+any state signed the browser in and redirected it to the URL in that state. The return URL
+(`callbackUrl`) must now be a path on the callback's host or an absolute URL on
+`MicrosoftAuthSettings.AllowedReturnOrigins`, or on `NewHeapAspNetCommonSettings.AllowedOrigins` while
+that new setting is empty; `NhReturnUrls.IsAllowed` makes the decision and is public for other
+redirects. The authorization request also asks for `openid profile` and carries the nonce and an S256
+code challenge: `MicrosoftAuthService.GetLoginUrl(state, nonce, codeChallenge)` builds it and
+`RedeemCodeAsync(code, codeVerifier)` redeems the code. `NhMicrosoftOAuthTestPlatform` in
+NewHeap.Platform.AspNet.Common.Test stands in for Microsoft in tests.
+
+| Breaking change | Required action |
+|---|---|
+| A `callbackUrl` that is not a path of the application or on an allowed origin answers 400 at the start. | List the front-end origins in `NewHeap:PlatformAspNetCommon:Settings:AllowedOrigins` or `MicrosoftAuthSettings.AllowedReturnOrigins`, or pass a path. |
+| The callback answers 400 when it does not receive the correlation cookie, so the start and the callback must be on the host the browser calls. | Register `CallbackUrl`, in the settings and the app registration, on the host where the browser calls the start endpoint, behind the same proxy. |
+| A sign-in started on one instance fails on another that cannot read its state. | Share the Data Protection key ring between instances, as two-factor authentication already requires. |
+| The authorization request also asks for the `openid` and `profile` scopes. | None, unless the tenant restricts user consent: then grant consent for them once. |
+| `MicrosoftAuthService.GetLoginUrl(string?)` and `GetToken(string, string?, CancellationToken)` are obsolete. | Use `GetLoginUrl(state, nonce, codeChallenge)` and `RedeemCodeAsync(code, codeVerifier)` with a state bound to the browser, or the platform endpoints. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: Microsoft sign-ins find the account by tenant and object id
+
+The Microsoft OAuth callback now takes who signed in from the ID token of the code redemption: the
+tenant id (`tid`) and the object id (`oid`), after it checked the token's audience (the client id),
+its issuer (the v2.0 issuer of that tenant), the sign-in's nonce and its expiry. It signs in the local
+account linked to that pair through an Identity login (`AspNetUserLogins`, provider `microsoft-oauth`,
+key `{tid}/{oid}`, see `NhMicrosoftOAuthLogins`), instead of the account whose user name equals the
+Graph `mail` attribute, which an account of another directory could carry. The new
+`MicrosoftAuthSettings.AllowedTenantIds` limits the tenants that may sign in, and a `TenantId` that is
+a tenant id limits sign-ins to that tenant.
+
+Existing accounts have no link yet. When an account of a tenant that the application names, in
+`AllowedTenantIds` or as `TenantId`, signs in without a link, the callback links it once to the local
+account whose user name is its Graph mail, provided that account is in `AuthDomains` and has no
+Microsoft link yet, and logs the link. Later sign-ins use the link, so a changed mail no longer moves
+a sign-in to another account and another Microsoft account with the same mail is refused. Set
+`LinkAccountsByEmail` to `false` once every account is linked. With a multi-tenant `TenantId` such as
+`common` and no `AllowedTenantIds`, nothing is linked by mail. The links use Identity's existing login
+table, so no migration is needed.
+
+| Breaking change | Required action |
+|---|---|
+| With a multi-tenant `TenantId` such as `common` and no `AllowedTenantIds`, an account without a link no longer signs in. | Before upgrading, list your tenant ids in `MicrosoftAuthSettings.AllowedTenantIds` or set `TenantId` to your tenant id; or link the accounts with `UserManager.AddLoginAsync(user, NhMicrosoftOAuthLogins.LoginInfo(tenantId, objectId))`. |
+| A sign-in from a tenant outside `AllowedTenantIds`, or other than a `TenantId` that is a tenant id, answers 400. | List every tenant whose accounts sign in. |
+| A local account that is linked to one Microsoft account is not linked to another, so a recreated Microsoft account answers 400. | Remove the old link with `UserManager.RemoveLoginAsync(user, NhMicrosoftOAuthLogins.LoginProvider, providerKey)`, or add the new one. |
+| An ID token for another client, another sign-in or another issuer, an expired one or one without `tid` and `oid` answers 400. | None. |
+| An `AllowedTenantIds` entry that is not a GUID stops `AddAuthentication` with an `InvalidOperationException`. | Use the directory (tenant) id, not a domain name. |
+
+## NewHeap.Platform.AspNet.Common: password reset links come from the server's configuration
+
+`NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete and no longer required. An application that
+built the recovery mail's link from it let anyone who knows a registered address make the application
+mail that account's valid reset token to a site of their choosing. Build the link from the application
+origin in the server's configuration, never from the request's body, `Host` or `Origin`, as the
+sample's `AccountSampleService` does with its `AccountRecovery` settings (SPM-075).
+
+| Breaking change | Required action |
+|---|---|
+| `NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete, and a recovery request without it now passes validation. | Build the reset link from a configured application origin and stop reading `ResetUrl`; code that still reads it must handle `null`. Clients may stop sending it. |
