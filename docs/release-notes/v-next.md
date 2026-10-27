@@ -257,3 +257,17 @@ the context in the person's own sign-out request (`UseSampleAccessContexts(signO
 | Breaking change | Required action |
 |---|---|
 | A context whose claims hold a delegated read, delegated MCP or impersonation marker yields no principal, so background work that relied on it is refused with the usual codes. | Record only requests for which `NhAiAccessContext.IsPersonsOwnRequest` is true, and forget the person's context at sign-out; the next own request of the person records a context that lends again. |
+
+## NewHeap.Platform.AI.AspNet.Common: headless gateway reads need a fresh access context
+
+With `UsePrincipalsFromAccessSource`, a headless gateway read now asks the host's
+`INhAiDelegatedReadCredentialIssuer` for a credential only while `INhAiPrincipalFactory` builds the
+person's principal from the access source: without a context, with one older than `MaxAge`, or with one
+that holds a derived-credential or impersonation marker, the read fails with
+`api-bridge-unauthenticated` before the issuer is asked and no request is sent. Before, the read was
+issued whenever the host's issuer issued, also for a person who had signed out. Hosts without an access
+source keep their issuer's decision, as the built-in issuer with the person's sign-in state.
+
+| Breaking change | Required action |
+|---|---|
+| Under `UsePrincipalsFromAccessSource` an agent's gateway read for a person without a fresh context fails with `api-bridge-unauthenticated`. | None; the read works again after the person's next own request. Keep refusing unknown or disabled people in a custom issuer. |

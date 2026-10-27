@@ -82,7 +82,9 @@ claims the application last knew and when they were valid (`ValidAt`), or `null`
 `UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)`. It replaces the built-in factory,
 so every decision outside a person's request gets these claims: runs that delegate from their
 initiator and their follow-up runs, consultations, the account an agent answers to, MCP
-connections in the background and the whole application's people. `MaxAge` is required and
+connections in the background and the whole application's people. A headless gateway read asks
+the host's delegated read issuer for a credential only while the factory builds the person's
+principal, so it reads nothing for a person without a fresh context. `MaxAge` is required and
 positive (there is no default; zero or a negative value fails at startup) and is measured on the
 application's clock, the registered `TimeProvider`; date `ValidAt` on the same clock. No
 context, a context older than `MaxAge`, or one dated further ahead than `MaxAge` yields no

@@ -129,7 +129,8 @@ Half an hour later the run is no longer offered the status tool, until the manag
 manager's own request to the host's sign-out path forgets the rights at once. A request that an agent's
 delegated read or delegated MCP token authenticated, and an impersonation session, are not the
 manager's own (`NhAiAccessContext.IsPersonsOwnRequest`): they never renew the rights, and after sign-out
-they bring nothing back. `AssistantAccessSourceSamplesTests` shows it in a focused composition, because
+they bring nothing back. A headless gateway read asks the host's delegated read issuer for a credential
+only while the manager's recorded rights are fresh. `AssistantAccessSourceSamplesTests` shows it in a focused composition, because
 the sample's own API signs in with the NewHeap user store.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run

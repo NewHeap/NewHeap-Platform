@@ -184,7 +184,13 @@ their security stamp, issued only while `MaySignInAsync` holds (not locked out o
 confirmed where required, a second factor enrolled where one is required). Other hosts supply
 `INhAiDelegatedReadCredentialIssuer` with `UseIssuer<T>()`; the token must be a JWT that the host's
 bearer scheme (`UseScheme`, `Bearer` by default) accepts and that carries exactly the claims of
-`NhAiDelegatedReadRequest.Claims`.
+`NhAiDelegatedReadRequest.Claims`. With `UsePrincipalsFromAccessSource` the library asks the issuer
+only while `INhAiPrincipalFactory` builds the person's principal from a fresh context of the access
+source: without a context, with one older than `MaxAge` or one that holds a derived-credential or
+impersonation marker, the read fails as `api-bridge-unauthenticated` before the issuer is asked. The
+issuer still refuses a person it does not know or who may no longer sign in at the identity provider.
+The token's marker claims make every request it authenticates an agent's, never the person's own:
+an access source does not record it (`NhAiAccessContext.IsPersonsOwnRequest`).
 
 Every call gets its own token, bound to the invocation (`NhAiDelegatedReadDefaults.ClaimType`) and
 to the one gateway action it calls (`ActionClaimType`), valid for `Lifetime` (60 seconds by
@@ -227,6 +233,7 @@ used sees its result, whatever the agent's elevated reads allow; other thread re
 - Treating bridge discovery as authorization: the invocation gate and the controller still authorize every call.
 - Forwarding cookies, custom headers or tokens other than the caller's own bearer token, or storing the token in the invocation context.
 - Including DELETE actions or declaring a destructive effect through the bridge.
+- Writing a delegated read issuer for an access-source host that issues for anyone it can name, or recording the requests its tokens authenticate as the person's own; the library asks it only for a person with a fresh context, and the access source skips the token's requests.
 - Replacing the discovery policy after `AddNewHeapPlatformAIMvcBridge`; use `UseInnerDiscoveryPolicy`.
 - Returning response body text in failure messages or logs.
 - Recreating NewHeap collection operators or attribute reflection in a consumer conventions class.
@@ -283,7 +290,9 @@ with both keys is offered the four gateway tools and no resource action and read
 starter's or else the accountable person's rights; that an unbound or long-lived issued token, a
 locked-out person and a changed responsible person get `api-bridge-unauthenticated`; that dot
 segments are refused; and that only the person whose rights a read used sees its result
-(SPM-290).
+(SPM-290). With `UsePrincipalsFromAccessSource`, assert that a person without a context or with one
+older than `MaxAge` gets `api-bridge-unauthenticated` without the issuer being asked, and that a
+fresh context reads as before (SPM-315).
 
 ## Optional source evidence
 
