@@ -60,7 +60,8 @@ reviewer with the kill switch (SPM-275). The reviewer keeps its checks in a type
 working memory, saves an intake note as a versioned file of the thread and starts
 each run from the memory, the files and the summaries of its last runs; results it
 obtained with its own grant are shown only to people who satisfy the tool's policy,
-and deleting a project deletes its agent thread (SPM-276).
+and deleting a project deletes its agent thread in the scope its resolver describes the
+project with, so an equal id in another scope keeps its own (SPM-276).
 `AssistantAgentRunSamplesTests` runs every flow on PostgreSQL with Hangfire in
 memory. The intake reviews page in the management portal (SPM-277) shows the same
 work with the components of `@newheap/platform-ai-chat/agent-runs`; sign in as
