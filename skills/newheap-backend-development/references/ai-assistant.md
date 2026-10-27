@@ -178,7 +178,9 @@ invalid run filter. Clients map the code, never the status, to a text.
   approval is pending invalidates that approval.
 - **MCP servers.** Configure `ConfigureMcp`: `RequireHttps` (plain http only to
   loopback in Development or with `AllowLoopback`), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
-  `ToolListCacheDuration` and `ConnectTimeout`. Secrets for `bearer` and `api-key`
+  `ToolListCacheDuration`, `ConnectTimeout`, which bounds connecting to a server and, once connected,
+  listing its tools (a server that does not answer is unreachable for the turn, test or sync, with
+  `assistant-mcp-unreachable`), and `ReaderCallTimeout` for readers (below). Secrets for `bearer` and `api-key`
   are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
   or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;
@@ -315,8 +317,9 @@ invalid run filter. Clients map the code, never the status, to a text.
   follows the rules above: `headlessUse`, the person's consent for `personal`
   (`assistant-mcp-consent-required`) and `assistant-mcp-initiator-only`. A reader whose server cannot
   be planned or reached, or whose tool is gone or has another input schema than the synced one, is
-  passed over with its code; once the request may have reached the tool, an error result, no text or
-  a failure refuses the file with `assistant-file-reader-failed`. A personal OAuth server the person
+  passed over with its code; once the request may have reached the tool, an error result, no text,
+  a failure or no answer within `ReaderCallTimeout` (60 seconds by default, one second to 15 minutes,
+  checked at start) refuses the file with `assistant-file-reader-failed`. A personal OAuth server the person
   of a request turn has not connected, or must connect again, shows that person the same
   `connection-required` card as its tools; an attachment it refused stays in the message, so asking
   again after connecting reads it. Headless runs show no card and keep their notices. `readers: null`

@@ -157,6 +157,19 @@ public sealed partial class AssistantSamplesTests
         Assert.DoesNotContain(model.Requests[^1].Options!.Tools!, tool => tool.Name == "mcp_planning_next_milestone");
     }
 
+    /// <summary>
+    /// The sample bounds every request to an MCP server in its composition: connecting and listing the
+    /// tools by the connect timeout, and a reader's call by the reader call timeout (SPM-305).
+    /// </summary>
+    [Fact]
+    public void SPM_251_the_composition_bounds_every_mcp_request()
+    {
+        var mcp = Host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<NhAssistantOptions>>().Value.Mcp;
+
+        Assert.Equal(TimeSpan.FromSeconds(10), mcp.ConnectTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(60), mcp.ReaderCallTimeout);
+    }
+
     [Fact]
     public async Task SPM_251_the_application_adds_an_authentication_mode_that_exchanges_the_persons_token()
     {

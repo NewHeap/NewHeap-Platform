@@ -109,9 +109,27 @@ public sealed class NhAssistantMcpOptions
     public TimeSpan ToolListCacheDuration { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Maximum time to connect to a server and list its tools.
+    /// Maximum time to connect to a server, and maximum time to list its tools once connected.
     /// </summary>
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The shortest <see cref="ReaderCallTimeout"/>.
+    /// </summary>
+    internal static readonly TimeSpan MinReaderCallTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// The longest <see cref="ReaderCallTimeout"/>.
+    /// </summary>
+    internal static readonly TimeSpan MaxReaderCallTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// The longest an MCP server set up as reader may take to turn one file into text: 60 seconds by
+    /// default, from one second to 15 minutes (<c>NewHeap:AI:Assistant:Mcp:ReaderCallTimeout</c>). A
+    /// reader that has not answered by then fails the file with <c>assistant-file-reader-failed</c>.
+    /// The turn's own deadline and cancellation still apply.
+    /// </summary>
+    public TimeSpan ReaderCallTimeout { get; set; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// The lifetime of a delegated NewHeap token that a headless run sends to a
@@ -140,6 +158,32 @@ public sealed class NhAssistantMcpOptions
     /// The host as OAuth client of MCP authorization servers.
     /// </summary>
     public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();
+
+    /// <summary>
+    /// Throws when a bound of the MCP connections is out of its range, so the host fails at start
+    /// instead of at the first request.
+    /// </summary>
+    internal void Validate()
+    {
+        if (ReaderCallTimeout < MinReaderCallTimeout || ReaderCallTimeout > MaxReaderCallTimeout)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:ReaderCallTimeout must be from one second to 15 minutes.");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ReaderCallTimeout"/> within its range: a value changed after start is never longer
+    /// than the longest or shorter than the shortest.
+    /// </summary>
+    internal TimeSpan BoundedReaderCallTimeout()
+    {
+        return ReaderCallTimeout < MinReaderCallTimeout
+            ? MinReaderCallTimeout
+            : ReaderCallTimeout > MaxReaderCallTimeout
+                ? MaxReaderCallTimeout
+                : ReaderCallTimeout;
+    }
 }
 
 /// <summary>

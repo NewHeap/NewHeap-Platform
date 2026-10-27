@@ -514,7 +514,8 @@ internal sealed class NhAssistantMcpLease(McpClient client, IList<McpClientTool>
 /// <summary>
 /// Connects to servers and caches connections with shared credentials for
 /// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. A person's OAuth connection is cached for
-/// that person only; connections that forward the caller's token are never cached.
+/// that person only; connections that forward the caller's token are never cached. Connecting and
+/// listing the tools are each bounded by <see cref="NhAssistantMcpOptions.ConnectTimeout"/>.
 /// </summary>
 internal sealed class NhAssistantMcpConnectionCache(
     INhAssistantMcpClientFactory factory,
@@ -541,7 +542,14 @@ internal sealed class NhAssistantMcpConnectionCache(
         try
         {
             client = await factory.ConnectAsync(plan, cancellationToken);
-            var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
+            // A server that accepts the listing and never answers is unreachable once the connect
+            // timeout passes; the token bounds this request only, never the connection it keeps.
+            IList<McpClientTool> tools;
+            using (var listing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                listing.CancelAfter(options.CurrentValue.Mcp.ConnectTimeout);
+                tools = await client.ListToolsAsync(cancellationToken: listing.Token);
+            }
             if (!cacheable)
             {
                 return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(client, tools, true));

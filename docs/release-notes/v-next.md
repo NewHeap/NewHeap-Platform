@@ -255,3 +255,17 @@ the model loop's deadline) or, after a stop or the run's cancellation, `cancelle
 | Breaking change | Required action |
 |---|---|
 | A turn whose file source or reader does not answer within `TurnTimeout` ends with `assistant-turn-timeout` before its model call. | Pass the `cancellationToken` of `INhAssistantFileSource.OpenAsync` and `INhAssistantFileReader.ReadAsync` to every call that can wait. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: tool lists and reader calls of MCP servers are bounded
+
+`NhAssistantMcpOptions.ConnectTimeout` now bounds listing a server's tools once connected, as it was
+documented to, and not only connecting: a server that accepts `tools/list` and never answers is
+unreachable for the turn, the reader, the test or the sync. The new `NhAssistantMcpOptions.ReaderCallTimeout`
+(`NewHeap:AI:Assistant:Mcp:ReaderCallTimeout`, 60 seconds by default, from one second to 15 minutes,
+checked when the host starts) bounds the call of an MCP server set up as reader. Both are bounded by
+the turn's own deadline and cancellation as well.
+
+| Breaking change | Required action |
+|---|---|
+| A server that does not answer `tools/list` within `ConnectTimeout` is skipped with `assistant-mcp-unreachable`. | Raise `ConnectTimeout` for a server that lists its tools slowly. |
+| An MCP reader that does not answer within `ReaderCallTimeout` fails its file with `assistant-file-reader-failed`, and a value outside its range fails host start. | Set `ReaderCallTimeout` for readers that need longer than a minute. |

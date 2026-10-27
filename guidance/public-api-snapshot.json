@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "1aa8649e2da944f96c7befb47b657569390720af088c248efec74dc46b7c2fac",
-    "declarationCount": 11210,
+    "hash": "a3bb09f40f4b8e445a2693279da55ace93db96e1c226d234a6cdc2a9cf3955ee",
+    "declarationCount": 11211,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -18856,6 +18856,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public TimeSpan ReaderCallTimeout { get; set; } = TimeSpan.FromSeconds(60);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
@@ -49003,6 +49007,7 @@
       "INhAssistantUploadScanner",
       "UseScanner",
       "ReaderTextRetention",
+      "ReaderCallTimeout",
       "INhAssistantConversationMessages",
       "NhAssistantApplicationMessage",
       "NhAssistantApplicationMessageLink",

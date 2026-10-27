@@ -157,7 +157,11 @@ public static class SampleAssistantComposition
                 // the consent of the person a run acts for; every server starts at never.
                 mcp.RequireHttps = true;
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
+                // SPM-251: connecting to a server, and listing its tools, each end after ten seconds.
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
+                // SPM-305: a server set up as reader that has not turned a file into text within a
+                // minute fails the file with assistant-file-reader-failed; the turn goes on.
+                mcp.ReaderCallTimeout = TimeSpan.FromSeconds(60);
                 // SPM-299: OAuth servers need the public address of the assistant's callback,
                 // <prefix>/mcp/oauth/callback, and the origins of the pages that start an
                 // authorization. The sample reads them from NewHeap:AI:Assistant:Mcp:OAuth

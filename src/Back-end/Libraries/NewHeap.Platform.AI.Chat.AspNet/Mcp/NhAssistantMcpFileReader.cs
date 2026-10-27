@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -18,7 +19,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// call is checked before the file leaves the platform; a reader that does not pass is passed over
 /// with its code. The reading tool must still have the input schema the administrator synced. A
 /// personal OAuth server the person of a request turn has not connected asks for the connection as
-/// the tool path does (D33).
+/// the tool path does (D33). A reader's call is bounded by
+/// <see cref="NhAssistantMcpOptions.ReaderCallTimeout"/> as well as by the turn's own deadline.
 /// </summary>
 internal sealed partial class NhAssistantMcpFileReader(
     NhAssistantAdminStore store,
@@ -26,6 +28,7 @@ internal sealed partial class NhAssistantMcpFileReader(
     NhAssistantMcpConnectionPlanner planner,
     NhAssistantMcpConnectionCache cache,
     IServiceProvider services,
+    IOptionsMonitor<NhAssistantOptions> options,
     ILogger<NhAssistantMcpFileReader> logger) : INhAssistantMcpFileReader
 {
     /// <summary>
@@ -42,6 +45,11 @@ internal sealed partial class NhAssistantMcpFileReader(
     /// The argument with the file's name as the application reports it.
     /// </summary>
     public const string NameArgument = "name";
+
+    /// <summary>
+    /// What the log names a reader's call that did not answer within the reader call timeout.
+    /// </summary>
+    private const string ReaderTimeoutCode = "timeout";
 
     public async Task<bool> DeclaresAsync(string mediaType, CancellationToken cancellationToken)
     {
@@ -204,7 +212,9 @@ internal sealed partial class NhAssistantMcpFileReader(
 
     /// <summary>
     /// Sends the file to the reader's tool and returns the text of its result. A failure after the
-    /// request may have reached the server is final: the file is not sent to another reader.
+    /// request may have reached the server is final: the file is not sent to another reader. A reader
+    /// that has not answered within <see cref="NhAssistantMcpOptions.ReaderCallTimeout"/> fails the
+    /// file; the turn goes on.
     /// </summary>
     private async Task<NhAssistantFileReading> CallAsync(
         AssistantMcpServer server,
@@ -224,9 +234,17 @@ internal sealed partial class NhAssistantMcpFileReader(
         };
 
         CallToolResult result;
+        using var call = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        call.CancelAfter(options.CurrentValue.Mcp.BoundedReaderCallTimeout());
         try
         {
-            result = await client.CallToolAsync(reader.ToolName, arguments, cancellationToken: cancellationToken);
+            result = await client.CallToolAsync(reader.ToolName, arguments, cancellationToken: call.Token);
+        }
+        catch (OperationCanceledException) when (call.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // The request reached the server, which did not answer in time.
+            LogReaderFailed(logger, server.Id, ReaderTimeoutCode);
+            return NhAssistantFileReading.Failed(readerId, owner);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException
             && !(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
