@@ -346,11 +346,28 @@ public sealed class DatabaseReadPrincipalVerificationTests
 
     private static async Task ExecuteSqlServerAsync(string connectionString, string sql)
     {
-        await using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        await command.ExecuteNonQueryAsync();
+        const int MaxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                // One transaction per batch, so a deadlock victim leaves nothing half done to repeat.
+                await using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+                await using var command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = sql;
+                await command.ExecuteNonQueryAsync();
+                await transaction.CommitAsync();
+                return;
+            }
+            catch (SqlException exception) when (exception.Number == 1205 && attempt < MaxAttempts)
+            {
+                // Server-scope grants run in master, where other test processes create and drop their
+                // databases at the same time; the server then picks one batch as deadlock victim.
+            }
+        }
     }
 
     /// <param name="ServerScope">The statements change the server, which SQL Server accepts only
