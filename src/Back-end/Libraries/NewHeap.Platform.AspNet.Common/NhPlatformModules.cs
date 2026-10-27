@@ -164,8 +164,8 @@ public static class NhPlatformModuleServiceCollectionExtensions
 public static class NhPlatformModuleEndpointRouteBuilderExtensions
 {
     /// <summary>
-    /// Maps the background-operation hub when live updates are enabled. The controllers are mapped
-    /// by <c>MapControllers</c>.
+    /// Maps the background-operation hub when live updates are enabled. A hub connection closes when
+    /// the authentication it was opened with expires. The controllers are mapped by <c>MapControllers</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapNewHeapBackgroundOperations(this IEndpointRouteBuilder endpoints)
     {
@@ -174,7 +174,7 @@ public static class NhPlatformModuleEndpointRouteBuilderExtensions
         if (endpoints.ServiceProvider.GetService<NhBackgroundOperationSignalRMarker>() is not null)
         {
             var options = endpoints.ServiceProvider.GetRequiredService<NhBackgroundOperationsOptions>();
-            endpoints.MapHub<NhBackgroundOperationHub>(options.HubPath);
+            endpoints.MapNhBackgroundOperationHub(options.HubPath);
         }
 
         return endpoints;

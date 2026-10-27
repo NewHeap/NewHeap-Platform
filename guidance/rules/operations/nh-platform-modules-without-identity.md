@@ -79,7 +79,8 @@ Identity implements all of them from the request, its division claims and its us
 The platform's controllers and hub authenticate with the `Bearer` and `Identity.Application`
 schemes; `AddNewHeapAuthenticationForwarding` forwards each one the application did not register
 to its own scheme. Map the hub with `MapNewHeapBackgroundOperations` and the controllers with
-`MapControllers`. The NewHeap Angular clients expect enum names, so serialize MVC JSON with
+`MapControllers`; a hub connection closes when the authentication it was opened with expires, so the
+client reconnects with its current session. The NewHeap Angular clients expect enum names, so serialize MVC JSON with
 `JsonStringEnumConverter`. Turn on in-app agent notifications with
 `UseInAppAgentNotifications()` on the assistant builder.
 

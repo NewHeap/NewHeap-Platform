@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.SignalR;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.Common.Actors;
@@ -92,4 +94,21 @@ internal sealed class NhSignalRBackgroundOperationLiveUpdatePublisher : INhBackg
 
 internal sealed class NhBackgroundOperationSignalRMarker
 {
+}
+
+internal static class NhBackgroundOperationHubEndpoints
+{
+    /// <summary>
+    /// Maps <see cref="NhBackgroundOperationHub"/> at <paramref name="hubPath"/>. A connection closes when
+    /// the authentication it was opened with expires, over WebSockets as well, instead of living on
+    /// through keep-alives; the client reconnects with its current session.
+    /// </summary>
+    internal static HubEndpointConventionBuilder MapNhBackgroundOperationHub(
+        this IEndpointRouteBuilder endpoints,
+        string hubPath)
+    {
+        return endpoints.MapHub<NhBackgroundOperationHub>(
+            hubPath,
+            connection => connection.CloseOnAuthenticationExpiration = true);
+    }
 }

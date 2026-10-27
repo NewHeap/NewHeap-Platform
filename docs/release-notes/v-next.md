@@ -240,6 +240,17 @@ codes are enabled and no key is configured. No schema change is needed.
 | `NhUserManager` reads the key from the `IConfiguration` of its service provider; a manager built with a provider without one fails when it generates or redeems recovery codes. | Register `IConfiguration` in that provider, as ASP.NET Core hosts do; a test helper that builds the manager by hand adds it. |
 | Users who redeem no recovery code keep their unkeyed entries. | None. Optionally ask them to regenerate their recovery codes. |
 
+## NewHeap.Platform.AspNet.Common: background-operation hub connections end with their authentication
+
+The background-operation hub (`NhBackgroundOperationHub`), which `MapNewHeapBackgroundOperations` and the
+NewHeap application builder map, now uses `CloseOnAuthenticationExpiration`: a connection, over
+WebSockets as well, closes when the token or cookie it was opened with expires, instead of living on
+through keep-alives and receiving operation changes after the session ended.
+
+| Breaking change | Required action |
+|---|---|
+| A live-update connection closes when the access token it was opened with expires. | None for the NewHeap Angular clients, which reconnect automatically with the current session. A custom SignalR client reconnects with a fresh token, for example through `accessTokenFactory`. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it
