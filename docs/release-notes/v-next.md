@@ -100,6 +100,38 @@ expansion now skips redirect evaluation and the request passes through, as other
 |---|---|
 | An exact target or regex template that resolves to `//host`, such as `/a/..//host`, now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |
 
+## NewHeap.Platform.AspNet.Proxy: denied addresses no longer spend the administrator's login budget
+
+`NhProxyAdministrationService.SignInAsync` now refuses a caller outside the IP allowlist before it takes a
+permit from the shared login budget (`Administrator:LoginAttemptLimit` per `LoginAttemptWindow`). Before,
+every tokenless `POST /newheap-proxy/Login` from a denied address spent one, so about five such requests
+a minute kept allowlisted administrators at 429. Denied attempts are still audited as `IpDenied`, now
+within a separate budget of `LoginAttemptLimit` rows per `LoginAttemptWindow`; further denied attempts
+in that window are refused with 403 without an audit row, so outside traffic cannot grow the login audit
+without bound.
+
+| Breaking change | Required action |
+|---|---|
+| Denied attempts beyond `LoginAttemptLimit` per `LoginAttemptWindow` no longer appear in the login audit. | None, unless monitoring counts `IpDenied` rows to measure outside traffic; count refused requests in the host's request logs instead. |
+
+## @newheap/platform-common: logout always ends the browser session
+
+`BaseNhAuthService.logout()` now ends the local session after the logout request whether the request
+succeeds or not. Before, a failed request (offline, a timeout, CORS or an error response such as 500)
+left the stored authorization (`at` in `localStorage`) with its access and refresh token, so
+`isAuthenticated()` stayed `true` and the next person on the device kept the session, also after a
+reload. The result still fails in that case, so the application can report that the sign-out did not
+reach the server, which alone can end a cookie session. `clearAuthorization()` now removes the stored
+record and the cached authorization also when the access token has expired; before, it did nothing
+unless the session was still valid, which left the refresh token in the browser. It emits `undefined`
+on `authSubject` (unless `doDispatchEvent` is `false`) and dispatches the session expiration information
+only when there was an authorization to remove, as before for a valid session.
+
+| Breaking change | Required action |
+|---|---|
+| `logout()` ends the local session also when it returns a failed result. | None, unless the application kept people signed in after a failed logout; report the failure and let them sign in again. |
+| `clearAuthorization()` removes an expired authorization and then emits `undefined` on `authSubject` and new session expiration information. | None, unless a subscriber treats that emission as an explicit sign-out; an expired session already read as signed out. Remove overrides that only made either method clear in these cases. |
+
 ## NewHeap.Platform.AspNet.Common: refresh tokens stored as keyed digests
 
 A refresh-token row (`NhUserAuthRefreshToken.Token`) now holds `nhr1:` and the HMAC-SHA256 of the token

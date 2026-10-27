@@ -760,7 +760,9 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
     ],
     "SPM-067": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -1789,7 +1791,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyAdministrationTests.cs"
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
@@ -2249,6 +2252,7 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs"
@@ -3057,6 +3061,7 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",

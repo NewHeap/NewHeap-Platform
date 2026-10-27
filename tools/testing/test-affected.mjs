@@ -14,15 +14,16 @@
 //   npm run test:affected -- --max-parallel <n>  test projects at a time (default 3); 1 runs every job in turn
 //   npm run test:affected -- --dry-run       print the plan only
 //   npm run test:affected -- --files a,b     plan and run for these files instead of the git changes
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
+import { readdir, readFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   affectedFrontEndLibraries,
   affectedTestProjects,
+  buildsThroughSolution,
+  durationsFilePath,
   frontEndRoot,
   isTestProject,
   jobReport,
@@ -38,20 +39,24 @@ import {
   testableFrontEndLibraries,
   testPlan
 } from './affected-lib.mjs';
+import {
+  createRunFolder,
+  readDurations,
+  removeRunFolder,
+  solutionFileName,
+  writeDurations,
+  writeSolution
+} from './affected-state.mjs';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
 const projectRoots = ['src/Back-end', 'examples/SampleProjectManagement/src/Back-end'];
 const skippedFolders = new Set(['bin', 'obj', 'node_modules', '.git', '.claude', '.angular', 'dist']);
 
 /**
- * Files of this checkout kept outside the repository: the generated solution of the affected test
- * projects and the durations of the last run, which order the next one.
+ * The durations of the last run of this checkout, which order the next one, in the user's own cache
+ * folder. The generated solution of a run goes into a private folder of that run (createRunFolder).
  */
-const stateFolder = join(
-  tmpdir(),
-  'newheap-test-affected',
-  createHash('sha256').update(repositoryRoot.toLowerCase()).digest('hex').slice(0, 12));
-const durationsFile = join(stateFolder, 'durations.json');
+const durationsFile = durationsFilePath({ platform: process.platform, env: process.env, home: homedir(), repositoryRoot });
 
 const args = process.argv.slice(2);
 const option = name => args.includes(name);
@@ -142,14 +147,6 @@ async function frontEndLibraries() {
   return testableFrontEndLibraries(angular.projects, await findSpecFiles('projects'));
 }
 
-async function previousDurations() {
-  try {
-    return JSON.parse(await readFile(durationsFile, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
 const windowsShell = process.platform === 'win32';
 
 /**
@@ -210,7 +207,10 @@ const allProviders = everything || option('--all-providers') || needsAllProvider
 const runs = providerRuns(allProviders);
 const angularLibraries = everything ? libraries : affectedFrontEndLibraries(files, libraries);
 const sampleChanged = everything || files.some(file => file.startsWith(`${sampleRoot}/`));
-const previousSeconds = await previousDurations();
+const previousSeconds = await readDurations(durationsFile);
+const dryRun = option('--dry-run');
+// A dry run writes nothing, so it names the run folder that a real run creates.
+const runFolder = !dryRun && buildsThroughSolution(testProjects) ? await createRunFolder() : null;
 const plan = testPlan({
   repositoryRoot,
   testProjects,
@@ -218,7 +218,7 @@ const plan = testPlan({
   angularLibraries,
   sampleChecks: sampleChanged,
   maxParallel,
-  solutionPath: join(stateFolder, 'affected-tests.slnx'),
+  solutionPath: join(runFolder ?? join(tmpdir(), 'newheap-test-affected-<run>'), solutionFileName),
   previousSeconds,
   windowsShell
 });
@@ -236,7 +236,7 @@ console.log(allProviders
     + runs.map(providerRun => `${providerRun.label} (--filter "${providerRun.filter}")`).join(' next to ') + '.'
   : `Database providers: PostgreSQL only (--filter "${runs[0].filter}"; no persistence change; --all-providers runs both).`);
 console.log(plan.build
-  ? `Build, once before any .NET test runs: dotnet ${plan.build.processes[0].args.join(' ')}${plan.build.solution ? ' (a generated solution of the test projects below)' : ''}`
+  ? `Build, once before any .NET test runs: dotnet ${plan.build.processes[0].args.join(' ')}${plan.build.solution ? ' (a generated solution of the test projects below, in a private folder of this run)' : ''}`
   : 'Build: none');
 console.log(`.NET test projects: ${testProjects.length === 0
   ? 'none'
@@ -254,7 +254,7 @@ if (librariesWithoutSpecs.length > 0) {
 }
 console.log(`Sample checks: ${sampleChanged ? `npm run verify:samples; ${sequential ? 'last' : 'from the start, alongside the rest'}` : 'none'}`);
 
-if (option('--dry-run')) {
+if (dryRun) {
   process.exit(0);
 }
 
@@ -267,28 +267,38 @@ async function keepDurations(jobResults) {
       durations[jobResult.job.name] = jobResult.seconds;
     });
   try {
-    await mkdir(stateFolder, { recursive: true });
-    await writeFile(durationsFile, `${JSON.stringify(durations, null, 2)}\n`, 'utf8');
+    await writeDurations(durationsFile, durations);
   } catch {
     // The durations only order the next run; without them it falls back to the typical durations.
   }
 }
 
 const started = Date.now();
-if (plan.build?.solution) {
-  await mkdir(stateFolder, { recursive: true });
-  await writeFile(plan.build.solution.path, plan.build.solution.content, 'utf8');
-}
-const buildFailed = jobResult => jobResult.job === plan.build && !jobResult.results[0].passed;
-const jobResults = await runJobs(plan.jobs, plan.limits, runJob, { stopAfter: buildFailed });
-await keepDurations(jobResults);
-const results = jobResults.filter(Boolean).flatMap(jobResult => jobResult.results);
-summaryLines(results, Math.round((Date.now() - started) / 1000)).forEach(line => console.log(line));
-if (jobResults.some(jobResult => jobResult && buildFailed(jobResult))) {
-  const notRun = plan.jobs.filter((_, index) => !jobResults[index]).map(job => job.name);
-  console.log(`The build failed, so no .NET test ran; the run stopped. Run dotnet ${plan.build.processes[0].args.join(' ')} to see every error.`);
-  if (notRun.length > 0) {
-    console.log(`Not run: ${notRun.join(', ')}`);
+let keepRunFolder = false;
+try {
+  if (plan.build?.solution) {
+    await writeSolution(plan.build.solution.path, plan.build.solution.content);
+  }
+  const buildFailed = jobResult => jobResult.job === plan.build && !jobResult.results[0].passed;
+  const jobResults = await runJobs(plan.jobs, plan.limits, runJob, { stopAfter: buildFailed });
+  await keepDurations(jobResults);
+  const results = jobResults.filter(Boolean).flatMap(jobResult => jobResult.results);
+  summaryLines(results, Math.round((Date.now() - started) / 1000)).forEach(line => console.log(line));
+  if (jobResults.some(jobResult => jobResult && buildFailed(jobResult))) {
+    const notRun = plan.jobs.filter((_, index) => !jobResults[index]).map(job => job.name);
+    console.log(`The build failed, so no .NET test ran; the run stopped. Run dotnet ${plan.build.processes[0].args.join(' ')} to see every error.`);
+    if (runFolder) {
+      // That command builds the generated solution, so its private folder stays for it.
+      keepRunFolder = true;
+      console.log(`The generated solution stays in ${runFolder}; remove the folder when you no longer need it.`);
+    }
+    if (notRun.length > 0) {
+      console.log(`Not run: ${notRun.join(', ')}`);
+    }
+  }
+  process.exitCode = results.every(result => result.passed) ? 0 : 1;
+} finally {
+  if (runFolder && !keepRunFolder) {
+    await removeRunFolder(runFolder);
   }
 }
-process.exitCode = results.every(result => result.passed) ? 0 : 1;

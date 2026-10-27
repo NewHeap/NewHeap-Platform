@@ -50,7 +50,11 @@ re-authorizes descriptor policies, builds context through the shared factory,
 and accepts only a bounded idempotency header.
 The contributor recognizes a context of the request's own person, calls
 `IAuthorizationService`, and only then copies the division ID into a bounded
-execution scope and grants a lowercase dash-case capability.
+execution scope and grants a lowercase dash-case capability. The scope says
+which division the call is authorized for, not which objects its arguments
+name: a tool that acts on an object it receives by id loads that object within
+the scope's division and refuses it otherwise before any side effect, as the
+sample's project tools do (SPM-314).
 
 The platform recognizes the person who sent a request by the platform's actor id,
 never by a claim: the id the registered `INhAiAuthenticatedInvocationContextResolver`

@@ -167,4 +167,74 @@ public sealed class ProxyAdministrationSamplesTests
             directory.Delete(true);
         }
     }
+
+    [Fact]
+    public async Task Clients_outside_the_allowlist_cannot_lock_the_administrator_out()
+    {
+        // SPM-238: a sign-in from outside the allowlist is refused before the shared login budget, so it
+        // spends no attempt of the administrator's, and the login audit records a bounded number of them.
+        var directory = Directory.CreateTempSubdirectory("newheap-proxy-allowlist-sample-");
+        var cancellationToken = TestContext.Current.CancellationToken;
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(options =>
+            {
+                options.Administrator.UserName = "info@newheap.com";
+                options.Administrator.Password = "sample-test-only-password";
+                // One window for the whole test, so the bounded audit count cannot reset halfway.
+                options.Administrator.LoginAttemptWindow = TimeSpan.FromHours(1);
+                options.IpAllowlist.Enabled = true;
+                options.IpAllowlist.Entries = ["127.0.0.1/32", "::1/128"];
+            }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            // The host trusts its loopback forwarder, which names the outside client in X-Forwarded-For.
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+            });
+            app.UseNewHeapProxy();
+            await app.StartAsync(cancellationToken);
+            try
+            {
+                var budget = new NhProxyAdministratorOptions().LoginAttemptLimit;
+                using var outside = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = new Uri(app.Urls.Single()) };
+                for (var attempt = 0; attempt < budget * 2; attempt++)
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Post, "/newheap-proxy/Login")
+                    {
+                        Content = new FormUrlEncodedContent(new Dictionary<string, string>())
+                    };
+                    request.Headers.Add("X-Forwarded-For", "203.0.113.40");
+                    using var denied = await outside.SendAsync(request, cancellationToken);
+                    Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+                }
+
+                using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(app.Urls.Single()) };
+                var loginHtml = await client.GetStringAsync("/newheap-proxy/Login", cancellationToken);
+                var loginToken = System.Text.RegularExpressions.Regex.Match(loginHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+                Assert.True(loginToken.Success);
+                using var signedIn = await client.PostAsync("/newheap-proxy/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["UserName"] = "info@newheap.com", ["Password"] = "sample-test-only-password",
+                    ["__RequestVerificationToken"] = WebUtility.HtmlDecode(loginToken.Groups[1].Value)
+                }), cancellationToken);
+                Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
+
+                var audit = await app.Services.GetRequiredService<INhProxyLoginAuditStore>()
+                    .QueryAsync(new NhProxyLoginAuditQuery { Outcome = NhProxyLoginOutcome.IpDenied }, cancellationToken);
+                Assert.True(audit.Success);
+                Assert.Equal(budget, audit.Data!.TotalCount);
+            }
+            finally
+            {
+                await app.StopAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
 }

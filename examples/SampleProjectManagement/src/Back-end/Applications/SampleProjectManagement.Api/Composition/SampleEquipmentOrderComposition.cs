@@ -20,6 +20,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// assistant hands it to the order desk too, instead of running the tool's function; the chat goes on
 /// with "the order desk has it", and the desk's report is posted into that chat, in the language of the
 /// person's turn that approved it.
+/// Both ways, the executor refuses an order for a project whose division the approver may not manage
+/// projects in (<see cref="SampleEquipmentOrderExecutor.ProjectOutOfScopeCode"/>), because a hand-off
+/// carries the approved arguments, not the division the call was authorized for.
 /// SPM-339: <see cref="ProjectEquipmentProposalGuard"/> names the item and project an order changes, so
 /// a newer order of the same item replaces the open one under the intake policy, also among the
 /// reviewer's shadow proposals while it is evaluated in shadow.

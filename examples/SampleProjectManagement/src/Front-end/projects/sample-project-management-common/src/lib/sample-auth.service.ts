@@ -10,31 +10,15 @@ export enum SampleClaimTypes {
   ProjectPermission = 'sample.project.permission'
 }
 
+/**
+ * The sample's authorization service. It keeps the NewHeap `logout()` and `clearAuthorization()`:
+ * logout ends the browser session also when the server logout fails, and returns that failure so
+ * the caller can report it, and clearing also removes an authorization that just expired.
+ */
 @Injectable({ providedIn: 'root' })
 export class SampleAuthService extends BaseNhAuthService<NhAuthorization> {
   protected initEmptyAuthorization(): NhAuthorization {
     return new NhAuthorization();
-  }
-
-  override clearAuthorization(doDispatchEvent: boolean = true): void {
-    try {
-      localStorage.removeItem('at');
-    } finally {
-      this.authorization = undefined;
-      if (doDispatchEvent) {
-        this.authSubject.next(undefined);
-      }
-      this.dispatchSessionExpirationInformationChanged();
-    }
-  }
-
-  override async logout() {
-    const result = await super.logout();
-
-    // A server-side logout failure must not leave the browser session active.
-    // The API result is still returned so callers can report that failure.
-    this.clearAuthorization();
-    return result;
   }
 
   isOneProjectPermissionGranted(
