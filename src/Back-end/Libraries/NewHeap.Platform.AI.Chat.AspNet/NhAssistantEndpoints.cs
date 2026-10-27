@@ -95,7 +95,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations/{id:guid}/messages", SendMessageAsync)
             .WithName("NhAssistantSendMessage")
             .WithSummary("Send a message")
-            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle; in a chat whose question or approval passed its lifetime, that closes as expired first, as a late answer or decision closes it, and the message starts its turn. In an agent's thread whose run is working, the message and its files wait for the next run instead and the answer is 202 with the trigger receipt; the run opens the files with the caller's rights.")
+            .WithDescription("Starts a turn as the caller and streams it as server-sent events. `files` attaches files that `POST conversations/{id}/files` returned. Returns 409 when the conversation is not idle; in a chat whose question or approval passed its lifetime, that closes as expired first, as a late answer or decision closes it, and the message starts its turn. In an agent's thread whose run is working, the message and its files wait for the next run instead and the answer is 202 with the trigger receipt; the run opens the files with the caller's rights. Only someone who may start the agent by hand, as POST threads/start decides, leaves a message for a run: anyone else gets the 409 of a busy conversation and nothing waits for them.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
@@ -414,9 +414,23 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             && started.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ConversationBusy)
             && !string.IsNullOrWhiteSpace(text))
         {
-            // A run owns the thread; the message waits and the agent reads it in its next turn, with
-            // its attachments (A13). The turn already checked the references; an agent that takes no
-            // files, or fewer, refuses them now rather than in the run.
+            // A run owns the thread; the message waits and the agent reads it in its next turn, which
+            // it may start: only for someone who may start the agent by hand (K9), as POST
+            // threads/start decides. Anyone else finds the thread busy, as a busy chat is, and
+            // nothing is created for them.
+            var clearance = await httpContext.RequestServices.GetRequiredService<NhAssistantManualStarts>().ClearAsync(
+                agentTurn.Thread.AgentId,
+                agentTurn.Subject.Subject,
+                caller.Data.ActorId,
+                httpContext.User,
+                httpContext.RequestAborted);
+            if (!clearance.Success)
+            {
+                return FromFailure(started);
+            }
+
+            // The message keeps its attachments (A13). The turn already checked the references; an
+            // agent that takes no files, or fewer, refuses them now rather than in the run.
             if (files.Count > 0 && QueuedFilesRefusal(httpContext, agentTurn.Thread.AgentId, files.Count) is { } filesCode)
             {
                 return Error(filesCode);
@@ -434,7 +448,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                     NhAssistantTriggerConflict.Coalesce,
                     TimeSpan.Zero)
                 {
-                    Files = files
+                    Files = files,
+                    StartClearance = clearance.Data
                 },
                 httpContext.RequestAborted);
             return TypedResults.Json(

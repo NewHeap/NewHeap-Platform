@@ -201,7 +201,9 @@ public static class SampleAssistantComposition
             // the gateway's resources, so the model queries tasks of a project without searching first.
             // SPM-291: every turn also carries the project descriptions of the active division that
             // match the question, read once through the project-documents source with its
-            // authorization and division scope.
+            // authorization and division scope. The descriptions are internal: retrieved items raise
+            // the classification of the turn's model calls, so every profile that may serve the turn,
+            // a skill's or a fallback, permits what the source returns.
             .ConfigureAgentContext(AgentId, context => context
                 .UseApplicationMap()
                 .UseRetrievedContext(retrieval => retrieval

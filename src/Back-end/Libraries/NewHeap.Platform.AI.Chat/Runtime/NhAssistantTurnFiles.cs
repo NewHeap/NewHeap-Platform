@@ -174,13 +174,15 @@ internal sealed class NhAssistantTurnFiles(
 
     /// <summary>
     /// The classification of the turn's model calls in <paramref name="skill"/>: the highest of the
-    /// skill's or agent's and of the files the turn reads.
+    /// skill's or agent's, of the files the turn reads and of its retrieved context.
     /// </summary>
     public static NhAiDataClassification ClassificationOf(NhAssistantTurnState state, NhAssistantSkillOptions? skill)
     {
         var configured = ConfiguredClassificationOf(state, skill);
         var files = state.FileClassification;
-        return files > configured ? files : configured;
+        var retrieved = state.RetrievedClassification;
+        var read = files > retrieved ? files : retrieved;
+        return read > configured ? read : configured;
     }
 
     /// <summary>
@@ -268,9 +270,22 @@ internal sealed class NhAssistantTurnFiles(
     }
 
     /// <summary>
-    /// Whether the turn may continue in <paramref name="skill"/> with the files its model already
-    /// reads: the skill accepts files, they fit its limits, its profile permits their classification
-    /// and reads their types. Returns the refusal code, or <see langword="null"/> when it may.
+    /// The refusal of an earlier file that a person only referenced and that was never read with that
+    /// person's rights, in the turn of another actor: it opens only in a turn of that person, never
+    /// with someone else's rights (<see cref="NhAssistantErrorCodes.FileForbidden"/>).
+    /// </summary>
+    public static NhAssistantFileOutcome NotReadForAuthor(NhAiFileReference reference, string? toolId)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return Refused(reference, NhAssistantFileOrigins.EarlierTurn, toolId, NhAssistantErrorCodes.FileForbidden);
+    }
+
+    /// <summary>
+    /// Whether the turn may continue in <paramref name="skill"/> with the files and retrieved context
+    /// its model already reads: the skill accepts files, they fit its limits, its profile permits
+    /// their classification and reads their types. A turn without files only needs a profile that
+    /// permits its classification, retrieved context included. Returns the refusal code, or
+    /// <see langword="null"/> when it may.
     /// </summary>
     public async Task<string?> CheckSkillAsync(
         NhAssistantTurnState state,
@@ -279,7 +294,17 @@ internal sealed class NhAssistantTurnFiles(
     {
         if (!state.HasFiles)
         {
-            return null;
+            // The retrieved context goes along into the skill, so the skill's profile chain must permit
+            // it. File limits do not apply to a turn that reads no files.
+            if (state.RetrievedContext is null)
+            {
+                return null;
+            }
+
+            var skillProfileName = skill.ProfileName ?? state.EffectiveAgent.Definition.ProfileName;
+            return await ResolveServingProfileAsync(skillProfileName, ClassificationOf(state, skill), cancellationToken) is null
+                ? NhAssistantErrorCodes.ClassificationNotPermitted
+                : null;
         }
 
         var limits = LimitsOf(state, skill);

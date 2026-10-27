@@ -72,6 +72,19 @@ input, and `NHAI017` for more than one declaration. A hand-built or attested cat
 `Subject` itself and includes it in its own contract hash. The assistant then places an agent run's
 proposal for another object at that object after checking it (see the agent runs rule).
 
+Generated tools never pass the MVC authorization filter: the policy names in
+`NhAiToolDescriptor.AuthorizationPolicies` are the whole boundary that the tool
+gate, agent grants and the approver check enforce. Declare each requirement as
+`[Authorize(Policy = "...")]` or `[Authorize("...")]` on the tool method or the
+tool set; a plain `[Authorize]` only requires an authenticated caller. The
+generator reads every `IAuthorizeData` declaration ASP.NET would apply: on the
+method and the methods it overrides, and on the tool set and its base types.
+A named `Policy` wins over the positional one, as it does in ASP.NET. It reports
+`NHAI018` for `Roles`, `AuthenticationSchemes` and any attribute class other
+than `AuthorizeAttribute` itself, including its subclasses, because their
+requirement cannot be read at compile time; express roles and schemes as a named
+policy instead. `NHAI007` counts inherited declarations too.
+
 `AddNewHeapPlatformAI` registers the shared `INhAiToolInvoker`. Register an
 `INhAiToolInvocationGate`, through `AddNewHeapPlatformAIAspNet` or
 `UseInvocationGate<TGate>()`, in every host that creates or runs tool functions.
@@ -144,6 +157,7 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Failing an expected outcome without a result code, so the model only sees `ai-tool-failed`.
 - Returning a raw serialized `TaskResult` from a hand-written governed function; the model then receives no code or message.
 - Declaring `NhAiSubject` on a property that does not name the object the call changes, or more than one; the platform checks and places proposals by it.
+- Restricting a tool with `Roles`, `AuthenticationSchemes` or an `AuthorizeAttribute` subclass; the gate only evaluates policy names, so the generator refuses them (`NHAI018`).
 
 ## Verification
 
@@ -160,7 +174,9 @@ result, the second returns `ai-tool-input-invalid` without execution. Assert tha
 a successful call returns only `success` and `data`, and that an expected failure
 returns its own `code` and `message`. Assert that a declared subject appears in the
 descriptor with its JSON name, changes the contract hash only when declared, and that
-invalid declarations report `NHAI015` to `NHAI017`. Build and
+invalid declarations report `NHAI015` to `NHAI017`. Assert that positional and
+inherited `[Authorize]` policies reach the descriptor, that a caller failing one of
+them is denied, and that roles, schemes and attribute subclasses report `NHAI018`. Build and
 start the host in the Development environment, where the container validates
 scopes and registrations on build; a run-scoped catalog must be validated at
 startup and released with its validation scope. SPM-228 registers such a catalog

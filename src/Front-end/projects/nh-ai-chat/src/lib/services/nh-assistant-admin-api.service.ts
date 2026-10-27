@@ -193,7 +193,8 @@ export class NhAssistantAdminApiService {
   /**
    * Changes the technical account that answers for the agent's new runs, or with `actorId: null`
    * uses the account in code again. Fails with `assistant-service-account-not-found` for an
-   * account that does not exist or may not sign in.
+   * account that does not exist or may not sign in, and with `assistant-service-account-not-permitted`
+   * for an account that would lend the agent rights the administrator does not hold.
    */
   setServiceAccount(agentId: string, request: SetAgentServiceAccountRequest): Observable<AgentState> {
     return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/service-account`, request);
@@ -474,7 +475,8 @@ export class NhAssistantAdminApiService {
   /**
    * Adds or changes the run settings of an agent created in the administration. An agent in code
    * fails with `assistant-run-settings-in-code`; an unknown technical account with
-   * `assistant-service-account-not-found`.
+   * `assistant-service-account-not-found`, and one that would lend the agent rights the
+   * administrator does not hold with `assistant-service-account-not-permitted`.
    */
   saveRunSettings(agentId: string, request: AgentRunSettingsRequest): Observable<AgentRunSettings> {
     return this.request<AgentRunSettings>('PUT', `${agentPath(agentId)}/run-settings`, request);

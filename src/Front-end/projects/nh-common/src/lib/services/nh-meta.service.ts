@@ -48,11 +48,29 @@ export class NhMetaService {
     this.angularMetaService.removeTagElement(meta);
   }
 
+  /**
+   * Returns the text of `html`, for example to derive a meta description from rich text. The markup
+   * is parsed in an inert document, so its images never load and its scripts and inline event
+   * handlers never run.
+   */
   stripHtml(html: string): string {
-    const tmp = this._renderer.createElement('div');
-    this._renderer.setProperty(tmp, 'innerHTML', html ?? '');
+    const container = this.createInertDocument().createElement('div');
+    container.innerHTML = html ?? '';
 
-    return tmp.textContent ?? tmp.innerText ?? '';
+    return container.textContent ?? '';
+  }
+
+  /** A document without a browsing context, in which parsed markup is never rendered. */
+  private createInertDocument(): Document {
+    if (typeof DOMParser !== 'undefined') {
+      return new DOMParser().parseFromString('', 'text/html');
+    }
+
+    // Without DOMParser, as in a server render, the application's document creates the inert one;
+    // the empty element only gives access to that document and parses nothing.
+    const applicationDocument = (this._renderer.createElement('div') as HTMLElement).ownerDocument;
+
+    return applicationDocument.implementation.createHTMLDocument('');
   }
 
   private static processMetaTags(tags: MetaDefinition[], maxLength: number = 200, replacementText: string = '...') {

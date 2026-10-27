@@ -66,7 +66,8 @@ internal static class McpOAuthTestFlows
         Guid flowId,
         string completionCode,
         string actorId,
-        bool administrator)
+        bool administrator,
+        bool impersonating = false)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<NhAssistantMcpAuthorizationFlows>().CompleteAsync(
@@ -74,6 +75,7 @@ internal static class McpOAuthTestFlows
             completionCode,
             actorId,
             () => Task.FromResult(administrator),
+            impersonating,
             CancellationToken.None);
     }
 }

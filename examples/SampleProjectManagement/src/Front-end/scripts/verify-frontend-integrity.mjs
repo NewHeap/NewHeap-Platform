@@ -50,6 +50,12 @@ assert.match(providers, /culture:\s*'en-US'/,
   'The sample must start with an English culture.');
 assert.match(providers, /defaultCulture:\s*'en-US'/,
   'The sample must use an English fallback culture.');
+assert.match(providers, /apiBaseUrl:\s*SAMPLE_API_BASE_URL/,
+  'The sample must name its API base explicitly, so the interceptors send credentials only to the API.');
+assert.match(providers, /authApiBaseUrl:\s*SAMPLE_API_BASE_URL/,
+  'The sample must name its authentication API base explicitly, so the interceptors send credentials only to the API.');
+assert.match(connectionState, /export const SAMPLE_API_BASE_URL = '\/api';/,
+  'The sample API base must be the same-origin /api path that the development proxy serves.');
 assert.match(managementIndex, /<html\s+lang="en">/,
   'The management document language must default to English.');
 assert.match(workspaceIndex, /<html\s+lang="en">/,
@@ -64,10 +70,10 @@ assert.match(authSession, /reason:\s*'session-expired'/,
   'Expired sessions must navigate to login with an explicit reason.');
 assert.match(authSession, /information\.rejectedByServer/,
   'A session the server rejected must open login with the same reason as an expired one.');
-assert.match(authService, /override clearAuthorization/,
-  'The sample auth service must also clear authorization that has just expired.');
-assert.match(authService, /localStorage\.removeItem\('at'\)/,
-  'Expired browser token state must be removed.');
+assert.doesNotMatch(authService, /override\s+(async\s+)?(clearAuthorization|logout)\b/,
+  'The sample auth service must keep the NewHeap logout and clearAuthorization, which always end the browser session and also remove an expired authorization.');
+assert.match(authSession, /this\.authService\.clearAuthorization\(\)/,
+  'The session coordinator must remove the expired browser token state.');
 assert.match(login, /queryParamMap\.get\('reason'\) === 'session-expired'/,
   'The login page must explain an expiration redirect.');
 assert.match(login, /!\/\[<>\]\/\.test\(item\)/,

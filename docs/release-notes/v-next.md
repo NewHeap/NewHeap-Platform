@@ -100,6 +100,38 @@ expansion now skips redirect evaluation and the request passes through, as other
 |---|---|
 | An exact target or regex template that resolves to `//host`, such as `/a/..//host`, now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |
 
+## NewHeap.Platform.AspNet.Proxy: denied addresses no longer spend the administrator's login budget
+
+`NhProxyAdministrationService.SignInAsync` now refuses a caller outside the IP allowlist before it takes a
+permit from the shared login budget (`Administrator:LoginAttemptLimit` per `LoginAttemptWindow`). Before,
+every tokenless `POST /newheap-proxy/Login` from a denied address spent one, so about five such requests
+a minute kept allowlisted administrators at 429. Denied attempts are still audited as `IpDenied`, now
+within a separate budget of `LoginAttemptLimit` rows per `LoginAttemptWindow`; further denied attempts
+in that window are refused with 403 without an audit row, so outside traffic cannot grow the login audit
+without bound.
+
+| Breaking change | Required action |
+|---|---|
+| Denied attempts beyond `LoginAttemptLimit` per `LoginAttemptWindow` no longer appear in the login audit. | None, unless monitoring counts `IpDenied` rows to measure outside traffic; count refused requests in the host's request logs instead. |
+
+## @newheap/platform-common: logout always ends the browser session
+
+`BaseNhAuthService.logout()` now ends the local session after the logout request whether the request
+succeeds or not. Before, a failed request (offline, a timeout, CORS or an error response such as 500)
+left the stored authorization (`at` in `localStorage`) with its access and refresh token, so
+`isAuthenticated()` stayed `true` and the next person on the device kept the session, also after a
+reload. The result still fails in that case, so the application can report that the sign-out did not
+reach the server, which alone can end a cookie session. `clearAuthorization()` now removes the stored
+record and the cached authorization also when the access token has expired; before, it did nothing
+unless the session was still valid, which left the refresh token in the browser. It emits `undefined`
+on `authSubject` (unless `doDispatchEvent` is `false`) and dispatches the session expiration information
+only when there was an authorization to remove, as before for a valid session.
+
+| Breaking change | Required action |
+|---|---|
+| `logout()` ends the local session also when it returns a failed result. | None, unless the application kept people signed in after a failed logout; report the failure and let them sign in again. |
+| `clearAuthorization()` removes an expired authorization and then emits `undefined` on `authSubject` and new session expiration information. | None, unless a subscriber treats that emission as an explicit sign-out; an expired session already read as signed out. Remove overrides that only made either method clear in these cases. |
+
 ## NewHeap.Platform.AspNet.Common: refresh tokens stored as keyed digests
 
 A refresh-token row (`NhUserAuthRefreshToken.Token`) now holds `nhr1:` and the HMAC-SHA256 of the token
@@ -250,8 +282,9 @@ every effect it calls, whatever the effect policy decides, and records it as a s
 never executes. Before, an effect the policy runs without approval ran live: an idempotent mutation
 with `Approval = NotRequired`, the generated `assistant.request.*` tool, an `Issuer` or
 `ConsumerAuthoritative` tool of an agent that answers to a technical account or the subject's
-responsible person, and an imported MCP tool that the application's effect policy allows. Live runs,
-people's turns and consultations decide as before.
+responsible person, and an imported MCP tool that the application's effect policy allows. A read runs
+as before; the generated consult tool, a read, refuses a shadow run itself (see "shadow runs consult and
+request no live agent"). Live runs, people's turns and consultations decide as before.
 
 | Breaking change | Required action |
 |---|---|
@@ -297,3 +330,316 @@ participant of the same tenant.
 |---|---|
 | `PostAsync` with `ReadableBy` answers `assistant-conversation-not-found` for an agent thread whose subject the person no longer has a role on, a shadow thread and another tenant's thread, also when a participant row remains. | None; such a person may no longer open the thread. |
 | `PostAsync` with `ReadableBy` posts into an agent thread of a person with a live role on its subject who never opened it; before, it answered `assistant-conversation-not-found`. | None, unless the application relied on the refusal; check the person's role itself before posting. |
+
+## @newheap/platform-common: credentials go only to the configured API
+
+`NhApiAuthInterceptor`, `NhActiveDivisionInterceptor` and `NhServerHttpInterceptor` now compare a
+request with `apiBaseUrl` and `authApiBaseUrl` by origin and path instead of by string prefix. Both
+URLs are resolved against the document as the browser resolves them, and a request matches when it
+has the base URL's scheme, host and port and its path is the base path or continues it after a `/`,
+in any letter case. An empty base URL, the default, stands for the application's own origin:
+relative and same-origin requests still match, while a request to another origin no longer receives
+the access token, `X-NH-ActiveDivisionId` or, in a server render, the forwarded session cookies, and
+its `Set-Cookie` is no longer relayed. Before, an empty base matched every URL and
+`https://api.example.com` also matched `https://api.example.com.attacker.example`. A relative base
+such as `/api` now also matches absolute URLs on the application's own origin. With
+`authType: 'header'`, the access token goes to requests under `authApiBaseUrl` always and to
+requests under `apiBaseUrl` while `addAuthTokensToRequests` is `true`, as before.
+
+| Breaking change | Required action |
+|---|---|
+| With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
+| A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
+
+## @newheap/platform-common: JSON-LD text cannot end its script element
+
+`NhJsonLdComponent` (`<nh-json-ld>`) now writes every `<` in the serialized JSON as `\u003c` and
+escapes U+2028 and U+2029. Before, it escaped only the exact lowercase `</script>`, so a string
+value with `</SCRIPT>`, `</script >`, `</script/>` or `<!--<script>`, such as a review body passed
+through `NhJsonLdService` or `NhPageSettings.jsonLdData`, ended the script element and the rest of
+the value was inserted as markup. The script text still parses to the same values.
+
+| Breaking change | Required action |
+|---|---|
+| The JSON-LD script text holds `\u003c` instead of `<`, and escapes U+2028 and U+2029. | None, unless a test compares the script's raw text; compare the parsed JSON instead. |
+
+## @newheap/platform-common: stripHtml parses in an inert document
+
+`NhMetaService.stripHtml` now parses its input in a document without a browsing context, created
+with `DOMParser` (or, where that is missing as in a server render, by the application document's
+`implementation`), instead of in an element of the application's document. Images in the markup
+no longer load and their inline event handlers no longer run; the returned text is the same.
+
+## NewHeap.Platform.AI.AspNet.Common: access contexts come from the person's own requests only
+
+`NhAiAccessContext.IsPersonsOwnRequest(principal)` says whether an access source may record a request:
+an authenticated principal without the marker claims of a delegated read token
+(`nh-ai-delegated-read`, `nh-ai-delegated-read-action`), a delegated MCP token (`nh-ai-mcp-delegated`,
+`nh-ai-mcp-audience`) or an impersonation session (`NhPlatformClaimTypes.ImpersonateOriginUserId`).
+Such a request is an agent working for the person, or someone else acting as the person, so recording
+it kept the person's rights alive past `MaxAge` and recreated them after sign-out. The principal factory
+of `UsePrincipalsFromAccessSource` now refuses a context that holds one of these claims, whatever its
+date. The sample's `SampleAccessSourceComposition` records only the person's own requests and forgets
+the context in the person's own sign-out request (`UseSampleAccessContexts(signOutPath)`).
+
+| Breaking change | Required action |
+|---|---|
+| A context whose claims hold a delegated read, delegated MCP or impersonation marker yields no principal, so background work that relied on it is refused with the usual codes. | Record only requests for which `NhAiAccessContext.IsPersonsOwnRequest` is true, and forget the person's context at sign-out; the next own request of the person records a context that lends again. |
+
+## NewHeap.Platform.AI.AspNet.Common: headless gateway reads need a fresh access context
+
+With `UsePrincipalsFromAccessSource`, a headless gateway read now asks the host's
+`INhAiDelegatedReadCredentialIssuer` for a credential only while `INhAiPrincipalFactory` builds the
+person's principal from the access source: without a context, with one older than `MaxAge`, or with one
+that holds a derived-credential or impersonation marker, the read fails with
+`api-bridge-unauthenticated` before the issuer is asked and no request is sent. Before, the read was
+issued whenever the host's issuer issued, also for a person who had signed out. Hosts without an access
+source keep their issuer's decision, as the built-in issuer with the person's sign-in state.
+
+| Breaking change | Required action |
+|---|---|
+| Under `UsePrincipalsFromAccessSource` an agent's gateway read for a person without a fresh context fails with `api-bridge-unauthenticated`. | None; the read works again after the person's next own request. Keep refusing unknown or disabled people in a custom issuer. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: impersonation sessions grant nothing in the person's name
+
+While a NewHeap impersonation marker (`NhPlatformClaimTypes.ImpersonateOriginUserId`) is present, the
+assistant refuses the personal grants that would outlive the session with
+`403 assistant-not-allowed-while-impersonating` (`NhAssistantErrorCodes.NotAllowedWhileImpersonating`):
+consent to background use (`PUT mcp-connections/{serverId}` with `allowBackgroundUse: true`), starting a
+personal OAuth connection (`POST mcp-connections/{serverId}/authorize`), completing one
+(`POST mcp-connections/complete`, which ends the flow) and registering a browser for push
+(`PUT notifications/push-subscription`). Withdrawing the consent, disconnecting and removing a
+subscription stay allowed; their `McpBackgroundUseChanged` and `McpConnectionDisconnected` audit events
+name the impersonating user in the new `NhAssistantAuditEvent.ImpersonationOriginActorId`. Organization
+connections and hosts without NewHeap impersonation are unchanged. An application channel that issues
+its own credential for the person, such as the sample's messaging link token (SPM-332), applies the same
+rule: no issuance from an impersonation session, a binding to the person's security stamp so that a
+password change or session revocation ends it, and no renewal beyond the presented credential's expiry.
+
+| Breaking change | Required action |
+|---|---|
+| An impersonation session can no longer consent to background use, connect a personal MCP account or register a push subscription for the impersonated person. | None; the person does it in their own session. Map `assistant-not-allowed-while-impersonating` (403) where your own client shows assistant errors. |
+| `NhAssistantErrorCodes` gains `NotAllowedWhileImpersonating` and `NhAssistantAuditEvent` gains `ImpersonationOriginActorId`. | None; an audit sink that stores events field by field may store the new value. |
+
+## @newheap/platform-ai-chat: the impersonation refusal has a text
+
+The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include
+`assistant-not-allowed-while-impersonating`, which the server answers when an impersonation session tries
+to connect an account, allow background use or register push notifications for the impersonated person.
+The mock API's status table maps it to 403.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
+
+## NewHeap.Platform.AI.Generators: every authorization declaration reaches the tool descriptor
+
+Generated tools never pass the MVC authorization filter, so the descriptor's policy list is what the
+tool gate, agent grants and the approver check enforce. The generator now reads every `IAuthorizeData`
+declaration ASP.NET would apply to the tool method: on the method and the methods it overrides, and on
+the tool set and its base types. It takes the policy from the named `Policy` argument, otherwise from
+the constructor argument of `[Authorize("policy")]`. Before, only the named `Policy` of an
+`AuthorizeAttribute` directly on the method or the tool set reached the descriptor, so a positional or
+inherited policy, `Roles` and an `AuthorizeAttribute` subclass were dropped and every authenticated
+caller ran the tool. Declarations the gate cannot enforce now fail the build with `NHAI018`. Tools that
+declare only `[Authorize]` and `[Authorize(Policy = ...)]` on the method and the tool set keep their
+contract hashes.
+
+| Breaking change | Required action |
+|---|---|
+| A tool restricted with `Roles`, `AuthenticationSchemes`, an `AuthorizeAttribute` subclass or another `IAuthorizeData` attribute fails to build with `NHAI018`. | Register a named policy for the roles or schemes and declare `[Authorize(Policy = "...")]` instead. |
+| A positional (`[Authorize("policy")]`), overridden or inherited policy is now enforced, and the tool's contract hash includes it. | Grant that policy to the people and agents who use the tool, and refresh pinned manifests or bound proposals of the affected tools. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AI.AspNet.Mvc: gateway search never matches a redacted field
+
+A search matches every field the API searches, so with `RedactResultFields` a search could still test
+the values that redaction removes from the result. `NhAiBridgeQueryDescription.SearchFields` now
+publishes the result field paths a search matches, and `describe-resource` shows them as
+`query.searchFields`. The canonical collection provider takes them from the new
+`NhCollectionContract.SearchPaths`: the `[Searchable]` members of the item type, including those of
+nested searchable objects up to two levels, as collection processing searches them. With redaction
+configured, the gateway `query` refuses a non-empty `search`, also with `countOnly`, before the HTTP
+call on a resource whose search fields are unknown or include a redacted field, and
+`describe-resource` reports that resource as `searchable: false`. Gateways without redaction, and
+resources whose searched fields are all visible, search as before.
+
+| Breaking change | Required action |
+|---|---|
+| With redaction, a search on a resource that marks a redacted field `[Searchable]`, directly or in a nested searchable object, fails with `api-bridge-validation`. | Remove `[Searchable]` from the redacted field, or let the model filter on visible fields. |
+| With redaction, a resource whose collection contract provider sets no `SearchFields` is no longer searchable through the gateway. | Set `NhAiBridgeQueryDescription.SearchFields` to the fields the API searches. |
+| A service that searches through `WithSearchable` selectors publishes only its `[Searchable]` members as search paths. | Describe such a resource with a collection contract provider that publishes the selector fields. |
+
+## NewHeap.Platform.AI.Chat: retrieved context is bound to the profile that serves the turn
+
+A turn retrieves up to the highest classification its agent's profile permits, but its skills and
+fallback profiles may permit less. The highest classification among the retrieved items now raises
+the classification of the turn's model calls, as the files the model reads already did. `use_skill`
+refuses a skill whose profile chain does not permit it with `assistant-classification-not-permitted`,
+also in a turn without files, and the profile resolution no longer falls back to a profile that does
+not permit it: the turn fails instead of sending the items. Turns whose retrieved items stay within
+the agent's configured classification are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A turn whose retrieved items are classified above the agent's classification is served only by profiles that permit them; it fails when none in the chain can serve it. | Let the agent's skill and fallback profiles permit the classifications its retrieval sources return, or classify those sources lower. |
+| `use_skill` refuses a skill whose profile does not permit the retrieved context of the turn. | Give the skill a profile that permits it, or keep that work in the agent's own profile. |
+
+## NewHeap.Platform.AI.Chat: a person's thread turn retrieves within the thread's subject
+
+A person's message in an agent's subject thread retrieved context with the person's request
+context, so the active division the client sent for the whole application decided what was
+retrieved, and items of that division reached a thread that every reader of the subject reads. The
+turn now keeps the person as the actor, so the context sources and their policy still decide for
+that person, but retrieves within the execution scopes and scope values of the thread's subject and
+its division, as the turn's tool calls get them, and without the capabilities the request derived
+from its active division. A plain chat retrieves in the person's own context as before.
+
+| Breaking change | Required action |
+|---|---|
+| A context source that serves a person's turn in a subject thread sees the subject and its division instead of the request's active division, and no capability grants. | Read the division from the context's scope value or execution scopes; let the source policy decide on the person and the subject rather than on capabilities. |
+
+## NewHeap.Platform.AI.Chat.AspNet: one start rule for every run a person asks for
+
+A message to a busy agent thread, a restart of a failed run (`POST runs/{runId}/retry` with `mode`
+`restart`) and the generated request tool now create a run only for a person who may start the agent
+by hand, as `POST threads/start` decides: the agent's required policy as it is in effect now, on an
+object the participant role, on the whole application the agent's run and view policies, and only
+administrators for an agent in shadow. These paths checked a thread or participant role only, so an
+approver of the whole application without the run policy, or a participant of an agent in shadow,
+could start runs that the start by hand refuses them. Hosts whose approvers pass the run policies of
+their agents, and agents that are not in shadow, see no change on objects.
+
+| Breaking change | Required action |
+|---|---|
+| A message to a busy agent thread from someone who may not start the agent answers `409 assistant-conversation-busy`, and nothing waits for them. | None; give the people who leave messages for runs the agent's required policy and, for the whole application, its run policy. |
+| `POST runs/{runId}/retry` with `mode` `restart` refuses as `POST threads/start` does, for example `403 assistant-agent-forbidden`. | Give the people who restart runs the agent's required policy and, for the whole application, its run policy. |
+| The request tool follows the same rule, also when its consultation names a `Policy` of its own: it answers `assistant-agent-forbidden` when the rule refuses and `assistant-consult-subject-unavailable` without a role for the agent's thread; on the whole application the run policy decides instead of the approve policy. | Give the people who request runs the agent's required policy and, for the whole application, its run policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: consultations follow the agent's required policy in effect
+
+A consultation that names no asker policy of its own, in code (`Policy`) or as data (`askerPolicy`),
+now checks at every call the consulted agent's required policy as it is in effect, so an administrator
+who changes the required policy of an agent in code in its editor also changes who consults it. The
+request tool follows the rule of a start by hand, which includes that policy. The generated tools keep
+the policies of code, so a change that admits more people does not offer the tools to them.
+
+| Breaking change | Required action |
+|---|---|
+| The consult tool answers `assistant-agent-forbidden`, without consulting, to an asker who fails the agent's required policy in effect after an administrator changed it. | None; give the consultation an asker policy of its own when its askers should differ from the agent's users. |
+
+## NewHeap.Platform.AI.Chat: consultations about the whole application follow the agent's view policy
+
+Consulting an agent about the whole application (`nh-system`) now resolves the asker's role for the
+agent's thread, as the thread, its runs, its proposals and the request tool do: a person who reads the
+whole application but fails the agent's view policy (by default its required policy) is refused before
+a consultation is recorded or the consulted model runs. Consultations about the application's own
+subject types are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A consultation of an agent about the whole application answers `assistant-consult-subject-unavailable` to an asker who fails the agent's view policy. | None; give the people who consult such an agent its view policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow runs consult and request no live agent
+
+A run in an agent's shadow thread never consults or requests another agent, as a hand-off from shadow
+work to a live agent is already refused. The generated consult tool, which reads, is refused with
+`assistant-consult-agent-unavailable`. The generated request tool is an effect, so the shadow run's
+effect decision records the call as a shadow proposal that never executes before the tool runs (see "a
+shadow run executes no effect"); the request tool refuses a call from a shadow run itself as well. The
+other agent records no consultation, gets no thread, input or run, leaves no proposal for its subject's
+approvers and notifies nobody, so evaluating an agent in shadow, a new data trigger included, never
+changes live work. Runs in live threads and people's own chats are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| The consult tool refuses a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult other agents. |
+| The request tool's call from a run in a shadow thread is recorded as a shadow proposal and starts no run of the other agent. | None; put the asking agent or its trigger live to let its runs request other agents. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a claimed delivery stays deduplicated
+
+A webhook delivery, or an event with a dedupe key, that joined a pending run or waited while the agent
+was paused is now deduplicated also after the run that took it claimed it, so redelivering it starts no
+second run. Such a run records the key of the event that started it only, and the deduplication looked
+only at that key and at inputs that still waited. The input a delivery wrote now counts once a run took
+it; the receipt of the redelivery reads `deduplicated` with that run. An input dropped without a run,
+because its subject or the agent's owner was gone, does not count.
+
+| Breaking change | Required action |
+|---|---|
+| A redelivery of an event that a run already took answers `deduplicated`, naming that run, instead of starting a new run. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: follow-up runs keep the initiator of the work they continue
+
+A follow-up run after a proposal decision (`StartFollowUpRun`) now keeps the initiator of the run that
+made the proposal, or none for trigger work and for a proposal a run placed at another object. Before,
+it took the person who decided as its initiator, after a rejection, an executed or failed approval, an
+approval refused because the subject changed and an application's execution report alike, so a
+delegating agent's follow-up used the decider's rights and four eyes kept the decider instead of the
+requester out of its proposals. The decider stays in the approval (`DecidedByActorId`) and its audit.
+
+| Breaking change | Required action |
+|---|---|
+| The `proposal-decided` and `proposal-executed` runs, their trigger audit and the proposals they make name the proposal's initiator, or none, instead of the person who decided. | None; read the decider from the approval or its decision audit. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.AspNet.Mvc: an approver's decision lends no credentials
+
+When an approver decides another person's proposal in an agent thread under the approval policy
+(`POST conversations/{id}/approvals/{approvalId}/decide`), the person's request turn continues inside
+the approver's request. That continuation now works for the person who asked as a headless turn does:
+its MCP servers use only that person's consented connection or delegated token, never the approver's
+connection or ambient token, and the approver is not its turn person (`INhAiTurnPerson`). The API bridge
+sends the request's bearer token in an agent turn only inside the initiator's own request turn; in
+another person's request and in a headless turn it sends nobody's token. Before, the continuation's MCP
+calls and the bridge's calls were sent with the approver's credential while the gate authorized them with
+the initiator's rights.
+
+| Breaking change | Required action |
+|---|---|
+| A personal MCP server serves an approver's continuation of another person's turn only with that person's consent (`headlessUse` `personal`), otherwise it is left out as in a headless turn. | Let people allow background use of servers their agents need after an approval, or keep such tools out of proposals that others approve. |
+| A bridge call in an agent turn that does not run in its initiator's own request fails with `api-bridge-unauthenticated` before a request is sent. | None; use a gateway read (`AllowGatewayReads`) for headless reads. |
+
+## NewHeap.Platform.AI.Chat: an approver's decision continues with the asker's prompt context
+
+The continuation of another person's request turn after an approver's decision under the approval policy
+now composes its prompt for the person who asked, as the headless continuation of a run does: that
+person's preferences, custom instructions, turn facts and name ("latest message from"), and that person's
+files and daily budget. Before, the approver's own preferences and custom instructions steered a model
+that acted with the asker's delegated rights. The decision, its stored decider and its audit event stay
+the approver's.
+
+| Breaking change | Required action |
+|---|---|
+| Turn context providers (`UseTurnContextProvider`) receive the asker's context for such a continuation, and `INhAiTurnPerson` names nobody in it. | None, unless a provider or tool reads the request's user directly; read the person from the context instead. |
+
+## NewHeap.Platform.AI.Chat: a run lends no rights to another person's message
+
+A turn of an agent run that answers another person's message, such as a message typed while the run
+worked that the run claimed, no longer delegates from the run's initiator and makes no gateway reads
+with the credential of its initiator or accountable account. The authors of the messages a turn answers
+(`RequestedBy`) already kept personal MCP connections out of such a turn; delegated rights and gateway
+reads now follow the same rule. A file that a person's waiting message only referenced, because the run
+ended before its model read the files, opens later only in a turn of that person and is named with
+`assistant-file-forbidden` in anyone else's. The run's own work, and a run of the person who wrote the
+message, keep their rights.
+
+| Breaking change | Required action |
+|---|---|
+| A delegating agent's turn that also answers another person's message calls tools only with the agent's grants or accountable rights; a gateway read there falls back to them as well. | None; the other person's message gets an answer within the agent's own rights, or that person starts the agent. |
+| An earlier file of another person that nobody read with that person's rights is not opened in a later turn of someone else. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: only a person who may act for an account binds it to an agent
+
+The account an agent answers to lends its rights to the agent's headless runs. Setting it
+(`SetServiceAccountAsync`, `POST admin/agents/{id}/service-account`), naming it in an agent's run settings
+(`SaveRunSettingsAsync`, `PUT admin/agents/{id}/run-settings`) and in a package import
+(`NhAssistantAgentPackageImportOptions.ServiceAccounts`) now requires that the person may act for it: the
+account is that person, it is the agent's account in code, the person holds the platform permission
+`nh.platform.auth.impersonate.allowed`, or the person passes every authorization policy of the agent's tools
+that the account passes, evaluated against the agent without a division. The person is the request's user,
+or the principal `INhAiPrincipalFactory` rebuilds; a change by application code with a technical actor id
+that the factory does not know is the application's own decision, as before. Saving an account that is
+already bound again checks only that it still exists.
+
+| Breaking change | Required action |
+|---|---|
+| Binding an account that would lend the agent rights the administrator does not hold is refused with `403 assistant-service-account-not-permitted` (`NhAssistantErrorCodes.ServiceAccountNotPermitted`); the import refuses the part. | Let an administrator who holds the account's rights, or who may act as any user, bind it, or bind it from the application's code. |

@@ -65,6 +65,25 @@ public sealed class AiToolSamplesTests
     }
 
     [Fact]
+    public void Generated_project_tools_carry_every_declared_policy_into_the_descriptor()
+    {
+        // Generated tools never pass the MVC authorization filter, so the descriptor's policy list is
+        // the whole boundary the tool gate enforces. The class-level [Authorize] only requires an
+        // authenticated caller; each method names its policy with [Authorize(Policy = ...)]. The
+        // generator refuses roles, authentication schemes and AuthorizeAttribute subclasses (NHAI018).
+        var catalog = new ProjectAiToolsNhAiCatalog();
+
+        var search = Assert.Single(catalog.Descriptors, item => item.Id == "projects.search");
+        var changeStatus = Assert.Single(catalog.Descriptors, item => item.Id == ProjectAiTools.ChangeStatusToolId);
+
+        Assert.True(search.RequiresAuthorization);
+        Assert.Empty(search.AuthorizationPolicies);
+        Assert.True(changeStatus.RequiresAuthorization);
+        Assert.Equal([ProjectAiTools.ManagePolicy], changeStatus.AuthorizationPolicies);
+        Assert.Equal([ProjectAiTools.ManagePolicy], changeStatus.ApproverPolicies);
+    }
+
+    [Fact]
     public async Task Project_tool_failure_reaches_the_model_with_its_stable_code()
     {
         var readService = new RecordingProjectAiReadService();
@@ -134,6 +153,58 @@ public sealed class AiToolSamplesTests
 
         Assert.False(result.Success);
         Assert.Null(readService.DivisionId);
+    }
+
+    [Fact]
+    public async Task Order_and_review_tools_act_only_on_a_project_of_the_authorized_division()
+    {
+        // SPM-314 and SPM-274: the tool policies authorize the active division, not the project the
+        // arguments name, so both tools load the project within that division before any side effect.
+        var divisionId = Guid.NewGuid();
+        var ownProject = Guid.NewGuid();
+        var otherDivisionProject = Guid.NewGuid();
+        var projects = new DivisionProjects(divisionId, ownProject);
+        var desk = new RecordingOrderDesk();
+        var reviews = new RecordingReviewRequests();
+        var equipment = new ProjectAiEquipmentTools(desk, projects);
+        var review = new ProjectAiReviewTools(reviews, projects, NSubstitute.Substitute.For<INhAiArtifacts>());
+        var context = CreateContext(divisionId);
+
+        var refusedOrder = await equipment.OrderEquipmentAsync(
+            new ProjectAiEquipmentOrderInput(otherDivisionProject, "laptops", 100),
+            context,
+            CancellationToken.None);
+        var refusedReview = await review.RequestReviewAsync(
+            new ProjectAiReviewRequestInput(otherDivisionProject),
+            context,
+            CancellationToken.None);
+
+        Assert.Equal(ProjectAiTools.ProjectOutOfScopeCode, Assert.Single(refusedOrder.GetResultItems()).Name);
+        Assert.Equal(ProjectAiTools.ProjectOutOfScopeCode, Assert.Single(refusedReview.GetResultItems()).Name);
+        Assert.Empty(desk.Orders);
+        Assert.Empty(reviews.Requests);
+
+        // Without an authorized division nothing is looked up or sent either.
+        var unscoped = new NhAiInvocationContext("actor-1", "sample", new Dictionary<string, string>());
+        Assert.Equal(
+            ProjectAiTools.DivisionScopeMissingCode,
+            Assert.Single((await equipment.OrderEquipmentAsync(new ProjectAiEquipmentOrderInput(ownProject, "laptops", 3), unscoped, CancellationToken.None)).GetResultItems()).Name);
+        Assert.Empty(desk.Orders);
+
+        // A project of the authorized division is ordered for and reviewed.
+        var order = await equipment.OrderEquipmentAsync(
+            new ProjectAiEquipmentOrderInput(ownProject, "laptops", 3),
+            context,
+            CancellationToken.None);
+        var reviewRequest = await review.RequestReviewAsync(
+            new ProjectAiReviewRequestInput(ownProject),
+            context,
+            CancellationToken.None);
+
+        Assert.True(order.Success);
+        Assert.Equal((ownProject, "laptops", 3), Assert.Single(desk.Orders));
+        Assert.True(reviewRequest.Success);
+        Assert.Equal((divisionId, ownProject), Assert.Single(reviews.Requests));
     }
 
     [Fact]
@@ -1048,6 +1119,64 @@ public sealed class AiToolSamplesTests
                 }
                 : new HashSet<string>(StringComparer.Ordinal)
         };
+    }
+
+    /// <summary>
+    /// The projects of one division, as the sample's read service finds them for AI approvals: a
+    /// project of another division is not found.
+    /// </summary>
+    private sealed class DivisionProjects(Guid divisionId, params Guid[] projectIds) : IProjectAiReadService
+    {
+        public Task<ProjectAiApprovalItem?> GetForAiApprovalAsync(
+            Guid requestedDivisionId,
+            Guid projectId,
+            CancellationToken cancellationToken = default)
+        {
+            var found = requestedDivisionId == divisionId && projectIds.Contains(projectId)
+                ? new ProjectAiApprovalItem(projectId, "PRJ-OWN", "Own project", SampleProjectManagement.DAL.Entities.ProjectStatus.Draft)
+                : null;
+            return Task.FromResult(found);
+        }
+
+        public Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
+            Guid requestedDivisionId,
+            string? query,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<ProjectAiSearchItem>>([]);
+        }
+    }
+
+    private sealed class RecordingOrderDesk : IProjectEquipmentOrderDesk
+    {
+        public List<(Guid ProjectId, string Item, int Quantity)> Orders { get; } = [];
+
+        public Task<NewHeap.Platform.Common.Models.TaskResult<string>> SubmitAsync(
+            string key,
+            Guid projectId,
+            string item,
+            int quantity,
+            CancellationToken cancellationToken = default)
+        {
+            Orders.Add((projectId, item, quantity));
+            return Task.FromResult(NewHeap.Platform.Common.Models.TaskResult<string>.Succeeded("EQ-TEST"));
+        }
+    }
+
+    private sealed class RecordingReviewRequests : IProjectReviewRequestService
+    {
+        public List<(Guid DivisionId, Guid ProjectId)> Requests { get; } = [];
+
+        public Task<NewHeap.Platform.Common.Models.TaskResult<ProjectAiReviewRequestReceipt>> RequestReviewAsync(
+            Guid divisionId,
+            Guid projectId,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add((divisionId, projectId));
+            return Task.FromResult(NewHeap.Platform.Common.Models.TaskResult<ProjectAiReviewRequestReceipt>.Succeeded(
+                new ProjectAiReviewRequestReceipt(projectId, Guid.NewGuid())));
+        }
     }
 
     private sealed class TestServiceProvider(params object[] services) : IServiceProvider

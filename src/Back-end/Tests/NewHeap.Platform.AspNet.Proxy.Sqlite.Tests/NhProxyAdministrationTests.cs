@@ -298,6 +298,73 @@ public sealed class NhProxyAdministrationTests
     }
 
     [Fact]
+    public async Task Denied_addresses_never_spend_the_administrator_login_budget_and_their_audit_stays_bounded()
+    {
+        const int attemptLimit = 3;
+        var directory = Directory.CreateTempSubdirectory("newheap-panel-denied-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(options =>
+            {
+                options.Administrator.UserName = "administrator";
+                options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "test-only-password");
+                options.Administrator.LoginAttemptLimit = attemptLimit;
+                options.Administrator.LoginAttemptWindow = TimeSpan.FromHours(1);
+                options.IpAllowlist.Enabled = true;
+                options.IpAllowlist.Entries = ["127.0.0.1"];
+            }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            // The host's trusted forwarding: the loopback forwarder names the client of a request that
+            // carries X-Forwarded-For, which places the outside client at a documentation address.
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+            });
+            app.UseNewHeapProxy();
+            await app.StartAsync();
+            try
+            {
+                var panel = app.Urls.Single() + "/newheap-proxy";
+                using var outside = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+                for (var attempt = 0; attempt < attemptLimit * 3; attempt++)
+                {
+                    using var denied = new HttpRequestMessage(HttpMethod.Post, panel + "/Login")
+                    {
+                        Content = new FormUrlEncodedContent(new Dictionary<string, string>())
+                    };
+                    denied.Headers.Add("X-Forwarded-For", "192.0.2.25");
+                    Assert.Equal(HttpStatusCode.Forbidden, (await outside.SendAsync(denied)).StatusCode);
+                }
+
+                // The allowlisted administrator still signs in: the denied attempts spent no permit.
+                using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+                var login = await client.GetStringAsync(panel + "/Login");
+                var signedIn = await client.PostAsync(panel + "/Login", Form(login, new() { ["UserName"] = "administrator", ["Password"] = "test-only-password" }));
+                Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
+                Assert.Contains(signedIn.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith("NewHeapProxy.Session="));
+
+                // The denied attempts are audited up to their own budget of attemptLimit rows per window.
+                var audit = await app.Services.GetRequiredService<INhProxyLoginAuditStore>().QueryAsync(new());
+                Assert.True(audit.Success);
+                var deniedRows = audit.Data!.Items.Where(item => item.Outcome == NhProxyLoginOutcome.IpDenied).ToArray();
+                Assert.Equal(attemptLimit, deniedRows.Length);
+                Assert.All(deniedRows, row => Assert.Equal("192.0.2.25", row.ClientIp));
+                Assert.Contains(audit.Data.Items, item => item.Outcome == NhProxyLoginOutcome.Success && item.ClientIp == "127.0.0.1");
+            }
+            finally
+            {
+                await app.StopAsync();
+            }
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Fact]
     public async Task Audit_is_idempotent_paged_filtered_and_retained_after_schema_upgrade()
     {
         var directory = Directory.CreateTempSubdirectory("newheap-panel-upgrade-");

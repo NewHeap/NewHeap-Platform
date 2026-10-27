@@ -143,7 +143,10 @@ then project or compact:
 `describe-resource` publishes this behavior as `resultShaping`. Hide personal data with
 `gateway.RedactResultFields("*email*", "*phoneNumber*")`: matching fields (case-insensitive,
 `*` wildcard) are removed at every depth and rejected in `fields`, filters and ordering.
-Redaction applies to the gateway tools only.
+`describe-resource` publishes the fields a search matches as `query.searchFields`; with
+redaction, a non-empty `search` (also with `countOnly`) is refused before the HTTP call on a
+resource whose search fields are unknown or include a redacted field, and that resource is
+described as not searchable. Redaction applies to the gateway tools only.
 
 ## Result
 

@@ -17,8 +17,7 @@ on:
         type: string
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: stable-release
@@ -27,6 +26,13 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # The registry trusted-publisher policies require this environment. GitHub starts the job, and
+    # so issues its OIDC token with this environment claim, only after the environment's main-only
+    # deployment branch policy and required reviewers allow it.
+    environment: public-package-release
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Check out exact release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

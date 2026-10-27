@@ -1075,6 +1075,7 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
             completionCode,
             actorId,
             () => Task.FromResult(administrator),
+            impersonating: false,
             CancellationToken.None);
     }
 

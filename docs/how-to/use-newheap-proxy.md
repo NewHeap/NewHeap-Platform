@@ -393,6 +393,11 @@ unavailable with HTTP 503 while ordinary proxy traffic continues. Login activity
 records UTC timestamps, outcomes and client IPs. If activity cannot be recorded,
 login fails.
 
+A sign-in from an address outside the allowlist is refused before the login attempt
+limit, so it uses none of the attempts allowed clients share and cannot lock the
+administrator out. Login activity records at most `LoginAttemptLimit` of those refused
+attempts per `LoginAttemptWindow`.
+
 ## Literal redirects
 
 Use exact matching to move one URL. Leave **Use regular expression** off.

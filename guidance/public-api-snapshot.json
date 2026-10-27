@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "3215f3a7658a24bfd5e774b2db40eb6f150b93ef0c7c7622d466bb910a7a8bdf",
-    "declarationCount": 11211,
+    "hash": "388a1e31bc8fd8166161761d51994963203c3947311991387dfa06fbef8966bd",
+    "declarationCount": 11232,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -124,6 +124,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
         "declaration": "public DateTimeOffset ValidAt { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
+        "declaration": "public static bool IsPersonsOwnRequest(ClaimsPrincipal principal) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAccessSource.cs",
@@ -1483,6 +1487,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<string>? SearchFields { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public IReadOnlyList<string> OrderFields { get; init; } = [];"
       },
       {
@@ -1504,6 +1512,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public bool Searchable { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public IReadOnlyList<string>? SearchFields { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
@@ -4375,6 +4387,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public NhAssistantStartClearance? StartClearance { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>( TEvent evt, CancellationToken cancellationToken = default)"
       },
       {
@@ -4544,6 +4560,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
         "declaration": "public async ValueTask<bool> MayDecideAsync( NhAiApprovalPolicy policy, AssistantThread thread, string toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+        "declaration": "public async ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataConsultationTools.cs",
@@ -4723,11 +4743,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync( string agentId, NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
         "declaration": "public async Task<TaskResult> CheckStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
         "declaration": "public async Task<bool> CanStartAsync( NhAssistantAgent? agent, NhAiSubjectRef subject, NhAiSubjectAccess access, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantManualStarts.cs",
+        "declaration": "public bool Covers(NhAssistantTriggerFire fire) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantObjectAgents.cs",
@@ -5032,6 +5064,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantServiceAccountBinding.cs",
+        "declaration": "public async Task<TaskResult> CheckAsync( string agentId, IReadOnlyList<string> toolSelectors, string accountActorId, string callerActorId, string? accountInCode, bool bound, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
@@ -5987,7 +6023,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantMcpCompletion>> CompleteAsync( Guid flowId, string completionCode, string actorId, Func<Task<bool>> isAdministrator, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<NhAssistantMcpCompletion>> CompleteAsync( Guid flowId, string completionCode, string actorId, Func<Task<bool>> isAdministrator, bool impersonating, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
@@ -6187,7 +6223,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
-        "declaration": "public async Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, CancellationToken cancellationToken) {"
+        "declaration": "public Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+        "declaration": "public async Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, string? impersonationOriginActorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
@@ -7064,6 +7104,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
         "declaration": "public static IResult Error(string code, IReadOnlyDictionary<string, string[]>? fieldErrors) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static bool IsImpersonating(ClaimsPrincipal? user) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static string? OriginOf(ClaimsPrincipal? user) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static TaskResult<T> Refused<T>() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
@@ -17047,6 +17099,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NotAllowedWhileImpersonating = \"assistant-not-allowed-while-impersonating\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SubjectNotFound = \"assistant-subject-not-found\";"
       },
       {
@@ -17144,6 +17200,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ServiceAccountNotFound = \"assistant-service-account-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ServiceAccountNotPermitted = \"assistant-service-account-not-permitted\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -18512,6 +18572,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public int? PackageAgentCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? ImpersonationOriginActorId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -20687,7 +20751,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<bool> HasWaitingInputAsync( Guid conversationId, string triggerId, string eventKey, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<AssistantQueuedInput?> FindEventInputInThreadAsync( Guid conversationId, string triggerId, string eventKey, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -22279,6 +22343,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public bool ContinuedByAnotherPerson { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public string? PayloadJson { get; init; }"
       },
       {
@@ -22559,6 +22627,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public bool ShadowRun { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public string? SkillId { get; set; }"
       },
       {
@@ -22799,7 +22871,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
-        "declaration": "public async Task<(string Block, string Hash)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
@@ -22855,7 +22927,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public (string Block, string Hash)? RetrievedContext { get; set; }"
+        "declaration": "public (string Block, string Hash, NhAiDataClassification Classification)? RetrievedContext { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiDataClassification RetrievedClassification => RetrievedContext?.Classification ?? NhAiDataClassification.Public;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -23444,6 +23520,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
         "declaration": "public async Task<NhAssistantFileOutcome> ReopenAsync( NhAssistantTurnState state, NhAiFileReference reference, string? toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static NhAssistantFileOutcome NotReadForAuthor(NhAiFileReference reference, string? toolId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
@@ -41323,7 +41403,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
-        "declaration": "public sealed record NhCollectionContract( Type ItemType, IReadOnlyList<NhCollectionFieldDescriptor> FilterFields, IReadOnlyList<NhCollectionFieldDescriptor> OrderFields, IReadOnlyList<NhCollectionFieldDescriptor> SearchFields, IReadOnlyList<NhCollectionFieldDescriptor> ResultFields);"
+        "declaration": "public sealed record NhCollectionContract( Type ItemType, IReadOnlyList<NhCollectionFieldDescriptor> FilterFields, IReadOnlyList<NhCollectionFieldDescriptor> OrderFields, IReadOnlyList<NhCollectionFieldDescriptor> SearchFields, IReadOnlyList<NhCollectionFieldDescriptor> ResultFields) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public IReadOnlyList<string> SearchPaths { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
@@ -44852,8 +44936,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "324b61b99bb2dc0172a41b4a89b62e4a6c8cf341f02dbb83c6fbb75d3e1a11f6",
-    "declarationCount": 870,
+    "hash": "40b1b9f88a5225addf2882fd441107d67e1851b2141521c97ec57591d6aa582f",
+    "declarationCount": 871,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -45626,6 +45710,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-active-division.interceptor.ts",
         "declaration": "export class NhActiveDivisionInterceptor implements HttpInterceptor {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-api-base-url.ts",
+        "declaration": "export function nhIsRequestToBaseUrl("
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-api.auth.interceptor.ts",
@@ -49421,7 +49509,9 @@
     "nh-frontend-root-configuration": [
       "NhCommonModule",
       "NhHttpNhCommonModuleConfig",
-      "NhFormDropDownNhCommonModuleConfig"
+      "NhFormDropDownNhCommonModuleConfig",
+      "NhCommonModuleConfig",
+      "AuthenticationNhCommonModuleConfig"
     ],
     "nh-frontend-toast-notifications": [
       "provideNhToastr",

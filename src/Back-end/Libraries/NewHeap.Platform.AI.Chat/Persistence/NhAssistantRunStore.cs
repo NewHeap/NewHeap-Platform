@@ -1617,22 +1617,29 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Whether an input of <paramref name="triggerId"/> with <paramref name="eventKey"/> still waits
-    /// in the thread, so a redelivered event waits once.
+    /// The first input of <paramref name="triggerId"/> with <paramref name="eventKey"/> in the thread
+    /// that still waits or that a run took (<see cref="AssistantQueuedInput.ConsumedByRunId"/>), so a
+    /// redelivered event is known once it waited, joined a pending run or was claimed, also when the run
+    /// that took it records the key of another event. An input dropped without a run, because its
+    /// subject or the agent's owner was gone, does not count. <see langword="null"/> when the thread has
+    /// none.
     /// </summary>
-    public async Task<bool> HasWaitingInputAsync(
+    public async Task<AssistantQueuedInput?> FindEventInputInThreadAsync(
         Guid conversationId,
         string triggerId,
         string eventKey,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
-        return await context.QueuedInputs.AnyAsync(
-            input => input.ConversationId == conversationId
-                && input.ConsumedAt == null
+        return await context.QueuedInputs
+            .AsNoTracking()
+            .Where(input => input.ConversationId == conversationId
                 && input.TriggerId == triggerId
-                && input.EventKey == eventKey,
-            cancellationToken);
+                && input.EventKey == eventKey
+                && (input.ConsumedAt == null || input.ConsumedByRunId != null))
+            .OrderBy(input => input.CreatedAt)
+            .ThenBy(input => input.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     /// <summary>

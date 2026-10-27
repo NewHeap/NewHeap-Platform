@@ -23,7 +23,9 @@ with two keys: the tool opts in with `NhAiToolAttribute.AllowAgentGrant` (and
 carries an authorization policy), and the registration grants it with `Grant`.
 Use `TriggerOnly()` for grants that must not apply while a person chats in the
 thread, and `DelegateFromInitiator()` only when the agent may also use what its
-initiator may use. Keep `NhAiElevatedReads.Restricted` unless the results of
+initiator may use. A turn that answers another person's message, such as one typed while the run
+worked that the run claimed, does not delegate: only the agent's own grants and accountable rights
+serve it, so a person never directs calls with someone else's rights. Keep `NhAiElevatedReads.Restricted` unless the results of
 granted reads may be shown to everyone who sees the thread.
 
 Give every agent action that changes state a named approval policy with
@@ -60,7 +62,11 @@ consultation's proposal at its subject, the checks of every execution run (the s
 `ExecutionReportDueAt`, and `ExecuteAsync` receives an `NhAssistantProposalHandOff`: the approval id,
 the approved `NhAiProposal` with its arguments and hash, the approver, the agent, the subject, the
 thread's tenant, the attempt and the report deadline. Accept the work and return; key it by the approval
-id, because an approver may hand the same proposal over again. A failed result refuses it
+id, because an approver may hand the same proposal over again. The hand-off carries the approved
+arguments, not the division or scope the call was authorized in, so bind an object the arguments name
+again before acting on it: read the object's division and refuse unless `DecidedByActorId` may act
+there (SPM-314 refuses an order for another division's project with `order-project-out-of-scope`). A
+failed result refuses the proposal
 (`execution-failed` with the result's code), and an exception leaves it `execution-unknown`
 (`hand-off-failed`). Report with `INhAssistantProposalExecutionReports.ReportExecutionAsync`, built with
 `NhAssistantExecutionReport.For(handOff, outcome, code, summary)`: `NhAssistantExecutionOutcome.Completed`
@@ -417,7 +423,16 @@ gives that code, as every assistant endpoint does: `403 assistant-subject-access
 `assistant-trigger-rate-limited` (the agent's runs per subject and day, `NhAssistantTriggerReasons.RateLimited`),
 `404` for an unknown agent or subject, `503 assistant-trigger-rolled-back` when the run could not be
 queued, and `400 assistant-subject-invalid` for a malformed subject reference. `POST threads/open`
-answers the same refusal when it would create the thread. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
+answers the same refusal when it would create the thread. The same rule decides every other run a
+person asks for, with the agent's required policy as it is in effect now: a restart
+(`POST runs/{runId}/retry` with `mode` `restart`, which also needs the approver role) answers its
+refusal like `POST threads/start`; a message to a busy agent thread waits for a run only when its
+sender may start the agent, and anyone else gets `409 assistant-conversation-busy` with nothing
+waiting for them; and the generated request tool starts a run only for an asker who may start the
+agent, with the asker's role for the agent's thread (`assistant-consult-subject-unavailable` without
+it, `assistant-agent-forbidden` when the rule refuses). A message to a busy thread therefore never lets
+an approver of the whole application who fails the run policy, or a participant of an agent in shadow,
+start a run. `GET subjects/{type}/{id}/agents` (`NhAssistantObjectAgentsDto`) lists
 the agents that work on a subject, an object or the whole application, and that the caller may use:
 per agent `CanStart`, the thread people open, the newest run (`NhAssistantLatestRunDto`: status, time
 and the first 300 characters of its result, for a run without a stored answer the summary it ended
@@ -603,7 +618,10 @@ maintenance removes inbox visits by age only.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
-changed row and its version, so an at-least-once delivery starts one run. Publish
+changed row and its version, so an at-least-once delivery starts one run: an event is known in its
+agent's thread by its input once it waited, joined a pending run or was claimed by one, so a
+redelivery after that run took it is `deduplicated` with that run, even though the run records the
+key of the event that started it only. Publish
 either inside the domain transaction or after the commit. Inside the transaction of
 the context that holds the background operations, `PublishAsync` and `StartAsync`
 write nothing to the assistant's tables: each trigger becomes a background operation
@@ -641,9 +659,10 @@ coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
 events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
 where nobody is notified and nothing proposed executes. Shadow is part of the effect decision: every
-effect a run calls in a shadow thread needs an approval and becomes a shadow proposal, also a tool the
-effect policy runs without approval, an agent request (`assistant.request.*`) and an imported MCP
-tool, and a tool that issues or authorizes its own approval is refused there. `Retry` (0 to 10, 3 by default, in code
+effect a run calls in a shadow thread needs an approval and becomes a shadow proposal before the tool
+runs, also a tool the effect policy runs without approval, an agent request (`assistant.request.*`)
+and an imported MCP tool, and a tool that issues or authorizes its own approval is refused there.
+Reads still run; the consult tool, which reads, refuses a shadow run itself (below). `Retry` (0 to 10, 3 by default, in code
 or in the run settings) alone decides how often a run is retried after a transient failure: the
 run's background operation allows the most an agent can configure, and the run fails once its
 failed attempts exceed the agent's value, so `Retry(0)` never retries and `Retry(5)` gives six
@@ -688,7 +707,10 @@ so decisions made together reach one run. Debounces, this one included, run on t
 application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
 its clock past them instead of waiting. The follow-up continues in the skill of
 the run that made the proposal (`skillChosenBy` `follow-up`) while the agent declares that skill:
-a paused skill lets it wait and a stopped one refuses it.
+a paused skill lets it wait and a stopped one refuses it. It also keeps that run's initiator, or
+none for trigger work and for a proposal the run placed at another object: the person who decided
+stays in the approval and its audit, never becomes the follow-up's initiator and lends it no rights,
+so four eyes keeps the requester out of what the follow-up proposes.
 
 Filter events that do not concern the agent with `When` on `AddTrigger` and
 `AddWebhookTrigger`: it runs before every other lambda of the trigger, and a refused event
@@ -757,7 +779,12 @@ in the shadow thread takes its events, and `use_skill` in a live thread does not
 that started finish in the mode they started in; a run still queued when the mode changes starts in
 the new one, and waiting events move along when they resume. The live thread, its open proposals
 and people's chat in it stay as they are, but only administrators start an agent in shadow by
-hand, and consultations and requests are refused. A shadow variant always works in shadow
+hand, and consultations and requests are refused. Shadow work never reaches a live agent, as a
+hand-off to a live agent is refused: a run in a shadow thread that calls a consult tool is refused with
+`assistant-consult-agent-unavailable`, and its call of a request tool, an effect, becomes a shadow
+proposal that never executes before the tool runs (the request tool refuses a shadow run itself as
+well). The other agent records no consultation, gets no thread, input or run, leaves no proposal for
+the subject's approvers and notifies nobody. A shadow variant always works in shadow
 (`assistant-shadow-variant`). `SetServiceAccountAsync(agentId, actorId | null)` lets another
 technical account answer for an agent that answers to one in code (`ServiceAccount(actorId)`
 stays the default; `assistant-service-account-not-used` otherwise). The account must exist and be
@@ -765,7 +792,17 @@ allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-acco
 `UsePrincipalsFromAccessSource` the access source must return a fresh context for it.
 New runs and the agent's threads answer to it; runs that started and the proposals they made keep
 the account they were made with. The account lends its rights to gateway reads: choose one with
-no more rights than the agent needs.
+no more rights than the agent needs. Only a person who may act for the account binds it, here, in
+an agent's run settings and in a package import: the account is that person, the agent's account in
+code, the person may act as any user (the platform permission `nh.platform.auth.impersonate.allowed`),
+or the person holds the account's rights to the agent's tools as well, that is every authorization
+policy of the agent's tools that the account passes, evaluated against the agent without a division,
+so a right the account holds only in a division is not compared. Otherwise the change is refused
+with `403 assistant-service-account-not-permitted`
+and nothing changes; saving an account that is already bound again checks only that it still exists.
+The person is the request's user when they sent the request, otherwise the principal
+`INhAiPrincipalFactory` rebuilds; application code that binds with a technical actor id, which the
+factory knows as no person, decides on its own.
 
 Add skills and triggers to an agent configured in code as data, without a deploy, when an
 application manages them in screens or imports them from packages. Code registers the building
@@ -1027,14 +1064,16 @@ messages of its inputs and the subject's name, as the agent: context sources and
 the agent actor, its accountable person, the run and the subject's execution scope, and with the
 ASP.NET integration the subject's division where the host maps an active division, exactly as the
 agent's tool calls do. `INhAiAgentInvocationContextFactory` creates that context; replace it only
-to add execution scopes of your own. The same rule as for briefings applies: what a run retrieves
+to add execution scopes of your own. A person's message in the thread retrieves as that person, but
+within the same subject and division scopes, not the active division of the person's request. The same rule as for briefings applies: what a run retrieves
 may reach every reader of the thread through the model's text.
 
 Let a headless run read application data through the API bridge gateway with
 `AllowGatewayReads()` and tool selectors that select the gateway's tools (see `nh-ai-api-bridge`
 and `AddNewHeapPlatformAIDelegatedReads`). A run that a person started reads with that person's
 own rights, so asking an agent never lends someone else's; a run from a trigger reads with its
-accountable person or service account. Startup fails for an agent that answers to itself, without
+accountable person or service account. A turn that answers the message of someone other than that
+reader, such as a message typed while the run worked, makes no gateway reads. Startup fails for an agent that answers to itself, without
 an issuer or without a gateway. Consultations and turns inside a person's request keep reading with
 that person's own rights. Each read is recorded with grant source `DelegatedRead` and the person
 whose rights it used; only that person sees its result, whatever `ElevatedReads` says, and the run
@@ -1150,7 +1189,9 @@ the run's turn opens them as attachments with the person who wrote the message a
 another person started the run, within the limits of the skill the run works in. A file it cannot
 open, may not read or that does not fit is named to the model with its code instead, the run goes on,
 and the message in the thread keeps only the files the model read. A run that works by rules opens
-none; a later model turn opens them as files of an earlier turn.
+none; a later model turn of the message's author opens them as files of an earlier turn, while a turn
+of anyone else names them with `assistant-file-forbidden` instead of reading what that person only
+referenced with its own rights.
 SampleProjectManagement's document reader (SPM-306) shows it: a document added to a project's folder
 starts its `read-documents` skill through a trigger that names the skill, both the agent and the
 skill call `AcceptsFiles()`, and the skill's tool names the project's documents in its result
@@ -1412,7 +1453,10 @@ the asking person's rights, the person chatting or the initiator who delegated a
 a call in an agent turn that no initiator delegated is refused with
 `assistant-consult-subject-unavailable`. Give it a `Description` the
 asking model can choose by, a `Policy` the asker must pass (otherwise the agent's
-required policy or the assistant's access policy), and keep the defaults unless the
+required policy or the assistant's access policy; without a `Policy` of its own every call also
+checks the agent's required policy as it is in effect then, so an administrator who changes it
+in the agent's editor restricts the tools at once, while the generated tools keep the policy of
+code and a change that admits more people does not offer them more), and keep the defaults unless the
 subject needs others: `MinimumRole(Reader)` to ask, `Proposals(true, Participant)` before
 tools that change anything are offered, `Limits(4 calls, 60 seconds, 4,000 characters)`
 and `Exposure(Local | Agent)`; add `NhAiToolExposure.Mcp` only when MCP clients may run
@@ -1465,8 +1509,8 @@ asker of a proposal that waited at the subject is told how it ended, with either
 (`ConsultationProposalDecided`). The consult writes no message into the
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
-(`NhAssistantTriggerIds.AgentRequest`, participant role) and notifies the initiator with
-`RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
+(`NhAssistantTriggerIds.AgentRequest`) under the rule of a start by hand, as `POST threads/start`
+would for the asker, and notifies the initiator with `RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
 connection a personal MCP server needed (`McpConnectionPersonId`), at most once per server and day;
 custom notification policies and channels handle every kind. An application whose `INhAiToolDiscoveryPolicy` lists tool prefixes
 must allow `assistant.consult.` and `assistant.request.`. Bound consultations with
@@ -1479,7 +1523,10 @@ counts, also one refused later, and the next one is refused first with `assistan
 before the consulted agent runs (SPM-278). A consultation outside a turn, such as one through MCP, has no
 turn to count. Make `INhAiSubjectAccessResolver` accept only the canonical id of a
 subject, because the asking model types the id. Unknown subjects and subjects the asker
-may not read both return `assistant-consult-subject-unavailable`.
+may not read both return `assistant-consult-subject-unavailable`. About the whole application the
+asker reads the agent's work only with the agent's view policy (by default its required policy), so a
+person who reads the whole application but fails that policy is refused the consultation and the
+request as for an unknown subject, as the agent's thread, runs and proposals already answer them.
 
 Let administrators define consultations as data only within a ceiling in code. Call
 `UseConsultationsAsData(data => data.AllowRoutes(...).AllowRequests().MaxLimits(...))`: it
@@ -1496,7 +1543,8 @@ rights: for an agent created in the administration it means its technical accoun
 and saving it is refused for one that answers for itself. Save a consultation with
 `INhAssistantAgentConfiguration.SaveConsultationAsync` (or `PUT admin/agents/{id}/consultations/{subjectType}`)
 with `NhAssistantDataConsultationRequest`: a description, optional instructions, who may
-ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`), the routes, the
+ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`; without one the agent's
+required policy as it is in effect at each call decides, as in code), the routes, the
 proposal role and approval policy, the tools (`ToolSelectors`, within the agent's own selectors,
 refused otherwise with `toolSelectors: not-allowed`; none offers every tool of the agent), limits
 within the bounds of `AllowConsultation` and the ceiling, requests, MCP and the classification of
@@ -1810,6 +1858,9 @@ instructions in full: call them for an administrator or process the application 
 - Waiting for an asynchronous system inside a tool's function, or polling it from an agent run, instead of
   declaring the tool with `ExecuteInApplication` and reporting through
   `INhAssistantProposalExecutionReports` when the system answers.
+- Trusting an object id in a tool call's or a hand-off's arguments because the tool's policy passed:
+  the policy authorized the active division or the subject, never the id. Load the object within the
+  authorized division in the tool's function, and bind it to the approver again in an executor.
 - Starting the work of a hand-off twice for one approval id, reporting without the hand-off's
   `TenantId`, putting free text or people's data into a report's code, or putting into its summary what
   the model must follow; the summary is information, the code goes to the audit.
@@ -1917,6 +1968,9 @@ instructions in full: call them for an administrator or process the application 
   nobody would read it app-wide.
 - Relying on the approve policy of the whole application to let people run its agents by hand; give
   the agent a `RunPolicy` (by default the administration policy decides).
+- A path of your own that creates a run for a person, such as a restart, a waiting message or a
+  request, without the rule of `POST threads/start`; call `INhAssistantAgentTriggers.StartAsync` only
+  after checking that the person may start the agent.
 - Showing a run's result from `NhAssistantLatestRunDto.Result`, `NhAssistantRunHistoryDto.Result` or
   `NhAssistantRunResultDto.Result` as HTML; it is model output and may carry MCP tool output.
 - Writing a rule handler's result once with `NhAssistantRuleResult.Done(summary)` in an application
@@ -1971,6 +2025,11 @@ was made and keeps it when the parent changes later, that a subject named as its
 that `NewApprovalIds` follows the last visit per person and scope (all before the first visit),
 that a visit of a division the caller does not work in answers `404` and stores nothing, that the run
 maintenance keeps recent inbox visits, and that `AddAgentGroup` refuses `nh-` ids.
+
+For webhook deliveries, on both providers, post a signed delivery that starts a run and a second one
+that joins it, let the run claim both and end, and assert that delivering either again answers
+`deduplicated` with that run and starts none; do the same for two deliveries that waited while the
+agent was paused and that the resume run claimed.
 
 For trigger event filters, publish the agent's own change on the trigger's subject and assert
 `ignored` with `filtered` and no audit, publish the same agent's change made on another subject and a
@@ -2230,7 +2289,11 @@ approve policy, the administration policy without one), that the agent's stateme
 starts with `409`, that a person without access to a division does not see it, that a reader of an
 object may not start, and that `GET subjects/{type}/{id}/agents` lists only agents that work on the
 subject and that the caller may use, with the newest run, the first 300 characters of its result and
-the open, unexpired proposals. Assert that a run started by hand that acts for the accountable account
+the open, unexpired proposals. Assert on both providers that a message to a busy agent thread, a
+restart and the request tool create no run and no waiting input for an approver of the whole
+application who fails the run policy, a person who fails the required policy or a participant of an
+agent in shadow, and that someone who may start the agent gets the run. Assert that a run started by
+hand that acts for the accountable account
 leaves a personal MCP server out while a scheduled run and the accountable person's own start use
 that person's connection. Assert that the generator emits a declared subject, keeps the contract hash of tools
 without one and refuses invalid declarations. On both providers, run an agent for the whole application
@@ -2339,6 +2402,16 @@ proposal in another status is refused and that handing it again starts a new att
 and that without it the inline approval still runs the function. For
 `MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
 default without a limit and an agent's own limit. SPM-327 and SPM-328 are the executable references.
+On both providers, override the required policy of an agent in code to one an asker lacks and assert
+that its consult and request tools, in code and as data without an asker policy, refuse that asker
+with `assistant-agent-forbidden` and leave no consultation, run or input, that someone who passes the
+override is served, and that a consultation with its own asker policy keeps admitting its askers.
+Assert that an agent of the whole application with a `ViewPolicy` refuses the consultation to a reader
+of the whole application who fails it, with `assistant-consult-subject-unavailable`, before a
+consultation is recorded or its model runs, and serves someone who passes it. Run a delegating agent
+whose new data trigger is still in shadow and assert that its consult call of a live agent is refused,
+that its request call is a shadow proposal of the asking run, and that the live agent gets no
+consultation, thread, proposal or run.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an
@@ -2388,7 +2461,7 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
 - SPM-275 — Webhook, schedule and kill switch for an agent
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

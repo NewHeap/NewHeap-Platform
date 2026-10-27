@@ -78,6 +78,69 @@ describe('BaseNhAuthService logout', () => {
     expect(result.isSuccess).toBeTrue();
     expect(authService.getAuthorization()).toEqual(new NhAuthorization());
   });
+
+  for (const failure of ['network error', 'server error'] as const) {
+    it(`ends the local session and reports the failure when logout meets a ${failure}`, async () => {
+      authService.setAuthorization(new NhAuthorization({
+        token: 'access-token',
+        refreshToken: 'device-refresh-token',
+        validTo: '2099-01-01T00:00:00Z',
+        claims: [new Claim({type: 'test', value: 'authenticated'})]
+      }));
+      const emitted: Array<NhAuthorization | undefined> = [];
+      const subscription = authService.authSubject.subscribe(value => emitted.push(value));
+
+      const resultPromise = authService.logout();
+      const request = httpTesting.expectOne('/auth-api/authentication/logout?language=en');
+      expect(request.request.body).toEqual({refreshToken: 'device-refresh-token'});
+      if (failure === 'network error') {
+        request.error(new ProgressEvent('error'));
+      } else {
+        request.flush(null, {status: 500, statusText: 'Internal Server Error'});
+      }
+
+      const result = await resultPromise;
+      subscription.unsubscribe();
+
+      // The caller learns that the server did not end its session, while the browser keeps
+      // nothing a next person on the device could use, also after a reload.
+      expect(result.isSuccess).toBeFalse();
+      expect(authService.isAuthenticated()).toBeFalse();
+      expect(localStorage.getItem('at')).toBeNull();
+      expect(authService.getAuthorization(false)).toEqual(new NhAuthorization());
+      expect(emitted[emitted.length - 1]).toBeUndefined();
+    });
+  }
+
+  it('removes a stored authorization whose access token already expired', () => {
+    authService.setAuthorization(new NhAuthorization({
+      token: 'expired-access-token',
+      refreshToken: 'device-refresh-token',
+      validTo: '2000-01-01T00:00:00Z',
+      claims: [new Claim({type: 'test', value: 'authenticated'})]
+    }));
+    expect(authService.isAuthenticated()).toBeFalse();
+    const emitted: Array<NhAuthorization | undefined> = [];
+    const subscription = authService.authSubject.subscribe(value => emitted.push(value));
+
+    authService.clearAuthorization();
+    subscription.unsubscribe();
+
+    expect(localStorage.getItem('at')).toBeNull();
+    expect(authService.getAuthorization(false)?.refreshToken).toBeUndefined();
+    expect(emitted).toEqual([jasmine.any(NhAuthorization), undefined]);
+  });
+
+  it('changes nothing and emits nothing when there is no authorization to clear', () => {
+    const emitted: Array<NhAuthorization | undefined> = [];
+    const subscription = authService.authSubject.subscribe(value => emitted.push(value));
+
+    authService.clearAuthorization();
+    subscription.unsubscribe();
+
+    expect(localStorage.getItem('at')).toBeNull();
+    expect(emitted.length).toBe(1);
+  });
 });
 
 describe('BaseNhAuthService two-factor authentication', () => {

@@ -31,7 +31,19 @@ public sealed record NhCollectionContract(
     IReadOnlyList<NhCollectionFieldDescriptor> FilterFields,
     IReadOnlyList<NhCollectionFieldDescriptor> OrderFields,
     IReadOnlyList<NhCollectionFieldDescriptor> SearchFields,
-    IReadOnlyList<NhCollectionFieldDescriptor> ResultFields);
+    IReadOnlyList<NhCollectionFieldDescriptor> ResultFields)
+{
+    /// <summary>
+    /// The dotted camelCase paths of the item members that a non-empty search matches when the
+    /// collection runtime searches by <see cref="SearchableAttribute"/>, such as <c>name</c> or
+    /// <c>owner.email</c>: <c>[Searchable]</c> string, <see cref="int"/>, <see cref="decimal"/> and
+    /// <see cref="double"/> properties, and those of <c>[Searchable]</c> nested objects up to two
+    /// levels deep. Collections are never searched. Selectors added with
+    /// <c>CollectionProcessingOptionsBuilder.WithSearchable</c> are not part of the item type and
+    /// are not listed.
+    /// </summary>
+    public IReadOnlyList<string> SearchPaths { get; init; } = [];
+}
 
 /// <summary>
 /// Describes canonical NewHeap collection request and result contracts from the same attributes
@@ -58,7 +70,10 @@ public static class NhCollectionContractMetadata
             SelectFields<FilterableAttribute>(properties, includeOperators: true),
             SelectFields<OrderableAttribute>(properties, includeOperators: false),
             SelectFields<SearchableAttribute>(properties, includeOperators: false),
-            properties.Select(property => DescribeField(property, includeOperators: false)).ToArray());
+            properties.Select(property => DescribeField(property, includeOperators: false)).ToArray())
+        {
+            SearchPaths = SelectSearchPaths(itemType)
+        };
     }
 
     /// <summary>
@@ -103,6 +118,51 @@ public static class NhCollectionContractMetadata
             .Where(property => property.IsDefined(typeof(TAttribute), inherit: true))
             .Select(property => DescribeField(property, includeOperators))
             .ToArray();
+    }
+
+    /// <summary>
+    /// Follows the attribute search of <c>ICollectionProcessingService.ProcessSearch</c>, with and
+    /// without options: the same properties, value types, nesting depth and skipped collections, so
+    /// the paths name exactly the members a search reads.
+    /// </summary>
+    private static IReadOnlyList<string> SelectSearchPaths(Type itemType)
+    {
+        var paths = new List<string>();
+        AddSearchPaths(itemType, [], paths);
+        return paths;
+    }
+
+    private static void AddSearchPaths(Type type, IReadOnlyList<string> prefixes, List<string> paths)
+    {
+        var searchProperties = type
+            .GetProperties()
+            .Where(property => property.IsDefined(typeof(SearchableAttribute), false));
+
+        foreach (var property in searchProperties)
+        {
+            var path = prefixes.Append(property.Name).ToArray();
+            if (property.PropertyType == typeof(string)
+                || property.PropertyType == typeof(decimal)
+                || property.PropertyType == typeof(int)
+                || property.PropertyType == typeof(double))
+            {
+                paths.Add(string.Join(".", path.Select(JsonNamingPolicy.CamelCase.ConvertName)));
+                continue;
+            }
+
+            if (!property.PropertyType.IsClass || path.Length > 2)
+            {
+                continue;
+            }
+
+            if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType)
+                && property.PropertyType.IsGenericType)
+            {
+                continue;
+            }
+
+            AddSearchPaths(property.PropertyType, path, paths);
+        }
     }
 
     private static NhCollectionFieldDescriptor DescribeField(PropertyInfo property, bool includeOperators)

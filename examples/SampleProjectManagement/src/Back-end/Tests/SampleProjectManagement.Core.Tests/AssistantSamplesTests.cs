@@ -20,6 +20,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using Npgsql;
 using SampleProjectManagement.Api.Composition;
@@ -428,6 +429,17 @@ public class AssistantSampleHost(SamplePostgreSqlServer postgreSql) : IAsyncLife
         return client;
     }
 
+    /// <summary>
+    /// A client of an impersonation session in which <paramref name="impersonatedBy"/> acts as
+    /// <paramref name="user"/>, with the NewHeap impersonation origin on the principal.
+    /// </summary>
+    public HttpClient CreateImpersonationClient(string user, string impersonatedBy)
+    {
+        var client = CreateClient(user);
+        client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.ImpersonatedByHeader, impersonatedBy);
+        return client;
+    }
+
     public async Task<Guid> CreateConversationAsync(HttpClient client)
     {
         using var response = await client.PostAsync(
@@ -691,6 +703,12 @@ internal sealed class SampleTestAuthenticationHandler(
     public const string NameHeader = "X-Sample-Name";
     public const string RolesHeader = "X-Sample-Roles";
 
+    /// <summary>
+    /// The user who impersonates the signed-in user: the principal then carries the NewHeap impersonation
+    /// origin, as the access token of an impersonation session does.
+    /// </summary>
+    public const string ImpersonatedByHeader = "X-Sample-Impersonated-By";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var user = Request.Headers[UserHeader].ToString();
@@ -716,6 +734,10 @@ internal sealed class SampleTestAuthenticationHandler(
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             claims.Add(new Claim("permission", permission));
+        }
+        if (Request.Headers[ImpersonatedByHeader].ToString() is { Length: > 0 } impersonatedBy)
+        {
+            claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, impersonatedBy));
         }
         var identity = new ClaimsIdentity(claims, Scheme);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));

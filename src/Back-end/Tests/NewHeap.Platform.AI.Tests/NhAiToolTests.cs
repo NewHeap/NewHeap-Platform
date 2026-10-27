@@ -463,7 +463,87 @@ public sealed class NhAiToolTests
         Assert.NotEqual(ReadContractHash(plain), ReadContractHash(granted));
     }
 
-    private static string GenerateAgentTool(string namedArguments)
+    [Fact]
+    public void Generator_reads_positional_inherited_and_overridden_authorization_policies()
+    {
+        const string source = """
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [Authorize(Policy = "vault.base")]
+            public abstract class VaultToolsBase
+            {
+                [Authorize("vault.override")]
+                public virtual Task<TaskResult<string>> OverriddenAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+
+            public abstract class VaultToolsMiddle : VaultToolsBase
+            {
+            }
+
+            [NhAiToolSet("vault")]
+            public sealed class VaultTools : VaultToolsMiddle
+            {
+                [NhAiTool("positional", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local | NhAiToolExposure.Agent | NhAiToolExposure.Mcp)]
+                [Authorize("vault.admin")]
+                [Description("Read with a positional policy.")]
+                public Task<TaskResult<string>> PositionalAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+
+                [NhAiTool("named-wins", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+                [Authorize("vault.replaced", Policy = "vault.named")]
+                [Description("Read with a named policy that replaces the positional one.")]
+                public Task<TaskResult<string>> NamedWinsAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+
+                [NhAiTool("inherited", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Agent)]
+                [Description("Read with only the inherited policy.")]
+                public Task<TaskResult<string>> InheritedAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+
+                [NhAiTool("overridden", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+                [Description("Read through an override of an authorized method.")]
+                public override Task<TaskResult<string>> OverriddenAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+
+        var generated = GenerateAuthorizationTools(source);
+
+        Assert.Equal(["vault.admin", "vault.base"], ReadPolicies(generated, "vault.positional"));
+        Assert.Equal(["vault.base", "vault.named"], ReadPolicies(generated, "vault.named-wins"));
+        Assert.Equal(["vault.base"], ReadPolicies(generated, "vault.inherited"));
+        Assert.Equal(["vault.base", "vault.override"], ReadPolicies(generated, "vault.overridden"));
+    }
+
+    [Theory]
+    [InlineData("[Authorize(Roles = \"Admin\")]", "")]
+    [InlineData("[Authorize(Policy = \"vault.admin\", Roles = \"Admin\")]", "")]
+    [InlineData("[Authorize(AuthenticationSchemes = \"Bearer\")]", "")]
+    [InlineData("[VaultAdmin]", "")]
+    [InlineData("[VaultAdmin(Policy = \"vault.admin\")]", "")]
+    [InlineData("[CustomAuthorizeData]", "")]
+    [InlineData("[Authorize]", "[Authorize(Roles = \"Admin\")]")]
+    [InlineData("[Authorize]", "[VaultAdmin]")]
+    public void Generator_refuses_authorization_the_tool_gate_cannot_enforce(
+        string methodAuthorization,
+        string baseAuthorization)
     {
         var source = $$"""
             using System;
@@ -474,8 +554,114 @@ public sealed class NhAiToolTests
             using NewHeap.Platform.AI;
             using NewHeap.Platform.Common.Models;
 
+            public sealed class VaultAdminAttribute : AuthorizeAttribute
+            {
+                public VaultAdminAttribute() : base("vault.admin")
+                {
+                    Roles = "Admin";
+                }
+            }
+
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+            public sealed class CustomAuthorizeDataAttribute : Attribute, IAuthorizeData
+            {
+                public string? Policy { get; set; } = "vault.admin";
+
+                public string? Roles { get; set; }
+
+                public string? AuthenticationSchemes { get; set; }
+            }
+
+            {{baseAuthorization}}
+            public abstract class VaultToolsBase
+            {
+            }
+
+            [NhAiToolSet("vault")]
+            public sealed class VaultTools : VaultToolsBase
+            {
+                [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local | NhAiToolExposure.Agent)]
+                {{methodAuthorization}}
+                [Description("Read vault data.")]
+                public Task<TaskResult<string>> ReadAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+
+        AssertGeneratorDiagnostic(source, "NHAI018");
+    }
+
+    [Fact]
+    public void Generator_hashes_positional_and_named_policies_as_the_same_contract()
+    {
+        // The contract covers the policy set, not the syntax that declares it, so the named form keeps
+        // its published hash and the positional form now produces the same one.
+        var named = GenerateAgentTool(string.Empty);
+        var positional = GenerateAgentTool(string.Empty, "[Authorize(\"projects.manage\")]");
+
+        Assert.Equal(ReadContractHash(named), ReadContractHash(positional));
+        Assert.Equal(["projects.manage"], ReadPolicies(positional, "projects.change-status"));
+    }
+
+    private static string GenerateAuthorizationTools(string source)
+    {
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var references = trustedAssemblies
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorAuthorizationForms",
+            [CSharpSyntaxTree.ParseText(source)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        var runResult = driver.GetRunResult();
+        Assert.DoesNotContain(runResult.Diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        return Assert.Single(runResult.GeneratedTrees).ToString();
+    }
+
+    private static string[] ReadPolicies(string generated, string logicalId)
+    {
+        var descriptor = generated.IndexOf("\"" + logicalId + "\",", StringComparison.Ordinal);
+        Assert.True(descriptor >= 0, $"The generated catalog has no descriptor for '{logicalId}'.");
+        const string marker = "new global::System.String[]";
+        var start = generated.IndexOf(marker, descriptor, StringComparison.Ordinal) + marker.Length;
+        var end = generated.IndexOf("})", start, StringComparison.Ordinal);
+        return generated[start..end]
+            .Split(['\n', '\r', ' ', ',', '{'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value.Trim('"'))
+            .ToArray();
+    }
+
+    private static string GenerateAgentTool(string namedArguments)
+    {
+        return GenerateAgentTool(namedArguments, string.Empty);
+    }
+
+    private static string GenerateAgentTool(string namedArguments, string methodAuthorization)
+    {
+        var toolSetAuthorization = methodAuthorization.Length == 0
+            ? "[Authorize(Policy = \"projects.manage\")]"
+            : "[Authorize]";
+        var source = $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
             [NhAiToolSet("projects")]
-            [Authorize(Policy = "projects.manage")]
+            {{toolSetAuthorization}}
             public sealed class ProjectTools
             {
                 [NhAiTool(
@@ -485,6 +671,7 @@ public sealed class NhAiToolTests
                     NhAiToolExposure.Agent,
                     Approval = NhAiApprovalRequirement.Required,
                     Idempotency = NhAiIdempotencySupport.Required{{namedArguments}})]
+                {{methodAuthorization}}
                 [Description("Change a project status.")]
                 public Task<TaskResult<string>> ChangeAsync(
                     string input,

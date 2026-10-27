@@ -788,11 +788,19 @@ internal sealed class NhAssistantAgentControl(
                 NhAssistantErrorCodes.ServiceAccountNotUsed,
                 "The agent does not answer to a technical account.");
         }
-        if (serviceAccountActorId is not null && !await AccountExistsAsync(agentId, serviceAccountActorId, cancellationToken))
+        // Binding an account lends its rights to the agent's runs: only a person who may act for it
+        // binds it, and the account in code needs no further check.
+        if (serviceAccountActorId is not null
+            && await services.GetRequiredService<NhAssistantServiceAccountBinding>().CheckAsync(
+                agentId,
+                agent.Definition.ToolSelectors,
+                serviceAccountActorId,
+                actorId,
+                options.ServiceAccountActorId,
+                bound: string.Equals(agent.ServiceAccountOverride, serviceAccountActorId, StringComparison.Ordinal),
+                cancellationToken) is { Success: false } refused)
         {
-            return TaskResult<NhAssistantAgentState>.Failed(
-                NhAssistantErrorCodes.ServiceAccountNotFound,
-                "No account that may sign in exists with that id.");
+            return TaskResult<NhAssistantAgentState>.Failed(refused);
         }
 
         if (!string.Equals(agent.ServiceAccountOverride, serviceAccountActorId, StringComparison.Ordinal))
@@ -806,21 +814,6 @@ internal sealed class NhAssistantAgentControl(
         }
 
         return TaskResult<NhAssistantAgentState>.Succeeded(await StateOfAsync(agent, 0, 0, cancellationToken));
-    }
-
-    /// <summary>
-    /// Whether the account exists and may sign in, as the principal factory that rebuilds it for the
-    /// agent's runs decides.
-    /// </summary>
-    private async Task<bool> AccountExistsAsync(string agentId, string accountActorId, CancellationToken cancellationToken)
-    {
-        if (services.GetService<INhAiPrincipalFactory>() is not { } principals)
-        {
-            return false;
-        }
-
-        var subject = new NhAiSubjectInfo(new NhAiSubjectRef("agent", agentId), NhAiSubjectInfo.CreateScopeKey(null, null));
-        return await principals.CreateAsync(accountActorId, subject, cancellationToken) is not null;
     }
 
     /// <summary>

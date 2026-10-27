@@ -177,7 +177,11 @@ The raw connection peer is unavailable once host middleware has replaced it.
 All POST forms use antiforgery validation; Razor escapes rule text. Login attempts
 are audited before issuing a cookie, and audit failure cannot grant access.
 Attempted usernames and passwords are never audited. One process-wide fixed-window
-budget defaults to five attempts per minute for the single account. Bounded audit
+budget defaults to five attempts per minute for the single account. A sign-in from
+an address outside the allowlist is refused before that budget and spends none of
+it, so outside traffic cannot lock allowlisted administrators out; the audit records
+such denied attempts up to LoginAttemptLimit per LoginAttemptWindow and drops the
+rest. Bounded audit
 retention cleanup runs on credential attempts; idle hosts have no cleanup worker.
 
 The MVC panel supports search, creation, editing, enable/disable, priority,
@@ -362,6 +366,7 @@ selection and standard transforms without executing endpoint delegates.
 - Persisting plaintext credentials in rule storage, logs or committed settings, or enabling a default administrator password.
 - Trusting forwarding headers from arbitrary clients or exposing administration over production HTTP.
 - Issuing a login cookie when the audit write failed.
+- Letting callers outside the allowlist spend the administrator's login budget, or auditing their attempts without a bound, in a custom `INhProxyAdministrationService`.
 - Discarding failed TaskResult values, including failed activation after commit.
 - Treating preview as a connectivity/authorization check, claiming it replays host customizations or other configuration sources, or claiming SQL Server/PostgreSQL storage support.
 - Editing consumer DAL migrations or copying only the database while WAL writes are active.

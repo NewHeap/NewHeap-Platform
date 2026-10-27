@@ -832,6 +832,16 @@ public sealed record NhAssistantAuditEvent(
     /// The number of agents in the agent package of an export or import event. Null for other events.
     /// </summary>
     public int? PackageAgentCount { get; init; }
+
+    /// <summary>
+    /// The actor id of the user who impersonated <see cref="ActorId"/> when the event's change was made in
+    /// an impersonation session (the NewHeap impersonation origin), such as a withdrawn consent to
+    /// background use (<see cref="NhAssistantAuditEventKind.McpBackgroundUseChanged"/>) or a removed
+    /// personal connection (<see cref="NhAssistantAuditEventKind.McpConnectionDisconnected"/>); an
+    /// impersonation session never grants these. Null when the person made the change in their own
+    /// session, and for other events.
+    /// </summary>
+    public string? ImpersonationOriginActorId { get; init; }
 }
 
 /// <summary>

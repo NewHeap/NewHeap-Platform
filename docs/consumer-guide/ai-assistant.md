@@ -300,6 +300,15 @@ invalid run filter. Clients map the code, never the status, to a text.
   connection is missing is told with `NhAssistantAgentNotificationKind.McpConnectionMissing`, at most
   once per server and day; `UseInAppAgentNotifications` puts it in the application's inbox. Apply the
   `McpRunConnectionSkips` migrations.
+- **Impersonation sessions grant nothing in the person's name.** A NewHeap impersonation access
+  token (`NhPlatformClaimTypes.ImpersonateOriginUserId`) acts as the person, but the assistant refuses
+  every personal grant that would outlive the session with `403
+  assistant-not-allowed-while-impersonating`: consent to background use (`PUT mcp-connections/{serverId}`
+  with `allowBackgroundUse: true`), starting a personal OAuth connection (`POST
+  mcp-connections/{serverId}/authorize`), completing one (`POST mcp-connections/complete` ends the
+  flow) and registering a browser for push (`PUT notifications/push-subscription`). Withdrawing stays
+  allowed: the consent can be withdrawn, the connection removed and a subscription deleted, and the
+  audit events of a withdrawal name the user who impersonated (`NhAssistantAuditEvent.ImpersonationOriginActorId`).
 - **MCP servers as readers.** An administrator gives a server readers that turn files into text for
   models that do not read their type (`readers` on the server, at most 16, stored in their own table;
   per reader `toolName`, a tool synced from the server, one reader per tool, so a new server gets its
@@ -395,6 +404,13 @@ invalid run filter. Clients map the code, never the status, to a text.
   typed while a run worked, and every turn that answers such a message, also in a run a schedule or
   someone else started. When it acts for someone else, such as the account the agent answers to, the
   server is left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
+  An approver who decides another person's proposal in an agent thread under the approval policy
+  (`POST conversations/{id}/approvals/{approvalId}/decide`) continues that person's request turn in
+  the approver's own request: the turn is served as a headless turn of its initiator, with the
+  initiator's consented connection or delegated token, and never with the approver's connection or
+  ambient token. Its prompt is the initiator's as well: the initiator's preferences, custom
+  instructions, turn facts and name, as in the headless continuation of a run, never the approver's;
+  the decision and its audit stay the approver's.
   Connections and tool lists are cached per person only. Administrators test and sync such a
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
   `DELETE .../connection` then read and remove that own connection), count the personal connections
@@ -791,8 +807,12 @@ await conversations.CancelAsync(person, created.Data!.Id, options, cancellationT
 SampleProjectManagement's messaging channel (SPM-332, `SampleAssistantMessagingChannel`) links a chat
 for the signed-in person, rebuilds the person from the user store for every delivery and runs the
 turn in their active division; a repeated delivery starts no second turn and a link to someone else's
-chat finds nothing. SPM-341 starts a chat with another agent from the messaging app, reads the linked
-chat, answers its question card by the choice's number or text and stops its turn. SPM-342 names the
+chat finds nothing. A link is a credential of the person: issue it only from the person's own session
+(an impersonation session gets `403 assistant-not-allowed-while-impersonating`), bind it to the
+person's security stamp so that a password change or session revocation ends it, and let a chat
+started through it inherit its expiry instead of a fresh lifetime. SPM-341 starts a chat with another
+agent from the messaging app, reads the linked chat, answers its question card by the choice's number
+or text and stops its turn. SPM-342 names the
 turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
 from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
 
@@ -1057,6 +1077,13 @@ or output of the running turn, also not text written before an approval pause.
   stays owned by the application or the API bridge.
 - Adding agent-specific copies of tools to bypass approval, or approving on behalf
   of the user from code.
+- Letting an impersonation session record a personal grant of the impersonated person, such as
+  background-use consent, a personal MCP connection or a push subscription, in an endpoint of your
+  own; refuse it as the assistant does with `assistant-not-allowed-while-impersonating` and keep
+  withdrawals open.
+- Issuing a channel credential, such as a messaging link token, from an impersonation session, binding
+  it to nothing but the person's id, or renewing it with a full lifetime from itself; it would act as
+  the person after the impersonation, the password change or the revocation that should end it.
 - Writing prompts, messages, tool arguments or results to logs, `INhAiAuditSink`,
   usage records or `INhAssistantBusinessAuditSink`; those receive identifiers,
   versions, codes and timestamps only.
@@ -1135,6 +1162,12 @@ or output of the running turn, also not text written before an approval pause.
   people's data into an application message's Markdown without `NhAssistantMarkdown.Escape`.
 
 ## Verification
+
+With an impersonation principal (the person's claims plus `ImpersonateOriginUserId`), assert on
+SQL Server and PostgreSQL that consent, starting and completing a personal OAuth connection and a
+push subscription answer `403 assistant-not-allowed-while-impersonating` and store nothing, that a
+completion refused this way ends the flow, and that withdrawing consent, disconnecting and removing
+a subscription succeed with the impersonating user in `ImpersonationOriginActorId`.
 
 Drive turns with `NhAiScriptedChatClient` against real SQL Server and PostgreSQL:
 a read-only turn with one tool call, a mutation that pauses for approval and

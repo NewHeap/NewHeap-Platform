@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Api.Models;
@@ -212,14 +214,77 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         Assert.Equal((conversationId, SampleAssistantMessagingChannel.Channel), (cause.ConversationId, cause.Channel));
     }
 
+    [Fact]
+    public async Task SPM_332_only_the_persons_own_session_links_a_chat_and_a_password_change_or_revocation_ends_its_links()
+    {
+        var personId = await host.CreatePersonAsync();
+        using var person = host.CreateClient(personId.ToString());
+        using var impersonated = host.CreateImpersonationClient(personId.ToString(), host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(person);
+
+        // An administrator who impersonates the person gets no link: it would act as the person after
+        // the impersonation ended.
+        using (var refused = await impersonated.PostAsync(
+            "/assistant-channel/links",
+            AssistantSampleHost.Json(new { conversationId }),
+            TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.NotAllowedWhileImpersonating, (await ErrorOfAsync(refused)).Code);
+        }
+
+        // The person's own link works, and a chat started through it, or through that chat's link,
+        // expires with it instead of getting a fresh lifetime.
+        var link = await LinkWithExpiryAsync(person, conversationId);
+        Assert.Equal("idle", (await ReadAsync<AssistantChannelChatStateViewModel>(await PostAsync(messaging, "chat", new { token = link.Token }))).Status);
+        var started = await ReadAsync<AssistantChannelChatViewModel>(await PostAsync(
+            messaging,
+            "chats",
+            new { token = link.Token, agentId = SampleStatusAdvisorComposition.AgentId }));
+        var startedAgain = await ReadAsync<AssistantChannelChatViewModel>(await PostAsync(
+            messaging,
+            "chats",
+            new { token = started.Token, agentId = SampleStatusAdvisorComposition.AgentId }));
+        Assert.Equal(link.ExpiresAt, started.ExpiresAt);
+        Assert.Equal(link.ExpiresAt, startedAgain.ExpiresAt);
+
+        // A password change or a revocation of the person's sessions replaces the security stamp, and
+        // every link of the person ends with it.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+            Assert.True((await users.UpdateSecurityStampAsync((await users.FindByIdAsync(personId.ToString()))!)).Succeeded);
+        }
+        foreach (var token in new[] { link.Token, started.Token, startedAgain.Token })
+        {
+            using var ended = await PostAsync(messaging, "chat", new { token });
+            Assert.Equal(HttpStatusCode.BadRequest, ended.StatusCode);
+            Assert.Equal(SampleAssistantMessagingChannel.DeliveryInvalidCode, (await ErrorOfAsync(ended)).Code);
+        }
+        using (var renewal = await PostAsync(messaging, "chats", new { token = started.Token, agentId = SampleStatusAdvisorComposition.AgentId }))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, renewal.StatusCode);
+        }
+
+        // Linking again in the person's own session works with the new stamp.
+        var relinked = await LinkAsync(person, conversationId);
+        Assert.Equal("idle", (await ReadAsync<AssistantChannelChatStateViewModel>(await PostAsync(messaging, "chat", new { token = relinked }))).Status);
+    }
+
     private static async Task<string> LinkAsync(HttpClient client, Guid conversationId)
+    {
+        return (await LinkWithExpiryAsync(client, conversationId)).Token;
+    }
+
+    private static async Task<AssistantChannelLinkViewModel> LinkWithExpiryAsync(HttpClient client, Guid conversationId)
     {
         using var response = await client.PostAsync(
             "/assistant-channel/links",
             AssistantSampleHost.Json(new { conversationId }),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<AssistantChannelLinkViewModel>(Json, TestContext.Current.CancellationToken))!.Token;
+        return (await response.Content.ReadFromJsonAsync<AssistantChannelLinkViewModel>(Json, TestContext.Current.CancellationToken))!;
     }
 
     private static Task<HttpResponseMessage> SendAsync(HttpClient client, string deliveryId, string token, string text)

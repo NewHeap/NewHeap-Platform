@@ -19,6 +19,14 @@ namespace NewHeap.Platform.AI.AspNet;
 /// and carry every claim of <see cref="NhAiDelegatedReadRequest.Claims"/>. Without a custom issuer,
 /// <c>AddNewHeapPlatformAIDelegatedReads</c> uses the NewHeap authentication service.
 /// </summary>
+/// <remarks>
+/// The library asks the issuer only for a person who may lend rights outside a request: with
+/// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/>, only while
+/// <see cref="INhAiPrincipalFactory"/> builds the person's principal from a fresh context. An issuer
+/// still refuses a person whom it does not know or who may no longer sign in. The token carries the
+/// <see cref="NhAiDelegatedReadDefaults.ClaimType"/> marker, so a request it authenticates is never the
+/// person's own: an access source does not record it (<see cref="NhAiAccessContext.IsPersonsOwnRequest"/>).
+/// </remarks>
 public interface INhAiDelegatedReadCredentialIssuer
 {
     ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
@@ -154,7 +162,9 @@ public static class NhAiDelegatedReadServiceCollectionExtensions
     /// JWT of the host's own bearer scheme, bound to the invocation and the gateway action it calls.
     /// Every JWT bearer scheme of the host restricts such a token to that <c>GET</c> action with the
     /// matching <c>X-NewHeap-AI-Invocation</c> header; every other request with it fails
-    /// authentication. Agents opt in with <c>AllowGatewayReads</c>.
+    /// authentication. Agents opt in with <c>AllowGatewayReads</c>. With
+    /// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> a credential is issued only
+    /// while the access source holds a fresh context of the person the run reads for.
     /// </summary>
     public static IServiceCollection AddNewHeapPlatformAIDelegatedReads(
         this IServiceCollection services,
@@ -282,7 +292,9 @@ internal sealed partial class NhAiDelegatedReadService(
     /// Issues a credential of the scope's reading person (<see cref="NhAiAgentInvocationScope.GatewayReadActorId"/>),
     /// bound to <paramref name="invocationId"/> and, for a call, to the gateway action
     /// <paramref name="actionToolId"/>. The token the issuer returns must carry exactly those claims
-    /// and live no longer than the configured lifetime; otherwise it is never used.
+    /// and live no longer than the configured lifetime; otherwise it is never used. Under
+    /// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> the issuer is asked only
+    /// while <see cref="INhAiPrincipalFactory"/> builds the person's principal.
     /// </summary>
     public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
         NhAiAgentInvocationScope scope,
@@ -302,6 +314,13 @@ internal sealed partial class NhAiDelegatedReadService(
             && !string.Equals(scope.Subject.ResponsibleActorId, person, StringComparison.Ordinal))
         {
             LogResponsibleChanged(logger, scope.AgentId);
+            return Unavailable();
+        }
+        // Where the application's access source builds the principals outside a request, a person lends
+        // rights only while their context is fresh; a read is no exception, whatever the issuer checks.
+        if (!await MayLendRightsAsync(person, scope.Subject, cancellationToken))
+        {
+            LogNoFreshContext(logger, scope.AgentId);
             return Unavailable();
         }
 
@@ -386,6 +405,26 @@ internal sealed partial class NhAiDelegatedReadService(
     }
 
     /// <summary>
+    /// Whether <paramref name="person"/> may lend rights outside a request. Under
+    /// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> only while
+    /// <see cref="INhAiPrincipalFactory"/> builds the person's principal from a fresh context; other hosts
+    /// leave the decision to their issuer, as the built-in issuer does with the person's sign-in state.
+    /// </summary>
+    private async ValueTask<bool> MayLendRightsAsync(
+        string person,
+        NhAiSubjectInfo subject,
+        CancellationToken cancellationToken)
+    {
+        if (services.GetService<NhAiAspNetRegistrationState>() is not { AccessSource: not null })
+        {
+            return true;
+        }
+
+        var principals = services.GetRequiredService<INhAiPrincipalFactory>();
+        return await principals.CreateAsync(person, subject, cancellationToken) is not null;
+    }
+
+    /// <summary>
     /// Whether the token is a JWT that carries exactly the invocation marker and action of this
     /// call and expires within the configured lifetime.
     /// </summary>
@@ -429,6 +468,9 @@ internal sealed partial class NhAiDelegatedReadService(
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "The subject's responsible person changed since the run of agent {AgentId} was queued; no delegated read credential is issued.")]
     private static partial void LogResponsibleChanged(ILogger logger, string agentId);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "The access source holds no fresh context of the person agent {AgentId} reads for; no delegated read credential is issued.")]
+    private static partial void LogNoFreshContext(ILogger logger, string agentId);
 }
 
 /// <summary>

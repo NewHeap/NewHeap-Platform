@@ -25,6 +25,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
     private const string CancellationTokenName = "System.Threading.CancellationToken";
     private const string DescriptionAttributeName = "System.ComponentModel.DescriptionAttribute";
     private const string AuthorizeAttributeName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
+    private const string AuthorizeDataName = "Microsoft.AspNetCore.Authorization.IAuthorizeData";
 
     private static readonly DiagnosticDescriptor MissingToolSet = new(
         "NHAI001",
@@ -162,6 +163,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor UnenforceableAuthorization = new(
+        "NHAI018",
+        "AI tool authorization cannot be enforced",
+        "AI tool '{0}' declares authorization the tool gate cannot enforce ({1}); declare [Authorize(Policy = \"...\")] or [Authorize(\"...\")] and express roles and authentication schemes through a named policy",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -292,13 +301,24 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     setId + "." + toolId));
                 continue;
             }
-            var authorizationAttributes = method.ContainingType.GetAttributes()
-                .Concat(method.GetAttributes())
-                .Where(attribute => attribute.AttributeClass?.ToDisplayString() == AuthorizeAttributeName)
-                .ToImmutableArray();
+            // Generated tools never pass the MVC authorization filter: the descriptor's policy list is
+            // the whole boundary. Every authorization declaration ASP.NET would apply to the method
+            // must therefore reach that list, or the build fails.
+            var authorizationAttributes = CollectAuthorizationAttributes(method);
+            var unenforceableAuthorization = authorizationAttributes
+                .Select(DescribeUnenforceableAuthorization)
+                .FirstOrDefault(reason => reason is not null);
+            if (unenforceableAuthorization is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    UnenforceableAuthorization,
+                    location,
+                    setId + "." + toolId,
+                    unenforceableAuthorization));
+                continue;
+            }
             var policies = authorizationAttributes
-                .Select(attribute => attribute.NamedArguments
-                    .FirstOrDefault(argument => argument.Key == "Policy").Value.Value as string)
+                .Select(ReadAuthorizationPolicy)
                 .Where(policy => !string.IsNullOrWhiteSpace(policy))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(policy => policy, StringComparer.Ordinal)
@@ -961,6 +981,81 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
     {
         return symbol.GetAttributes().FirstOrDefault(
             attribute => attribute.AttributeClass?.ToDisplayString() == metadataName);
+    }
+
+    /// <summary>
+    /// Collects every authorization declaration ASP.NET would apply to the tool method: attributes
+    /// implementing <c>IAuthorizeData</c> on the method and the methods it overrides, and on the
+    /// tool set and its base types.
+    /// </summary>
+    private static ImmutableArray<AttributeData> CollectAuthorizationAttributes(IMethodSymbol method)
+    {
+        var attributes = ImmutableArray.CreateBuilder<AttributeData>();
+        for (IMethodSymbol? current = method; current is not null; current = current.OverriddenMethod)
+        {
+            attributes.AddRange(current.GetAttributes().Where(IsAuthorizationAttribute));
+        }
+
+        for (INamedTypeSymbol? type = method.ContainingType;
+             type is not null && type.SpecialType != SpecialType.System_Object;
+             type = type.BaseType)
+        {
+            attributes.AddRange(type.GetAttributes().Where(IsAuthorizationAttribute));
+        }
+
+        return attributes.ToImmutable();
+    }
+
+    private static bool IsAuthorizationAttribute(AttributeData attribute)
+    {
+        if (attribute.AttributeClass is not { } attributeClass)
+        {
+            return false;
+        }
+
+        return attributeClass.ToDisplayString() == AuthorizeAttributeName
+            || attributeClass.AllInterfaces.Any(contract => contract.ToDisplayString() == AuthorizeDataName);
+    }
+
+    /// <summary>
+    /// Returns why the tool gate cannot enforce an authorization declaration, or <see langword="null"/>
+    /// when its whole requirement is a policy name (or authentication only). The gate evaluates policy
+    /// names only, so roles, authentication schemes and attribute classes whose requirement is not
+    /// visible in the declaration are refused instead of silently dropped.
+    /// </summary>
+    private static string? DescribeUnenforceableAuthorization(AttributeData attribute)
+    {
+        var attributeName = attribute.AttributeClass!.ToDisplayString();
+        if (attributeName != AuthorizeAttributeName)
+        {
+            return "attribute '" + attributeName + "' is not AuthorizeAttribute, so its requirement cannot be read";
+        }
+
+        foreach (var argument in attribute.NamedArguments)
+        {
+            if ((argument.Key == "Roles" || argument.Key == "AuthenticationSchemes")
+                && !string.IsNullOrWhiteSpace(argument.Value.Value as string))
+            {
+                return argument.Key + " on AuthorizeAttribute";
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadAuthorizationPolicy(AttributeData attribute)
+    {
+        // The Policy property is assigned after the constructor runs, so a named argument wins over
+        // the positional policy of AuthorizeAttribute(string policy).
+        var named = attribute.NamedArguments.FirstOrDefault(argument => argument.Key == "Policy");
+        if (named.Key is not null)
+        {
+            return named.Value.Value as string;
+        }
+
+        return attribute.ConstructorArguments.Length == 1
+            ? attribute.ConstructorArguments[0].Value as string
+            : null;
     }
 
     private static int GetNamedInt(

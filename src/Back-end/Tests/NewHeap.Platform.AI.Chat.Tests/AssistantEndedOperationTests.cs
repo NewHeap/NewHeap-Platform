@@ -702,9 +702,7 @@ public sealed class AssistantEndedOperationTests(AssistantDatabaseFixture databa
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>().StartNowAsync(
-            AgentId,
-            new NhAiSubjectRef("project", projectId.ToString()),
-            Member,
+            new NhAssistantStartClearance(AgentId, new NhAiSubjectRef("project", projectId.ToString()), Member),
             "Close the project.",
             CancellationToken.None);
     }

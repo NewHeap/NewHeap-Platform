@@ -597,6 +597,15 @@ public sealed partial class AssistantSamplesTests
             reloaded.GetProperty("messages").EnumerateArray().Last().GetProperty("parts").EnumerateArray(),
             part => part.GetProperty("type").GetString() == "connection-required");
 
+        // An administrator who impersonates Ann connects no account in her name: the connection would
+        // outlive the impersonation.
+        using (var impersonated = Host.CreateImpersonationClient("spm-300-ann", "spm-300-admin"))
+        {
+            using var refused = await impersonated.PostAsync("/api/assistant/mcp-connections/personal-planning/authorize", null, cancellation);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.NotAllowedWhileImpersonating, (await AssistantSampleHost.ReadJsonAsync(refused)).GetProperty("code").GetString());
+        }
+
         // Ann connects from the card; the next answer uses her own account.
         authorization.Options.Subject = "remote-ann";
         await SampleMcpOAuthBrowser.ConnectAsync(ann, browser, "/api/assistant/mcp-connections/personal-planning/authorize");

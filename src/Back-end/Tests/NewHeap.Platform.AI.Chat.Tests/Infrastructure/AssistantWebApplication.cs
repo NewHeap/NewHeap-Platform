@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Tests.Relational;
 
 namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
@@ -31,6 +32,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     public const string AccessHeader = "X-Test-Access";
     public const string AdminHeader = "X-Test-Admin";
     public const string NameHeader = "X-Test-Name";
+    public const string ImpersonatedByHeader = "X-Test-Impersonated-By";
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
@@ -191,12 +193,20 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     /// <summary>The endpoint data sources that the host's routing middleware reads.</summary>
     public IReadOnlyList<EndpointDataSource> EndpointDataSources => ((IEndpointRouteBuilder)_app).DataSources.ToArray();
 
-    public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false, string? name = null)
+    /// <param name="impersonatedBy">
+    /// The user who impersonates <paramref name="user"/>: the client then signs in with an impersonation
+    /// session that carries the NewHeap impersonation origin, as an impersonation access token does.
+    /// </param>
+    public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false, string? name = null, string? impersonatedBy = null)
     {
         var client = _app.GetTestClient();
         if (name is not null)
         {
             client.DefaultRequestHeaders.Add(NameHeader, name);
+        }
+        if (impersonatedBy is not null)
+        {
+            client.DefaultRequestHeaders.Add(ImpersonatedByHeader, impersonatedBy);
         }
         if (admin)
         {
@@ -262,6 +272,11 @@ internal sealed class TestAuthenticationHandler(
         if (Request.Headers.ContainsKey(AssistantWebApplication.AdminHeader))
         {
             claims.Add(new Claim("permission", "assistant-admin"));
+        }
+        var impersonatedBy = Request.Headers[AssistantWebApplication.ImpersonatedByHeader].ToString();
+        if (!string.IsNullOrWhiteSpace(impersonatedBy))
+        {
+            claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, impersonatedBy));
         }
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme));
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme)));

@@ -42,6 +42,13 @@ public sealed class NhAssistantConsultationOptions
     public IReadOnlyList<string> Policies => _policies;
 
     /// <summary>
+    /// Whether the consultation names the policy its askers pass itself: <c>Policy</c> in code, an
+    /// asker policy as data. Otherwise every call also checks the agent's required policy as it is in
+    /// effect then, so an administrator's change of it applies at once.
+    /// </summary>
+    internal bool NamesAskerPolicy { get; set; }
+
+    /// <summary>
     /// The role the asking person needs on the subject. The default is <see cref="NhAiSubjectRole.Reader"/>.
     /// </summary>
     public NhAiSubjectRole MinimumRole { get; internal set; } = NhAiSubjectRole.Reader;
@@ -230,6 +237,7 @@ public sealed class NhAssistantConsultationBuilder
         }
 
         _options.AddPolicies(policies.Select(policy => policy.Trim()));
+        _options.NamesAskerPolicy = true;
         return this;
     }
 

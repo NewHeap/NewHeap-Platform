@@ -239,12 +239,28 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
     /// Removes token connections of a server, of one owner or all, then revokes their tokens at the
     /// authorization server, best effort after the local delete.
     /// </summary>
+    public Task<int> DisconnectAsync(
+        AssistantMcpServer server,
+        string? ownerKind,
+        string? ownerActorId,
+        string reason,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return DisconnectAsync(server, ownerKind, ownerActorId, reason, actorId, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes token connections of a server as <see cref="DisconnectAsync(AssistantMcpServer, string?, string?, string, string, CancellationToken)"/>
+    /// does; a removal in an impersonation session names the user who impersonated in its audit event.
+    /// </summary>
     public async Task<int> DisconnectAsync(
         AssistantMcpServer server,
         string? ownerKind,
         string? ownerActorId,
         string reason,
         string actorId,
+        string? impersonationOriginActorId,
         CancellationToken cancellationToken)
     {
         var removed = await store.DeleteTokenConnectionsAsync(server.Id, ownerKind, ownerActorId, cancellationToken);
@@ -253,7 +269,13 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
             cache.Remove(connection.Id);
             await ForgetConnectionAsync(connection);
             await RevokeAsync(server, connection, cancellationToken);
-            await AuditAsync(NhAssistantAuditEventKind.McpConnectionDisconnected, server.Id, string.IsNullOrEmpty(connection.OwnerActorId) ? actorId : connection.OwnerActorId, reason, cancellationToken);
+            await AuditAsync(
+                NhAssistantAuditEventKind.McpConnectionDisconnected,
+                server.Id,
+                string.IsNullOrEmpty(connection.OwnerActorId) ? actorId : connection.OwnerActorId,
+                reason,
+                impersonationOriginActorId,
+                cancellationToken);
         }
         return removed.Count;
     }
@@ -641,12 +663,24 @@ internal sealed partial class NhAssistantMcpOAuthConnections(
             : Task.CompletedTask;
     }
 
-    private async Task AuditAsync(NhAssistantAuditEventKind kind, string serverId, string actorId, string resultCode, CancellationToken cancellationToken)
+    private Task AuditAsync(NhAssistantAuditEventKind kind, string serverId, string actorId, string resultCode, CancellationToken cancellationToken)
+    {
+        return AuditAsync(kind, serverId, actorId, resultCode, null, cancellationToken);
+    }
+
+    private async Task AuditAsync(
+        NhAssistantAuditEventKind kind,
+        string serverId,
+        string actorId,
+        string resultCode,
+        string? impersonationOriginActorId,
+        CancellationToken cancellationToken)
     {
         var evt = new NhAssistantAuditEvent(kind, Guid.Empty, Guid.Empty, actorId, string.Empty, 0, DateTimeOffset.UtcNow)
         {
             ObjectId = serverId,
-            ResultCode = resultCode
+            ResultCode = resultCode,
+            ImpersonationOriginActorId = impersonationOriginActorId
         };
         foreach (var sink in _auditSinks)
         {

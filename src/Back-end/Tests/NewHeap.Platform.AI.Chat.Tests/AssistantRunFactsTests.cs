@@ -233,9 +233,7 @@ public sealed class AssistantRunFactsTests(AssistantDatabaseFixture database) : 
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>().StartNowAsync(
-            Checker,
-            new NhAiSubjectRef("project", projectId.ToString("N")),
-            "member-1",
+            new NhAssistantStartClearance(Checker, new NhAiSubjectRef("project", projectId.ToString("N")), "member-1"),
             "Check the project.",
             CancellationToken.None);
     }

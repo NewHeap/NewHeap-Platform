@@ -403,6 +403,19 @@ describe('Run histories and runs of the mock API', () => {
     expect((await call('POST', 'runs/unknown/cancel')).status).toBe(404);
   });
 
+  it('restarts a run only for someone who may start the agent', async () => {
+    const backend = await configure(scenario({ runNow: { projects: { status: 'failed' } } }));
+    const failed = (await call('POST', 'threads/start', { agentId: 'projects', subjectType: 'project', subjectId: 'p-1' })).body;
+    expect((await call('POST', 'admin/agents/projects/shadow', { mode: 'shadow', reason: null })).status).toBe(200);
+
+    // The approver of the project is no administrator: an agent in shadow is started by administrators only.
+    backend.setCanAdminister(false);
+    const refused = await call('POST', `runs/${failed.runId}/retry`, { mode: 'restart' });
+    expect([refused.status, refused.body.code]).toEqual([403, 'assistant-agent-forbidden']);
+    backend.setCanAdminister(true);
+    expect((await call('POST', `runs/${failed.runId}/retry`, { mode: 'restart' })).status).toBe(202);
+  });
+
   it('opens an agent thread without a run for whoever may start the agent', async () => {
     await configure();
     const open = (agentId: string, subjectId: string, subjectType = 'project') =>

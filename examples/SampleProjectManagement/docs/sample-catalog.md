@@ -119,15 +119,19 @@ stays stored without a tenant. Startup refuses the mode next to a projection of 
 tenant claim.
 When such a deployment adds its people's rights in its own claims transformation at every request,
 the NewHeap user store cannot rebuild them for work outside a request (SPM-315).
-`SampleAccessSourceComposition` records the claims of every signed-in request after the transformation
-in the application's own `SampleAccessContexts`, under the platform's actor id and with the time, and
-registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour; NewHeap stores
-none of it. A run the manager started on a project changes its status with the rights of the manager's
-last request, and so does an agent that acts with the rights of the project's responsible person; the
-colleague without the manage permission and someone the application never saw are refused. Half an hour
-later the run is no longer offered the status tool, until the manager's next request; signing out
-forgets the rights at once. `AssistantAccessSourceSamplesTests` shows it in a focused composition,
-because the sample's own API signs in with the NewHeap user store.
+`SampleAccessSourceComposition` records the claims of each person's own signed-in requests after the
+transformation in the application's own `SampleAccessContexts`, under the platform's actor id and with
+the time, and registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour;
+NewHeap stores none of it. A run the manager started on a project changes its status with the rights of
+the manager's last request, and so does an agent that acts with the rights of the project's responsible
+person; the colleague without the manage permission and someone the application never saw are refused.
+Half an hour later the run is no longer offered the status tool, until the manager's next request; the
+manager's own request to the host's sign-out path forgets the rights at once. A request that an agent's
+delegated read or delegated MCP token authenticated, and an impersonation session, are not the
+manager's own (`NhAiAccessContext.IsPersonsOwnRequest`): they never renew the rights, and after sign-out
+they bring nothing back. A headless gateway read asks the host's delegated read issuer for a credential
+only while the manager's recorded rights are fresh. `AssistantAccessSourceSamplesTests` shows it in a focused composition, because
+the sample's own API signs in with the NewHeap user store.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
 keeps next to the small summary its next runs start from. The rules write it per culture, so an
@@ -345,8 +349,11 @@ order on `SampleEquipmentOrderDesk` instead of running the tool's function, and 
 executed, failed or uncertain, the approvers are told, the summary appears in the project's thread as a
 message of the application, and the audit records the outcome and the code only. An order nobody
 confirms in time becomes `execution-unknown`, and an approver hands it to the desk again from the
-proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
-in for the supplier's callback.
+proposal's card. The hand-off carries the approved arguments, not the division the call was authorized
+for, so the executor reads the ordered project's division and refuses the order with
+`order-project-out-of-scope` unless the approver manages projects there; the order and review tools
+themselves act only on a project of the division their call is authorized for. `AssistantAgentRunSamplesTests`
+runs the case, with the desk's confirmations standing in for the supplier's callback.
 
 A person can also order equipment in their own chat with the project assistant (SPM-328). The order tool
 is declared with `AlsoInline`, so approving the card in the chat hands the order to the order desk as
@@ -357,7 +364,8 @@ and a passed deadline read in that language, title included: English for a perso
 English, although the application defaults to Dutch, and Dutch for one whose client reads Dutch. An
 approval handed off before the culture was recorded reads in the default culture, and agent threads
 keep it. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
-offers the person who approved it to hand it to the order desk again or to mark it done.
+offers the person who approved it to hand it to the order desk again or to mark it done. An order for a
+project of another division is refused by the executor in the chat too.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
 waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see
@@ -482,7 +490,12 @@ their messages and their answer to an approval card with the link token, without
 division and with the person's own rights for every tool, never the rights of the provider's request.
 The answer carries the assistant's text and, when the turn waits, the approval card with its proposal
 hash; a `yes` approves it. A repeated delivery starts no second turn, a link to someone else's chat finds
-nothing, and the audit records the `messaging-chat` channel. In Development the sample also sets
+nothing, and the audit records the `messaging-chat` channel. Only the person's own session links a
+chat: an administrator who impersonates the person gets `403 assistant-not-allowed-while-impersonating`,
+because the link would act as the person after the impersonation ended. Every link carries a digest of
+the person's security stamp, so a password change or a revocation of the person's sessions ends all
+their links, and a chat started from the messaging app gets a link that expires with the one it was
+started from. In Development the sample also sets
 `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
 the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
 
@@ -555,8 +568,12 @@ for his own account and never gets Ann's, and disconnecting in `nh-assistant-mcp
 her tokens at once. The status advisor, which a participant starts and which acts with that
 participant's rights, uses the participant's connection in its background run only when an
 administrator offers the server in background runs (`headlessUse: personal`) and the participant
-consented while connecting; the audit names whose connection a call used. The playground shows the
-connect card in the chat, the preferences and the organization's CRM account on the mock.
+consented while connecting; the audit names whose connection a call used. An administrator who
+impersonates Ann connects no account in her name: an impersonation session neither consents to
+background use, nor starts or completes a personal connection, nor registers a browser for push
+(`assistant-not-allowed-while-impersonating`), while withdrawing and disconnecting stay allowed and the
+audit names the administrator. The playground shows the connect card in the chat, the preferences and
+the organization's CRM account on the mock.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
@@ -731,10 +748,30 @@ the entry so a later request reaches the network again. In addition to URL and
 query, the key includes `Accept`, language, authorization, cookie, and active
 division. Requests from different users or divisions are therefore never shared.
 
-This sample does not change the existing URL matching or token logic of the
-authentication, active-division, and server interceptors. The application
-therefore configures explicit API bases and demonstrates only optional request
-deduplication.
+The sample sets `apiBaseUrl` and `authApiBaseUrl` explicitly to `/api` (SPM-106).
+The authentication and active-division interceptors add the access token and
+`X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies,
+only to a request on the base URL's origin whose path is the base path or
+continues it after a `/`. Project requests under `/api` therefore carry both,
+while the translation files under `./i18n/`, a path such as `/apiary` and any
+other origin receive neither. An empty base URL stands for the application's
+own origin, so it never sends credentials to another origin, but an explicit
+base states where the API is. `verify-frontend-integrity.mjs` keeps both bases
+explicit; the library's interceptor spec proves the matching rule.
+
+## Document head and structured data
+
+The platform playground sets the title, the description and a canonical link
+(SPM-151) and builds JSON-LD with `NhJsonLdService`, review placeholder keys and
+`<nh-json-ld nhToHead>` (SPM-152). The description starts as rich text:
+`NhMetaService.stripHtml` returns its text and parses the markup in an inert
+document, so images in it never load and inline handlers never run.
+
+Review text is written by people, so the sample's review body contains markup
+such as `</SCRIPT>`. `nh-json-ld` writes every `<` in the serialized JSON as a
+JSON unicode escape and escapes the line and paragraph separators, so that text
+stays data inside the one structured-data script element and parses back
+unchanged.
 
 ## Backend configuration for runtime and automation
 

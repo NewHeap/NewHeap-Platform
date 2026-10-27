@@ -30,6 +30,13 @@ internal interface INhAssistantConsultationViewer
         AssistantThread thread,
         string toolId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the asking person passes the required policy of <paramref name="agent"/> as it is in
+    /// effect now, with the principal of their own request or one the application rebuilds for the
+    /// subject; without a principal only an agent without a required policy passes.
+    /// </summary>
+    ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -432,6 +439,14 @@ internal sealed class NhAssistantConsultationService(
                 "The consultation would nest deeper than allowed or ask an agent that is already asking.");
         }
 
+        // Shadow work never reaches a live agent: a run in shadow consults nobody, as it hands off to no
+        // live agent, and an agent in shadow answers nobody (below). Nothing is recorded, proposed or
+        // notified for it.
+        if (asking is { ShadowRun: true })
+        {
+            return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "A run in shadow consults no agent.");
+        }
+
         var timeout = Timeout(options, NhAssistantExecutionScope.CurrentTurn);
         if (timeout < TimeSpan.FromSeconds(1))
         {
@@ -474,10 +489,20 @@ internal sealed class NhAssistantConsultationService(
             return SubjectUnavailable();
         }
 
-        var access = await subjects.ResolveAsync(subjectRef, request.AskerActorId, cancellationToken);
+        // The asker's role for the agent's thread: about the whole application only people who pass the
+        // agent's view policy read its work, as the thread, its runs and its proposals say.
+        var access = await subjects.ResolveForAgentAsync(subjectRef, options.AgentId, request.AskerActorId, cancellationToken);
         if (!access.Has(options.MinimumRole))
         {
             return SubjectUnavailable();
+        }
+
+        // Without an asker policy of its own the consultation asks what the agent asks of the people
+        // who use it: its required policy as it is in effect now, also after an administrator changed
+        // it.
+        if (!options.NamesAskerPolicy && !await request.Viewer.MayUseAgentAsync(agent.Definition, cancellationToken))
+        {
+            return Refused(NhAssistantErrorCodes.AgentForbidden, "The person may not use the agent.");
         }
 
         var since = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero);

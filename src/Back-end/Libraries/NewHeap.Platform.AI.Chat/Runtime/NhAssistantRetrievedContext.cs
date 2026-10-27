@@ -22,10 +22,12 @@ internal sealed class NhAssistantRetrievalService(
     internal const int MaxQueryCharacters = 1_000;
 
     /// <summary>
-    /// The <c># Retrieved context</c> block for the turn and its context hash, or
-    /// <see langword="null"/> when the agent does not retrieve, the query is empty or nothing was found.
+    /// The <c># Retrieved context</c> block for the turn, its context hash and the highest
+    /// classification of its items, or <see langword="null"/> when the agent does not retrieve, the
+    /// query is empty or nothing was found. The turn takes that classification into its model calls,
+    /// so a skill or fallback profile that does not permit it never receives the block.
     /// </summary>
-    public async Task<(string Block, string Hash)?> RetrieveAsync(
+    public async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync(
         NhAssistantAgentDefinition agent,
         NhAiInvocationContext context,
         string? query,
@@ -41,7 +43,8 @@ internal sealed class NhAssistantRetrievalService(
 
         var text = NhAssistantContent.Bound(query.ReplaceLineEndings(" ").Trim(), MaxQueryCharacters);
         var maxCharacters = Math.Min(retrieval.MaxCharacters, registration.Limits.MaxRetrievedCharacters);
-        // The model profile decides the highest classification the turn may send to the model.
+        // The model profile decides the highest classification the turn may retrieve; the items then
+        // raise the turn's classification, which every profile that serves the turn must permit.
         var classification = profiles.TryGet(agent.ProfileName, out var profile) && profile.PermittedDataClassifications.Count > 0
             ? profile.PermittedDataClassifications.Max()
             : NhAiDataClassification.Public;
@@ -82,7 +85,8 @@ internal sealed class NhAssistantRetrievalService(
             .Append(Neutralize(formatter.FormatAsData(resolution)))
             .Append("\n</retrieved-context>")
             .ToString();
-        return (block, resolution.ContextHash);
+        var highest = resolution.Items.Max(item => item.Item.Classification);
+        return (block, resolution.ContextHash, highest);
     }
 
     /// <summary>

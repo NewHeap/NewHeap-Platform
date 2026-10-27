@@ -1,10 +1,14 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 
 namespace SampleProjectManagement.Api.Services;
@@ -26,11 +30,18 @@ namespace SampleProjectManagement.Api.Services;
 /// <see cref="INhAssistantConversations"/> and <see cref="INhAssistantConversationTurns.AnswerAsync"/>,
 /// with the checks and codes of the endpoints the portal calls.
 /// </para>
+/// <para>
+/// A link is a credential of the person, so only the person's own session issues one: an impersonation
+/// session gets none (<see cref="NhAssistantErrorCodes.NotAllowedWhileImpersonating"/>), because the link
+/// would act as the person after the impersonation ended. Every link is bound to the person's security
+/// stamp, so changing the password or revoking the person's sessions ends it, and a new chat's link
+/// expires with the link that started it.
+/// </para>
 /// </summary>
 public sealed class SampleAssistantMessagingChannel(
     INhAssistantConversationTurns turns,
     INhAssistantConversations conversations,
-    INhUserManager users,
+    INhUserManager<NhUser> users,
     INhAuthenticationService authentication,
     IDataProtectionProvider dataProtection)
 {
@@ -40,9 +51,9 @@ public sealed class SampleAssistantMessagingChannel(
     public const string Channel = "messaging-chat";
 
     /// <summary>
-    /// The refusal of a delivery whose link token this channel did not issue, that expired, of an answer
-    /// to an approval card that is neither an approval nor a rejection, or of an answer that names none
-    /// of the question's choices.
+    /// The refusal of a delivery whose link token this channel did not issue, that expired or that the
+    /// person's password change or session revocation ended, of an answer to an approval card that is
+    /// neither an approval nor a rejection, or of an answer that names none of the question's choices.
     /// </summary>
     public const string DeliveryInvalidCode = "sample-assistant-channel-delivery-invalid";
 
@@ -52,11 +63,13 @@ public sealed class SampleAssistantMessagingChannel(
     public const string PersonUnavailableCode = "sample-assistant-channel-person-unavailable";
 
     /// <summary>
-    /// How long a link stays valid before the person links the chat again.
+    /// How long a link stays valid before the person links the chat again. A chat started through a link
+    /// gets a link that expires with it.
     /// </summary>
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromDays(30);
 
-    private const string Purpose = "SampleProjectManagement.AssistantChannel.v1";
+    // v2 binds every link to the person's security stamp; a link of v1 no longer reads.
+    private const string Purpose = "SampleProjectManagement.AssistantChannel.v2";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -64,16 +77,32 @@ public sealed class SampleAssistantMessagingChannel(
 
     /// <summary>
     /// The link token of <paramref name="userId"/>'s chat <paramref name="conversationId"/> in their active
-    /// division, for the portal's signed-in person only. Whether the person may use the chat is checked on
-    /// every delivery, so a link of someone else's chat finds nothing.
+    /// division, for the portal's signed-in person in their own session only: <paramref name="user"/> of an
+    /// impersonation session gets none (<see cref="NhAssistantErrorCodes.NotAllowedWhileImpersonating"/>).
+    /// The link is bound to the person's current security stamp. Whether the person may use the chat is
+    /// checked on every delivery, so a link of someone else's chat finds nothing.
     /// </summary>
-    public SampleAssistantChannelLink Link(Guid conversationId, Guid userId, Guid divisionId)
+    public async Task<TaskResult<SampleAssistantChannelLink>> LinkAsync(
+        ClaimsPrincipal user,
+        Guid conversationId,
+        Guid userId,
+        Guid divisionId,
+        CancellationToken cancellationToken)
     {
-        var expiresAt = DateTimeOffset.UtcNow.Add(LinkLifetime);
-        var token = _tokens.Protect(
-            JsonSerializer.Serialize(new LinkToken(conversationId, userId, divisionId), Json),
-            expiresAt);
-        return new SampleAssistantChannelLink(token, expiresAt);
+        ArgumentNullException.ThrowIfNull(user);
+        if (user.HasClaim(claim => claim.Type == NhPlatformClaimTypes.ImpersonateOriginUserId))
+        {
+            return TaskResult<SampleAssistantChannelLink>.Failed(
+                NhAssistantErrorCodes.NotAllowedWhileImpersonating,
+                "An impersonation session links no chat of the person it acts as.");
+        }
+        if (await StampOfAsync(userId) is not { } stamp)
+        {
+            return TaskResult<SampleAssistantChannelLink>.Failed(PersonUnavailableCode, "The person does not exist.");
+        }
+
+        return TaskResult<SampleAssistantChannelLink>.Succeeded(
+            Protect(new LinkToken(conversationId, userId, divisionId, stamp), DateTimeOffset.UtcNow.Add(LinkLifetime)));
     }
 
     /// <summary>
@@ -92,7 +121,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelAnswer>.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         var sent = await turns.SendAsync(
             person,
             link.ConversationId,
@@ -124,7 +153,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelAnswer>.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         var decided = await turns.DecideAsync(
             person,
             link.ConversationId,
@@ -139,9 +168,9 @@ public sealed class SampleAssistantMessagingChannel(
 
     /// <summary>
     /// SPM-341: starts a new chat of the person the link names with <paramref name="start"/>'s agent, in
-    /// the link's division, and answers with the link token of the new chat, so the messaging app
-    /// continues there. The platform refuses an agent the person may not use
-    /// (<c>assistant-agent-forbidden</c>) or that is not offered in the chat
+    /// the link's division, and answers with the link token of the new chat, which expires with the
+    /// presented link, so the messaging app continues there. The platform refuses an agent the person
+    /// may not use (<c>assistant-agent-forbidden</c>) or that is not offered in the chat
     /// (<c>assistant-agent-not-found</c>), as <c>POST /api/assistant/conversations</c> does.
     /// </summary>
     public async Task<TaskResult<SampleAssistantChannelChat>> StartChatAsync(
@@ -160,7 +189,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelChat>.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         var created = await conversations.CreateAsync(
             person,
             new NhAssistantNewConversation(start.AgentId.Trim()) { Title = start.Title },
@@ -171,8 +200,9 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelChat>.Failed(created);
         }
 
+        // The new chat's link expires with the link that started it, so starting chats never extends it.
         var chat = created.Data!;
-        var newLink = Link(chat.Id, link.UserId, link.DivisionId);
+        var newLink = Protect(link with { ConversationId = chat.Id }, linked.Data.ExpiresAt);
         return TaskResult<SampleAssistantChannelChat>.Succeeded(
             new SampleAssistantChannelChat(newLink.Token, newLink.ExpiresAt, StateOf(chat)));
     }
@@ -190,7 +220,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelState>.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         var chat = await conversations.GetAsync(person, link.ConversationId, ConversationOptionsOf(link), cancellationToken);
         return chat.Success
             ? TaskResult<SampleAssistantChannelState>.Succeeded(StateOf(chat.Data!))
@@ -214,7 +244,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult<SampleAssistantChannelAnswer>.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         // The card numbers the choices; the chat names them, so a reply of the choice's text works too.
         var chat = await conversations.GetAsync(person, link.ConversationId, ConversationOptionsOf(link), cancellationToken);
         if (!chat.Success)
@@ -254,7 +284,7 @@ public sealed class SampleAssistantMessagingChannel(
             return TaskResult.Failed(linked);
         }
 
-        var (link, person) = linked.Data;
+        var (link, _, person) = linked.Data;
         return await conversations.CancelAsync(person, link.ConversationId, ConversationOptionsOf(link), cancellationToken);
     }
 
@@ -322,23 +352,63 @@ public sealed class SampleAssistantMessagingChannel(
     }
 
     /// <summary>
-    /// The link and the person it names, as their own sign-in would authenticate them; a forged, altered
-    /// or expired token and a person who may no longer sign in are refused.
+    /// The link, until when it is valid, and the person it names, as their own sign-in would authenticate
+    /// them. A forged, altered or expired token and a link whose security stamp is no longer the
+    /// person's, because the person changed the password or their sessions were revoked, are refused as
+    /// invalid; a person who does not exist or may no longer sign in is unavailable.
     /// </summary>
-    private async Task<TaskResult<(LinkToken Link, NhAssistantDecidingPerson Person)>> LinkedPersonAsync(
+    private async Task<TaskResult<(LinkToken Link, DateTimeOffset ExpiresAt, NhAssistantDecidingPerson Person)>> LinkedPersonAsync(
         string? token,
         CancellationToken cancellationToken)
     {
-        if (ReadToken(token) is not { } link)
+        if (ReadToken(token) is not { } read)
         {
-            return TaskResult<(LinkToken, NhAssistantDecidingPerson)>.Failed(DeliveryInvalidCode, "The delivery does not belong to a linked chat.");
+            return TaskResult<(LinkToken, DateTimeOffset, NhAssistantDecidingPerson)>.Failed(DeliveryInvalidCode, "The delivery does not belong to a linked chat.");
+        }
+
+        var (link, expiresAt) = read;
+        if (await StampOfAsync(link.UserId) is not { } stamp)
+        {
+            return TaskResult<(LinkToken, DateTimeOffset, NhAssistantDecidingPerson)>.Failed(PersonUnavailableCode, "The person does not exist.");
+        }
+        if (!SameStamp(link.Stamp, stamp))
+        {
+            return TaskResult<(LinkToken, DateTimeOffset, NhAssistantDecidingPerson)>.Failed(DeliveryInvalidCode, "The link ended with the person's password change or session revocation.");
         }
         if (await PersonAsync(link.UserId, cancellationToken) is not { } person)
         {
-            return TaskResult<(LinkToken, NhAssistantDecidingPerson)>.Failed(PersonUnavailableCode, "The person may not sign in.");
+            return TaskResult<(LinkToken, DateTimeOffset, NhAssistantDecidingPerson)>.Failed(PersonUnavailableCode, "The person may not sign in.");
         }
 
-        return TaskResult<(LinkToken, NhAssistantDecidingPerson)>.Succeeded((link, person));
+        return TaskResult<(LinkToken, DateTimeOffset, NhAssistantDecidingPerson)>.Succeeded((link, expiresAt, person));
+    }
+
+    /// <summary>
+    /// A digest of the person's current security stamp, which a password change and a session revocation
+    /// replace, or <see langword="null"/> when the person does not exist. The link carries the digest, never
+    /// the stamp itself.
+    /// </summary>
+    private async Task<string?> StampOfAsync(Guid userId)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return null;
+        }
+
+        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(user.SecurityStamp ?? string.Empty)));
+    }
+
+    private static bool SameStamp(string? linked, string current)
+    {
+        return linked is not null
+            && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(linked), Encoding.ASCII.GetBytes(current));
+    }
+
+    private SampleAssistantChannelLink Protect(LinkToken link, DateTimeOffset expiresAt)
+    {
+        var token = _tokens.Protect(JsonSerializer.Serialize(link, Json), expiresAt);
+        return new SampleAssistantChannelLink(token, expiresAt);
     }
 
     /// <summary>
@@ -357,7 +427,7 @@ public sealed class SampleAssistantMessagingChannel(
         return new NhAssistantDecidingPerson(principal, userId.ToString("D"));
     }
 
-    private LinkToken? ReadToken(string? token)
+    private (LinkToken Link, DateTimeOffset ExpiresAt)? ReadToken(string? token)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -366,7 +436,10 @@ public sealed class SampleAssistantMessagingChannel(
 
         try
         {
-            return JsonSerializer.Deserialize<LinkToken>(_tokens.Unprotect(token), Json);
+            var payload = _tokens.Unprotect(token, out var expiresAt);
+            return JsonSerializer.Deserialize<LinkToken>(payload, Json) is { } link
+                ? (link, expiresAt)
+                : null;
         }
         catch (Exception exception) when (exception is System.Security.Cryptography.CryptographicException or FormatException or JsonException)
         {
@@ -413,7 +486,11 @@ public sealed class SampleAssistantMessagingChannel(
         return null;
     }
 
-    private sealed record LinkToken(Guid ConversationId, Guid UserId, Guid DivisionId);
+    /// <summary>
+    /// What a link names: the chat, the person and their division, and the digest of the person's
+    /// security stamp when it was issued.
+    /// </summary>
+    private sealed record LinkToken(Guid ConversationId, Guid UserId, Guid DivisionId, string Stamp);
 }
 
 /// <summary>

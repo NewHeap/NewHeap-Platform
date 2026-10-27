@@ -203,6 +203,50 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
     }
 
     [Fact]
+    public async Task Under_an_access_source_a_headless_read_needs_a_fresh_context_of_the_person_it_reads_for()
+    {
+        var contexts = new ReadContexts();
+        await using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(contexts);
+            services.AddNewHeapPlatformAIAspNet(ai => ai.UsePrincipalsFromAccessSource<ReadContexts>(options => options.MaxAge = ReadContexts.MaxAge));
+        });
+        await using var scope = factory.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var issued = factory.Services.GetRequiredService<TestReadIssuer.Recorder>();
+
+        // The application holds no context of the reader, for example after the reader signed out: the
+        // host's issuer, which would issue for anyone it knows, is never asked, and nothing is read.
+        using (NhAiAgentInvocationScopes.Begin(AgentScope("reader")))
+        {
+            var query = await InvokeAsync(services, Query, new { resource = "order" });
+            Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
+        }
+        Assert.Empty(issued.Requests);
+
+        // A context older than the maximum age lends nothing either.
+        contexts.Remember("reader", DateTimeOffset.UtcNow - ReadContexts.MaxAge - TimeSpan.FromMinutes(1));
+        using (NhAiAgentInvocationScopes.Begin(AgentScope("reader")))
+        {
+            var query = await InvokeAsync(services, Query, new { resource = "order" });
+            Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
+        }
+        Assert.Empty(issued.Requests);
+        Assert.DoesNotContain(factory.Requests, request => request.StartsWith("GET /orders", StringComparison.Ordinal));
+
+        // With the reader's fresh context the run reads through the gateway as before.
+        contexts.Remember("reader", DateTimeOffset.UtcNow);
+        using (NhAiAgentInvocationScopes.Begin(AgentScope("reader")))
+        {
+            var query = await InvokeAsync(services, Query, new { resource = "order", itemsPerPage = 5 });
+            Assert.True(query.Success, query.Errors);
+        }
+        Assert.NotEmpty(issued.Requests);
+        Assert.All(issued.Requests, request => Assert.Equal("reader", request.PersonActorId));
+        Assert.Contains(factory.Requests, request => request.StartsWith("GET /orders?", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_dot_segment_or_an_empty_route_value_never_reaches_another_action()
     {
         await using var factory = new BridgeApiFactory();
@@ -228,6 +272,30 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
 
     private const string ListAction = "test-api.order.get";
     private const string GetAction = "test-api.order.get-by-id";
+
+    /// <summary>
+    /// The application's access contexts of an OIDC host, which records its people's rights at their own
+    /// requests; NewHeap keeps none.
+    /// </summary>
+    private sealed class ReadContexts : INhAiAccessSource
+    {
+        public static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
+
+        private readonly ConcurrentDictionary<string, NhAiAccessContext> _contexts = new(StringComparer.Ordinal);
+
+        public void Remember(string actorId, DateTimeOffset validAt)
+        {
+            _contexts[actorId] = new NhAiAccessContext([new Claim("permission", TestPolicies.OrderView)], validAt);
+        }
+
+        public ValueTask<NhAiAccessContext?> GetAsync(
+            string actorId,
+            NhAiSubjectInfo subject,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(_contexts.GetValueOrDefault(actorId));
+        }
+    }
 
     /// <summary>JWT bearer events whose TokenValidated never invokes the OnTokenValidated delegate.</summary>
     private sealed class SkippingEvents : JwtBearerEvents

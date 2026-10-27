@@ -1987,11 +1987,16 @@ internal sealed class NhAssistantAgentConfiguration(
         }
 
         var serviceAccount = settings!.ServiceAccountActorId;
-        if (serviceAccount is not null && !await AccountExistsAsync(agentId, serviceAccount, cancellationToken))
+        if (serviceAccount is not null
+            && await CheckAccountAsync(
+                agentId,
+                agent.Definition.ToolSelectors,
+                serviceAccount,
+                actorId,
+                bound: string.Equals(before?.ServiceAccountActorId, serviceAccount, StringComparison.Ordinal),
+                cancellationToken) is { Success: false } notPermitted)
         {
-            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(
-                NhAssistantErrorCodes.ServiceAccountNotFound,
-                "No account that may sign in exists with that id.");
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(notPermitted);
         }
 
         var saved = await store.SaveRunSettingsAsync(settings, request.ExpectedVersion, cancellationToken);
@@ -3438,18 +3443,27 @@ internal sealed class NhAssistantAgentConfiguration(
     }
 
     /// <summary>
-    /// Whether the account exists and may sign in, as the principal factory that rebuilds it for the
-    /// agent's runs decides.
+    /// Whether <paramref name="actorId"/> may make <paramref name="accountActorId"/> the account an
+    /// agent created in the administration answers to: the account exists and may sign in, and the
+    /// person may act for it (<see cref="NhAssistantServiceAccountBinding"/>), unless it is
+    /// <paramref name="bound"/> already.
     /// </summary>
-    internal async Task<bool> AccountExistsAsync(string agentId, string accountActorId, CancellationToken cancellationToken)
+    internal Task<TaskResult> CheckAccountAsync(
+        string agentId,
+        IReadOnlyList<string> toolSelectors,
+        string accountActorId,
+        string actorId,
+        bool bound,
+        CancellationToken cancellationToken)
     {
-        if (services.GetService<INhAiPrincipalFactory>() is not { } principals)
-        {
-            return false;
-        }
-
-        var subject = new NhAiSubjectInfo(new NhAiSubjectRef("agent", agentId), NhAiSubjectInfo.CreateScopeKey(null, null));
-        return await principals.CreateAsync(accountActorId, subject, cancellationToken) is not null;
+        return services.GetRequiredService<NhAssistantServiceAccountBinding>().CheckAsync(
+            agentId,
+            toolSelectors,
+            accountActorId,
+            actorId,
+            null,
+            bound,
+            cancellationToken);
     }
 
     private async Task<IReadOnlyDictionary<string, AssistantAgentSkillDefinition>> LiveSkillsAsync(string agentId, CancellationToken cancellationToken)

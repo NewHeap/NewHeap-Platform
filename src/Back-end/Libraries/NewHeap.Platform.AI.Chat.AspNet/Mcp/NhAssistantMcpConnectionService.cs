@@ -93,6 +93,12 @@ internal sealed class NhAssistantMcpConnectionService(
         bool allow,
         CancellationToken cancellationToken)
     {
+        // An impersonation session may withdraw the person's consent, never give it.
+        if (allow && NhAssistantImpersonation.IsImpersonating(user))
+        {
+            return NhAssistantImpersonation.Refused<NhAssistantMcpPersonalServer>();
+        }
+
         var listed = await FindAsync(actorId, user, serverId, cancellationToken);
         if (listed is null)
         {
@@ -123,7 +129,8 @@ internal sealed class NhAssistantMcpConnectionService(
             DateTimeOffset.UtcNow)
         {
             ObjectId = listed.Server.Id,
-            ResultCode = allow ? AllowedResult : WithdrawnResult
+            ResultCode = allow ? AllowedResult : WithdrawnResult,
+            ImpersonationOriginActorId = NhAssistantImpersonation.OriginOf(user)
         };
         foreach (var sink in _auditSinks)
         {
@@ -136,7 +143,7 @@ internal sealed class NhAssistantMcpConnectionService(
     /// <summary>
     /// Starts the person's authorization of a server each person connects to with OAuth. With
     /// <paramref name="allowBackgroundUse"/> the person also consents to background use, when an
-    /// administrator offers it.
+    /// administrator offers it. An impersonation session connects nothing in the person's name.
     /// </summary>
     public async Task<TaskResult<NhAssistantMcpAuthorizationStart>> AuthorizeAsync(
         string actorId,
@@ -146,6 +153,11 @@ internal sealed class NhAssistantMcpConnectionService(
         bool allowBackgroundUse,
         CancellationToken cancellationToken)
     {
+        if (NhAssistantImpersonation.IsImpersonating(user))
+        {
+            return NhAssistantImpersonation.Refused<NhAssistantMcpAuthorizationStart>();
+        }
+
         var listed = await FindAsync(actorId, user, serverId, cancellationToken);
         if (listed is null)
         {
@@ -192,6 +204,7 @@ internal sealed class NhAssistantMcpConnectionService(
             actorId,
             PersonReason,
             actorId,
+            NhAssistantImpersonation.OriginOf(user),
             cancellationToken);
         // The consent to background use stays until the person withdraws it.
         var after = await FindAsync(actorId, user, serverId, cancellationToken);

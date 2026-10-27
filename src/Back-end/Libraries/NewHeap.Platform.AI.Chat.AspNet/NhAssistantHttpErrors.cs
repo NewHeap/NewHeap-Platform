@@ -164,6 +164,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ApprovalPolicyDenied,
             NhAssistantErrorCodes.FourEyesRequired,
             NhAssistantErrorCodes.FileForbidden,
+            NhAssistantErrorCodes.ServiceAccountNotPermitted,
             NhAssistantAdminErrorCodes.Forbidden,
             NhAssistantAdminErrorCodes.McpCredentialMismatch,
             NhAssistantAdminErrorCodes.McpInitiatorOnly);
@@ -306,6 +307,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.PackageLocked);
         Add(statuses, StatusCodes.Status404NotFound,
             NhAssistantErrorCodes.PackageNotLinked);
+        // An impersonation session grants nothing in the person's name that outlives it.
+        Add(statuses, StatusCodes.Status403Forbidden,
+            NhAssistantErrorCodes.NotAllowedWhileImpersonating);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

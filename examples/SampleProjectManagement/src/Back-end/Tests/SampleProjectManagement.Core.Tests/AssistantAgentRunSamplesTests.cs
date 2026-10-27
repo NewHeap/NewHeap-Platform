@@ -3981,6 +3981,110 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_314_the_order_desk_refuses_an_approved_order_for_a_project_of_another_division()
+    {
+        // SPM-314: the hand-off carries the approved arguments, not the division the call was authorized
+        // for, so the executor binds the ordered project to the approver's division again.
+        var project = await host.CreateProjectAsync("SCOPED", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var foreign = await host.CreateProjectAsync("FOREIGN", ownerId: host.OutsiderId, divisionId: host.OtherDivisionId);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+
+        // The reviewer of this project proposes an order for a project of the other division, which the
+        // colleague, who manages projects of this division only, approves.
+        var conversationId = await StartIntakeReviewerAsync(participant, project, $"Please order 9 laptops for project {foreign:D}.");
+        var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "approve")).StatusCode);
+
+        // The executor refuses it: the proposal closes as failed with the refusal's code, and the desk
+        // holds no order for the other division's project.
+        var refused = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.ExecutionFailed, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(proposal.ApprovalId, refused.ApprovalId);
+        Assert.Equal(SampleEquipmentOrderExecutor.ProjectOutOfScopeCode, refused.ExecutionResultCode);
+        Assert.DoesNotContain(desk.Orders, order => order.ProjectId == foreign);
+    }
+
+    [Fact]
+    public async Task SPM_314_the_order_executor_takes_an_order_only_from_an_approver_who_manages_the_projects_division()
+    {
+        // SPM-314: the executor reads the project's division and the approver's current claims.
+        var project = await host.CreateProjectAsync("EXECUTOR", ownerId: host.OwnerId);
+        var foreign = await host.CreateProjectAsync("EXECUTOR-FOREIGN", ownerId: host.OutsiderId, divisionId: host.OtherDivisionId);
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+
+        async Task<TaskResult> ExecuteAsync(NhAssistantProposalHandOff handOff)
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<INhAssistantProposalExecutor>().ExecuteAsync(handOff, CancellationToken.None);
+        }
+
+        // A member of the division without the manage permission, the colleague for a project of the
+        // other division, a project that does not exist and an approver who is no user are refused.
+        var refusals = new[]
+        {
+            OrderHandOff(project, host.ParticipantId.ToString("D")),
+            OrderHandOff(foreign, host.ColleagueId.ToString("D")),
+            OrderHandOff(Guid.NewGuid(), host.ColleagueId.ToString("D")),
+            OrderHandOff(project, "not-a-user")
+        };
+        foreach (var handOff in refusals)
+        {
+            var refused = await ExecuteAsync(handOff);
+            Assert.False(refused.Success);
+            Assert.Equal(SampleEquipmentOrderExecutor.ProjectOutOfScopeCode, Assert.Single(refused.GetResultItems()).Name);
+            Assert.DoesNotContain(desk.Orders, order => order.HandOff?.ApprovalId == handOff.ApprovalId);
+        }
+
+        // The colleague manages the projects of the host's division: the desk takes the order.
+        var accepted = OrderHandOff(project, host.ColleagueId.ToString("D"));
+        Assert.True((await ExecuteAsync(accepted)).Success);
+        Assert.Equal(project, Assert.Single(desk.Orders, order => order.HandOff?.ApprovalId == accepted.ApprovalId).ProjectId);
+    }
+
+    /// <summary>
+    /// SPM-314: the hand-off of an approved order of two keyboards for <paramref name="projectId"/>.
+    /// </summary>
+    private NhAssistantProposalHandOff OrderHandOff(Guid projectId, string approverActorId)
+    {
+        var now = host.Clock.GetUtcNow();
+        var proposal = new NhAiProposal(
+            Guid.NewGuid(),
+            "run-" + Guid.NewGuid().ToString("N"),
+            NhAiActorKind.Agent,
+            SampleIntakeReviewerComposition.AgentId,
+            SampleIntakeReviewerComposition.AgentId,
+            ProjectAiEquipmentTools.OrderEquipmentToolId,
+            1,
+            "contract-hash",
+            JsonSerializer.SerializeToElement(new ProjectAiEquipmentOrderInput(projectId, "keyboards", 2), Json),
+            [],
+            "Order two keyboards.",
+            [],
+            new Dictionary<string, string>(),
+            new NhAiActionBudget(1),
+            now,
+            now.AddHours(1),
+            null,
+            null,
+            null,
+            null,
+            "proposal-hash");
+        return new NhAssistantProposalHandOff(
+            Guid.NewGuid(),
+            proposal,
+            approverActorId,
+            now,
+            SampleIntakeReviewerComposition.AgentId,
+            ProjectSubjects.For(projectId),
+            null,
+            1,
+            now.Add(SampleEquipmentOrderComposition.ReportWithin));
+    }
+
+    [Fact]
     public async Task SPM_327_the_approval_digest_counts_what_waits_per_status_and_the_inbox_lists_each_status()
     {
         // SPM-327: the digest counts with INhAssistantProposalCounts, the inbox lists the same per status.
@@ -4137,6 +4241,25 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var handed = await WaitForChatApprovalAsync(owner, second, headsets.HandOff.ApprovalId, NhAssistantApprovalStatuses.AwaitingApplication);
         Assert.Null(handed.CanResolve);
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await desk.ConfirmAsync(again.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Status);
+    }
+
+    [Fact]
+    public async Task SPM_328_the_order_desk_refuses_a_persons_own_approval_of_an_order_for_a_project_of_another_division()
+    {
+        // SPM-328: the chat is authorized for the active division; the executor binds the project the
+        // approved order names to the division whose projects the person manages.
+        var foreign = await host.CreateProjectAsync("INLINE-FOREIGN", ownerId: host.OutsiderId, divisionId: host.OtherDivisionId);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+        var chat = await host.CreateConversationAsync(owner);
+
+        var paused = await host.SendAsync(owner, chat, $"Please order 4 docking stations for project {foreign:D}.");
+        var card = paused.Single(evt => evt.Name == "approval.required").Data;
+        await host.DecideAsync(owner, chat, card, "approve");
+
+        var refused = await WaitForChatApprovalAsync(owner, chat, card.GetProperty("approvalId").GetGuid(), NhAssistantApprovalStatuses.ExecutionFailed);
+        Assert.Equal(SampleEquipmentOrderExecutor.ProjectOutOfScopeCode, refused.ExecutionResultCode);
+        Assert.DoesNotContain(desk.Orders, order => order.ProjectId == foreign);
     }
 
     [Fact]
@@ -5288,6 +5411,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                     && followUp.SkillChosenBy == NhAssistantSkillChoosers.FollowUp
                     && followUp.Kind == NhAssistantRunKinds.Rule,
                 $"Expected the follow-up run completed in skill {skill}, chosen by {NhAssistantSkillChoosers.FollowUp}, of kind {NhAssistantRunKinds.Rule}; found {Describe(followUp)}.");
+            // The follow-up continues the trigger's work, which nobody asked for: it has no initiator,
+            // and the approver who decided lends it no rights.
+            Assert.True(
+                followUp.InitiatorActorId is null,
+                $"The follow-up of trigger work should have no initiator; it names {followUp.InitiatorActorId}.");
             // The follow-up's rules took the decision as the answer without the model.
             Assert.True(
                 late.Requests.Count == 2,
@@ -6171,6 +6299,7 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         AddUser(dbContext, TechnicalAccountId, "closer-account@sample.localhost");
         AddUser(dbContext, OperationsAccountId, "operations-account@sample.localhost");
         await dbContext.SaveChangesAsync();
+        await AddProjectManagersAsync(dbContext, OwnerId, ColleagueId);
         // The technical accounts may sign in, so the closer's runs can answer to them.
         var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
         foreach (var account in new[] { TechnicalAccountId, OperationsAccountId })
@@ -6811,6 +6940,34 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
             ActiveDivisionId = DivisionId
         });
         dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = id, DivisionId = DivisionId });
+    }
+
+    /// <summary>
+    /// SPM-314: gives the people the division permission to manage the host division's projects, as
+    /// the sample's order desk requires of whoever approves an equipment order. Other members, such as
+    /// the participant, hold no division permission.
+    /// </summary>
+    private async Task AddProjectManagersAsync(SampleProjectManagementDbContext dbContext, params Guid[] userIds)
+    {
+        var role = new NhDivisionRole { Id = Guid.NewGuid(), Name = "project-managers" };
+        dbContext.Set<NhDivisionRole>().Add(role);
+        dbContext.Set<NhDivisionRoleClaim>().Add(new NhDivisionRoleClaim
+        {
+            Id = Guid.NewGuid(),
+            DivisionRoleId = role.Id,
+            ClaimType = NhPlatformClaimTypes.DivisionPermission,
+            ClaimValue = SampleEquipmentOrderExecutor.ManagePermission
+        });
+        var memberships = await dbContext.Set<NhDivisionUser>()
+            .Where(membership => membership.DivisionId == DivisionId && userIds.Contains(membership.UserId))
+            .Select(membership => membership.Id)
+            .ToListAsync();
+        Assert.Equal(userIds.Length, memberships.Count);
+        foreach (var membership in memberships)
+        {
+            dbContext.Set<NhDivisionUserRole>().Add(new NhDivisionUserRole { DivisionUserId = membership, DivisionRoleId = role.Id });
+        }
+        await dbContext.SaveChangesAsync();
     }
 }
 

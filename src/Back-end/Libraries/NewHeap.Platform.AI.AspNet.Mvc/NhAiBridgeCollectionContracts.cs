@@ -85,6 +85,7 @@ public sealed class NhAiNewHeapCollectionContractProvider : INhAiBridgeCollectio
                     field.Operators,
                     field.EnumValues)).ToArray(),
                 Searchable = collection.SearchFields.Count > 0,
+                SearchFields = collection.SearchPaths,
                 OrderFields = collection.OrderFields.Select(field => field.Name).ToArray(),
                 ResultFields = collection.ResultFields.Select(field => new NhAiBridgeResultField(
                     field.Name,

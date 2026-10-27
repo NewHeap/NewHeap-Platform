@@ -829,6 +829,14 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
 
+    /// <summary>
+    /// An impersonation session (an access token with the NewHeap impersonation origin) acts as the
+    /// person, but does not grant anything in the person's name that outlives the session: consent to
+    /// background use of an MCP server, a personal MCP connection (starting or completing its OAuth
+    /// authorization) and a browser's push subscription. Withdrawing them stays allowed.
+    /// </summary>
+    public const string NotAllowedWhileImpersonating = "assistant-not-allowed-while-impersonating";
+
     public const string SubjectNotFound = "assistant-subject-not-found";
 
     /// <summary>
@@ -951,6 +959,13 @@ public static class NhAssistantErrorCodes
     /// No account exists with the id given as the agent's technical account.
     /// </summary>
     public const string ServiceAccountNotFound = "assistant-service-account-not-found";
+
+    /// <summary>
+    /// The person who binds the account an agent answers to may not act for it: the account would lend
+    /// the agent rights to its tools that the person does not hold. The person themself, the agent's
+    /// account in code and an account without such rights may always be bound.
+    /// </summary>
+    public const string ServiceAccountNotPermitted = "assistant-service-account-not-permitted";
 
     /// <summary>
     /// The skill is declared in code; only skills defined as data change at runtime.
@@ -1213,7 +1228,8 @@ public static class NhAssistantErrorCodes
     public const string ConsultSubjectUnavailable = "assistant-consult-subject-unavailable";
 
     /// <summary>
-    /// The consulted agent is disabled, in shadow mode or cannot hold a thread for the subject.
+    /// The consulted agent is disabled, in shadow mode or cannot hold a thread for the subject, or the
+    /// asking run works in shadow, whose work never reaches a live agent.
     /// </summary>
     public const string ConsultAgentUnavailable = "assistant-consult-agent-unavailable";
 

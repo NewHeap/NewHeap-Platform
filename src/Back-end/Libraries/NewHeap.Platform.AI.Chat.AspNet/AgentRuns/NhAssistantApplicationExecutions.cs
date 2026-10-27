@@ -666,7 +666,7 @@ internal sealed class NhAssistantApplicationExecutions(
         var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
-            await triggers.StartFollowUpAsync(thread, approval, approval.DecidedByActorId, CancellationToken.None);
+            await triggers.StartFollowUpAsync(thread, approval, CancellationToken.None);
         }
     }
 

@@ -50,7 +50,11 @@ re-authorizes descriptor policies, builds context through the shared factory,
 and accepts only a bounded idempotency header.
 The contributor recognizes a context of the request's own person, calls
 `IAuthorizationService`, and only then copies the division ID into a bounded
-execution scope and grants a lowercase dash-case capability.
+execution scope and grants a lowercase dash-case capability. The scope says
+which division the call is authorized for, not which objects its arguments
+name: a tool that acts on an object it receives by id loads that object within
+the scope's division and refuses it otherwise before any side effect, as the
+sample's project tools do (SPM-314).
 
 The platform recognizes the person who sent a request by the platform's actor id,
 never by a claim: the id the registered `INhAiAuthenticatedInvocationContextResolver`
@@ -84,7 +88,9 @@ claims the application last knew and when they were valid (`ValidAt`), or `null`
 `UsePrincipalsFromAccessSource<TSource>(o => o.MaxAge = ...)`. It replaces the built-in factory,
 so every decision outside a person's request gets these claims: runs that delegate from their
 initiator and their follow-up runs, consultations, the account an agent answers to, MCP
-connections in the background and the whole application's people. `MaxAge` is required and
+connections in the background and the whole application's people. A headless gateway read asks
+the host's delegated read issuer for a credential only while the factory builds the person's
+principal, so it reads nothing for a person without a fresh context. `MaxAge` is required and
 positive (there is no default; zero or a negative value fails at startup) and is measured on the
 application's clock, the registered `TimeProvider`; date `ValidAt` on the same clock. No
 context, a context older than `MaxAge`, or one dated further ahead than `MaxAge` yields no
@@ -99,7 +105,14 @@ with one fixed tenant (`UseAuthenticatedClaimsForSingleTenant`, the single-tenan
 claim is read. Set `NameClaimType` and `RoleClaimType` to the host's when inbound claim mapping is
 off. NewHeap stores nothing: the application decides whether and where it keeps contexts (next
 to its sessions, a distributed cache), forgets them at sign-out and answers for technical
-accounts too, typically from live data with `ValidAt` now. A principal factory of the host's own
+accounts too, typically from live data with `ValidAt` now. Record only the person's own
+requests: skip every principal for which `NhAiAccessContext.IsPersonsOwnRequest(principal)` is
+false, which is a request that a credential NewHeap derived for background work authenticated
+(the delegated read token of a headless gateway read, a delegated MCP token) and an impersonation
+session. Such a request is an agent working, or someone else acting as the person, so it never
+renews, replaces or recreates the person's context; the principal factory also refuses a context
+that holds their marker claims. Forget the person's context in the person's own sign-out request
+and in the identity provider's back-channel logout. A principal factory of the host's own
 cannot be combined with it: one registered before the call fails it, one registered after fails
 the host's start. The MCP owner sweep removes no connection on the source's answer, because a
 missing or stale context does not mean that the person was removed.
@@ -127,6 +140,7 @@ an ASP.NET dependency.
 - Pairing `UseSingleTenant` with a tenant-claim projection or with another fixed tenant; startup refuses it, and a host with many tenants keeps the whole application's work for callers without one.
 - Writing an `INhAiPrincipalFactory` that caches a person's claims without a bound, or combining one with `UsePrincipalsFromAccessSource`; return the claims from an `INhAiAccessSource` with a `MaxAge`.
 - Adding rights, an actor id or a tenant to an access context that the person's request did not carry, or keying contexts by the `sub` claim where the actor id is an issuer's `oidc:` id.
+- Recording every authenticated request in an access source: a delegated read or delegated MCP token of an agent and an impersonation session would keep the person's rights alive, or bring them back after sign-out; record only when `NhAiAccessContext.IsPersonsOwnRequest` is true, and forget the context at sign-out.
 
 ## Verification
 
@@ -152,7 +166,10 @@ application's work.
 With `UsePrincipalsFromAccessSource`, verify with a test clock that a fresh context lends
 the initiator's and the accountable account's rights, that no context, a context older
 than `MaxAge` and a context without the tool's policy are refused, and that startup refuses
-a missing `MaxAge` and a principal factory of the host's own.
+a missing `MaxAge` and a principal factory of the host's own. Send requests with a delegated read
+token, a delegated MCP token and an impersonation marker through the recorder and verify that the
+context keeps its `ValidAt` and claims, that a run after `MaxAge` from the person's own last request
+is refused, and that after sign-out such a request recreates nothing.
 SPM-223 is the executable reference; SPM-302 shows the single-tenant deployment and SPM-315
 the access source.
 
@@ -173,6 +190,11 @@ the access source.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+- SPM-314 — The order desk executes an approved equipment order and reports how the supplier answered
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
 - SPM-315 — A deployment whose rights come from its claims transformation lets agents work outside a request with the rights the application recorded at each person's last request, only while they are fresh
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccessSourceComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAccessSourceComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAccessSourceSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAccessSourceSamplesTests.cs)

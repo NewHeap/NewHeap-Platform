@@ -8,6 +8,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -116,12 +117,12 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
             .RespondWithFunctionCall(RequestTool, new { input = new { subjectId = ProjectId, message = "Review the intake again." } }, "call-1")
             .RespondWithText("I would ask the reviewer to review the intake again.");
         await using var host = await CreateHostAsync(provider, asker, target);
-        await CreateAskingAgentAsync(host, delegateFromInitiator: true, triggerLive: false);
+        await CreateAskingAgentAsync(host, delegateFromInitiator: true, live: false);
 
         var run = await PublishAndExecuteAsync(host);
 
-        // The new trigger works in shadow: the request the initiator's rights would allow becomes a
-        // shadow proposal, and the reviewer gets no run.
+        // The new trigger works in shadow: the request the initiator's rights would allow is an effect,
+        // so it becomes a shadow proposal before the request tool runs, and the reviewer gets no run.
         Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
         Assert.True(run.Shadow);
         Assert.Contains(asker.Requests[0].Options?.Tools ?? [], tool => tool.Name == RequestTool);
@@ -133,6 +134,40 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
         Assert.DoesNotContain(
             await context.ToolInvocations.Where(invocation => invocation.ConversationId == run.ConversationId).ToListAsync(),
             invocation => invocation.Status == NhAssistantToolCallStatuses.Succeeded);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_shadow_run_of_a_delegating_agent_consults_and_requests_no_live_agent(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient().RespondWithText("The intake review is still open.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "What is still open?" } }, "call-1")
+            .RespondWithFunctionCall(RequestTool, new { input = new { subjectId = ProjectId, message = "Review the intake again." } }, "call-2")
+            .RespondWithText("I could not ask the reviewer.");
+        await using var host = await CreateHostAsync(provider, asker, target);
+        // A new data trigger starts in shadow, so the event's run is evaluated in the shadow thread.
+        await CreateAskingAgentAsync(host, delegateFromInitiator: true, live: false);
+
+        var run = await PublishAndExecuteAsync(host);
+
+        // The live reviewer is neither consulted nor asked to run. The consult tool reads, so it reaches
+        // its handler, which refuses a shadow run; the request is an effect, so the shadow run's effect
+        // decision records it as a shadow proposal before its handler runs. Nothing waits for the
+        // reviewer's approvers and nobody is notified.
+        Assert.True(run.Shadow);
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.Empty(target.Requests);
+        Assert.Equal(2, asker.FunctionResults.Count);
+        Assert.Contains(NhAssistantErrorCodes.ConsultAgentUnavailable, asker.FunctionResults[0].Result?.ToString(), StringComparison.Ordinal);
+        Assert.Contains(NhAssistantToolCallInterceptor.ProposalRecordedCode, asker.FunctionResults[1].Result?.ToString(), StringComparison.Ordinal);
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.Empty(await context.Consultations.ToListAsync());
+        Assert.DoesNotContain(await context.Runs.ToListAsync(), stored => stored.TriggerId == NhAssistantTriggerIds.AgentRequest);
+        Assert.Empty(await context.Threads.Where(thread => thread.AgentId == TargetAgentId).ToListAsync());
+        var proposal = Assert.Single(await context.Approvals.ToListAsync());
+        Assert.Equal((RequestToolId, NhAssistantApprovalStatuses.Shadow, run.ConversationId), (proposal.ToolId, proposal.Status, proposal.ConversationId));
     }
 
     [Theory]
@@ -242,9 +277,10 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
 
     /// <summary>
     /// An agent created in the administration that selects the consult and request tools, answers to
-    /// a technical account and runs live from the event of an opened project.
+    /// a technical account and runs from the event of an opened project: live, or with
+    /// <paramref name="live"/> <see langword="false"/> in the shadow its new data trigger starts in.
     /// </summary>
-    private static async Task CreateAskingAgentAsync(AssistantTestHost host, bool delegateFromInitiator, bool triggerLive = true)
+    private static async Task CreateAskingAgentAsync(AssistantTestHost host, bool delegateFromInitiator, bool live = true)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -277,7 +313,7 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
             TriggerId,
             new NhAssistantDataTriggerRequest(NhAssistantDataTriggerSources.Event, Event: EventName, Conflict: NhAssistantTriggerConflictNames.Queue),
             Admin)).Success);
-        if (triggerLive)
+        if (live)
         {
             // A new data trigger starts in shadow.
             Assert.True((await configuration.SetTriggerShadowAsync(AskingAgentId, TriggerId, false, Admin)).Success);
