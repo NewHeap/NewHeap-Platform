@@ -484,8 +484,8 @@ app.UseNewHeapPlatformAspNetCommon(
         authentication.AddPasskeyEndpoints();
     });
 
-app.MapNhMediaEndpoints("project-media", options =>
-    options.ConfigureAllRoutes(route => route.AllowAnonymous()));
+// SPM-181: the media routes admit signed-in users; the authorization module checks each path's division.
+app.MapSampleProjectMedia();
 
 app.MapDefaultEndpoints();
 app.Run();

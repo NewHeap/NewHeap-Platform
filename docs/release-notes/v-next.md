@@ -85,3 +85,17 @@ localization and 401 when the module refuses the update.
 | Localization writes now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may translate a file's display strings. |
 | Only `Title`, `Description` and `AltText` can be localized; stored localizations of other properties are ignored. | Localize only these three; remove other stored rows from the `Localizations` table if you want them gone. |
 | `POST {prefix}/file/localize` now returns 400 or 404 when the localization fails instead of 204. | Handle these responses; removing a localization that does not exist returns 404. |
+
+## NewHeap.Platform.AspNet.Proxy: host-relative redirect destinations stay on this origin
+
+A redirect destination that starts with `/` is now validated as the path the `Location` header
+carries, after dot segments (`..`, `.`, `%2e%2e`, `%2e`) are removed. This applies when a rule is
+saved or activated and to every regex expansion. A capture with dot segments can no longer turn a
+host-relative destination into the network path `//host`: under `^/old-projects/([^?]+)(\?.*)?$`
+with `/projects/$1$2`, a request for `/old-projects/%252e%252e//host` reaches the pattern as
+`%2e%2e//host` and expanded to `/projects/%2e%2e//host`, which redirected to `//host`. Such an
+expansion now skips redirect evaluation and the request passes through, as other unsafe expansions do.
+
+| Breaking change | Required action |
+|---|---|
+| An exact target or regex template that resolves to `//host`, such as `/a/..//host`, now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |

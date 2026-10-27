@@ -22,6 +22,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Map the media routes for authenticated users and let the `IAuthorizationModule` decide each operation from the signed-in user's current rights. Name the bearer scheme in the route policy when the default scheme is a cookie, check that the path lies in the active division, and authorize that division with the application permission or with `HasDivisionAccessAsync` and the division permission, which reads membership from the user store. The active-division header only selects the division; a request header never grants a permission.
+
 Decide every media mutation in `IAuthorizationModule` by the action and the path it writes, because the library asks the module about each place a mutation touches before it reads or writes storage. A move or rename (`UpdateFileAsync(Guid, FileModel)`, `MoveFileAsync`, `RenameFileAsync`, `UpdateFolderAsync`) asks for `ActionType.Update` at its source and, when the folder or name changes, `ActionType.Create` at its destination, exactly as a direct upload or folder create there; it refuses a destination that already holds a file or folder with that name (`NhMediaErrorCodes.FileNameExists`, `NhMediaErrorCodes.FolderNameExists`). Tag updates and localizations ask for `ActionType.Update` of the file. A tenant- or division-scoped module that refuses paths outside the active scope therefore keeps moves, renames, tags and translations inside it. The media endpoints answer a refusal with 401, an existing name with 409 and a localization of another property with 400. Localize only a file's `Title`, `Description` and `AltText`; other property names fail with `NhMediaErrorCodes.PropertyNotLocalizable`, and stored localizations of other properties are ignored when files are read in a language.
 
 Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
@@ -35,6 +37,7 @@ Configure the media schema through `FileStructureDbContextOptions.Scheme` for ei
 ## Avoid
 
 - Storage-provider choices in controllers or frontend code.
+- Anonymous media routes, or an authorization module that accepts permissions a client sends in a request header.
 - Trusting only file extensions for content type or safety.
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.
@@ -50,6 +53,8 @@ For file lookups, count the database round trips of one call with a command inte
 Assert that routing and the application-wide `EndpointDataSource` share the media endpoints built once.
 
 For media mutations, use a module scoped to one division and assert the decisions it receives: a move or rename into another division asks for `ActionType.Create` at the destination and is refused before storage is read or written; a tag update or localization asks for `ActionType.Update` of the file and is refused alike for an existing and a missing file. Verify on SQL Server and PostgreSQL that a move or rename onto a name the destination holds fails with the error code while a free name succeeds, that the existing-name check follows each provider's case semantics, and that stored localizations of other properties than the three display strings leave lists, searches and file reads intact. Assert 401, 409 and 400 from the HTTP endpoints.
+
+For route access, send every media route anonymously and as a signed-in user without rights in the path's division, both with a header that claims permissions, and assert 401. Assert that a division permission in the token which the user store does not grant authorizes nothing.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 

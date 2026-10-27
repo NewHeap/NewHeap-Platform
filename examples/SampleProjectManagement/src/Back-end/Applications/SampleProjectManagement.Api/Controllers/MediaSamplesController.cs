@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SampleProjectManagement.Api.Services;
@@ -5,7 +6,7 @@ using SampleProjectManagement.Api.Services;
 namespace SampleProjectManagement.Api.Controllers;
 
 [ApiController]
-[AllowAnonymous]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [Route("media-samples")]
 public sealed class MediaSamplesController : ControllerBase
 {
@@ -16,16 +17,21 @@ public sealed class MediaSamplesController : ControllerBase
         _mediaSamples = mediaSamples;
     }
 
+    // The authorization decisions name the divisions and paths of every division, so only people
+    // with the application-wide project permission, who may read all of them, see the diagnostics.
     [HttpGet("diagnostics")]
+    [Authorize(Policy = "app.project.view")]
     [EndpointSummary("Get media diagnostics")]
-    [EndpointDescription("Returns the media event, thumbnail and authorization diagnostics collected by the sample media modules.")]
+    [EndpointDescription("Returns the media event, thumbnail and authorization diagnostics collected by the sample media modules. Requires the application permission app.project.view, because the authorization decisions cover every division.")]
     [ProducesResponseType<ProjectMediaDiagnostics>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public ActionResult<ProjectMediaDiagnostics> GetDiagnostics() =>
         Ok(_mediaSamples.GetDiagnostics());
 
     [HttpGet("download")]
     [EndpointSummary("Download a sample media file")]
-    [EndpointDescription("Downloads a file from the configured media storage after applying path and authorization checks.")]
+    [EndpointDescription("Downloads a file from the configured media storage for the signed-in user. The media authorization module requires the path to lie in the active division and the user to hold the project view permission there; otherwise the response is 401.")]
     [Produces("application/octet-stream")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

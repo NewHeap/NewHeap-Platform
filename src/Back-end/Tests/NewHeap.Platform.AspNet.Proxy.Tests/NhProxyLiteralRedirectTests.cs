@@ -140,6 +140,12 @@ public sealed class NhProxyLiteralRedirectTests
     [InlineData("/new\r\nX-Injected: value")]
     [InlineData("relative/path")]
     [InlineData("/old")]
+    // The Location carries the resolved path; these become the network path //evil.example.
+    [InlineData("/a/..//evil.example")]
+    [InlineData("/%2e%2e//evil.example")]
+    [InlineData("/a/%2E%2E//evil.example")]
+    [InlineData("/.//evil.example")]
+    [InlineData("/%2e//evil.example")]
     public async Task Unsafe_or_self_targets_fail_validation_without_losing_active_snapshot(string target)
     {
         var runtime = Runtime();
@@ -222,6 +228,11 @@ public sealed class NhProxyLiteralRedirectTests
     [InlineData(@"^/old/([^?]+)(\?.*)?$", "/new/$1$2", "/old/42", "", "/new/42")]
     [InlineData(@"^/old/([^?]+)", "/new/$1?fixed=1", "/old/42", "?discard=1", "/new/42?fixed=1")]
     [InlineData(@"(?i)^/old/(?<id>[^?]+)", "https://example.com/new/${id}?cost=$$5", "/OLD/42", "?discard=1", "https://example.com/new/42?cost=$5")]
+    [InlineData(@"^/old-projects/([^?]+)(\?.*)?$", "/projects/$1$2", "/old-projects/42", "?tag=new", "/projects/42?tag=new")]
+    [InlineData(@"^/legacy\?page=([^&]*)$", "/pages/$1", "/legacy", "?page=42", "/pages/42")]
+    [InlineData(@"^/old/?(.*)$", "/new/$1", "/old/42", "", "/new/42")]
+    // Dot segments that stay below the root keep the destination on this origin.
+    [InlineData(@"^/legacy\?page=([^&]*)$", "/pages/$1", "/legacy", "?page=../archive/42", "/archive/42")]
     public async Task Regex_uses_escaped_path_and_query_and_dotnet_substitutions(string pattern, string target, string path, string query, string expected)
     {
         var runtime = Runtime();
@@ -239,6 +250,8 @@ public sealed class NhProxyLiteralRedirectTests
     [InlineData("^/old$", "//example.com/$1")]
     [InlineData("^/old/(.*)$", "https://$1/")]
     [InlineData("^/old/(?<host>.*)$", "https://${host}/")]
+    [InlineData("^/old/(.*)$", "/a/..//$1")]
+    [InlineData("^/old/(.*)$", "/%2e%2e//$1")]
     public async Task Invalid_regex_does_not_replace_an_active_snapshot(string pattern, string target)
     {
         var runtime = Runtime();
@@ -263,6 +276,34 @@ public sealed class NhProxyLiteralRedirectTests
         })).Success);
         var response = (await Request(runtime, path)).Response;
         Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.False(response.Headers.ContainsKey("Location"));
+    }
+
+    [Theory]
+    // The server decodes a request path once, so a double-encoded %252e reaches the pattern as %2e.
+    [InlineData(@"^/old/(.*)$", "/$1", "/old/%2e%2e//evil.example", "")]
+    [InlineData(@"^/old/(.*)$", "/$1", "/old/%2E%2E//evil.example", "")]
+    [InlineData(@"^/old/(.*)$", "/$1", "/old/%2e//evil.example", "")]
+    [InlineData(@"^/old-projects/([^?]+)(\?.*)?$", "/projects/$1$2", "/old-projects/%2e%2e//evil.example", "")]
+    [InlineData(@"^/old-projects/([^?]+)(\?.*)?$", "/projects/$1$2", "/old-projects/%2e%2e//evil.example", "?tag=new")]
+    // The query string reaches the pattern without any dot-segment normalization.
+    [InlineData(@"^/legacy\?page=([^&]*)$", "/pages/$1", "/legacy", "?page=../..//evil.example")]
+    [InlineData(@"^/legacy\?page=([^&]*)$", "/pages/$1", "/legacy", "?page=%2e%2e/%2e%2e//evil.example")]
+    [InlineData(@"^/legacy\?page=([^&]*)$", "/pages/$1", "/legacy", "?page=./..//evil.example")]
+    // A capture that does not start at a segment boundary can begin with a dot segment.
+    [InlineData(@"^/old/?(.*)$", "/new/$1", "/old..//evil.example", "")]
+    public async Task Expansions_whose_dot_segments_resolve_to_a_network_path_pass_through(string pattern, string target,
+        string path, string query)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule(target: target) with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = pattern } }]
+        })).Success);
+
+        var response = (await Request(runtime, path, query: query)).Response;
+
+        Assert.Equal(StatusCodes.Status418ImATeapot, response.StatusCode);
         Assert.False(response.Headers.ContainsKey("Location"));
     }
 

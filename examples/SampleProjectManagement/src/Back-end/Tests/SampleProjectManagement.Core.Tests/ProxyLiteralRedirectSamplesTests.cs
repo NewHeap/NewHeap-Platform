@@ -47,6 +47,18 @@ public sealed class ProxyLiteralRedirectSamplesTests
                     },
                     new NhProxyRedirectRule
                     {
+                        Id = Guid.NewGuid(), Name = "Archived project pages with a capture that admits any path",
+                        Match = new NhProxyRedirectMatch
+                        {
+                            PathMode = NhProxyRedirectPathMatchMode.Regex,
+                            Path = @"^/archived-projects/([^?]+)(\?.*)?$"
+                        },
+                        // Each expansion is checked as the Location it resolves to, so captured dot
+                        // segments can never turn this host-relative target into //other-host.
+                        Target = "/projects/$1$2"
+                    },
+                    new NhProxyRedirectRule
+                    {
                         Id = Guid.NewGuid(), Name = "Deliberately unsafe pattern demonstrating the resolver deadline",
                         Match = new NhProxyRedirectMatch
                         {
@@ -87,6 +99,17 @@ public sealed class ProxyLiteralRedirectSamplesTests
 
                 using var unmatched = await client.GetAsync(app.Urls.Single() + "/old-projects/child", cancellationToken);
                 Assert.Equal(HttpStatusCode.NotFound, unmatched.StatusCode);
+
+                using var archived = await client.GetAsync(app.Urls.Single() + "/archived-projects/42?tag=new", cancellationToken);
+                Assert.Equal(HttpStatusCode.Found, archived.StatusCode);
+                Assert.Equal("/projects/42?tag=new", archived.Headers.Location!.OriginalString);
+
+                // Kestrel decodes %252e once, so the capture holds %2e%2e; /projects/%2e%2e//evil.example would
+                // resolve to //evil.example, another origin. The expansion is skipped and the request passes through.
+                using var networkPath = await client.GetAsync(
+                    app.Urls.Single() + "/archived-projects/%252e%252e//evil.example", cancellationToken);
+                Assert.Equal(HttpStatusCode.NotFound, networkPath.StatusCode);
+                Assert.Null(networkPath.Headers.Location);
 
                 using var timedOut = await client.GetAsync(app.Urls.Single() + "/timeout/" + new string('a', 1000) + "!", cancellationToken);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, timedOut.StatusCode);

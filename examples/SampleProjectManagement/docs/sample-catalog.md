@@ -572,6 +572,14 @@ division's path scope refuses them, and the other division's listing stays uncha
 name the folder already holds is refused, a viewer cannot localize, and only a file's title,
 description and alt text can be localized (SPM-184).
 
+The media routes themselves admit only signed-in users: `MapSampleProjectMedia` maps them with a
+bearer policy, and the module authorizes a path in the active division's projects from the user's
+current rights, the application permission `app.project.view` or `app.project.manage`, or the
+division permission `project.view` or `project.manage` that `HasDivisionAccessAsync` reads from the
+user store. No request header grants a permission. `MediaLibrarySamplesTests` sends every route
+anonymously with a header that claims both permissions and gets 401, and shows that a North member
+can read and delete North's documents but not South's.
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call

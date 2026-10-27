@@ -1,26 +1,46 @@
 using Amazon;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Media.MediaStorage.FileSystem;
 using NewHeap.Platform.Media.MediaStorage.S3Bucket;
+using SampleProjectManagement.Api.Authorization;
+using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Api.Events;
 using SampleProjectManagement.Api.Services;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
+using System.Text.Encodings.Web;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
 
 public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
 {
+    /// <summary>
+    /// A request header that claims media permissions. The tests send it to prove that no request
+    /// header grants a media permission.
+    /// </summary>
+    private const string ClientPermissionsHeader = "X-Sample-Media-Permissions";
+
     [Fact]
     public async Task CompositionRootRegistersConcreteMediaModules()
     {
@@ -72,11 +92,8 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
                 scope.ServiceProvider.GetServices<IHandleMediaLibraryEvent>(),
                 handler => handler is ProjectMediaEventHandler);
 
-            var httpContext = new DefaultHttpContext();
             var divisionId = Guid.NewGuid();
-            httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
-                divisionId.ToString();
-            httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] = "app.project.manage";
+            var httpContext = CreateMediaRequest(divisionId, SignedIn("app.project.manage"));
             scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
             var media = scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
             var path = $"/divisions/{divisionId:D}/projects";
@@ -127,10 +144,7 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
                 .MigrateAsync(TestContext.Current.CancellationToken);
 
             var divisionId = Guid.NewGuid();
-            var httpContext = new DefaultHttpContext();
-            httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
-                divisionId.ToString();
-            httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] = "app.project.manage";
+            var httpContext = CreateMediaRequest(divisionId, SignedIn("app.project.manage"));
             scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
 
             var media = scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
@@ -226,36 +240,215 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
         Assert.Equal(expectedContentType, ProjectMediaSampleService.ResolveContentType(fileName));
     }
 
-    [Fact]
-    public async Task ActiveDivisionAuthorizationRequiresScopedPathAndPermission()
+    [Theory]
+    [InlineData(ActionType.Read)]
+    [InlineData(ActionType.Create)]
+    [InlineData(ActionType.Update)]
+    [InlineData(ActionType.Delete)]
+    public async Task RequestHeadersNeverGrantAMediaPermission(ActionType action)
     {
-        var divisionId = Guid.NewGuid();
-        var httpContext = new DefaultHttpContext();
-        httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
-            divisionId.ToString();
-        var module = new ProjectMediaAuthorizationModule(
-            new HttpContextAccessor { HttpContext = httpContext },
-            new SampleMediaAuthorizationLog());
+        var north = SampleAuthorizationDefaults.NorthDivisionId;
+        var path = $"/divisions/{north:D}/projects/documents";
 
-        var denied = CreateAuthorizationContext(
-            $"/divisions/{divisionId:D}/projects",
-            ActionType.Update);
-        await module.IsAuthorizedAsync(denied);
-        Assert.False(denied.Authorized);
+        var anonymous = CreateMediaRequest(north, new ClaimsPrincipal(new ClaimsIdentity()));
+        anonymous.Request.Headers[ClientPermissionsHeader] = "app.project.view,app.project.manage";
+        var signedInWithoutRights = CreateMediaRequest(north, SignedIn(), UserStore());
+        signedInWithoutRights.Request.Headers[ClientPermissionsHeader] = "app.project.view,app.project.manage";
 
-        httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] =
-            "app.project.view,app.project.manage";
-        var allowed = CreateAuthorizationContext(
-            $"/divisions/{divisionId:D}/projects/documents",
-            ActionType.Update);
-        await module.IsAuthorizedAsync(allowed);
-        Assert.True(allowed.Authorized);
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(anonymous, path, action));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(signedInWithoutRights, path, action));
+    }
 
-        var wrongDivision = CreateAuthorizationContext(
-            $"/divisions/{Guid.NewGuid():D}/projects",
-            ActionType.Read);
-        await module.IsAuthorizedAsync(wrongDivision);
-        Assert.False(wrongDivision.Authorized);
+    [Fact]
+    public async Task ApplicationPermissionAuthorizesTheProjectsOfTheActiveDivision()
+    {
+        var north = SampleAuthorizationDefaults.NorthDivisionId;
+        var south = SampleAuthorizationDefaults.SouthDivisionId;
+        var viewer = CreateMediaRequest(north, SignedIn("app.project.view"), UserStore());
+        var manager = CreateMediaRequest(
+            north,
+            SignedIn("app.project.view", "app.project.manage"),
+            UserStore());
+
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.ApplicationPermissionSource,
+            await AuthorizeAsync(viewer, $"/divisions/{north:D}/projects/documents", ActionType.Read));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(viewer, $"/divisions/{north:D}/projects/documents", ActionType.Update));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.ApplicationPermissionSource,
+            await AuthorizeAsync(manager, $"/divisions/{north:D}/projects/documents", ActionType.Delete));
+
+        // The path must lie in the projects folder of the active division.
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(manager, $"/divisions/{south:D}/projects/documents", ActionType.Read));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(manager, $"/divisions/{north:D}/settings", ActionType.Read));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(manager, $"/divisions/{north:D}/projects-archive", ActionType.Read));
+    }
+
+    [Fact]
+    public async Task DivisionPermissionIsReadFromTheUserStoreForThePathsDivision()
+    {
+        var north = SampleAuthorizationDefaults.NorthDivisionId;
+        var south = SampleAuthorizationDefaults.SouthDivisionId;
+        var userId = Guid.NewGuid();
+        var store = UserStore(new SampleDivisionPermissionStore()
+            .Grant(userId, north, "project.view", "project.manage"));
+
+        // The token also names a South division permission that the user store does not grant.
+        var member = SignedIn(
+            userId,
+            new Claim(NhPlatformClaimTypes.DivisionPermission, $"{south:D}_project.manage"));
+        var inNorth = CreateMediaRequest(north, member, store);
+        var inSouth = CreateMediaRequest(south, member, store);
+
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.DivisionPermissionSource,
+            await AuthorizeAsync(inNorth, $"/divisions/{north:D}/projects/documents", ActionType.Read));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.DivisionPermissionSource,
+            await AuthorizeAsync(inNorth, $"/divisions/{north:D}/projects/documents", ActionType.Create));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(inSouth, $"/divisions/{south:D}/projects/documents", ActionType.Read));
+        Assert.Equal(
+            ProjectMediaAuthorizationModule.NoPermissionSource,
+            await AuthorizeAsync(inSouth, $"/divisions/{south:D}/projects/documents", ActionType.Delete));
+    }
+
+    [Fact]
+    public async Task MediaRoutesServeOnlySignedInUsersWithRightsInThePathsDivision()
+    {
+        var database = await postgreSql.CreateDatabaseAsync("media_routes");
+        var storagePath = CreateTempDirectory();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var north = SampleAuthorizationDefaults.NorthDivisionId;
+        var south = SampleAuthorizationDefaults.SouthDivisionId;
+        var northDocuments = $"/divisions/{north:D}/projects/{SampleAuthorizationDefaults.AlphaProjectId:D}/documents";
+        var southDocuments = $"/divisions/{south:D}/projects/{SampleAuthorizationDefaults.BetaProjectId:D}/documents";
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddHttpContextAccessor();
+            builder.Services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddScheme<AuthenticationSchemeOptions, MediaTestBearerHandler>(
+                    JwtBearerDefaults.AuthenticationScheme,
+                    _ => { });
+            builder.Services.AddAuthorization(options => options.AddPolicy(
+                "app.project.view",
+                policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.project.view")));
+            builder.Services.AddControllers().AddApplicationPart(typeof(MediaSamplesController).Assembly);
+            builder.Services.AddSingleton(new SampleDivisionPermissionStore()
+                .Grant(MediaTestBearerHandler.NorthMemberId, north, "project.view", "project.manage")
+                .UserManager);
+            builder.Services.AddSingleton<SampleMediaEventLog>();
+            builder.Services.AddSingleton<SampleMediaThumbnailStore>();
+            builder.Services.AddSingleton<SampleMediaAuthorizationLog>();
+            builder.Services.AddNhMedia(media =>
+            {
+                media.UsePostgreSqlFileStructureStorage(database, options =>
+                {
+                    options.Scheme = "project_media";
+                    options.RunMigrations = false;
+                });
+                media.UseFileSystemMediaStorage(storagePath, true);
+                media.AddAuthentication<ProjectMediaAuthorizationModule>();
+                media.AddThumbnailService<ProjectMediaThumbnailService>();
+                media.AddEventHandler<ProjectMediaEventHandler>();
+            });
+            builder.Services.AddScoped<ProjectMediaSampleService>();
+
+            await using var app = builder.Build();
+            await using (var scope = app.Services.CreateAsyncScope())
+            {
+                await scope.ServiceProvider.GetRequiredService<FileStructureDbContext>().Database
+                    .MigrateAsync(cancellationToken);
+            }
+
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.MapControllers();
+            app.MapSampleProjectMedia();
+            await app.StartAsync(cancellationToken);
+            using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+
+            // Anonymous requests are refused on every route, whatever permissions a header claims.
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Get,
+                $"/project-media/list?path={Uri.EscapeDataString(northDocuments)}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Get,
+                DownloadUrl("/project-media/download", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Post,
+                "/project-media/upload", UploadContent(northDocuments, "budget.txt", "planted"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Post,
+                $"/project-media/folder?path={Uri.EscapeDataString(northDocuments)}&folderName=planted")).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Delete,
+                DownloadUrl("/project-media/file", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Get,
+                DownloadUrl("/media-samples/download", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, null, north, HttpMethod.Get,
+                "/media-samples/diagnostics")).StatusCode);
+
+            // The application permissions of the manager cover the projects of every division.
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", north, HttpMethod.Post,
+                "/project-media/upload", UploadContent(northDocuments, "budget.txt", "north budget"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", south, HttpMethod.Post,
+                "/project-media/upload", UploadContent(southDocuments, "plan.txt", "south plan"))).StatusCode);
+            var managerList = await SendAsync(client, "manager", north, HttpMethod.Get,
+                $"/project-media/list?path={Uri.EscapeDataString(northDocuments)}");
+            Assert.Equal(HttpStatusCode.OK, managerList.StatusCode);
+            Assert.Contains("budget.txt", await managerList.Content.ReadAsStringAsync(cancellationToken));
+
+            // The North member's division permissions come from the user store and cover North only.
+            var memberDownload = await SendAsync(client, "north-member", north, HttpMethod.Get,
+                DownloadUrl("/media-samples/download", northDocuments, "budget.txt"));
+            Assert.Equal(HttpStatusCode.OK, memberDownload.StatusCode);
+            Assert.Equal("north budget", await memberDownload.Content.ReadAsStringAsync(cancellationToken));
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "north-member", south, HttpMethod.Get,
+                DownloadUrl("/project-media/download", southDocuments, "plan.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "north-member", north, HttpMethod.Get,
+                DownloadUrl("/project-media/download", southDocuments, "plan.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "north-member", south, HttpMethod.Delete,
+                DownloadUrl("/project-media/file", southDocuments, "plan.txt"))).StatusCode);
+
+            // A signed-in user without project rights is refused, and only application-wide
+            // project viewers see the diagnostics, whose decisions cover every division.
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "outsider", north, HttpMethod.Get,
+                DownloadUrl("/project-media/download", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "outsider", north, HttpMethod.Delete,
+                DownloadUrl("/project-media/file", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, "outsider", north, HttpMethod.Get,
+                "/media-samples/diagnostics")).StatusCode);
+            var diagnostics = await SendAsync(client, "manager", north, HttpMethod.Get, "/media-samples/diagnostics");
+            Assert.Equal(HttpStatusCode.OK, diagnostics.StatusCode);
+            var decisions = await diagnostics.Content.ReadAsStringAsync(cancellationToken);
+            Assert.Contains(ProjectMediaAuthorizationModule.ApplicationPermissionSource, decisions);
+            Assert.Contains(ProjectMediaAuthorizationModule.DivisionPermissionSource, decisions);
+
+            Assert.Equal(HttpStatusCode.NoContent, (await SendAsync(client, "north-member", north, HttpMethod.Delete,
+                DownloadUrl("/project-media/file", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await SendAsync(client, "manager", north, HttpMethod.Get,
+                DownloadUrl("/project-media/download", northDocuments, "budget.txt"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", south, HttpMethod.Get,
+                DownloadUrl("/project-media/download", southDocuments, "plan.txt"))).StatusCode);
+
+            await app.StopAsync(cancellationToken);
+        }
+        finally
+        {
+            Directory.Delete(storagePath, recursive: true);
+        }
     }
 
     [Fact]
@@ -295,6 +488,144 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
         context.Path = path;
         context.Action = action;
         return context;
+    }
+
+    /// <summary>
+    /// Runs the module for one operation and returns the source of the decision it logged.
+    /// </summary>
+    private static async Task<string> AuthorizeAsync(HttpContext request, string path, ActionType action)
+    {
+        var log = new SampleMediaAuthorizationLog();
+        var module = new ProjectMediaAuthorizationModule(new HttpContextAccessor { HttpContext = request }, log);
+        var context = CreateAuthorizationContext(path, action);
+
+        await module.IsAuthorizedAsync(context);
+
+        var decision = Assert.Single(log.Items);
+        Assert.Equal(context.Authorized, decision.Authorized);
+        Assert.Equal(
+            context.Authorized,
+            decision.Source != ProjectMediaAuthorizationModule.NoPermissionSource);
+        return decision.Source;
+    }
+
+    private static DefaultHttpContext CreateMediaRequest(
+        Guid activeDivisionId,
+        ClaimsPrincipal user,
+        IServiceProvider? requestServices = null)
+    {
+        var httpContext = new DefaultHttpContext { User = user };
+        if (requestServices is not null)
+        {
+            httpContext.RequestServices = requestServices;
+        }
+
+        httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
+            activeDivisionId.ToString();
+        return httpContext;
+    }
+
+    private static ClaimsPrincipal SignedIn(params string[] applicationPermissions)
+    {
+        return SignedIn(
+            Guid.NewGuid(),
+            applicationPermissions
+                .Select(permission => new Claim(NhPlatformClaimTypes.Permission, permission))
+                .ToArray());
+    }
+
+    private static ClaimsPrincipal SignedIn(Guid userId, params Claim[] claims)
+    {
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), .. claims],
+            "sample-test"));
+    }
+
+    private static IServiceProvider UserStore(SampleDivisionPermissionStore? store = null)
+    {
+        return new ServiceCollection()
+            .AddSingleton((store ?? new SampleDivisionPermissionStore()).UserManager)
+            .BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Sends a media request in <paramref name="activeDivisionId"/> as <paramref name="user"/>, or
+    /// anonymously. Every request also claims both project permissions in a header, which the API
+    /// must ignore.
+    /// </summary>
+    private static async Task<HttpResponseMessage> SendAsync(
+        HttpClient client,
+        string? user,
+        Guid activeDivisionId,
+        HttpMethod method,
+        string url,
+        HttpContent? content = null)
+    {
+        using var request = new HttpRequestMessage(method, url) { Content = content };
+        request.Headers.Add(
+            NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId,
+            activeDivisionId.ToString());
+        request.Headers.Add(ClientPermissionsHeader, "app.project.view,app.project.manage");
+        if (user is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user);
+        }
+
+        return await client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static string DownloadUrl(string route, string path, string fileName)
+    {
+        return $"{route}?path={Uri.EscapeDataString(path)}&fileName={Uri.EscapeDataString(fileName)}";
+    }
+
+    private static MultipartFormDataContent UploadContent(string path, string fileName, string text)
+    {
+        var file = new ByteArrayContent(Encoding.UTF8.GetBytes(text));
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        return new MultipartFormDataContent
+        {
+            { file, "file", fileName },
+            { new StringContent(fileName), "fileName" },
+            { new StringContent(path), "path" }
+        };
+    }
+
+    /// <summary>
+    /// Signs in the route test's users under the bearer scheme name that the media routes require.
+    /// <c>Authorization: Bearer manager</c> holds the application-wide project permissions,
+    /// <c>north-member</c> only the division permissions the user store grants, and
+    /// <c>outsider</c> no project rights. Without the header the request stays anonymous.
+    /// </summary>
+    private sealed class MediaTestBearerHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        public static readonly Guid ManagerId = Guid.Parse("4f1b8c6e-0d2a-4a51-9a39-2d7e5f0c1a01");
+        public static readonly Guid NorthMemberId = Guid.Parse("4f1b8c6e-0d2a-4a51-9a39-2d7e5f0c1a02");
+        public static readonly Guid OutsiderId = Guid.Parse("4f1b8c6e-0d2a-4a51-9a39-2d7e5f0c1a03");
+
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            var principal = Request.Headers.Authorization.ToString() switch
+            {
+                "Bearer manager" => SignedIn(
+                    ManagerId,
+                    new Claim(NhPlatformClaimTypes.Permission, "app.project.view"),
+                    new Claim(NhPlatformClaimTypes.Permission, "app.project.manage")),
+                "Bearer north-member" => SignedIn(NorthMemberId),
+                "Bearer outsider" => SignedIn(OutsiderId),
+                _ => null
+            };
+
+            if (principal is null)
+            {
+                return Task.FromResult(AuthenticateResult.NoResult());
+            }
+
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));
+        }
     }
 
     private static MediaLibraryFileEvent CreateFileEvent(

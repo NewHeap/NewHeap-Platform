@@ -8,7 +8,6 @@ using NewHeap.Media;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.AspNet.Common;
-using NewHeap.Platform.Common.Identity.Claims;
 using SampleProjectManagement.Api.Events;
 using SampleProjectManagement.Api.Services;
 using Xunit;
@@ -96,18 +95,22 @@ public sealed class MediaMutationAuthorizationSamplesTests(SamplePostgreSqlServe
 
     /// <summary>
     /// The sample's media composition on a PostgreSQL database of its own, with a request whose active
-    /// division and division permissions a test chooses.
+    /// division a test chooses, by a signed-in member whose division permissions the user store holds.
     /// </summary>
     private sealed class MediaSample : IAsyncDisposable
     {
+        private static readonly Guid MemberId = Guid.Parse("cccccccc-0000-0000-0000-00000000000c");
+
         private readonly ServiceProvider _provider;
         private readonly AsyncServiceScope _scope;
         private readonly string _storagePath;
+        private readonly SampleDivisionPermissionStore _userStore;
 
-        private MediaSample(ServiceProvider provider, string storagePath)
+        private MediaSample(ServiceProvider provider, string storagePath, SampleDivisionPermissionStore userStore)
         {
             _provider = provider;
             _storagePath = storagePath;
+            _userStore = userStore;
             _scope = provider.CreateAsyncScope();
             Media = _scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
             AuthorizationLog = _scope.ServiceProvider.GetRequiredService<SampleMediaAuthorizationLog>();
@@ -124,9 +127,11 @@ public sealed class MediaMutationAuthorizationSamplesTests(SamplePostgreSqlServe
                 Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(storagePath);
 
+            var userStore = new SampleDivisionPermissionStore();
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddHttpContextAccessor();
+            services.AddSingleton(userStore.UserManager);
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddSingleton<SampleMediaEventLog>();
             services.AddSingleton<SampleMediaThumbnailStore>();
@@ -144,23 +149,26 @@ public sealed class MediaMutationAuthorizationSamplesTests(SamplePostgreSqlServe
                 media.AddEventHandler<ProjectMediaEventHandler>();
             });
 
-            var sample = new MediaSample(services.BuildServiceProvider(), storagePath);
+            var sample = new MediaSample(services.BuildServiceProvider(), storagePath, userStore);
             await sample._scope.ServiceProvider.GetRequiredService<FileStructureDbContext>().Database
                 .MigrateAsync(TestContext.Current.CancellationToken);
             return sample;
         }
 
         /// <summary>
-        /// Makes the following calls a request in <paramref name="divisionId"/> by a member with the given
-        /// division permissions, such as <c>project.view</c> and <c>project.manage</c>.
+        /// Makes the following calls a request in <paramref name="divisionId"/> by a signed-in member to whom
+        /// the user store grants the given division permissions there, such as <c>project.view</c> and
+        /// <c>project.manage</c>.
         /// </summary>
         public void ActAs(Guid divisionId, params string[] divisionPermissions)
         {
-            var claims = divisionPermissions.Select(permission =>
-                new Claim(NhPlatformClaimTypes.DivisionPermission, $"{divisionId:D}_{permission}"));
+            _userStore.Grant(MemberId, divisionId, divisionPermissions);
             var httpContext = new DefaultHttpContext
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "sample"))
+                RequestServices = _scope.ServiceProvider,
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [new Claim(ClaimTypes.NameIdentifier, MemberId.ToString())],
+                    "sample"))
             };
             httpContext.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] = divisionId.ToString();
             _scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;

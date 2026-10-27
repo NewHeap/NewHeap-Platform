@@ -1,13 +1,25 @@
 using System.Collections.Concurrent;
+using System.Security.Claims;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 
 namespace SampleProjectManagement.Api.Services;
 
+/// <summary>
+/// Authorizes every media operation for the signed-in user. The path must lie in the projects
+/// folder of the active division, and that division is authorized from the user's current rights:
+/// the application permission <c>app.project.view</c> or <c>app.project.manage</c>, or the division
+/// permission <c>project.view</c> or <c>project.manage</c>, which
+/// <see cref="NewHeap.Platform.AspNet.Common.HttpContextExtensions.HasDivisionAccessAsync"/> reads
+/// from the user store. The active-division header only selects the division; no request header
+/// grants a permission.
+/// </summary>
 public sealed class ProjectMediaAuthorizationModule : IAuthorizationModule
 {
-    public const string SamplePermissionsHeader = "X-Sample-Media-Permissions";
+    public const string ApplicationPermissionSource = "application-permission";
+    public const string DivisionPermissionSource = "division-permission";
+    public const string NoPermissionSource = "none";
 
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly SampleMediaAuthorizationLog _authorizationLog;
@@ -20,50 +32,75 @@ public sealed class ProjectMediaAuthorizationModule : IAuthorizationModule
         _authorizationLog = authorizationLog;
     }
 
-    public Task IsAuthorizedAsync(AuthorizationContext context)
+    public async Task IsAuthorizedAsync(AuthorizationContext context)
     {
         var httpContext = _httpContextAccessor.HttpContext;
         var divisionId = httpContext?.GetActiveDivisionId();
-        var requiredPermission = context.Action == ActionType.Read
-            ? "app.project.view"
-            : "app.project.manage";
+        var permission = context.Action == ActionType.Read
+            ? "view"
+            : "manage";
+        var applicationPermission = $"app.project.{permission}";
+        var divisionPermission = $"project.{permission}";
         var normalizedPath = NormalizePath(context.Path);
-        var scopedRoot = divisionId.HasValue
-            ? $"/divisions/{divisionId.Value:D}/projects"
-            : string.Empty;
-        var pathIsScoped = divisionId.HasValue &&
-            (normalizedPath.Equals(scopedRoot, StringComparison.OrdinalIgnoreCase) ||
-             normalizedPath.StartsWith(scopedRoot + "/", StringComparison.OrdinalIgnoreCase));
 
-        var userHasPermission = httpContext?.User.HasClaim(
-            NhPlatformClaimTypes.Permission,
-            requiredPermission) == true;
-        var userHasDivisionPermission = divisionId.HasValue &&
-            httpContext?.User.HasClaim(
-                NhPlatformClaimTypes.DivisionPermission,
-                $"{divisionId.Value:D}_{requiredPermission[4..]}") == true;
-        var samplePermissions = httpContext?.Request.Headers[SamplePermissionsHeader]
-            .ToString()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            ?? [];
-        var sampleHeaderHasPermission = samplePermissions.Contains(
-            requiredPermission,
-            StringComparer.OrdinalIgnoreCase);
+        var source = NoPermissionSource;
+        if (httpContext?.User.Identity?.IsAuthenticated == true &&
+            IsInProjectsOfDivision(normalizedPath, divisionId))
+        {
+            source = await GetPermissionSourceAsync(
+                httpContext,
+                divisionId,
+                applicationPermission,
+                divisionPermission);
+        }
 
-        context.Authorized = pathIsScoped &&
-            (userHasPermission || userHasDivisionPermission || sampleHeaderHasPermission);
+        context.Authorized = source != NoPermissionSource;
 
         _authorizationLog.Record(new SampleMediaAuthorizationDecision(
             DateTimeOffset.UtcNow,
             divisionId,
             context.Action,
             normalizedPath,
-            requiredPermission,
+            applicationPermission,
             context.Authorized,
-            userHasPermission || userHasDivisionPermission ? "claims" :
-                sampleHeaderHasPermission ? "documented-sample-header" : "none"));
+            source));
+    }
 
-        return Task.CompletedTask;
+    private static async Task<string> GetPermissionSourceAsync(
+        HttpContext httpContext,
+        Guid? divisionId,
+        string applicationPermission,
+        string divisionPermission)
+    {
+        if (httpContext.User.HasClaim(NhPlatformClaimTypes.Permission, applicationPermission))
+        {
+            return ApplicationPermissionSource;
+        }
+
+        // Division membership comes from the user store, so a revoked membership or a division
+        // claim the store does not grant never authorizes the path.
+        if (await httpContext.HasDivisionAccessAsync(
+                divisionId,
+                [new Claim(NhPlatformClaimTypes.DivisionPermission, divisionPermission)],
+                cancellationToken: httpContext.RequestAborted))
+        {
+            return DivisionPermissionSource;
+        }
+
+        return NoPermissionSource;
+    }
+
+    private static bool IsInProjectsOfDivision(string normalizedPath, Guid? divisionId)
+    {
+        if (!divisionId.HasValue)
+        {
+            return false;
+        }
+
+        var projectsRoot = $"/divisions/{divisionId.Value:D}/projects";
+
+        return normalizedPath.Equals(projectsRoot, StringComparison.OrdinalIgnoreCase) ||
+               normalizedPath.StartsWith(projectsRoot + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizePath(string? path)

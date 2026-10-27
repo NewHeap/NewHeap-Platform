@@ -173,7 +173,9 @@ order. The administration path and descendants never redirect.
 
 302 is the default; 301, 303, 307 and 308 are supported. Targets are literal
 root-relative paths or HTTP(S) URLs. Reject controls, backslashes, network-path
-URLs, userinfo and unsupported schemes. Root-relative same-path targets are
+URLs, userinfo and unsupported schemes. A root-relative target is validated as the
+path its Location carries, after dot segments (also %2e) are removed, so a target
+that resolves to //host is a network-path URL and is rejected. Root-relative same-path targets are
 rejected even with changed queries. The local chain-depth guard also refuses
 overlong chains and absolute self-redirects before execution. Preserve merges query values with target keys winning
 case-insensitively; Replace keeps target values only; Discard removes all queries.
@@ -188,7 +190,9 @@ QueryMode is ignored for regex rules: include every query value explicitly in th
 target or capture it from the input. No merge or query parsing occurs in this mode.
 Absolute authorities stay fixed; captures belong in the path, query or fragment.
 The runtime prepares regexes per immutable snapshot, validates expanded targets,
-and rejects unsafe or root-relative self expansions. A shared wall-clock resolver
+and rejects unsafe or root-relative self expansions. Every expansion is validated in
+its resolved form, so captured ../ or %2e%2e segments, including a double-encoded
+path the server decodes once, cannot turn a root-relative target into //host. A shared wall-clock resolver
 budget includes exact rules, host/method checks and target construction. Configure
 NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds as an integer number of milliseconds (default 50)
 through the section-binding overload or options callback. The runtime captures

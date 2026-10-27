@@ -96,7 +96,7 @@ export class ProjectMediaApiService {
       .set('pageSize', 50)
       .set('orderBy', orderBy);
     return this.http.get<ProjectMediaFolderContents>(`${this.baseUrl}/list`, {
-      headers: this.headers(false),
+      headers: this.headers(),
       params
     });
   }
@@ -110,14 +110,14 @@ export class ProjectMediaApiService {
       .set('pageSize', 20)
       .append('includeExtensions', 'pdf,txt,png,jpg,jpeg');
     return this.http.get<ProjectMediaSearchResults>(`${this.baseUrl}/search`, {
-      headers: this.headers(false),
+      headers: this.headers(),
       params
     });
   }
 
   createFolder(path: string, folderName: string): Observable<ProjectMediaFolderReference> {
     return this.http.post<ProjectMediaFolderReference>(`${this.baseUrl}/folder`, null, {
-      headers: this.headers(true),
+      headers: this.headers(),
       params: new HttpParams().set('path', path).set('folderName', folderName)
     });
   }
@@ -128,12 +128,12 @@ export class ProjectMediaApiService {
       folderName: folder.name,
       newPath: folder.path,
       newName
-    }, { headers: this.headers(true) });
+    }, { headers: this.headers() });
   }
 
   deleteFolder(folder: ProjectMediaFolderReference): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/folder`, {
-      headers: this.headers(true),
+      headers: this.headers(),
       params: new HttpParams()
         .set('path', folder.path ?? '/')
         .set('folderName', folder.name)
@@ -150,13 +150,13 @@ export class ProjectMediaApiService {
     form.append('creator', 'Sample Project Management');
     for (const tag of tags) form.append('tags', tag);
     return this.http.post<ProjectMediaFileReference>(`${this.baseUrl}/upload`, form, {
-      headers: this.headers(true)
+      headers: this.headers()
     });
   }
 
   download(file: ProjectMediaFileReference): Observable<HttpResponse<Blob>> {
     return this.http.get('/api/media-samples/download', {
-      headers: this.headers(false),
+      headers: this.headers(),
       params: new HttpParams()
         .set('path', file.folder.fullPath)
         .set('fileName', file.name),
@@ -170,7 +170,7 @@ export class ProjectMediaApiService {
       path: file.folder.fullPath,
       fileName: file.name,
       tags
-    }, { headers: this.headers(true) });
+    }, { headers: this.headers() });
   }
 
   localize(
@@ -186,14 +186,14 @@ export class ProjectMediaApiService {
       .set('propertyName', propertyName)
       .set('value', value);
     return this.http.post<void>(`${this.baseUrl}/file/localize`, null, {
-      headers: this.headers(true),
+      headers: this.headers(),
       params
     });
   }
 
   deleteFile(file: ProjectMediaFileReference): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/file`, {
-      headers: this.headers(true),
+      headers: this.headers(),
       params: new HttpParams()
         .set('path', file.folder.fullPath)
         .set('fileName', file.name)
@@ -204,13 +204,11 @@ export class ProjectMediaApiService {
     return this.http.get<ProjectMediaDiagnostics>('/api/media-samples/diagnostics');
   }
 
-  private headers(mutate: boolean): HttpHeaders {
-    const permissions = mutate
-      ? 'app.project.view,app.project.manage'
-      : 'app.project.view';
+  // The header only selects the media division. The API authorizes the signed-in user, whose
+  // bearer token the NewHeap interceptor adds, from that user's current permissions.
+  private headers(): HttpHeaders {
     return new HttpHeaders({
-      'X-NH-ActiveDivisionId': this.divisionId,
-      'X-Sample-Media-Permissions': permissions
+      'X-NH-ActiveDivisionId': this.divisionId
     });
   }
 }
