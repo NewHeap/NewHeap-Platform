@@ -14,6 +14,12 @@ public sealed class NhTwoFactorConfiguration
     {
     }
 
+    /// <summary>
+    /// The e-mailed-code delivery data types without <c>INhExpiringDeliveryData</c> that a warning already
+    /// named, so the application logs it once per type.
+    /// </summary>
+    internal System.Collections.Concurrent.ConcurrentDictionary<Type, byte> CodeDeliveryDataTypesWithoutExpiry { get; } = new();
+
     /// <summary>Whether two-factor authentication was added to the application.</summary>
     public bool Enabled { get; internal set; }
 

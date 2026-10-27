@@ -57,6 +57,10 @@ public sealed class SampleTwoFactorMessageComposer : NhTwoFactorMessageComposer
                 Subject = model.Title,
                 Body = await _razorViewService.RenderViewToStringAsync("Mail/TwoFactorCode", model),
                 IsBodyHtml = true,
+                // The rendered body holds the code. With ExpiresAt the notification processor removes
+                // it from the delivery store once the e-mail is sent, and never keeps it after the
+                // code expired.
+                ExpiresAt = message.ExpiresAt,
             })
             .Build();
     }

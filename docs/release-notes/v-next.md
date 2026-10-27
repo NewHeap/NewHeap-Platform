@@ -231,6 +231,68 @@ A plaintext code stored before the upgrade still redeems once.
 |---|---|
 | None. | None. |
 
+## NewHeap.Platform.AspNet.Common: notification retention covers every finished delivery
+
+The notification processor's cleanup now removes the data (`NhNotificationDelivery.Data`) of failed and
+cancelled deliveries as well, once they ended longer than `NhNotificationSettings.ProcessingRetentionPeriod`
+ago; before, it only cleaned succeeded deliveries, so the content of failed and cancelled e-mails stayed
+in the store. A failed or cancelled delivery counts from its last send attempt (`LastSendAttemptAt`), or
+from `LastModifiedDateTime` when it was never attempted. Queued and processing deliveries keep their
+data, as before.
+
+| Breaking change | Required action |
+|---|---|
+| The first cleanup after the upgrade clears failed and cancelled deliveries that ended longer than the retention period ago; their content can no longer be inspected or sent again. | None. Copy what you still need from those deliveries before upgrading, or raise `ProcessingRetentionPeriod`. |
+
+## NewHeap.Platform.AspNet.Common: e-mailed two-factor codes leave the notification store once sent
+
+An e-mailed sign-in or confirmation code stayed in plaintext in the notification delivery store
+(`NhNotificationDelivery.Data`) until the retention cleanup, 30 days by default. Delivery data can now be
+short-lived: set `NhEmailDeliveryData.ExpiresAt`, or implement the new `INhExpiringDeliveryData` on the
+data type of a custom dispatcher. The notification processor removes such data as soon as the delivery
+is sent, fails or is cancelled, cancels a delivery instead of dispatching it once `ExpiresAt` has
+passed, and its cleanup pass cancels expired deliveries that are still waiting. `NhTwoFactorMessageComposer`
+sets `ExpiresAt` to the code's expiry, and the two-factor service holds every delivery of the code
+e-mail whose data implements `INhExpiringDeliveryData` to the code's lifetime, also when a custom composer
+sets a later moment or none. Delivery data of another type is sent as before and keeps the code until
+the retention cleanup; the service logs a warning that names the type once. No schema change is needed.
+
+| Breaking change | Required action |
+|---|---|
+| None for a custom `INhTwoFactorMessageComposer` whose code delivery data does not implement `INhExpiringDeliveryData`: the code is sent as before, a warning names the data type, and the code stays in the store until the retention cleanup. | Recommended: implement `INhExpiringDeliveryData` on custom code delivery data, or use `NhEmailDeliveryData`, and set `ExpiresAt = message.ExpiresAt`, so codes leave the store once sent. |
+| Code e-mails sent before the upgrade keep their content until the retention cleanup removes it. | None. Optionally clear `Data` and set `IsCleaned` on the deliveries of the notifications named `two-factor-email-code`. |
+
+## NewHeap.Platform.AspNet.Common: two-factor codes stored as keyed hashes
+
+Recovery codes (`nhv2:`) and e-mailed sign-in and confirmation codes (`nhe1:`) are now stored as
+HMAC-SHA256 hashes; before, they were unkeyed SHA-256 hashes, which a copy of the user-token table could
+test against the million possible six-digit codes. The key comes from the new optional secret
+`NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey` (`NhTwoFactorCodeKey`), or else from
+`NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key`, or else from the shared JWT signing key.
+New codes are stored with the first configured key, and a presented code is checked against every
+configured key. Unkeyed recovery-code entries and plaintext codes from earlier versions still redeem
+once, and the first redemption rewrites the user's remaining entries of those kinds into keyed hashes;
+an e-mailed code sent before the upgrade works until it expires. Startup fails when recovery or e-mail
+codes are enabled and no key is configured. No schema change is needed.
+
+| Breaking change | Required action |
+|---|---|
+| An application with recovery or e-mail codes that configures none of the three keys fails at startup with a configuration error that names them. | Set `NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey`, a random secret of at least 32 bytes, in the secrets file. |
+| A recovery code stops working when the key it was stored with is removed or changed; without `TwoFactor:CodeKey` that is the refresh-token key or the shared signing key. | Set `TwoFactor:CodeKey` with the upgrade, before users enroll or regenerate codes. Keep an earlier key configured until its users regenerated their codes. |
+| `NhUserManager` reads the key from the `IConfiguration` of its service provider; a manager built with a provider without one fails when it generates or redeems recovery codes. | Register `IConfiguration` in that provider, as ASP.NET Core hosts do; a test helper that builds the manager by hand adds it. |
+| Users who redeem no recovery code keep their unkeyed entries. | None. Optionally ask them to regenerate their recovery codes. |
+
+## NewHeap.Platform.AspNet.Common: background-operation hub connections end with their authentication
+
+The background-operation hub (`NhBackgroundOperationHub`), which `MapNewHeapBackgroundOperations` and the
+NewHeap application builder map, now uses `CloseOnAuthenticationExpiration`: a connection, over
+WebSockets as well, closes when the token or cookie it was opened with expires, instead of living on
+through keep-alives and receiving operation changes after the session ended.
+
+| Breaking change | Required action |
+|---|---|
+| A live-update connection closes when the access token it was opened with expires. | None for the NewHeap Angular clients, which reconnect automatically with the current session. A custom SignalR client reconnects with a fresh token, for example through `accessTokenFactory`. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it

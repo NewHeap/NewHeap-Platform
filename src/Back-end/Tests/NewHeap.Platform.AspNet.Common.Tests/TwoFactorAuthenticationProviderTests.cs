@@ -254,6 +254,309 @@ public sealed class TwoFactorAuthenticationProviderTests
             NhTwoFactorFailureCodes.InvalidCode);
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EmailedCodeDeliveriesExpireWithTheCodeOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider, configuration => configuration.EmailCodesEnabled = true);
+        var composer = new ExpiryTestComposer(environment.Clock);
+        var logger = new RecordingLogger<NhTwoFactorService<NhUser>>();
+        environment.MessageComposer = composer;
+        environment.TwoFactorLogger = logger;
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("email-code-expiry@example.test");
+
+        // A composer that sets no expiry is held to the code's lifetime.
+        composer.ExpiresAt = null;
+        var first = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(first.Success, string.Join("; ", first.AllErrorMessages));
+        Assert.Equal(first.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // So is one that sets a later moment.
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        composer.ExpiresAt = DateTimeOffset.MaxValue;
+        var second = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(second.Success, string.Join("; ", second.AllErrorMessages));
+        Assert.Equal(second.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // An earlier moment stays.
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        var earlier = environment.Clock.GetUtcNow().AddMinutes(1);
+        composer.ExpiresAt = earlier;
+        var third = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(third.Success, string.Join("; ", third.AllErrorMessages));
+        Assert.Equal(earlier, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // Data that cannot expire is still sent: the code stays in the store until the retention
+        // cleanup, the e-mail beside it still expires with the code, and a warning names the type once.
+        composer.ExpiresAt = null;
+        composer.AddTextMessageDelivery = true;
+        for (var send = 0; send < 2; send++)
+        {
+            environment.Clock.Advance(TimeSpan.FromMinutes(2));
+            var withTextMessage = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+            Assert.True(withTextMessage.Success, string.Join("; ", withTextMessage.AllErrorMessages));
+            Assert.Equal(withTextMessage.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+        }
+
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Contains(nameof(TextMessageDeliveryData), warning.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(INhExpiringDeliveryData), warning.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EarlierRecoveryCodeEntriesRedeemOnceAndAreRehashedOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider);
+        NhUser user;
+        List<string> codes;
+        using (var enrollmentStack = environment.CreateStack())
+        {
+            user = await enrollmentStack.CreateUserAsync("recovery-rehash@example.test");
+            await enrollmentStack.EnrollAsync(user, environment);
+            codes = (await enrollmentStack.UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 4))!.ToList();
+
+            // The entries as earlier versions stored them: unkeyed hashes, and a plaintext code from
+            // before NewHeap hashed recovery codes.
+            await enrollmentStack.ReplaceStoredRecoveryCodesAsync(
+                user.Id,
+                [
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[0])),
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[1])),
+                    codes[2],
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[3])),
+                ]);
+        }
+
+        using (var stack = environment.CreateStack())
+        {
+            // The first redemption accepts an unkeyed entry once and rewrites the remaining entries
+            // into keyed hashes under the signing key, the only key configured.
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[0]);
+
+            var signingKey = NhTwoFactorCodeKey.DeriveKeys(
+                environment.CreateApplicationConfiguration(),
+                NhTwoFactorCodeKey.RecoveryCodePurpose)[0];
+            Assert.Equal(
+                codes[1..].Select(code => NhRecoveryCodeHasher.Hash(signingKey, NhRecoveryCodeHasher.Normalize(code))),
+                (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+
+            // The rewritten entries redeem once each, the former plaintext code in lower case as well.
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[2].ToLowerInvariant());
+            await AssertRecoveryCodeRefusedAsync(stack, user, codes[0]);
+            await AssertRecoveryCodeRefusedAsync(stack, user, codes[2]);
+        }
+
+        // Configuring a code key keeps the entries stored with the signing key working, and new codes
+        // are stored with the code key.
+        environment.ApplicationSettings[NhTwoFactorCodeKey.ConfigurationKey] = "test-two-factor-code-key-of-thirty-two-bytes";
+        using (var stack = environment.CreateStack())
+        {
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[1]);
+
+            var reloaded = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            Assert.Equal(1, await stack.UserManager.CountRecoveryCodesAsync(reloaded));
+
+            var newCodes = (await stack.UserManager.GenerateNewTwoFactorRecoveryCodesAsync(reloaded, 2))!.ToList();
+            var codeKey = NhTwoFactorCodeKey.DeriveKeys(
+                environment.CreateApplicationConfiguration(),
+                NhTwoFactorCodeKey.RecoveryCodePurpose)[0];
+            Assert.Equal(
+                newCodes.Select(code => NhRecoveryCodeHasher.Hash(codeKey, NhRecoveryCodeHasher.Normalize(code))),
+                (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+            await AssertRecoveryCodeSignsInAsync(stack, user, newCodes[0]);
+        }
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EmailedCodesAreKeyedAndEarlierCodesWorkUntilTheyExpireOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider, configuration => configuration.EmailCodesEnabled = true);
+        NhUser user;
+        string code;
+        using (var stack = environment.CreateStack())
+        {
+            user = await stack.CreateUserAsync("email-code-keyed@example.test");
+            Assert.True((await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null)).Success);
+            code = environment.Notifications.LastEmailCode();
+
+            var stored = NhStoredEmailCode.Parse(await stack.StoredEmailCodeAsync(user.Id))!;
+            Assert.StartsWith("nhe1:", stored.Hash, StringComparison.Ordinal);
+            Assert.NotEqual(UnkeyedEmailCodeHash(user.Id, code), stored.Hash);
+        }
+
+        // A code stored with the signing key still confirms after a code key is configured.
+        environment.ApplicationSettings[NhTwoFactorCodeKey.ConfigurationKey] = "test-two-factor-code-key-of-thirty-two-bytes";
+        using (var stack = environment.CreateStack())
+        {
+            user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            var confirmed = await stack.TwoFactor.ConfirmEmailSetupAsync(user, code, user.Id);
+            Assert.True(confirmed.Success, string.Join("; ", confirmed.AllErrorMessages));
+        }
+
+        // A code that an earlier version stored with an unkeyed hash works until it expires.
+        using (var stack = environment.CreateStack())
+        {
+            var other = await stack.CreateUserAsync("email-code-unkeyed@example.test");
+            Assert.True((await stack.TwoFactor.BeginEmailSetupAsync(other, reauthentication: null)).Success);
+            var now = environment.Clock.GetUtcNow();
+
+            await stack.ReplaceStoredEmailCodeAsync(
+                other.Id,
+                new NhStoredEmailCode(
+                    NhTwoFactorEmailCodePurpose.Confirmation,
+                    UnkeyedEmailCodeHash(other.Id, "135791"),
+                    now.AddMinutes(-1),
+                    now.AddMinutes(-11)).Serialize());
+            AssertFailure(
+                await stack.TwoFactor.ConfirmEmailSetupAsync(other, "135791", other.Id),
+                NhTwoFactorFailureCodes.InvalidCode);
+
+            await stack.ReplaceStoredEmailCodeAsync(
+                other.Id,
+                new NhStoredEmailCode(
+                    NhTwoFactorEmailCodePurpose.Confirmation,
+                    UnkeyedEmailCodeHash(other.Id, "246802"),
+                    now.AddMinutes(5),
+                    now.AddMinutes(-5)).Serialize());
+            var confirmed = await stack.TwoFactor.ConfirmEmailSetupAsync(other, "246802", other.Id);
+            Assert.True(confirmed.Success, string.Join("; ", confirmed.AllErrorMessages));
+        }
+    }
+
+    /// <summary>The unkeyed hash that versions before keyed hashes stored for an e-mailed code.</summary>
+    private static string UnkeyedEmailCodeHash(Guid userId, string code)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(userId.ToString("N") + ":" + code));
+        return Convert.ToBase64String(hash);
+    }
+
+    private static async Task AssertRecoveryCodeSignsInAsync(TwoFactorStack stack, NhUser user, string code)
+    {
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        var verified = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = challenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = code,
+        });
+
+        Assert.True(verified.Success, string.Join("; ", verified.AllErrorMessages));
+        Assert.NotNull(verified.Data!.Session);
+    }
+
+    private static async Task AssertRecoveryCodeRefusedAsync(TwoFactorStack stack, NhUser user, string code)
+    {
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = challenge.ChallengeToken,
+                Method = NhTwoFactorMethods.RecoveryCode,
+                Code = code,
+            }),
+            NhTwoFactorFailureCodes.InvalidCode);
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task AuthenticatorKeysAreProtectedWithIdentityPersonalDataProtectionOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+
+        // Without protection, which is the ASP.NET Core Identity default, the token table holds the
+        // authenticator key as it is.
+        var plainOptions = new DbContextOptionsBuilder<TwoFactorDbContext>();
+        database.UseNewHeapProvider(plainOptions);
+        await using (var context = new TwoFactorDbContext(plainOptions.Options))
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
+
+        var plainEnvironment = new TwoFactorEnvironment(
+            plainOptions.Options,
+            new TestTimeProvider(DateTimeOffset.UtcNow),
+            new EphemeralDataProtectionProvider(),
+            TwoFactorEnvironment.CreateConfiguration(null),
+            new TestTwoFactorPolicy());
+        using (var stack = plainEnvironment.CreateStack())
+        {
+            var user = await stack.CreateUserAsync("unprotected-authenticator@example.test");
+            var key = await stack.EnrollAsync(user, plainEnvironment);
+            Assert.Equal(key, await StoredAuthenticatorKeyAsync(plainOptions.Options, user.Id));
+        }
+
+        // With Identity's personal-data protection, which the context reads from the application's
+        // IdentityOptions, the token values, user names and e-mail addresses are stored protected.
+        await using var protectionServices = new ServiceCollection()
+            .Configure<IdentityOptions>(options => options.Stores.ProtectPersonalData = true)
+            .AddSingleton<ILookupProtectorKeyRing, TestLookupProtectorKeyRing>()
+            .AddSingleton<ILookupProtector, TestLookupProtector>()
+            .AddSingleton<IPersonalDataProtector, DefaultPersonalDataProtector>()
+            .BuildServiceProvider();
+        var protectedOptions = new DbContextOptionsBuilder<ProtectedTwoFactorDbContext>()
+            .UseApplicationServiceProvider(protectionServices);
+        database.UseNewHeapProvider(protectedOptions);
+
+        var protectedEnvironment = new TwoFactorEnvironment(
+            () => new ProtectedTwoFactorDbContext(protectedOptions.Options),
+            new TestTimeProvider(DateTimeOffset.UtcNow),
+            new EphemeralDataProtectionProvider(),
+            TwoFactorEnvironment.CreateConfiguration(null),
+            new TestTwoFactorPolicy());
+        protectedEnvironment.IdentityOptions.Stores.ProtectPersonalData = true;
+        protectedEnvironment.ConfigureUserManagerServices = services => services
+            .AddSingleton<ILookupProtectorKeyRing, TestLookupProtectorKeyRing>()
+            .AddSingleton<ILookupProtector, TestLookupProtector>();
+
+        using var protectedStack = protectedEnvironment.CreateStack();
+        var protectedUser = await protectedStack.CreateUserAsync("protected-authenticator@example.test");
+        var protectedKey = await protectedStack.EnrollAsync(protectedUser, protectedEnvironment);
+
+        var storedKey = await StoredAuthenticatorKeyAsync(plainOptions.Options, protectedUser.Id);
+        Assert.StartsWith(TestLookupProtectorKeyRing.KeyId + ":", storedKey, StringComparison.Ordinal);
+        Assert.DoesNotContain(protectedKey, storedKey, StringComparison.Ordinal);
+        await using (var rawContext = new TwoFactorDbContext(plainOptions.Options))
+        {
+            var storedEmail = await rawContext.Users
+                .Where(user => user.Id == protectedUser.Id)
+                .Select(user => user.Email)
+                .SingleAsync();
+            Assert.NotEqual(protectedUser.Email, storedEmail);
+        }
+
+        // Sign-in finds the user by the protected name, and the protected key completes the challenge.
+        protectedEnvironment.Clock.Advance(TimeSpan.FromSeconds(30));
+        var login = await protectedStack.Authentication.AuthenticateAsync(new AuthenticateRequest(protectedUser.UserName!, Credential));
+        Assert.True(login.Success, string.Join("; ", login.AllErrorMessages));
+        var verified = await protectedStack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = login.Data!.Challenge!.ChallengeToken,
+            Method = NhTwoFactorMethods.Authenticator,
+            Code = protectedEnvironment.CurrentCode(protectedKey),
+        });
+        Assert.True(verified.Success, string.Join("; ", verified.AllErrorMessages));
+        Assert.NotNull(verified.Data!.Session);
+    }
+
+    /// <summary>The authenticator key as the user-token table stores it, read without any protection.</summary>
+    private static async Task<string> StoredAuthenticatorKeyAsync(DbContextOptions<TwoFactorDbContext> options, Guid userId)
+    {
+        await using var context = new TwoFactorDbContext(options);
+        var value = await context.Set<IdentityUserToken<Guid>>()
+            .Where(token => token.UserId == userId && token.Name == "AuthenticatorKey")
+            .Select(token => token.Value)
+            .SingleAsync();
+
+        return value!;
+    }
+
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
@@ -360,7 +663,7 @@ public sealed class TwoFactorAuthenticationProviderTests
             .Where(x => x.UserId == user.Id && x.Name == "RecoveryCodes")
             .Select(x => x.Value)
             .SingleAsync();
-        Assert.All(storedRecoveryCodes!.Split(';'), code => Assert.StartsWith("nhv1:", code, StringComparison.Ordinal));
+        Assert.All(storedRecoveryCodes!.Split(';'), code => Assert.StartsWith("nhv2:", code, StringComparison.Ordinal));
         Assert.DoesNotContain(confirmation.Data.RecoveryCodes[0], storedRecoveryCodes, StringComparison.Ordinal);
 
         // The activated key is a normal Identity authenticator key.
@@ -725,6 +1028,9 @@ public sealed class TwoFactorAuthenticationProviderTests
         var sent = await stack.Authentication.SendTwoFactorEmailCodeAsync(challenge.ChallengeToken);
         Assert.True(sent.Success);
         var signInCode = environment.Notifications.LastEmailCode();
+
+        // The delivery holding the code expires with it, so the notification store drops it once sent.
+        Assert.Equal(sent.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
 
         if (firstCode != signInCode)
         {
@@ -1137,7 +1443,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
     private sealed class TwoFactorEnvironment
     {
-        private readonly DbContextOptions<TwoFactorDbContext> _options;
+        private readonly Func<TwoFactorDbContext> _createContext;
         private readonly IDataProtectionProvider _dataProtectionProvider;
 
         internal TwoFactorEnvironment(
@@ -1146,8 +1452,18 @@ public sealed class TwoFactorAuthenticationProviderTests
             IDataProtectionProvider dataProtectionProvider,
             NhTwoFactorConfiguration configuration,
             INhTwoFactorPolicy policy)
+            : this(() => new TwoFactorDbContext(options), clock, dataProtectionProvider, configuration, policy)
         {
-            _options = options;
+        }
+
+        internal TwoFactorEnvironment(
+            Func<TwoFactorDbContext> createContext,
+            TestTimeProvider clock,
+            IDataProtectionProvider dataProtectionProvider,
+            NhTwoFactorConfiguration configuration,
+            INhTwoFactorPolicy policy)
+        {
+            _createContext = createContext;
             Clock = clock;
             _dataProtectionProvider = dataProtectionProvider;
             Configuration = configuration;
@@ -1159,6 +1475,32 @@ public sealed class TwoFactorAuthenticationProviderTests
         internal TestTwoFactorPolicy TestPolicy => (TestTwoFactorPolicy)Policy;
         internal NhTwoFactorConfiguration Configuration { get; }
         internal NotificationRecorder Notifications { get; } = new();
+
+        /// <summary>The message composer of the stacks created next; the default composer when empty.</summary>
+        internal INhTwoFactorMessageComposer? MessageComposer { get; set; }
+
+        /// <summary>The two-factor service's logger in the stacks created next; none when empty.</summary>
+        internal ILogger<NhTwoFactorService<NhUser>>? TwoFactorLogger { get; set; }
+
+        /// <summary>The application configuration of the stacks created next, such as the signing and code keys.</summary>
+        internal Dictionary<string, string?> ApplicationSettings { get; } = new()
+        {
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
+        };
+
+        /// <summary>The Identity options of the user managers in the stacks created next.</summary>
+        internal IdentityOptions IdentityOptions { get; } = new();
+
+        /// <summary>Services the user managers of the stacks created next resolve, such as lookup protectors.</summary>
+        internal Action<IServiceCollection>? ConfigureUserManagerServices { get; set; }
+
+        internal IConfiguration CreateApplicationConfiguration()
+        {
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(ApplicationSettings)
+                .Build();
+        }
 
         internal static NhTwoFactorConfiguration CreateConfiguration(Action<NhTwoFactorConfiguration>? configure)
         {
@@ -1178,7 +1520,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         internal TwoFactorStack CreateStack()
         {
-            return new TwoFactorStack(this, new TwoFactorDbContext(_options), _dataProtectionProvider);
+            return new TwoFactorStack(this, _createContext(), _dataProtectionProvider);
         }
 
         internal string CurrentCode(string base32Key)
@@ -1197,10 +1539,14 @@ public sealed class TwoFactorAuthenticationProviderTests
         /// <summary>The name Identity's user store keeps the recovery codes under.</summary>
         private const string RecoveryCodesTokenName = "RecoveryCodes";
 
+        /// <summary>The name the two-factor service keeps a pending e-mailed code under.</summary>
+        private const string EmailCodeTokenName = "TwoFactorEmailCode";
+
         private readonly ServiceProvider _serviceProvider;
         private readonly RoleManager<NhUserRole> _roleManager;
         private readonly IOptions<IdentityOptions> _identityOptions;
         private readonly TwoFactorEnvironment _environment;
+        private readonly IConfiguration _configuration;
 
         internal TwoFactorStack(
             TwoFactorEnvironment environment,
@@ -1209,8 +1555,11 @@ public sealed class TwoFactorAuthenticationProviderTests
         {
             _environment = environment;
             Context = context;
-            _serviceProvider = new ServiceCollection().BuildServiceProvider();
-            _identityOptions = Options.Create(new IdentityOptions());
+            _configuration = environment.CreateApplicationConfiguration();
+            var services = new ServiceCollection().AddSingleton(_configuration);
+            environment.ConfigureUserManagerServices?.Invoke(services);
+            _serviceProvider = services.BuildServiceProvider();
+            _identityOptions = Options.Create(environment.IdentityOptions);
 
             var repository = new Repository<NhUser>(context, _serviceProvider);
             var normalizer = new UpperInvariantLookupNormalizer();
@@ -1265,10 +1614,11 @@ public sealed class TwoFactorAuthenticationProviderTests
                 new NhTwoFactorTicketProtector(dataProtectionProvider, environment.Clock),
                 new NhQrCodeRenderer(),
                 hostEnvironment,
+                _configuration,
                 environment.Clock,
-                new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
+                environment.MessageComposer ?? new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
                 environment.Notifications,
-                NullLogger<NhTwoFactorService<NhUser>>.Instance,
+                environment.TwoFactorLogger ?? NullLogger<NhTwoFactorService<NhUser>>.Instance,
                 passkeyHandler);
 
             Authentication = CreateAuthenticationService(
@@ -1286,7 +1636,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 CreateSignInManager(),
                 UserManager,
                 Substitute.For<ILogger<AuthenticationService>>(),
-                CreateConfiguration(),
+                _configuration,
                 new TokenValidationParameters(),
                 new AuthenticationConfiguration());
         }
@@ -1370,6 +1720,27 @@ public sealed class TwoFactorAuthenticationProviderTests
             await Context.SaveChangesAsync();
         }
 
+        /// <summary>The e-mailed code as the Identity token row stores it.</summary>
+        internal async Task<string> StoredEmailCodeAsync(Guid userId)
+        {
+            var value = await Context.Set<IdentityUserToken<Guid>>()
+                .Where(x => x.UserId == userId && x.Name == EmailCodeTokenName)
+                .Select(x => x.Value)
+                .SingleAsync();
+
+            return value!;
+        }
+
+        /// <summary>Overwrites the stored e-mailed code, as a row written before an upgrade would hold it.</summary>
+        internal async Task ReplaceStoredEmailCodeAsync(Guid userId, string storedCode)
+        {
+            var row = await Context.Set<IdentityUserToken<Guid>>()
+                .SingleAsync(x => x.UserId == userId && x.Name == EmailCodeTokenName);
+            row.Value = storedCode;
+
+            await Context.SaveChangesAsync();
+        }
+
         public void Dispose()
         {
             UserManager.Dispose();
@@ -1385,7 +1756,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 CreateSignInManager(),
                 UserManager,
                 Substitute.For<ILogger<AuthenticationService>>(),
-                CreateConfiguration(),
+                _configuration,
                 new TokenValidationParameters(),
                 new AuthenticationConfiguration(),
                 twoFactorContext);
@@ -1403,16 +1774,6 @@ public sealed class TwoFactorAuthenticationProviderTests
                 Substitute.For<IUserConfirmation<NhUser>>());
         }
 
-        private static IConfiguration CreateConfiguration()
-        {
-            return new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
-                    ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
-                })
-                .Build();
-        }
     }
 
     private sealed class TestTwoFactorAuthenticationService : NhAuthenticationService<
@@ -1538,17 +1899,19 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         internal string LastEmailCode()
         {
+            return Regex.Match(LastEmailCodeDelivery().Body!, "\\d{6}").Value;
+        }
+
+        internal NhEmailDeliveryData LastEmailCodeDelivery()
+        {
             lock (_gate)
             {
-                var body = _notifications
+                return _notifications
                     .Where(x => x.Name == "two-factor-email-code")
                     .SelectMany(x => x.Deliveries)
                     .Select(x => x.Data)
                     .OfType<NhEmailDeliveryData>()
-                    .Last()
-                    .Body!;
-
-                return Regex.Match(body, "\\d{6}").Value;
+                    .Last();
             }
         }
 
@@ -1563,6 +1926,86 @@ public sealed class TwoFactorAuthenticationProviderTests
                     .OfType<NhUserNotificationDeliveryData>()
                     .Select(x => x.Notification.UserId!.Value)
                     .ToList();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The default code e-mail with the expiry a custom composer chose, optionally with a text message
+    /// whose data cannot expire.
+    /// </summary>
+    private sealed class ExpiryTestComposer(TimeProvider clock) : NhTwoFactorMessageComposer(new TestLocalizer(), clock)
+    {
+        internal DateTimeOffset? ExpiresAt { get; set; }
+
+        internal bool AddTextMessageDelivery { get; set; }
+
+        public override async Task<NhNotification> ComposeEmailCodeAsync(
+            NhTwoFactorEmailCodeMessage message,
+            CancellationToken cancellationToken = default)
+        {
+            var notification = await base.ComposeEmailCodeAsync(message, cancellationToken);
+            foreach (var data in notification.Deliveries.Select(delivery => delivery.Data).OfType<NhEmailDeliveryData>())
+            {
+                data.ExpiresAt = ExpiresAt;
+            }
+
+            if (AddTextMessageDelivery)
+            {
+                notification.Deliveries.Add(new NhNotificationDelivery
+                {
+                    DispatcherId = "test-text-message",
+                    Data = new TextMessageDeliveryData { Text = "Your sign-in code is " + message.Code },
+                });
+            }
+
+            return notification;
+        }
+    }
+
+    /// <summary>The data of a consumer's own channel that does not implement INhExpiringDeliveryData.</summary>
+    private sealed class TextMessageDeliveryData
+    {
+        public string Text { get; set; } = string.Empty;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        private readonly List<(LogLevel Level, string Message)> _entries = [];
+        private readonly object _gate = new();
+
+        internal IReadOnlyList<(LogLevel Level, string Message)> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _entries.ToList();
+                }
+            }
+        }
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (_gate)
+            {
+                _entries.Add((logLevel, formatter(state, exception)));
             }
         }
     }
@@ -1603,9 +2046,75 @@ public sealed class TwoFactorAuthenticationProviderTests
         }
     }
 
-    private sealed class TwoFactorDbContext(DbContextOptions<TwoFactorDbContext> options)
-        : NhIdentityDbContext(options)
+    private class TwoFactorDbContext : NhIdentityDbContext
     {
+        public TwoFactorDbContext(DbContextOptions<TwoFactorDbContext> options)
+            : base(options)
+        {
+        }
+
+        protected TwoFactorDbContext(DbContextOptions options)
+            : base(options)
+        {
+        }
+
         protected override bool IncludeIdentityPasskeys => true;
+    }
+
+    /// <summary>
+    /// The same context with Identity's personal-data protection, which needs a model of its own: the
+    /// protected columns get a value converter.
+    /// </summary>
+    private sealed class ProtectedTwoFactorDbContext(DbContextOptions<ProtectedTwoFactorDbContext> options)
+        : TwoFactorDbContext(options)
+    {
+    }
+
+    /// <summary>
+    /// A deterministic test protector, as lookups of protected user names and e-mail addresses need.
+    /// An application uses a protector backed by its own key management.
+    /// </summary>
+    private sealed class TestLookupProtector : ILookupProtector
+    {
+        private static readonly byte[] Key = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes("test-lookup-protector-key"));
+
+        public string? Protect(string keyId, string? data)
+        {
+            if (data == null)
+            {
+                return null;
+            }
+
+            using var aes = System.Security.Cryptography.Aes.Create();
+            aes.Key = Key;
+            return Convert.ToBase64String(aes.EncryptCbc(System.Text.Encoding.UTF8.GetBytes(data), new byte[16]));
+        }
+
+        public string? Unprotect(string keyId, string? data)
+        {
+            if (data == null)
+            {
+                return null;
+            }
+
+            using var aes = System.Security.Cryptography.Aes.Create();
+            aes.Key = Key;
+            return System.Text.Encoding.UTF8.GetString(aes.DecryptCbc(Convert.FromBase64String(data), new byte[16]));
+        }
+    }
+
+    private sealed class TestLookupProtectorKeyRing : ILookupProtectorKeyRing
+    {
+        internal const string KeyId = "test-lookup-key";
+
+        public string CurrentKeyId => KeyId;
+
+        public string this[string keyId] => KeyId;
+
+        public IEnumerable<string> GetAllKeyIds()
+        {
+            return [KeyId];
+        }
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -57,6 +58,7 @@ internal sealed class NhTwoFactorStartupValidator : IHostedService
         }
 
         ValidateNotifications(scope.ServiceProvider);
+        ValidateCodeKey(scope.ServiceProvider);
         ValidatePasskeys(scope.ServiceProvider);
         await ValidateAdministrationPolicyAsync(scope.ServiceProvider);
 
@@ -104,6 +106,20 @@ internal sealed class NhTwoFactorStartupValidator : IHostedService
                 "NhEmailNotificationSettings.AllowDefaultFromAddress and DefaultFromAddress, or register a message composer " +
                 "with UseMessageComposer<T>() that sets the sender.");
         }
+    }
+
+    /// <summary>
+    /// Recovery codes and e-mailed codes are stored as keyed hashes, so a missing or short key fails
+    /// startup instead of the first enrollment or sign-in.
+    /// </summary>
+    private void ValidateCodeKey(IServiceProvider services)
+    {
+        if (!_twoFactorConfiguration.RecoveryCodesEnabled && !_twoFactorConfiguration.EmailCodesEnabled)
+        {
+            return;
+        }
+
+        NhTwoFactorCodeKey.Validate(services.GetRequiredService<IConfiguration>());
     }
 
     private void ValidatePasskeys(IServiceProvider services)

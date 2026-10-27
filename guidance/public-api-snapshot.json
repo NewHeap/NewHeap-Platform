@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c65f29e68571f4d3e9ac1c1854d6d24a0b11729b8e9f40d7c591937529643e80",
-    "declarationCount": 11329,
+    "hash": "e71c6450f6a5ed8812206e89e63bc5536b9120ff54f550aae262c55acea5cd17",
+    "declarationCount": 11334,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -29230,6 +29230,18 @@
         "declaration": "public string RenderPngDataUri(string content) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public static class NhTwoFactorCodeKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public const string ConfigurationKey = \"NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public const int MinimumBytes = NhJwtSigningKey.MinimumBytes;"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public sealed class NhTwoFactorConfiguration {"
       },
@@ -38119,6 +38131,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhAbstractNotificationDispatcher.cs",
+        "declaration": "public interface INhExpiringDeliveryData {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhAbstractNotificationDispatcher.cs",
         "declaration": "public interface INhNotificationDispatcher {"
       },
       {
@@ -38175,7 +38191,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
-        "declaration": "public partial class NhEmailDeliveryData {"
+        "declaration": "public partial class NhEmailDeliveryData : INhExpiringDeliveryData {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
@@ -38228,6 +38244,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
         "declaration": "public List<Attachment> Attachments { get; set; } = new List<Attachment>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
@@ -49745,6 +49765,8 @@
       "INhTwoFactorPolicy",
       "NhDefaultTwoFactorPolicy",
       "INhTwoFactorMessageComposer",
+      "INhExpiringDeliveryData",
+      "NhTwoFactorCodeKey",
       "NhLoginResponse",
       "BaseNhAuthService",
       "NhTwoFactorChallengeComponent",
@@ -50231,6 +50253,7 @@
       "NhBackgroundOperationAccessTarget",
       "NhBackgroundOperationAccessCodes",
       "INhNotificationDispatcher",
+      "INhExpiringDeliveryData",
       "INhUserNotificationService",
       "NhBackgroundOperationAdministrationService",
       "NhBackgroundOperationAdministrationViewModel",

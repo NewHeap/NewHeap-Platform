@@ -1283,12 +1283,17 @@ Managers have the `app.two-factor.administer` permission. The authentication
 playground calls every two-factor endpoint directly: the challenge, e-mail codes,
 passkeys, required enrollment, remembered devices, and the administration reset
 and background operations. `SampleTwoFactorMessageComposer` renders the e-mailed
-code with the sample's Razor mail layout.
+code with the sample's Razor mail layout and sets `ExpiresAt` on the e-mail
+delivery to the code's expiry, so the notification processor removes the code from
+the delivery store once the e-mail is sent and never keeps it after the code
+expired. `TwoFactorMessageComposerSamplesTests` proves that expiry.
 
 `TwoFactorSamplesTests` applies the PostgreSQL migrations, confirms that the model
 matches them and includes the passkey table, completes the seeded account's
 challenge with `NhTwoFactorTestCodes` from the reusable test package, and enrolls
-the security officer during sign-in.
+the security officer during sign-in. Its recovery codes are stored as keyed hashes
+under `NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey`, which
+`appsettings.json` reads from the secrets file next to the JWT key.
 
 ## API-to-API client
 

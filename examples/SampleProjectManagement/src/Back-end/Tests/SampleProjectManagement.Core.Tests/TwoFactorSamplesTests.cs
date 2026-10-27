@@ -113,12 +113,13 @@ public sealed class TwoFactorSamplesTests(SamplePostgreSqlServer postgreSql)
         Assert.True(status.Required);
         Assert.Empty(await twoFactor.GetPasskeysAsync(officer!, cancellationToken));
 
-        // The recovery codes are stored as hashes: a copy of a stored entry completes no challenge,
-        // while a code from the list shown at enrollment does.
+        // The recovery codes are stored as keyed hashes under the two-factor code key: a copy of a
+        // stored entry completes no challenge, while a code from the list shown at enrollment does.
         var storedRecoveryCodes = await context.Set<IdentityUserToken<Guid>>()
             .Where(x => x.UserId == officer!.Id && x.Name == "RecoveryCodes")
             .Select(x => x.Value)
             .SingleAsync(cancellationToken);
+        Assert.All(storedRecoveryCodes!.Split(';'), entry => Assert.StartsWith("nhv2:", entry, StringComparison.Ordinal));
         var officerChallenge = (await sampleService.AuthenticateAsync(new AuthenticateRequest(
             SampleAuthorizationDefaults.SecurityOfficerEmail,
             SampleAuthorizationDefaults.Password))).Data!.Challenge!;
@@ -158,6 +159,7 @@ public sealed class TwoFactorSamplesTests(SamplePostgreSqlServer postgreSql)
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://sample-project-management.example.test",
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] =
                 "sample-project-management-two-factor-signing-key",
+            [NhTwoFactorCodeKey.ConfigurationKey] = "test-sample-project-management-two-factor-code-key",
             ["TwoFactor:PasskeyServerDomain"] = "localhost",
             ["TwoFactor:PasskeyAllowedOrigins:0"] = "http://localhost:4210",
         });

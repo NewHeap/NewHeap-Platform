@@ -28,8 +28,9 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 /// below the root outside their own API, not only below <c>/hub</c>. A host with the hub at
 /// <c>/realtime/operations</c> starts, a WebSocket connects there as a browser's does, with the
 /// bearer token in the query string, and receives the owner's operation change; the default path is
-/// not mapped, and the operations' API does not read a query token. The test needs no relational
-/// database: no operation is stored, and the host's startup check reads an in-memory context.
+/// not mapped, and the operations' API does not read a query token. A connection also lasts only as
+/// long as the token it was opened with. The tests need no relational database: no operation is
+/// stored, and the host's startup check reads an in-memory context.
 /// </summary>
 public sealed class NhBackgroundOperationHubPathTests
 {
@@ -81,6 +82,56 @@ public sealed class NhBackgroundOperationHubPathTests
         change.GetProperty("arguments")[0].GetProperty("operationId").GetGuid().Should().Be(operationId);
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task A_connection_closes_when_the_token_it_was_opened_with_expires()
+    {
+        await using var app = await StartAsync();
+        var server = app.GetTestServer();
+
+        // One person's token expires in a few seconds, another person's token lasts.
+        using var expiring = await ConnectAsync(server, CreateToken(Guid.NewGuid(), TimeSpan.FromSeconds(3)));
+        using var lasting = await ConnectAsync(server, CreateToken(Guid.NewGuid(), TimeSpan.FromMinutes(10)));
+
+        // Keep-alives would hold the WebSocket open; the hub closes it once the token expired.
+        await expiring.Connection.WaitForCloseAsync();
+
+        await lasting.Connection.SendAsync("""{"type":1,"invocationId":"still-open","target":"NotAHubMethod","arguments":[]}""");
+        (await lasting.Connection.ReceiveMessageAsync(type: 3)).GetProperty("invocationId").GetString().Should().Be("still-open");
+        lasting.Socket.State.Should().Be(WebSocketState.Open);
+    }
+
+    /// <summary>
+    /// Negotiates and opens a WebSocket connection to the hub at <see cref="MovedHubPath"/> with a query
+    /// token, and waits until the hub handles its messages.
+    /// </summary>
+    private static async Task<HubSocketConnection> ConnectAsync(TestServer server, string token)
+    {
+        using var client = server.CreateClient();
+        using var negotiated = await client.PostAsync($"{MovedHubPath}/negotiate?negotiateVersion=1&access_token={token}", null);
+        negotiated.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var negotiation = JsonDocument.Parse(await negotiated.Content.ReadAsStringAsync());
+        var connectionToken = negotiation.RootElement.GetProperty("connectionToken").GetString();
+
+        var socket = await server.CreateWebSocketClient().ConnectAsync(
+            new Uri(server.BaseAddress, $"{MovedHubPath}?id={connectionToken}&access_token={token}"),
+            CancellationToken.None);
+        var connection = new JsonHubSocket(socket);
+        await connection.SendAsync("""{"protocol":"json","version":1}""");
+        (await connection.ReceiveAsync()).Should().Be("{}");
+        await connection.SendAsync("""{"type":1,"invocationId":"joined","target":"NotAHubMethod","arguments":[]}""");
+        (await connection.ReceiveMessageAsync(type: 3)).GetProperty("invocationId").GetString().Should().Be("joined");
+
+        return new HubSocketConnection(socket, connection);
+    }
+
+    private sealed record HubSocketConnection(WebSocket Socket, JsonHubSocket Connection) : IDisposable
+    {
+        public void Dispose()
+        {
+            Socket.Dispose();
+        }
     }
 
     /// <summary>
@@ -146,12 +197,12 @@ public sealed class NhBackgroundOperationHubPathTests
         return app;
     }
 
-    private static string CreateToken(Guid userId)
+    private static string CreateToken(Guid userId, TimeSpan? lifetime = null)
     {
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString())]),
-            Expires = DateTime.UtcNow.AddMinutes(10),
+            Expires = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(10)),
             SigningCredentials = new SigningCredentials(SigningKey, SecurityAlgorithms.HmacSha256)
         });
     }
@@ -185,6 +236,43 @@ public sealed class NhBackgroundOperationHubPathTests
                 if (message.RootElement.GetProperty("type").GetInt32() == type)
                 {
                     return message.RootElement.Clone();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Waits until the hub ends the connection: with a close message, a close frame or by aborting
+        /// the socket. Fails when the connection is still open after <see cref="Patience"/>.
+        /// </summary>
+        public async Task WaitForCloseAsync()
+        {
+            using var timeout = new CancellationTokenSource(Patience);
+            var buffer = new byte[4096];
+            while (true)
+            {
+                WebSocketReceiveResult received;
+                try
+                {
+                    received = await socket.ReceiveAsync(buffer, timeout.Token);
+                }
+                catch (WebSocketException)
+                {
+                    return;
+                }
+                catch (IOException)
+                {
+                    return;
+                }
+
+                if (received.MessageType == WebSocketMessageType.Close)
+                {
+                    return;
+                }
+
+                // A close message (type 7) announces the end before the close frame.
+                if (Encoding.UTF8.GetString(buffer, 0, received.Count).Contains("\"type\":7", StringComparison.Ordinal))
+                {
+                    return;
                 }
             }
         }

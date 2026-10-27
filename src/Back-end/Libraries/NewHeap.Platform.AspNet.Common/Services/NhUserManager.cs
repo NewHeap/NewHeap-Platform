@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -185,6 +186,12 @@ public abstract partial class NhUserManager<
     protected readonly ValidationService _validationService;
     protected readonly INhDbLogService _dbLogService;
     private readonly IServiceProvider _services;
+
+    /// <summary>Where the Identity user store keeps the recovery codes in the user-token table.</summary>
+    private const string IdentityRecoveryCodeLoginProvider = "[AspNetUserStore]";
+
+    /// <summary>The token name the Identity user store keeps the recovery codes under.</summary>
+    private const string IdentityRecoveryCodeTokenName = "RecoveryCodes";
 
     public IdentityDbContext<TUser, TUserRole, Guid> IdentityDbContext
     {
@@ -783,11 +790,12 @@ public abstract partial class NhUserManager<
     }
 
     /// <summary>
-    /// Generates new two-factor recovery codes and stores only their hashes.
+    /// Generates new two-factor recovery codes and stores only their keyed hashes.
     /// </summary>
     /// <remarks>
     /// The plain codes are returned once so the caller can show them to the user. A leaked
-    /// Identity token row cannot be redeemed because it only contains hashes.
+    /// Identity token row cannot be redeemed, nor tested against guessed codes, because it only
+    /// contains HMACs under the key from <see cref="NhTwoFactorCodeKey"/>.
     /// </remarks>
     public override async Task<IEnumerable<string>?> GenerateNewTwoFactorRecoveryCodesAsync(TUser user, int number)
     {
@@ -795,6 +803,7 @@ public abstract partial class NhUserManager<
         ArgumentNullException.ThrowIfNull(user);
 
         var recoveryCodeStore = GetTwoFactorRecoveryCodeStore();
+        var key = GetRecoveryCodeKeys()[0];
         var codes = new List<string>(number);
         for (var index = 0; index < number; index++)
         {
@@ -802,7 +811,7 @@ public abstract partial class NhUserManager<
         }
 
         var hashedCodes = codes
-            .Select(code => NhRecoveryCodeHasher.Hash(NhRecoveryCodeHasher.Normalize(code)))
+            .Select(code => NhRecoveryCodeHasher.Hash(key, NhRecoveryCodeHasher.Normalize(code)))
             .ToList();
 
         await recoveryCodeStore.ReplaceCodesAsync(user, hashedCodes, CancellationToken);
@@ -820,9 +829,12 @@ public abstract partial class NhUserManager<
     /// Redeems a two-factor recovery code that was stored as a hash.
     /// </summary>
     /// <remarks>
-    /// Codes generated before NewHeap stored hashes remain redeemable once, so existing
-    /// users are not locked out after an upgrade. Input in the form of a stored hash is never
-    /// compared with the stored entries as it is, so a copy of the token row redeems nothing.
+    /// The code matches an entry stored under any configured key (<see cref="NhTwoFactorCodeKey"/>).
+    /// Entries from earlier versions, unkeyed hashes and plaintext codes from before NewHeap hashed
+    /// recovery codes, remain redeemable once, so existing users are not locked out after an upgrade;
+    /// the first redemption rewrites the user's remaining entries of those kinds into keyed hashes.
+    /// Input in the form of a stored hash is never compared with the stored entries as it is, so a
+    /// copy of the token row redeems nothing.
     /// </remarks>
     public override async Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(TUser user, string code)
     {
@@ -836,10 +848,24 @@ public abstract partial class NhUserManager<
         }
 
         var recoveryCodeStore = GetTwoFactorRecoveryCodeStore();
-        var redeemed = await recoveryCodeStore.RedeemCodeAsync(
-            user,
-            NhRecoveryCodeHasher.Hash(normalizedCode),
-            CancellationToken);
+        var keys = GetRecoveryCodeKeys();
+        var redeemed = false;
+        foreach (var key in keys)
+        {
+            if (await recoveryCodeStore.RedeemCodeAsync(user, NhRecoveryCodeHasher.Hash(key, normalizedCode), CancellationToken))
+            {
+                redeemed = true;
+                break;
+            }
+        }
+
+        if (!redeemed)
+        {
+            redeemed = await recoveryCodeStore.RedeemCodeAsync(
+                user,
+                NhRecoveryCodeHasher.UnkeyedHash(normalizedCode),
+                CancellationToken);
+        }
 
         var legacyCode = code.Trim();
         if (!redeemed && NhRecoveryCodeHasher.MayBeLegacyCode(legacyCode))
@@ -852,7 +878,63 @@ public abstract partial class NhUserManager<
             return IdentityResult.Failed(ErrorDescriber.RecoveryCodeRedemptionFailed());
         }
 
+        await RehashEarlierRecoveryCodesAsync(user, keys[0]);
+
         return await UpdateAsync(user);
+    }
+
+    /// <summary>
+    /// Rewrites the user's remaining recovery-code entries that an earlier version stored, unkeyed
+    /// hashes and plaintext codes, into keyed hashes under <paramref name="key"/>. Keyed entries stay
+    /// as they are, also when another configured key made them.
+    /// </summary>
+    private async Task RehashEarlierRecoveryCodesAsync(TUser user, byte[] key)
+    {
+        if (Store is not IUserAuthenticationTokenStore<TUser> tokenStore)
+        {
+            return;
+        }
+
+        var stored = await tokenStore.GetTokenAsync(
+            user,
+            IdentityRecoveryCodeLoginProvider,
+            IdentityRecoveryCodeTokenName,
+            CancellationToken);
+        if (string.IsNullOrEmpty(stored))
+        {
+            return;
+        }
+
+        var entries = stored.Split(';');
+        var rehashedAny = false;
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var rehashed = NhRecoveryCodeHasher.Rehash(key, entries[index]);
+            if (rehashed != null)
+            {
+                entries[index] = rehashed;
+                rehashedAny = true;
+            }
+        }
+
+        if (rehashedAny)
+        {
+            await GetTwoFactorRecoveryCodeStore().ReplaceCodesAsync(user, entries, CancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The keys recovery codes are hashed with, the key new codes are stored with first. They come
+    /// from the application's configuration, see <see cref="NhTwoFactorCodeKey"/>.
+    /// </summary>
+    private IReadOnlyList<byte[]> GetRecoveryCodeKeys()
+    {
+        var configuration = _services.GetService<IConfiguration>()
+            ?? throw new InvalidOperationException(
+                "Recovery codes are stored with a key from the application's configuration (NhTwoFactorCodeKey), " +
+                "but no IConfiguration is registered.");
+
+        return NhTwoFactorCodeKey.DeriveKeys(configuration, NhTwoFactorCodeKey.RecoveryCodePurpose);
     }
 
     private IUserTwoFactorRecoveryCodeStore<TUser> GetTwoFactorRecoveryCodeStore()

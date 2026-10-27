@@ -101,10 +101,11 @@ public sealed class NhTotpTests
     [Fact]
     public void RecoveryCodeHashIgnoresCaseAndWhitespace()
     {
-        var expected = NhRecoveryCodeHasher.Hash(NhRecoveryCodeHasher.Normalize("ABCDE-FGHIJ"));
+        var key = Encoding.UTF8.GetBytes("test-recovery-code-key-of-thirty-two-bytes");
+        var expected = NhRecoveryCodeHasher.Hash(key, NhRecoveryCodeHasher.Normalize("ABCDE-FGHIJ"));
 
-        Assert.Equal(expected, NhRecoveryCodeHasher.Hash(NhRecoveryCodeHasher.Normalize(" abcde-fghij ")));
-        Assert.StartsWith("nhv1:", expected, StringComparison.Ordinal);
+        Assert.Equal(expected, NhRecoveryCodeHasher.Hash(key, NhRecoveryCodeHasher.Normalize(" abcde-fghij ")));
+        Assert.StartsWith("nhv2:", expected, StringComparison.Ordinal);
         Assert.DoesNotContain(';', expected);
     }
 
