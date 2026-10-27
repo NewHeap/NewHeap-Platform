@@ -78,6 +78,36 @@ public sealed class SqlReadOnlyPolicyTests
             .Which.Code.Should().Be("unicode-escaped-identifier-not-allowed");
     }
 
+    /// <summary>
+    /// In an escape string a backslash escapes the quote that would otherwise end it, which the
+    /// policy does not follow, so <c>E'\''</c> could hide the SQL behind it from the policy.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT E'\\'' AS a, pg_sleep(1) AS b, E'\\''")]
+    [InlineData("SELECT e'value' AS v")]
+    public void PostgreSqlEscapeStringsAreRejected(string sql)
+    {
+        var action = () => SqlReadOnlyPolicy.Validate(sql, DatabaseProviderKind.PostgreSql);
+
+        action.Should()
+            .Throw<DatabaseReadExpectedException>()
+            .Which.Code.Should().Be("escape-string-not-allowed");
+    }
+
+    [Theory]
+    [InlineData("SELECT 'it''s' AS e, 'C:\\' AS path", "postgresql")]
+    [InlineData("SELECT name AS e FROM projects WHERE name LIKE 'a\\_%' LIMIT 1", "postgresql")]
+    [InlineData("SELECT TOP (1) N'it''s' AS E, Name AS e FROM Projects", "sql-server")]
+    public void StandardStringsAndIdentifiersNamedEAreAllowed(string sql, string providerName)
+    {
+        var provider = providerName == "sql-server"
+            ? DatabaseProviderKind.SqlServer
+            : DatabaseProviderKind.PostgreSql;
+        var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
+
+        action.Should().NotThrow();
+    }
+
     [Theory]
     [InlineData("SELECT \"Id\", \"Update\", \"share\", \"pg_sleep_count\" FROM \"public\".\"Projects\" LIMIT 1", "postgresql")]
     [InlineData("SELECT U&'caf\\00e9' AS \"Name\" FROM \"Projects\" LIMIT 1", "postgresql")]

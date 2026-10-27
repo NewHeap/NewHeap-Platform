@@ -216,11 +216,14 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             await readOnlyCommand.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        // standard_conforming_strings keeps a backslash in a string literal an ordinary character,
+        // as SqlReadOnlyPolicy reads it, also for a role or connection that turned it off.
         await using var timeoutCommand = connection.CreateCommand();
         timeoutCommand.Transaction = transaction;
         timeoutCommand.CommandText =
             "SELECT set_config('statement_timeout', @statementTimeout, true), " +
-            "set_config('lock_timeout', @lockTimeout, true);";
+            "set_config('lock_timeout', @lockTimeout, true), " +
+            "set_config('standard_conforming_strings', 'on', true);";
         timeoutCommand.CommandTimeout = limits.TimeoutSeconds;
         AddTextParameter(timeoutCommand, "@statementTimeout", $"{limits.TimeoutSeconds * 1000}ms");
         AddTextParameter(timeoutCommand, "@lockTimeout", $"{limits.LockTimeoutMilliseconds}ms");

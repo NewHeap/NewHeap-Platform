@@ -311,3 +311,18 @@ keyword names such as `"Update"` or `"Share"`, stay allowed on both providers.
 | Breaking change | Required action |
 |---|---|
 | A PostgreSQL query that uses a double-quoted identifier spelled like a forbidden function, also as a column alias, or a `U&"..."` identifier is refused before execution. | Rename the alias, or write the identifier without Unicode escapes. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL escape strings are refused
+
+In a PostgreSQL escape string (`E'...'`), and in every string literal of a role or connection that
+turns `standard_conforming_strings` off, a backslash escapes the quote that would otherwise end the
+literal. The SQL policy did not follow that, so `SELECT E'\'' AS a, pg_sleep(1) AS b, E'\''` passed
+validation with the function call inside what the policy read as a string, and PostgreSQL ran it. The
+policy now refuses escape strings with the new code `escape-string-not-allowed`, and the tool sets
+`standard_conforming_strings` to `on` for the diagnostic transaction, so a backslash in an ordinary
+string literal stays an ordinary character, as the policy reads it.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL query with an escape string (`E'...'`) is refused before execution. | Pass the value as a typed parameter, or write it as an ordinary string literal. |
+| Ordinary PostgreSQL string literals are read with `standard_conforming_strings` on, also when the principal's role or connection turned it off. | Write a quote inside a literal as `''`; a backslash is an ordinary character. |

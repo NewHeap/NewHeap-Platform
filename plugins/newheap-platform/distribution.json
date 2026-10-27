@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.86",
   "guidanceVersion": "1.13.86",
-  "skillContentHash": "3cae5b8278f310224335ff4bf742408c5f7fc9787c505cb2af0bce68feba3e9a",
+  "skillContentHash": "331bdaa3f4b647073ea38bb7a3a29469a32116db450884ac1f83e1be5bad73b8",
   "skills": [
     "newheap-platform-development"
   ],

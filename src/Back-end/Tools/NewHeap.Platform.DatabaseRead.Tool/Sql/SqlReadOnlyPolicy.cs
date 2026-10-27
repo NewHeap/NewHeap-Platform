@@ -177,6 +177,20 @@ internal static class SqlReadOnlyPolicy
                         "PostgreSQL Unicode-escaped identifiers are not allowed.");
                 }
 
+                // In an escape string a backslash can escape the quote that would end a standard
+                // string, so its end is not where this tokenizer would look for it. The provider
+                // keeps standard_conforming_strings on, so other string literals end as read here.
+                if (provider == DatabaseProviderKind.PostgreSql &&
+                    index - start == 1 &&
+                    sql[start] is 'E' or 'e' &&
+                    index < sql.Length &&
+                    sql[index] == '\'')
+                {
+                    Reject(
+                        "escape-string-not-allowed",
+                        "PostgreSQL escape strings are not allowed. Pass the value as a parameter.");
+                }
+
                 tokens.Add(sql[start..index].ToUpperInvariant());
                 continue;
             }
