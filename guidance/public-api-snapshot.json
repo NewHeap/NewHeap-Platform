@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "210b9c67abf486dfda11a79f14232a316c4449dade267b7b0ff9f857b3bc8003",
-    "declarationCount": 11202,
+    "hash": "27c63569cd45ec136629053d2572c00089339c50cb31cdb6bdd8db8b8b6cb0a4",
+    "declarationCount": 11203,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -30519,7 +30519,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/CompositeDbEntityProtectedNhBaseController.cs",
-        "declaration": "[NonAction] protected virtual Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
+        "declaration": "[NonAction] protected virtual async Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/CompositeDbEntityProtectedNhBaseController.cs",
@@ -30659,7 +30659,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
-        "declaration": "[NonAction] protected virtual Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
+        "declaration": "[NonAction] protected virtual async Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
@@ -40575,6 +40575,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
+        "declaration": "public const string DivisionMember = \"nh.platform.division.member\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
         "declaration": "public const string ImpersonateOriginUserId = \"nh.platform.auth.impersonate.origin-user-id\";"
       },
       {
@@ -49183,7 +49187,9 @@
     "nh-auth-permission-scopes": [
       "ProtectedNhBaseController",
       "NhDivisionRoleClaim",
-      "NhUserManager"
+      "NhUserManager",
+      "NhBaseDivisionUserController",
+      "NhBaseDivisionController"
     ],
     "nh-auth-session-lifecycle": [
       "LogoutRequest",

@@ -1082,7 +1082,7 @@ scopes visible and verify it against real endpoints:
 
 | Account | Assigned access |
 |---|---|
-| `sample@example.test` | manager role with application-wide view, manage, confidential and assistant permissions; division editor in Sample North, so the assistant and its administration work, and no project rights in Sample South |
+| `sample@example.test` | manager role with application-wide view, manage, confidential and assistant permissions; division editor and division manager in Sample North, so the assistant and its administration work and it manages the memberships of Sample North; no project rights and no membership management in Sample South |
 | `viewer@example.test` | viewer role with only the application-wide view permission |
 | `division-editor@example.test` | division role with project permissions in the active Sample North division |
 | `project-editor@example.test` | project-specific `confidential.view` permission and `project-editor` role for Authorization Alpha |
@@ -1099,6 +1099,22 @@ division permission applies inside the active division, and a project permission
 applies only to the named project. The UI uses the same hierarchy to show or
 hide actions. Probe buttons remain available so a hidden action can also be
 shown to receive a `403` response from the API.
+
+The memberships of a division are managed under `/division-memberships` by
+`DivisionMembershipController`, a thin controller derived from the library's
+`NhBaseDivisionUserController`. Its `app.division.view` and `app.division.manage`
+policies are division policies (`SampleDivisionPolicies`), and the manager holds
+the `sample-division-manager` role in Sample North only. With Sample North
+active, a body that names Sample South returns `403` and a Sample South
+membership returns `404`, because the inherited update and delete first
+resolve their row through the controller's `GetQueryableAsync`. A lockout the
+manager sets on a membership removes that member's claims for Sample North from
+the next request until the lockout ends; the other members keep theirs.
+Membership is also what a division check without requirements asks for, such as
+the gate of the division-exclusive portfolio operations: the division editor
+works in Sample North only, and a member without division roles is still a
+member. `SampleRuntimeAuthorizationClaims` keeps the membership claim out of the
+token with the other division claims and restores it per request.
 
 ## Authentication service overrides and request claims
 

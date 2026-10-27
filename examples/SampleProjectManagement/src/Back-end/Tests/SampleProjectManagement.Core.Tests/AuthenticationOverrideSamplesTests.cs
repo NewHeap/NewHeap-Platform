@@ -70,6 +70,8 @@ public sealed class AuthenticationOverrideSamplesTests
         Assert.True(SampleRuntimeAuthorizationClaims.IsRequestScoped(
             NhPlatformClaimTypes.DivisionPermission));
         Assert.True(SampleRuntimeAuthorizationClaims.IsRequestScoped(
+            NhPlatformClaimTypes.DivisionMember));
+        Assert.True(SampleRuntimeAuthorizationClaims.IsRequestScoped(
             SampleProjectClaimTypes.ProjectPermission));
         Assert.False(SampleRuntimeAuthorizationClaims.IsRequestScoped(
             NhPlatformClaimTypes.Permission));

@@ -1,6 +1,7 @@
 using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
@@ -196,7 +197,7 @@ public sealed class PartialUpdateControllerTests
     {
         var service = new FakeDbEntityService();
         var controller = CreateDbEntityController(service);
-        var id = Guid.NewGuid();
+        var id = service.AddRow();
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var actionResult = await controller.PartialUpdate(
@@ -229,7 +230,7 @@ public sealed class PartialUpdateControllerTests
         var controller = CreateDbEntityController(service);
 
         var actionResult = await controller.PartialUpdate(
-            Guid.NewGuid(),
+            service.AddRow(),
             JObject.Parse("""{ "countryId": 42, "notPatchable": true }"""));
 
         Assert.IsType<BadRequestObjectResult>(actionResult);
@@ -251,7 +252,7 @@ public sealed class PartialUpdateControllerTests
         var controller = CreateDbEntityController(service);
 
         var actionResult = await controller.PartialUpdate(
-            Guid.NewGuid(),
+            service.AddRow(),
             JObject.Parse("""{ "postal-code": "after" }"""));
 
         Assert.IsType<BadRequestObjectResult>(actionResult);
@@ -263,7 +264,7 @@ public sealed class PartialUpdateControllerTests
     {
         var service = new FakeCompositeDbEntityService();
         var controller = CreateCompositeController(service);
-        var id = Guid.NewGuid();
+        var id = service.AddRow();
 
         var actionResult = await controller.PartialUpdate(
             id,
@@ -279,12 +280,65 @@ public sealed class PartialUpdateControllerTests
     }
 
     [Fact]
+    public async Task DbEntityControllerReturnsNotFoundForARowOutsideItsScope()
+    {
+        var service = new FakeDbEntityService();
+        var controller = CreateDbEntityController(service);
+        var outside = Guid.NewGuid();
+
+        var update = await controller.Update(outside, new TestMutateModel());
+        var partialUpdate = await controller.PartialUpdate(
+            outside,
+            JObject.Parse("""{ "postal-code": "after" }"""));
+
+        Assert.IsType<NotFoundResult>(update);
+        Assert.IsType<NotFoundResult>(partialUpdate);
+        Assert.Null(service.UpdateId);
+        Assert.Null(service.PartialUpdateSetters);
+    }
+
+    [Fact]
+    public async Task DbEntityControllerUpdatesARowInsideItsScope()
+    {
+        var service = new FakeDbEntityService();
+        var controller = CreateDbEntityController(service);
+        var id = service.AddRow();
+
+        var actionResult = await controller.Update(id, new TestMutateModel());
+
+        Assert.IsType<OkResult>(actionResult);
+        Assert.Equal(id, service.UpdateId);
+    }
+
+    [Fact]
+    public async Task CompositeControllerReturnsNotFoundForARowOutsideItsScope()
+    {
+        var service = new FakeCompositeDbEntityService();
+        var controller = CreateCompositeController(service);
+        var outside = Guid.NewGuid();
+
+        var update = await controller.Update(outside, new TestMutateModel());
+        var partialUpdate = await controller.PartialUpdate(
+            outside,
+            JObject.Parse("""{ "vatNumber": null }"""));
+
+        Assert.IsType<NotFoundResult>(update);
+        Assert.IsType<NotFoundResult>(partialUpdate);
+        Assert.Null(service.UpdateId);
+        Assert.Null(service.PartialUpdateSetters);
+
+        var inside = service.AddRow();
+        Assert.IsType<OkResult>(await controller.Update(inside, new TestMutateModel()));
+        Assert.Equal(inside, service.UpdateId);
+    }
+
+    [Fact]
     public async Task EmptyPatchIsNoOpAndDoesNotCallService()
     {
         var service = new FakeDbEntityService();
         var controller = CreateDbEntityController(service);
 
-        var actionResult = await controller.PartialUpdate(Guid.NewGuid(), new JObject());
+        var actionResult = await controller.PartialUpdate(service.AddRow(), new JObject());
 
         Assert.IsType<NoContentResult>(actionResult);
         Assert.Null(service.PartialUpdateSetters);
@@ -296,7 +350,7 @@ public sealed class PartialUpdateControllerTests
         var service = new FakeDbEntityService();
         var controller = CreateDbEntityController(service);
 
-        var actionResult = await controller.PartialUpdate(Guid.NewGuid(), null);
+        var actionResult = await controller.PartialUpdate(service.AddRow(), null);
 
         Assert.IsType<BadRequestObjectResult>(actionResult);
         Assert.Null(service.PartialUpdateSetters);
@@ -426,6 +480,14 @@ public sealed class PartialUpdateControllerTests
                 collectionProcessingService,
                 service)
     {
+        public Task<IActionResult> Update(
+            Guid id,
+            TestMutateModel mutateModel,
+            CancellationToken cancellationToken = default)
+        {
+            return DoUpdate(id, mutateModel, cancellationToken);
+        }
+
         public Task<IActionResult> PartialUpdate(
             Guid id,
             JObject? partialUpdate,
@@ -456,6 +518,14 @@ public sealed class PartialUpdateControllerTests
                 collectionProcessingService,
                 service)
     {
+        public Task<IActionResult> Update(
+            Guid id,
+            TestMutateModel mutateModel,
+            CancellationToken cancellationToken = default)
+        {
+            return DoUpdate(id, mutateModel, cancellationToken);
+        }
+
         public Task<IActionResult> PartialUpdate(
             Guid id,
             JObject? partialUpdate,
@@ -465,9 +535,48 @@ public sealed class PartialUpdateControllerTests
         }
     }
 
+    /// <summary>
+    /// The rows of a fake service's repository, which the default <c>GetQueryableAsync</c> of the
+    /// controller reads as its scope.
+    /// </summary>
+    private sealed class FakeRows
+    {
+        private readonly FakeRowsDbContext _context = new(
+            new DbContextOptionsBuilder<FakeRowsDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options);
+
+        public FakeRows()
+        {
+            Repository = Substitute.For<IRepository<TestEntity>>();
+            Repository.GetAll().Returns(_ => _context.Set<TestEntity>());
+        }
+
+        public IRepository<TestEntity> Repository { get; }
+
+        public Guid Add()
+        {
+            var entity = new TestEntity { Id = Guid.NewGuid() };
+            _context.Add(entity);
+            _context.SaveChanges();
+
+            return entity.Id;
+        }
+    }
+
+    private sealed class FakeRowsDbContext(DbContextOptions<FakeRowsDbContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TestEntity>();
+        }
+    }
+
     private sealed class FakeDbEntityService : IBaseDbEntityService<TestEntity, TestMutateModel>
     {
-        private readonly IRepository<TestEntity> _repository = Substitute.For<IRepository<TestEntity>>();
+        private readonly FakeRows _rows = new();
+
+        public Guid? UpdateId { get; private set; }
 
         public Guid? PartialUpdateId { get; private set; }
 
@@ -478,7 +587,9 @@ public sealed class PartialUpdateControllerTests
         public TaskResult<TestEntity?> PartialUpdateResult { get; init; } =
             TaskResult<TestEntity?>.Succeeded(new TestEntity());
 
-        public IRepository<TestEntity> GetRepository() => _repository;
+        public Guid AddRow() => _rows.Add();
+
+        public IRepository<TestEntity> GetRepository() => _rows.Repository;
 
         public IQueryable<TestEntity> QueryableWithAllIncludes(IQueryable<TestEntity>? queryable = null) =>
             queryable ?? Array.Empty<TestEntity>().AsQueryable();
@@ -503,8 +614,11 @@ public sealed class PartialUpdateControllerTests
             Guid? committedByUserId = null,
             Action<TestEntity>? beforeSave = null,
             CancellationToken cancellationToken = default,
-            BaseDbEntityServiceOperationOptions? options = null) =>
-            throw new NotSupportedException();
+            BaseDbEntityServiceOperationOptions? options = null)
+        {
+            UpdateId = id;
+            return Task.FromResult(TaskResult<TestEntity?>.Succeeded(new TestEntity()));
+        }
 
         public Task<TaskResult<TestEntity?>> UpdatePartialAsync(
             Guid id,
@@ -540,13 +654,17 @@ public sealed class PartialUpdateControllerTests
 
     private sealed class FakeCompositeDbEntityService : ICompositeBaseDbEntityService<TestEntity, TestMutateModel, TestEntity>
     {
-        private readonly IRepository<TestEntity> _repository = Substitute.For<IRepository<TestEntity>>();
+        private readonly FakeRows _rows = new();
+
+        public Guid? UpdateId { get; private set; }
 
         public Guid? PartialUpdateId { get; private set; }
 
         public Func<NhSetPropertyCalls<TestMutateModel>, NhSetPropertyCalls<TestMutateModel>>? PartialUpdateSetters { get; private set; }
 
-        public IRepository<TestEntity> GetRepository() => _repository;
+        public Guid AddRow() => _rows.Add();
+
+        public IRepository<TestEntity> GetRepository() => _rows.Repository;
 
         public IQueryable<TestEntity> QueryableWithAllIncludes(IQueryable<TestEntity>? queryable = null) =>
             queryable ?? Array.Empty<TestEntity>().AsQueryable();
@@ -571,8 +689,11 @@ public sealed class PartialUpdateControllerTests
             Guid? committedByUserId = null,
             Action<TestEntity>? beforeSave = null,
             CancellationToken cancellationToken = default,
-            CompositeBaseDbEntityServiceOperationOptions? options = null) =>
-            throw new NotSupportedException();
+            CompositeBaseDbEntityServiceOperationOptions? options = null)
+        {
+            UpdateId = id;
+            return Task.FromResult(TaskResult<TestEntity?>.Succeeded(new TestEntity()));
+        }
 
         public Task<TaskResult<TestEntity?>> UpdatePartialAsync(
             Guid id,

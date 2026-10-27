@@ -119,6 +119,10 @@ var platformOptions = NewHeapAspNetCommonOptions
                 null,
                 new Claim(NhPlatformClaimTypes.DivisionPermission, "project.manage")));
 
+        // SPM-211: the policies of the division membership endpoints. As division policies they
+        // let a division manager work in the active division only.
+        options.AddSampleDivisionPolicies();
+
         options.AddPolicy(
             SampleAuthorizationPolicies.ProjectConfidentialView,
             policy => policy.RequireAnyProjectActiveDivisionAccess("confidential.view"));

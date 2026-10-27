@@ -195,12 +195,21 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
         return Ok(viewModel);
     }
 
+    /// <summary>
+    /// Updates the row with <paramref name="id"/> when <see cref="GetQueryableAsync"/> contains it,
+    /// and returns <c>404</c> otherwise, as <see cref="DoDelete"/> does.
+    /// </summary>
     [NonAction]
     protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TUpdateMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        if (!await IsInScopeAsync(id, cancellationToken))
+        {
+            return NotFound();
         }
 
         var updateTaskResult = await _compositeDbEntityService.UpdateAsync(id, mutateModel, UserId, cancellationToken: cancellationToken);
@@ -214,13 +223,22 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
         return Ok();
     }
 
+    /// <summary>
+    /// Partially updates the row with <paramref name="id"/> when <see cref="GetQueryableAsync"/>
+    /// contains it, and returns <c>404</c> otherwise, before the patch is read.
+    /// </summary>
     [NonAction]
-    protected virtual Task<IActionResult> DoUpdatePartial(
+    protected virtual async Task<IActionResult> DoUpdatePartial(
         [FromRoute] Guid id,
         [FromBody] JObject? partialUpdate,
         CancellationToken cancellationToken = default)
     {
-        return NhPartialUpdateControllerExecutor.ExecuteAsync<TUpdateMutateModel, TDbEntity>(
+        if (!await IsInScopeAsync(id, cancellationToken))
+        {
+            return NotFound();
+        }
+
+        return await NhPartialUpdateControllerExecutor.ExecuteAsync<TUpdateMutateModel, TDbEntity>(
             this,
             _localizer,
             partialUpdate,
@@ -263,5 +281,16 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
         }
 
         return Ok();
+    }
+
+    /// <summary>
+    /// Whether the controller's own scope, <see cref="GetQueryableAsync"/>, contains the row. Every
+    /// inherited write checks it, so a write never reaches a row that reads and deletes cannot see.
+    /// </summary>
+    private async Task<bool> IsInScopeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+
+        return await query.AnyAsync(x => x.Id == id, cancellationToken);
     }
 }

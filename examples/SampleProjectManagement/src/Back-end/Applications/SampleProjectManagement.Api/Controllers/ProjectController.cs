@@ -213,6 +213,7 @@ public class ProjectController : DbEntityProtectedNhBaseController<
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] ProjectMutateModel mutateModel,
@@ -230,6 +231,7 @@ public class ProjectController : DbEntityProtectedNhBaseController<
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> UpdatePartial(
         [FromRoute] Guid id,
         [FromBody] JObject? partialUpdate,

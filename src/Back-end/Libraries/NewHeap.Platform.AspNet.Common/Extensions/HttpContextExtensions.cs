@@ -37,6 +37,11 @@ public static partial class HttpContextExtensions
         return null;
     }
 
+    /// <summary>
+    /// Whether the signed-in user may work in <paramref name="divisionId"/>, from the user's
+    /// current claims: the division access-all permission, or membership of the division with every
+    /// required division claim and role. Without requirements, membership alone decides.
+    /// </summary>
     public static async Task<bool> HasDivisionAccessAsync(
         this HttpContext httpContext,
         Guid? divisionId,

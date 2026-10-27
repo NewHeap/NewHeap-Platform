@@ -9,6 +9,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using System.ComponentModel;
 using System.Linq.Expressions;
 
@@ -112,24 +113,58 @@ public abstract class NhBaseDivisionUserController<
         return DoGetById(id);
     }
 
+    /// <summary>
+    /// Adds a membership. Without the division access-all permission the membership must belong
+    /// to the active division; another division returns <c>403</c>.
+    /// </summary>
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Create([FromBody] TDivisionUserMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
-        return DoCreate(mutateModel);
+        if (NamesAnotherDivision(mutateModel))
+        {
+            return Task.FromResult<IActionResult>(Forbid());
+        }
+
+        return DoCreate(mutateModel, cancellationToken);
     }
 
+    /// <summary>
+    /// Changes a membership of the active division. Without the division access-all permission a
+    /// membership of another division returns <c>404</c>, and moving one to another division
+    /// returns <c>403</c>.
+    /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionUserMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
-        return DoUpdate(id, mutateModel);
+        if (NamesAnotherDivision(mutateModel))
+        {
+            return Task.FromResult<IActionResult>(Forbid());
+        }
+
+        return DoUpdate(id, mutateModel, cancellationToken);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
-        return DoDelete(id);
+        return DoDelete(id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether the body names a division other than the active one, for a caller who may only
+    /// manage the active division. A caller with the division access-all permission manages every
+    /// division.
+    /// </summary>
+    private bool NamesAnotherDivision(TDivisionUserMutateModel mutateModel)
+    {
+        if (User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
+        {
+            return false;
+        }
+
+        return !ActiveDivisionId.HasValue || mutateModel.DivisionId != ActiveDivisionId;
     }
 }

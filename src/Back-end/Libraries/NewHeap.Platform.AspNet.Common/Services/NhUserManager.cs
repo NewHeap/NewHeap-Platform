@@ -25,6 +25,10 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 
 public interface INhUserManager
 {
+    /// <summary>
+    /// Whether the claims let the user work in <paramref name="divisionId"/>: membership of the
+    /// division is always required, and every required division claim and role must be held in it.
+    /// </summary>
     Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null, CancellationToken cancellationToken = default);
     string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
     string GenerateRegistrationToken();
@@ -341,15 +345,21 @@ public abstract partial class NhUserManager<
             var currentDate = DateTimeOffset.UtcNow.Date;
             IQueryable<TDivision> divisionsQuery = _userRepository.GetDbSet<TDivision>().AsNoTracking();
 
+            // Only the user's own memberships count, and only while they are not locked out. As
+            // IsBlockedAsync does for account lockout, a membership is locked out once its lockout
+            // has started and until it has ended; without an end date it stays locked out, and
+            // without a start date it is not locked out. Lockout dates count in whole UTC days,
+            // from the start day through the end day.
+            IQueryable<TDivisionUser> activeMemberships = _userRepository.GetDbSet<TDivisionUser>()
+                .AsNoTracking()
+                .Where(c => c.UserId == user.Id
+                    && !(c.LockOutStartDateTime != null
+                        && c.LockOutStartDateTime.Value.Date <= currentDate
+                        && (c.LockOutEndDateTime == null || c.LockOutEndDateTime.Value.Date >= currentDate)));
+
             if (!divisionAccessAll)
             {
-                divisionsQuery = divisionsQuery.Where(x => x.DivisionUsers.Any(c =>
-                    c.UserId == user.Id
-                    && c.LockOutStartDateTime == null ? true :
-                    !(c.LockOutStartDateTime!.Value.Date <= currentDate)
-                    && c.LockOutEndDateTime == null ? true :
-                    !(c.LockOutEndDateTime!.Value.Date >= currentDate)
-                ));
+                divisionsQuery = divisionsQuery.Where(x => activeMemberships.Any(c => c.DivisionId == x.Id));
             }
 
             List<TDivisionRoleClaim> divisionRolesClaims =
@@ -359,12 +369,16 @@ public abstract partial class NhUserManager<
             var divisionIds = await divisionsQuery.Select(x => x.Id).ToListAsync();
             foreach (var divisionId in divisionIds)
             {
+                // Membership itself, so that a member without division roles still counts as one.
+                divisionRolesClaimClaims.Add(new Claim(NhPlatformClaimTypes.DivisionMember, divisionId.ToString()));
+
                 IQueryable<TDivisionRole> divisionRolesQuery = _userRepository.GetDbSet<TDivisionRole>().AsNoTracking();
                 if (!divisionAccessAll)
                 {
+                    // The roles of the same active membership, so no other row can bring them back.
                     divisionRolesQuery = divisionRolesQuery.Where(x =>
-                        x.DivisionUserRoles.Any(c =>
-                            c.DivisionUser.UserId == user.Id && c.DivisionUser.DivisionId == divisionId));
+                        x.DivisionUserRoles.Any(c => activeMemberships.Any(m =>
+                            m.Id == c.DivisionUserId && m.DivisionId == divisionId)));
                 }
 
                 // List of roles this user has in this division
@@ -853,15 +867,23 @@ public abstract partial class NhUserManager<
 
 
     #region Division
+
+    /// <summary>
+    /// Whether the claims let the user work in <paramref name="divisionId"/>. Membership of the
+    /// division is always required, also when no claim or role is required: a
+    /// <see cref="NhPlatformClaimTypes.DivisionMember"/> claim for the division, or a division role
+    /// in it. Every required division role and claim must then be held in that division. A
+    /// <see langword="null"/> and an empty requirement both mean that membership alone decides.
+    /// </summary>
     public virtual Task<bool> DivisionAccessAsync(
-        Guid? divisionId, 
+        Guid? divisionId,
         IEnumerable<Claim> userClaims,
-        IEnumerable<Claim>? requireClaims = null, 
-        IEnumerable<string>? requireRoles = null, 
+        IEnumerable<Claim>? requireClaims = null,
+        IEnumerable<string>? requireRoles = null,
         CancellationToken cancellationToken = default
         )
     {
-        if (!divisionId.HasValue || (requireClaims?.Any() == false && requireRoles?.Any() == false))
+        if (!divisionId.HasValue)
         {
             return Task.FromResult(false);
         }
@@ -873,31 +895,57 @@ public abstract partial class NhUserManager<
             return Task.FromResult(false);
         }
 
-        if (requireRoles?.Any() == true)
+        if (!IsDivisionMember(divisionId.Value, userClaims))
         {
-            foreach (var requiredRoles in requireRoles)
+            return Task.FromResult(false);
+        }
+
+        foreach (var requiredRole in requireRoles ?? [])
+        {
+            if (!userClaims.Any(x =>
+                    x.Type == NhPlatformClaimTypes.DivisionRole && x.Value == $"{divisionId}_{requiredRole}"))
             {
-                if (!userClaims.Any(x =>
-                        x.Type == NhPlatformClaimTypes.DivisionRole && x.Value == $"{divisionId}_{requiredRoles}"))
-                {
-                    return Task.FromResult(false);
-                }
+                return Task.FromResult(false);
             }
         }
 
-        if (requireClaims?.Any() == true)
+        foreach (var requiredClaim in requireClaims ?? [])
         {
-            foreach (var requiredClaim in requireClaims)
+            if (!userClaims.Any(x =>
+                    x.Type == requiredClaim.Type && x.Value == $"{divisionId}_{requiredClaim.Value}"))
             {
-                if (!userClaims.Any(x =>
-                        x.Type == requiredClaim.Type && x.Value == $"{divisionId}_{requiredClaim.Value}"))
-                {
-                    return Task.FromResult(false);
-                }
+                return Task.FromResult(false);
             }
         }
 
         return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Whether the claims show membership of the division: its membership claim, or a division
+    /// role in it, which NewHeap Identity only adds for members.
+    /// </summary>
+    private static bool IsDivisionMember(Guid divisionId, IEnumerable<Claim> userClaims)
+    {
+        var divisionRolePrefix = $"{divisionId}_";
+
+        foreach (var claim in userClaims)
+        {
+            if (claim.Type == NhPlatformClaimTypes.DivisionMember
+                && Guid.TryParse(claim.Value, out var memberOf)
+                && memberOf == divisionId)
+            {
+                return true;
+            }
+
+            if (claim.Type == NhPlatformClaimTypes.DivisionRole
+                && claim.Value.StartsWith(divisionRolePrefix, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #endregion

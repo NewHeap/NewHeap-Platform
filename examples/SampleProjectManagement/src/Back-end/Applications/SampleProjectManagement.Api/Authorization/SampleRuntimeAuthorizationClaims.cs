@@ -11,6 +11,7 @@ public static class SampleRuntimeAuthorizationClaims
     public static bool IsRequestScoped(string claimType) =>
         claimType == NhPlatformClaimTypes.DivisionPermission ||
         claimType == NhPlatformClaimTypes.DivisionRole ||
+        claimType == NhPlatformClaimTypes.DivisionMember ||
         claimType == SampleProjectClaimTypes.ProjectPermission ||
         claimType == SampleProjectClaimTypes.ProjectRole;
 }

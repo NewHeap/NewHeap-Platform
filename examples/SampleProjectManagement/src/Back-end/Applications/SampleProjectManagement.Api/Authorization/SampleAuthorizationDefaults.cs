@@ -7,7 +7,9 @@ public static class SampleAuthorizationDefaults
     /// <summary>
     /// The default demo account: member of <see cref="ManagerRole"/> with the application-wide
     /// permissions and the assistant, and of <see cref="DivisionEditorRole"/> in Sample North, which
-    /// the assistant and its administration need as well. In Sample South it has no project rights.
+    /// the assistant and its administration need as well. As <see cref="DivisionManagerRole"/> it
+    /// manages the memberships of Sample North. In Sample South it has no project rights and
+    /// manages nothing.
     /// </summary>
     public const string ManagerEmail = "sample@example.test";
     public const string ViewerEmail = "viewer@example.test";
@@ -46,6 +48,12 @@ public static class SampleAuthorizationDefaults
     public const string ViewerRole = "sample-project-viewer";
     public const string DivisionEditorRole = "sample-division-editor";
     public const string ProjectMemberRole = "sample-project-member";
+
+    /// <summary>
+    /// Division role with the <c>division.view</c> and <c>division.manage</c> permissions of the
+    /// <c>app.division.view</c> and <c>app.division.manage</c> policies.
+    /// </summary>
+    public const string DivisionManagerRole = "sample-division-manager";
     public const string SecurityOfficerRole = "sample-security-officer";
     public const string ProjectLeadRole = "sample-project-lead";
 
