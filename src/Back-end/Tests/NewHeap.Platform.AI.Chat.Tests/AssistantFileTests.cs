@@ -495,6 +495,42 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
         await AssertNoContentAsync(host, run.ConversationId, PlanText);
     }
 
+    /// <summary>
+    /// A message that waited for a run whose rules ended it keeps the references of its files, which
+    /// nobody read with its author's rights. A later turn of someone else never opens them with its own
+    /// rights; a turn of the author does.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_file_a_person_only_referenced_opens_later_only_in_that_persons_turn(AssistantTestProvider provider)
+    {
+        var models = new FileModels();
+        models.Default
+            .RespondWithText("I cannot read that plan.")
+            .RespondWithText("The plan moves the launch to May.");
+        await using var host = await CreateHostAsync(provider, models);
+        var files = host.Services.GetRequiredService<TestFiles>();
+        var plan = files.Add("plan", "Launch plan.pdf", NhAiMediaTypes.Pdf, PlanText);
+        var thread = await ReaderThreadAsync(host);
+        await SeedReferencedFileAsync(host, thread.Thread.ConversationId, "member-2", plan.Reference);
+
+        // Another person's turn names the file without reading it.
+        await RunReaderTurnAsync(host, thread, "member-1", "What does the plan say?");
+        Assert.Empty(files.Opened);
+        Assert.Contains(
+            models.Default.Requests[0].Messages.SelectMany(message => message.Contents).OfType<TextContent>(),
+            content => content.Text.Contains("Launch plan.pdf", StringComparison.Ordinal)
+                && content.Text.Contains(NhAssistantErrorCodes.FileForbidden, StringComparison.Ordinal));
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.FileRefused
+            && evt.FileId == "plan"
+            && evt.ResultCode == NhAssistantErrorCodes.FileForbidden);
+
+        // The author's own turn opens it with the author's rights.
+        await RunReaderTurnAsync(host, thread, "member-2", "And now?");
+        Assert.Equal([("plan", "member-2")], files.Opened.Select(item => (item.Reference.Id, item.Actor.ActorId)).ToArray());
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -766,6 +802,65 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
     private static string Sha256(string content)
     {
         return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+    }
+
+    private sealed record ReaderThread(AssistantThread Thread, NhAiSubjectInfo Subject);
+
+    /// <summary>The document reader's thread of a new project.</summary>
+    private static async Task<ReaderThread> ReaderThreadAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var info = (await services.GetRequiredService<Runs.NhAssistantSubjectAccessService>()
+            .DescribeAsync(new NhAiSubjectRef("project", Guid.NewGuid().ToString("N")), CancellationToken.None))!;
+        var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(Reader, false, CancellationToken.None))!;
+        var thread = (await services.GetRequiredService<Runs.NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None)).Data!;
+        return new ReaderThread(thread, info);
+    }
+
+    /// <summary>
+    /// A message of <paramref name="author"/> in the thread that keeps the reference of a file nobody
+    /// read, as a message that waited for a run its rules ended is left.
+    /// </summary>
+    private static async Task SeedReferencedFileAsync(AssistantTestHost host, Guid conversationId, string author, NhAiFileReference file)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        context.Messages.Add(new AssistantMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            TurnId = Guid.NewGuid(),
+            Role = NhAssistantMessageRoles.User,
+            AuthorActorId = author,
+            PartsJson = NhAssistantContent.SerializeParts(
+            [
+                new NhAssistantStoredPart(NhAssistantStoredPart.TextType, Text: "Please read the attached plan."),
+                new NhAssistantStoredPart(NhAssistantStoredPart.FileType, File: NhAssistantStoredFile.From(file, null, NhAssistantFileOrigins.Attachment))
+            ]),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>A turn of a run of <paramref name="initiator"/> in the reader's thread that answers their own message.</summary>
+    private static async Task RunReaderTurnAsync(AssistantTestHost host, ReaderThread thread, string initiator, string text)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var result = await services.GetRequiredService<INhAssistantTurnRunner>().RunAgentTurnAsync(
+            new NhAssistantAgentTurnRequest(
+                new NhAssistantAgentTurnContext(
+                    thread.Thread,
+                    thread.Subject,
+                    services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[Reader],
+                    null,
+                    NhAssistantTriggerIds.Manual,
+                    initiator,
+                    thread.Thread.AccountableOwnerId,
+                    IsRequestTurn: false),
+                [new NhAssistantAgentTurnInput(Guid.NewGuid(), initiator, NhAssistantTriggerIds.Manual, text)]),
+            CancellationToken.None);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
     }
 
     private static async Task<IReadOnlyList<NhAssistantStoredFile>> FilePartsAsync(AssistantTestHost host, Guid conversationId)

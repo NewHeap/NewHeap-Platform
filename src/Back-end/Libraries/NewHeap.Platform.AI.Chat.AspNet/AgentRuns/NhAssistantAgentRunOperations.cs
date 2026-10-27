@@ -709,7 +709,7 @@ internal sealed class NhAssistantAgentRunOperation(
         }
 
         // The continued turn answers the messages the run claimed before it waited; their authors
-        // decide whose personal MCP connection may serve it.
+        // decide whose personal MCP connection may serve it and whose rights it may borrow.
         var requestedBy = await runs.ListInputAuthorsAsync(agentTurn.RunId!.Value, cancellationToken);
         var result = await runner.ResumeAgentTurnAsync(
             new NhAssistantAgentResumeRequest(agentTurn with { RequestedBy = requestedBy }, wait.ApprovalId),

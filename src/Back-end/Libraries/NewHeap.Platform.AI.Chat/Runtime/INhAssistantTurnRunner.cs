@@ -225,7 +225,9 @@ internal sealed record NhAssistantAgentTurnContext(
     /// <summary>
     /// The people whose messages the run answers: the authors of the messages among the inputs the
     /// run claimed, such as a message typed while the run worked. A turn of the run reads its own
-    /// inputs as well; a turn that continues after a wait has only these.
+    /// inputs as well; a turn that continues after a wait has only these. A turn that answers someone
+    /// other than its initiator delegates no rights, one that answers someone other than the person its
+    /// gateway reads are for makes none, and no personal MCP connection of someone else serves it.
     /// </summary>
     public IReadOnlyList<string> RequestedBy { get; init; } = [];
 

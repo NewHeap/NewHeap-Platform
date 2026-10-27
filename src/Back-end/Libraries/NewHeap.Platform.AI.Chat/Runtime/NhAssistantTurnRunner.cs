@@ -1280,6 +1280,14 @@ internal sealed partial class NhAssistantTurnRunner(
         // A consultation proposal that executes with the agent's own rights never borrows the rights
         // of the person who asked, so no person's principal is rebuilt for it.
         var agentRightsOnly = !delegatedOnly && agentTurn.AgentRightsOnly;
+        // A turn that answers another person's message, such as one typed while the run worked that
+        // the run claimed, borrows neither the initiator's rights nor the gateway-read person's
+        // credential: a person lends rights only to their own requests, so the author of such a
+        // message never directs reads or calls with someone else's rights.
+        var delegates = !agentRightsOnly
+            && (delegatedOnly || agentTurn.Options.DelegateFromInitiator)
+            && !AnswersOtherThan(agentTurn, agentTurn.InitiatorActorId);
+        var readsForOther = AnswersOtherThan(agentTurn, agentTurn.InitiatorActorId ?? agentTurn.AccountableOwnerId);
         return new NhAiAgentInvocationScope(
             agentTurn.Thread.AgentId,
             state.Scope.Agent.ActorId,
@@ -1291,7 +1299,7 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             Accountability = agentTurn.Options.Accountability,
             InitiatorActorId = agentTurn.InitiatorActorId,
-            DelegateFromInitiator = !agentRightsOnly && (delegatedOnly || agentTurn.Options.DelegateFromInitiator),
+            DelegateFromInitiator = delegates,
             IsRequestTurn = agentTurn.IsRequestTurn,
             Grants = delegatedOnly ? [] : agentTurn.Options.Grants,
             ElevatedReads = agentTurn.Options.ElevatedReads,
@@ -1303,6 +1311,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 && consultation is null
                 && !agentRightsOnly
                 && !agentTurn.IsRequestTurn
+                && !readsForOther
                 && agentTurn.Options.Accountability != NhAiAgentAccountability.Agent,
             // The accountable account's rights, likewise in headless turns only: a person's turn in
             // the thread and a consultation use that person's own rights.
@@ -2270,6 +2279,15 @@ internal sealed partial class NhAssistantTurnRunner(
             return true;
         }
 
+        return agentTurn.RequestedBy.Any(author => !string.Equals(author, person, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Whether the turn answers a message of someone other than <paramref name="person"/>: an author
+    /// among the messages the run claimed. Such a turn borrows no rights of <paramref name="person"/>.
+    /// </summary>
+    private static bool AnswersOtherThan(NhAssistantAgentTurnContext agentTurn, string? person)
+    {
         return agentTurn.RequestedBy.Any(author => !string.Equals(author, person, StringComparison.Ordinal));
     }
 
@@ -3313,7 +3331,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var invocations = (await store.GetToolInvocationsAsync(conversationId, invocationIds, CancellationToken.None))
             .ToDictionary(invocation => invocation.Id);
 
-        var selected = new List<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id)>();
+        var selected = new List<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id, string? Author)>();
         foreach (var message in history.Reverse())
         {
             var parts = NhAssistantContent.DeserializeParts(message.PartsJson);
@@ -3345,7 +3363,7 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 break;
             }
-            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id));
+            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id, isUser ? message.AuthorActorId ?? state?.Scope.ConversationOwnerActorId : null));
         }
 
         // A consultation reads the thread with the asker's rights and opens no files of it.
@@ -3354,7 +3372,7 @@ internal sealed partial class NhAssistantTurnRunner(
             : await ReopenFilesAsync(state, selected, attachments);
         selected.Reverse();
         var messages = new List<ChatMessage>(selected.Count + following.Count);
-        foreach (var (_, message, _) in selected)
+        foreach (var (_, message, _, _) in selected)
         {
             messages.Add(message);
             if (following.TryGetValue(message, out var files))
@@ -3369,14 +3387,15 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Opens the files of the replayed messages again with this turn's actor (F6), newest first and
     /// each file once, within the turn's file limits for earlier files: a file that no longer exists,
-    /// that the actor may no longer read or that no longer fits is named with the reason instead. A
+    /// that the actor may no longer read or that no longer fits is named with the reason instead, and
+    /// so is a person's file that was never read with that person's rights, in another actor's turn. A
     /// person's message carries its attachments; the files tools returned follow the agent's message
     /// in a user message of their own, which this returns by that agent message. A message that waited
     /// for the run carries the attachments this turn opened for it (<paramref name="attachments"/>).
     /// </summary>
     private async Task<Dictionary<ChatMessage, ChatMessage>> ReopenFilesAsync(
         NhAssistantTurnState state,
-        IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id)> newestFirst,
+        IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id, string? Author)> newestFirst,
         IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments)
     {
         var following = new Dictionary<ChatMessage, ChatMessage>();
@@ -3389,7 +3408,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var interceptor = CreateInterceptor(state);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var outcomes = new List<NhAssistantFileOutcome>();
-        foreach (var (parts, message, id) in newestFirst)
+        foreach (var (parts, message, id, author) in newestFirst)
         {
             if (attachments is not null && attachments.TryGetValue(id, out var opened))
             {
@@ -3416,7 +3435,12 @@ internal sealed partial class NhAssistantTurnRunner(
                     continue;
                 }
 
-                var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
+                // A person's file that was never read with that person's rights, such as one of a
+                // message that waited for a run its rules ended, opens only in a turn of that person:
+                // another actor's rights never read what someone else only referenced.
+                var outcome = stored.Sha256 is null && author is not null && !string.Equals(author, state.Scope.OwnerActorId, StringComparison.Ordinal)
+                    ? NhAssistantTurnFiles.NotReadForAuthor(stored.ToReference(), stored.ToolId)
+                    : await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
                 outcomes.Add(outcome);
                 await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, part.InvocationId), CancellationToken.None);
                 if (outcome.Attached)

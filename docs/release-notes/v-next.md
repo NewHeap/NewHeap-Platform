@@ -284,3 +284,19 @@ the approver's.
 | Breaking change | Required action |
 |---|---|
 | Turn context providers (`UseTurnContextProvider`) receive the asker's context for such a continuation, and `INhAiTurnPerson` names nobody in it. | None, unless a provider or tool reads the request's user directly; read the person from the context instead. |
+
+## NewHeap.Platform.AI.Chat: a run lends no rights to another person's message
+
+A turn of an agent run that answers another person's message, such as a message typed while the run
+worked that the run claimed, no longer delegates from the run's initiator and makes no gateway reads
+with the credential of its initiator or accountable account. The authors of the messages a turn answers
+(`RequestedBy`) already kept personal MCP connections out of such a turn; delegated rights and gateway
+reads now follow the same rule. A file that a person's waiting message only referenced, because the run
+ended before its model read the files, opens later only in a turn of that person and is named with
+`assistant-file-forbidden` in anyone else's. The run's own work, and a run of the person who wrote the
+message, keep their rights.
+
+| Breaking change | Required action |
+|---|---|
+| A delegating agent's turn that also answers another person's message calls tools only with the agent's grants or accountable rights; a gateway read there falls back to them as well. | None; the other person's message gets an answer within the agent's own rights, or that person starts the agent. |
+| An earlier file of another person that nobody read with that person's rights is not opened in a later turn of someone else. | None. |

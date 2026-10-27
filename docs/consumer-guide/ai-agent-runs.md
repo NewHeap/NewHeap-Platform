@@ -23,7 +23,9 @@ with two keys: the tool opts in with `NhAiToolAttribute.AllowAgentGrant` (and
 carries an authorization policy), and the registration grants it with `Grant`.
 Use `TriggerOnly()` for grants that must not apply while a person chats in the
 thread, and `DelegateFromInitiator()` only when the agent may also use what its
-initiator may use. Keep `NhAiElevatedReads.Restricted` unless the results of
+initiator may use. A turn that answers another person's message, such as one typed while the run
+worked that the run claimed, does not delegate: only the agent's own grants and accountable rights
+serve it, so a person never directs calls with someone else's rights. Keep `NhAiElevatedReads.Restricted` unless the results of
 granted reads may be shown to everyone who sees the thread.
 
 Give every agent action that changes state a named approval policy with
@@ -1034,7 +1036,8 @@ Let a headless run read application data through the API bridge gateway with
 `AllowGatewayReads()` and tool selectors that select the gateway's tools (see `nh-ai-api-bridge`
 and `AddNewHeapPlatformAIDelegatedReads`). A run that a person started reads with that person's
 own rights, so asking an agent never lends someone else's; a run from a trigger reads with its
-accountable person or service account. Startup fails for an agent that answers to itself, without
+accountable person or service account. A turn that answers the message of someone other than that
+reader, such as a message typed while the run worked, makes no gateway reads. Startup fails for an agent that answers to itself, without
 an issuer or without a gateway. Consultations and turns inside a person's request keep reading with
 that person's own rights. Each read is recorded with grant source `DelegatedRead` and the person
 whose rights it used; only that person sees its result, whatever `ElevatedReads` says, and the run
@@ -1150,7 +1153,9 @@ the run's turn opens them as attachments with the person who wrote the message a
 another person started the run, within the limits of the skill the run works in. A file it cannot
 open, may not read or that does not fit is named to the model with its code instead, the run goes on,
 and the message in the thread keeps only the files the model read. A run that works by rules opens
-none; a later model turn opens them as files of an earlier turn.
+none; a later model turn of the message's author opens them as files of an earlier turn, while a turn
+of anyone else names them with `assistant-file-forbidden` instead of reading what that person only
+referenced with its own rights.
 SampleProjectManagement's document reader (SPM-306) shows it: a document added to a project's folder
 starts its `read-documents` skill through a trigger that names the skill, both the agent and the
 skill call `AcceptsFiles()`, and the skill's tool names the project's documents in its result

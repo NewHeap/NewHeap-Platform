@@ -4159,7 +4159,7 @@
       "categoryId": "18",
       "title": "An agent run with the rights of the person who started it",
       "surface": "`NhAssistantAgentRunBuilder.DelegateFromInitiator`, `NhAiGrantSource.Delegated`, `INhAiPrincipalFactory`, `NhAiSubjectAuthorizationResource` and `INhDivisionScopedResource`",
-      "outcome": "The status advisor has no grants of its own. In the background, without a request, the platform builds the starting participant's principal from the user manager's current claims and authorizes the tool's policies against the project's division, so the advisor can propose exactly what that person could do; the proposal records the grant source `delegated` and the participant as initiator. A reader of the project cannot start the advisor.",
+      "outcome": "The status advisor has no grants of its own. In the background, without a request, the platform builds the starting participant's principal from the user manager's current claims and authorizes the tool's policies against the project's division, so the advisor can propose exactly what that person could do; the proposal records the grant source `delegated` and the participant as initiator. A reader of the project cannot start the advisor. A participant lends rights only to their own requests: a turn of the advisor's run that answers a message another member typed while it worked does not delegate from the participant who started it.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs",
@@ -4167,7 +4167,8 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Policy/AuthorizationHandlers/ActiveDivisionAccessHandler.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/ActiveDivisionAccessHandlerTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/ActiveDivisionAccessHandlerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAnsweredMessageRightsTests.cs"
       ]
     },
     {
@@ -4610,7 +4611,7 @@
       "categoryId": "18",
       "title": "The project planner reads a project's tasks through the gateway with the rights of whom it reads for",
       "surface": "`AddNewHeapPlatformAIDelegatedReads` with `NhAiDelegatedReadsBuilder` (`UseIssuer`, `Lifetime`, `UseScheme`); the built-in issuer with `INhAuthenticationService.CreateDelegatedTokenAsync` and `MaySignInAsync`; `INhAiDelegatedReadCredentialIssuer` with `NhAiDelegatedReadRequest`, `NhAiDelegatedReadCredential` and `NhAiDelegatedReadDefaults` (`ClaimType`, `ActionClaimType`); the restriction of every JWT bearer scheme to the bound gateway `GET` action with the `X-NewHeap-AI-Invocation` header, whose target is the executing MVC action also under the `UseMvc` routing of `UseNewHeapPlatformAspNetCommon`; `INhAiDelegatedReadSurface`; `NhAssistantAgentRunBuilder.AllowGatewayReads` and `NhAssistantAgentRunOptions.AllowGatewayReads`; `NhAiAgentInvocationScope.AllowGatewayReads` and `GatewayReadActorId`; `NhAiGrantSource.DelegatedRead` and the `delegated-read` grant source of tool calls; the `DelegatedReadActor` migrations for SQL Server and PostgreSQL; `api-bridge-unauthenticated` and `api-bridge-forbidden`",
-      "outcome": "The project planner works for the project's owner and allows gateway reads. The daily deadline check starts it without a person: triage sends the check to the deadline-risk skill, whose model is offered the gateway's four read tools next to the status tool and none of the API's own actions, and its query reads the project's tasks through the task controller with a short-lived token of the owner from the built-in issuer. Only the owner sees what was read; the approver sees that the planner read for the owner, also with the permission to read projects. When the approver asks for a check, the run reads with the approver's own rights and finds no tasks. The owner's token reaches only the gateway action it was issued for with its invocation header, and a locked-out owner gets no token.",
+      "outcome": "The project planner works for the project's owner and allows gateway reads. The daily deadline check starts it without a person: triage sends the check to the deadline-risk skill, whose model is offered the gateway's four read tools next to the status tool and none of the API's own actions, and its query reads the project's tasks through the task controller with a short-lived token of the owner from the built-in issuer. Only the owner sees what was read; the approver sees that the planner read for the owner, also with the permission to read projects. When the approver asks for a check, the run reads with the approver's own rights and finds no tasks. The owner's token reaches only the gateway action it was issued for with its invocation header, and a locked-out owner gets no token. A turn that answers the message of someone other than the person it reads for, such as a member's message typed while the planner's run worked, makes no gateway reads with the owner's credential.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
@@ -4622,7 +4623,8 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgePlatformPipelineTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantGatewayReadTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAnsweredMessageRightsTests.cs"
       ]
     },
     {
@@ -5087,7 +5089,7 @@
       "categoryId": "18",
       "title": "The document reader, an agent whose skill accepts files, reads a project's documents through a tool result that names the media items, while agents that do not opt in refuse files",
       "surface": "`AcceptsFiles()` on `ConfigureAgent` and on `Skill(...)` with `NhAssistantFileLimits`; a generated tool whose result data implements `INhAiToolResultFiles` with `NhAiFileReference`s; `AddTrigger<TEvent>(...).Skill(...)` started from a media library event handler (`IHandleMediaLibraryEvent`); `assistant-files-not-accepted`; `NhAssistantAgentSummaryDto.Uploads`",
-      "outcome": "A document added to a project's documents folder in the media library starts the document reader on that project, in its `read-documents` skill. The agent and the skill opt in to files with `AcceptsFiles()`; the skill lowers the largest file to 10 MB. The skill's model sees only the `project-documents.read` tool, whose result names the project's newest documents by their media item ids and never carries content. The assistant opens each document through the file source for the agent, which may read the documents of the project it works on, and gives the model a PDF as a file and a Word document as the text of the example reader, after the tool result; the next run opens the documents of earlier runs again for its own actor. The audit names the tool, the media items and their hashes. The agents that never opted in, such as the intake reviewer, the status advisor and the planner, list no `uploads`, and an upload to the intake reviewer's thread is refused with `assistant-files-not-accepted`.",
+      "outcome": "A document added to a project's documents folder in the media library starts the document reader on that project, in its `read-documents` skill. The agent and the skill opt in to files with `AcceptsFiles()`; the skill lowers the largest file to 10 MB. The skill's model sees only the `project-documents.read` tool, whose result names the project's newest documents by their media item ids and never carries content. The assistant opens each document through the file source for the agent, which may read the documents of the project it works on, and gives the model a PDF as a file and a Word document as the text of the example reader, after the tool result; the next run opens the documents of earlier runs again for its own actor. The audit names the tool, the media items and their hashes. The agents that never opted in, such as the intake reviewer, the status advisor and the planner, list no `uploads`, and an upload to the intake reviewer's thread is refused with `assistant-files-not-accepted`. A file that a person's waiting message only referenced, because the run's rules ended it before its model read the files, opens later only in a turn of that person and is named with assistant-file-forbidden in anyone else's.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",
