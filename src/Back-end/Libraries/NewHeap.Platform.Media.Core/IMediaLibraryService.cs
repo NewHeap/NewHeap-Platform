@@ -154,12 +154,16 @@ public interface IMediaLibraryService
     Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options);
 
     /// <summary>
-    /// Localize a specific field of a file reference
+    /// Localize a display string of a file reference: its title, description or alt text. The write is
+    /// authorized as an update of the file.
     /// </summary>
     /// <param name="fileReferenceId"></param>
-    /// <param name="propertyName"></param>
+    /// <param name="propertyName">
+    /// <c>Title</c>, <c>Description</c> or <c>AltText</c>, in any case. Any other name fails with
+    /// <see cref="NhMediaErrorCodes.PropertyNotLocalizable"/>.
+    /// </param>
     /// <param name="language"></param>
-    /// <param name="value"></param>
+    /// <param name="value">The localized value; an empty value removes the localization.</param>
     /// <returns></returns>
     Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value);
 

@@ -22,6 +22,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Decide every media mutation in `IAuthorizationModule` by the action and the path it writes, because the library asks the module about each place a mutation touches before it reads or writes storage. A move or rename (`UpdateFileAsync(Guid, FileModel)`, `MoveFileAsync`, `RenameFileAsync`, `UpdateFolderAsync`) asks for `ActionType.Update` at its source and, when the folder or name changes, `ActionType.Create` at its destination, exactly as a direct upload or folder create there; it refuses a destination that already holds a file or folder with that name (`NhMediaErrorCodes.FileNameExists`, `NhMediaErrorCodes.FolderNameExists`). Tag updates and localizations ask for `ActionType.Update` of the file. A tenant- or division-scoped module that refuses paths outside the active scope therefore keeps moves, renames, tags and translations inside it. The media endpoints answer a refusal with 401, an existing name with 409 and a localization of another property with 400. Localize only a file's `Title`, `Description` and `AltText`; other property names fail with `NhMediaErrorCodes.PropertyNotLocalizable`, and stored localizations of other properties are ignored when files are read in a language.
+
 Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
 
 Map the media HTTP API with `MapNhMediaEndpoints` and configure its routes, through the `MediaLibraryRouteBuilder` callback or the returned group, before the host starts. The group builds its endpoints once; routing, the authorization policy cache, link generation and API descriptions share them, so a convention added after the host started no longer applies.
@@ -37,6 +39,7 @@ Configure the media schema through `FileStructureDbContextOptions.Scheme` for ei
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.
 - Calling `GetFileAsync(Guid)` in a loop for the files of one view, or replacing provider lookups with string-concatenated folder paths that cannot use an index.
+- An `IAuthorizationModule` that grants every mutation once the source is allowed, or that ignores `ActionType.Create` for moves and renames: the destination decision is what keeps media inside a tenant or division.
 
 ## Verification
 
@@ -45,6 +48,8 @@ Test the folder lifecycle, upload and download, search and sorting, metadata, th
 For file lookups, count the database round trips of one call with a command interceptor and replay the recorded commands against SQL Server and PostgreSQL to assert index seeks without table or sequential scans: a batch by id costs one file query and one folder query, and a lookup by path costs one query.
 
 Assert that routing and the application-wide `EndpointDataSource` share the media endpoints built once.
+
+For media mutations, use a module scoped to one division and assert the decisions it receives: a move or rename into another division asks for `ActionType.Create` at the destination and is refused before storage is read or written; a tag update or localization asks for `ActionType.Update` of the file and is refused alike for an existing and a missing file. Verify on SQL Server and PostgreSQL that a move or rename onto a name the destination holds fails with the error code while a free name succeeds, that the existing-name check follows each provider's case semantics, and that stored localizations of other properties than the three display strings leave lists, searches and file reads intact. Assert 401, 409 and 400 from the HTTP endpoints.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 
@@ -92,6 +97,7 @@ Exercise the SQL Server upgrade from the `IndexedMediaLibraryLookups` migration 
   - [src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts)
   - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts)
   - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.html)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs)
 - SPM-185 — Media search and sorting
   - [../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs)

@@ -564,6 +564,14 @@ Common dependency has an independent minimum of 6.0.0; the media regression suit
 runs against that public package and current Common source, including both real
 relational providers. Updating Common does not automatically raise Media's minimum.
 
+Media authorization case SPM-181 shows that `ProjectMediaAuthorizationModule` decides every
+mutation where it writes. `MediaMutationAuthorizationSamplesTests` lets a division manager try to
+move a file and a folder into another division's projects folder and to retag a file there: the
+library asks the module for a create at the destination and an update of the file, the active
+division's path scope refuses them, and the other division's listing stays unchanged. A move onto a
+name the folder already holds is refused, a viewer cannot localize, and only a file's title,
+description and alt text can be localized (SPM-184).
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call

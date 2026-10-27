@@ -21,6 +21,12 @@ public interface IFileStructureStorage
     Task<TaskResult> DeleteFileAsync(string? path, string filename);
 
     Task<SearchResults> SearchAsync(string searchTerm, string? path, SearchOptions options);
+
+    /// <summary>
+    /// Stores or, for an empty value, removes the localization of a file's title, description or alt text.
+    /// Implementations refuse other property names and apply only these three when they read a file in a
+    /// language.
+    /// </summary>
     Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string value);
 
     Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);

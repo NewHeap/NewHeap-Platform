@@ -2567,13 +2567,17 @@
       "categoryId": "13",
       "title": "Media authorization",
       "surface": "authorization module/context",
-      "outcome": "Read, mutate, and delete operations respect the active user and division.",
+      "outcome": "Read, mutate, and delete operations respect the active user and division. Every mutation is authorized where it writes: a move or rename is also authorized as a create at its destination and refuses a name the destination already holds, and tag updates and localizations are authorized as updates of the file, so a division manager cannot place or retag media in another division and a viewer cannot localize. The media endpoints answer a refusal with 401 and an existing name with 409.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
         "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
         "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationAuthorizationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaEndpointAuthorizationTests.cs"
       ]
     },
     {
@@ -2611,12 +2615,14 @@
       "categoryId": "13",
       "title": "Tags and properties",
       "surface": "tags/properties/localization",
-      "outcome": "Metadata and translations round-trip through the API and UI.",
+      "outcome": "Metadata and translations round-trip through the API and UI. Only a file's title, description and alt text can be localized; other property names are refused, and stored localizations of other properties are ignored when files are listed, searched or read in a language on SQL Server and PostgreSQL.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
         "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationProviderTests.cs"
       ]
     },
     {
