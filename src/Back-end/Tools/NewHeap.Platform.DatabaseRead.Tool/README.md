@@ -171,8 +171,10 @@ in reviewed request files.
 
 The SQL policy accepts one `SELECT` or read-only `WITH` statement without
 comments. On PostgreSQL it refuses functions with session or server effects,
-such as `pg_sleep`, the advisory-lock functions, `pg_terminate_backend`,
-`pg_read_file`, `set_config` and `dblink`, with `function-not-allowed`, also
+such as `pg_sleep` and its variants, the advisory-lock functions,
+`pg_terminate_backend`, `pg_read_file`, `set_config` and `dblink`, and the
+functions that run SQL text given as a string, such as `query_to_xml`,
+`ts_stat` and `ts_rewrite`, with `function-not-allowed`, also
 when the name is written as a double-quoted, schema-qualified or differently
 cased identifier such as `pg_catalog."pg_sleep"`. A Unicode-escaped identifier
 (`U&"..."`) is refused with `unicode-escaped-identifier-not-allowed`, and an

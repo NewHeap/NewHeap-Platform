@@ -63,6 +63,30 @@ public sealed class SqlReadOnlyPolicyTests
     }
 
     /// <summary>
+    /// These functions run SQL text that the policy reads as a string literal, or sleep like
+    /// <c>pg_sleep</c>.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT query_to_xml('SELECT pg_sleep(1)', true, true, '')")]
+    [InlineData("SELECT query_to_xmlschema('SELECT pg_sleep(1)', true, true, '')")]
+    [InlineData("SELECT query_to_xml_and_xmlschema('SELECT pg_sleep(1)', true, true, '')")]
+    [InlineData("SELECT cursor_to_xml('diagnostic_cursor', 1, true, true, '')")]
+    [InlineData("SELECT cursor_to_xmlschema('diagnostic_cursor', true, true, '')")]
+    [InlineData("SELECT * FROM ts_stat('SELECT to_tsvector(pg_sleep(1)::text)')")]
+    [InlineData("SELECT ts_rewrite('a'::tsquery, 'SELECT ''a''::tsquery, ''b''::tsquery FROM pg_sleep(1)')")]
+    [InlineData("SELECT pg_catalog.\"query_to_xml\"('SELECT pg_sleep(1)', true, true, '')")]
+    [InlineData("SELECT pg_sleep_for('1 second')")]
+    [InlineData("SELECT pg_sleep_until(now())")]
+    public void PostgreSqlFunctionsThatRunSqlTextOrSleepAreRejected(string sql)
+    {
+        var action = () => SqlReadOnlyPolicy.Validate(sql, DatabaseProviderKind.PostgreSql);
+
+        action.Should()
+            .Throw<DatabaseReadExpectedException>()
+            .Which.Code.Should().Be("function-not-allowed");
+    }
+
+    /// <summary>
     /// A Unicode-escaped identifier spells a name the policy cannot read, such as
     /// <c>U&amp;"pg\005fsleep"</c> for <c>pg_sleep</c>, so it is refused as a whole.
     /// </summary>

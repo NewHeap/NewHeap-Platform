@@ -24,7 +24,8 @@ internal static class SqlReadOnlyPolicy
 
     /// <summary>
     /// Functions refused on PostgreSQL. A double-quoted identifier names the same function when its
-    /// text matches, so quoted identifiers are compared with this list as well.
+    /// text matches, so quoted identifiers are compared with this list as well. The XML and text
+    /// search functions on the last lines run SQL text that the policy reads as a string literal.
     /// </summary>
     private static readonly HashSet<string> PostgreSqlForbiddenFunctions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -34,9 +35,11 @@ internal static class SqlReadOnlyPolicy
         "PG_ADVISORY_XACT_LOCK_SHARED", "PG_BACKUP_START", "PG_BACKUP_STOP",
         "PG_CANCEL_BACKEND", "PG_CREATE_RESTORE_POINT", "PG_LOGICAL_EMIT_MESSAGE", "PG_LOGDIR_LS",
         "PG_LS_DIR", "PG_NOTIFY", "PG_PROMOTE", "PG_READ_BINARY_FILE", "PG_READ_FILE",
-        "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_SLEEP", "PG_STAT_FILE",
-        "PG_TERMINATE_BACKEND", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED",
-        "PG_TRY_ADVISORY_XACT_LOCK", "PG_TRY_ADVISORY_XACT_LOCK_SHARED", "SET_CONFIG", "SETVAL"
+        "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_SLEEP", "PG_SLEEP_FOR", "PG_SLEEP_UNTIL",
+        "PG_STAT_FILE", "PG_TERMINATE_BACKEND", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED",
+        "PG_TRY_ADVISORY_XACT_LOCK", "PG_TRY_ADVISORY_XACT_LOCK_SHARED", "SET_CONFIG", "SETVAL",
+        "CURSOR_TO_XML", "CURSOR_TO_XMLSCHEMA", "QUERY_TO_XML", "QUERY_TO_XML_AND_XMLSCHEMA",
+        "QUERY_TO_XMLSCHEMA", "TS_REWRITE", "TS_STAT"
     };
 
     public static void Validate(string sql, DatabaseProviderKind provider)

@@ -326,3 +326,16 @@ string literal stays an ordinary character, as the policy reads it.
 |---|---|
 | A PostgreSQL query with an escape string (`E'...'`) is refused before execution. | Pass the value as a typed parameter, or write it as an ordinary string literal. |
 | Ordinary PostgreSQL string literals are read with `standard_conforming_strings` on, also when the principal's role or connection turned it off. | Write a quote inside a literal as `''`; a backslash is an ordinary character. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL functions that run SQL text are refused
+
+`query_to_xml`, `query_to_xmlschema`, `query_to_xml_and_xmlschema`, `cursor_to_xml`,
+`cursor_to_xmlschema`, `ts_stat` and `ts_rewrite` run SQL text that the SQL policy reads as a string
+literal, so a forbidden function inside that text, such as `pg_advisory_lock`, ran for a read-only
+principal; a session advisory lock taken this way stayed held by the pooled session after the tool
+rolled the transaction back. The policy now refuses these functions, and the `pg_sleep` variants
+`pg_sleep_for` and `pg_sleep_until`, with `function-not-allowed`, also as quoted identifiers.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL diagnostic query that calls one of these functions is refused before execution. | Send the SQL text that the function would run as the diagnostic `SELECT` itself. |
