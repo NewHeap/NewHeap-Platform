@@ -481,7 +481,9 @@ internal sealed class NhAssistantConsultationService(
             return SubjectUnavailable();
         }
 
-        var access = await subjects.ResolveAsync(subjectRef, request.AskerActorId, cancellationToken);
+        // The asker's role for the agent's thread: about the whole application only people who pass the
+        // agent's view policy read its work, as the thread, its runs and its proposals say.
+        var access = await subjects.ResolveForAgentAsync(subjectRef, options.AgentId, request.AskerActorId, cancellationToken);
         if (!access.Has(options.MinimumRole))
         {
             return SubjectUnavailable();

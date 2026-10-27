@@ -15,8 +15,8 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 
 /// <summary>
 /// Who may consult an agent: the asker passes the agent's required policy as it is in effect now when
-/// the consultation names no asker policy of its own, in code and as data, on both relational
-/// providers.
+/// the consultation names no asker policy of its own, in code and as data, and about the whole
+/// application only people who pass the agent's view policy consult it, on both relational providers.
 /// </summary>
 public sealed class AssistantConsultationPolicyTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -103,6 +103,34 @@ public sealed class AssistantConsultationPolicyTests(AssistantDatabaseFixture da
         var answered = await handler.ConsultAsync(aboutOrder, Input(new { subjectId = OrderId, question = "What is open?" }), Person(Member), CancellationToken.None);
 
         Assert.True(answered.Success, CodeOf(answered));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Only_people_who_pass_the_agents_view_policy_consult_it_about_the_whole_application(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient().RespondWithText("Nothing waits for the whole application.");
+        await using var app = await StartAsync(provider, model);
+        await using var scope = app.Services.CreateAsyncScope();
+        var handler = scope.ServiceProvider.GetRequiredService<NhAssistantConsultationToolHandler>();
+        var aboutApplication = scope.ServiceProvider.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[Operations].Consultations.Single();
+        var question = Input(new { subjectId = NhAiSystemSubjects.GlobalId, question = "What waits?" });
+
+        // The member reads the whole application but not the agent's work there: the consultation is
+        // refused as for an unknown subject, before a consultation is recorded or the agent's model runs.
+        var refused = await handler.ConsultAsync(aboutApplication, question, Person(Member), CancellationToken.None);
+        Assert.Equal(NhAssistantErrorCodes.ConsultSubjectUnavailable, CodeOf(refused));
+        Assert.Empty(model.Requests);
+        await using (var context = Context(app))
+        {
+            Assert.False(await context.Consultations.AnyAsync());
+        }
+
+        // Someone who passes the view policy consults it.
+        var answered = await handler.ConsultAsync(aboutApplication, question, Person(Watcher), CancellationToken.None);
+        Assert.True(answered.Success, CodeOf(answered));
+        Assert.Equal("Nothing waits for the whole application.", answered.Data!.Answer);
     }
 
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, NhAiScriptedChatClient model)

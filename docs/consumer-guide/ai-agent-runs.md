@@ -1481,7 +1481,10 @@ counts, also one refused later, and the next one is refused first with `assistan
 before the consulted agent runs (SPM-278). A consultation outside a turn, such as one through MCP, has no
 turn to count. Make `INhAiSubjectAccessResolver` accept only the canonical id of a
 subject, because the asking model types the id. Unknown subjects and subjects the asker
-may not read both return `assistant-consult-subject-unavailable`.
+may not read both return `assistant-consult-subject-unavailable`. About the whole application the
+asker reads the agent's work only with the agent's view policy (by default its required policy), so a
+person who reads the whole application but fails that policy is refused the consultation and the
+request as for an unknown subject, as the agent's thread, runs and proposals already answer them.
 
 Let administrators define consultations as data only within a ceiling in code. Call
 `UseConsultationsAsData(data => data.AllowRoutes(...).AllowRequests().MaxLimits(...))`: it
@@ -2353,6 +2356,9 @@ On both providers, override the required policy of an agent in code to one an as
 that its consult and request tools, in code and as data without an asker policy, refuse that asker
 with `assistant-agent-forbidden` and leave no consultation, run or input, that someone who passes the
 override is served, and that a consultation with its own asker policy keeps admitting its askers.
+Assert that an agent of the whole application with a `ViewPolicy` refuses the consultation to a reader
+of the whole application who fails it, with `assistant-consult-subject-unavailable`, before a
+consultation is recorded or its model runs, and serves someone who passes it.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an

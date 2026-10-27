@@ -270,3 +270,15 @@ the policies of code, so a change that admits more people does not offer the too
 | Breaking change | Required action |
 |---|---|
 | The consult tool answers `assistant-agent-forbidden`, without consulting, to an asker who fails the agent's required policy in effect after an administrator changed it. | None; give the consultation an asker policy of its own when its askers should differ from the agent's users. |
+
+## NewHeap.Platform.AI.Chat: consultations about the whole application follow the agent's view policy
+
+Consulting an agent about the whole application (`nh-system`) now resolves the asker's role for the
+agent's thread, as the thread, its runs, its proposals and the request tool do: a person who reads the
+whole application but fails the agent's view policy (by default its required policy) is refused before
+a consultation is recorded or the consulted model runs. Consultations about the application's own
+subject types are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A consultation of an agent about the whole application answers `assistant-consult-subject-unavailable` to an asker who fails the agent's view policy. | None; give the people who consult such an agent its view policy. |
