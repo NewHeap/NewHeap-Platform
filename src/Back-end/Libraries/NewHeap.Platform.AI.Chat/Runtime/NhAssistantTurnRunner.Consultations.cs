@@ -163,7 +163,17 @@ internal sealed partial class NhAssistantTurnRunner
             null,
             NhAssistantContent.ResultPreview(askingCall.ResultJson, askingCall.DataClassification)));
 
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, askingCall.Id, speakers, state: state);
+        using var fileDeadline = BeginFileDeadline(state, cancellationToken);
+        var messages = await WithinFileDeadlineAsync(
+            state,
+            fileDeadline,
+            token => BuildHistoryAsync(conversation.Id, history, agent, null, askingCall.Id, speakers, 0, state, null, token),
+            cancellationToken);
+        if (messages is null)
+        {
+            return;
+        }
+
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(askingCall.CallId, askingCall.FunctionName, NhAssistantContent.DeserializeArguments(askingCall.ArgumentsJson))]));

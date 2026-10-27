@@ -557,17 +557,31 @@ internal sealed partial class NhAssistantTurnRunner(
                 NhAssistantRetrievalService.QueryOf(request.Inputs.Select(input => input.Text).Append(agentTurn.Subject.DisplayName)),
                 cancellationToken);
             // The files of people's messages that waited for the run are this turn's attachments.
-            var queuedAttachments = await OpenQueuedAttachmentsAsync(state, request.Inputs, history);
-            var messages = await BuildHistoryAsync(
-                conversation.Id,
-                history,
-                effectiveAgent.Definition,
-                null,
-                null,
-                speakers,
-                (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+            using var fileDeadline = BeginFileDeadline(state, cancellation.Token);
+            var messages = await WithinFileDeadlineAsync(
                 state,
-                queuedAttachments);
+                fileDeadline,
+                async token =>
+                {
+                    var queuedAttachments = await OpenQueuedAttachmentsAsync(state, request.Inputs, history, token);
+                    return await BuildHistoryAsync(
+                        conversation.Id,
+                        history,
+                        effectiveAgent.Definition,
+                        null,
+                        null,
+                        speakers,
+                        (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+                        state,
+                        queuedAttachments,
+                        token);
+                },
+                cancellation.Token);
+            if (messages is null)
+            {
+                return Result(state);
+            }
+
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
                 .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, agentTurn.RunId, cancellationToken);
@@ -735,7 +749,17 @@ internal sealed partial class NhAssistantTurnRunner(
                 return Result(state);
             }
 
-            var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, invocation.Id, speakers, state: state);
+            using var fileDeadline = BeginFileDeadline(state, cancellation.Token);
+            var messages = await WithinFileDeadlineAsync(
+                state,
+                fileDeadline,
+                token => BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, invocation.Id, speakers, 0, state, null, token),
+                cancellation.Token);
+            if (messages is null)
+            {
+                return Result(state);
+            }
+
             messages.Add(new ChatMessage(
                 ChatRole.Assistant,
                 [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -925,6 +949,7 @@ internal sealed partial class NhAssistantTurnRunner(
             0,
             cancellationToken);
         state.RetrievedContext = await RetrieveAsync(state, AgentContextOf(state), request.Question, cancellationToken);
+        // A consultation opens no files of the thread.
         var messages = await BuildHistoryAsync(
             conversation.Id,
             history,
@@ -932,7 +957,10 @@ internal sealed partial class NhAssistantTurnRunner(
             request.Question,
             null,
             speakers,
-            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0));
+            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+            null,
+            null,
+            cancellationToken);
         var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
             .DescribeContinuityAsync(agentTurn.Thread, agentTurn.Options, null, cancellationToken, consultation.Viewer);
         if (continuity is not null)
@@ -1140,7 +1168,8 @@ internal sealed partial class NhAssistantTurnRunner(
     private async Task<Dictionary<Guid, IReadOnlyList<AIContent>>> OpenQueuedAttachmentsAsync(
         NhAssistantTurnState state,
         IReadOnlyList<NhAssistantAgentTurnInput> inputs,
-        IReadOnlyList<AssistantMessage> history)
+        IReadOnlyList<AssistantMessage> history,
+        CancellationToken cancellationToken)
     {
         var opened = new Dictionary<Guid, IReadOnlyList<AIContent>>();
         if (state.Scope.Consultation is not null)
@@ -1164,7 +1193,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 input.Files,
                 NhAssistantFileOrigins.Attachment,
                 null,
-                CancellationToken.None,
+                cancellationToken,
                 input.AuthorActorId);
             foreach (var outcome in outcomes)
             {
@@ -1728,7 +1757,12 @@ internal sealed partial class NhAssistantTurnRunner(
 
         // A person's turn starts without a skill; use_skill loads one when the question needs it.
         await PrepareSkillsAsync(state, cancellationToken);
-        var attachments = await OpenAttachmentsAsync(state, userMessage, text, request.Files, cancellationToken);
+        using var fileDeadline = BeginFileDeadline(state, cancellationToken);
+        var attachments = await WithinFileDeadlineAsync(
+            state,
+            fileDeadline,
+            token => OpenAttachmentsAsync(state, userMessage, text, request.Files, token),
+            cancellationToken);
         if (attachments is null)
         {
             return;
@@ -1745,15 +1779,25 @@ internal sealed partial class NhAssistantTurnRunner(
                 cancellationToken)
             : null;
         state.RetrievedContext = await RetrieveAsync(state, request.CallerContext, text, cancellationToken);
-        var messages = await BuildHistoryAsync(
-            conversation.Id,
-            history,
-            agent,
-            text,
-            null,
-            speakers,
-            (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
-            state);
+        var messages = await WithinFileDeadlineAsync(
+            state,
+            fileDeadline,
+            token => BuildHistoryAsync(
+                conversation.Id,
+                history,
+                agent,
+                text,
+                null,
+                speakers,
+                (briefing?.Length ?? 0) + (state.RetrievedContext?.Block.Length ?? 0),
+                state,
+                null,
+                token),
+            cancellationToken);
+        if (messages is null)
+        {
+            return;
+        }
         if (briefing is not null)
         {
             messages.Insert(0, new ChatMessage(ChatRole.System, briefing));
@@ -1961,7 +2005,17 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         // The resumed call is replayed below with its real result; the summary leaves it out.
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, state: state);
+        using var fileDeadline = BeginFileDeadline(state, cancellationToken);
+        var messages = await WithinFileDeadlineAsync(
+            state,
+            fileDeadline,
+            token => BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, 0, state, null, token),
+            cancellationToken);
+        if (messages is null)
+        {
+            return;
+        }
+
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -3231,6 +3285,72 @@ internal sealed partial class NhAssistantTurnRunner(
         await AfterTurnAsync(state, NhAssistantTurnStatuses.Failed);
     }
 
+    /// <summary>
+    /// The deadline of the file work a turn does before its model loop: opening the attachments of a
+    /// person's message or of messages that waited for a run, and opening earlier files again. It
+    /// follows the turn's cancellation, which a person's or an administrator's stop and the run's own
+    /// cancellation and timeout cancel, and passes <see cref="NhAssistantLimits.TurnTimeout"/> after it
+    /// began, so a file source or reader that never answers never holds the turn or its worker.
+    /// </summary>
+    private static CancellationTokenSource BeginFileDeadline(NhAssistantTurnState state, CancellationToken cancellationToken)
+    {
+        var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(state.Scope.Limits.TurnTimeout);
+        return deadline;
+    }
+
+    /// <summary>
+    /// Runs file work of a turn within its <paramref name="deadline"/>. When the deadline or the turn's
+    /// cancellation ends the work, the turn ends as its model loop would end then
+    /// (<see cref="EndFileWorkAsync"/>) and the result is <see langword="null"/>.
+    /// </summary>
+    private async Task<T?> WithinFileDeadlineAsync<T>(
+        NhAssistantTurnState state,
+        CancellationTokenSource deadline,
+        Func<CancellationToken, Task<T>> work,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await work(deadline.Token);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            await EndFileWorkAsync(state, cancellationToken);
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Ends a turn whose file work before the model loop was cancelled: cancelled when the turn was
+    /// stopped or its caller cancelled it, otherwise failed with
+    /// <see cref="NhAssistantErrorCodes.TurnTimeout"/> because its deadline passed.
+    /// </summary>
+    private async Task EndFileWorkAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
+    {
+        if (!cancellations.WasCancelled(state.Conversation.Id, state.Scope.TurnId)
+            && !cancellationToken.IsCancellationRequested)
+        {
+            await FinishWithErrorAsync(state, NhAssistantErrorCodes.TurnTimeout, NhAssistantConversationStatuses.Failed);
+            return;
+        }
+
+        await ReleaseMcpToolsAsync(state);
+        await CreateInterceptor(state).FlushAsync(CancellationToken.None);
+        await store.TryEndTurnAsync(state.Conversation.Id, state.Scope.TurnId, NhAssistantConversationStatuses.Idle, CancellationToken.None);
+        state.OutcomeStatus = NhAssistantTurnStatuses.Cancelled;
+        logger.LogInformation(
+            "Assistant turn {TurnId} of agent {AgentId} was cancelled while it opened its files.",
+            state.Scope.TurnId,
+            state.Scope.Agent.Id);
+        await state.EmitAsync(new NhAssistantTurnCompletedEvent(
+            state.Scope.TurnId,
+            NhAssistantTurnStatuses.Cancelled,
+            new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
+            null));
+        await AfterTurnAsync(state, NhAssistantTurnStatuses.Cancelled);
+    }
+
     private async Task GenerateTitleAsync(
         AssistantConversation conversation,
         NhAssistantAgentDefinition agent,
@@ -3259,6 +3379,8 @@ internal sealed partial class NhAssistantTurnRunner(
     /// turn's <paramref name="state"/>, the files of the replayed messages are opened again with this
     /// turn's actor (<see cref="ReopenFilesAsync"/>), except those of messages that waited for the run,
     /// whose files this turn opened as attachments (<paramref name="attachments"/>, by message id).
+    /// <paramref name="cancellationToken"/> bounds opening those files: a turn passes its file deadline
+    /// (<see cref="BeginFileDeadline"/>).
     /// </summary>
     private async Task<List<ChatMessage>> BuildHistoryAsync(
         Guid conversationId,
@@ -3267,9 +3389,10 @@ internal sealed partial class NhAssistantTurnRunner(
         string? newMessage,
         Guid? excludedInvocationId,
         NhAssistantSpeakers? speakers,
-        int reservedCharacters = 0,
-        NhAssistantTurnState? state = null,
-        IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments = null)
+        int reservedCharacters,
+        NhAssistantTurnState? state,
+        IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments,
+        CancellationToken cancellationToken)
     {
         var budget = profiles.TryGet(agent.ProfileName, out var profile)
             ? (long)profile.Budget.MaxInputTokens * 3
@@ -3320,7 +3443,7 @@ internal sealed partial class NhAssistantTurnRunner(
         // A consultation reads the thread with the asker's rights and opens no files of it.
         var following = state is null || state.Scope.Consultation is not null
             ? new Dictionary<ChatMessage, ChatMessage>()
-            : await ReopenFilesAsync(state, selected, attachments);
+            : await ReopenFilesAsync(state, selected, attachments, cancellationToken);
         selected.Reverse();
         var messages = new List<ChatMessage>(selected.Count + following.Count);
         foreach (var (_, message, _) in selected)
@@ -3346,7 +3469,8 @@ internal sealed partial class NhAssistantTurnRunner(
     private async Task<Dictionary<ChatMessage, ChatMessage>> ReopenFilesAsync(
         NhAssistantTurnState state,
         IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id)> newestFirst,
-        IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments)
+        IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments,
+        CancellationToken cancellationToken)
     {
         var following = new Dictionary<ChatMessage, ChatMessage>();
         if (!newestFirst.Any(item => item.Parts.Any(IsFilePart)))
@@ -3385,7 +3509,7 @@ internal sealed partial class NhAssistantTurnRunner(
                     continue;
                 }
 
-                var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
+                var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, cancellationToken);
                 outcomes.Add(outcome);
                 await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, part.InvocationId), CancellationToken.None);
                 if (outcome.Attached)

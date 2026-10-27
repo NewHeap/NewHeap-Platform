@@ -241,3 +241,17 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Chat: opening files before the model loop ends at the turn's deadline
+
+The file work a turn does before its model loop now follows the turn's cancellation and ends at
+`NhAssistantLimits.TurnTimeout`: opening the files of people's messages that waited for an agent run,
+the attachments of a person's message and the earlier files a turn opens again. Before, the files of
+waiting messages and the earlier files were opened without a token, so a file source or an MCP reader
+that accepted the request and never answered held the turn, ignored a stop and kept the agent run's
+background worker. The turn now ends with `assistant-turn-timeout` (the conversation `failed`, as at
+the model loop's deadline) or, after a stop or the run's cancellation, `cancelled`.
+
+| Breaking change | Required action |
+|---|---|
+| A turn whose file source or reader does not answer within `TurnTimeout` ends with `assistant-turn-timeout` before its model call. | Pass the `cancellationToken` of `INhAssistantFileSource.OpenAsync` and `INhAssistantFileReader.ReadAsync` to every call that can wait. |

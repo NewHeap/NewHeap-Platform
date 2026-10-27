@@ -246,7 +246,17 @@ internal sealed partial class NhAssistantTurnRunner
         }
 
         // The resumed call is replayed below with its answer; the summary leaves it out.
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, state: state);
+        using var fileDeadline = BeginFileDeadline(state, cancellationToken);
+        var messages = await WithinFileDeadlineAsync(
+            state,
+            fileDeadline,
+            token => BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, 0, state, null, token),
+            cancellationToken);
+        if (messages is null)
+        {
+            return;
+        }
+
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));

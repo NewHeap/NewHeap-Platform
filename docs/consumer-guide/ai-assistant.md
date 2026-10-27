@@ -882,6 +882,12 @@ never serve the uploads.
   content. A later turn opens the files of the history it replays again through the source with its
   own actor, newest first and each file once, within the same limits on their own; a file it cannot
   open is named in its place with the reason.
+- Opening files before the model loop (a person's attachments, the files of messages that waited for
+  a run and the earlier files a turn opens again) follows the turn's cancellation and ends at
+  `NhAssistantLimits.TurnTimeout`, in every kind of turn: a file source or reader that accepts the
+  request and never answers ends the turn with `assistant-turn-timeout` and releases the thread and
+  the run's worker, and a person's or an administrator's stop ends it cancelled. Pass the
+  `cancellationToken` of `OpenAsync` and `ReadAsync` to every call that can wait.
 - The one exception: a conversation keeps the text a reading tool made of a file, so a later turn
   does not send the same document to the reader again. The text is keyed by the SHA-256 of the
   content the reader received and the reader, protected with ASP.NET Data Protection (share the key
