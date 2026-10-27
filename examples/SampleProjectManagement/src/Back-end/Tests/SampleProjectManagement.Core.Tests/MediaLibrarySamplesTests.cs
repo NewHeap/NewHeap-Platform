@@ -15,12 +15,10 @@ using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
-using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Media.MediaStorage.FileSystem;
 using NewHeap.Platform.Media.MediaStorage.S3Bucket;
-using NSubstitute;
 using SampleProjectManagement.Api.Authorization;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Controllers;
@@ -304,7 +302,8 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
         var north = SampleAuthorizationDefaults.NorthDivisionId;
         var south = SampleAuthorizationDefaults.SouthDivisionId;
         var userId = Guid.NewGuid();
-        var store = UserStore((userId, north, ["project.view", "project.manage"]));
+        var store = UserStore(new SampleDivisionPermissionStore()
+            .Grant(userId, north, "project.view", "project.manage"));
 
         // The token also names a South division permission that the user store does not grant.
         var member = SignedIn(
@@ -351,8 +350,9 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
                 "app.project.view",
                 policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.project.view")));
             builder.Services.AddControllers().AddApplicationPart(typeof(MediaSamplesController).Assembly);
-            builder.Services.AddSingleton(UserStoreManager(
-                (MediaTestBearerHandler.NorthMemberId, north, ["project.view", "project.manage"])));
+            builder.Services.AddSingleton(new SampleDivisionPermissionStore()
+                .Grant(MediaTestBearerHandler.NorthMemberId, north, "project.view", "project.manage")
+                .UserManager);
             builder.Services.AddSingleton<SampleMediaEventLog>();
             builder.Services.AddSingleton<SampleMediaThumbnailStore>();
             builder.Services.AddSingleton<SampleMediaAuthorizationLog>();
@@ -541,57 +541,11 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
             "sample-test"));
     }
 
-    private static IServiceProvider UserStore(
-        params (Guid UserId, Guid DivisionId, string[] Permissions)[] memberships)
+    private static IServiceProvider UserStore(SampleDivisionPermissionStore? store = null)
     {
         return new ServiceCollection()
-            .AddSingleton(UserStoreManager(memberships))
+            .AddSingleton((store ?? new SampleDivisionPermissionStore()).UserManager)
             .BuildServiceProvider();
-    }
-
-    /// <summary>
-    /// Stands in for the user store: each membership grants a user division permissions in one
-    /// division, stored as NewHeap stores them, with the division id as the claim value's prefix.
-    /// </summary>
-    private static INhUserManager UserStoreManager(
-        params (Guid UserId, Guid DivisionId, string[] Permissions)[] memberships)
-    {
-        var userManager = Substitute.For<INhUserManager>();
-        userManager
-            .GetValidClaimsByUserIdAsync(Arg.Any<Guid>(), true, Arg.Any<CancellationToken>())
-            .Returns(call => memberships
-                .Where(membership => membership.UserId == call.ArgAt<Guid>(0))
-                .SelectMany(membership => membership.Permissions.Select(permission => new Claim(
-                    NhPlatformClaimTypes.DivisionPermission,
-                    $"{membership.DivisionId:D}_{permission}")))
-                .ToList());
-        userManager
-            .DivisionAccessAsync(
-                Arg.Any<Guid?>(),
-                Arg.Any<IEnumerable<Claim>>(),
-                Arg.Any<IEnumerable<Claim>?>(),
-                Arg.Any<IEnumerable<string>?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(call => HoldsDivisionClaims(
-                call.ArgAt<Guid?>(0),
-                call.ArgAt<IEnumerable<Claim>>(1),
-                call.ArgAt<IEnumerable<Claim>?>(2)));
-        return userManager;
-    }
-
-    private static bool HoldsDivisionClaims(
-        Guid? divisionId,
-        IEnumerable<Claim> userClaims,
-        IEnumerable<Claim>? requiredClaims)
-    {
-        if (!divisionId.HasValue || requiredClaims is null)
-        {
-            return false;
-        }
-
-        return requiredClaims.All(required => userClaims.Any(claim =>
-            claim.Type == required.Type &&
-            claim.Value == $"{divisionId.Value:D}_{required.Value}"));
     }
 
     /// <summary>

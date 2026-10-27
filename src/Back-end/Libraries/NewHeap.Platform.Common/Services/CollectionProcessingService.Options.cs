@@ -268,8 +268,11 @@ public partial class CollectionProcessingService
                 throw new InvalidFilterCollectionResultException($"Invalid filter field '{filter.Key}'");
             }
 
+            // IsFilterAllowed checked every node of the tree; configured selectors map to entity paths
+            // that the view-model attributes cannot describe, so the nodes are not checked again.
             var mappedFilter = MapFilterKeys(filter, options.FilterableSelectors);
-            var filterLambda = GetFilterLambdaCore<TEntity>(mappedFilter, filterProperties, parameterIndex, skipValidation: true);
+            var filterLambda = GetFilterLambdaCore<TEntity>(mappedFilter, filterProperties, parameterIndex,
+                skipValidation: true, skipNestedValidation: true);
             if (filterLambda != null)
             {
                 queryable = queryable.Where(filterLambda);
@@ -446,15 +449,7 @@ public partial class CollectionProcessingService
             return false;
         }
 
-        var key = filter.Key.Split(".")[0]
-            .Replace("{any}", "", StringComparison.InvariantCultureIgnoreCase)
-            .Replace("{!any}", "", StringComparison.InvariantCultureIgnoreCase)
-            .Replace("{not any}", "", StringComparison.InvariantCultureIgnoreCase)
-            .Replace("{all}", "", StringComparison.InvariantCultureIgnoreCase)
-            .Replace("{!all}", "", StringComparison.InvariantCultureIgnoreCase)
-            .Replace("{not all}", "", StringComparison.InvariantCultureIgnoreCase);
-
-        return filterProperties.Any(x => x.Name.Equals(key, (StringComparison)3));
+        return IsFilterPathAllowed(filter.Key, filterProperties);
     }
 
     private static FilterCollectionRequestModel MapFilterKeys<TEntity>(

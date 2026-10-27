@@ -127,12 +127,30 @@ public static class WebApplicationExtensions
     
     private static BadRequest<Dictionary<string, string[]>> BadRequest(TaskResult result)
     {
+        return TypedResults.BadRequest(GetErrors(result));
+    }
+
+    private static Conflict<Dictionary<string, string[]>> Conflict(TaskResult result)
+    {
+        return TypedResults.Conflict(GetErrors(result));
+    }
+
+    private static Dictionary<string, string[]> GetErrors(TaskResult result)
+    {
         var dict = new Dictionary<string, string[]>();
         foreach (var item in result.GetResultItems())
         {
             dict[item.Name] = item.ErrorMessages.Select(x => x.ToString()).ToArray();
         }
-        return TypedResults.BadRequest(dict);
+
+        return dict;
+    }
+
+    private static bool HasError(TaskResult result, string errorCode)
+    {
+        return result.GetResultItems()
+            .SelectMany(item => item.ErrorMessages)
+            .Any(message => string.Equals(message.ToString(), errorCode, StringComparison.Ordinal));
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
@@ -141,6 +159,8 @@ public static class WebApplicationExtensions
     private static async Task<Results<
         Ok<FolderReference>,
         NotFound,
+        UnauthorizedHttpResult,
+        Conflict<Dictionary<string, string[]>>,
         BadRequest<Dictionary<string, string[]>>
     >> UpdateFolder(
         [FromBody] UpdateFolderRequest request,
@@ -152,37 +172,71 @@ public static class WebApplicationExtensions
             return BadRequest("Name is required");
         }
 
-        var result =
-            await mediaLibrary.UpdateFolderAsync(request.Path, request.FolderName, request.NewPath, request.NewName);
-        if (result.Success)
+        try
         {
-            return TypedResults.Ok(result.Data);
-        }
+            var result = await mediaLibrary.UpdateFolderAsync(request.Path, request.FolderName, request.NewPath,
+                request.NewName);
+            if (result.Success)
+            {
+                return TypedResults.Ok(result.Data);
+            }
 
-        return TypedResults.NotFound();
+            if (HasError(result, NhMediaErrorCodes.FolderNameExists))
+            {
+                return Conflict(result);
+            }
+
+            return TypedResults.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Unauthorized();
+        }
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Update file information")]
-    private static async Task<Results<Ok<FileReference>, NotFound>> UpdateFile([FromRoute] Guid id,
+    private static async Task<Results<
+        Ok<FileReference>,
+        NotFound,
+        UnauthorizedHttpResult,
+        Conflict<Dictionary<string, string[]>>
+    >> UpdateFile([FromRoute] Guid id,
         [FromBody] FileModel model,
         [FromServices] IMediaLibraryService mediaLibrary)
     {
-        var result = await mediaLibrary.UpdateFileAsync(id, model);
-        if (result.Success)
+        try
         {
-            var reference = await mediaLibrary.GetFileAsync(id);
-            return TypedResults.Ok(reference.Data);
-        }
+            var result = await mediaLibrary.UpdateFileAsync(id, model);
+            if (result.Success)
+            {
+                var reference = await mediaLibrary.GetFileAsync(id);
+                return TypedResults.Ok(reference.Data);
+            }
 
-        return TypedResults.NotFound();
+            if (HasError(result, NhMediaErrorCodes.FileNameExists))
+            {
+                return Conflict(result);
+            }
+
+            return TypedResults.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Unauthorized();
+        }
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Update file tags")]
-    private static async Task<Results<NoContent, NotFound, BadRequest<Dictionary<string, string[]>>>> UpdateTags(
+    private static async Task<Results<
+        NoContent,
+        NotFound,
+        UnauthorizedHttpResult,
+        BadRequest<Dictionary<string, string[]>>
+    >> UpdateTags(
         [FromBody] UpdateTagsRequest request,
         [FromServices] IMediaLibraryService mediaLibrary
     )
@@ -192,8 +246,15 @@ public static class WebApplicationExtensions
             return BadRequest("Field is required", nameof(request.FileName));
         }
 
-        var result = await mediaLibrary.UpdateFileTagsAsync(request.Path, request.FileName, request.Tags);
-        return result.Success ? TypedResults.NoContent() : TypedResults.NotFound();
+        try
+        {
+            var result = await mediaLibrary.UpdateFileTagsAsync(request.Path, request.FileName, request.Tags);
+            return result.Success ? TypedResults.NoContent() : TypedResults.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Unauthorized();
+        }
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
@@ -430,7 +491,12 @@ public static class WebApplicationExtensions
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Localize file")]
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> LocalizeFile(
+    private static async Task<Results<
+        NoContent,
+        NotFound,
+        UnauthorizedHttpResult,
+        BadRequest<Dictionary<string, string[]>>
+    >> LocalizeFile(
         [FromQuery, Required] string? path,
         [FromQuery, Required] string fileName,
         [FromQuery, Required] string language,
@@ -451,8 +517,19 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            await mediaLibraryService.LocalizeFieldAsync(reference.Data.Id, propertyName, language, value);
-            return TypedResults.NoContent();
+            var result = await mediaLibraryService.LocalizeFieldAsync(reference.Data.Id, propertyName, language,
+                value);
+            if (result.Success)
+            {
+                return TypedResults.NoContent();
+            }
+
+            if (HasError(result, NhMediaErrorCodes.PropertyNotLocalizable))
+            {
+                return BadRequest(result);
+            }
+
+            return TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
         {

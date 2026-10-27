@@ -472,7 +472,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Expression resolver",
     "category": "Collections, filtering, and projections",
     "surface": "collection expression resolver",
-    "outcome": "The UI displays the generated expression.",
+    "outcome": "The UI displays the generated expression; the resolved `Tasks{any}.Title` filter runs over the `ICollection<ProjectTask>` navigation and reports its match count.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -485,13 +485,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-034",
     "title": "Attribute protection",
     "category": "Collections, filtering, and projections",
-    "surface": "filter/search/order attributes",
-    "outcome": "A disallowed field returns a safe error.",
+    "surface": "filter/search/order attributes, nested [Filterable] filter paths",
+    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
     ]
   },
   {
@@ -2502,7 +2506,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Media authorization",
     "category": "Media",
     "surface": "authorization module/context",
-    "outcome": "Read, mutate, and delete operations respect the active user and division: the media routes admit only signed-in users, the path must lie in the active division's projects, and the user's current application permission or user-store division permission authorizes it; no request header grants a permission.",
+    "outcome": "Read, mutate, and delete operations respect the active user and division: the media routes admit only signed-in users, the path must lie in the active division's projects, and the user's current application permission or user-store division permission authorizes it; no request header grants a permission. Every mutation is authorized where it writes: a move or rename is also authorized as a create at its destination and refuses a name the destination already holds, and tag updates and localizations are authorized as updates of the file, so a division manager cannot place or retag media in another division and a viewer cannot localize. The media endpoints answer a refusal with 401 and an existing name with 409.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
@@ -2510,7 +2514,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationAuthorizationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaEndpointAuthorizationTests.cs"
     ]
   },
   {
@@ -2548,12 +2556,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Tags and properties",
     "category": "Media",
     "surface": "tags/properties/localization",
-    "outcome": "Metadata and translations round-trip through the API and UI.",
+    "outcome": "Metadata and translations round-trip through the API and UI. Only a file's title, description and alt text can be localized; other property names are refused, and stored localizations of other properties are ignored when files are listed, searched or read in a language on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaMutationAuthorizationSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryMutationProviderTests.cs"
     ]
   },
   {

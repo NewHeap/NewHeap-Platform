@@ -564,6 +564,22 @@ Common dependency has an independent minimum of 6.0.0; the media regression suit
 runs against that public package and current Common source, including both real
 relational providers. Updating Common does not automatically raise Media's minimum.
 
+Media authorization case SPM-181 shows that `ProjectMediaAuthorizationModule` decides every
+mutation where it writes. `MediaMutationAuthorizationSamplesTests` lets a division manager try to
+move a file and a folder into another division's projects folder and to retag a file there: the
+library asks the module for a create at the destination and an update of the file, the active
+division's path scope refuses them, and the other division's listing stays unchanged. A move onto a
+name the folder already holds is refused, a viewer cannot localize, and only a file's title,
+description and alt text can be localized (SPM-184).
+
+The media routes themselves admit only signed-in users: `MapSampleProjectMedia` maps them with a
+bearer policy, and the module authorizes a path in the active division's projects from the user's
+current rights, the application permission `app.project.view` or `app.project.manage`, or the
+division permission `project.view` or `project.manage` that `HasDivisionAccessAsync` reads from the
+user store. No request header grants a permission. `MediaLibrarySamplesTests` sends every route
+anonymously with a header that claims both permissions and gets 401, and shows that a North member
+can read and delete North's documents but not South's.
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call
@@ -678,6 +694,16 @@ and `orderBy` remains visible only as a lower-level alternative for dynamic
 payloads and diagnostics. `NhApiService.getCollection` serializes paging,
 search, order-by, and the filter tree into query parameters. The backend accepts
 a filter only when the target field is annotated for it.
+
+A nested key is checked segment by segment against the view models, in every
+AND and OR node. `ProjectCollectionSampleService.GetByNestedFiltersAsync`
+(SPM-034) filters projects with `ProjectNestedFilterViewModel`: its owner
+navigation and task collection are `[Filterable]`, and so are the owner's
+e-mail address and the task title. `ownerUser.email` and `tasks{any}.title`
+therefore filter on SQL Server and PostgreSQL. `ownerUser.passwordHash` and
+`tasks{any}.completedByUserId` return a safe `filter` error, although the
+entities have those members, because the owner view has no password hash and
+the task view returns the completing user without marking it filterable.
 
 Rebuild filters whenever UI state changes so stale filter values do not remain
 silently in the request.
@@ -816,12 +842,10 @@ key `open-task-title` through `WithFilterable` to
 `Tasks{any}.Title`, which is valid request notation for an any filter on task
 titles.
 
-The remaining boundary is not the request syntax. In the current generic
-processor, a navigation declared as `ICollection<ProjectTask>` is not recognized
-as a generic collection during the final expression construction step. It then
-tries to read `Title` from `ICollection` itself. The sample isolates this
-behavior and shows the generated key; a concrete collection shape can execute
-the same request.
+The service then runs that filter for the requested task title and returns the
+match count. Collection processing treats a navigation declared as
+`ICollection<ProjectTask>` as a collection step, so the inferred key executes as
+an any filter over the tasks.
 
 ## Partial update
 
@@ -1259,7 +1283,7 @@ The current status is **215 implemented, 0 partial, 0 planned, and 3 gap cases
 out of 218**. Implemented cases show evidence paths to tests, endpoints, or
 frontend code; only the remaining gaps stay explicitly visible.
 
-- SPM-033 is now a working resolver example: `WithFilterable` accepts the selector and generates `Tasks{any}.Title`. SPM-031 and SPM-032 cover concrete collection filtering separately;
+- SPM-033 is now a working resolver example: `WithFilterable` accepts the selector, generates `Tasks{any}.Title` and runs it over the task collection. SPM-031 and SPM-032 cover concrete collection filtering separately;
 - SPM-102: the OneOf OpenAPI transformer does not yet construct variants;
 - SPM-113 and SPM-160: the SampleProjectManagement frontends do not yet have their own Angular SSR target and host.
 

@@ -1,3 +1,4 @@
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Mapping;
 using NewHeap.Platform.Common;
 using SampleProjectManagement.Core.Models.Mutate;
@@ -16,6 +17,10 @@ public class AutomapperProfileConfiguration : Profile
             .ForMember(destination => destination.Tasks, options => options.MapFrom(source => source.Tasks));
         CreateMap<ProjectMutateModel, Project>().MapOnlyIfChanged();
         CreateMap<Project, ProjectMutateModel>().MapOnlyIfChanged();
+
+        CreateMap<Project, ProjectNestedFilterViewModel>();
+        CreateMap<NhUser, ProjectNestedFilterOwnerViewModel>();
+        CreateMap<ProjectTask, ProjectNestedFilterTaskViewModel>();
 
         CreateMap<ProjectTask, ProjectTaskViewModel>();
         CreateMap<ProjectTaskMutateModel, ProjectTask>().MapOnlyIfChanged();

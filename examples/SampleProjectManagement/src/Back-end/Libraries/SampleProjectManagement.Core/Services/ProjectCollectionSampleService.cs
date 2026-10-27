@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.Common.Exceptions;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using SampleProjectManagement.Core.Models.View;
@@ -10,7 +12,7 @@ namespace SampleProjectManagement.Core.Services;
 
 /// <summary>
 /// Query policy for the public catalog, short projections and the executable
-/// collection-expression resolver sample.
+/// collection-expression resolver and nested-filter samples.
 /// </summary>
 public sealed class ProjectCollectionSampleService
 {
@@ -69,16 +71,25 @@ public sealed class ProjectCollectionSampleService
         string taskTitle,
         CancellationToken cancellationToken = default)
     {
-        // SPM-033 demonstrates key inference. The request path it produces is
-        // later consumed by collection processing; executing a concrete filter
-        // is deliberately covered by the collection-filter cases instead.
+        // SPM-033 demonstrates key inference: the public key maps to the inferred
+        // path Tasks{any}.Title, which runs as an any filter over the
+        // ICollection<ProjectTask> navigation.
         var request = new CollectionRequestModel
         {
             Page = 1,
-            ItemsPerPage = 10
+            ItemsPerPage = 10,
+            Filter =
+            [
+                new FilterCollectionRequestModel
+                {
+                    Key = "open-task-title",
+                    Operator = "==",
+                    Value = taskTitle.Trim()
+                }
+            ]
         };
 
-        await _collectionProcessingService.GetCollectionResultModelAsync<Project, ProjectViewModel>(
+        var result = await _collectionProcessingService.GetCollectionResultModelAsync<Project, ProjectViewModel>(
             request,
             _repository.GetAll(),
             options => options.WithFilterable(
@@ -91,8 +102,42 @@ public sealed class ProjectCollectionSampleService
         {
             InputKey = "open-task-title",
             ResolvedPath = "Tasks{any}.Title",
-            GeneratedExpression = $"WithFilterable accepted the selector for {taskTitle.Trim()}."
+            GeneratedExpression = $"WithFilterable accepted the selector for {taskTitle.Trim()}.",
+            MatchCount = result.TotalCount
         };
     }
 
+    /// <summary>
+    /// SPM-034: filters projects through the owner navigation and the task collection with the
+    /// view-model attributes. Every segment of a filter key must be <c>[Filterable]</c> on
+    /// <see cref="ProjectNestedFilterViewModel"/> or the nested view model it reaches, so a key that
+    /// names an entity member the views do not expose fails with a safe <c>filter</c> error instead
+    /// of becoming a predicate.
+    /// </summary>
+    public async Task<TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>> GetByNestedFiltersAsync(
+        CollectionRequestModel request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _repository.GetAll()
+            .Include(project => project.OwnerUser)
+            .Include(project => project.Tasks);
+
+        try
+        {
+            var result = await _collectionProcessingService.GetCollectionResultModelAsync<Project, ProjectNestedFilterViewModel>(
+                request,
+                query,
+                resultQueryableFunc: null,
+                cancellationToken: cancellationToken,
+                (project => project.Name, ListSortDirection.Ascending));
+
+            return TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>.Succeeded(result);
+        }
+        catch (InvalidFilterCollectionResultException)
+        {
+            return TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>.Failed(
+                "filter",
+                "The filter field is not available for this collection.");
+        }
+    }
 }
