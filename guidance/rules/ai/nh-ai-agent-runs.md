@@ -21,7 +21,9 @@ with two keys: the tool opts in with `NhAiToolAttribute.AllowAgentGrant` (and
 carries an authorization policy), and the registration grants it with `Grant`.
 Use `TriggerOnly()` for grants that must not apply while a person chats in the
 thread, and `DelegateFromInitiator()` only when the agent may also use what its
-initiator may use. Keep `NhAiElevatedReads.Restricted` unless the results of
+initiator may use. A turn that answers another person's message, such as one typed while the run
+worked that the run claimed, does not delegate: only the agent's own grants and accountable rights
+serve it, so a person never directs calls with someone else's rights. Keep `NhAiElevatedReads.Restricted` unless the results of
 granted reads may be shown to everyone who sees the thread.
 
 Give every agent action that changes state a named approval policy with
@@ -699,7 +701,10 @@ so decisions made together reach one run. Debounces, this one included, run on t
 application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
 its clock past them instead of waiting. The follow-up continues in the skill of
 the run that made the proposal (`skillChosenBy` `follow-up`) while the agent declares that skill:
-a paused skill lets it wait and a stopped one refuses it.
+a paused skill lets it wait and a stopped one refuses it. It also keeps that run's initiator, or
+none for trigger work and for a proposal the run placed at another object: the person who decided
+stays in the approval and its audit, never becomes the follow-up's initiator and lends it no rights,
+so four eyes keeps the requester out of what the follow-up proposes.
 
 Filter events that do not concern the agent with `When` on `AddTrigger` and
 `AddWebhookTrigger`: it runs before every other lambda of the trigger, and a refused event
@@ -779,7 +784,17 @@ allowed to sign in according to `INhAiPrincipalFactory` (`assistant-service-acco
 `UsePrincipalsFromAccessSource` the access source must return a fresh context for it.
 New runs and the agent's threads answer to it; runs that started and the proposals they made keep
 the account they were made with. The account lends its rights to gateway reads: choose one with
-no more rights than the agent needs.
+no more rights than the agent needs. Only a person who may act for the account binds it, here, in
+an agent's run settings and in a package import: the account is that person, the agent's account in
+code, the person may act as any user (the platform permission `nh.platform.auth.impersonate.allowed`),
+or the person holds the account's rights to the agent's tools as well, that is every authorization
+policy of the agent's tools that the account passes, evaluated against the agent without a division,
+so a right the account holds only in a division is not compared. Otherwise the change is refused
+with `403 assistant-service-account-not-permitted`
+and nothing changes; saving an account that is already bound again checks only that it still exists.
+The person is the request's user when they sent the request, otherwise the principal
+`INhAiPrincipalFactory` rebuilds; application code that binds with a technical actor id, which the
+factory knows as no person, decides on its own.
 
 Add skills and triggers to an agent configured in code as data, without a deploy, when an
 application manages them in screens or imports them from packages. Code registers the building
@@ -1049,7 +1064,8 @@ Let a headless run read application data through the API bridge gateway with
 `AllowGatewayReads()` and tool selectors that select the gateway's tools (see `nh-ai-api-bridge`
 and `AddNewHeapPlatformAIDelegatedReads`). A run that a person started reads with that person's
 own rights, so asking an agent never lends someone else's; a run from a trigger reads with its
-accountable person or service account. Startup fails for an agent that answers to itself, without
+accountable person or service account. A turn that answers the message of someone other than that
+reader, such as a message typed while the run worked, makes no gateway reads. Startup fails for an agent that answers to itself, without
 an issuer or without a gateway. Consultations and turns inside a person's request keep reading with
 that person's own rights. Each read is recorded with grant source `DelegatedRead` and the person
 whose rights it used; only that person sees its result, whatever `ElevatedReads` says, and the run
@@ -1165,7 +1181,9 @@ the run's turn opens them as attachments with the person who wrote the message a
 another person started the run, within the limits of the skill the run works in. A file it cannot
 open, may not read or that does not fit is named to the model with its code instead, the run goes on,
 and the message in the thread keeps only the files the model read. A run that works by rules opens
-none; a later model turn opens them as files of an earlier turn.
+none; a later model turn of the message's author opens them as files of an earlier turn, while a turn
+of anyone else names them with `assistant-file-forbidden` instead of reading what that person only
+referenced with its own rights.
 SampleProjectManagement's document reader (SPM-306) shows it: a document added to a project's folder
 starts its `read-documents` skill through a trigger that names the skill, both the agent and the
 skill call `AcceptsFiles()`, and the skill's tool names the project's documents in its result

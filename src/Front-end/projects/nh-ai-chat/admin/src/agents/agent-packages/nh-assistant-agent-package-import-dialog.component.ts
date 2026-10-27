@@ -83,7 +83,7 @@ interface ImportView {
 const agentExists = 'assistant-agent-exists';
 
 /** The codes of a refused technical account. */
-const accountRefusals = new Set(['assistant-service-account-not-found']);
+const accountRefusals = new Set(['assistant-service-account-not-found', 'assistant-service-account-not-permitted']);
 
 let nextId = 0;
 

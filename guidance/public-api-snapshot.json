@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "683800cbd24a7712c6756360524681aea1196ab504738e76616fad892a9f1452",
-    "declarationCount": 11227,
+    "hash": "93cb43cdf0198b59eae398867f7cf069af08690b3447028a81e077c03fcfae4e",
+    "declarationCount": 11231,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5060,6 +5060,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantServiceAccountBinding.cs",
+        "declaration": "public async Task<TaskResult> CheckAsync( string agentId, IReadOnlyList<string> toolSelectors, string accountActorId, string callerActorId, string? accountInCode, bool bound, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantShadowVariants.cs",
@@ -17195,6 +17199,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ServiceAccountNotPermitted = \"assistant-service-account-not-permitted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SkillInCode = \"assistant-skill-in-code\";"
       },
       {
@@ -22331,6 +22339,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public bool ContinuedByAnotherPerson { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public string? PayloadJson { get; init; }"
       },
       {
@@ -23504,6 +23516,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
         "declaration": "public async Task<NhAssistantFileOutcome> ReopenAsync( NhAssistantTurnState state, NhAiFileReference reference, string? toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
+        "declaration": "public static NhAssistantFileOutcome NotReadForAuthor(NhAiFileReference reference, string? toolId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",

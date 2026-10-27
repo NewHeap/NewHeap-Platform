@@ -324,7 +324,7 @@ internal sealed class NhAssistantProposalDecisions(
         var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
         if (policy?.StartFollowUpRun == true && approval.Mode == NhAssistantApprovalModes.Deferred && !approve)
         {
-            await triggers.StartFollowUpAsync(thread, approval, actorId, cancellationToken);
+            await triggers.StartFollowUpAsync(thread, approval, cancellationToken);
         }
 
         await workUpdates.PublishAsync(
@@ -374,7 +374,7 @@ internal sealed class NhAssistantProposalDecisions(
             await services.GetRequiredService<NhAssistantAgentNotifier>().ConsultationProposalEndedAsync(thread, closed, CancellationToken.None);
             if (policy.StartFollowUpRun && closed.Mode == NhAssistantApprovalModes.Deferred)
             {
-                await triggers.StartFollowUpAsync(thread, closed, actorId, CancellationToken.None);
+                await triggers.StartFollowUpAsync(thread, closed, CancellationToken.None);
             }
         }
 

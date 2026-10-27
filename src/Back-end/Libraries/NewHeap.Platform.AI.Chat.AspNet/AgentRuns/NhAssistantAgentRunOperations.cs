@@ -709,7 +709,7 @@ internal sealed class NhAssistantAgentRunOperation(
         }
 
         // The continued turn answers the messages the run claimed before it waited; their authors
-        // decide whose personal MCP connection may serve it.
+        // decide whose personal MCP connection may serve it and whose rights it may borrow.
         var requestedBy = await runs.ListInputAuthorsAsync(agentTurn.RunId!.Value, cancellationToken);
         var result = await runner.ResumeAgentTurnAsync(
             new NhAssistantAgentResumeRequest(agentTurn with { RequestedBy = requestedBy }, wait.ApprovalId),
@@ -1150,7 +1150,7 @@ internal sealed class NhAssistantProposalExecution(
         var policy = closed?.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(closed.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
-            await triggers.StartFollowUpAsync(thread, closed!, closed!.DecidedByActorId, CancellationToken.None);
+            await triggers.StartFollowUpAsync(thread, closed!, CancellationToken.None);
         }
     }
 
@@ -1201,7 +1201,7 @@ internal sealed class NhAssistantProposalExecution(
         var policy = current.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(current.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
-            await triggers.StartFollowUpAsync(thread, current, current.DecidedByActorId, CancellationToken.None);
+            await triggers.StartFollowUpAsync(thread, current, CancellationToken.None);
         }
     }
 }

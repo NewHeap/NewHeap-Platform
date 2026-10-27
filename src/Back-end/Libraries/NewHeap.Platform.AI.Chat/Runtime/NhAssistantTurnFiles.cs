@@ -270,6 +270,17 @@ internal sealed class NhAssistantTurnFiles(
     }
 
     /// <summary>
+    /// The refusal of an earlier file that a person only referenced and that was never read with that
+    /// person's rights, in the turn of another actor: it opens only in a turn of that person, never
+    /// with someone else's rights (<see cref="NhAssistantErrorCodes.FileForbidden"/>).
+    /// </summary>
+    public static NhAssistantFileOutcome NotReadForAuthor(NhAiFileReference reference, string? toolId)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return Refused(reference, NhAssistantFileOrigins.EarlierTurn, toolId, NhAssistantErrorCodes.FileForbidden);
+    }
+
+    /// <summary>
     /// Whether the turn may continue in <paramref name="skill"/> with the files and retrieved context
     /// its model already reads: the skill accepts files, they fit its limits, its profile permits
     /// their classification and reads their types. A turn without files only needs a profile that

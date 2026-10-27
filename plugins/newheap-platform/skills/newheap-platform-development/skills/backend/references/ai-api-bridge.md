@@ -35,7 +35,12 @@ boundary; the bridge adds governance, it never replaces it. The caller's bearer
 token comes from `INhAiCallerCredentialAccessor` and is forwarded only as the
 `Authorization` header; it never enters `NhAiInvocationContext`, audit or logs.
 Only `Authorization`, `Accept-Language`, `Idempotency-Key` and
-`X-NewHeap-AI-Invocation` are forwarded.
+`X-NewHeap-AI-Invocation` are forwarded. In an agent turn the request's token serves
+only the initiator's own request turn: a turn that runs in another person's request,
+such as an approver's decision that continues the initiator's turn, and a headless
+turn send nobody's token, so such a call fails with `api-bridge-unauthenticated`
+before a request is sent; only a gateway read carries its own delegated read
+credential there.
 
 Descriptors follow the HTTP method: GET is read-only with policy-controlled
 approval; PUT and PATCH are idempotent mutations and POST is a mutation, and every

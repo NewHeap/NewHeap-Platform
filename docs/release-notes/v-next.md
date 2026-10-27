@@ -506,3 +506,79 @@ because its subject or the agent's owner was gone, does not count.
 | Breaking change | Required action |
 |---|---|
 | A redelivery of an event that a run already took answers `deduplicated`, naming that run, instead of starting a new run. | None. |
+
+## NewHeap.Platform.AI.Chat.AspNet: follow-up runs keep the initiator of the work they continue
+
+A follow-up run after a proposal decision (`StartFollowUpRun`) now keeps the initiator of the run that
+made the proposal, or none for trigger work and for a proposal a run placed at another object. Before,
+it took the person who decided as its initiator, after a rejection, an executed or failed approval, an
+approval refused because the subject changed and an application's execution report alike, so a
+delegating agent's follow-up used the decider's rights and four eyes kept the decider instead of the
+requester out of its proposals. The decider stays in the approval (`DecidedByActorId`) and its audit.
+
+| Breaking change | Required action |
+|---|---|
+| The `proposal-decided` and `proposal-executed` runs, their trigger audit and the proposals they make name the proposal's initiator, or none, instead of the person who decided. | None; read the decider from the approval or its decision audit. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.AspNet.Mvc: an approver's decision lends no credentials
+
+When an approver decides another person's proposal in an agent thread under the approval policy
+(`POST conversations/{id}/approvals/{approvalId}/decide`), the person's request turn continues inside
+the approver's request. That continuation now works for the person who asked as a headless turn does:
+its MCP servers use only that person's consented connection or delegated token, never the approver's
+connection or ambient token, and the approver is not its turn person (`INhAiTurnPerson`). The API bridge
+sends the request's bearer token in an agent turn only inside the initiator's own request turn; in
+another person's request and in a headless turn it sends nobody's token. Before, the continuation's MCP
+calls and the bridge's calls were sent with the approver's credential while the gate authorized them with
+the initiator's rights.
+
+| Breaking change | Required action |
+|---|---|
+| A personal MCP server serves an approver's continuation of another person's turn only with that person's consent (`headlessUse` `personal`), otherwise it is left out as in a headless turn. | Let people allow background use of servers their agents need after an approval, or keep such tools out of proposals that others approve. |
+| A bridge call in an agent turn that does not run in its initiator's own request fails with `api-bridge-unauthenticated` before a request is sent. | None; use a gateway read (`AllowGatewayReads`) for headless reads. |
+
+## NewHeap.Platform.AI.Chat: an approver's decision continues with the asker's prompt context
+
+The continuation of another person's request turn after an approver's decision under the approval policy
+now composes its prompt for the person who asked, as the headless continuation of a run does: that
+person's preferences, custom instructions, turn facts and name ("latest message from"), and that person's
+files and daily budget. Before, the approver's own preferences and custom instructions steered a model
+that acted with the asker's delegated rights. The decision, its stored decider and its audit event stay
+the approver's.
+
+| Breaking change | Required action |
+|---|---|
+| Turn context providers (`UseTurnContextProvider`) receive the asker's context for such a continuation, and `INhAiTurnPerson` names nobody in it. | None, unless a provider or tool reads the request's user directly; read the person from the context instead. |
+
+## NewHeap.Platform.AI.Chat: a run lends no rights to another person's message
+
+A turn of an agent run that answers another person's message, such as a message typed while the run
+worked that the run claimed, no longer delegates from the run's initiator and makes no gateway reads
+with the credential of its initiator or accountable account. The authors of the messages a turn answers
+(`RequestedBy`) already kept personal MCP connections out of such a turn; delegated rights and gateway
+reads now follow the same rule. A file that a person's waiting message only referenced, because the run
+ended before its model read the files, opens later only in a turn of that person and is named with
+`assistant-file-forbidden` in anyone else's. The run's own work, and a run of the person who wrote the
+message, keep their rights.
+
+| Breaking change | Required action |
+|---|---|
+| A delegating agent's turn that also answers another person's message calls tools only with the agent's grants or accountable rights; a gateway read there falls back to them as well. | None; the other person's message gets an answer within the agent's own rights, or that person starts the agent. |
+| An earlier file of another person that nobody read with that person's rights is not opened in a later turn of someone else. | None. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: only a person who may act for an account binds it to an agent
+
+The account an agent answers to lends its rights to the agent's headless runs. Setting it
+(`SetServiceAccountAsync`, `POST admin/agents/{id}/service-account`), naming it in an agent's run settings
+(`SaveRunSettingsAsync`, `PUT admin/agents/{id}/run-settings`) and in a package import
+(`NhAssistantAgentPackageImportOptions.ServiceAccounts`) now requires that the person may act for it: the
+account is that person, it is the agent's account in code, the person holds the platform permission
+`nh.platform.auth.impersonate.allowed`, or the person passes every authorization policy of the agent's tools
+that the account passes, evaluated against the agent without a division. The person is the request's user,
+or the principal `INhAiPrincipalFactory` rebuilds; a change by application code with a technical actor id
+that the factory does not know is the application's own decision, as before. Saving an account that is
+already bound again checks only that it still exists.
+
+| Breaking change | Required action |
+|---|---|
+| Binding an account that would lend the agent rights the administrator does not hold is refused with `403 assistant-service-account-not-permitted` (`NhAssistantErrorCodes.ServiceAccountNotPermitted`); the import refuses the part. | Let an administrator who holds the account's rights, or who may act as any user, bind it, or bind it from the application's code. |

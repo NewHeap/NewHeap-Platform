@@ -318,6 +318,23 @@ internal sealed partial class NhAssistantTurnRunner(
                 (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, events, token));
         }
 
+        if (request.PolicyAuthorized
+            && request.AgentTurn is { InitiatorActorId: { } initiator } agentTurn
+            && !string.Equals(initiator, actorId, StringComparison.Ordinal))
+        {
+            // Another person's decision continues the initiator's request turn inside the decider's
+            // request. The decider lends it neither rights nor credentials, and is not its person: it
+            // works for the initiator as a headless turn does.
+            var continued = request with { AgentTurn = agentTurn with { ContinuedByAnotherPerson = true } };
+            return Start(
+                conversation,
+                approval.TurnId,
+                continued.RequestAborted,
+                null,
+                null,
+                (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, continued, events, token));
+        }
+
         return Start(
             conversation,
             approval.TurnId,
@@ -1283,6 +1300,14 @@ internal sealed partial class NhAssistantTurnRunner(
         // A consultation proposal that executes with the agent's own rights never borrows the rights
         // of the person who asked, so no person's principal is rebuilt for it.
         var agentRightsOnly = !delegatedOnly && agentTurn.AgentRightsOnly;
+        // A turn that answers another person's message, such as one typed while the run worked that
+        // the run claimed, borrows neither the initiator's rights nor the gateway-read person's
+        // credential: a person lends rights only to their own requests, so the author of such a
+        // message never directs reads or calls with someone else's rights.
+        var delegates = !agentRightsOnly
+            && (delegatedOnly || agentTurn.Options.DelegateFromInitiator)
+            && !AnswersOtherThan(agentTurn, agentTurn.InitiatorActorId);
+        var readsForOther = AnswersOtherThan(agentTurn, agentTurn.InitiatorActorId ?? agentTurn.AccountableOwnerId);
         return new NhAiAgentInvocationScope(
             agentTurn.Thread.AgentId,
             state.Scope.Agent.ActorId,
@@ -1294,7 +1319,7 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             Accountability = agentTurn.Options.Accountability,
             InitiatorActorId = agentTurn.InitiatorActorId,
-            DelegateFromInitiator = !agentRightsOnly && (delegatedOnly || agentTurn.Options.DelegateFromInitiator),
+            DelegateFromInitiator = delegates,
             IsRequestTurn = agentTurn.IsRequestTurn,
             Grants = delegatedOnly ? [] : agentTurn.Options.Grants,
             ElevatedReads = agentTurn.Options.ElevatedReads,
@@ -1306,6 +1331,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 && consultation is null
                 && !agentRightsOnly
                 && !agentTurn.IsRequestTurn
+                && !readsForOther
                 && agentTurn.Options.Accountability != NhAiAgentAccountability.Agent,
             // The accountable account's rights, likewise in headless turns only: a person's turn in
             // the thread and a consultation use that person's own rights.
@@ -1658,7 +1684,9 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <param name="requestAborted">Cancels the turn with its caller; <see cref="CancellationToken.None"/>
     /// for a turn that outlives it, which <c>POST cancel</c> and its timeout still end.</param>
     /// <param name="caller">The invocation context of the person whose turn it is, whom
-    /// <see cref="INhAiTurnPerson"/> names for the whole turn.</param>
+    /// <see cref="INhAiTurnPerson"/> names for the whole turn; <see langword="null"/> for a turn that
+    /// works for nobody in the request, such as another person's decision that continues an
+    /// initiator's turn, which names no turn person, as an agent run does.</param>
     /// <param name="person">The person captured when the turn started, made ambient for the whole turn
     /// so its tools authorize that person instead of the request; <see langword="null"/> for a turn that
     /// lives within its request.</param>
@@ -1666,7 +1694,7 @@ internal sealed partial class NhAssistantTurnRunner(
         AssistantConversation conversation,
         Guid turnId,
         CancellationToken requestAborted,
-        NhAiInvocationContext caller,
+        NhAiInvocationContext? caller,
         NhAiPersonInvocation? person,
         Func<ChannelWriter<NhAssistantTurnEvent>, CancellationToken, Task> run)
     {
@@ -1676,12 +1704,12 @@ internal sealed partial class NhAssistantTurnRunner(
             SingleWriter = false
         });
         var cancellation = cancellations.Register(conversation.Id, turnId, requestAborted);
-        var turnPerson = new NhAiTurnPersonMarker(caller.ActorId, caller.TenantId, person?.User);
+        var turnPerson = caller is null ? null : new NhAiTurnPersonMarker(caller.ActorId, caller.TenantId, person?.User);
         var completion = Task.Run(async () =>
         {
             using var personScope = person is null ? null : NhAiPersonInvocationScopes.Begin(person);
             // Tools, policies and turn context providers learn whose turn it is (INhAiTurnPerson).
-            using var turnPersonScope = NhAiTurnPersonScopes.Begin(turnPerson);
+            using var turnPersonScope = turnPerson is null ? null : NhAiTurnPersonScopes.Begin(turnPerson);
             try
             {
                 await run(channel.Writer, cancellation.Token);
@@ -1895,8 +1923,15 @@ internal sealed partial class NhAssistantTurnRunner(
         var userMessageId = userMessage?.Id ?? Guid.Empty;
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
-        var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
+        // Another person's decision continues the initiator's turn, which works for the initiator as
+        // the headless continuation of a run does: the initiator's preferences, turn facts and name
+        // shape its prompt, and its files and budget are the initiator's. The decider's own context
+        // never steers a turn that acts with someone else's rights; the decision stays the decider's.
+        var callerContext = request.AgentTurn is { ContinuedByAnotherPerson: true } continued
+            ? CreateAgentCallerContext(continued, agent, conversation)
+            : request.CallerContext;
+        var speakers = await LoadSpeakersAsync(conversation, callerContext.ActorId, request.Language);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, callerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -1923,7 +1958,7 @@ internal sealed partial class NhAssistantTurnRunner(
             invocation.CompletedAt = now;
             await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
             await interceptor.RecordBusinessEventAsync(
-                DecisionEvent(state, approval, invocation, NhAssistantAuditEventKind.ApprovalExpired, NhAssistantErrorCodes.ApprovalExpired, now),
+                DecisionEvent(state, approval, invocation, NhAssistantAuditEventKind.ApprovalExpired, NhAssistantErrorCodes.ApprovalExpired, now, decider),
                 CancellationToken.None);
             await FinishWithErrorAsync(state, NhAssistantErrorCodes.ApprovalExpired, NhAssistantConversationStatuses.Idle);
             return;
@@ -1951,7 +1986,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 invocation,
                 request.Approve ? NhAssistantAuditEventKind.ApprovalApproved : NhAssistantAuditEventKind.ApprovalRejected,
                 decisionStatus,
-                now),
+                now,
+                decider),
             CancellationToken.None);
 
         object? functionResult;
@@ -1993,7 +2029,7 @@ internal sealed partial class NhAssistantTurnRunner(
         messages.Add(new ChatMessage(
             ChatRole.Tool,
             [new FunctionResultContent(invocation.CallId, functionResult)]));
-        await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
+        await RunModelAsync(state, callerContext, messages, cancellationToken);
     }
 
     /// <summary>
@@ -2214,11 +2250,15 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Who the turn's MCP tools are for. A turn that no person's request carries is headless: a
     /// background run, and the execution of a deferred proposal. It uses the person whose rights
-    /// the turn uses, as the invocation gate decides them.
+    /// the turn uses, as the invocation gate decides them. So does a request turn that another
+    /// person's decision continues: the gate delegates the initiator's rights, so the decider's own
+    /// connections and token never serve it.
     /// </summary>
     internal static NhAssistantMcpToolRequest CreateMcpToolRequest(NhAssistantTurnState state)
     {
-        if (state.AgentTurn is not { IsRequestTurn: false } agentTurn || CreateAgentScope(state) is not { } scope)
+        if (state.AgentTurn is not { } agentTurn
+            || (agentTurn.IsRequestTurn && !agentTurn.ContinuedByAnotherPerson)
+            || CreateAgentScope(state) is not { } scope)
         {
             // A person's request: that person's own connections serve it.
             return new NhAssistantMcpToolRequest(state.EffectiveAgent) { PersonActorId = state.Scope.OwnerActorId };
@@ -2264,6 +2304,15 @@ internal sealed partial class NhAssistantTurnRunner(
             return true;
         }
 
+        return AnswersOtherThan(agentTurn, person);
+    }
+
+    /// <summary>
+    /// Whether the turn answers a message of someone other than <paramref name="person"/>: an author
+    /// among the messages the run claimed. Such a turn borrows no rights of <paramref name="person"/>.
+    /// </summary>
+    private static bool AnswersOtherThan(NhAssistantAgentTurnContext agentTurn, string? person)
+    {
         return agentTurn.RequestedBy.Any(author => !string.Equals(author, person, StringComparison.Ordinal));
     }
 
@@ -3309,7 +3358,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var invocations = (await store.GetToolInvocationsAsync(conversationId, invocationIds, CancellationToken.None))
             .ToDictionary(invocation => invocation.Id);
 
-        var selected = new List<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id)>();
+        var selected = new List<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id, string? Author)>();
         foreach (var message in history.Reverse())
         {
             var parts = NhAssistantContent.DeserializeParts(message.PartsJson);
@@ -3341,7 +3390,8 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 break;
             }
-            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id));
+            var author = isUser ? message.AuthorActorId ?? state?.Scope.ConversationOwnerActorId : null;
+            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id, author));
         }
 
         // A consultation reads the thread with the asker's rights and opens no files of it.
@@ -3350,7 +3400,7 @@ internal sealed partial class NhAssistantTurnRunner(
             : await ReopenFilesAsync(state, selected, attachments);
         selected.Reverse();
         var messages = new List<ChatMessage>(selected.Count + following.Count);
-        foreach (var (_, message, _) in selected)
+        foreach (var (_, message, _, _) in selected)
         {
             messages.Add(message);
             if (following.TryGetValue(message, out var files))
@@ -3365,14 +3415,15 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Opens the files of the replayed messages again with this turn's actor (F6), newest first and
     /// each file once, within the turn's file limits for earlier files: a file that no longer exists,
-    /// that the actor may no longer read or that no longer fits is named with the reason instead. A
+    /// that the actor may no longer read or that no longer fits is named with the reason instead, and
+    /// so is a person's file that was never read with that person's rights, in another actor's turn. A
     /// person's message carries its attachments; the files tools returned follow the agent's message
     /// in a user message of their own, which this returns by that agent message. A message that waited
     /// for the run carries the attachments this turn opened for it (<paramref name="attachments"/>).
     /// </summary>
     private async Task<Dictionary<ChatMessage, ChatMessage>> ReopenFilesAsync(
         NhAssistantTurnState state,
-        IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id)> newestFirst,
+        IReadOnlyList<(IReadOnlyList<NhAssistantStoredPart> Parts, ChatMessage Message, Guid Id, string? Author)> newestFirst,
         IReadOnlyDictionary<Guid, IReadOnlyList<AIContent>>? attachments)
     {
         var following = new Dictionary<ChatMessage, ChatMessage>();
@@ -3385,7 +3436,7 @@ internal sealed partial class NhAssistantTurnRunner(
         var interceptor = CreateInterceptor(state);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var outcomes = new List<NhAssistantFileOutcome>();
-        foreach (var (parts, message, id) in newestFirst)
+        foreach (var (parts, message, id, author) in newestFirst)
         {
             if (attachments is not null && attachments.TryGetValue(id, out var opened))
             {
@@ -3412,7 +3463,15 @@ internal sealed partial class NhAssistantTurnRunner(
                     continue;
                 }
 
-                var outcome = await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
+                // A person's file that was never read with that person's rights, such as one of a
+                // message that waited for a run its rules ended, opens only in a turn of that person:
+                // another actor's rights never read what someone else only referenced.
+                var onlyReferenced = stored.Sha256 is null
+                    && author is not null
+                    && !string.Equals(author, state.Scope.OwnerActorId, StringComparison.Ordinal);
+                var outcome = onlyReferenced
+                    ? NhAssistantTurnFiles.NotReadForAuthor(stored.ToReference(), stored.ToolId)
+                    : await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
                 outcomes.Add(outcome);
                 await interceptor.RecordBusinessEventAsync(NhAssistantTurnFiles.AuditEventOf(state, outcome, part.InvocationId), CancellationToken.None);
                 if (outcome.Attached)
@@ -3452,19 +3511,23 @@ internal sealed partial class NhAssistantTurnRunner(
         return part is { Type: NhAssistantStoredPart.FileType, File: not null };
     }
 
+    /// <param name="deciderActorId">The person who decided, when that is not the turn's person, as when
+    /// another person's decision continues the initiator's turn; <see langword="null"/> records the
+    /// turn's person.</param>
     private static NhAssistantAuditEvent DecisionEvent(
         NhAssistantTurnState state,
         AssistantApproval approval,
         AssistantToolInvocation invocation,
         NhAssistantAuditEventKind kind,
         string code,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt,
+        string? deciderActorId = null)
     {
         return new NhAssistantAuditEvent(
             kind,
             state.Conversation.Id,
             state.Scope.TurnId,
-            state.Scope.OwnerActorId,
+            deciderActorId ?? state.Scope.OwnerActorId,
             state.Scope.Agent.Id,
             state.Scope.Agent.Version,
             occurredAt)

@@ -404,6 +404,13 @@ invalid run filter. Clients map the code, never the status, to a text.
   typed while a run worked, and every turn that answers such a message, also in a run a schedule or
   someone else started. When it acts for someone else, such as the account the agent answers to, the
   server is left out with `assistant-mcp-initiator-only`; organization credentials are unaffected.
+  An approver who decides another person's proposal in an agent thread under the approval policy
+  (`POST conversations/{id}/approvals/{approvalId}/decide`) continues that person's request turn in
+  the approver's own request: the turn is served as a headless turn of its initiator, with the
+  initiator's consented connection or delegated token, and never with the approver's connection or
+  ambient token. Its prompt is the initiator's as well: the initiator's preferences, custom
+  instructions, turn facts and name, as in the headless continuation of a run, never the approver's;
+  the decision and its audit stay the approver's.
   Connections and tool lists are cached per person only. Administrators test and sync such a
   server with their own connection (`POST admin/mcp-servers/{id}/connection/authorize`; `GET` and
   `DELETE .../connection` then read and remove that own connection), count the personal connections

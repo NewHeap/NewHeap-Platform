@@ -468,6 +468,7 @@
       "assistant-not-shadow-variant": "Alleen een hier gemaakte schaduwvariant kan naar zijn live agent worden gepromoveerd.",
       "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
       "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen.",
+      "assistant-service-account-not-permitted": "Je mag de agent niet met dit account laten werken: het zou de agent rechten geven die jij niet hebt.",
       "assistant-skill-in-code": "Deze vaardigheid staat in de code en kan hier niet veranderen.",
       "assistant-trigger-in-code": "Deze trigger staat in de code en kan hier niet veranderen.",
       "assistant-trigger-filter-not-found": "De gebeurtenis heeft geen filter met deze naam. Kies uit de filters die de gebeurtenis biedt.",
