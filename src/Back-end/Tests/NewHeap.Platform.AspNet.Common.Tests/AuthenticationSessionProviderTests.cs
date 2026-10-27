@@ -352,8 +352,8 @@ public sealed class AuthenticationSessionProviderTests
             administrator.Id,
             new NhWithoutCurrentPasswordChangePasswordUserMutateModel
             {
-                Password = "Changed2!Password",
-                ConfirmPassword = "Changed2!Password",
+                Password = "Test-Changed2!Password",
+                ConfirmPassword = "Test-Changed2!Password",
             });
         Assert.True(passwordChange.Success);
         Assert.False(await validator.ValidateAsync(principal));
