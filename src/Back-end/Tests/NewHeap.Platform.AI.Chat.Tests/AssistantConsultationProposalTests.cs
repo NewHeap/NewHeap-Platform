@@ -807,8 +807,9 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
 }
 
 /// <summary>
-/// An application that never rebuilds a person's principal outside that person's request: it refuses
-/// everyone and counts who was asked for.
+/// An application that never rebuilds a person's principal for a subject's work outside that person's
+/// request: it refuses those and counts who was asked for. It still resolves its people for the whole
+/// application, the question the assistant asks before it notifies someone, so notifications reach them.
 /// </summary>
 public sealed class CountingPrincipals : INhAiPrincipalFactory
 {
@@ -816,6 +817,11 @@ public sealed class CountingPrincipals : INhAiPrincipalFactory
 
     public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
     {
+        if (NhAiSystemSubjects.IsGlobal(subject.Subject))
+        {
+            return ValueTask.FromResult<ClaimsPrincipal?>(new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, actorId)], "test")));
+        }
+
         People.Enqueue(actorId);
         return ValueTask.FromResult<ClaimsPrincipal?>(null);
     }

@@ -3899,7 +3899,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Shared assistant conversations with read state and live updates",
     "category": "AI tools and generated catalogs",
     "surface": "POST conversations/{id}/share-link and DELETE, POST conversations/{id}/join, GET conversations/{id}/participant-candidates, POST conversations/{id}/participants, DELETE conversations/{id}/participants/{actorId}, POST conversations/{id}/read, INhAssistantParticipantDirectory with UseParticipantDirectory, INhAssistantDisplayNameResolver, NhAssistantLimits.MaxParticipantsPerConversation, NhAssistantOptions.HubPath (mapped on the host's root outside the route prefix, with the query token read for the configured path), the NhAssistantHub SignalR hub (ConversationChanged, ConversationRead, ConversationRemoved, ConversationEvent), the conversation fields role, members, currentActorId, activeActorId, lastMessageSequence and lastReadSequence, and NhAssistantAuditEventKind.Conversation*",
-    "outcome": "An owner shares a conversation through an invitation link whose token is protected with ASP.NET Data Protection, or invites a colleague of the active division through the sample's `SampleAssistantParticipantDirectory`. A colleague of the same tenant who may use the agent joins, sees the whole history as read and continues the conversation: the turn runs with the colleague's own permissions, budget and approval, the model receives every user message with its writer's name and a shared-conversation data block, and only the person whose turn created a proposal can decide it while the owner or that person can stop the turn. Each user message records its author; owner and participants keep their own read position, which only moves forward and marks the other person's answer as unread. The owner removes participants, renews or revokes the link and deletes the conversation for everyone; a participant leaves. Every change is a content-free audit event, and the SignalR hub sends status, read and removal updates and the streamed turn events to the owner and current participants only. Conversations from before sharing keep working as read. The hub maps on the host's root at `/hub/assistant`, outside the `/api/assistant` prefix; NewHeap's bearer setup reads the WebSocket's query token for the configured hub path, so a hub moved to `/hubs/assistant` keeps connecting, while no other request takes a token from the query string.",
+    "outcome": "An owner shares a conversation through an invitation link whose token is protected with ASP.NET Data Protection, or invites a colleague of the active division through the sample's `SampleAssistantParticipantDirectory`. A colleague of the same tenant who may use the agent joins, sees the whole history as read and continues the conversation: the turn runs with the colleague's own permissions, budget and approval, the model receives every user message with its writer's name and a shared-conversation data block, and only the person whose turn created a proposal can decide it while the owner or that person can stop the turn. Each user message records its author; owner and participants keep their own read position, which only moves forward and marks the other person's answer as unread. The owner removes participants, renews or revokes the link and deletes the conversation for everyone; a participant leaves. Every change is a content-free audit event, and the SignalR hub sends status, read and removal updates and the streamed turn events to the owner and current participants only. The hub decides every update with the read rule of the conversation's snapshot at the moment it sends it: a participant receives a chat only while the person, as the platform rebuilds them, passes the agent's policy, and only on connections signed in for the chat's tenant; an agent thread reaches people whose role on the subject holds or who were invited, also when an old participant row still names someone whose role ended. A connection closes when the token it was opened with expires and when the session validator no longer accepts it, such as after a password change, and deleting a person removes their participant rows. Conversations from before sharing keep working as read. The hub maps on the host's root at `/hub/assistant`, outside the `/api/assistant` prefix; NewHeap's bearer setup reads the WebSocket's query token for the configured hub path, so a hub moved to `/hubs/assistant` keeps connecting, while no other request takes a token from the query string.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -3919,7 +3919,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubPathTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHubQueryTokensTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHubQueryTokensTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantLiveReadRuleTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubSessionTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ]
   },
   {
@@ -3927,7 +3933,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant Web Push notifications for longer turns",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantBuilder.ConfigurePush, NhAssistantPushOptions (NewHeap:AI:Assistant:Push: PublicKey, PrivateKey, Subject, AllowedEndpointHosts, MinimumTurnDuration, IncludeConversationTitle, TimeToLive), NhAssistantWebPushKeys.Generate, GET/PUT notifications, PUT/DELETE notifications/push-subscription (403 assistant-not-allowed-while-impersonating for a registration in an impersonation session), the bundled @newheap/platform-ai-chat/push/nh-assistant-push-worker.js and NhAssistantConfig.push",
-    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
+    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. A notification reaches only the people the conversation's read rule admits when it is sent, and nobody the platform no longer resolves, such as a deleted, blocked or locked-out account. Deleting a person through NewHeap Identity removes their browser subscriptions, notification choice, MCP connection notices and conversation rows through the assistant's retention participant. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
@@ -3941,7 +3947,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts",
-      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js"
+      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnresolvedPeopleTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ]
   },
   {
@@ -4046,7 +4058,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Project members decide access to agent threads",
     "category": "AI tools and generated catalogs",
     "surface": "INhAiSubjectAccessResolver (DescribeAsync, ResolveAsync, ListMembersAsync), NhAiSubjectInfo, NhAiSubjectRole, NhAssistantBuilder.AddSubjectType, INhAiSubjectAccess.RefreshAsync, GET threads and the ProjectMember entity, service and project-members endpoints",
-    "outcome": "`ProjectSubjectAccessResolver` maps project members to reader, participant and approver and treats the project owner as approver. Readers see a project's agent thread but cannot decide its proposals, participants cannot decide them either, and approvers can. `ProjectMemberService` accepts only people of the project's division, once per project, and refreshes the thread's member snapshot after every change. Because the assistant asks the resolver on every request, a removed member loses access to the thread at once.",
+    "outcome": "`ProjectSubjectAccessResolver` maps project members to reader, participant and approver and treats the project owner as approver. Readers see a project's agent thread but cannot decide its proposals, participants cannot decide them either, and approvers can. `ProjectMemberService` accepts only people of the project's division, once per project, and refreshes the thread's member snapshot after every change. Because the assistant asks the resolver on every request, a removed member loses access to the thread at once. The refresh after a removal also removes the participant row the former member's reading created, so no live update or notification of the thread names them, while live updates and notifications ask the resolver when they are sent either way.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/ProjectMember.cs",
@@ -4056,7 +4068,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectMemberService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectMemberController.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs"
     ]
   },
   {

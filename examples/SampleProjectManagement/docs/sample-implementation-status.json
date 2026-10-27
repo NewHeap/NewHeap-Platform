@@ -2134,7 +2134,13 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubPathTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHubQueryTokensTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHubQueryTokensTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantLiveReadRuleTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubSessionTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ],
     "SPM-264": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
@@ -2148,7 +2154,13 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts",
-      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js"
+      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnresolvedPeopleTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ],
     "SPM-265": [
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
@@ -2215,7 +2227,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectMemberService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectMemberController.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs"
     ],
     "SPM-271": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",

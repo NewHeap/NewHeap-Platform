@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.Common.Models;
 
@@ -8,12 +9,14 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// <summary>
 /// Reaches the subject access resolvers the application registered and keeps the member snapshot
 /// that listings, notifications and live updates use. Authorization never reads the snapshot; it
-/// asks the resolver on every request.
+/// asks the resolver on every request. A refresh of the snapshot also removes the participant rows
+/// that a role on the subject created for people who no longer have one.
 /// </summary>
 internal sealed class NhAssistantSubjectAccessService(
     IEnumerable<INhAiSubjectAccessResolver> resolvers,
     NhAssistantRunStore runs,
     NhAssistantRegistrationState registration,
+    NhAssistantConversationAudience audience,
     ILogger<NhAssistantSubjectAccessService> logger) : INhAiSubjectAccess
 {
     private readonly IReadOnlyDictionary<string, INhAiSubjectAccessResolver> _resolvers = resolvers
@@ -256,16 +259,68 @@ internal sealed class NhAssistantSubjectAccessService(
         }
 
         await runs.ReplaceMembersAsync(info.ScopeKey, subject, members, DateTimeOffset.UtcNow, cancellationToken);
-        foreach (var thread in await runs.FindThreadsForSubjectAsync(info.ScopeKey, subject, cancellationToken))
+        var threads = await runs.FindThreadsForSubjectAsync(info.ScopeKey, subject, cancellationToken);
+        foreach (var thread in threads)
         {
             await runs.UpdateThreadSubjectAsync(thread.ConversationId, info, cancellationToken);
         }
+        var pruned = await PruneSubjectParticipantsAsync(subject, threads, members, cancellationToken);
 
         logger.LogDebug(
-            "Refreshed {MemberCount} members of subject type {SubjectType}.",
+            "Refreshed {MemberCount} members of subject type {SubjectType} and removed {Pruned} participant rows of people without a role.",
             members.Count,
-            subject.Type);
+            subject.Type,
+            pruned);
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// Removes the participant rows of the subject's threads that a role on the subject created
+    /// (<see cref="NhAssistantParticipantSources.Subject"/>) for people the refreshed members leave
+    /// out and to whom the resolver, asked again, gives no role on the agent's thread now. Such a row
+    /// holds only the person's read position; they join again when they have a role and open the
+    /// thread. Rows of an invitation or a link stay.
+    /// </summary>
+    private async Task<int> PruneSubjectParticipantsAsync(
+        NhAiSubjectRef subject,
+        IReadOnlyList<AssistantThread> threads,
+        IReadOnlyList<NhAiSubjectMember> members,
+        CancellationToken cancellationToken)
+    {
+        if (threads.Count == 0)
+        {
+            return 0;
+        }
+
+        var withRole = members
+            .Where(member => member.Role != NhAiSubjectRole.None)
+            .Select(member => member.ActorId)
+            .ToHashSet(StringComparer.Ordinal);
+        var agents = threads.ToDictionary(thread => thread.ConversationId, thread => thread.AgentId);
+        var pruned = 0;
+        foreach (var conversation in (await runs.GetSubjectParticipantsAsync(agents.Keys, cancellationToken))
+                     .Where(row => !withRole.Contains(row.ActorId))
+                     .GroupBy(row => row.ConversationId))
+        {
+            var stale = new List<string>();
+            foreach (var (_, actorId) in conversation)
+            {
+                // A role that the list of members misses, such as one through a permission, keeps the row.
+                var access = await ResolveForAgentAsync(subject, agents[conversation.Key], actorId, cancellationToken);
+                if (access.Role == NhAiSubjectRole.None)
+                {
+                    stale.Add(actorId);
+                }
+            }
+
+            if (stale.Count > 0)
+            {
+                pruned += await runs.RemoveSubjectParticipantsAsync(conversation.Key, stale, cancellationToken);
+                audience.Invalidate(conversation.Key);
+            }
+        }
+
+        return pruned;
     }
 }
 

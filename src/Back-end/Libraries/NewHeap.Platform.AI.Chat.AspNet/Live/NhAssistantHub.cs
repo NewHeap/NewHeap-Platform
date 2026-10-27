@@ -41,9 +41,12 @@ public interface INhAssistantHubClient
 public sealed record NhAssistantLiveWatchDto(int Watched, int RefreshAfterSeconds);
 
 /// <summary>
-/// Live updates of conversations. A connection joins the group of its authenticated actor; the
-/// server decides per event which actors belong to the conversation, so a removed participant
-/// stops receiving updates without any client action. The whole application lists no members, so a
+/// Live updates of conversations. A connection joins the group of its authenticated actor and the
+/// group of that actor in the tenant of its sign-in. The server decides per event, with the read rule
+/// of the conversation's snapshot, who may read it, and sends to them only on the connections of a
+/// tenant that reaches the conversation; a removed participant, a person whose role on a thread's
+/// subject ended or who no longer passes the agent's policy stops receiving updates without any
+/// client action. The whole application lists no members, so a
 /// client that shows its agents' work, such as the approval inbox or a board, asks to watch it with
 /// <see cref="WatchAgentWork"/>: the server joins the connection to the work it decides the person
 /// may read and leaves what the person may no longer read whenever the client renews the watch.
@@ -72,7 +75,14 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
             throw new HubException("An authenticated assistant caller is required.");
         }
 
+        // The actor's group reaches all their connections, such as for their own read position; the
+        // group of the actor in the tenant of this sign-in reaches only the connections through which
+        // the actor reaches a conversation of that tenant.
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId), Context.ConnectionAborted);
+        await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId, caller.Data.TenantId), Context.ConnectionAborted);
+        // The connection lasts as long as its session: it closes when its token expires, and when the
+        // session validator no longer accepts its principal.
+        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Watch(Context);
         await base.OnConnectedAsync();
     }
 
@@ -156,6 +166,19 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
     }
 
     /// <summary>
+    /// The group of one actor's connections signed in for <paramref name="tenantId"/>, or without a
+    /// tenant when it is <see langword="null"/>. The name hashes the actor id with its length, so no
+    /// actor id and tenant combine into the group of another pair.
+    /// </summary>
+    internal static string GroupFor(string actorId, string? tenantId)
+    {
+        ArgumentNullException.ThrowIfNull(actorId);
+        var tenant = tenantId is null ? "-" : "t:" + tenantId;
+        var key = actorId.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + actorId + "\n" + tenant;
+        return "nh-assistant-actor-tenant:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+    }
+
+    /// <summary>
     /// The group of the people who watch one agent's work for the whole application in one scope.
     /// </summary>
     internal static string GroupFor(NhAssistantWatchedWork work)
@@ -179,13 +202,43 @@ internal sealed class NhAssistantSignalRLiveUpdateTransport(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(actorIds);
+        return SendToGroupsAsync(
+            actorIds.Distinct(StringComparer.Ordinal).Select(NhAssistantHub.GroupFor).ToArray(),
+            evt,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends to the group of each recipient, or to the groups of the recipient in each of their
+    /// tenants.
+    /// </summary>
+    public Task SendAsync(
+        IReadOnlyCollection<NhAssistantLiveRecipient> recipients,
+        NhAssistantLiveEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recipients);
+        var groups = recipients
+            .SelectMany(recipient => recipient.Tenants is { } tenants
+                ? tenants.Select(tenantId => NhAssistantHub.GroupFor(recipient.ActorId, tenantId))
+                : [NhAssistantHub.GroupFor(recipient.ActorId)])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return SendToGroupsAsync(groups, evt, cancellationToken);
+    }
+
+    private Task SendToGroupsAsync(
+        IReadOnlyList<string> groups,
+        NhAssistantLiveEvent evt,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(evt);
-        if (actorIds.Count == 0)
+        if (groups.Count == 0)
         {
             return Task.CompletedTask;
         }
 
-        var clients = hub.Clients.Groups(actorIds.Distinct(StringComparer.Ordinal).Select(NhAssistantHub.GroupFor).ToArray());
+        var clients = hub.Clients.Groups(groups);
         var send = evt switch
         {
             NhAssistantLiveConversationChanged changed => clients.ConversationChanged(new NhAssistantLiveConversationDto(

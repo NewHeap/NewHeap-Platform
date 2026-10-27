@@ -157,7 +157,11 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {
-            endpoints.MapHub<NhAssistantHub>(options.HubPath)
+            // A connection ends when the authentication it was opened with expires; the hub also ends
+            // it when the session validator refuses its principal (NhAssistantHubSessions).
+            endpoints.MapHub<NhAssistantHub>(
+                    options.HubPath,
+                    connection => connection.CloseOnAuthenticationExpiration = true)
                 .RequireAuthorization(accessPolicy);
         }
         return group;

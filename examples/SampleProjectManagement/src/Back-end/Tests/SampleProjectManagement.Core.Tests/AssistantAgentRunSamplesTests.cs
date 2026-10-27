@@ -470,10 +470,84 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.False(outsider.Success);
         }
 
+        // Reading the thread made the reader one of its people.
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        Assert.Contains((await ReadConversationAsync(owner, conversationId)).Members!, member => member.ActorId == host.ReaderId.ToString());
+
         await host.RemoveMemberAsync(readerMembership);
 
+        // The membership change refreshed the thread's people: the reader's row is gone before the
+        // reader asks again, so no notification or live update names the former member.
+        Assert.DoesNotContain((await ReadConversationAsync(owner, conversationId)).Members!, member => member.ActorId == host.ReaderId.ToString());
         var afterRemoval = await reader.GetAsync($"/api/assistant/threads/{conversationId}/proposals");
         Assert.Equal(HttpStatusCode.NotFound, afterRemoval.StatusCode);
+    }
+
+    [Fact]
+    public async Task Deleting_a_person_forgets_their_browsers_notification_choice_and_shared_conversations()
+    {
+        // SPM-264, SPM-263
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var leaverId = await host.CreatePersonAsync();
+        var leaver = leaverId.ToString();
+        using var leaverClient = host.CreateClient(leaver);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+
+        // The person subscribed a browser, turned notifications off and joined a shared conversation.
+        var (browserKey, _) = NhAssistantWebPushKeys.Generate();
+        var authSecret = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        using (var subscribed = await leaverClient.PutAsJsonAsync(
+                   "/api/assistant/notifications/push-subscription",
+                   new { endpoint = "https://fcm.googleapis.com/fcm/send/spm-264-leaver", keys = new { p256dh = browserKey, auth = authSecret } },
+                   cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, subscribed.StatusCode);
+        }
+        using (var optOut = await leaverClient.PutAsJsonAsync("/api/assistant/notifications", new { pushEnabled = false }, cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, optOut.StatusCode);
+        }
+        var conversationId = await host.CreateConversationAsync(owner);
+        using (var link = await owner.PostAsync($"/api/assistant/conversations/{conversationId}/share-link", null, cancellationToken))
+        {
+            var token = (await link.Content.ReadFromJsonAsync<JsonElement>(cancellationToken)).GetProperty("token").GetString();
+            using var joined = await leaverClient.PostAsJsonAsync($"/api/assistant/conversations/{conversationId}/join", new { token }, cancellationToken);
+            Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
+        }
+        Assert.Equal((1, 1, 1), await AssistantRowsOfAsync(leaver));
+
+        // NewHeap Identity deletes the person; every module, the assistant included, forgets them.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+            var deleted = await users.DeleteAsync((await users.FindByIdAsync(leaver))!);
+            Assert.True(deleted.Succeeded, string.Join("; ", deleted.Errors.Select(error => error.Code)));
+        }
+
+        Assert.Equal((0, 0, 0), await AssistantRowsOfAsync(leaver));
+        Assert.DoesNotContain((await ReadConversationAsync(owner, conversationId)).Members!, member => member.ActorId == leaver);
+    }
+
+    /// <summary>
+    /// The person's push subscriptions, notification choices and participant rows in the assistant's
+    /// storage, which no endpoint lists for another person.
+    /// </summary>
+    private async Task<(long Subscriptions, long Settings, long Participants)> AssistantRowsOfAsync(string actorId)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(host.ConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        async Task<long> CountAsync(string table)
+        {
+            await using var command = new Npgsql.NpgsqlCommand($"""SELECT count(*) FROM nhai."{table}" WHERE "ActorId" = @actor""", connection);
+            command.Parameters.AddWithValue("actor", actorId);
+            return (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+        }
+
+        return (
+            await CountAsync("AssistantPushSubscription"),
+            await CountAsync("AssistantNotificationSetting"),
+            await CountAsync("AssistantConversationParticipant"));
     }
 
     [Fact]
@@ -7000,8 +7074,10 @@ public sealed class RoutingChatClient(
 /// <summary>
 /// SPM-278: wraps the application's principal factory. It records whose principal is asked for and
 /// refuses the people a test names with <see cref="Refuse"/>, as an application that never rebuilds a
-/// person's principal outside that person's own request would. Other tests on the same host keep the
-/// application's factory, so a test watches people of its own.
+/// person's principal for a subject's work outside that person's own request would. It still answers
+/// for the whole application, which the assistant asks before it delivers a notification or a chat's
+/// live update to someone (SPM-263, SPM-264): that question lends nobody's rights. Other tests on the
+/// same host keep the application's factory, so a test watches people of its own.
 /// </summary>
 public sealed class SamplePrincipalWatch
 {
@@ -7046,6 +7122,11 @@ public sealed class SamplePrincipalWatch
     {
         public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
         {
+            if (NhAiSystemSubjects.IsGlobal(subject.Subject))
+            {
+                return inner.CreateAsync(actorId, subject, cancellationToken);
+            }
+
             watch.Asked.Enqueue(actorId);
             return watch._refused.ContainsKey(actorId)
                 ? ValueTask.FromResult<ClaimsPrincipal?>(null)

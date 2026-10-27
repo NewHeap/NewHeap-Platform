@@ -8,6 +8,7 @@ using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AI.Chat;
 
@@ -92,7 +93,14 @@ internal static class NhAssistantServiceRegistration
         // replaces the transport, the notifier and the token protector.
         services.TryAddSingleton<NhAssistantConversationAudience>();
         services.TryAddSingleton<INhAssistantLiveUpdateTransport, NhAssistantNoLiveUpdateTransport>();
+        // Who may follow a conversation when something is delivered without their request; the
+        // ASP.NET package asks the application's principal factory.
+        services.TryAddScoped<INhAssistantRecipientRules, NhAssistantEveryoneReceives>();
+        services.TryAddScoped<NhAssistantConversationReaders>();
         services.TryAddScoped<NhAssistantLivePublisher>();
+        // Forgetting a user removes their push subscriptions, notification choice, MCP connection
+        // notices and participant rows.
+        services.AddNewHeapRetentionParticipant<NhAssistantRetentionParticipant>();
         services.TryAddScoped<INhAssistantNotifier, NhAssistantNoNotifier>();
         services.TryAddScoped<NhAssistantNotificationStore>();
         services.TryAddScoped<NhAssistantCollaboration>();

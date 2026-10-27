@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "93cb43cdf0198b59eae398867f7cf069af08690b3447028a81e077c03fcfae4e",
-    "declarationCount": 11231,
+    "hash": "1fb711845d05280fa2632348cd7b3df6476d290cfba66204d2e3ac0ac1533159",
+    "declarationCount": 11260,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5271,11 +5271,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public Task SendAsync( IReadOnlyCollection<NhAssistantLiveRecipient> recipients, NhAssistantLiveEvent evt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
         "declaration": "public Task SendToWatchersAsync( NhAssistantWatchedWork work, NhAssistantLiveAgentWorkChanged evt, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
         "declaration": "public string? HubPath => options.Value.HubPath;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+        "declaration": "public static readonly TimeSpan DefaultCheckInterval = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+        "declaration": "public void Watch(HubCallerContext connection) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
@@ -7324,6 +7336,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantPushSubscriptionValidator.cs",
         "declaration": "public static bool TryGetAllowedEndpoint( string endpoint, IEnumerable<string> allowedHosts, out Uri uri) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+        "declaration": "public static INhAiPrincipalFactory? Resolving(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+        "declaration": "public static INhAiPrincipalFactory? Rebuilding(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+        "declaration": "public async ValueTask<bool> PassesPolicyAsync( string actorId, NhAiSubjectInfo subject, string policy, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+        "declaration": "public async ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
@@ -12478,6 +12506,50 @@
         "declaration": "public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync( Guid conversationId, NhAssistantApplicationMessage message, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async Task<NhAssistantConversationReadRule> RuleOfAsync( AssistantConversation conversation, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async Task<NhAssistantConversationReadRule> RuleOfAsync( AssistantConversation conversation, AssistantThread? thread, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async ValueTask<bool> MayReadAsync( NhAssistantConversationReadRule rule, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ReadersAsync( NhAssistantConversationReadRule rule, IEnumerable<string> actorIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> NotificationReadersAsync( NhAssistantConversationReadRule rule, IEnumerable<string> actorIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> ResolvedAsync( IEnumerable<string> actorIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public ValueTask<bool> PassesPolicyAsync( string actorId, NhAiSubjectInfo subject, string policy, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
+        "declaration": "public int Order => 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
+        "declaration": "public async Task<TaskResult> ForgetUserAsync(Guid userId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
+        "declaration": "public Task<TaskResult> ForgetDivisionAsync(Guid divisionId, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
         "declaration": "public string OwnerActorId { get; }"
       },
@@ -15463,7 +15535,43 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public static NhAssistantLiveRecipient Everywhere(string actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public static NhAssistantLiveRecipient InTenants(string actorId, IReadOnlyList<string?> tenants) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public AssistantConversation? Conversation { get; } = conversation;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public IReadOnlyList<string> ActorIds { get; } = actorIds;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public AssistantThread? Thread { get; } = thread;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public NhAssistantConversationReadRule? Rule { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public bool TryGetReader(string actorId, out bool mayRead) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public void SetReader(string actorId, bool mayRead) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
         "declaration": "public static readonly TimeSpan TimeToLive = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+        "declaration": "public static readonly TimeSpan ReaderTimeToLive = TimeSpan.FromSeconds(10);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
@@ -20500,6 +20608,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantThread>> FindThreadsForSubjectAsync( string scopeKey, NhAiSubjectRef subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<(Guid ConversationId, string ActorId)>> GetSubjectParticipantsAsync( IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<int> RemoveSubjectParticipantsAsync( Guid conversationId, IReadOnlyCollection<string> actorIds, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",

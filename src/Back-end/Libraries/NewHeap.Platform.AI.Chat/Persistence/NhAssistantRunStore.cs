@@ -189,6 +189,57 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The people who joined the conversations through a role on their subject
+    /// (<see cref="NhAssistantParticipantSources.Subject"/>), not through an invitation or a link.
+    /// </summary>
+    public async Task<IReadOnlyList<(Guid ConversationId, string ActorId)>> GetSubjectParticipantsAsync(
+        IReadOnlyCollection<Guid> conversationIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        if (conversationIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = conversationIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await context.Participants
+            .AsNoTracking()
+            .Where(participant => ids.Contains(participant.ConversationId)
+                && participant.JoinedVia == NhAssistantParticipantSources.Subject)
+            .OrderBy(participant => participant.ConversationId)
+            .ThenBy(participant => participant.ActorId)
+            .Select(participant => new { participant.ConversationId, participant.ActorId })
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => (row.ConversationId, row.ActorId)).ToArray();
+    }
+
+    /// <summary>
+    /// Removes the rows of <paramref name="actorIds"/> in the conversation that a role on the subject
+    /// created; a row of an invitation or a link stays. Returns the number of removed rows.
+    /// </summary>
+    public async Task<int> RemoveSubjectParticipantsAsync(
+        Guid conversationId,
+        IReadOnlyCollection<string> actorIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actorIds);
+        if (actorIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var ids = actorIds.Distinct(StringComparer.Ordinal).ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Participants
+            .Where(participant => participant.ConversationId == conversationId
+                && participant.JoinedVia == NhAssistantParticipantSources.Subject
+                && ids.Contains(participant.ActorId))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Replaces the member snapshot of one subject.
     /// </summary>
     public async Task ReplaceMembersAsync(

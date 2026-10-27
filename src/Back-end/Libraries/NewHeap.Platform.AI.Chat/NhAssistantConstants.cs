@@ -314,7 +314,9 @@ public static class NhAssistantParticipantSources
 
     /// <summary>
     /// The person has a role on the subject of an agent thread. The row follows the subject access
-    /// resolver: it is created on first use and removed when the role ends.
+    /// resolver: it is created on first use, and removed when the person opens the thread without a
+    /// role or <c>INhAiSubjectAccess.RefreshAsync</c> finds the role ended. It grants nothing by
+    /// itself: live updates and notifications ask the resolver when they are sent.
     /// </summary>
     public const string Subject = "subject";
 }
