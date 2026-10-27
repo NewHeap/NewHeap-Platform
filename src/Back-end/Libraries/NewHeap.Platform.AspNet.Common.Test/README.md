@@ -5,6 +5,9 @@ Reusable ASP.NET and EF Core test helpers for applications that consume
 test context and automatic repository registration for consumer-owned DbSets.
 `NhTwoFactorTestCodes` generates authenticator-app codes, so tests can complete
 a two-factor challenge or enrollment.
+`NhMicrosoftOAuthTestPlatform` stands in for the Microsoft identity platform and
+Microsoft Graph, so tests can complete a Microsoft sign-in without calling
+Microsoft.
 
 This is a support library, not the location of NewHeap Platform's own regression
 tests. Library self-tests live in the non-packable

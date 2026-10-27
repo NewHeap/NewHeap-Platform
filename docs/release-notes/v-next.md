@@ -316,3 +316,28 @@ no longer load and their inline event handlers no longer run; the returned text 
 | Breaking change | Required action |
 |---|---|
 | None. | None. |
+
+## NewHeap.Platform.Common, NewHeap.Platform.AspNet.Common and NewHeap.Platform.AspNet.Common.Test: Microsoft sign-in bound to the browser that started it
+
+The Microsoft OAuth callback (`GET authentication/oath/microsoft/authorize`) now completes only a
+sign-in that `POST authentication/oath/microsoft` started in the same browser. The OAuth state is a
+protected flow (ASP.NET Core Data Protection) with the return URL, a nonce and a PKCE code verifier,
+valid for ten minutes; an HttpOnly, Secure, `SameSite=Lax` correlation cookie for the path of
+`CallbackUrl` binds it to the browser, and the callback removes the cookie so the state completes
+once. Before, the state was the return URL and a random value that nothing checked, so a callback with
+any state signed the browser in and redirected it to the URL in that state. The return URL
+(`callbackUrl`) must now be a path on the callback's host or an absolute URL on
+`MicrosoftAuthSettings.AllowedReturnOrigins`, or on `NewHeapAspNetCommonSettings.AllowedOrigins` while
+that new setting is empty; `NhReturnUrls.IsAllowed` makes the decision and is public for other
+redirects. The authorization request also asks for `openid profile` and carries the nonce and an S256
+code challenge: `MicrosoftAuthService.GetLoginUrl(state, nonce, codeChallenge)` builds it and
+`RedeemCodeAsync(code, codeVerifier)` redeems the code. `NhMicrosoftOAuthTestPlatform` in
+NewHeap.Platform.AspNet.Common.Test stands in for Microsoft in tests.
+
+| Breaking change | Required action |
+|---|---|
+| A `callbackUrl` that is not a path of the application or on an allowed origin answers 400 at the start. | List the front-end origins in `NewHeap:PlatformAspNetCommon:Settings:AllowedOrigins` or `MicrosoftAuthSettings.AllowedReturnOrigins`, or pass a path. |
+| The callback answers 400 when it does not receive the correlation cookie, so the start and the callback must be on the host the browser calls. | Register `CallbackUrl`, in the settings and the app registration, on the host where the browser calls the start endpoint, behind the same proxy. |
+| A sign-in started on one instance fails on another that cannot read its state. | Share the Data Protection key ring between instances, as two-factor authentication already requires. |
+| The authorization request also asks for the `openid` and `profile` scopes. | None, unless the tenant restricts user consent: then grant consent for them once. |
+| `MicrosoftAuthService.GetLoginUrl(string?)` and `GetToken(string, string?, CancellationToken)` are obsolete. | Use `GetLoginUrl(state, nonce, codeChallenge)` and `RedeemCodeAsync(code, codeVerifier)` with a state bound to the browser, or the platform endpoints. |

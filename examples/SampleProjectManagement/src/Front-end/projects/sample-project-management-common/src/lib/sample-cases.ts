@@ -882,13 +882,20 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-062",
     "title": "Microsoft OAuth",
     "category": "Authentication, identity, and authorization",
-    "surface": "handlers/service/models",
-    "outcome": "The URL, callback, and failure path work.",
+    "surface": "AddMicrosoftOAuth, AddMicrosoftOauthEndpoints, MicrosoftAuthSettings, MicrosoftAuthService, NhReturnUrls and NhMicrosoftOAuthTestPlatform",
+    "outcome": "The management app starts a Microsoft sign-in and the callback completes it only in that browser: the OAuth state is a protected, ten-minute flow with a PKCE verifier and nonce, bound by a correlation cookie for the configured callback path behind the app's /api proxy, and used once. A callback from another browser or with a state the application did not issue, changed or let expire answers 400 without a session, and the sign-in returns only to a path of the application or one of the sample's allowed origins.",
     "implementation": "implemented",
     "evidence": [
-      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMicrosoftOAuthComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MicrosoftOAuthSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOauthAuthenticationGetUrlHandler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MicrosoftOAuthProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs"
     ]
   },
   {

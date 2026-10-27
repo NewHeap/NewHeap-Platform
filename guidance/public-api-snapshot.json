@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "1aa8649e2da944f96c7befb47b657569390720af088c248efec74dc46b7c2fac",
-    "declarationCount": 11210,
+    "hash": "b80f317b627f01e0a767df5bd5c006ee759012dc88c2bf068f0909cc2376717d",
+    "declarationCount": 11221,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -28338,6 +28338,30 @@
         "declaration": "public static TDbContext Create<TDbContext>() where TDbContext : DbContext {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "public sealed record NhMicrosoftOAuthTestAccount(string TenantId, string ObjectId, string? Mail) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "public static NhMicrosoftOAuthTestAccount In(string tenantId, string? mail) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "public sealed class NhMicrosoftOAuthTestPlatform : HttpMessageHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "public NhMicrosoftOAuthTestPlatform(string profileEndpoint) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "public string SignIn( string authorizationUrl, NhMicrosoftOAuthTestAccount account, Action<IDictionary<string, object>>? configureIdToken = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+        "declaration": "protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhTwoFactorTestCodes.cs",
         "declaration": "public static class NhTwoFactorTestCodes {"
       },
@@ -28632,6 +28656,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhRefreshTokenAuthenticationHandler.cs",
         "declaration": "public NhRefreshTokenAuthenticationHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor ) : base(httpContextAccessor, \"authentication/refresh\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
+        "declaration": "public static class NhReturnUrls {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
+        "declaration": "public static bool IsAllowed(string? returnUrl, IEnumerable<string>? allowedOrigins) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhRevertImpersonateAuthenticationHandler.cs",
@@ -41510,6 +41542,10 @@
         "declaration": "public string[] AuthDomains { get; set; } = [];"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MicrosoftAuthSettings.cs",
+        "declaration": "public string[] AllowedReturnOrigins { get; set; } = [];"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
         "declaration": "public class NewHeapCommonSettings {"
       },
@@ -42343,11 +42379,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
-        "declaration": "public async Task<MicosoftAuthTokenSuccessResponse?> GetToken( string code, string? state = null, CancellationToken cancellationToken = default)"
+        "declaration": "[Obsolete(\"Redeems the code without a PKCE code verifier. Use RedeemCodeAsync(code, codeVerifier) with the verifier of a sign-in started through GetLoginUrl(state, nonce, codeChallenge).\")] public async Task<MicosoftAuthTokenSuccessResponse?> GetToken( string code, string? state = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
-        "declaration": "public string GetLoginUrl(string? state = null)"
+        "declaration": "public async Task<MicosoftAuthTokenSuccessResponse?> RedeemCodeAsync( string code, string codeVerifier, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
+        "declaration": "public string GetLoginUrl(string state, string nonce, string codeChallenge) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
+        "declaration": "[Obsolete(\"Builds an authorization request without a PKCE challenge or nonce. Use GetLoginUrl(state, nonce, codeChallenge) with a state bound to the browser.\")] public string GetLoginUrl(string? state = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
@@ -49199,6 +49243,14 @@
       "NhAiVerificationResult",
       "AllowAgentGrant",
       "NhAiGrantSource"
+    ],
+    "nh-auth-microsoft-oauth": [
+      "AddMicrosoftOAuth",
+      "AddMicrosoftOauthEndpoints",
+      "MicrosoftAuthSettings",
+      "MicrosoftAuthService",
+      "NhReturnUrls",
+      "NhMicrosoftOAuthTestPlatform"
     ],
     "nh-auth-override-hydration": [
       "NhAuthenticationService",

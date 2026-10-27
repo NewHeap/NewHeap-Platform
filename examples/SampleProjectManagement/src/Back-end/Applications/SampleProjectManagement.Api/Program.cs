@@ -164,11 +164,8 @@ builder.Services
     .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(options =>
     {
         options.WithAuthenticationService<SampleAuthenticationService>();
-        options.AddMicrosoftOAuth(oauth =>
-        {
-            builder.Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings")
-                .Bind(oauth.Settings);
-        });
+        // SPM-062: see SampleMicrosoftOAuthComposition for the callback and return-URL setup.
+        options.AddMicrosoftOAuth(oauth => oauth.Settings.ConfigureSampleMicrosoftOAuth(builder.Configuration));
         options.AddUserNamePasswordAuthentication(authentication =>
         {
             authentication.EnableRefreshToken = true;

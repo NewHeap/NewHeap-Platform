@@ -723,9 +723,16 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs"
     ],
     "SPM-062": [
-      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMicrosoftOAuthComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MicrosoftOAuthSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOauthAuthenticationGetUrlHandler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MicrosoftOAuthProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs"
     ],
     "SPM-063": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
