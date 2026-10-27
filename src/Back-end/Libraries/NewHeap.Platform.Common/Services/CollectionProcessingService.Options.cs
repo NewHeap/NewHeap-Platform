@@ -300,6 +300,9 @@ public partial class CollectionProcessingService
                 ? typeof(TViewModel).GetProperties().Where(prop => prop.IsDefined(typeof(OrderableAttribute), false)).ToArray()
                 : [];
 
+            // A configured selector's path comes from its expression; any other key is validated against
+            // the [Orderable] view-model graph and replaced by the names it matched before Dynamic LINQ sees it.
+            var orderings = new List<string>();
             foreach (var orderBy in orderByCollection)
             {
                 orderBy.Direction = (orderBy.Direction ?? "ASC").ToUpper();
@@ -309,13 +312,14 @@ public partial class CollectionProcessingService
                     continue;
                 }
 
-                var hasConfiguredOrderBy = TryGetConfiguredOrderPath(options.OrderableSelectors, orderBy.Key, out var memberPath);
-                var mappedKey = hasConfiguredOrderBy
-                    ? memberPath
-                    : orderBy.Key;
-
-                if (!hasConfiguredOrderBy && !IsOrderByAllowed<TViewModel>(mappedKey, orderByProperties, options.UseOrderableAttributes))
+                string? ordering;
+                if (TryGetConfiguredOrderPath(options.OrderableSelectors, orderBy.Key, out var memberPath))
                 {
+                    ordering = BuildOrderByKey(memberPath);
+                }
+                else if (!TryBuildOrderablePath(orderBy.Key, orderByProperties, out ordering))
+                {
+                    // A key that is not a complete [Orderable] path is skipped, as unknown keys always were.
                     continue;
                 }
 
@@ -330,6 +334,7 @@ public partial class CollectionProcessingService
                     Direction = orderBy.Direction,
                     Method = orderBy.Method
                 });
+                orderings.Add(ordering);
             }
 
             if (orderByResult.Any())
@@ -337,13 +342,8 @@ public partial class CollectionProcessingService
                 var count = 0;
                 foreach (var orderByItem in orderByResult)
                 {
+                    var orderByKey = orderings[count];
                     count++;
-
-                    var mappedKey = TryGetConfiguredOrderPath(options.OrderableSelectors, orderByItem.Key, out var memberPath)
-                        ? memberPath
-                        : orderByItem.Key;
-
-                    var orderByKey = BuildOrderByKey(mappedKey);
 
                     switch (orderByItem.Method)
                     {
@@ -467,70 +467,8 @@ public partial class CollectionProcessingService
         };
     }
 
-    private static bool IsOrderByAllowed<TViewModel>(
-        string key,
-        IEnumerable<PropertyInfo> orderByProperties,
-        bool useOrderableAttributes)
-        where TViewModel : class
-    {
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return false;
-        }
-
-        if (!useOrderableAttributes)
-        {
-            return false;
-        }
-
-        var concatParts = key.Split("+").Select(x => x.Trim()).ToArray();
-        foreach (var concatPart in concatParts)
-        {
-            var orderByKeys = concatPart
-                .Split(".")
-                .Select(x => x
-                    .Replace("{first:asc}", "")
-                    .Replace("{first:desc}", "")
-                    .Replace("{last:asc}", "")
-                    .Replace("{last:desc}", ""));
-
-            PropertyInfo? orderByField = null;
-            var objOrderByProperties = orderByProperties;
-
-            foreach (var orderByKey in orderByKeys)
-            {
-                orderByField = objOrderByProperties.FirstOrDefault(x => x.Name.ToLower().Equals(orderByKey.ToLower()));
-
-                if (orderByField == null)
-                {
-                    break;
-                }
-
-                if (!orderByField.PropertyType.IsClass)
-                {
-                    break;
-                }
-
-                var propertyType = orderByField.PropertyType;
-                if (propertyType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(propertyType))
-                {
-                    propertyType = propertyType.GetGenericArguments()[0];
-                }
-
-                objOrderByProperties = propertyType
-                    .GetProperties()
-                    .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false));
-            }
-
-            if (orderByField == null)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
+    // Builds the ordering of a configured selector's member path, which comes from the selector's
+    // expression and never from a client key.
     private static string BuildOrderByKey(string key)
     {
         return string.Join(".", key

@@ -38,6 +38,26 @@ attributes, which could reject them with a plain `Exception`.
 | Members of scalar values, such as `name.length` or `creationDateTime.year`, are no longer accepted as filter key segments. | Filter on a `[Filterable]` view-model property, or configure a selector for the value. |
 | On the attribute-based path an unknown field or an unsupported operator throws `InvalidFilterCollectionResultException` instead of `Exception`, and the message names the complete key instead of its first segment. | None, unless code or a test compares the exception's exact type or message; catch `InvalidFilterCollectionResultException`. |
 
+## NewHeap.Platform.Common: complete order keys checked against [Orderable] view models
+
+Collection processing now checks every dotted segment of every `+` part of a client order key on the
+attribute-based path (`ProcessOrderBy<TEntity, TViewModel>`) and on the options-based path
+(`OrderableFromAttributes`), the way it checks filter keys. The first segment must be an `[Orderable]`
+property of the view model, and every later segment an `[Orderable]` property of the view-model type
+that the previous segment reaches; a step into a collection names one member of its items behind a
+lower-case `{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token. Before, validation stopped at
+the first scalar `[Orderable]` property and the rest of the key went to Dynamic LINQ unchecked, so a key
+such as `creationDateTime.year == 2001 ? secret.length : 0` ordered rows by entity columns that the view
+model does not expose, on SQL Server and PostgreSQL. The ordering is now built from the matched property
+names only. A key that is not such a path is skipped, exactly as unknown order keys always were: the
+request keeps its other order keys or the default order and does not fail. A configured
+`WithOrderable(key, selector)` still allows exactly its own key.
+
+| Breaking change | Required action |
+|---|---|
+| An order key that continues behind a scalar `[Orderable]` property, such as `name.length` or `creationDateTime.year`, is now skipped like an unknown key, so the default order applies. | Sort on an `[Orderable]` view-model property, or configure `WithOrderable(key, selector)` for the value. |
+| An order key that the old code accepted but could not run, such as a collection step without a token (`tasks.deadline`) or a token behind a navigation, is now skipped instead of failing with a Dynamic LINQ or translation exception. | None. |
+
 ## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: moves and renames authorize their destination
 
 A file or folder that moves or gets another name is now also authorized where it lands, as a create:
@@ -85,6 +105,27 @@ localization and 401 when the module refuses the update.
 | Localization writes now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may translate a file's display strings. |
 | Only `Title`, `Description` and `AltText` can be localized; stored localizations of other properties are ignored. | Localize only these three; remove other stored rows from the `Localizations` table if you want them gone. |
 | `POST {prefix}/file/localize` now returns 400 or 404 when the localization fails instead of 204. | Handle these responses; removing a localization that does not exist returns 404. |
+
+## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: downloads served with a server-chosen type
+
+`GET {prefix}/download` used to pass the requested file name to the response as its `Content-Type` and
+served every file inline without `X-Content-Type-Options`. It now opens the file with the new
+`IMediaLibraryService.OpenDownloadAsync`, which reads the content through `DownloadFileAsync(path, fileName)`,
+so its authorization and any override of it decide the download as before, and returns a `MediaFileDownload`
+with the stored file reference. The stored name chooses the content type from the fixed list in the new
+`NhMediaContentTypes`; a name with another extension or none, and every type a browser runs scripts in
+such as HTML, XHTML, XML and JavaScript, is served as `application/octet-stream`. Content without a stored
+reference, for example from an override that serves a file the storage does not list, is an
+`application/octet-stream` attachment. Every download carries `X-Content-Type-Options: nosniff`. Raster
+images (PNG, JPEG, GIF, WebP, AVIF, BMP) are served inline with `Content-Disposition: inline`; SVG, PDF and
+every other file are served as an attachment, both under the stored file name. `OpenDownloadAsync` has a
+default interface implementation, so custom `IMediaLibraryService` implementations keep compiling.
+`DownloadFileAsync` itself is unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| `GET {prefix}/download` now returns a listed content type or `application/octet-stream`, `nosniff`, and `Content-Disposition: attachment` for every file but a raster image. | Read the file name from `Content-Disposition` and the type from `Content-Type`; show SVG, PDF or other documents from a blob or a sandboxed viewer instead of navigating to the download URL. |
+| The download endpoint calls `IMediaLibraryService.OpenDownloadAsync`, which `MediaLibraryService` implements through `DownloadFileAsync(path, fileName)`, so an override of that method still applies. | None. |
 
 ## NewHeap.Platform.AspNet.Proxy: host-relative redirect destinations stay on this origin
 

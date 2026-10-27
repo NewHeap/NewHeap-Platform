@@ -47,16 +47,28 @@ public sealed class ProjectMediaSampleService
         _authorizationLog = authorizationLog;
     }
 
+    /// <summary>
+    /// Opens a media file for the download endpoint. The stored file, not the requested name, decides the
+    /// download name, the content type (<see cref="NhMediaContentTypes"/>, application/octet-stream for any
+    /// name that is not on its list) and whether the file may be shown inline, which only raster images may.
+    /// </summary>
     public async Task<ProjectMediaDownload?> DownloadAsync(string? path, string fileName)
     {
-        if (string.IsNullOrWhiteSpace(fileName)) return null;
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
 
-        using var result = await _mediaLibraryService.DownloadFileAsync(path, fileName);
-        if (!result.Success || result.Data is null) return null;
+        using var result = await _mediaLibraryService.OpenDownloadAsync(path, fileName);
+        if (!result.Success || result.Data is null)
+        {
+            return null;
+        }
 
-        var stream = result.Data;
+        // The controller writes the stream to the response, which disposes it.
+        var download = result.Data;
         result.Data = null;
-        return new ProjectMediaDownload(stream, fileName, ResolveContentType(fileName));
+        return new ProjectMediaDownload(download.Content, download.FileName, download.ContentType, download.Inline);
     }
 
     /// <summary>
@@ -97,6 +109,10 @@ public sealed class ProjectMediaSampleService
         return new ProjectMediaFileLookup(resolved, missingIds);
     }
 
+    /// <summary>
+    /// The media type the assistant reports for a media file without a stored media type. Downloads do not
+    /// use it: they are served with the library's <see cref="NhMediaContentTypes"/>.
+    /// </summary>
     public static string ResolveContentType(string fileName)
     {
         var provider = new FileExtensionContentTypeProvider();
@@ -181,4 +197,5 @@ public sealed record ProjectMediaFileSummary(
 public sealed record ProjectMediaDownload(
     Stream Stream,
     string FileName,
-    string ContentType);
+    string ContentType,
+    bool Inline);

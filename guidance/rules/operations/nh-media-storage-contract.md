@@ -5,7 +5,7 @@ area: media
 reference: media
 summary: "Choose an independent storage-provider package in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events."
 sample-cases: ["SPM-177", "SPM-178", "SPM-179", "SPM-180", "SPM-181", "SPM-182", "SPM-183", "SPM-184", "SPM-185", "SPM-186", "SPM-187", "SPM-188", "SPM-267"]
-public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule", "FileStructureDbContext", "RelationalFileStructureStorage", "IMediaLibraryService", "IFileStructureStorage", "NhMediaErrorCodes"]
+public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule", "FileStructureDbContext", "RelationalFileStructureStorage", "IMediaLibraryService", "IFileStructureStorage", "NhMediaErrorCodes", "NhMediaContentTypes", "MediaFileDownload"]
 skills: ["newheap-media-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -26,6 +26,8 @@ Decide every media mutation in `IAuthorizationModule` by the action and the path
 
 Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
 
+Serve a stored file by its stored reference, never by the name a request sends. `GET {prefix}/download` opens the file with `IMediaLibraryService.OpenDownloadAsync`, which reads the content through `DownloadFileAsync`, so its authorization and any override of it still decide the download, and returns a `MediaFileDownload` with the stored reference and the content type that `NhMediaContentTypes` lists for the stored name's extension; content without a stored reference is an `application/octet-stream` attachment; any other name, and every type a browser runs scripts in such as HTML, XML and JavaScript, is `application/octet-stream`. The endpoint sends `X-Content-Type-Options: nosniff` and serves only raster images (PNG, JPEG, GIF, WebP, AVIF, BMP) inline; SVG, PDF and every other file are attachments under their stored name. A consumer endpoint that serves media bytes itself, such as a download controller, does the same with `OpenDownloadAsync`, or with `NhMediaContentTypes.FromFileName` and `IsInlineSafe` for a file it opened by id.
+
 Map the media HTTP API with `MapNhMediaEndpoints` and configure its routes, through the `MediaLibraryRouteBuilder` callback or the returned group, before the host starts. The group builds its endpoints once; routing, the authorization policy cache, link generation and API descriptions share them, so a convention added after the host started no longer applies.
 
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
@@ -37,6 +39,7 @@ Configure the media schema through `FileStructureDbContextOptions.Scheme` for ei
 - Storage-provider choices in controllers or frontend code.
 - Anonymous media routes, or an authorization module that accepts permissions a client sends in a request header.
 - Trusting only file extensions for content type or safety.
+- Serving media bytes with a content type taken from a request, such as the requested file name, rendering an uploaded document inline, or leaving out `X-Content-Type-Options: nosniff`.
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.
 - Calling `GetFileAsync(Guid)` in a loop for the files of one view, or replacing provider lookups with string-concatenated folder paths that cannot use an index.
@@ -49,6 +52,8 @@ Test the folder lifecycle, upload and download, search and sorting, metadata, th
 For file lookups, count the database round trips of one call with a command interceptor and replay the recorded commands against SQL Server and PostgreSQL to assert index seeks without table or sequential scans: a batch by id costs one file query and one folder query, and a lookup by path costs one query.
 
 Assert that routing and the application-wide `EndpointDataSource` share the media endpoints built once.
+
+For downloads, upload a page with a script and a raster image and assert that the page is served as an `application/octet-stream` attachment and the image inline with its type, both with `nosniff` and their stored name, through the library route and every consumer download endpoint.
 
 For media mutations, use a module scoped to one division and assert the decisions it receives: a move or rename into another division asks for `ActionType.Create` at the destination and is refused before storage is read or written; a tag update or localization asks for `ActionType.Update` of the file and is refused alike for an existing and a missing file. Verify on SQL Server and PostgreSQL that a move or rename onto a name the destination holds fails with the error code while a free name succeeds, that the existing-name check follows each provider's case semantics, and that stored localizations of other properties than the three display strings leave lists, searches and file reads intact. Assert 401, 409 and 400 from the HTTP endpoints.
 

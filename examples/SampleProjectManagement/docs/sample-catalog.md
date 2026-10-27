@@ -607,6 +607,14 @@ user store. No request header grants a permission. `MediaLibrarySamplesTests` se
 anonymously with a header that claims both permissions and gets 401, and shows that a North member
 can read and delete North's documents but not South's.
 
+Downloads (SPM-183) are served by the stored file, not by the name a request sends. The library route
+and `MediaSamplesController` both open the file with `IMediaLibraryService.OpenDownloadAsync`, which
+reads it through `DownloadFileAsync`, so its authorization and any override still apply, and returns the
+stored reference with the content type `NhMediaContentTypes` lists for its extension.
+`MediaLibrarySamplesTests` uploads a page with a script and a PNG: the page comes back as an
+`application/octet-stream` attachment and the image inline as `image/png`, both with
+`X-Content-Type-Options: nosniff`, so a browser saves the page instead of running it.
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call
@@ -731,6 +739,14 @@ therefore filter on SQL Server and PostgreSQL. `ownerUser.passwordHash` and
 `tasks{any}.completedByUserId` return a safe `filter` error, although the
 entities have those members, because the owner view has no password hash and
 the task view returns the completing user without marking it filterable.
+
+Order keys follow the same rule against `[Orderable]`. The nested view marks the
+owner navigation and the owner's e-mail address orderable, so `ownerUser.email`
+orders the projects. `creationDateTime` is orderable too, but an order key ends
+there: a key that continues behind it, such as a conditional over the owner's
+password hash that would let the row order reveal the hash, is ignored like an
+unknown order key, so the projects keep the default order by name and nothing of
+the key reaches the database.
 
 Rebuild filters whenever UI state changes so stale filter values do not remain
 silently in the request.

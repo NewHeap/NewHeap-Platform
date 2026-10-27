@@ -485,8 +485,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-034",
     "title": "Attribute protection",
     "category": "Collections, filtering, and projections",
-    "surface": "filter/search/order attributes, nested [Filterable] filter paths",
-    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them.",
+    "surface": "filter/search/order attributes, nested [Filterable] filter paths and [Orderable] order paths",
+    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them. An order key is checked the same way against `[Orderable]`: `ownerUser.email` orders, while a key that continues behind `creationDateTime` into the owner's password hash is ignored and the projects keep the default order.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -495,7 +495,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionOrderPathValidationTests.cs"
     ]
   },
   {
@@ -2554,15 +2555,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-183",
     "title": "File upload and download",
     "category": "Media",
-    "surface": "media service + HTTP",
-    "outcome": "File content, content type, and download name remain intact.",
+    "surface": "media service + HTTP, OpenDownloadAsync, NhMediaContentTypes",
+    "outcome": "File content and the stored download name remain intact. The stored name chooses the content type from the library's fixed list, `application/octet-stream` for any other name; raster images are served inline, every other file as an attachment, always with `X-Content-Type-Options: nosniff`, so an uploaded page is saved instead of rendered.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaDownloadEndpointTests.cs"
     ]
   },
   {

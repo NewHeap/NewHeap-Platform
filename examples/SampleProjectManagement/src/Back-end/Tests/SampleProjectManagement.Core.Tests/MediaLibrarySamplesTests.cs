@@ -235,7 +235,7 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
     [Theory]
     [InlineData("planning.pdf", "application/pdf")]
     [InlineData("project-data.unknown", "application/octet-stream")]
-    public void SampleDownloadAdapterReturnsAValidContentType(string fileName, string expectedContentType)
+    public void AssistantMediaTypeFallbackReturnsAValidContentType(string fileName, string expectedContentType)
     {
         Assert.Equal(expectedContentType, ProjectMediaSampleService.ResolveContentType(fileName));
     }
@@ -415,6 +415,7 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
                 DownloadUrl("/media-samples/download", northDocuments, "budget.txt"));
             Assert.Equal(HttpStatusCode.OK, memberDownload.StatusCode);
             Assert.Equal("north budget", await memberDownload.Content.ReadAsStringAsync(cancellationToken));
+            AssertServedAs(memberDownload, "text/plain", "attachment", "budget.txt");
             Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "north-member", south, HttpMethod.Get,
                 DownloadUrl("/project-media/download", southDocuments, "plan.txt"))).StatusCode);
             Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, "north-member", north, HttpMethod.Get,
@@ -442,6 +443,28 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
                 DownloadUrl("/project-media/download", northDocuments, "budget.txt"))).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", south, HttpMethod.Get,
                 DownloadUrl("/project-media/download", southDocuments, "plan.txt"))).StatusCode);
+
+            // Both download routes take the content type from the stored name through the library's list:
+            // an uploaded page is saved as an octet-stream attachment, a raster image is shown inline,
+            // and neither may be sniffed into another type.
+            const string page = "<html><body><script>document.title='ran'</script></body></html>";
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", north, HttpMethod.Post,
+                "/project-media/upload", UploadContent(northDocuments, "page.html", page))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "manager", north, HttpMethod.Post,
+                "/project-media/upload", UploadContent(northDocuments, "cover.png", page))).StatusCode);
+            foreach (var route in new[] { "/project-media/download", "/media-samples/download" })
+            {
+                var pageDownload = await SendAsync(client, "manager", north, HttpMethod.Get,
+                    DownloadUrl(route, northDocuments, "page.html"));
+                Assert.Equal(HttpStatusCode.OK, pageDownload.StatusCode);
+                AssertServedAs(pageDownload, "application/octet-stream", "attachment", "page.html");
+                Assert.Equal(page, await pageDownload.Content.ReadAsStringAsync(cancellationToken));
+
+                var coverDownload = await SendAsync(client, "manager", north, HttpMethod.Get,
+                    DownloadUrl(route, northDocuments, "cover.png"));
+                Assert.Equal(HttpStatusCode.OK, coverDownload.StatusCode);
+                AssertServedAs(coverDownload, "image/png", "inline", "cover.png");
+            }
 
             await app.StopAsync(cancellationToken);
         }
@@ -572,6 +595,18 @@ public class MediaLibrarySamplesTests(SamplePostgreSqlServer postgreSql)
         }
 
         return await client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static void AssertServedAs(
+        HttpResponseMessage response,
+        string contentType,
+        string disposition,
+        string fileName)
+    {
+        Assert.Equal(contentType, response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(["nosniff"], response.Headers.GetValues("X-Content-Type-Options"));
+        Assert.Equal(disposition, response.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Equal(fileName, response.Content.Headers.ContentDisposition?.FileNameStar);
     }
 
     private static string DownloadUrl(string route, string path, string fileName)

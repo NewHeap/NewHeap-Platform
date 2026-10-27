@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "3aa383c7402fa374ab85f0a0597bf459278fb1350b57104b2fc23448c0511810",
-    "declarationCount": 11297,
+    "hash": "884ab0517ac250694764e05a8bf67556d147c7ce53c2f3fe68c831904018b980",
+    "declarationCount": 11311,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -44103,6 +44103,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
+        "declaration": "public virtual async Task<DisposableTaskResult<MediaFileDownload>> OpenDownloadAsync(string? path, string fileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
         "declaration": "public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id) {"
       },
       {
@@ -44188,6 +44192,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/IlocalizationData.cs",
         "declaration": "public interface ILocalizationData {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public sealed class MediaFileDownload : IDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public MediaFileDownload(FileReference file, Stream content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public MediaFileDownload(string fileName, Stream content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public FileReference? File { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public string FileName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public Stream Content { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public string ContentType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public bool Inline { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/SearchOptions.cs",
@@ -44460,6 +44500,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Modules/IThumbnailService.cs",
         "declaration": "public virtual ValueTask HandleEvent(MediaLibraryFolderEvent @event) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+        "declaration": "public static class NhMediaContentTypes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+        "declaration": "public const string Default = \"application/octet-stream\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+        "declaration": "public static string FromFileName(string? fileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+        "declaration": "public static bool IsInlineSafe(string? contentType) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContext.cs",
@@ -49658,6 +49714,7 @@
       "NhCollectionSelection",
       "NhSelectedCollectionMessagePack",
       "FilterableAttribute",
+      "OrderableAttribute",
       "InvalidFilterCollectionResultException"
     ],
     "nh-backend-controller-contracts": [
@@ -50059,7 +50116,9 @@
       "RelationalFileStructureStorage",
       "IMediaLibraryService",
       "IFileStructureStorage",
-      "NhMediaErrorCodes"
+      "NhMediaErrorCodes",
+      "NhMediaContentTypes",
+      "MediaFileDownload"
     ],
     "nh-observability-logging": [
       "AddNewHeapObservability",

@@ -386,6 +386,41 @@ public class MediaLibraryService : IMediaLibraryService
         return stream;
     }
 
+    /// <summary>
+    /// Opens a file for download through <see cref="DownloadFileAsync(string?, string)"/>, so its read
+    /// authorization and an override of it apply exactly as before, and adds the stored reference that
+    /// decides the content type. Content whose reference the storage does not list is served as an
+    /// octet-stream attachment.
+    /// </summary>
+    public virtual async Task<DisposableTaskResult<MediaFileDownload>> OpenDownloadAsync(string? path, string fileName)
+    {
+        var content = await DownloadFileAsync(path, fileName);
+        if (!content.Success)
+        {
+            return DisposableTaskResult<MediaFileDownload>.Failed("File not found");
+        }
+
+        var stream = content.Data;
+        content.Data = null;
+
+        // DownloadFileAsync authorized the read; this lookup only reads the stored name, without a
+        // second decision of the authorization module.
+        FileReference? fileRef;
+        try
+        {
+            fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+
+        return fileRef == null
+            ? new MediaFileDownload(fileName, stream)
+            : new MediaFileDownload(fileRef, stream);
+    }
+
     public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id)
     {
         var fileRef = await _fileStructureStorage.GetByIdAsync(id);

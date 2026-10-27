@@ -383,7 +383,7 @@ public sealed class MediaLibraryMutationAuthorizationTests
         {
             Module = new ScopedAuthorizationModule(allowedRoot);
             Service = new MediaLibraryService([Handler], new ThumbnailService(), Storage,
-                Substitute.For<IMediaStorage>(), Module, NullLogger<MediaLibraryService>.Instance);
+                Blobs, Module, NullLogger<MediaLibraryService>.Instance);
             Storage.UpdateFileAsync(Arg.Any<Guid>(), Arg.Any<FileModel>())
                 .Returns(call => TaskResult<FileReference>.Succeeded(new FileReference
                 {
@@ -397,6 +397,8 @@ public sealed class MediaLibraryMutationAuthorizationTests
 
         public IFileStructureStorage Storage { get; } = Substitute.For<IFileStructureStorage>();
 
+        public IMediaStorage Blobs { get; } = Substitute.For<IMediaStorage>();
+
         public IHandleMediaLibraryEvent Handler { get; } = Substitute.For<IHandleMediaLibraryEvent>();
 
         public ScopedAuthorizationModule Module { get; }
@@ -408,6 +410,16 @@ public sealed class MediaLibraryMutationAuthorizationTests
             var file = new FileReference { Id = Guid.NewGuid(), Name = name, Folder = CreateFolder(folderPath) };
             Storage.GetByIdAsync(file.Id).Returns(file);
             Storage.GetFileAsync(folderPath, name, null).Returns(file);
+            return file;
+        }
+
+        /// <summary>
+        /// Adds a file whose stored bytes are <paramref name="content"/>; every read gets a new stream.
+        /// </summary>
+        public FileReference AddFile(string folderPath, string name, byte[] content)
+        {
+            var file = AddFile(folderPath, name);
+            Blobs.GetFileAsync(file.Id).Returns(_ => new MemoryStream(content));
             return file;
         }
 

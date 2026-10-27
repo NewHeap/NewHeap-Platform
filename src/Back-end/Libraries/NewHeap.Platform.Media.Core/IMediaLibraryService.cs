@@ -100,7 +100,53 @@ public interface IMediaLibraryService
     /// <param name="id"></param>
     /// <returns></returns>
     Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id);
-    
+
+    /// <summary>
+    /// Open a file by path and filename for download: its content from
+    /// <see cref="DownloadFileAsync(string?, string)"/>, so that method's authorization and checks apply,
+    /// with the stored reference, whose name decides the content type and whether the file may be served
+    /// inline (<see cref="NhMediaContentTypes"/>). The media download endpoint serves files through this
+    /// method.
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="fileName"></param>
+    /// <returns>
+    /// The opened file, or a failed result when the content does not exist. Content without a stored
+    /// reference is returned as an octet-stream attachment.
+    /// </returns>
+    /// <remarks>
+    /// The default implementation reads the content with <see cref="DownloadFileAsync(string?, string)"/>
+    /// and then the reference with <see cref="GetFileAsync(string?, string, string?)"/>, so the read is
+    /// authorized twice. <see cref="MediaLibraryService"/> authorizes it once, in its
+    /// <see cref="DownloadFileAsync(string?, string)"/>.
+    /// </remarks>
+    async Task<DisposableTaskResult<MediaFileDownload>> OpenDownloadAsync(string? path, string fileName)
+    {
+        var content = await DownloadFileAsync(path, fileName);
+        if (!content.Success)
+        {
+            return DisposableTaskResult<MediaFileDownload>.Failed("File not found");
+        }
+
+        var stream = content.Data;
+        content.Data = null;
+
+        TaskResult<FileReference> file;
+        try
+        {
+            file = await GetFileAsync(path, fileName);
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+
+        return file.Success
+            ? new MediaFileDownload(file.Data, stream)
+            : new MediaFileDownload(fileName, stream);
+    }
+
     /// <summary>
     /// Get folder contents by path
     /// </summary>
