@@ -176,6 +176,6 @@ public sealed class CollectionQueryCacheTests
     private sealed class Child
     {
         public int Id { get; set; }
-        public string Name { get; set; } = "";
+        [Filterable] public string Name { get; set; } = "";
     }
 }
