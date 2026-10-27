@@ -336,11 +336,15 @@ public sealed class AuthenticationSessionProviderTests
             return PrincipalOf(impersonation.Data!.Token);
         }
 
-        // The token carries the origin's security stamp and is valid while that stamp is current.
+        // The token carries a digest of the origin's security stamp, not the stamp itself, and is
+        // valid while that stamp is current.
         var principal = await ImpersonateAsync();
-        Assert.Equal(
-            await userManager.GetSecurityStampAsync(administrator),
-            principal.FindFirst(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp)!.Value);
+        var originSecurityStamp = await userManager.GetSecurityStampAsync(administrator);
+        var originStampClaim = principal.FindFirst(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp)!.Value;
+        Assert.Equal(NhAuthenticationSessionDefaults.ImpersonationOriginStamp(originSecurityStamp), originStampClaim);
+        Assert.DoesNotContain(
+            principal.Claims,
+            claim => claim.Value.Contains(originSecurityStamp, StringComparison.Ordinal));
         Assert.True(await validator.ValidateAsync(principal));
 
         // A password change of the origin ends the impersonation, as it ends the origin's own sessions.
@@ -383,11 +387,19 @@ public sealed class AuthenticationSessionProviderTests
         Assert.True((await userManager.UpdateAsync(administrator)).Succeeded);
         Assert.Equal(administratorRefreshTokens, await CountRefreshTokensAsync(environment.Context, administrator.Id));
 
-        // A token from before the impersonation was bound to the origin's stamp is no longer accepted.
+        // A token from before the impersonation was bound to the origin's stamp is no longer accepted,
+        // nor is one that names the stamp itself instead of its digest.
         var unbound = new ClaimsPrincipal(new ClaimsIdentity(
             current.Claims.Where(x => x.Type != NhPlatformClaimTypes.ImpersonateOriginSecurityStamp),
             "Test"));
         Assert.False(await validator.ValidateAsync(unbound));
+
+        var withRawStamp = new ClaimsPrincipal(new ClaimsIdentity(
+            unbound.Claims.Append(new Claim(
+                NhPlatformClaimTypes.ImpersonateOriginSecurityStamp,
+                await userManager.GetSecurityStampAsync(administrator))),
+            "Test"));
+        Assert.False(await validator.ValidateAsync(withRawStamp));
 
         // Reverting a valid impersonation issues the origin's own session.
         var revert = await authenticationService.ImpersonateRevert(target.Id, administrator.Id);

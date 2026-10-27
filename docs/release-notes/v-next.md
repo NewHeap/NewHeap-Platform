@@ -72,7 +72,7 @@ A plaintext code stored before the upgrade still redeems once.
 
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
-An impersonation token now also carries the security stamp of the user who started it
+An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it
 (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`). The session validator refuses the token once
 that stamp changes, for example after the origin's password change or reset, and while the origin is
 locked out or blocked; before, it checked only the impersonated user. `Impersonate` refuses an origin

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
@@ -28,6 +30,16 @@ internal static class NhAuthenticationSessionDefaults
 {
     internal const string LoginProvider = "NewHeap.Platform.AspNet.Common";
     internal const string SecurityStampTokenName = "AuthenticationSessionSecurityStamp";
+
+    /// <summary>
+    /// The value of <see cref="NhPlatformClaimTypes.ImpersonateOriginSecurityStamp"/>: a SHA-256 digest of
+    /// the impersonating user's security stamp, so a token that acts as another user does not carry the
+    /// stamp itself.
+    /// </summary>
+    internal static string ImpersonationOriginStamp(string securityStamp)
+    {
+        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(securityStamp)));
+    }
 }
 
 internal sealed class NhAuthenticationSessionValidator<TUser> : INhAuthenticationSessionValidator
@@ -119,7 +131,11 @@ internal sealed class NhAuthenticationSessionValidator<TUser> : INhAuthenticatio
         cancellationToken.ThrowIfCancellationRequested();
 
         var currentOriginSecurityStamp = await _userManager.GetSecurityStampAsync(origin);
-        if (!string.Equals(originSecurityStamp, currentOriginSecurityStamp, StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(currentOriginSecurityStamp)
+            || !string.Equals(
+                originSecurityStamp,
+                NhAuthenticationSessionDefaults.ImpersonationOriginStamp(currentOriginSecurityStamp),
+                StringComparison.Ordinal))
         {
             return false;
         }

@@ -750,7 +750,7 @@ public class NhAuthenticationService<
     /// the token from the target user's claims and silently drop the impersonation origin,
     /// turning the session into an ordinary long-lived login as the target user. The session
     /// therefore ends when the access token expires or the origin user reverts it.
-    /// The token also carries the origin user's security stamp
+    /// The token also carries a digest of the origin user's security stamp
     /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginSecurityStamp"/>), so the session validator
     /// ends the impersonation when that stamp changes or the origin user is blocked. An origin user
     /// who may not sign in cannot start one.
@@ -773,7 +773,9 @@ public class NhAuthenticationService<
             x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId
             || x.Type == NhPlatformClaimTypes.ImpersonateOriginSecurityStamp);
         claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
-        claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp, originSecurityStamp));
+        claims.Add(new Claim(
+            NhPlatformClaimTypes.ImpersonateOriginSecurityStamp,
+            NhAuthenticationSessionDefaults.ImpersonationOriginStamp(originSecurityStamp)));
         var token = await CreateToken(
             user.Id,
             c: claims,

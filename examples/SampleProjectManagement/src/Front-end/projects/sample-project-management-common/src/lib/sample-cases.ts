@@ -959,7 +959,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Impersonation",
     "category": "Authentication, identity, and authorization",
     "surface": "handler/models",
-    "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. The token carries the security stamp of the user who started the impersonation (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`), so the session validator ends it once that user changes the password and while that user is locked out or blocked.",
+    "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. The token carries a digest of the security stamp of the user who started the impersonation (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`), so the session validator ends it once that user changes the password and while that user is locked out or blocked.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
