@@ -110,20 +110,22 @@ localization and 401 when the module refuses the update.
 
 `GET {prefix}/download` used to pass the requested file name to the response as its `Content-Type` and
 served every file inline without `X-Content-Type-Options`. It now opens the file with the new
-`IMediaLibraryService.OpenDownloadAsync`, which authorizes the read like `DownloadFileAsync` and returns a
-`MediaFileDownload` with the stored file reference. The stored name chooses the content type from the
-fixed list in the new `NhMediaContentTypes`; a name with another extension or none, and every type a
-browser runs scripts in such as HTML, XHTML, XML and JavaScript, is served as `application/octet-stream`.
-Every download carries `X-Content-Type-Options: nosniff`. Raster images (PNG, JPEG, GIF, WebP, AVIF, BMP)
-are served inline with `Content-Disposition: inline`; SVG, PDF and every other file are served as an
-attachment, both under the stored file name. `OpenDownloadAsync` has a default interface implementation,
-so custom `IMediaLibraryService` implementations keep compiling; it reads the reference and the content
-through `GetFileAsync` and `DownloadFileAsync`. `DownloadFileAsync` itself is unchanged.
+`IMediaLibraryService.OpenDownloadAsync`, which reads the content through `DownloadFileAsync(path, fileName)`,
+so its authorization and any override of it decide the download as before, and returns a `MediaFileDownload`
+with the stored file reference. The stored name chooses the content type from the fixed list in the new
+`NhMediaContentTypes`; a name with another extension or none, and every type a browser runs scripts in
+such as HTML, XHTML, XML and JavaScript, is served as `application/octet-stream`. Content without a stored
+reference, for example from an override that serves a file the storage does not list, is an
+`application/octet-stream` attachment. Every download carries `X-Content-Type-Options: nosniff`. Raster
+images (PNG, JPEG, GIF, WebP, AVIF, BMP) are served inline with `Content-Disposition: inline`; SVG, PDF and
+every other file are served as an attachment, both under the stored file name. `OpenDownloadAsync` has a
+default interface implementation, so custom `IMediaLibraryService` implementations keep compiling.
+`DownloadFileAsync` itself is unchanged.
 
 | Breaking change | Required action |
 |---|---|
 | `GET {prefix}/download` now returns a listed content type or `application/octet-stream`, `nosniff`, and `Content-Disposition: attachment` for every file but a raster image. | Read the file name from `Content-Disposition` and the type from `Content-Type`; show SVG, PDF or other documents from a blob or a sandboxed viewer instead of navigating to the download URL. |
-| The download endpoint calls `IMediaLibraryService.OpenDownloadAsync` instead of `DownloadFileAsync(path, fileName)`. | If a subclass of `MediaLibraryService` customized `DownloadFileAsync(path, fileName)`, override `OpenDownloadAsync` the same way. |
+| The download endpoint calls `IMediaLibraryService.OpenDownloadAsync`, which `MediaLibraryService` implements through `DownloadFileAsync(path, fileName)`, so an override of that method still applies. | None. |
 
 ## NewHeap.Platform.AspNet.Proxy: host-relative redirect destinations stay on this origin
 

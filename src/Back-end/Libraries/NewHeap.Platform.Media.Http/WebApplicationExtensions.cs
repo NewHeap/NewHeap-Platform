@@ -431,11 +431,11 @@ public static class WebApplicationExtensions
             httpContext.Response.Headers.XContentTypeOptions = "nosniff";
             if (!file.Inline)
             {
-                return TypedResults.File(file.Content, file.ContentType, file.File.Name);
+                return TypedResults.File(file.Content, file.ContentType, file.FileName);
             }
 
             var disposition = new ContentDispositionHeaderValue("inline");
-            disposition.SetHttpFileName(file.File.Name);
+            disposition.SetHttpFileName(file.FileName);
             httpContext.Response.Headers.ContentDisposition = disposition.ToString();
             return TypedResults.File(file.Content, file.ContentType);
         }

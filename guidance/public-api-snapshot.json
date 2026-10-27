@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "cd83581c2268ccb908fdf5391b534592ef9ae1d022fb63ecd49d25e9bc32d404",
-    "declarationCount": 11226,
+    "hash": "0ee433047f47eaa50ef8b4d8669f60d460c9ce7452ab9610c7a679848ecd8875",
+    "declarationCount": 11228,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -43871,7 +43871,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
-        "declaration": "public FileReference File { get; }"
+        "declaration": "public MediaFileDownload(string fileName, Stream content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public FileReference? File { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",
+        "declaration": "public string FileName { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/MediaFileDownload.cs",

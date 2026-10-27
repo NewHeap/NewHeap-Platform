@@ -68,7 +68,7 @@ public sealed class ProjectMediaSampleService
         // The controller writes the stream to the response, which disposes it.
         var download = result.Data;
         result.Data = null;
-        return new ProjectMediaDownload(download.Content, download.File.Name, download.ContentType, download.Inline);
+        return new ProjectMediaDownload(download.Content, download.FileName, download.ContentType, download.Inline);
     }
 
     /// <summary>

@@ -203,13 +203,24 @@ public sealed class MediaEndpointAuthorizationTests(MediaEndpointAuthorizationTe
     {
         private WebApplication? _app;
         private ServiceContext _current = new();
+        private IMediaLibraryService? _service;
 
         public HttpClient Client { get; private set; } = null!;
 
         public ServiceContext Reset(string allowedRoot = "/divisions/a")
         {
             _current = new ServiceContext(allowedRoot);
+            _service = null;
             return _current;
+        }
+
+        /// <summary>
+        /// Serves the endpoints with <paramref name="service"/>, such as a consumer subclass of
+        /// <see cref="MediaLibraryService"/>, until the next <see cref="Reset"/>.
+        /// </summary>
+        public void Serve(IMediaLibraryService service)
+        {
+            _service = service;
         }
 
         public async Task InitializeAsync()
@@ -218,7 +229,7 @@ public sealed class MediaEndpointAuthorizationTests(MediaEndpointAuthorizationTe
             builder.WebHost.UseTestServer();
             builder.Logging.ClearProviders();
             builder.Services.AddSingleton(new NhMediaContext());
-            builder.Services.AddTransient<IMediaLibraryService>(_ => _current.Service);
+            builder.Services.AddTransient<IMediaLibraryService>(_ => _service ?? _current.Service);
 
             _app = builder.Build();
             _app.MapNhMediaEndpoints("media", configureOptions: null);

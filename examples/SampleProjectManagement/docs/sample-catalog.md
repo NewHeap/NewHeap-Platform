@@ -587,7 +587,8 @@ can read and delete North's documents but not South's.
 
 Downloads (SPM-183) are served by the stored file, not by the name a request sends. The library route
 and `MediaSamplesController` both open the file with `IMediaLibraryService.OpenDownloadAsync`, which
-returns the stored reference with the content type `NhMediaContentTypes` lists for its extension.
+reads it through `DownloadFileAsync`, so its authorization and any override still apply, and returns the
+stored reference with the content type `NhMediaContentTypes` lists for its extension.
 `MediaLibrarySamplesTests` uploads a page with a script and a PNG: the page comes back as an
 `application/octet-stream` attachment and the image inline as `image/png`, both with
 `X-Content-Type-Options: nosniff`, so a browser saves the page instead of running it.

@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Media;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 using NSubstitute;
 using Xunit;
 
@@ -125,6 +127,46 @@ public sealed class MediaDownloadEndpointTests(MediaEndpointAuthorizationTests.H
     }
 
     [Fact]
+    public async Task AnOverrideOfDownloadFileAsyncStillDecidesTheDownload()
+    {
+        var media = host.Reset();
+        media.AddFile(Documents, "photo.png", Script);
+        media.AddFile(Documents, "secret.png", Script);
+        var watermarked = Encoding.UTF8.GetBytes("watermarked");
+        var service = new CheckedMediaLibraryService(media, refused: "secret.png", replacement: watermarked);
+        host.Serve(service);
+
+        using var refused = await host.Client.GetAsync(DownloadUrl("secret.png"));
+        using var served = await host.Client.GetAsync(DownloadUrl("photo.png"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal(watermarked, await served.Content.ReadAsByteArrayAsync());
+        Assert.Equal("image/png", served.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("inline", served.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Equal(["nosniff"], served.Headers.GetValues("X-Content-Type-Options"));
+        Assert.Equal(["secret.png", "photo.png"], service.Requested);
+    }
+
+    [Fact]
+    public async Task ContentWithoutAStoredReferenceIsAnOctetStreamAttachment()
+    {
+        var media = host.Reset();
+        var service = new CheckedMediaLibraryService(media, refused: null,
+            replacement: Encoding.UTF8.GetBytes("generated"));
+        host.Serve(service);
+
+        // The override serves a file the storage does not list, so nothing stored names its type.
+        using var response = await host.Client.GetAsync(DownloadUrl("report.png"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Equal("report.png", response.Content.Headers.ContentDisposition?.FileNameStar);
+        Assert.Equal(["nosniff"], response.Headers.GetValues("X-Content-Type-Options"));
+    }
+
+    [Fact]
     public async Task OpeningADownloadAuthorizesOneReadAndReturnsTheStoredReference()
     {
         var media = host.Reset();
@@ -175,5 +217,30 @@ public sealed class MediaDownloadEndpointTests(MediaEndpointAuthorizationTests.H
     private static string DownloadUrl(string fileName)
     {
         return $"/media/download?path={Uri.EscapeDataString(Documents)}&fileName={Uri.EscapeDataString(fileName)}";
+    }
+
+    /// <summary>
+    /// A consumer subclass that adds its own check to <see cref="MediaLibraryService.DownloadFileAsync(string?, string)"/>
+    /// and replaces the bytes it serves, as a watermarking or scanning service would.
+    /// </summary>
+    private sealed class CheckedMediaLibraryService(
+        MediaLibraryMutationAuthorizationTests.ServiceContext context,
+        string? refused,
+        byte[] replacement)
+        : MediaLibraryService([], new ThumbnailService(), context.Storage, context.Blobs, context.Module,
+            NullLogger<MediaLibraryService>.Instance)
+    {
+        public List<string> Requested { get; } = [];
+
+        public override Task<DisposableTaskResult<Stream>> DownloadFileAsync(string? path, string fileName)
+        {
+            Requested.Add(fileName);
+            if (fileName == refused)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
+            return Task.FromResult<DisposableTaskResult<Stream>>(new MemoryStream(replacement));
+        }
     }
 }
