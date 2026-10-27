@@ -16,8 +16,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// SPM-034: a nested filter key runs only through members that the project's filter views mark
 /// <c>[Filterable]</c>, segment by segment, and a nested order key only through <c>[Orderable]</c>
-/// members. A key that names an entity member the views do not expose, such as the owner's password
-/// hash, fails with a safe error instead of filtering or ordering on it.
+/// members. A filter key that names an entity member the views do not expose, such as the owner's
+/// password hash, fails with a safe error instead of filtering on it; such an order key is ignored.
 /// <see cref="CollectionAndProjectionSamplesTests.NestedFilterKeysTranslateOnEachProvider"/>
 /// translates the accepted keys for SQL Server and PostgreSQL.
 /// </summary>
@@ -100,8 +100,8 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
     /// <summary>
     /// An order key runs only through members the nested view marks <c>[Orderable]</c>. A key that
     /// continues behind the orderable <c>creationDateTime</c> into a conditional over the owner's
-    /// password hash would let row order reveal the hash; it is rejected with the safe error before any
-    /// ordering reaches the database.
+    /// password hash would let row order reveal the hash; it is ignored like an unknown key, so the
+    /// projects keep the default order by name and nothing of it reaches the database.
     /// </summary>
     [Fact]
     public async Task NestedOrderKeysReachOnlyOrderableViewMembers()
@@ -150,6 +150,7 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
         Assert.True(byOwner.Success);
         Assert.Equal(["BETA", "ALPHA"], byOwner.Data!.Items.Select(project => project.Key));
 
+        // Ordering by the password hash would put BETA first; the default order by name puts ALPHA first.
         foreach (var key in new[]
                  {
                      "creationDateTime.year == 2026 ? ownerUser.passwordHash : \"\"",
@@ -159,11 +160,11 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
                      "tasks.{first:asc}title"
                  })
         {
-            var rejected = await service.GetByNestedFiltersAsync(OrderRequest(key), cancellationToken);
+            var ignored = await service.GetByNestedFiltersAsync(OrderRequest(key), cancellationToken);
 
-            Assert.False(rejected.Success);
-            Assert.Null(rejected.Data);
-            Assert.Equal("filter", Assert.Single(rejected.GetResultItems()).Name);
+            Assert.True(ignored.Success);
+            Assert.Equal(["ALPHA", "BETA"], ignored.Data!.Items.Select(project => project.Key));
+            Assert.DoesNotContain(ignored.Data.OrderBy, order => order.Key == key);
         }
     }
 

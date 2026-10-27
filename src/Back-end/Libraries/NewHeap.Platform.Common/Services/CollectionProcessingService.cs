@@ -412,10 +412,10 @@ public partial class CollectionProcessingService : ICollectionProcessingService
     /// LINQ ordering from the matched property names alone. The first segment must be one of
     /// <paramref name="orderByProperties"/>; every later segment must be an <see cref="OrderableAttribute"/>
     /// property of the type the previous segment reaches. A step into a collection must be followed by
-    /// one segment that names a member of its items behind a <c>{first:asc}</c>, <c>{first:desc}</c>,
-    /// <c>{last:asc}</c> or <c>{last:desc}</c> token, and that segment ends the part. A key that reaches
-    /// an unknown or unmarked member, continues behind a scalar value, or contains any other text, such
-    /// as operators or method calls, is rejected.
+    /// one segment that names a member of its items behind a lower-case <c>{first:asc}</c>,
+    /// <c>{first:desc}</c>, <c>{last:asc}</c> or <c>{last:desc}</c> token, and that segment ends the part.
+    /// A key that reaches an unknown or unmarked member, continues behind a scalar value, or contains
+    /// any other text, such as operators or method calls, builds no ordering.
     /// </summary>
     private static bool TryBuildOrderablePath(
         string key,
@@ -439,7 +439,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     return false;
                 }
 
-                var token = CollectionOrderTokens.FirstOrDefault(x => segment.StartsWith(x, StringComparison.OrdinalIgnoreCase));
+                var token = CollectionOrderTokens.FirstOrDefault(x => segment.StartsWith(x, StringComparison.Ordinal));
                 if ((token != null) != expectsCollectionItem)
                 {
                     return false;
@@ -488,7 +488,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
     /// </summary>
     private static string GetCollectionOrderExpression(string token, string memberName)
     {
-        return token.ToLowerInvariant() switch
+        return token switch
         {
             "{first:asc}" or "{last:asc}" => $"OrderBy(sub => sub.{memberName}).First()",
             _ => $"OrderByDescending(sub => sub.{memberName}).Last()"
@@ -858,9 +858,10 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                         continue;
                     }
 
+                    // A key that is not a complete [Orderable] path is skipped, as unknown keys always were.
                     if (!TryBuildOrderablePath(orderBy.Key, orderByProperties, out var ordering))
                     {
-                        throw new InvalidFilterCollectionResultException($"Invalid order field '{orderBy.Key}'");
+                        continue;
                     }
 
                     if (!orderBy.Direction.Equals("ASC") && !orderBy.Direction.Equals("DESC"))

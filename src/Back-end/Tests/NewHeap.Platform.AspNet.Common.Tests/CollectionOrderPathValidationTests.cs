@@ -1,8 +1,9 @@
+using System.ComponentModel;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.Common.Attributes;
-using NewHeap.Platform.Common.Exceptions;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Mapping;
@@ -15,13 +16,13 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 /// <summary>
 /// A client order key is checked segment by segment against the view model, like a filter key: every
 /// navigation and collection step, and the member it ends on, must be [Orderable] on the view-model type
-/// it belongs to, and nothing else of the key reaches Dynamic LINQ. A key that continues behind a scalar
-/// value, such as a conditional over entity columns after an [Orderable] date, is rejected before the
-/// database could order by it.
+/// it belongs to, and nothing else of the key reaches Dynamic LINQ. A key that is not such a path, such as
+/// a conditional over entity columns behind an [Orderable] date, is skipped like an unknown key, so the
+/// rows keep the default order instead of an order the database derived from hidden columns.
 /// </summary>
 public sealed class CollectionOrderPathValidationTests
 {
-    private static readonly string[] RejectedKeys =
+    private static readonly string[] IgnoredKeys =
     [
         "creationDateTime.year == 2001 ? secret.length : 0",
         "creationDateTime.year == 2001 ? owner.secret.length : 0",
@@ -38,7 +39,9 @@ public sealed class CollectionOrderPathValidationTests
         "{first:asc}name",
         "owner.{first:asc}displayName",
         "name + secret",
-        "name +"
+        "name +",
+        "tokens.{first:ASC}label",
+        "tokens.{First:asc}label"
     ];
 
     [Theory]
@@ -85,18 +88,24 @@ public sealed class CollectionOrderPathValidationTests
             Assert.Equal(["c", "b", "a"], await OrderAsync(context, processor, useOptions,
                 Order("creationDateTime"), Order("name", "DESC")));
 
-            foreach (var key in RejectedKeys)
+            // Every ordering an ignored key could produce differs from the default order c, b, a.
+            foreach (var key in IgnoredKeys)
             {
                 IQueryable<Account> query = context.Accounts.AsNoTracking();
-                var exception = Assert.Throws<InvalidFilterCollectionResultException>(() =>
-                    processor.Process<Account, AccountViewModel>(ref query, [Order(key)], useOptions));
-                Assert.Equal($"Invalid order field '{key}'", exception.Message);
+                var applied = processor.Process<Account, AccountViewModel>(ref query, [Order(key)], useOptions,
+                    (account => account.Name, ListSortDirection.Descending));
+
+                Assert.Equal(["Name"], applied.Select(order => order.Key));
+                Assert.Equal(["c", "b", "a"], await query.Select(account => account.Name).ToListAsync());
             }
 
-            // One rejected key rejects the whole request, also after an allowed one.
+            // An ignored key leaves the allowed keys of the same request in effect.
             IQueryable<Account> mixed = context.Accounts.AsNoTracking();
-            Assert.Throws<InvalidFilterCollectionResultException>(() =>
-                processor.Process<Account, AccountViewModel>(ref mixed, [Order("name"), Order("secret")], useOptions));
+            var mixedApplied = processor.Process<Account, AccountViewModel>(ref mixed,
+                [Order("creationDateTime.year == 2001 ? secret.length : 0"), Order("name")], useOptions,
+                (account => account.Name, ListSortDirection.Descending));
+            Assert.Equal(["name"], mixedApplied.Select(order => order.Key));
+            Assert.Equal(["a", "b", "c"], await mixed.Select(account => account.Name).ToListAsync());
         }
 
         // A configured selector is an explicit allowlist entry for its exact key; a tail behind it is not.
@@ -106,9 +115,10 @@ public sealed class CollectionOrderPathValidationTests
         Assert.Equal(["b", "a", "c"], await configured.Select(account => account.Name).ToListAsync());
 
         IQueryable<Account> configuredTail = context.Accounts.AsNoTracking();
-        Assert.Throws<InvalidFilterCollectionResultException>(() => processor.ProcessWithOptions(ref configuredTail,
-            [Order("owner-secret.length")],
-            builder => builder.WithOrderable("owner-secret", account => account.Owner!.Secret)));
+        processor.ProcessWithOptions(ref configuredTail, [Order("owner-secret.length")],
+            builder => builder.WithOrderable("owner-secret", account => account.Owner!.Secret),
+            (account => account.Name, ListSortDirection.Descending));
+        Assert.Equal(["c", "b", "a"], await configuredTail.Select(account => account.Name).ToListAsync());
     }
 
     [Fact]
@@ -132,6 +142,7 @@ public sealed class CollectionOrderPathValidationTests
 
         foreach (var useOptions in new[] { false, true })
         {
+            // The default order puts the a@ user first; each ignored key would put the b@ user first.
             foreach (var key in new[]
                      {
                          "User.CreationDateTime.Year == 2001 ? User.PasswordHash.Length : 0",
@@ -144,8 +155,11 @@ public sealed class CollectionOrderPathValidationTests
                      })
             {
                 var query = divisionUsers.AsQueryable();
-                Assert.Throws<InvalidFilterCollectionResultException>(() =>
-                    processor.Process<NhDivisionUser, TestDivisionUserViewModel>(ref query, [Order(key)], useOptions));
+                var applied = processor.Process<NhDivisionUser, TestDivisionUserViewModel>(ref query, [Order(key)],
+                    useOptions, (divisionUser => divisionUser.User.Email!, ListSortDirection.Ascending));
+
+                Assert.DoesNotContain(applied, order => order.Key == key);
+                Assert.Equal("a@example.test", query.First().User.Email);
             }
 
             foreach (var (key, first) in new[] { ("User.Email", "a@example.test"), ("Division.Name", "b@example.test") })
@@ -166,7 +180,7 @@ public sealed class CollectionOrderPathValidationTests
         {
             var query = new[] { new Account { Name = "a" } }.AsQueryable();
             var applied = processor.Process<Account, UnorderableAccountViewModel>(ref query, [Order("secret")], useOptions,
-                (account => account.Id, System.ComponentModel.ListSortDirection.Ascending));
+                (account => account.Id, ListSortDirection.Ascending));
 
             Assert.Equal(["Id"], applied.Select(order => order.Key));
         }
@@ -195,7 +209,7 @@ public sealed class CollectionOrderPathValidationTests
             ref IQueryable<TEntity> query,
             List<OrderByCollectionRequestModel> orderBy,
             bool useOptions,
-            params (System.Linq.Expressions.Expression<Func<TEntity, object>> orderByKey, System.ComponentModel.ListSortDirection sortDirection)[] defaultOrderBy)
+            params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
             where TEntity : class
             where TViewModel : class
         {
@@ -211,9 +225,10 @@ public sealed class CollectionOrderPathValidationTests
         public void ProcessWithOptions(
             ref IQueryable<Account> query,
             List<OrderByCollectionRequestModel> orderBy,
-            Action<CollectionProcessingOptionsBuilder<Account, AccountViewModel>> configure)
+            Action<CollectionProcessingOptionsBuilder<Account, AccountViewModel>> configure,
+            params (Expression<Func<Account, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         {
-            ProcessOrderBy(ref query, orderBy, CreateCollectionProcessingOptions(configure), []);
+            ProcessOrderBy(ref query, orderBy, CreateCollectionProcessingOptions(configure), [.. defaultOrderBy]);
         }
     }
 

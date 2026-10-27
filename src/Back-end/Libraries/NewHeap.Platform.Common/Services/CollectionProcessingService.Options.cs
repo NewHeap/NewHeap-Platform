@@ -294,13 +294,12 @@ public partial class CollectionProcessingService
     {
         var orderByResult = new List<OrderByCollectionRequestModel>();
 
-        var orderByProperties = options.UseOrderableAttributes
-            ? typeof(TViewModel).GetProperties().Where(prop => prop.IsDefined(typeof(OrderableAttribute), false)).ToArray()
-            : [];
-
-        if (orderByCollection != null && orderByCollection.Any()
-            && (orderByProperties.Any() || options.OrderableSelectors.Any()))
+        if (orderByCollection != null && orderByCollection.Any())
         {
+            var orderByProperties = options.UseOrderableAttributes
+                ? typeof(TViewModel).GetProperties().Where(prop => prop.IsDefined(typeof(OrderableAttribute), false)).ToArray()
+                : [];
+
             // A configured selector's path comes from its expression; any other key is validated against
             // the [Orderable] view-model graph and replaced by the names it matched before Dynamic LINQ sees it.
             var orderings = new List<string>();
@@ -320,7 +319,8 @@ public partial class CollectionProcessingService
                 }
                 else if (!TryBuildOrderablePath(orderBy.Key, orderByProperties, out ordering))
                 {
-                    throw new InvalidFilterCollectionResultException($"Invalid order field '{orderBy.Key}'");
+                    // A key that is not a complete [Orderable] path is skipped, as unknown keys always were.
+                    continue;
                 }
 
                 if (!orderBy.Direction.Equals("ASC") && !orderBy.Direction.Equals("DESC"))

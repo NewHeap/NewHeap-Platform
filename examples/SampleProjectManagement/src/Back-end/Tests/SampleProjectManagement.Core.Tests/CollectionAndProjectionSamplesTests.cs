@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
@@ -129,7 +130,7 @@ public class CollectionAndProjectionSamplesTests
     /// <summary>
     /// SPM-034: an order key that the nested view allows translates to an ordering over the owner join
     /// on SQL Server and PostgreSQL; a key that continues behind the orderable <c>creationDateTime</c>
-    /// into the owner's password hash is rejected before any SQL exists.
+    /// into the owner's password hash is ignored, so the SQL orders by the default key only.
     /// </summary>
     [Theory]
     [InlineData(DatabaseProvider.SqlServer)]
@@ -155,10 +156,15 @@ public class CollectionAndProjectionSamplesTests
         Assert.Contains("JOIN", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ORDER BY", sql, StringComparison.OrdinalIgnoreCase);
 
-        IQueryable<Project> rejected = db.Projects;
-        Assert.Throws<InvalidFilterCollectionResultException>(() =>
-            _processor.ProcessOrderBy<Project, ProjectNestedFilterViewModel>(ref rejected,
-                [new OrderByCollectionRequestModel { Key = "creationDateTime.year == 2026 ? ownerUser.passwordHash : \"\"" }]));
+        IQueryable<Project> ignored = db.Projects;
+        _processor.ProcessOrderBy<Project, ProjectNestedFilterViewModel>(ref ignored,
+            [new OrderByCollectionRequestModel { Key = "creationDateTime.year == 2026 ? ownerUser.passwordHash : \"\"" }],
+            (project => project.Name, ListSortDirection.Ascending));
+
+        var ignoredSql = ignored.Select(project => project.Id).ToQueryString();
+        Assert.Contains("ORDER BY", ignoredSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("PasswordHash", ignoredSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("JOIN", ignoredSql, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -45,18 +45,18 @@ attribute-based path (`ProcessOrderBy<TEntity, TViewModel>`) and on the options-
 (`OrderableFromAttributes`), the way it checks filter keys. The first segment must be an `[Orderable]`
 property of the view model, and every later segment an `[Orderable]` property of the view-model type
 that the previous segment reaches; a step into a collection names one member of its items behind a
-`{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token, in any letter case, as the
-`orderByFirst` and `orderByLast` helpers send it. Before, validation stopped at the first scalar
-`[Orderable]` property and the rest of the key went to Dynamic LINQ unchecked, so a key such as
-`creationDateTime.year == 2001 ? secret.length : 0` ordered rows by entity columns that the view model
-does not expose, on SQL Server and PostgreSQL. The ordering is now built from the matched property names
-only. A configured `WithOrderable(key, selector)` still allows exactly its own key, and a view model
-without `[Orderable]` members and without configured selectors still ignores order keys.
+lower-case `{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token. Before, validation stopped at
+the first scalar `[Orderable]` property and the rest of the key went to Dynamic LINQ unchecked, so a key
+such as `creationDateTime.year == 2001 ? secret.length : 0` ordered rows by entity columns that the view
+model does not expose, on SQL Server and PostgreSQL. The ordering is now built from the matched property
+names only. A key that is not such a path is skipped, exactly as unknown order keys always were: the
+request keeps its other order keys or the default order and does not fail. A configured
+`WithOrderable(key, selector)` still allows exactly its own key.
 
 | Breaking change | Required action |
 |---|---|
-| An order key that names a member that is not `[Orderable]` at any step, or continues behind a scalar such as `name.length`, now fails with `InvalidFilterCollectionResultException` (`400` from the base controllers), like an invalid filter key, instead of being skipped. | Mark each view-model member that clients may sort on `[Orderable]`, together with the navigation or collection that leads to it, or configure `WithOrderable(key, selector)`; stop sending sort keys for other columns. |
-| A collection step in an order key must be followed by exactly one token segment, such as `tasks.{first:asc}deadline`, which ends the key. | Use `orderByFirst` or `orderByLast`, or configure a selector for other collection orderings. |
+| An order key that continues behind a scalar `[Orderable]` property, such as `name.length` or `creationDateTime.year`, is now skipped like an unknown key, so the default order applies. | Sort on an `[Orderable]` view-model property, or configure `WithOrderable(key, selector)` for the value. |
+| An order key that the old code accepted but could not run, such as a collection step without a token (`tasks.deadline`) or a token behind a navigation, is now skipped instead of failing with a Dynamic LINQ or translation exception. | None. |
 
 ## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: moves and renames authorize their destination
 

@@ -10,7 +10,7 @@ namespace SampleProjectManagement.Core.Models.View;
 /// the owner view has no password hash and the task view does not mark the completing user
 /// <see cref="FilterableAttribute"/>. Order keys are checked the same way against
 /// <see cref="OrderableAttribute"/>: <c>ownerUser.email</c> orders, while a key that continues behind
-/// <c>creationDateTime</c>, such as a conditional over the owner's password hash, is rejected.
+/// <c>creationDateTime</c>, such as a conditional over the owner's password hash, is ignored.
 /// </summary>
 public sealed class ProjectNestedFilterViewModel
 {

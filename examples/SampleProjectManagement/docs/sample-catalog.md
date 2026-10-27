@@ -722,8 +722,9 @@ Order keys follow the same rule against `[Orderable]`. The nested view marks the
 owner navigation and the owner's e-mail address orderable, so `ownerUser.email`
 orders the projects. `creationDateTime` is orderable too, but an order key ends
 there: a key that continues behind it, such as a conditional over the owner's
-password hash that would let the row order reveal the hash, returns the same safe
-`filter` error before any ordering reaches the database.
+password hash that would let the row order reveal the hash, is ignored like an
+unknown order key, so the projects keep the default order by name and nothing of
+the key reaches the database.
 
 Rebuild filters whenever UI state changes so stale filter values do not remain
 silently in the request.
