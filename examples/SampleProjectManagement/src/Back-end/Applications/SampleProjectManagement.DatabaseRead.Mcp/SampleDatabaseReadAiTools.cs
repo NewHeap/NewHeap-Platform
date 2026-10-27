@@ -436,6 +436,26 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         "column-write" or
         "sequence-usage" or
         "catalog-function-execute" or
+        "server-permission-view-server-state" or
+        "server-permission-alter-any-connection" or
+        "server-permission-impersonate-any-login" or
+        "database-permission-alter-any-schema" or
+        "login-impersonate" or
+        "user-impersonate" or
+        "sequence-update" or
+        "schema-permission-alter" or
+        "schema-permission-take-ownership" or
+        "object-permission-alter" or
+        "object-permission-take-ownership" or
+        "column-update" or
+        "server-permission-not-allowlisted" or
+        "database-permission-not-allowlisted" or
+        "schema-permission-not-allowlisted" or
+        "object-permission-not-allowlisted" or
+        "column-permission-not-allowlisted" or
+        "database-principal-permission-not-allowlisted" or
+        "server-principal-permission-not-allowlisted" or
+        "database-securable-permission-not-allowlisted" or
         "table" or
         "view" or
         "table" or

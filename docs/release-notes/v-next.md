@@ -269,3 +269,29 @@ first failed check as `error.verificationCheck` with stage `readonly-verificatio
 |---|---|
 | A PostgreSQL principal that holds anything beyond SELECT and `pg_read_all_data`, including a predefined monitoring or signalling role, an administrative `pg_catalog` function, a column or view write or USAGE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the grant that `error.verificationCheck` names from the diagnostic principal and the roles it belongs to; grant only CONNECT, schema USAGE and SELECT. |
 | A rejected PostgreSQL principal now reports `error.verificationCheck` and `error.stage`. | Let code that reads the field accept PostgreSQL check identifiers, or discard identifiers it does not know. |
+
+## NewHeap.Platform.DatabaseRead.Tool: SQL Server principal verification denies by default
+
+SQL Server verification checked a fixed list of roles and permissions. A principal with
+`VIEW SERVER STATE`, `ALTER ANY CONNECTION`, `IMPERSONATE ANY LOGIN`, `ALTER ANY SCHEMA`, IMPERSONATE
+on a login or a user, UPDATE on a sequence, ALTER or TAKE OWNERSHIP on a schema or an object, or a
+column-level UPDATE passed. The checks that existed keep their identifiers and order. After them,
+these permissions now reject the principal with `server-permission-view-server-state` (also through
+`##MS_ServerStateReader##`), `server-permission-alter-any-connection`,
+`server-permission-impersonate-any-login`, `database-permission-alter-any-schema`,
+`login-impersonate`, `user-impersonate`, `sequence-update`, `schema-permission-alter`,
+`schema-permission-take-ownership`, `object-permission-alter`, `object-permission-take-ownership`
+and `column-update`. The verification then denies by default: every effective permission on the
+server, the database, a schema, an object, a column, a login, a server role, a database principal or
+another database securable other than connecting, SELECT, `VIEW DEFINITION`, `VIEW CHANGE TRACKING`,
+`SHOWPLAN` and the column-key definitions that every database grants to public rejects the principal
+with `server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
+`schema-permission-not-allowlisted`, `object-permission-not-allowlisted`,
+`column-permission-not-allowlisted`, `server-principal-permission-not-allowlisted`,
+`database-principal-permission-not-allowlisted` or `database-securable-permission-not-allowlisted`.
+`db_datareader` and database-level SELECT still pass.
+
+| Breaking change | Required action |
+|---|---|
+| A SQL Server principal that holds a permission beyond connecting, SELECT and metadata visibility, such as `VIEW SERVER STATE`, `VIEW DATABASE STATE`, `UNMASK`, `REFERENCES`, IMPERSONATE or UPDATE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the permission that `error.verificationCheck` names from the diagnostic login, its user and the roles they belong to. |
+| `error.verificationCheck` can carry the new SQL Server identifiers listed above. | Let code that reads the field accept them, or discard identifiers it does not know. |

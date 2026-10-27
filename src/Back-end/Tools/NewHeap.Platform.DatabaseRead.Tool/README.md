@@ -72,6 +72,34 @@ user-defined function rejects the principal with `function-select` or
 or side effects. Grant the diagnostic principal table, view or column
 permissions instead.
 
+SQL Server verification checks the effective permissions of the login and the
+database user, including those held through roles, ownership and implication.
+After the role and permission checks above it rejects `VIEW SERVER STATE`
+(also through `##MS_ServerStateReader##`), `ALTER ANY CONNECTION`,
+`IMPERSONATE ANY LOGIN`, `ALTER ANY SCHEMA`, IMPERSONATE on a login or a user,
+UPDATE on a sequence, ALTER or TAKE OWNERSHIP on a schema or an object and
+column-level UPDATE, with `server-permission-view-server-state`,
+`server-permission-alter-any-connection`,
+`server-permission-impersonate-any-login`,
+`database-permission-alter-any-schema`, `login-impersonate`,
+`user-impersonate`, `sequence-update`, `schema-permission-alter`,
+`schema-permission-take-ownership`, `object-permission-alter`,
+`object-permission-take-ownership` and `column-update`. It then denies by
+default: on the server, the database, a schema, an object, a column, a login,
+a server role, a database principal or another database securable, every
+permission the server knows other than connecting, SELECT, metadata visibility
+(`VIEW DEFINITION`, `VIEW CHANGE TRACKING`, `SHOWPLAN`) and the column-key
+definitions that every database grants to public rejects the principal with
+`server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
+`schema-permission-not-allowlisted`, `object-permission-not-allowlisted`,
+`column-permission-not-allowlisted`,
+`server-principal-permission-not-allowlisted`,
+`database-principal-permission-not-allowlisted` or
+`database-securable-permission-not-allowlisted`. Examples are
+`VIEW DATABASE STATE`, `UNMASK`, `REFERENCES` and ALTER on a role. The empty
+schemas of fixed database roles are skipped, so `db_datareader` membership
+still passes.
+
 On PostgreSQL the verification covers the connected role and every role it is
 a member of, also a membership without inheritance, because the principal can
 switch to such a role. It denies by default. Apart from the privileges the

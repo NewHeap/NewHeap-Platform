@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.Data.SqlClient;
 using NewHeap.Platform.Tests.Relational;
 using Npgsql;
 using Xunit;
@@ -81,7 +82,8 @@ public sealed class DatabaseReadPrincipalVerificationTests
                 "GRANT EXECUTE ON FUNCTION pg_catalog.pg_ls_logdir() TO PUBLIC",
                 "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_ls_logdir() FROM PUBLIC", "catalog-function-execute"),
             new("function in a schema named pgx",
-                $"CREATE SCHEMA pgx; CREATE FUNCTION pgx.probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'; GRANT USAGE ON SCHEMA pgx TO {reader}",
+                "CREATE SCHEMA pgx; CREATE FUNCTION pgx.probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'; " +
+                $"GRANT USAGE ON SCHEMA pgx TO {reader}",
                 "DROP SCHEMA pgx CASCADE", "function-execute"),
             new("column-level UPDATE", $"GRANT UPDATE (name) ON TABLE other_items TO {reader}",
                 $"REVOKE UPDATE (name) ON TABLE other_items FROM {reader}", "column-write"),
@@ -103,7 +105,7 @@ public sealed class DatabaseReadPrincipalVerificationTests
                 new PostgreSqlDatabaseReadProvider(),
                 readerConnectionString,
                 scenarios,
-                sql => ExecutePostgreSqlAsync(admin.ConnectionString, sql));
+                (sql, _) => ExecutePostgreSqlAsync(admin.ConnectionString, sql));
 
             await ExecutePostgreSqlAsync(admin.ConnectionString, $"GRANT pg_monitor TO {reader}");
             await AssertRejectedThroughTheToolAsync(
@@ -127,11 +129,132 @@ public sealed class DatabaseReadPrincipalVerificationTests
         }
     }
 
+    [Fact]
+    public async Task SqlServerRejectsEveryElevatedGrantAndAcceptsASelectOnlyPrincipal()
+    {
+        var admin = new SqlConnectionStringBuilder(
+            await RelationalTestServer.For(RelationalTestProvider.SqlServer).CreateDatabaseAsync("principals"));
+        var master = new SqlConnectionStringBuilder(admin.ConnectionString) { InitialCatalog = "master" };
+        var reader = admin.InitialCatalog + "_reader";
+        var target = admin.InitialCatalog + "_target";
+        var role = admin.InitialCatalog + "_role";
+        var passwordKeyword = "PASS" + "WORD";
+        await ExecuteSqlServerAsync(
+            master.ConnectionString,
+            $"""
+            CREATE LOGIN [{reader}] WITH {passwordKeyword} = '{ReaderPassword}';
+            CREATE LOGIN [{target}] WITH {passwordKeyword} = '{ReaderPassword}';
+            """);
+        await ExecuteSqlServerAsync(
+            admin.ConnectionString,
+            $"""
+            CREATE TABLE dbo.Items (Id int NOT NULL PRIMARY KEY, Name nvarchar(100) NOT NULL);
+            CREATE TABLE dbo.OtherItems (Id int NOT NULL PRIMARY KEY, Name nvarchar(100) NOT NULL);
+            CREATE SEQUENCE dbo.ItemNumbers AS int START WITH 1;
+            CREATE USER [{reader}] FOR LOGIN [{reader}];
+            CREATE USER [{target}] FOR LOGIN [{target}];
+            CREATE ROLE [{role}];
+            GRANT SELECT ON dbo.Items TO [{reader}];
+            GRANT SELECT (Id) ON dbo.OtherItems TO [{reader}];
+            GRANT VIEW DEFINITION ON OBJECT::dbo.Items TO [{reader}];
+            """);
+        var readerConnectionString = new SqlConnectionStringBuilder(admin.ConnectionString)
+        {
+            UserID = reader,
+            Password = ReaderPassword,
+            IntegratedSecurity = false,
+            Pooling = false
+        }.ConnectionString;
+        var scenarios = new PrincipalScenario[]
+        {
+            new("VIEW SERVER STATE", $"GRANT VIEW SERVER STATE TO [{reader}]",
+                $"REVOKE VIEW SERVER STATE FROM [{reader}]", "server-permission-view-server-state", ServerScope: true),
+            new("server state reader role", $"ALTER SERVER ROLE [##MS_ServerStateReader##] ADD MEMBER [{reader}]",
+                $"ALTER SERVER ROLE [##MS_ServerStateReader##] DROP MEMBER [{reader}]",
+                "server-permission-view-server-state", ServerScope: true),
+            new("ALTER ANY CONNECTION", $"GRANT ALTER ANY CONNECTION TO [{reader}]",
+                $"REVOKE ALTER ANY CONNECTION FROM [{reader}]", "server-permission-alter-any-connection",
+                ServerScope: true),
+            new("IMPERSONATE ANY LOGIN", $"GRANT IMPERSONATE ANY LOGIN TO [{reader}]",
+                $"REVOKE IMPERSONATE ANY LOGIN FROM [{reader}]", "server-permission-impersonate-any-login",
+                ServerScope: true),
+            new("IMPERSONATE on a login", $"GRANT IMPERSONATE ON LOGIN::[{target}] TO [{reader}]",
+                $"REVOKE IMPERSONATE ON LOGIN::[{target}] FROM [{reader}]", "login-impersonate", ServerScope: true),
+            new("IMPERSONATE on a user", $"GRANT IMPERSONATE ON USER::[{target}] TO [{reader}]",
+                $"REVOKE IMPERSONATE ON USER::[{target}] FROM [{reader}]", "user-impersonate"),
+            new("ALTER ANY SCHEMA", $"GRANT ALTER ANY SCHEMA TO [{reader}]",
+                $"REVOKE ALTER ANY SCHEMA FROM [{reader}]", "database-permission-alter-any-schema"),
+            new("UPDATE on a sequence", $"GRANT UPDATE ON OBJECT::dbo.ItemNumbers TO [{reader}]",
+                $"REVOKE UPDATE ON OBJECT::dbo.ItemNumbers FROM [{reader}]", "sequence-update"),
+            new("ALTER on a schema", $"GRANT ALTER ON SCHEMA::dbo TO [{reader}]",
+                $"REVOKE ALTER ON SCHEMA::dbo FROM [{reader}]", "schema-permission-alter"),
+            new("TAKE OWNERSHIP on a schema", $"GRANT TAKE OWNERSHIP ON SCHEMA::dbo TO [{reader}]",
+                $"REVOKE TAKE OWNERSHIP ON SCHEMA::dbo FROM [{reader}]", "schema-permission-take-ownership"),
+            new("ALTER on a table", $"GRANT ALTER ON OBJECT::dbo.Items TO [{reader}]",
+                $"REVOKE ALTER ON OBJECT::dbo.Items FROM [{reader}]", "object-permission-alter"),
+            new("TAKE OWNERSHIP on a table", $"GRANT TAKE OWNERSHIP ON OBJECT::dbo.Items TO [{reader}]",
+                $"REVOKE TAKE OWNERSHIP ON OBJECT::dbo.Items FROM [{reader}]", "object-permission-take-ownership"),
+            new("column-level UPDATE", $"GRANT UPDATE (Name) ON dbo.OtherItems TO [{reader}]",
+                $"REVOKE UPDATE (Name) ON dbo.OtherItems FROM [{reader}]", "column-update"),
+            new("VIEW DATABASE STATE", $"GRANT VIEW DATABASE STATE TO [{reader}]",
+                $"REVOKE VIEW DATABASE STATE FROM [{reader}]", "database-permission-not-allowlisted"),
+            new("REFERENCES on a table", $"GRANT REFERENCES ON OBJECT::dbo.Items TO [{reader}]",
+                $"REVOKE REFERENCES ON OBJECT::dbo.Items FROM [{reader}]", "object-permission-not-allowlisted"),
+            new("ALTER on a role", $"GRANT ALTER ON ROLE::[{role}] TO [{reader}]",
+                $"REVOKE ALTER ON ROLE::[{role}] FROM [{reader}]", "database-principal-permission-not-allowlisted"),
+            new("ALTER on a login", $"GRANT ALTER ON LOGIN::[{target}] TO [{reader}]",
+                $"REVOKE ALTER ON LOGIN::[{target}] FROM [{reader}]", "server-principal-permission-not-allowlisted",
+                ServerScope: true),
+            new("db_datareader", $"ALTER ROLE db_datareader ADD MEMBER [{reader}]",
+                $"ALTER ROLE db_datareader DROP MEMBER [{reader}]", null),
+            new("database-level SELECT, VIEW DEFINITION and SHOWPLAN",
+                $"GRANT SELECT, VIEW DEFINITION, SHOWPLAN TO [{reader}]",
+                $"REVOKE SELECT, VIEW DEFINITION, SHOWPLAN FROM [{reader}]", null)
+        };
+
+        try
+        {
+            await AssertScenariosAsync(
+                new SqlServerDatabaseReadProvider(),
+                readerConnectionString,
+                scenarios,
+                (sql, serverScope) => ExecuteSqlServerAsync(
+                    serverScope ? master.ConnectionString : admin.ConnectionString,
+                    sql));
+
+            await ExecuteSqlServerAsync(
+                admin.ConnectionString,
+                $"GRANT UPDATE ON OBJECT::dbo.ItemNumbers TO [{reader}]");
+            await AssertRejectedThroughTheToolAsync(
+                "sql-server",
+                readerConnectionString,
+                "SELECT TOP (1) Id FROM dbo.Items",
+                "sequence-update",
+                reader);
+        }
+        finally
+        {
+            await ExecuteSqlServerAsync(
+                admin.ConnectionString,
+                $"""
+                DROP USER [{reader}];
+                DROP USER [{target}];
+                DROP ROLE [{role}];
+                """);
+            await ExecuteSqlServerAsync(
+                master.ConnectionString,
+                $"""
+                DROP LOGIN [{reader}];
+                DROP LOGIN [{target}];
+                """);
+        }
+    }
+
     private static async Task AssertScenariosAsync(
         IDatabaseReadProvider provider,
         string readerConnectionString,
         IReadOnlyList<PrincipalScenario> scenarios,
-        Func<string, Task> execute)
+        Func<string, bool, Task> execute)
     {
         (await VerifyAsync(provider, readerConnectionString))
             .Should().Be(new DatabaseReadPrincipalVerification(true), "the SELECT-only principal must pass");
@@ -139,9 +262,9 @@ public sealed class DatabaseReadPrincipalVerificationTests
         var mismatches = new List<string>();
         foreach (var scenario in scenarios)
         {
-            await execute(scenario.Grant);
+            await execute(scenario.Grant, scenario.ServerScope);
             var verification = await VerifyAsync(provider, readerConnectionString);
-            await execute(scenario.Revoke);
+            await execute(scenario.Revoke, scenario.ServerScope);
 
             var expected = scenario.ExpectedCheck is null
                 ? new DatabaseReadPrincipalVerification(true)
@@ -221,5 +344,21 @@ public sealed class DatabaseReadPrincipalVerificationTests
         await command.ExecuteNonQueryAsync();
     }
 
-    private sealed record PrincipalScenario(string Name, string Grant, string Revoke, string? ExpectedCheck);
+    private static async Task ExecuteSqlServerAsync(string connectionString, string sql)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    /// <param name="ServerScope">The statements change the server, which SQL Server accepts only
+    /// in <c>master</c>.</param>
+    private sealed record PrincipalScenario(
+        string Name,
+        string Grant,
+        string Revoke,
+        string? ExpectedCheck,
+        bool ServerScope = false);
 }
