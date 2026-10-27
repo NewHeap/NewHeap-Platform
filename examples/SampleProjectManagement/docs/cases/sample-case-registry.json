@@ -1357,12 +1357,13 @@
       "categoryId": "6",
       "title": "Delivery channels",
       "surface": "notification dispatcher workers, deterministic claiming and cleanup, and per-channel concurrency",
-      "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available with `Id` as the final tie-breaker, retention cleanup materializes deliveries by `Id`, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
+      "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available with `Id` as the final tie-breaker, retention cleanup clears the data of succeeded, failed and cancelled deliveries once they ended longer than the retention period ago and materializes them by `Id`, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
       "implementation": "implemented",
       "evidence": [
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingServiceTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationDeliveryRetentionProviderTests.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/NotificationProcessingSample.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NotificationProcessingSamplesTests.cs"

@@ -190,6 +190,19 @@ A plaintext code stored before the upgrade still redeems once.
 |---|---|
 | None. | None. |
 
+## NewHeap.Platform.AspNet.Common: notification retention covers every finished delivery
+
+The notification processor's cleanup now removes the data (`NhNotificationDelivery.Data`) of failed and
+cancelled deliveries as well, once they ended longer than `NhNotificationSettings.ProcessingRetentionPeriod`
+ago; before, it only cleaned succeeded deliveries, so the content of failed and cancelled e-mails stayed
+in the store. A failed or cancelled delivery counts from its last send attempt (`LastSendAttemptAt`), or
+from `LastModifiedDateTime` when it was never attempted. Queued and processing deliveries keep their
+data, as before.
+
+| Breaking change | Required action |
+|---|---|
+| The first cleanup after the upgrade clears failed and cancelled deliveries that ended longer than the retention period ago; their content can no longer be inspected or sent again. | None. Copy what you still need from those deliveries before upgrading, or raise `ProcessingRetentionPeriod`. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it

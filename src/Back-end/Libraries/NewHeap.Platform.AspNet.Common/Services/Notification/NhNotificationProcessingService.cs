@@ -531,7 +531,7 @@ internal class NhNotificationProcessingService : BackgroundService
         {
             try
             {
-                await CleanupOldSentItemsAsync(stoppingToken);
+                await CleanupFinishedDeliveriesAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -540,7 +540,13 @@ internal class NhNotificationProcessingService : BackgroundService
         }
     }
 
-    private async Task CleanupOldSentItemsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Removes the data of every delivery that ended longer than the retention period ago: a
+    /// succeeded delivery counts from <see cref="NhNotificationDelivery.SentAt"/>, a failed or
+    /// cancelled one from its last send attempt, or from its last modification when it was never
+    /// attempted. Queued and processing deliveries keep their data.
+    /// </summary>
+    internal async Task CleanupFinishedDeliveriesAsync(CancellationToken cancellationToken)
     {
         var threshold = DateTimeOffset.UtcNow - _settings.ProcessingRetentionPeriod;
 
@@ -550,7 +556,11 @@ internal class NhNotificationProcessingService : BackgroundService
         var oldDeliveries = await notificationRepository
             .GetAll()
             .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
-            .Where(d => !d.IsCleaned && d.Status == NotificationDeliveryStatus.Succeeded && d.SentAt <= threshold)
+            .Where(d => !d.IsCleaned)
+            .Where(d =>
+                (d.Status == NotificationDeliveryStatus.Succeeded && d.SentAt <= threshold)
+                || ((d.Status == NotificationDeliveryStatus.Failed || d.Status == NotificationDeliveryStatus.Cancelled)
+                    && (d.LastSendAttemptAt ?? d.LastModifiedDateTime) <= threshold))
             .OrderBy(d => d.Id)
             .ToListAsync(cancellationToken);
 
@@ -560,13 +570,17 @@ internal class NhNotificationProcessingService : BackgroundService
             return;
         }
 
-        _logger.LogInformation("Cleanup: Found {Count} sent items older than {Threshold}",
+        _logger.LogInformation("Cleanup: Found {Count} finished deliveries older than {Threshold}",
             oldDeliveries.Count, threshold);
 
-        foreach(var oldDelivery in oldDeliveries)
+        foreach (var oldDelivery in oldDeliveries)
         {
-            _logger.LogInformation("Cleaning up delivery {Id} with status {Status} and sent at {SentAt}",
-                oldDelivery.Id, oldDelivery.Status, oldDelivery.SentAt);
+            _logger.LogInformation(
+                "Cleaning up delivery {Id} with status {Status}, sent at {SentAt} and last attempted at {LastSendAttemptAt}",
+                oldDelivery.Id,
+                oldDelivery.Status,
+                oldDelivery.SentAt,
+                oldDelivery.LastSendAttemptAt);
 
             oldDelivery.Data = null;
             oldDelivery.IsCleaned = true;

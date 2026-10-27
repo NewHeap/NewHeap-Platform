@@ -11,6 +11,8 @@ public static class NotificationProcessingSample
         ArgumentNullException.ThrowIfNull(options);
 
         options.ProcessingMaxRetryAttempts = 3;
+        // The cleanup removes the data of every finished delivery, succeeded, failed or cancelled,
+        // 30 days after it ended. Queued and processing deliveries keep their data.
         options.ProcessingRetentionPeriod = TimeSpan.FromDays(30);
         options.ProcessingCleanupInterval = TimeSpan.FromHours(1);
         options.ProcessingLockTimeout = TimeSpan.FromMinutes(1);
