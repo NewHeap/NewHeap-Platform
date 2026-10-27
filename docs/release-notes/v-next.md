@@ -282,3 +282,18 @@ the target's thread too. Otherwise the follow-up names the outcome and the numbe
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantHandOffResult.Summary` is `null`, and the follow-up's text names no summary, when the target has a required or view policy the source does not share or a person invited to the source's thread may not read the target's. | None; give both agents the same policies when the source must read the target's answer. |
+
+## NewHeap.Platform.AI.Chat: application messages readable by a person follow the live read rule in agent threads
+
+`NhAssistantApplicationMessageAccess.ReadableBy(person)` accepted an agent thread as soon as the person
+had a participant row, which a role on the thread's subject leaves behind and which outlived that role
+until the person opened the thread again. For an agent thread the post now applies the live read rule
+before anything is stored, shown or notified: never a shadow thread or a thread of a shadow variant,
+only a thread of the person's tenant or of the whole application they take part in, and only with a
+live role on the thread's subject or an invitation to the thread. Chats keep their rule: the owner or a
+participant of the same tenant.
+
+| Breaking change | Required action |
+|---|---|
+| `PostAsync` with `ReadableBy` answers `assistant-conversation-not-found` for an agent thread whose subject the person no longer has a role on, a shadow thread and another tenant's thread, also when a participant row remains. | None; such a person may no longer open the thread. |
+| `PostAsync` with `ReadableBy` posts into an agent thread of a person with a live role on its subject who never opened it; before, it answered `assistant-conversation-not-found`. | None, unless the application relied on the refusal; check the person's role itself before posting. |

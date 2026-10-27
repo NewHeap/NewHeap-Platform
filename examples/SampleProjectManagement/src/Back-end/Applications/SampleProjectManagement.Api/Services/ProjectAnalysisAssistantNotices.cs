@@ -18,7 +18,8 @@ namespace SampleProjectManagement.Api.Services;
 /// The analysis runs as a background operation that may retry its last step, so the post carries an
 /// idempotency key per operation: the conversation keeps one message however often it runs. The
 /// conversation id came from the person's client, so the post depends on that person being able to
-/// open the conversation (<see cref="NhAssistantApplicationMessageAccess.ReadableBy"/>). The text names
+/// open the conversation now (<see cref="NhAssistantApplicationMessageAccess.ReadableBy"/>): a
+/// project's agent thread only while they have a role on the project or are invited to it. The text names
 /// the division, which people named themselves: <see cref="NhAssistantMarkdown.Escape"/> shows the name
 /// as it is, and the message stays untrusted (no <see cref="NhAssistantApplicationMessage.Trusted"/>),
 /// because the model must never follow instructions hidden in a name.

@@ -314,6 +314,58 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
         Assert.Equal((NhAssistantMessageRoles.Application, "application", (Guid?)null), (stored.Role, stored.AuthorActorId, stored.TurnId));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_message_readable_by_a_person_reaches_an_agent_thread_only_by_the_live_read_rule(AssistantTestProvider provider)
+    {
+        var subjects = new TestSubjects();
+        subjects.Roles["former-member"] = NhAiSubjectRole.Participant;
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            configure: services => services.AddSingleton(subjects),
+            assistantBuilder: assistant => assistant.AddSubjectType<TestSubjectResolver>(),
+            provider: provider);
+        var factory = app.Services.GetRequiredService<NhAssistantDbContextFactory>();
+        var (thread, _) = await AddThreadAsync(factory, shadow: false);
+        var (shadow, _) = await AddThreadAsync(factory, shadow: true);
+        // The former member opened the thread while they had a role, which left a participant row;
+        // the guest was invited without a role on the project.
+        await JoinAsync(factory, thread, "former-member", NhAssistantParticipantSources.Subject);
+        await JoinAsync(factory, thread, "guest-1", NhAssistantParticipantSources.Invitation);
+        subjects.Roles.TryRemove("former-member", out _);
+
+        static NhAssistantApplicationMessage For(string actorId, string? tenantId = null) => new("The project's export finished.")
+        {
+            Access = NhAssistantApplicationMessageAccess.ReadableBy(new NhAssistantConversationPerson(actorId, tenantId))
+        };
+
+        // The role ended, so the participant row it left reaches nothing; neither does a person who
+        // never had a role, a person of another tenant or anyone in a shadow thread.
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, Code(await PostAsync(app, thread, For("former-member"))));
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, Code(await PostAsync(app, thread, For("stranger-1"))));
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, Code(await PostAsync(app, thread, For("member-1", "tenant-b"))));
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, Code(await PostAsync(app, shadow, For("member-1"))));
+        await using (var context = factory.CreateDbContext())
+        {
+            Assert.Empty(context.Messages.Where(item => item.ConversationId == thread || item.ConversationId == shadow).ToList());
+        }
+
+        // A person with a live role reaches the thread without having opened it, and an invited
+        // person through the invitation; neither post records anyone as a participant.
+        var member = await PostAsync(app, thread, For("member-1"));
+        var guest = await PostAsync(app, thread, For("guest-1"));
+        Assert.True(member.Success && guest.Success);
+        Assert.Equal((1, 2), (member.Data!.Sequence, guest.Data!.Sequence));
+        await using (var context = factory.CreateDbContext())
+        {
+            Assert.Equal(
+                ["former-member", "guest-1"],
+                context.Participants.Where(item => item.ConversationId == thread).Select(item => item.ActorId).OrderBy(id => id).ToArray());
+        }
+    }
+
     [Fact]
     public async Task Notify_sends_a_push_that_carries_no_part_of_the_message()
     {
@@ -567,6 +619,20 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
         await context.SaveChangesAsync();
         await AddParticipantsAsync(factory, conversation.Id, participantIds);
         return conversation.Id;
+    }
+
+    private static async Task JoinAsync(NhAssistantDbContextFactory factory, Guid conversationId, string actorId, string joinedVia)
+    {
+        await using var context = factory.CreateDbContext();
+        context.Participants.Add(new AssistantConversationParticipant
+        {
+            ConversationId = conversationId,
+            ActorId = actorId,
+            DisplayName = actorId,
+            JoinedVia = joinedVia,
+            JoinedAt = DateTimeOffset.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 
     private static async Task AddParticipantsAsync(NhAssistantDbContextFactory factory, Guid conversationId, IReadOnlyList<string> participantIds)

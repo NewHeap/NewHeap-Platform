@@ -477,6 +477,38 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_312_an_analysis_that_names_a_projects_agent_thread_tells_only_a_person_who_may_read_it_now()
+    {
+        // The client names the conversation of the analysis notice, so the notice is readable by the
+        // person who started the analysis. For an agent thread that means the live read rule.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var project = await host.CreateProjectAsync("NOTICE", ownerId: host.OwnerId);
+        var readerMembership = await host.AddMemberAsync(project, host.ReaderId, ProjectMemberRole.Reader);
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: null));
+        var conversationId = receipt.ConversationId!.Value;
+        using var reader = host.CreateClient(host.ReaderId.ToString());
+        // The reader opens the intake reviewer's thread while a member of the project and keeps its id.
+        Assert.Equal(HttpStatusCode.OK, (await reader.GetAsync($"/api/assistant/conversations/{conversationId}", cancellationToken)).StatusCode);
+        await host.RemoveMemberAsync(readerMembership);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var notices = scope.ServiceProvider.GetRequiredService<ProjectAnalysisAssistantNotices>();
+        // The reader's role ended, so the analysis they start with the thread's id tells them nothing
+        // there; the participant row of their earlier visit gives no access.
+        var former = await notices.AnalysisFinishedAsync(conversationId, host.ReaderId, Guid.NewGuid(), host.DivisionId, 3, cancellationToken);
+        // The project's owner may read the thread now, without having opened it.
+        var owner = await notices.AnalysisFinishedAsync(conversationId, host.OwnerId, Guid.NewGuid(), host.DivisionId, 3, cancellationToken);
+
+        Assert.False(former.Success);
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, former.GetResultItems().First().Name);
+        Assert.True(owner.Success);
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events
+            .Where(evt => evt.Kind == NhAssistantAuditEventKind.ApplicationMessagePosted && evt.ConversationId == conversationId)
+            .ToArray();
+        Assert.Equal(2, audit.Length);
+    }
+
+    [Fact]
     public async Task An_approved_proposal_for_a_project_edited_since_closes_as_stale()
     {
         // SPM-271

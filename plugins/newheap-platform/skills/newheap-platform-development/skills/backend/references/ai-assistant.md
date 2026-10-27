@@ -635,8 +635,12 @@ var posted = await messages.PostAsync(conversationId, new NhAssistantApplication
 
 - Every message makes the access choice `Access`, which the compiler requires:
   `NhAssistantApplicationMessageAccess.ReadableBy(person)` posts only when that person may open the
-  conversation as its owner or as a participant of the same tenant, otherwise
-  `assistant-conversation-not-found`; choose it whenever a client named the conversation.
+  conversation now, otherwise `assistant-conversation-not-found` and nothing is stored, shown or
+  notified: a chat as its owner or as a participant of the same tenant, an agent thread by the live
+  read rule, so with a live role on its subject or an invitation to it and never through a participant
+  row left from an earlier role, never in a shadow thread or a thread of a shadow variant, and only
+  in the person's tenant or the whole application they take part in. Choose it whenever a client
+  named the conversation.
   `NhAssistantApplicationMessageAccess.WithoutPersonCheck()` posts into any conversation that is not
   archived; choose it only for a conversation the application chose itself, such as the thread of
   an agent it runs. A message whose `Access` is null anyway is `assistant-message-invalid`.
@@ -685,7 +689,9 @@ var posted = await messages.PostAsync(conversationId, new NhAssistantApplication
 SampleProjectManagement's portfolio analysis tells the conversation that started it when it
 finished (SPM-312, `ProjectAnalysisAssistantNotices`): `ReadableBy` the person who started it, the
 division's name escaped, untrusted because of that name, by Web Push and in its test host's inbox,
-followed by a trusted instruction for the assistant in fixed text without people's data.
+followed by a trusted instruction for the assistant in fixed text without people's data. Started with
+the id of a project's agent thread, it tells a person whose role on the project ended nothing there,
+also after they opened the thread before, and the project's owner, who may read it now, everything.
 
 ## A person's turns through the application's channels
 
