@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312", "SPM-323", "SPM-331", "SPM-332", "SPM-334", "SPM-341", "SPM-342", "SPM-345", "SPM-346"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto", "INhAssistantMcpServers", "NhAssistantMcpServerRequest", "NhAssistantMcpOAuthRequest", "NhAssistantMcpReaderRequest", "NhAssistantMcpToolSettingsRequest", "NhAssistantMcpServerLimits", "NhAssistantMcpServerDto", "NhAssistantMcpToolDto", "NhAssistantMcpServerTestResultDto", "MaxToolsAwaitingSync", "AwaitingSync", "AdminMcpToolReviewedBeforeSync", "AdminMcpToolSeenAfterReview", "AllowLoopback", "MaxConsultationsPerTurn", "KeepTurnsAfterDisconnect", "INhAssistantConversationTurns", "NhAssistantConversationMessage", "NhAssistantConversationDecision", "NhAssistantConversationTurnOptions", "NhAssistantConversationTurnResult", "AllowQuestions", "NhAssistantQuestionStatuses", "NhAssistantQuestionLimits", "NhAssistantQuestionPartDto", "NhAssistantAnswerQuestionRequest", "NhAssistantConversationDto", "INhAssistantConversations", "NhAssistantNewConversation", "NhAssistantConversationOptions", "NhAssistantConversationAnswer", "INhAiTurnPerson"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "ReaderCallTimeout", "MaxTextCharacters", "MaxResponseBytes", "MaxToolListPages", "MaxTools", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto", "INhAssistantMcpServers", "NhAssistantMcpServerRequest", "NhAssistantMcpOAuthRequest", "NhAssistantMcpReaderRequest", "NhAssistantMcpToolSettingsRequest", "NhAssistantMcpServerLimits", "NhAssistantMcpServerDto", "NhAssistantMcpToolDto", "NhAssistantMcpServerTestResultDto", "MaxToolsAwaitingSync", "AwaitingSync", "AdminMcpToolReviewedBeforeSync", "AdminMcpToolSeenAfterReview", "AllowLoopback", "MaxConsultationsPerTurn", "KeepTurnsAfterDisconnect", "INhAssistantConversationTurns", "NhAssistantConversationMessage", "NhAssistantConversationDecision", "NhAssistantConversationTurnOptions", "NhAssistantConversationTurnResult", "AllowQuestions", "NhAssistantQuestionStatuses", "NhAssistantQuestionLimits", "NhAssistantQuestionPartDto", "NhAssistantAnswerQuestionRequest", "NhAssistantConversationDto", "INhAssistantConversations", "NhAssistantNewConversation", "NhAssistantConversationOptions", "NhAssistantConversationAnswer", "INhAiTurnPerson"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -176,9 +176,21 @@ invalid run filter. Clients map the code, never the status, to a text.
   approval is pending invalidates that approval.
 - **MCP servers.** Configure `ConfigureMcp`: `RequireHttps` (plain http only to
   loopback in Development or with `AllowLoopback`), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
-  `ToolListCacheDuration` and `ConnectTimeout`. Secrets for `bearer` and `api-key`
-  are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
-  or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
+  `ToolListCacheDuration`, `ConnectTimeout`, which bounds connecting to a server and, once connected,
+  listing its tools (a server that does not answer is unreachable for the turn, test or sync, with
+  `assistant-mcp-unreachable`), and `ReaderCallTimeout` for readers (below). What a server can make
+  the host hold is bounded before the assistant's own limits apply: `MaxResponseBytes` (16 MiB, 64 KiB
+  to 256 MiB) bounds a JSON response and each event of an event stream, which the host stops reading
+  past the bound (`assistant-mcp-response-too-large`), and `tools/list` is read page by page within
+  `MaxToolListPages` (20, up to 1,000) and `MaxTools` (500, up to 10,000), beyond which the server is
+  not connected and a sync stores no tool (`assistant-mcp-tool-list-too-large`); all are checked at
+  start. Raise `MaxResponseBytes` with `MaxFileTokensPerTurn` for readers whose text is longer.
+  Secrets for `bearer`, `api-key` and `basic` are protected with ASP.NET Data Protection and never
+  returned (`hasSecret`), logged or audited, and serve only the destination they were entered for:
+  a change of the URL's origin (scheme, host or port), of the authentication mode or of the `api-key`
+  header clears the stored secret and the `secretReference`, and the save needs one of them again
+  (`secret: required`), so an administrator who may edit a server but never read its secret cannot
+  send it to another host; a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;
   administrators activate them and may mark them read-only, and a changed input
   schema disables a tool again. The reviewed settings of a tool that no sync has seen yet, such as
@@ -187,7 +199,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   first sync that sees it makes it `available` with those settings, after which a changed schema
   disables it as any tool (SPM-346). Enabled tools of the servers assigned to an agent are
   imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
-  approval, idempotency, budget and audit apply unchanged. An unreachable server is
+  approval, idempotency, budget and audit apply unchanged. The model calls them as
+  `mcp_<server>_<tool>`, the server id with its dashes and the tool's local name with underscores,
+  so servers whose ids and tool names meet at a dash keep names of their own; tools of one turn that
+  would still share a function name, such as two tools of a server whose names differ only in case
+  or punctuation, are offered by neither (`assistant-mcp-tool-name-conflict`, also the code of an
+  approved call of such a tool). An unreachable server is
   skipped for the turn. The client attaches the credential to every HTTP request and
   checks each request against the planned origin and `AllowedHosts`; a `403` with
   `error="insufficient_scope"` reports `assistant-mcp-insufficient-scope`. A tool list
@@ -322,8 +339,9 @@ invalid run filter. Clients map the code, never the status, to a text.
   follows the rules above: `headlessUse`, the person's consent for `personal`
   (`assistant-mcp-consent-required`) and `assistant-mcp-initiator-only`. A reader whose server cannot
   be planned or reached, or whose tool is gone or has another input schema than the synced one, is
-  passed over with its code; once the request may have reached the tool, an error result, no text or
-  a failure refuses the file with `assistant-file-reader-failed`. A personal OAuth server the person
+  passed over with its code; once the request may have reached the tool, an error result, no text,
+  a failure or no answer within `ReaderCallTimeout` (60 seconds by default, one second to 15 minutes,
+  checked at start) refuses the file with `assistant-file-reader-failed`. A personal OAuth server the person
   of a request turn has not connected, or must connect again, shows that person the same
   `connection-required` card as its tools; an attachment it refused stays in the message, so asking
   again after connecting reads it. Headless runs show no card and keep their notices. `readers: null`
@@ -914,7 +932,9 @@ never serve the uploads.
 - The limits count a reader's text, one token per started four characters, instead of pages: a
   file is sent to a reader only while the turn has room for its text, and text beyond
   `MaxFileTokensPerTurn` or the profile's input budget is refused with `assistant-file-token-limit`.
-  The file's own bytes and pages still count against `MaxFileBytes` and `MaxFilePages`.
+  Every reader learns that budget beforehand as `NhAssistantFileReadRequest.MaxTextCharacters`, four
+  characters to each token left. The file's own bytes and pages still count against `MaxFileBytes`
+  and `MaxFilePages`.
 - The result names per file whether the model received it (`attached` with the SHA-256 of what it
   read as `hash`) or the `code` and `message` of its refusal; the tool call itself succeeds.
 - `NhAssistantLimits` bounds every file and turn: `MaxFileBytes` (20 MB), `MaxFilePages` (100,
@@ -936,6 +956,12 @@ never serve the uploads.
   content. A later turn opens the files of the history it replays again through the source with its
   own actor, newest first and each file once, within the same limits on their own; a file it cannot
   open is named in its place with the reason.
+- Opening files before the model loop (a person's attachments, the files of messages that waited for
+  a run and the earlier files a turn opens again) follows the turn's cancellation and ends at
+  `NhAssistantLimits.TurnTimeout`, in every kind of turn: a file source or reader that accepts the
+  request and never answers ends the turn with `assistant-turn-timeout` and releases the thread and
+  the run's worker, and a person's or an administrator's stop ends it cancelled. Pass the
+  `cancellationToken` of `OpenAsync` and `ReadAsync` to every call that can wait.
 - The one exception: a conversation keeps the text a reading tool made of a file, so a later turn
   does not send the same document to the reader again. The text is keyed by the SHA-256 of the
   content the reader received and the reader, protected with ASP.NET Data Protection (share the key
@@ -969,6 +995,13 @@ services.AddNewHeapAssistant(assistant => assistant
 
 - Bound what a reader unpacks, such as OpenXml's `OpenSettings.MaxCharactersInPart`, and return a
   failed result for a damaged document instead of text cut off; the turn's limits count the text.
+- A part bound is no bound on the text: cells can name one shared string again and again, and
+  several sheets can name one worksheet, so a few kilobytes become millions of characters. Bound the
+  text while it is made, value by value, by `NhAssistantFileReadRequest.MaxTextCharacters`, the
+  characters the turn can still take, and stop with a failed result with
+  `NhAssistantErrorCodes.FileTokenLimit`, which refuses the file with `assistant-file-token-limit`;
+  read each part once and check the `cancellationToken` at every row or paragraph. MCP readers get
+  the same budget host-side: a longer text is refused before its blocks are joined.
 
 People attach files to a chat message in two steps. First the client uploads each file to the
 conversation with `POST {prefix}/conversations/{id}/files`: `multipart/form-data` with one file part

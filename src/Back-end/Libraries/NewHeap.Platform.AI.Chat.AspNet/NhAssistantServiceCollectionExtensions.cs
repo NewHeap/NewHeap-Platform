@@ -327,6 +327,8 @@ internal sealed class NhAssistantStartupValidator(
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:ForwardedTokenLifetime must be longer than zero and at most 5 minutes.");
         }
+        // The bounds of MCP requests fail here instead of at the first request.
+        options.Value.Mcp.Validate();
         // Loopback MCP servers are for development and test hosts, never for Production (LS29).
         var environment = scope.ServiceProvider.GetService<IHostEnvironment>();
         if (options.Value.Mcp.AllowLoopback && environment?.IsProduction() == true)

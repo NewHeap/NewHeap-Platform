@@ -22,7 +22,8 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 /// milestone, its notification projection and live update, the stale attempt's leases released and
 /// its late writes fenced off, and a fan-out parent ends cancelled once its children did. An attempt
 /// with a fresh heartbeat is left to its worker. The readiness check counts the same stale attempts
-/// until reconciliation recovered them. On both relational providers.
+/// until reconciliation recovered them. A running operation whose attempts keep going stale spends a
+/// retry with each of them and fails once its retries are spent. On both relational providers.
 /// </summary>
 public sealed class NhBackgroundOperationStaleCancellationProviderTests
 {
@@ -168,6 +169,71 @@ public sealed class NhBackgroundOperationStaleCancellationProviderTests
         (await ReadLeaseAsync(services)).AttemptId.Should().Be(claim.AttemptId);
         // The worker sees the request and ends the cancellation itself.
         (await persistence.HeartbeatAsync(claim, CancellationToken.None)).Should().Be(NhBackgroundOperationHeartbeatResult.CancellationRequested);
+    }
+
+    /// <summary>
+    /// A running operation whose worker stops on every attempt, as the worker of a handler that never
+    /// returns does once its heartbeat stops: reconciliation retries it, and every attempt it recovers
+    /// spends a retry as a failed attempt does, so the operation fails with
+    /// <c>stale-attempt-retries-exhausted</c> once its retries are spent instead of being retried
+    /// without end.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task A_running_operation_whose_attempts_keep_going_stale_fails_once_its_retries_are_spent(RelationalTestProvider provider)
+    {
+        await using var services = await CreateServicesAsync(provider);
+        var options = services.GetRequiredService<NhBackgroundOperationsOptions>();
+        var persistence = services.GetRequiredService<NhBackgroundOperationPersistence>();
+        var reconciler = services.GetRequiredService<NhBackgroundOperationReconciliationService>();
+        var retryCount = services.GetRequiredService<NhBackgroundOperationRegistry>().GetForOperationType("stale-simple").RetryCount;
+        retryCount.Should().Be(3);
+        var operationId = await EnqueueAsync(services, new StaleSimpleRequest("never-returns"));
+
+        // The first attempt fails as a handler can, and spends a retry.
+        var failed = await StartAttemptAsync(services, operationId);
+        await persistence.CompleteAsync(
+            failed,
+            NhBackgroundOperationStatus.Failed,
+            "handler-failed",
+            "background-operation.failed",
+            null,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        // The worker of every later attempt stops; reconciliation retries while retries are left.
+        for (var attemptNumber = 2; attemptNumber <= retryCount; attemptNumber++)
+        {
+            await StartAttemptAsync(services, operationId);
+            await BackdateHeartbeatAsync(services, operationId, options.StaleAttemptTimeout + TimeSpan.FromMinutes(1));
+            await reconciler.ReconcileAsync(CancellationToken.None);
+
+            (await ReadOperationAsync(services, operationId)).Status.Should().Be(NhBackgroundOperationStatus.RetryScheduled);
+            (await persistence.GetFailedAttemptCountAsync(operationId, CancellationToken.None)).Should().Be(attemptNumber);
+        }
+
+        var last = await StartAttemptAsync(services, operationId);
+        await BackdateHeartbeatAsync(services, operationId, options.StaleAttemptTimeout + TimeSpan.FromMinutes(1));
+        await reconciler.ReconcileAsync(CancellationToken.None);
+
+        var exhausted = await ReadOperationAsync(services, operationId);
+        exhausted.Status.Should().Be(NhBackgroundOperationStatus.Failed);
+        exhausted.FailureCode.Should().Be("stale-attempt-retries-exhausted");
+        exhausted.FailureMessageKey.Should().Be("background-operation.failed");
+        exhausted.CurrentAttemptId.Should().BeNull();
+        exhausted.CompletedAt.Should().NotBeNull();
+        exhausted.Attempts.Should().HaveCount(retryCount + 1);
+        var abandoned = exhausted.Attempts.Single(item => item.Id == last.AttemptId);
+        abandoned.Status.Should().Be(NhBackgroundOperationAttemptStatus.Abandoned);
+        abandoned.RecoveryReason.Should().Be("stale-heartbeat");
+        exhausted.Events.Should().ContainSingle(operationEvent => operationEvent.MessageKey == "background-operation.failed"
+            && operationEvent.EventType == NhBackgroundOperationEventType.StateChanged);
+        (await persistence.GetFailedAttemptCountAsync(operationId, CancellationToken.None)).Should().Be(retryCount + 1);
+
+        // Nothing is retried or changed after that.
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(0);
+        (await ReadOperationAsync(services, operationId)).Version.Should().Be(exhausted.Version);
     }
 
     /// <summary>

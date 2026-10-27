@@ -47,7 +47,7 @@ public sealed class AssistantMcpContextSamplesTests(AssistantResearchSampleHost 
             .RespondWithText("Alpha migrates the CRM to the new platform.")
             .RespondWithFunctionCall("mcp_research_research_ask", new { question = "Which risks block Alpha?" })
             .RespondWithText("The research service is looking into it.")
-            .RespondWithFunctionCall("mcp_research_copy_research_ask", new { question = "Which risks block Alpha?" })
+            .RespondWithFunctionCall("mcp_research-copy_research_ask", new { question = "Which risks block Alpha?" })
             .RespondWithText("The copy is looking into it too."));
         using var created = await user.PostAsync(
             "/api/assistant/conversations",

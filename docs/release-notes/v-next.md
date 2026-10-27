@@ -779,3 +779,110 @@ accepts it because it is read-only. The tool's behavior does not change.
 | Breaking change | Required action |
 |---|---|
 | None. | Revoke SELECT on these tables and columns from the diagnostic principal, and replace a database-wide read grant on a platform database with per-table, view or column grants. |
+
+## NewHeap.Platform.AI.Chat: opening files before the model loop ends at the turn's deadline
+
+The file work a turn does before its model loop now follows the turn's cancellation and ends at
+`NhAssistantLimits.TurnTimeout`: opening the files of people's messages that waited for an agent run,
+the attachments of a person's message and the earlier files a turn opens again. Before, the files of
+waiting messages and the earlier files were opened without a token, so a file source or an MCP reader
+that accepted the request and never answered held the turn, ignored a stop and kept the agent run's
+background worker. The turn now ends with `assistant-turn-timeout` (the conversation `failed`, as at
+the model loop's deadline) or, after a stop or the run's cancellation, `cancelled`.
+
+| Breaking change | Required action |
+|---|---|
+| A turn whose file source or reader does not answer within `TurnTimeout` ends with `assistant-turn-timeout` before its model call. | Pass the `cancellationToken` of `INhAssistantFileSource.OpenAsync` and `INhAssistantFileReader.ReadAsync` to every call that can wait. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: tool lists and reader calls of MCP servers are bounded
+
+`NhAssistantMcpOptions.ConnectTimeout` now bounds listing a server's tools once connected, as it was
+documented to, and not only connecting: a server that accepts `tools/list` and never answers is
+unreachable for the turn, the reader, the test or the sync. The new `NhAssistantMcpOptions.ReaderCallTimeout`
+(`NewHeap:AI:Assistant:Mcp:ReaderCallTimeout`, 60 seconds by default, from one second to 15 minutes,
+checked when the host starts) bounds the call of an MCP server set up as reader. Both are bounded by
+the turn's own deadline and cancellation as well.
+
+| Breaking change | Required action |
+|---|---|
+| A server that does not answer `tools/list` within `ConnectTimeout` is skipped with `assistant-mcp-unreachable`. | Raise `ConnectTimeout` for a server that lists its tools slowly. |
+| An MCP reader that does not answer within `ReaderCallTimeout` fails its file with `assistant-file-reader-failed`, and a value outside its range fails host start. | Set `ReaderCallTimeout` for readers that need longer than a minute. |
+
+## NewHeap.Platform.AspNet.Common: stale attempts spend the retries of their operation
+
+An attempt that reconciliation recovers because its heartbeat went stale now spends a retry of its
+operation, as a failed attempt does. Before, such an abandoned attempt was retried without counting,
+so a handler that never returned, whose heartbeat stopped at the soft time-out while it kept its
+worker, was retried without end and each retry held another worker. Once the retries are spent, the
+attempt that goes stale fails the operation with `stale-attempt-retries-exhausted` and
+`background-operation.failed`. The runner's retry decisions and the agent-run handler's own retry
+count include these attempts; attempts that gave way to contention or a busy resource still spend none.
+
+| Breaking change | Required action |
+|---|---|
+| An idempotent operation whose attempts keep going stale fails with `stale-attempt-retries-exhausted` after `RetryCount` retries instead of being retried again. | Make the handler honour its cancellation token and soft time-out; raise the operation's retry count only when a stalled attempt can still recover. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: what an MCP server can make the host hold is bounded
+
+The MCP data transport now bounds responses before the MCP SDK, and before the assistant's own result,
+text and tool limits, see them. `NhAssistantMcpOptions.MaxResponseBytes`
+(`NewHeap:AI:Assistant:Mcp:MaxResponseBytes`, 16 MiB by default, from 64 KiB to 256 MiB) bounds a JSON
+response and each event of an event stream: the host stops reading past it, and a declared length
+beyond it fails before the body is read. `tools/list` is read page by page within
+`MaxToolListPages` (20 by default, up to 1,000) and `MaxTools` (500 by default, up to 10,000) for
+turns, readers, tests and syncs alike, so a sync stores no more tools than that. The new codes are
+`NhAssistantAdminErrorCodes.McpResponseTooLarge` (`assistant-mcp-response-too-large`) and
+`McpToolListTooLarge` (`assistant-mcp-tool-list-too-large`), both `502`, with texts in the
+`@newheap/platform-ai-chat` translations. All three bounds are checked when the host starts.
+
+| Breaking change | Required action |
+|---|---|
+| A response or stream event longer than `MaxResponseBytes` fails its request with `assistant-mcp-response-too-large`. | Raise `MaxResponseBytes`, for example with `MaxFileTokensPerTurn` for readers whose text is longer. |
+| A server that lists more tools than `MaxTools`, or more pages than `MaxToolListPages`, is not connected, and its sync fails with `assistant-mcp-tool-list-too-large` without storing tools. | Raise `MaxTools` or `MaxToolListPages` for such a server, or let it list fewer tools. |
+
+## NewHeap.Platform.AI.Chat.AspNet: a stored MCP secret stays with the destination it was entered for
+
+A stored secret and a `secretReference` of an MCP server (`bearer`, `api-key` and `basic`) are now kept
+on a save only while the URL's origin (scheme, host and port), the authentication mode and the
+`api-key` header stay the same. A change of any of them clears both, and the save needs a secret or a
+reference again, as for a new server, so an assistant administrator who may edit a server but never
+read its secret can no longer send it to a host of their own. A new path on the same origin, and a
+header name in other letter case, keep the secret. This applies to `PUT admin/mcp-servers/{id}` and
+`INhAssistantMcpServers.UpdateAsync` alike.
+
+| Breaking change | Required action |
+|---|---|
+| Moving a server to another origin, or changing its authentication mode or `api-key` header, without a `secret` or `secretReference` is refused with `secret: required`. | Send the secret, or the reference, again with such a change; the server editor asks for it at the secret field. |
+
+## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: imported MCP function names are injective
+
+The function name the model sees for an imported MCP tool is now `mcp_<namespace>_<tool id>` with
+the namespace's dashes kept, instead of every dash becoming an underscore. Before, two servers whose
+ids and tool names met at a dash, such as `acme` with `billing-refund` and `acme-billing` with
+`refund`, gave both tools the name `mcp_acme_billing_refund`, and every call went to whichever came
+first. Names of namespaces without a dash do not change. The assistant also refuses, in every turn,
+all MCP tools that would still share a function name, such as two tools of one server whose names
+differ only in case or punctuation, with the new code
+`NhAssistantAdminErrorCodes.McpToolNameConflict` (`assistant-mcp-tool-name-conflict`, `409`), which
+an approved call of such a tool also ends with. Before, the first of them was offered.
+
+| Breaking change | Required action |
+|---|---|
+| The function names of tools of a server or namespace with a dash change, for example `mcp_team_calendar_next_milestone` becomes `mcp_team-calendar_next_milestone`. | Update instructions, scripted model responses and tests that name such a function; tool ids (`mcp.<server>.<tool>`), approvals and audit are unchanged. |
+| Two enabled tools of one server whose names make one local name, such as `Lookup_Order` and `lookup-order`, are no longer offered. | Disable one of them in the administration. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: readers learn the turn's budget for their text
+
+`NhAssistantFileReadRequest.MaxTextCharacters` tells a reading tool how many characters of text the
+turn can still take from the file: what is left of `MaxFileTokensPerTurn` and of the serving profile's
+input budget, four characters to a token, as the limits count a reader's text. A reader that stops
+there and returns a failed result with `NhAssistantErrorCodes.FileTokenLimit` refuses the file with
+`assistant-file-token-limit` instead of `assistant-file-reader-failed`. The text of an MCP reader is
+measured against the same budget before its blocks are joined. SampleProjectManagement's
+`OfficeDocumentReader` now bounds the text it makes value by value, reads every worksheet once and
+checks the turn's cancellation at every row and paragraph: its per-part bound alone let a few
+kilobytes of workbook whose cells repeat one long shared string become millions of characters.
+
+| Breaking change | Required action |
+|---|---|
+| None for readers that ignore the budget; their text is refused at the token limit as before. | In a reader copied from the sample, bound the text by `request.MaxTextCharacters` while it is made, read each part once and check the cancellation token per row, as the sample's reader now does. |

@@ -157,6 +157,21 @@ public sealed partial class AssistantSamplesTests
         Assert.DoesNotContain(model.Requests[^1].Options!.Tools!, tool => tool.Name == "mcp_planning_next_milestone");
     }
 
+    /// <summary>
+    /// The sample bounds every request to an MCP server in its composition: connecting and listing the
+    /// tools by the connect timeout, a reader's call by the reader call timeout (SPM-305), what one
+    /// response may hold and how many pages and tools a tool list may have.
+    /// </summary>
+    [Fact]
+    public void SPM_251_the_composition_bounds_every_mcp_request()
+    {
+        var mcp = Host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<NhAssistantOptions>>().Value.Mcp;
+
+        Assert.Equal(TimeSpan.FromSeconds(10), mcp.ConnectTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(60), mcp.ReaderCallTimeout);
+        Assert.Equal((16 * 1024 * 1024, 20, 500), (mcp.MaxResponseBytes, mcp.MaxToolListPages, mcp.MaxTools));
+    }
+
     [Fact]
     public async Task SPM_251_the_application_adds_an_authentication_mode_that_exchanges_the_persons_token()
     {
@@ -334,6 +349,24 @@ public sealed partial class AssistantSamplesTests
             Assert.True(await TestAsync(admin, "secured-planning"));
             Assert.Equal(basic, planning.Authorizations.Last());
 
+            // The stored password never follows the server to another origin: moving it there needs
+            // the password again, so an administrator who cannot read it cannot send it elsewhere.
+            var otherOrigin = new UriBuilder(planning.Url) { Port = new Uri(planning.Url).Port + 1 }.Uri.ToString();
+            using var moved = await admin.PutAsync("/api/assistant/admin/mcp-servers/secured-planning", AssistantSampleHost.Json(new
+            {
+                server.id,
+                server.displayName,
+                url = otherOrigin,
+                authMode = "basic",
+                userName = "planner",
+                server.requiredPolicy,
+                server.isEnabled
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, moved.StatusCode);
+            Assert.Equal("required", (await AssistantSampleHost.ReadJsonAsync(moved)).GetProperty("errors").GetProperty("secret")[0].GetString());
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal(basic, planning.Authorizations.Last());
+
             var listed = await (await admin.GetAsync("/api/assistant/admin/mcp-servers", TestContext.Current.CancellationToken)).Content
                 .ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.DoesNotContain("spm-251-basic-password", listed);
@@ -402,7 +435,7 @@ public sealed partial class AssistantSamplesTests
             isEnabled = true
         }), cancellation);
         Host.Model.Use(new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("mcp_oauth_planning_next_milestone", new { project = "PRJ-1" })
+            .RespondWithFunctionCall("mcp_oauth-planning_next_milestone", new { project = "PRJ-1" })
             .RespondWithText("PRJ-1 reaches its next milestone on Friday."));
         var conversation = await CreateConversationAsync(user, "oauth-planning-helper");
         var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-1?");
@@ -511,7 +544,7 @@ public sealed partial class AssistantSamplesTests
             isEnabled = true
         }), cancellation);
         Host.Model.Use(new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("mcp_planning_account_next_milestone", new { project = "PRJ-2" })
+            .RespondWithFunctionCall("mcp_planning-account_next_milestone", new { project = "PRJ-2" })
             .RespondWithText("PRJ-2 reaches its next milestone on Friday."));
         var conversation = await CreateConversationAsync(user, "planning-account-helper");
         var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-2?");
@@ -582,7 +615,7 @@ public sealed partial class AssistantSamplesTests
 
         Host.Model.Use(new NhAiScriptedChatClient()
             .RespondWithText("Connect My planning first.")
-            .RespondWithFunctionCall("mcp_personal_planning_next_milestone", new { project = "PRJ-3" })
+            .RespondWithFunctionCall("mcp_personal-planning_next_milestone", new { project = "PRJ-3" })
             .RespondWithText("PRJ-3 reaches its next milestone on Friday.")
             .RespondWithText("Connect My planning first."));
 

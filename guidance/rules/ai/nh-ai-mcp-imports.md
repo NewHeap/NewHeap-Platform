@@ -16,7 +16,13 @@ Discover remote tools through the official MCP client, then pass them to
 `INhAiMcpClientToolImporter` with one local policy for every tool that may be
 used. Give the server and imported catalog dash-case IDs. The importer prefixes
 each logical tool ID and model-facing function name with the configured local
-namespace, so tools from different servers cannot silently collide.
+namespace, so tools from different servers cannot silently collide. The function
+name is `mcp_<namespace>_<tool id>` with the namespace's dashes kept and the tool
+id's dashes as underscores: namespaces and ids never contain an underscore, so the
+name is injective, and `mcp_acme_billing_refund` (namespace `acme`) and
+`mcp_acme-billing_refund` (namespace `acme-billing`) stay apart. Offer one turn
+no two functions with the same name; the assistant refuses all of them with
+`assistant-mcp-tool-name-conflict` rather than letting list order decide.
 
 Classify effect, approval, idempotency, authorization policies, capabilities,
 data classification, retention, deadline, concurrency, input size and result size locally.

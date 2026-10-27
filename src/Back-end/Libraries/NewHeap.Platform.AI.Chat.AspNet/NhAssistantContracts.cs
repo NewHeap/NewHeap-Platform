@@ -1064,7 +1064,9 @@ public sealed record NhAssistantAdminAgentDto(
 
 /// <summary>
 /// MCP server input. <see cref="Secret"/>: omitted or null keeps the stored secret, an empty
-/// string clears it, any other value replaces it.
+/// string clears it, any other value replaces it. A stored secret and <see cref="SecretReference"/>
+/// are kept only while the URL's origin, the authentication mode and the <c>api-key</c> header stay
+/// the same; a change of any of them clears both and needs one of them again (<c>secret: required</c>).
 /// </summary>
 public sealed record NhAssistantMcpServerInputDto(
     string? Id,

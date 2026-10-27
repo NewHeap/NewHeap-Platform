@@ -53,6 +53,15 @@ internal sealed record NhAssistantFileReading(string? ReaderId, string? Text, st
         return new NhAssistantFileReading(readerId, null, NhAssistantErrorCodes.FileReaderFailed) { Received = true, ConnectionOwner = connectionOwner };
     }
 
+    /// <summary>
+    /// The reader received the file and its text would be longer than the turn can take
+    /// (<see cref="NhAssistantFileReadRequest.MaxTextCharacters"/>).
+    /// </summary>
+    public static NhAssistantFileReading TooLong(string readerId, string? connectionOwner = null)
+    {
+        return new NhAssistantFileReading(readerId, null, NhAssistantErrorCodes.FileTokenLimit) { Received = true, ConnectionOwner = connectionOwner };
+    }
+
     public static NhAssistantFileReading PassedOver(string readerId, string code)
     {
         return new NhAssistantFileReading(readerId, null, code);
@@ -212,6 +221,11 @@ internal sealed class NhAssistantFileReaders(
                 reader.Id,
                 exception.GetType().Name);
             return NhAssistantFileReading.Failed(reader.Id);
+        }
+        if (!read.Success && NhAssistantResults.CodeOf(read) == NhAssistantErrorCodes.FileTokenLimit)
+        {
+            // The reader stopped at the turn's budget for the text.
+            return NhAssistantFileReading.TooLong(reader.Id);
         }
         if (!read.Success || read.Data is null)
         {

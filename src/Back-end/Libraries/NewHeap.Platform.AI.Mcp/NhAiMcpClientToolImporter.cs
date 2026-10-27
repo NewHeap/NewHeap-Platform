@@ -424,7 +424,7 @@ internal sealed class NhAiGovernedMcpClientFunction(
     private readonly JsonElement _inputSchema = JsonDocument.Parse(imported.InputSchema).RootElement.Clone();
     private readonly JsonElement _returnSchema = CreateReturnSchema(imported.OutputSchema);
 
-    public override string Name => $"mcp_{imported.Namespace}_{imported.Policy.Id}".Replace('-', '_');
+    public override string Name => FunctionNameOf(imported.Namespace, imported.Policy.Id);
 
     public NhAiToolDescriptor Descriptor => imported.Descriptor;
 
@@ -488,6 +488,19 @@ internal sealed class NhAiGovernedMcpClientFunction(
 
         // The remote result is a protocol type; the SDK's options own its wire format.
         return NhAiToolResult.Create(outcome, McpJsonUtilities.DefaultOptions);
+    }
+
+    /// <summary>
+    /// The function name the model sees for a tool of <paramref name="toolNamespace"/>:
+    /// <c>mcp_&lt;namespace&gt;_&lt;tool id&gt;</c>, the namespace with its dashes and the dashes of the tool
+    /// id as underscores. Namespaces and tool ids are dash-case and never contain an underscore, so the
+    /// first underscore after the prefix ends the namespace: tools of two namespaces, or two tools of
+    /// one, never share a name, such as <c>mcp_acme_billing_refund</c> and
+    /// <c>mcp_acme-billing_refund</c>.
+    /// </summary>
+    internal static string FunctionNameOf(string toolNamespace, string toolId)
+    {
+        return "mcp_" + toolNamespace + "_" + toolId.Replace('-', '_');
     }
 
     /// <summary>

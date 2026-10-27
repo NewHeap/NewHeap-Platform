@@ -197,8 +197,10 @@ describe('MCP connections of the mock API', () => {
     // The organization of an OAuth server has not connected: a conflict, not a remote failure.
     const sync = await call('POST', 'admin/mcp-servers/crm/sync');
     expect([sync.status, sync.body.code]).toEqual([409, 'assistant-mcp-connection-required']);
+    // Another origin needs the secret again, as on the server.
     await call('PUT', 'admin/mcp-servers/files', {
-      id: 'files', displayName: 'Files', url: 'https://unreachable.example.com/mcp', authMode: 'bearer', headerName: null, requiredPolicy: null, isEnabled: true
+      id: 'files', displayName: 'Files', url: 'https://unreachable.example.com/mcp', authMode: 'bearer', headerName: null,
+      secret: 'files-token', requiredPolicy: null, isEnabled: true
     });
     const unreachable = await call('POST', 'admin/mcp-servers/files/sync');
     expect([unreachable.status, unreachable.body.code]).toEqual([502, 'assistant-mcp-unreachable']);

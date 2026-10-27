@@ -647,7 +647,10 @@ internal sealed class NhAssistantTurnFiles(
             // limits count the tokens of that text. A text the chosen reader made of this content
             // earlier in the conversation is read without calling the reader again (D32).
             reading = await readers.ReadAsync(
-                new NhAssistantFileReadRequest(reference, mediaType, content, file.Classification, actor),
+                new NhAssistantFileReadRequest(reference, mediaType, content, file.Classification, actor)
+                {
+                    MaxTextCharacters = RemainingTextCharacters(state, bound, limits, serving)
+                },
                 NhAssistantTurnRunner.CreateMcpToolRequest(state),
                 sha256,
                 cancellationToken);
@@ -681,6 +684,23 @@ internal sealed class NhAssistantTurnFiles(
         };
         bound.Add(turnFile);
         return new NhAssistantFileOutcome(reference, origin, toolId, turnFile, [marker, body], null, null, mediaType);
+    }
+
+    /// <summary>
+    /// The most characters of text a reader may return for the next file, as
+    /// <see cref="TokenRefusal"/> counts them: what is left of the turn's file tokens and of the serving
+    /// profile's input budget, four characters to a token.
+    /// </summary>
+    private static long RemainingTextCharacters(
+        NhAssistantTurnState state,
+        List<NhAssistantTurnFile> bound,
+        NhAssistantTurnFileLimits limits,
+        NhAiModelProfile serving)
+    {
+        var turnTokens = bound.Sum(item => (long)item.EstimatedTokens);
+        var allTokens = state.Files.Concat(state.EarlierFiles).Sum(item => (long)item.EstimatedTokens);
+        var remainingTokens = Math.Min(limits.MaxFileTokensPerTurn - turnTokens, serving.Budget.MaxInputTokens - allTokens);
+        return Math.Max(0, remainingTokens) * 4;
     }
 
     /// <summary>

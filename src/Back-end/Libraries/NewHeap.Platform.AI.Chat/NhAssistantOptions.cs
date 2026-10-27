@@ -109,9 +109,64 @@ public sealed class NhAssistantMcpOptions
     public TimeSpan ToolListCacheDuration { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Maximum time to connect to a server and list its tools.
+    /// Maximum time to connect to a server, and maximum time to list its tools once connected.
     /// </summary>
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The shortest <see cref="ReaderCallTimeout"/>.
+    /// </summary>
+    internal static readonly TimeSpan MinReaderCallTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// The longest <see cref="ReaderCallTimeout"/>.
+    /// </summary>
+    internal static readonly TimeSpan MaxReaderCallTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// The longest an MCP server set up as reader may take to turn one file into text: 60 seconds by
+    /// default, from one second to 15 minutes (<c>NewHeap:AI:Assistant:Mcp:ReaderCallTimeout</c>). A
+    /// reader that has not answered by then fails the file with <c>assistant-file-reader-failed</c>.
+    /// The turn's own deadline and cancellation still apply.
+    /// </summary>
+    public TimeSpan ReaderCallTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>The smallest <see cref="MaxResponseBytes"/>.</summary>
+    internal const int MinResponseBytes = 64 * 1024;
+
+    /// <summary>The largest <see cref="MaxResponseBytes"/>.</summary>
+    internal const int MaxResponseBytesLimit = 256 * 1024 * 1024;
+
+    /// <summary>
+    /// The largest response the host reads from an MCP server, in bytes: a JSON response, or one event
+    /// of an event stream. 16 MiB by default, from 64 KiB to 256 MiB
+    /// (<c>NewHeap:AI:Assistant:Mcp:MaxResponseBytes</c>). The host stops reading a longer response
+    /// before it holds more, and its request fails with <c>assistant-mcp-response-too-large</c>; the
+    /// result and text limits of tools and readers then apply to what is left. Raise it only with
+    /// <see cref="NhAssistantLimits.MaxFileTokensPerTurn"/> for readers whose text is longer.
+    /// </summary>
+    public int MaxResponseBytes { get; set; } = 16 * 1024 * 1024;
+
+    /// <summary>The largest <see cref="MaxToolListPages"/>.</summary>
+    internal const int MaxToolListPagesLimit = 1_000;
+
+    /// <summary>
+    /// The most pages of <c>tools/list</c> the host reads from one server: 20 by default, from 1 to
+    /// 1,000 (<c>NewHeap:AI:Assistant:Mcp:MaxToolListPages</c>). A server that announces more is not
+    /// connected, for turns, readers, tests and syncs alike, with
+    /// <c>assistant-mcp-tool-list-too-large</c>.
+    /// </summary>
+    public int MaxToolListPages { get; set; } = 20;
+
+    /// <summary>The largest <see cref="MaxTools"/>.</summary>
+    internal const int MaxToolsLimit = 10_000;
+
+    /// <summary>
+    /// The most tools the host takes from one server's <c>tools/list</c>: 500 by default, from 1 to
+    /// 10,000 (<c>NewHeap:AI:Assistant:Mcp:MaxTools</c>). A server that lists more is not connected,
+    /// and a sync stores none of them, with <c>assistant-mcp-tool-list-too-large</c>.
+    /// </summary>
+    public int MaxTools { get; set; } = 500;
 
     /// <summary>
     /// The lifetime of a delegated NewHeap token that a headless run sends to a
@@ -140,6 +195,71 @@ public sealed class NhAssistantMcpOptions
     /// The host as OAuth client of MCP authorization servers.
     /// </summary>
     public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();
+
+    /// <summary>
+    /// Throws when a bound of the MCP connections is out of its range, so the host fails at start
+    /// instead of at the first request.
+    /// </summary>
+    internal void Validate()
+    {
+        if (ReaderCallTimeout < MinReaderCallTimeout || ReaderCallTimeout > MaxReaderCallTimeout)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:ReaderCallTimeout must be from one second to 15 minutes.");
+        }
+        if (MaxResponseBytes is < MinResponseBytes or > MaxResponseBytesLimit)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:MaxResponseBytes must be from 64 KiB to 256 MiB.");
+        }
+        if (MaxToolListPages is < 1 or > MaxToolListPagesLimit)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:MaxToolListPages must be from 1 to 1,000.");
+        }
+        if (MaxTools is < 1 or > MaxToolsLimit)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:MaxTools must be from 1 to 10,000.");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="MaxResponseBytes"/> within its range, also after a change at runtime.
+    /// </summary>
+    internal int BoundedMaxResponseBytes()
+    {
+        return Math.Clamp(MaxResponseBytes, MinResponseBytes, MaxResponseBytesLimit);
+    }
+
+    /// <summary>
+    /// <see cref="MaxToolListPages"/> within its range, also after a change at runtime.
+    /// </summary>
+    internal int BoundedMaxToolListPages()
+    {
+        return Math.Clamp(MaxToolListPages, 1, MaxToolListPagesLimit);
+    }
+
+    /// <summary>
+    /// <see cref="MaxTools"/> within its range, also after a change at runtime.
+    /// </summary>
+    internal int BoundedMaxTools()
+    {
+        return Math.Clamp(MaxTools, 1, MaxToolsLimit);
+    }
+
+    /// <summary>
+    /// <see cref="ReaderCallTimeout"/> within its range: a value changed after start is never longer
+    /// than the longest or shorter than the shortest.
+    /// </summary>
+    internal TimeSpan BoundedReaderCallTimeout()
+    {
+        return ReaderCallTimeout < MinReaderCallTimeout
+            ? MinReaderCallTimeout
+            : ReaderCallTimeout > MaxReaderCallTimeout
+                ? MaxReaderCallTimeout
+                : ReaderCallTimeout;
+    }
 }
 
 /// <summary>

@@ -22,6 +22,12 @@ public sealed record TestFile(
     /// </summary>
     public ConcurrentDictionary<string, bool> ForbiddenActors { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The storage accepts a request for the file and never answers: only the turn's cancellation
+    /// ends it.
+    /// </summary>
+    public bool Silent { get; set; }
+
     public NhAiFileReference Reference => new(Id, Name, MediaType, Content.Length, "app-hash-" + Id);
 }
 
@@ -33,6 +39,11 @@ public sealed class TestFiles
     public ConcurrentDictionary<string, TestFile> Files { get; } = new(StringComparer.Ordinal);
 
     public ConcurrentQueue<(NhAiFileReference Reference, NhAssistantFileActor Actor)> Opened { get; } = new();
+
+    /// <summary>
+    /// Set when a request for a silent file arrived.
+    /// </summary>
+    public TaskCompletionSource SilentOpen { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public TestFile Add(
         string id,
@@ -65,7 +76,7 @@ public sealed class TestFiles
 /// </summary>
 public sealed class TestFileSource(TestFiles files) : INhAssistantFileSource
 {
-    public Task<TaskResult<NhAssistantFile>> OpenAsync(
+    public async Task<TaskResult<NhAssistantFile>> OpenAsync(
         NhAiFileReference reference,
         NhAssistantFileActor actor,
         CancellationToken cancellationToken)
@@ -73,18 +84,23 @@ public sealed class TestFileSource(TestFiles files) : INhAssistantFileSource
         files.Opened.Enqueue((reference, actor));
         if (!files.Files.TryGetValue(reference.Id, out var file))
         {
-            return Task.FromResult(TaskResult<NhAssistantFile>.Failed(NhAssistantErrorCodes.FileNotFound, "The file does not exist."));
+            return TaskResult<NhAssistantFile>.Failed(NhAssistantErrorCodes.FileNotFound, "The file does not exist.");
         }
         if (file.ForbiddenActors.ContainsKey(actor.ActorId))
         {
-            return Task.FromResult(TaskResult<NhAssistantFile>.Failed(NhAssistantErrorCodes.FileForbidden, "The actor may not read the file."));
+            return TaskResult<NhAssistantFile>.Failed(NhAssistantErrorCodes.FileForbidden, "The actor may not read the file.");
+        }
+        if (file.Silent)
+        {
+            files.SilentOpen.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
 
-        return Task.FromResult(TaskResult<NhAssistantFile>.Succeeded(
+        return TaskResult<NhAssistantFile>.Succeeded(
             new NhAssistantFile(new MemoryStream(file.Content), file.MediaType, file.Content.Length, file.Classification)
             {
                 PageCount = file.PageCount
-            }));
+            });
     }
 
     public Task<TaskResult<NhAiFileReference>> StoreUploadAsync(

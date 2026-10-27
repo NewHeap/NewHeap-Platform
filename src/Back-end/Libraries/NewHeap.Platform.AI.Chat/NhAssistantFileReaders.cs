@@ -15,7 +15,12 @@ public interface INhAssistantFileReader
 {
     /// <summary>
     /// The text of the file in <paramref name="request"/>. The file and turn limits of
-    /// <see cref="NhAssistantLimits"/> count the tokens of this text.
+    /// <see cref="NhAssistantLimits"/> count the tokens of this text. Bound the text while it is made:
+    /// stop as soon as it would be longer than <see cref="NhAssistantFileReadRequest.MaxTextCharacters"/>
+    /// and return a failed result with <see cref="NhAssistantErrorCodes.FileTokenLimit"/>, which refuses
+    /// the file with that code, rather than build text the turn cannot take. Pass
+    /// <paramref name="cancellationToken"/> to every call that can wait and check it while the reader
+    /// works through a long document.
     /// </summary>
     Task<TaskResult<string>> ReadAsync(NhAssistantFileReadRequest request, CancellationToken cancellationToken);
 }
@@ -23,7 +28,8 @@ public interface INhAssistantFileReader
 /// <summary>
 /// A file a reading tool turns into text: the reference, the media type the application's file source
 /// reported, the content the assistant read within <see cref="NhAssistantLimits.MaxFileBytes"/>, the
-/// file's classification and the actor of the turn the file was opened for.
+/// file's classification and the actor of the turn the file was opened for, and how much text the
+/// turn can still take from it (<see cref="MaxTextCharacters"/>).
 /// </summary>
 /// <param name="Reference">The file as the tool result or the message named it.</param>
 /// <param name="MediaType">The media type of the content, lowercase and without parameters.</param>
@@ -35,7 +41,17 @@ public sealed record NhAssistantFileReadRequest(
     string MediaType,
     ReadOnlyMemory<byte> Content,
     NhAiDataClassification Classification,
-    NhAssistantFileActor Actor);
+    NhAssistantFileActor Actor)
+{
+    /// <summary>
+    /// The most characters of text the turn can still take from this file: what is left of
+    /// <see cref="NhAssistantLimits.MaxFileTokensPerTurn"/> and of the serving profile's input budget,
+    /// four characters to a token, as the limits count a reader's text. A longer text is refused with
+    /// <see cref="NhAssistantErrorCodes.FileTokenLimit"/> whatever the reader returns, so a reader stops
+    /// once it would pass this budget. <see cref="long.MaxValue"/> when the caller sets no budget.
+    /// </summary>
+    public long MaxTextCharacters { get; init; } = long.MaxValue;
+}
 
 /// <summary>
 /// Declares what a reading tool registered with <c>AddFileReader&lt;T&gt;()</c> reads: the media types

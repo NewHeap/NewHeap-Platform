@@ -229,7 +229,8 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
             }
         }));
         var redirectingUrl = LocalhostTestServer.Origin(redirecting) + "/planning/sse";
-        Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { Url = redirectingUrl, Transport = NhAssistantMcpTransports.Auto })).Success);
+        // Another origin needs the secret again.
+        Assert.True((await UpdateAsync(host, Server(NhAssistantMcpAuthModes.Bearer) with { Url = redirectingUrl, Transport = NhAssistantMcpTransports.Auto, Secret = "legacy-token" })).Success);
 
         var blocked = await TestAsync(host);
 
@@ -434,6 +435,66 @@ public sealed partial class AssistantMcpCredentialTests(AssistantDatabaseFixture
         var request = Assert.Single(issuer.Requests);
         Assert.Equal(("accountable-1", accountable.InvocationId.ToString("D"), "http://localhost"), (request.PersonActorId, request.Marker, request.Audience));
         Assert.Equal("Bearer " + Assert.Single(issuer.Issued), Assert.Single(inner.Requests));
+    }
+
+    /// <summary>
+    /// A stored secret, and a secret reference, serve only the destination they were entered for. A
+    /// path on the same origin keeps them; another origin, another authentication mode or another
+    /// <c>api-key</c> header clears them, and the change needs the secret or reference again
+    /// (<c>secret: required</c>), so an administrator who may change a server but never read its
+    /// secret cannot send it to a host of their own. Nothing reaches the other origin before then.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_stored_secret_or_reference_never_follows_the_server_to_another_destination(AssistantTestProvider provider)
+    {
+        const string OtherOrigin = "http://localhost:8443/planning/mcp";
+        const string OtherPath = "http://localhost/planning/v2/mcp";
+        var configuration = Configuration(new Dictionary<string, string?> { [SecretKey] = "referenced-token" });
+        var servers = new InMemoryMcpServers();
+        foreach (var url in new[] { ServerUrl, OtherPath, OtherOrigin })
+        {
+            servers.Register(url, () => servers.PlanningTools());
+        }
+        await using var host = await CreateHostAsync(provider, servers: servers, configuration: configuration);
+        var bearer = Server(NhAssistantMcpAuthModes.Bearer);
+        Assert.True((await CreateAsync(host, bearer with { Secret = "TOKEN-ENTERED-BY-ADMIN-A" })).Success);
+
+        // Another path on the same origin keeps the secret.
+        Assert.True((await UpdateAsync(host, bearer with { Url = OtherPath })).Success);
+        Assert.NotNull((await FindServerAsync(host)).ProtectedSecret);
+
+        // Another origin, mode or header without the secret is refused, and the stored one stays where it was.
+        Assert.Equal(["secret"], Fields(await UpdateAsync(host, bearer with { Url = OtherOrigin })));
+        Assert.Equal(["secret"], Fields(await UpdateAsync(host, Server(NhAssistantMcpAuthModes.ApiKeyHeader) with { Url = OtherPath })));
+        var kept = await FindServerAsync(host);
+        Assert.Equal((OtherPath, NhAssistantMcpAuthModes.Bearer), (kept.Url, kept.AuthMode));
+        Assert.NotNull(kept.ProtectedSecret);
+        var connections = servers.Connections.Count;
+        Assert.DoesNotContain(servers.Connections, plan => plan.Endpoint.Port == 8443);
+
+        // With the secret given again the server moves, and its connections carry the new secret.
+        Assert.True((await UpdateAsync(host, bearer with { Url = OtherOrigin, Secret = "TOKEN-FOR-THE-NEW-ORIGIN" })).Success);
+        Assert.True((await TestAsync(host)).Ok);
+        Assert.Equal("Bearer TOKEN-FOR-THE-NEW-ORIGIN", LastAuthorization(servers));
+        Assert.True(servers.Connections.Count > connections);
+
+        // An api-key keeps its secret while the header stays the same, in any letter case.
+        var apiKey = Server(NhAssistantMcpAuthModes.ApiKeyHeader) with { Url = OtherOrigin, HeaderName = "X-Api-Key" };
+        Assert.True((await UpdateAsync(host, apiKey with { Secret = "KEY-FOR-X-API-KEY" })).Success);
+        Assert.True((await UpdateAsync(host, apiKey with { HeaderName = "x-api-key" })).Success);
+        Assert.Equal(["secret"], Fields(await UpdateAsync(host, apiKey with { HeaderName = "X-Other-Key" })));
+
+        // A reference is bound alike: another origin needs it again.
+        Assert.True((await UpdateAsync(host, bearer with { Url = OtherOrigin, SecretReference = "config:planning-token" })).Success);
+        Assert.Equal(["secret"], Fields(await UpdateAsync(host, bearer with { Url = ServerUrl })));
+        Assert.True((await UpdateAsync(host, bearer with { Url = ServerUrl, SecretReference = "config:planning-token" })).Success);
+        var moved = await FindServerAsync(host);
+        Assert.Equal((ServerUrl, "config:planning-token", (string?)null), (moved.Url, moved.SecretReference, moved.ProtectedSecret));
+        Assert.True((await TestAsync(host)).Ok);
+        Assert.Equal("Bearer referenced-token", LastAuthorization(servers));
+        AssertNoSecretLogged(host, "TOKEN-ENTERED-BY-ADMIN-A", "TOKEN-FOR-THE-NEW-ORIGIN", "KEY-FOR-X-API-KEY", "referenced-token");
     }
 
     [Fact]

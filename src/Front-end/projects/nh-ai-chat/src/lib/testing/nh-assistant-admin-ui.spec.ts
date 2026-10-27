@@ -1404,7 +1404,7 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(element.textContent).toContain("Background runs with the person's own account, after consent");
   });
 
-  it('asks a user name for basic authentication and keeps the password write-only', async () => {
+  it('asks a user name for basic authentication, the password again for the new mode and keeps it write-only', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
 
@@ -1420,13 +1420,22 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     type(element, 'input[id$="-user"]', 'planner');
     button(element, 'Save').click();
     await settle(fixture);
+    // The stored secret never follows the server to another authentication mode: the server asks for
+    // the password, which the administrator enters.
+    const [refused] = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(Object.keys(refused)).not.toContain('secret');
+    button(element, 'Replace').click();
+    fixture.detectChanges();
+    type(element, 'input[type="password"]', 'planner-password');
+    button(element, 'Save').click();
+    await settle(fixture);
 
-    const [body] = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
-    expect(body['authMode']).toBe('basic');
-    expect(body['userName']).toBe('planner');
-    expect(Object.keys(body)).not.toContain('secret');
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies.length).toBe(2);
+    expect([bodies[1]['authMode'], bodies[1]['userName'], bodies[1]['secret']]).toEqual(['basic', 'planner', 'planner-password']);
     expect(element.textContent).toContain('User name and password');
     expect(element.textContent).toContain('Secret set');
+    expect(element.innerHTML).not.toContain('planner-password');
     expect(element.innerHTML).not.toContain(secretValue);
   });
 

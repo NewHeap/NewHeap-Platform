@@ -335,13 +335,20 @@ internal sealed partial class NhBackgroundOperationPersistence
         await PublishSafelyAsync(operation, cancellationToken);
     }
 
+    /// <summary>
+    /// The attempts of the operation that spent a retry: the failed attempts and the attempts that
+    /// reconciliation abandoned because their heartbeat went stale
+    /// (<see cref="NhBackgroundOperationStaleAttempts.SpentRetry"/>).
+    /// </summary>
     internal async Task<int> GetFailedAttemptCountAsync(Guid operationId, CancellationToken cancellationToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperationAttempt>>();
-        return await repository.GetAll().AsNoTracking().CountAsync(
-            x => x.OperationId == operationId && x.Status == NhBackgroundOperationAttemptStatus.Failed,
-            cancellationToken);
+        return await repository.GetAll()
+            .AsNoTracking()
+            .Where(x => x.OperationId == operationId)
+            .Where(NhBackgroundOperationStaleAttempts.SpentRetry())
+            .CountAsync(cancellationToken);
     }
 
     internal async Task<bool> IsCancellationRequestedAsync(
