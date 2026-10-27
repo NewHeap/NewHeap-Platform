@@ -14,6 +14,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
     private const string OperatorRecoveryRequiredMessageKey = "background-operation.operator-recovery-required";
     private const string StaleAttemptRecoveredMessageKey = "background-operation.stale-attempt-recovered";
     private const string CancelledMessageKey = "background-operation.cancelled";
+    private const string FailedMessageKey = "background-operation.failed";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NhBackgroundOperationsOptions _options;
@@ -230,7 +231,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 {
                     attempt.Status = NhBackgroundOperationAttemptStatus.Abandoned;
                     attempt.CompletedAt = now;
-                    attempt.RecoveryReason = "stale-heartbeat";
+                    attempt.RecoveryReason = NhBackgroundOperationStaleAttempts.StaleHeartbeatReason;
                     attempt.LastModifiedDateTime = now;
                     attempt.Version++;
                 }
@@ -254,12 +255,27 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             }
 
             var descriptor = _registry.GetForOperationType(operation.OperationType);
+            string? failureCode = null;
+            string? failureMessageKey = null;
             if (descriptor.Idempotency == NhBackgroundOperationIdempotency.NonIdempotent)
+            {
+                failureCode = "stale-non-idempotent-attempt";
+                failureMessageKey = OperatorRecoveryRequiredMessageKey;
+            }
+            else if (await CountSpentRetriesAsync(repository, operation.Id, staleAttemptId, cancellationToken) > descriptor.RetryCount)
+            {
+                // A handler that never returns goes stale on every attempt: its retries end as those
+                // of a handler that fails.
+                failureCode = NhBackgroundOperationStaleAttempts.RetriesExhaustedFailureCode;
+                failureMessageKey = FailedMessageKey;
+            }
+
+            if (failureCode is not null)
             {
                 operation.Status = NhBackgroundOperationStatus.Failed;
                 operation.CompletedAt = now;
-                operation.FailureCode = "stale-non-idempotent-attempt";
-                operation.FailureMessageKey = "background-operation.operator-recovery-required";
+                operation.FailureCode = failureCode;
+                operation.FailureMessageKey = failureMessageKey;
             }
             else
             {
@@ -272,9 +288,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                     ? NhBackgroundOperationEventType.StateChanged
                     : NhBackgroundOperationEventType.RetryScheduled,
                 NhBackgroundOperationMessageSeverity.Warning,
-                operation.Status == NhBackgroundOperationStatus.Failed
-                    ? "background-operation.operator-recovery-required"
-                    : StaleAttemptRecoveredMessageKey,
+                failureMessageKey ?? StaleAttemptRecoveredMessageKey,
                 null,
                 true);
             await NhBackgroundOperationEventRetention.TrimAsync(
@@ -517,6 +531,25 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             .Select(x => x.MessageKey)
             .ToListAsync(cancellationToken);
         return recentMessageKeys.TakeWhile(key => key == DispatchRecoveredMessageKey).Count();
+    }
+
+    /// <summary>
+    /// The retries the operation spent with the stale attempt that is being recovered: its earlier
+    /// failed and stale attempts (<see cref="NhBackgroundOperationStaleAttempts.SpentRetry"/>) and this
+    /// one, whose abandonment is not saved yet.
+    /// </summary>
+    private static async Task<int> CountSpentRetriesAsync(
+        IRepository<NhBackgroundOperation> repository,
+        Guid operationId,
+        Guid? staleAttemptId,
+        CancellationToken cancellationToken)
+    {
+        var earlier = await repository.GetDbSet<NhBackgroundOperationAttempt>()
+            .AsNoTracking()
+            .Where(x => x.OperationId == operationId && x.Id != staleAttemptId)
+            .Where(NhBackgroundOperationStaleAttempts.SpentRetry())
+            .CountAsync(cancellationToken);
+        return earlier + 1;
     }
 
     private async Task<string?> GetSchedulerStateAsync(

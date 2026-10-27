@@ -269,3 +269,17 @@ the turn's own deadline and cancellation as well.
 |---|---|
 | A server that does not answer `tools/list` within `ConnectTimeout` is skipped with `assistant-mcp-unreachable`. | Raise `ConnectTimeout` for a server that lists its tools slowly. |
 | An MCP reader that does not answer within `ReaderCallTimeout` fails its file with `assistant-file-reader-failed`, and a value outside its range fails host start. | Set `ReaderCallTimeout` for readers that need longer than a minute. |
+
+## NewHeap.Platform.AspNet.Common: stale attempts spend the retries of their operation
+
+An attempt that reconciliation recovers because its heartbeat went stale now spends a retry of its
+operation, as a failed attempt does. Before, such an abandoned attempt was retried without counting,
+so a handler that never returned, whose heartbeat stopped at the soft time-out while it kept its
+worker, was retried without end and each retry held another worker. Once the retries are spent, the
+attempt that goes stale fails the operation with `stale-attempt-retries-exhausted` and
+`background-operation.failed`. The runner's retry decisions and the agent-run handler's own retry
+count include these attempts; attempts that gave way to contention or a busy resource still spend none.
+
+| Breaking change | Required action |
+|---|---|
+| An idempotent operation whose attempts keep going stale fails with `stale-attempt-retries-exhausted` after `RetryCount` retries instead of being retried again. | Make the handler honour its cancellation token and soft time-out; raise the operation's retry count only when a stalled attempt can still recover. |

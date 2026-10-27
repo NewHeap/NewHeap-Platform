@@ -12,9 +12,33 @@ namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 /// it is not idempotent, failed; an operation being cancelled is cancelled. The readiness check
 /// (<see cref="NhBackgroundOperationHealthCheck"/>) counts the same operations until then. Liveness
 /// stays on the system clock, so a jump of the application's clock never makes an attempt stale.
+/// An attempt recovered this way spends a retry of its operation, as a failed attempt does, so a
+/// handler that never returns is retried no more often than its operation allows.
 /// </summary>
 internal static class NhBackgroundOperationStaleAttempts
 {
+    /// <summary>
+    /// The recovery reason of an attempt that reconciliation abandoned because its heartbeat went
+    /// stale.
+    /// </summary>
+    internal const string StaleHeartbeatReason = "stale-heartbeat";
+
+    /// <summary>
+    /// The failure code of a running operation whose attempt went stale after its retries were spent.
+    /// </summary>
+    internal const string RetriesExhaustedFailureCode = "stale-attempt-retries-exhausted";
+
+    /// <summary>
+    /// The attempts that spent a retry of their operation, as a translatable predicate: those that
+    /// failed and those abandoned with a stale heartbeat. Attempts that gave way to contention or a
+    /// busy resource, or that were suspended, spend none.
+    /// </summary>
+    internal static Expression<Func<NhBackgroundOperationAttempt, bool>> SpentRetry()
+    {
+        return attempt => attempt.Status == NhBackgroundOperationAttemptStatus.Failed
+            || (attempt.Status == NhBackgroundOperationAttemptStatus.Abandoned && attempt.RecoveryReason == StaleHeartbeatReason);
+    }
+
     /// <summary>
     /// The operations whose current attempt is stale, as a translatable predicate.
     /// </summary>
