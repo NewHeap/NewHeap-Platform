@@ -212,12 +212,13 @@ data type of a custom dispatcher. The notification processor removes such data a
 is sent, fails or is cancelled, cancels a delivery instead of dispatching it once `ExpiresAt` has
 passed, and its cleanup pass cancels expired deliveries that are still waiting. `NhTwoFactorMessageComposer`
 sets `ExpiresAt` to the code's expiry, and the two-factor service holds every delivery of the code
-e-mail to the code's lifetime, also when a custom composer sets a later moment or none. No schema
-change is needed.
+e-mail whose data implements `INhExpiringDeliveryData` to the code's lifetime, also when a custom composer
+sets a later moment or none. Delivery data of another type is sent as before and keeps the code until
+the retention cleanup; the service logs a warning that names the type once. No schema change is needed.
 
 | Breaking change | Required action |
 |---|---|
-| A custom `INhTwoFactorMessageComposer` whose code notification has a delivery with data that does not implement `INhExpiringDeliveryData`, which is anything but `NhEmailDeliveryData`, now fails with an `InvalidOperationException` when a code is sent. | Compose the code e-mail with `NhEmailDeliveryData`, or implement `INhExpiringDeliveryData` on the custom delivery data, and set `ExpiresAt = message.ExpiresAt`. |
+| None for a custom `INhTwoFactorMessageComposer` whose code delivery data does not implement `INhExpiringDeliveryData`: the code is sent as before, a warning names the data type, and the code stays in the store until the retention cleanup. | Recommended: implement `INhExpiringDeliveryData` on custom code delivery data, or use `NhEmailDeliveryData`, and set `ExpiresAt = message.ExpiresAt`, so codes leave the store once sent. |
 | Code e-mails sent before the upgrade keep their content until the retention cleanup removes it. | None. Optionally clear `Data` and set `IsCleaned` on the deliveries of the notifications named `two-factor-email-code`. |
 
 ## NewHeap.Platform.AspNet.Common: two-factor codes stored as keyed hashes

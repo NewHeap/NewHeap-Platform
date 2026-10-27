@@ -1278,29 +1278,35 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     }
 
     /// <summary>
-    /// The e-mail carries the code in plaintext, so its content may not stay in the delivery store:
-    /// every delivery expires no later than the code (<see cref="INhExpiringDeliveryData"/>), and the
-    /// notification processor removes it once it is sent and never keeps it after the code's lifetime.
-    /// A composer that sets a later moment, or none, is held to the code's.
+    /// The e-mail carries the code in plaintext, so its content should not stay in the delivery store:
+    /// every delivery whose data can expire (<see cref="INhExpiringDeliveryData"/>) expires no later
+    /// than the code, and the notification processor removes it once it is sent and never keeps it
+    /// after the code's lifetime. A composer that sets a later moment, or none, is held to the code's.
+    /// Data that cannot expire is sent as it is and stays until the retention cleanup; a warning names
+    /// its type once.
     /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// The composer added a delivery whose data cannot expire, which would keep the code in the store.
-    /// </exception>
-    private static void ExpireWithTheCode(NhNotification notification, DateTimeOffset codeExpiresAt)
+    private void ExpireWithTheCode(NhNotification notification, DateTimeOffset codeExpiresAt)
     {
         foreach (var delivery in notification.Deliveries)
         {
-            if (delivery.Data is not INhExpiringDeliveryData data)
+            if (delivery.Data is INhExpiringDeliveryData data)
             {
-                throw new InvalidOperationException(
-                    $"The e-mailed two-factor code has a delivery for '{delivery.DispatcherId}' whose data does not implement " +
-                    $"{nameof(INhExpiringDeliveryData)}, so the code would stay in the notification store. " +
-                    $"Compose e-mailed codes with {nameof(NhEmailDeliveryData)}, or implement {nameof(INhExpiringDeliveryData)} on the delivery data.");
+                if (data.ExpiresAt == null || data.ExpiresAt > codeExpiresAt)
+                {
+                    data.ExpiresAt = codeExpiresAt;
+                }
+
+                continue;
             }
 
-            if (data.ExpiresAt == null || data.ExpiresAt > codeExpiresAt)
+            if (delivery.Data != null && _configuration.CodeDeliveryDataTypesWithoutExpiry.TryAdd(delivery.Data.GetType(), 0))
             {
-                data.ExpiresAt = codeExpiresAt;
+                _logger.LogWarning(
+                    "E-mailed two-factor codes are delivered through dispatcher {DispatcherId} with delivery data {DataType}, " +
+                    "which does not implement INhExpiringDeliveryData: the code stays in the notification store until the " +
+                    "retention cleanup. Implement INhExpiringDeliveryData on that data type so codes leave the store once sent.",
+                    delivery.DispatcherId,
+                    delivery.Data.GetType().FullName);
             }
         }
     }

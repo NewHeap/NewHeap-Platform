@@ -18,7 +18,6 @@ using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
-using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -262,7 +261,9 @@ public sealed class TwoFactorAuthenticationProviderTests
     {
         var environment = await CreateEnvironmentAsync(provider, configuration => configuration.EmailCodesEnabled = true);
         var composer = new ExpiryTestComposer(environment.Clock);
+        var logger = new RecordingLogger<NhTwoFactorService<NhUser>>();
         environment.MessageComposer = composer;
+        environment.TwoFactorLogger = logger;
         using var stack = environment.CreateStack();
         var user = await stack.CreateUserAsync("email-code-expiry@example.test");
 
@@ -287,12 +288,21 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.True(third.Success, string.Join("; ", third.AllErrorMessages));
         Assert.Equal(earlier, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
 
-        // A delivery whose data cannot expire would keep the code in the store, so it is refused.
-        environment.Clock.Advance(TimeSpan.FromMinutes(2));
-        composer.AddInAppDelivery = true;
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null));
-        Assert.Contains(nameof(INhExpiringDeliveryData), refused.Message, StringComparison.Ordinal);
+        // Data that cannot expire is still sent: the code stays in the store until the retention
+        // cleanup, the e-mail beside it still expires with the code, and a warning names the type once.
+        composer.ExpiresAt = null;
+        composer.AddTextMessageDelivery = true;
+        for (var send = 0; send < 2; send++)
+        {
+            environment.Clock.Advance(TimeSpan.FromMinutes(2));
+            var withTextMessage = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+            Assert.True(withTextMessage.Success, string.Join("; ", withTextMessage.AllErrorMessages));
+            Assert.Equal(withTextMessage.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+        }
+
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Contains(nameof(TextMessageDeliveryData), warning.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(INhExpiringDeliveryData), warning.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1469,6 +1479,9 @@ public sealed class TwoFactorAuthenticationProviderTests
         /// <summary>The message composer of the stacks created next; the default composer when empty.</summary>
         internal INhTwoFactorMessageComposer? MessageComposer { get; set; }
 
+        /// <summary>The two-factor service's logger in the stacks created next; none when empty.</summary>
+        internal ILogger<NhTwoFactorService<NhUser>>? TwoFactorLogger { get; set; }
+
         /// <summary>The application configuration of the stacks created next, such as the signing and code keys.</summary>
         internal Dictionary<string, string?> ApplicationSettings { get; } = new()
         {
@@ -1605,7 +1618,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 environment.Clock,
                 environment.MessageComposer ?? new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
                 environment.Notifications,
-                NullLogger<NhTwoFactorService<NhUser>>.Instance,
+                environment.TwoFactorLogger ?? NullLogger<NhTwoFactorService<NhUser>>.Instance,
                 passkeyHandler);
 
             Authentication = CreateAuthenticationService(
@@ -1918,14 +1931,14 @@ public sealed class TwoFactorAuthenticationProviderTests
     }
 
     /// <summary>
-    /// The default code e-mail with the expiry a custom composer chose, optionally with a delivery
+    /// The default code e-mail with the expiry a custom composer chose, optionally with a text message
     /// whose data cannot expire.
     /// </summary>
     private sealed class ExpiryTestComposer(TimeProvider clock) : NhTwoFactorMessageComposer(new TestLocalizer(), clock)
     {
         internal DateTimeOffset? ExpiresAt { get; set; }
 
-        internal bool AddInAppDelivery { get; set; }
+        internal bool AddTextMessageDelivery { get; set; }
 
         public override async Task<NhNotification> ComposeEmailCodeAsync(
             NhTwoFactorEmailCodeMessage message,
@@ -1937,24 +1950,63 @@ public sealed class TwoFactorAuthenticationProviderTests
                 data.ExpiresAt = ExpiresAt;
             }
 
-            if (AddInAppDelivery)
+            if (AddTextMessageDelivery)
             {
                 notification.Deliveries.Add(new NhNotificationDelivery
                 {
-                    DispatcherId = NhUserNotificaitonNotificationDispatcher.DispatcherIdValue,
-                    Data = new NhUserNotificationDeliveryData
-                    {
-                        Notification = new NhUserNotificationMutateModel
-                        {
-                            UserId = message.UserId,
-                            Title = "Your sign-in code",
-                            Message = message.Code,
-                        },
-                    },
+                    DispatcherId = "test-text-message",
+                    Data = new TextMessageDeliveryData { Text = "Your sign-in code is " + message.Code },
                 });
             }
 
             return notification;
+        }
+    }
+
+    /// <summary>The data of a consumer's own channel that does not implement INhExpiringDeliveryData.</summary>
+    private sealed class TextMessageDeliveryData
+    {
+        public string Text { get; set; } = string.Empty;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        private readonly List<(LogLevel Level, string Message)> _entries = [];
+        private readonly object _gate = new();
+
+        internal IReadOnlyList<(LogLevel Level, string Message)> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _entries.ToList();
+                }
+            }
+        }
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (_gate)
+            {
+                _entries.Add((logLevel, formatter(state, exception)));
+            }
         }
     }
 
