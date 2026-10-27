@@ -2279,7 +2279,7 @@ internal sealed partial class NhAssistantTurnRunner(
             return true;
         }
 
-        return agentTurn.RequestedBy.Any(author => !string.Equals(author, person, StringComparison.Ordinal));
+        return AnswersOtherThan(agentTurn, person);
     }
 
     /// <summary>
@@ -3363,7 +3363,8 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 break;
             }
-            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id, isUser ? message.AuthorActorId ?? state?.Scope.ConversationOwnerActorId : null));
+            var author = isUser ? message.AuthorActorId ?? state?.Scope.ConversationOwnerActorId : null;
+            selected.Add((parts, new ChatMessage(isUser || isApplication ? ChatRole.User : ChatRole.Assistant, text), message.Id, author));
         }
 
         // A consultation reads the thread with the asker's rights and opens no files of it.
@@ -3438,7 +3439,10 @@ internal sealed partial class NhAssistantTurnRunner(
                 // A person's file that was never read with that person's rights, such as one of a
                 // message that waited for a run its rules ended, opens only in a turn of that person:
                 // another actor's rights never read what someone else only referenced.
-                var outcome = stored.Sha256 is null && author is not null && !string.Equals(author, state.Scope.OwnerActorId, StringComparison.Ordinal)
+                var onlyReferenced = stored.Sha256 is null
+                    && author is not null
+                    && !string.Equals(author, state.Scope.OwnerActorId, StringComparison.Ordinal);
+                var outcome = onlyReferenced
                     ? NhAssistantTurnFiles.NotReadForAuthor(stored.ToReference(), stored.ToolId)
                     : await files.ReopenAsync(state, stored.ToReference(), stored.ToolId, CancellationToken.None);
                 outcomes.Add(outcome);
@@ -3480,9 +3484,9 @@ internal sealed partial class NhAssistantTurnRunner(
         return part is { Type: NhAssistantStoredPart.FileType, File: not null };
     }
 
-    /// <param name="deciderActorId">The person who decided, when the turn works for someone else: the
-    /// initiator whose turn another person's decision continues. <see langword="null"/> for the person
-    /// whose turn it is.</param>
+    /// <param name="deciderActorId">The person who decided, when that is not the turn's person, as when
+    /// another person's decision continues the initiator's turn; <see langword="null"/> records the
+    /// turn's person.</param>
     private static NhAssistantAuditEvent DecisionEvent(
         NhAssistantTurnState state,
         AssistantApproval approval,
