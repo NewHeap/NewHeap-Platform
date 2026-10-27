@@ -50,7 +50,11 @@ result. The query is the person's latest message, the question of a consultation
 run the messages of its inputs and the subject's name, at most 1,000 characters. The request uses
 the turn's own invocation context, so the policy and the scope filter see the person, or in a run
 the agent with its accountable person, the subject and, where the host maps an active division,
-the subject's division. It asks for at most the highest classification the agent's model profile
+the subject's division. A person's turn in an agent's thread keeps the person as the actor but
+retrieves within the thread's subject and its division, as the turn's tool calls do: the request's
+active division, which the client chooses for the whole application, and the capabilities derived
+from it do not apply, because every reader of the subject reads the thread. A plain chat retrieves
+in the person's own context. It asks for at most the highest classification the agent's model profile
 permits. The highest classification among the retrieved items then raises the classification of
 the turn's model calls, as the files the model reads do, so every profile that serves the turn must
 permit it: `use_skill` refuses a skill whose profile chain does not
@@ -77,6 +81,8 @@ than the full text, and stamp every item with the execution scopes it was read f
 
 - Querying a source before actor and scope authorization.
 - Passing tenant or division from model input into the retrieval filter.
+- Relying on the request's active division or its capabilities in a source that serves subject
+  threads; a person's turn there retrieves within the subject's division only.
 - Treating internal database text as trusted instructions.
 - Silently merging conflicting versions or exceeding context budgets.
 - Logging documents, prompts, embeddings, credentials or provider payloads.
@@ -97,6 +103,8 @@ capability changes. For agent turns, assert that a person's turn, a consultation
 retrieve once with their query, scopes and classification, that the block follows the situation
 and is reused by the tool rounds, that items of another division or above the classification never
 reach the model, that a slow resolver leaves the turn without it and that the trace holds no
-content. Assert that a skill or fallback profile that does not permit the highest retrieved
+content. Assert that a person's turn in a subject thread retrieves with the person as actor within
+the subject and its division, never the request's other active division, while a plain chat keeps
+the person's own division. Assert that a skill or fallback profile that does not permit the highest retrieved
 classification never receives the block: `use_skill` is refused and the turn does not fall back. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
 executable references.

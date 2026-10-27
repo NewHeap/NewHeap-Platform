@@ -293,3 +293,17 @@ the agent's configured classification are unchanged.
 |---|---|
 | A turn whose retrieved items are classified above the agent's classification is served only by profiles that permit them; it fails when none in the chain can serve it. | Let the agent's skill and fallback profiles permit the classifications its retrieval sources return, or classify those sources lower. |
 | `use_skill` refuses a skill whose profile does not permit the retrieved context of the turn. | Give the skill a profile that permits it, or keep that work in the agent's own profile. |
+
+## NewHeap.Platform.AI.Chat: a person's thread turn retrieves within the thread's subject
+
+A person's message in an agent's subject thread retrieved context with the person's request
+context, so the active division the client sent for the whole application decided what was
+retrieved, and items of that division reached a thread that every reader of the subject reads. The
+turn now keeps the person as the actor, so the context sources and their policy still decide for
+that person, but retrieves within the execution scopes and scope values of the thread's subject and
+its division, as the turn's tool calls get them, and without the capabilities the request derived
+from its active division. A plain chat retrieves in the person's own context as before.
+
+| Breaking change | Required action |
+|---|---|
+| A context source that serves a person's turn in a subject thread sees the subject and its division instead of the request's active division, and no capability grants. | Read the division from the context's scope value or execution scopes; let the source policy decide on the person and the subject rather than on capabilities. |

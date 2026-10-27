@@ -1241,6 +1241,25 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
+    /// The invocation context a person's turn in an agent thread retrieves with. The person stays the
+    /// actor, so the context sources and their policy decide for that person, but the execution scopes
+    /// and scope values are those of the thread's subject and its division as the host maps it,
+    /// exactly as the turn's tool calls get them. The request's active division, which the client
+    /// chooses for the whole application, and the capabilities derived from it do not apply: the
+    /// thread is shared with every reader of the subject.
+    /// </summary>
+    private NhAiInvocationContext SubjectRetrievalContextOf(NhAssistantTurnState state, NhAiInvocationContext personContext)
+    {
+        var subject = AgentContextOf(state);
+        return personContext with
+        {
+            Scope = subject.Scope,
+            ExecutionScopes = subject.ExecutionScopes,
+            CapabilityGrants = new HashSet<string>(StringComparer.Ordinal)
+        };
+    }
+
+    /// <summary>
     /// Makes the agent side of a thread turn ambient, so tool discovery and the invocation gate
     /// apply the agent's grants and its initiator's rights. Returns <see langword="null"/> in a chat.
     /// </summary>
@@ -1744,7 +1763,12 @@ internal sealed partial class NhAssistantTurnRunner(
                 0,
                 cancellationToken)
             : null;
-        state.RetrievedContext = await RetrieveAsync(state, request.CallerContext, text, cancellationToken);
+        // A person's turn in an agent thread retrieves within the thread's subject; a plain chat keeps
+        // the person's own context.
+        var retrievalContext = request.AgentTurn is null
+            ? request.CallerContext
+            : SubjectRetrievalContextOf(state, request.CallerContext);
+        state.RetrievedContext = await RetrieveAsync(state, retrievalContext, text, cancellationToken);
         var messages = await BuildHistoryAsync(
             conversation.Id,
             history,

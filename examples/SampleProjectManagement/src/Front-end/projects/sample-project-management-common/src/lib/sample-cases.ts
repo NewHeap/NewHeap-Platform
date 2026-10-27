@@ -4567,7 +4567,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "The project assistant answers with the project descriptions that match the question",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantAgentContextBuilder.UseRetrievedContext with NhAssistantRetrievedContextBuilder (Sources, MaxItems, MaxCharacters) and NhAssistantRetrievedContextOptions; NhAiContextRequest.SourceIds; NhAssistantLimits.MaxRetrievedCharacters and RetrievalTimeout; INhAiAgentInvocationContextFactory; the # Retrieved context block with each item's effectiveAt; the library's INhAiContextTraceSink; NhAssistantAuditEvent.RetrievedContextHash",
-    "outcome": "The project assistant reads the sample's project-documents source in every turn. Asked what the roadmap says, the turn retrieves once with the question, in the person's active division: the source matches the question's words in project keys, names and descriptions, regardless of case, and never reads another division. The descriptions follow the situation as untrusted data with their source and date, the tool round reuses them, and audit and logs carry the context hash and a content-free trace, never the descriptions or the question. The descriptions are internal, as the assistant's profile permits; retrieved items raise the classification of the turn's model calls as files do, so a skill or fallback profile that does not permit them never receives them.",
+    "outcome": "The project assistant reads the sample's project-documents source in every turn. Asked what the roadmap says, the turn retrieves once with the question, in the person's active division: the source matches the question's words in project keys, names and descriptions, regardless of case, and never reads another division. The descriptions follow the situation as untrusted data with their source and date, the tool round reuses them, and audit and logs carry the context hash and a content-free trace, never the descriptions or the question. The descriptions are internal, as the assistant's profile permits; retrieved items raise the classification of the turn's model calls as files do, so a skill or fallback profile that does not permit them never receives them. A person's message in an agent's subject thread retrieves as that person within the subject and its division, never the active division of the request, while a chat like this one uses the person's own.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -4579,6 +4579,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedContextTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedClassificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantThreadRetrievalScopeTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
     ]
   },
