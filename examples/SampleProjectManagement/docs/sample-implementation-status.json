@@ -552,7 +552,11 @@
     "SPM-034": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
     ],
     "SPM-035": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",

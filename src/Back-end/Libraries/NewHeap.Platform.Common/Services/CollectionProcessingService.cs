@@ -98,6 +98,8 @@ public interface ICollectionProcessingService
 
 public partial class CollectionProcessingService : ICollectionProcessingService
 {
+    private static readonly string[] CollectionFilterTokens = ["{any}", "{!any}", "{not any}", "{all}", "{!all}", "{not all}"];
+
     protected readonly IMapper _mapper;
     private readonly NewHeapCommonSettings _settings;
 
@@ -362,23 +364,79 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             return false;
         }
 
-        var key = filter.Key.Split(".")[0]
-                .Replace("{any}", "",StringComparison.InvariantCultureIgnoreCase)
-                .Replace("{!any}", "",StringComparison.InvariantCultureIgnoreCase)
-                .Replace("{not any}", "",StringComparison.InvariantCultureIgnoreCase)
-                .Replace("{all}", "",StringComparison.InvariantCultureIgnoreCase)
-                .Replace("{!all}", "",StringComparison.InvariantCultureIgnoreCase)
-                .Replace("{not all}", "",StringComparison.InvariantCultureIgnoreCase)
-            ;
-
-        var filterField = filterProperties.FirstOrDefault(x => x.Name.Equals(key, (StringComparison)3));
-        if (null == filterField)
+        if (!IsFilterPathAllowed(filter.Key, filterProperties))
         {
-            error = $"Invalid filter field '{key}'";
+            error = $"Invalid filter field '{filter.Key}'";
             return false;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Checks every dotted segment of a client filter key against the view-model type graph.
+    /// The first segment must be one of <paramref name="filterProperties"/>; every later segment
+    /// must be a <see cref="FilterableAttribute"/> property of the previous segment's type, or of
+    /// its element type when that segment is a collection. A key that reaches a member the view
+    /// model does not mark filterable is rejected, even when the entity has that member.
+    /// </summary>
+    private static bool IsFilterPathAllowed(string key, IEnumerable<PropertyInfo> filterProperties)
+    {
+        var allowedProperties = filterProperties;
+
+        foreach (var segment in key.Split('.'))
+        {
+            var memberName = RemoveCollectionFilterToken(segment);
+            var property = allowedProperties.FirstOrDefault(x => x.Name.Equals(memberName, StringComparison.OrdinalIgnoreCase));
+
+            if (property == null)
+            {
+                return false;
+            }
+
+            var nextType = GetFilterCollectionItemType(property.PropertyType) ?? property.PropertyType;
+            allowedProperties = nextType
+                .GetProperties()
+                .Where(prop => prop.IsDefined(typeof(FilterableAttribute), false))
+                .ToArray();
+        }
+
+        return true;
+    }
+
+    private static string RemoveCollectionFilterToken(string segment)
+    {
+        foreach (var token in CollectionFilterTokens)
+        {
+            if (segment.EndsWith(token, StringComparison.OrdinalIgnoreCase))
+            {
+                return segment[..^token.Length];
+            }
+        }
+
+        return segment;
+    }
+
+    /// <summary>
+    /// Returns the element type when a filter path step is a collection, so that validation and
+    /// predicate building agree on where a key continues inside the collection items.
+    /// </summary>
+    private static Type? GetFilterCollectionItemType(Type type)
+    {
+        if (type == typeof(string))
+        {
+            return null;
+        }
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+        {
+            return type.GetGenericArguments()[0];
+        }
+
+        return type.GetInterfaces()
+            .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            .Select(x => x.GetGenericArguments()[0])
+            .FirstOrDefault();
     }
 
     public static string? GetExpressionConstantString(object? value)
@@ -419,20 +477,16 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             new StrongBox<int>(parameter == null ? 0 : 1), parameter, skipValidation);
     }
 
+    // skipValidation skips the check of this node's own key and operator. skipNestedValidation also
+    // skips the check of its Ands and Ors nodes; only a caller that validated the complete filter
+    // tree passes it.
     private Expression<Func<T, bool>>? GetFilterLambdaCore<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, StrongBox<int> parameterIndex,
-        ParameterExpression? parameter = null, bool skipValidation = false)
+        ParameterExpression? parameter = null, bool skipValidation = false, bool skipNestedValidation = false)
     {
         if (!skipValidation && !IsFilterValid(filter, filterProperties, out var err))
         {
-            if (err is not null)
-            {
-                throw new Exception(err);
-            }
-            else
-            {
-                throw new InvalidFilterCollectionResultException("Invalid filter found");
-            }
+            throw new InvalidFilterCollectionResultException(err ?? "Invalid filter found");
         }
 
         // Number new parameters within this filter collection; EF includes their names in query-cache hashes.
@@ -446,40 +500,16 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         var keyParts = filter.Key.Split('.').ToList();
         for (var i = 0; i < keyParts.Count; i++)
         {
-            var keyPart = keyParts[i];
+            // A collection step continues inside its items with the quantifier of that step's token.
+            var collectionItemType = i == 0
+                ? null
+                : GetFilterCollectionItemType(member.Type);
 
-            if (keyPart.ToLower().Contains("{any}"))
-            {
-                collectionMethodName = "any";
-                keyPart = keyPart.Replace("{any}", "");
-            }
-            else if (keyPart.ToLower().Contains("{!any}") || keyPart.ToLower().Contains("{not any}"))
-            {
-                collectionMethodName = "!any";
-                keyPart = keyPart.Replace("{!any}", "");
-                keyPart = keyPart.Replace("{not any}", "");
-            }
-            else if (keyPart.ToLower().Contains("{all}"))
-            {
-                collectionMethodName = "all";
-                keyPart = keyPart.Replace("{all}", "");
-            }
-            else if (keyPart.ToLower().Contains("{!all}") || keyPart.ToLower().Contains("{not all}"))
-            {
-                collectionMethodName = "!all";
-                keyPart = keyPart.Replace("{!all}", "");
-                keyPart = keyPart.Replace("{not all}", "");
-            }
-
-            var method = member.Type.GetMethods()
-                .FirstOrDefault(m => m.Name == "GetEnumerator" && m.ReturnType.IsGenericType);
-            if (method != null)
+            if (collectionItemType != null)
             {
                 var remainderParts = keyParts.Skip(i);
-                var collectionItemType = method.ReturnType.GetGenericArguments()[0];
 
                 var parameter2 = Expression.Parameter(collectionItemType, "x" + (++parameterIndex.Value).ToString(CultureInfo.InvariantCulture));
-                var expression2 = ExpressionUtils.CreateMemberAccess(parameter2, string.Join('.', remainderParts));
 
                 var filter2 = new FilterCollectionRequestModel
                 {
@@ -491,7 +521,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 dynamic? lambda2 = typeof(CollectionProcessingService)
                     .GetMethod(nameof(GetFilterLambdaCore), BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
-                    .Invoke(this, new object[] { filter2, filterProperties, parameterIndex, parameter2, true });
+                    .Invoke(this, new object[] { filter2, filterProperties, parameterIndex, parameter2, true, true });
 
                 if (collectionMethodName == "any" || collectionMethodName == "!any")
                 {
@@ -535,8 +565,36 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 }
 
                 didCollectionHit = true;
-                collectionMethodName = "any"; // Restore;
                 break;
+            }
+
+            var keyPart = keyParts[i];
+
+            if (keyPart.ToLower().Contains("{any}"))
+            {
+                collectionMethodName = "any";
+                keyPart = keyPart.Replace("{any}", "", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (keyPart.ToLower().Contains("{!any}") || keyPart.ToLower().Contains("{not any}"))
+            {
+                collectionMethodName = "!any";
+                keyPart = keyPart.Replace("{!any}", "", StringComparison.OrdinalIgnoreCase);
+                keyPart = keyPart.Replace("{not any}", "", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (keyPart.ToLower().Contains("{all}"))
+            {
+                collectionMethodName = "all";
+                keyPart = keyPart.Replace("{all}", "", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (keyPart.ToLower().Contains("{!all}") || keyPart.ToLower().Contains("{not all}"))
+            {
+                collectionMethodName = "!all";
+                keyPart = keyPart.Replace("{!all}", "", StringComparison.OrdinalIgnoreCase);
+                keyPart = keyPart.Replace("{not all}", "", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                collectionMethodName = "any";
             }
 
             member = Expression.PropertyOrField(member, keyPart);
@@ -659,7 +717,8 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         {
             foreach (var andFilter in filter.Ands)
             {
-                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter)!;
+                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter,
+                    skipValidation: skipNestedValidation, skipNestedValidation: skipNestedValidation)!;
                 body = Expression.AndAlso(body!, andFilterLambda.Body);
             }
         }
@@ -668,7 +727,8 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         {
             foreach (var andFilter in filter.Ors)
             {
-                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter);
+                var andFilterLambda = GetFilterLambdaCore<T>(andFilter, filterProperties, parameterIndex, parameter,
+                    skipValidation: skipNestedValidation, skipNestedValidation: skipNestedValidation);
                 body = Expression.OrElse(body!, andFilterLambda!.Body);
             }
         }

@@ -3,9 +3,9 @@ id: nh-backend-collection-processing
 title: "Collection processing and bounded deadlock retries"
 area: backend
 reference: backend-collection-processing
-summary: "Keep filtering, ordering, paging, and projection server-side with validated paging defaults while retrying only recognized relational deadlock victims within the configured collection-processing bound."
-sample-cases: ["SPM-017", "SPM-028", "SPM-031", "SPM-032"]
-public-symbols: ["ICollectionProcessingService", "IHttpCollectionProcessingService", "CollectionProcessingService", "HttpCollectionProcessingService", "NewHeapCommonSettings", "SelectableAttribute", "FieldAccessAttribute", "NhFieldSelectionService", "NhSelectedCollectionResult", "NhSelectableField", "NhSelectableCollection", "NhCollectionSelection", "NhSelectedCollectionMessagePack"]
+summary: "Keep filtering, ordering, paging, and projection server-side with validated paging defaults and filter keys checked segment by segment against [Filterable] view models, while retrying only recognized relational deadlock victims within the configured collection-processing bound."
+sample-cases: ["SPM-017", "SPM-028", "SPM-031", "SPM-032", "SPM-034"]
+public-symbols: ["ICollectionProcessingService", "IHttpCollectionProcessingService", "CollectionProcessingService", "HttpCollectionProcessingService", "NewHeapCommonSettings", "SelectableAttribute", "FieldAccessAttribute", "NhFieldSelectionService", "NhSelectedCollectionResult", "NhSelectableField", "NhSelectableCollection", "NhCollectionSelection", "NhSelectedCollectionMessagePack", "FilterableAttribute", "InvalidFilterCollectionResultException"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -24,6 +24,8 @@ Expose authorized descriptors through `DescribeAsync<TView>` on a protected disc
 
 `FieldAccess` only protects requests that opt in with `fields`. Removing `fields` deliberately retains legacy behavior. It is not a security boundary for an existing unrestricted endpoint; applying the policy everywhere requires a separate migration of that endpoint. See the executable project controller, `ProjectTableViewModel`, and the sample field-selection guide.
 
+Treat a filter key as a path over the view model, not over the entity. Collection processing checks every dotted segment of every filter node, including `Ands` and `Ors`, on both the attribute-based and the options-based path: the first segment must be a `[Filterable]` property of the view model, and every later segment a `[Filterable]` property of the view-model type the previous segment reaches, or of its element type when that segment is a collection (`tasks{any}.title`). A key that names an unknown or unmarked member at any step fails with `InvalidFilterCollectionResultException`, which the base controllers return as `400`. To allow a nested filter, mark the navigation or collection and the nested view-model members that may be filtered; leave entity-only columns, such as credentials, tokens and internal identifiers, off the view model or unmarked. A configured `WithFilterable(key, selector)` allows exactly its key and may reach any entity member, so use it deliberately. SPM-034 shows accepted owner and task keys and rejected entity-only keys on SQL Server and PostgreSQL.
+
 Keep the filter structure stable across requests. Collection processing numbers new lambda parameters `x1`, `x2`, and so on within each filter collection, including nested filters. AND/OR parts that refer to the same variable keep sharing its parameter. The numbering restarts for each collection, so EF can reuse compilation when only filter values change.
 
 ## Avoid
@@ -38,6 +40,8 @@ Keep the filter structure stable across requests. Collection processing numbers 
 - Using a value below one or treating the setting as additional retries after the initial attempt.
 - Treating `[Selectable]` as implicit authorization, or enforcing field visibility only in the browser.
 - Filtering, sorting or searching denied fields, or materializing full entities before selected projection.
+- Marking a navigation `[Filterable]` and expecting it to open the whole related entity; only the nested view-model members marked `[Filterable]` can be filtered.
+- Exposing an entity-only column for filtering through a configured selector without treating that selector as part of the public contract.
 - Interpreting empty/invalid `fields` as permission to return the legacy full model.
 - Assuming MessagePack is faster without measuring allocations, encoding, decoding and end-to-end latency.
 
@@ -46,5 +50,7 @@ Keep the filter structure stable across requests. Collection processing numbers 
 Verify the compatible paging defaults, configured paging values, invalid paging combinations, the default five-attempt retry bound, a configured lower retry bound, immediate propagation of non-deadlock failures, and retry of SQL Server `1205` and PostgreSQL `40P01` during both count and item materialization. Run the normal collection flow against SQL Server and PostgreSQL, and keep filtering, ordering, and paging server-side.
 
 Run `FieldSelectionTests` and `ProjectFieldSelectionSamplesTests` for the opt-in branch, alias/falsy/null values, resource policies, forbidden queries and JSON/MessagePack parity. The provider tests run on one shared SQL Server and one shared PostgreSQL container per test process, each test in an empty database of its own. Translation-only tests do not replace actual execution evidence. Run the collection encoding benchmark in Release from its project directory and keep JSON the default unless representative end-to-end measurements justify a change.
+
+Run `CollectionFilterPathValidationTests` for SQL Server and PostgreSQL: allowed nested navigation and collection keys execute, keys that reach an unmarked or entity-only member through a `[Filterable]` navigation or collection are rejected, also inside `Ands` and `Ors`, on both the attribute-based and the options-based path. Run `ProjectNestedFilterSamplesTests` and `CollectionAndProjectionSamplesTests.NestedFilterKeysTranslateOnEachProvider` for the sample.
 
 Run `CollectionQueryCacheTests` for SQL Server and PostgreSQL translation and execution, including repeated equality, nested any/all filters, combined AND/OR groups, unique sequential parameter names, changed values, and count/item query reuse through both attribute- and options-based filtering. `CollectionAndProjectionSamplesTests.StatusFiltersReuseCompilationAcrossRequests` demonstrates the same cache behavior with the sample project status filter.

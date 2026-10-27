@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Mapping;
+using NewHeap.Platform.Common.Exceptions;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
@@ -84,6 +85,45 @@ public class CollectionAndProjectionSamplesTests
             Assert.Contains("WHERE", projects.Select(project => project.Id).ToQueryString());
             Assert.Equal(1, compilations);
         }
+    }
+
+    /// <summary>
+    /// SPM-034: the nested keys that the filter views allow translate to a join on the owner and an
+    /// EXISTS over the tasks on SQL Server and PostgreSQL; a key past a member the views do not mark
+    /// filterable is rejected before any SQL exists. <see cref="ProjectNestedFilterSamplesTests"/>
+    /// runs the same sample against a PostgreSQL database.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseProvider.SqlServer)]
+    [InlineData(DatabaseProvider.PostgreSql)]
+    public void NestedFilterKeysTranslateOnEachProvider(DatabaseProvider provider)
+    {
+        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>();
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
+        }
+        else
+        {
+            options.UseNpgsql("Host=localhost;Database=translation_only");
+        }
+
+        using var db = new SampleProjectManagementDbContext(options.Options);
+        IQueryable<Project> projects = db.Projects;
+        _processor.ProcessFilter<Project, ProjectNestedFilterViewModel>(ref projects,
+        [
+            new FilterCollectionRequestModel { Key = "ownerUser.email", Operator = "==", Value = "owner@example.test" },
+            new FilterCollectionRequestModel { Key = "tasks{any}.title", Operator = "LIKE", Value = "Write%" }
+        ]);
+
+        var sql = projects.Select(project => project.Id).ToQueryString();
+        Assert.Contains("JOIN", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("EXISTS", sql, StringComparison.OrdinalIgnoreCase);
+
+        IQueryable<Project> rejected = db.Projects;
+        Assert.Throws<InvalidFilterCollectionResultException>(() =>
+            _processor.ProcessFilter<Project, ProjectNestedFilterViewModel>(ref rejected,
+                [new FilterCollectionRequestModel { Key = "ownerUser.passwordHash", Operator = "LIKE", Value = "A%" }]));
     }
 
     [Fact]

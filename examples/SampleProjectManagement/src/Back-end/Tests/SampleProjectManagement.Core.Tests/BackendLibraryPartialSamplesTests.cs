@@ -250,6 +250,7 @@ public sealed class BackendLibraryPartialSamplesTests
 
         Assert.Equal(project.Id, Assert.Single(shortResult.Items).Id);
         Assert.Equal("Tasks{any}.Title", expressionResult.ResolvedPath);
+        Assert.Equal(1, expressionResult.MatchCount);
         Assert.True(expressionResult.IsSupported);
         Assert.Null(expressionResult.Limitation);
         Assert.Contains("WithFilterable accepted", expressionResult.GeneratedExpression, StringComparison.Ordinal);
