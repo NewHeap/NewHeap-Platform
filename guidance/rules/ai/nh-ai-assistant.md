@@ -189,8 +189,7 @@ invalid run filter. Clients map the code, never the status, to a text.
   returned (`hasSecret`), logged or audited, and serve only the destination they were entered for:
   a change of the URL's origin (scheme, host or port), of the authentication mode or of the `api-key`
   header clears the stored secret and the `secretReference`, and the save needs one of them again
-  (`secret: required`), so an administrator who may edit a server but never read its secret cannot
-  send it to another host; a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
+  (`secret: required`); a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;
   administrators activate them and may mark them read-only, and a changed input
   schema disables a tool again. The reviewed settings of a tool that no sync has seen yet, such as
@@ -996,7 +995,7 @@ services.AddNewHeapAssistant(assistant => assistant
 - Bound what a reader unpacks, such as OpenXml's `OpenSettings.MaxCharactersInPart`, and return a
   failed result for a damaged document instead of text cut off; the turn's limits count the text.
 - A part bound is no bound on the text: cells can name one shared string again and again, and
-  several sheets can name one worksheet, so a few kilobytes become millions of characters. Bound the
+  several sheets can name one worksheet, so the text can be far longer than the file. Bound the
   text while it is made, value by value, by `NhAssistantFileReadRequest.MaxTextCharacters`, the
   characters the turn can still take, and stop with a failed result with
   `NhAssistantErrorCodes.FileTokenLimit`, which refuses the file with `assistant-file-token-limit`;

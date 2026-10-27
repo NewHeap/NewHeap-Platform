@@ -18,11 +18,9 @@ Collection processing now checks every dotted segment of a client filter key, in
 `Ors` node, on the attribute-based path (`ProcessFilter`, `IsFilterValid`) and on the options-based
 path (`FilterableFromAttributes`). The first segment must be a `[Filterable]` property of the view
 model, and every later segment a `[Filterable]` property of the view-model type that the previous
-segment reaches, or of its element type after a collection step such as `tasks{any}`. Before, only
-the first segment was checked, so a key that continued behind a `[Filterable]` navigation or
-collection could filter on entity columns that the view model does not expose. A configured
-`WithFilterable(key, selector)` still allows exactly its own key. The shipped `DivisionUserViewModel`, `NhUserViewModel` and
-`NhUserNotificationViewModel` already mark their nested filter members, so keys such as
+segment reaches, or of its element type after a collection step such as `tasks{any}`. A configured
+`WithFilterable(key, selector)` still allows exactly its own key. The shipped `DivisionUserViewModel`,
+`NhUserViewModel` and `NhUserNotificationViewModel` already mark their nested filter members, so keys such as
 `user.email`, `division.name`, `user.activeDivision.name` and `messages{any}.title` keep working.
 
 The predicate builder follows the same path: it treats interface-typed collection navigations such
@@ -45,20 +43,17 @@ attribute-based path (`ProcessOrderBy<TEntity, TViewModel>`) and on the options-
 (`OrderableFromAttributes`), the way it checks filter keys. The first segment must be an `[Orderable]`
 property of the view model, and every later segment an `[Orderable]` property of the view-model type
 that the previous segment reaches; a step into a collection names one member of its items behind a
-lower-case `{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token. Before, validation stopped at
-the first scalar `[Orderable]` property and the rest of the key went to Dynamic LINQ unchecked, so a key
-such as `creationDateTime.year == 2001 ? secret.length : 0` ordered rows by entity columns that the view
-model does not expose, on SQL Server and PostgreSQL. The ordering is now built from the matched property
-names only. A key that is not such a path is skipped, exactly as unknown order keys always were: the
-request keeps its other order keys or the default order and does not fail. A configured
-`WithOrderable(key, selector)` still allows exactly its own key.
+lower-case `{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token. The ordering is now built
+from the matched property names only, on SQL Server and PostgreSQL. A key that is not such a path is
+skipped, exactly as unknown order keys always were: the request keeps its other order keys or the default
+order and does not fail. A configured `WithOrderable(key, selector)` still allows exactly its own key.
 
 | Breaking change | Required action |
 |---|---|
 | An order key that continues behind a scalar `[Orderable]` property, such as `name.length` or `creationDateTime.year`, is now skipped like an unknown key, so the default order applies. | Sort on an `[Orderable]` view-model property, or configure `WithOrderable(key, selector)` for the value. |
 | An order key that the old code accepted but could not run, such as a collection step without a token (`tasks.deadline`) or a token behind a navigation, is now skipped instead of failing with a Dynamic LINQ or translation exception. | None. |
 
-## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: moves and renames authorize their destination
+## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: moves, renames, tag updates and localizations are authorized
 
 A file or folder that moves or gets another name is now also authorized where it lands, as a create:
 `IAuthorizationModule` sees the same `ActionType.Create` decision a direct upload or folder create there
@@ -70,49 +65,35 @@ it, is refused with `NhMediaErrorCodes.FileNameExists` or `NhMediaErrorCodes.Fol
 `PUT {prefix}/file/{id}` and `PUT {prefix}/folder` endpoints return 401 when the module refuses the source
 or the destination, instead of failing with 500, and 409 with the error code for an existing name.
 
-| Breaking change | Required action |
-|---|---|
-| A move or rename now needs create rights at its destination. | Grant `ActionType.Create` there in your `IAuthorizationModule` to principals who may move or rename into that folder. |
-| A move or rename onto an existing name now fails instead of creating a second entry with that name. | Handle the failed result, or 409 from the HTTP endpoints, and choose another name. |
-| The file and folder update endpoints now return 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |
-
-## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: tag updates are authorized
-
 `IMediaLibraryService.UpdateFileTagsAsync` now asks `IAuthorizationModule` for an `ActionType.Update` of the
 file's path and name before it reads or writes the file, like the other file mutations. A refused caller
 gets the same answer for an existing and a missing file. `POST {prefix}/file/tags` returns 401 when the
 module refuses the update.
 
-| Breaking change | Required action |
-|---|---|
-| Tag updates now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may change a file's tags. |
-| `POST {prefix}/file/tags` now returns 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |
-
-## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: localizations are authorized updates of display strings
-
 `IMediaLibraryService.LocalizeFieldAsync` now asks `IAuthorizationModule` for an `ActionType.Update` of the
-file, with the localization's language, before it writes; until now only the endpoint's read of the file
-was authorized. Only `Title`, `Description` and `AltText` can be localized, in any case: the service and
-`RelationalFileStructureStorage.LocalizeAsync` refuse any other property name with
-`NhMediaErrorCodes.PropertyNotLocalizable`, and reading files in a language applies only these three, so a
-stored localization of another property, such as a file's name or id, no longer changes or breaks lists,
-searches and file reads. `POST {prefix}/file/localize` returns the service's result: 204 when the
-localization was stored or removed, 400 with the error code for another property, 404 for a missing file or
-localization and 401 when the module refuses the update.
+file, with the localization's language, before it writes. Only `Title`, `Description` and `AltText` can be
+localized, in any case: the service and `RelationalFileStructureStorage.LocalizeAsync` refuse any other
+property name with `NhMediaErrorCodes.PropertyNotLocalizable`, and reading files in a language applies only
+these three; a stored localization of another property is ignored by lists, searches and file reads.
+`POST {prefix}/file/localize` returns the service's result: 204 when the localization was stored or
+removed, 400 with the error code for another property, 404 for a missing file or localization and 401 when
+the module refuses the update.
 
 | Breaking change | Required action |
 |---|---|
+| A move or rename now needs create rights at its destination. | Grant `ActionType.Create` there in your `IAuthorizationModule` to principals who may move or rename into that folder. |
+| A move or rename onto an existing name now fails instead of creating a second entry with that name. | Handle the failed result, or 409 from the HTTP endpoints, and choose another name. |
+| Tag updates now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may change a file's tags. |
 | Localization writes now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may translate a file's display strings. |
+| The file and folder update endpoints and `POST {prefix}/file/tags` now return 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |
 | Only `Title`, `Description` and `AltText` can be localized; stored localizations of other properties are ignored. | Localize only these three; remove other stored rows from the `Localizations` table if you want them gone. |
 | `POST {prefix}/file/localize` now returns 400 or 404 when the localization fails instead of 204. | Handle these responses; removing a localization that does not exist returns 404. |
 
 ## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: downloads served with a server-chosen type
 
-`GET {prefix}/download` used to pass the requested file name to the response as its `Content-Type` and
-served every file inline without `X-Content-Type-Options`. It now opens the file with the new
-`IMediaLibraryService.OpenDownloadAsync`, which reads the content through `DownloadFileAsync(path, fileName)`,
-so its authorization and any override of it decide the download as before, and returns a `MediaFileDownload`
-with the stored file reference. The stored name chooses the content type from the fixed list in the new
+`GET {prefix}/download` now opens the file with the new `IMediaLibraryService.OpenDownloadAsync`, which
+reads the content through `DownloadFileAsync(path, fileName)`, so its authorization and any override of it
+decide the download as before, and returns a `MediaFileDownload` with the stored file reference. The stored name chooses the content type from the fixed list in the new
 `NhMediaContentTypes`; a name with another extension or none, and every type a browser runs scripts in
 such as HTML, XHTML, XML and JavaScript, is served as `application/octet-stream`. Content without a stored
 reference, for example from an override that serves a file the storage does not list, is an
@@ -130,26 +111,22 @@ default interface implementation, so custom `IMediaLibraryService` implementatio
 ## NewHeap.Platform.AspNet.Proxy: host-relative redirect destinations stay on this origin
 
 A redirect destination that starts with `/` is now validated as the path the `Location` header
-carries, after dot segments (`..`, `.`, `%2e%2e`, `%2e`) are removed. This applies when a rule is
-saved or activated and to every regex expansion. A capture with dot segments can no longer turn a
-host-relative destination into the network path `//host`: under `^/old-projects/([^?]+)(\?.*)?$`
-with `/projects/$1$2`, a request for `/old-projects/%252e%252e//host` reaches the pattern as
-`%2e%2e//host` and expanded to `/projects/%2e%2e//host`, which redirected to `//host`. Such an
-expansion now skips redirect evaluation and the request passes through, as other unsafe expansions do.
+carries, after dot segments (`..`, `.`, `%2e%2e`, `%2e`) are removed, and must then still start with
+exactly one `/`. This applies when a rule is saved or activated and to every regex expansion. An
+expansion whose path resolves to a network path (`//host`) skips redirect evaluation and the request
+passes through, as other unsafe expansions do.
 
 | Breaking change | Required action |
 |---|---|
-| An exact target or regex template that resolves to `//host`, such as `/a/..//host`, now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |
+| An exact target or regex template whose path resolves to `//host` once dot segments are removed now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |
 
 ## NewHeap.Platform.AspNet.Proxy: denied addresses no longer spend the administrator's login budget
 
 `NhProxyAdministrationService.SignInAsync` now refuses a caller outside the IP allowlist before it takes a
-permit from the shared login budget (`Administrator:LoginAttemptLimit` per `LoginAttemptWindow`). Before,
-every tokenless `POST /newheap-proxy/Login` from a denied address spent one, so about five such requests
-a minute kept allowlisted administrators at 429. Denied attempts are still audited as `IpDenied`, now
-within a separate budget of `LoginAttemptLimit` rows per `LoginAttemptWindow`; further denied attempts
-in that window are refused with 403 without an audit row, so outside traffic cannot grow the login audit
-without bound.
+permit from the shared login budget (`Administrator:LoginAttemptLimit` per `LoginAttemptWindow`), so only
+attempts from allowlisted addresses spend that budget. Denied attempts are still audited as `IpDenied`, now
+within a separate budget of `LoginAttemptLimit` rows per `LoginAttemptWindow`; further denied attempts in
+that window are refused with 403 without an audit row, so the login audit stays bounded.
 
 | Breaking change | Required action |
 |---|---|
@@ -158,15 +135,14 @@ without bound.
 ## @newheap/platform-common: logout always ends the browser session
 
 `BaseNhAuthService.logout()` now ends the local session after the logout request whether the request
-succeeds or not. Before, a failed request (offline, a timeout, CORS or an error response such as 500)
-left the stored authorization (`at` in `localStorage`) with its access and refresh token, so
-`isAuthenticated()` stayed `true` and the next person on the device kept the session, also after a
-reload. The result still fails in that case, so the application can report that the sign-out did not
-reach the server, which alone can end a cookie session. `clearAuthorization()` now removes the stored
-record and the cached authorization also when the access token has expired; before, it did nothing
-unless the session was still valid, which left the refresh token in the browser. It emits `undefined`
-on `authSubject` (unless `doDispatchEvent` is `false`) and dispatches the session expiration information
-only when there was an authorization to remove, as before for a valid session.
+succeeds or not. After a failed request (offline, a timeout, CORS or an error response such as 500) it
+also removes the stored authorization (`at` in `localStorage`) with its access and refresh token, and
+`isAuthenticated()` returns `false`, also after a reload. The result still fails in that case, so the
+application can report that the sign-out did not reach the server, which alone can end a cookie session.
+`clearAuthorization()` now removes the stored record and the cached authorization, refresh token
+included, also when the access token has expired. It emits `undefined` on `authSubject` (unless
+`doDispatchEvent` is `false`) and dispatches the session expiration information only when there was an
+authorization to remove, as before for a valid session.
 
 | Breaking change | Required action |
 |---|---|
@@ -178,10 +154,9 @@ only when there was an authorization to remove, as before for a valid session.
 A refresh-token row (`NhUserAuthRefreshToken.Token`) now holds `nhr1:` and the HMAC-SHA256 of the token
 instead of the token itself; only the client receives the token. The key comes from the new optional
 secret `NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key` (`NhRefreshTokenKey`), or else from
-the shared JWT signing key. Refresh and logout look the row up by the digest of the presented token, so
-a copy of the table cannot be presented as a refresh token. A row stored before the upgrade holds the
-token itself and no longer matches; nothing falls back to it. The column keeps its type, since the
-digest has 69 characters, so no migration is needed.
+the shared JWT signing key. Refresh and logout look the row up by the digest of the presented token. A
+row stored before the upgrade holds the token itself and no longer matches; nothing falls back to it. The
+column keeps its type, since the digest has 69 characters, so no migration is needed.
 
 | Breaking change | Required action |
 |---|---|
@@ -189,56 +164,34 @@ digest has 69 characters, so no migration is needed.
 | Signing in needs a key for the digest: an application that signs asymmetrically without the shared `JWT:Token:Key` fails with a configuration error. | Set `NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key`, a random secret of at least 32 bytes, in the secrets file. |
 | Changing the key in use ends every refresh session: the refresh-token key, or the shared signing key while no refresh-token key is set. | Set `RefreshToken:Key` before you rotate the shared signing key, so refresh sessions survive the rotation. |
 
-## NewHeap.Platform.AspNet.Common: refresh refuses accounts that may not sign in
-
-`AuthenticateRefreshTokenAsync`, behind `POST authentication/refresh`, now refuses a user whom Identity
-does not let sign in (`SignInManager.CanSignInAsync`) or who is locked out or blocked
-(`INhUserManager<TUser>.IsBlockedAsync`, which also sees a `LockoutStart` without an end or on an
-account with lockout disabled). The check runs before the token is consumed and fails with the same
-`Invalid refresh token` as an unknown token, so the response says nothing about the account. The token
-stays stored and refreshes again once the account may sign in.
-
-| Breaking change | Required action |
-|---|---|
-| A locked-out, blocked or otherwise not permitted account no longer refreshes; before, the refresh rotated its token and issued a new session. | None. To end the account's refresh sessions for good, also reset its password, which revokes its refresh tokens. |
-
-## NewHeap.Platform.AspNet.Common: every sign-in path refuses blocked accounts
+## NewHeap.Platform.AspNet.Common: sign-in and refresh refuse accounts that may not sign in
 
 `NhAuthenticationService` now applies one eligibility check to every first factor and every step that
-completes a sign-in: Identity must let the user sign in (`SignInManager.CanSignInAsync`), and the account
-may be neither locked out nor blocked (`INhUserManager<TUser>.IsBlockedAsync`). Before, these paths saw
-only Identity's lockout, so an account blocked through `UpdateUserLockout` without an end date, or on an
-account with lockout disabled, still received a session. The check covers the password with and without
-two-factor authentication, passkey sign-in, consumer credentials through `CreateAuthenticationSessionAsync`
-and `CompleteFirstFactorAsync`, external providers, second-factor challenges, enrollment during sign-in
-and refresh. The password is not checked for a blocked account, so a wrong one no longer counts as a
-failed attempt.
+completes a sign-in or refreshes a session: Identity must let the user sign in
+(`SignInManager.CanSignInAsync`), and the account may be neither locked out nor blocked
+(`INhUserManager<TUser>.IsBlockedAsync`, which also sees a `LockoutStart` without an end or on an account
+with lockout disabled, such as a block through `UpdateUserLockout` without an end date). The check covers
+the password with and without two-factor authentication, passkey sign-in, consumer credentials through
+`CreateAuthenticationSessionAsync` and `CompleteFirstFactorAsync`, external providers, second-factor
+challenges, enrollment during sign-in and refresh. The password is not checked for a blocked account, so a
+wrong one no longer counts as a failed attempt.
+
+`AuthenticateRefreshTokenAsync`, behind `POST authentication/refresh`, runs the check before the token is
+consumed and fails with the same `Invalid refresh token` as an unknown token, so the response says nothing
+about the account. The token stays stored and refreshes again once the account may sign in.
 
 | Breaking change | Required action |
 |---|---|
 | A blocked account receives `User locked out` on a first factor and `two-factor-locked-out` on a pending challenge or enrollment, instead of a session. | None. |
-
-## NewHeap.Platform.AspNet.Common: a stored recovery-code hash redeems nothing
-
-`NhUserManager.RedeemTwoFactorRecoveryCodeAsync` compared input that matched no hash once more with the
-stored entries as it was, so that plaintext codes stored before NewHeap hashed recovery codes keep
-working. A copy of a stored `nhv1:` hash therefore completed a recovery-code challenge or
-reauthentication. Input with a `:`, which every stored hash and no generated code contains, now skips
-that comparison and fails as a wrong code: it counts as a failed attempt and leaves the codes unchanged.
-A plaintext code stored before the upgrade still redeems once.
-
-| Breaking change | Required action |
-|---|---|
-| None. | None. |
+| A locked-out, blocked or otherwise not permitted account no longer refreshes; `POST authentication/refresh` answers `Invalid refresh token`. | None. To end the account's refresh sessions for good, also reset its password, which revokes its refresh tokens. |
 
 ## NewHeap.Platform.AspNet.Common: notification retention covers every finished delivery
 
 The notification processor's cleanup now removes the data (`NhNotificationDelivery.Data`) of failed and
 cancelled deliveries as well, once they ended longer than `NhNotificationSettings.ProcessingRetentionPeriod`
-ago; before, it only cleaned succeeded deliveries, so the content of failed and cancelled e-mails stayed
-in the store. A failed or cancelled delivery counts from its last send attempt (`LastSendAttemptAt`), or
-from `LastModifiedDateTime` when it was never attempted. Queued and processing deliveries keep their
-data, as before.
+ago; before, it cleaned only succeeded deliveries. A failed or cancelled delivery counts from its last
+send attempt (`LastSendAttemptAt`), or from `LastModifiedDateTime` when it was never attempted. Queued and
+processing deliveries keep their data, as before.
 
 | Breaking change | Required action |
 |---|---|
@@ -246,13 +199,13 @@ data, as before.
 
 ## NewHeap.Platform.AspNet.Common: e-mailed two-factor codes leave the notification store once sent
 
-An e-mailed sign-in or confirmation code stayed in plaintext in the notification delivery store
-(`NhNotificationDelivery.Data`) until the retention cleanup, 30 days by default. Delivery data can now be
-short-lived: set `NhEmailDeliveryData.ExpiresAt`, or implement the new `INhExpiringDeliveryData` on the
-data type of a custom dispatcher. The notification processor removes such data as soon as the delivery
-is sent, fails or is cancelled, cancels a delivery instead of dispatching it once `ExpiresAt` has
-passed, and its cleanup pass cancels expired deliveries that are still waiting. `NhTwoFactorMessageComposer`
-sets `ExpiresAt` to the code's expiry, and the two-factor service holds every delivery of the code
+Delivery data in the notification delivery store (`NhNotificationDelivery.Data`) can now be short-lived:
+set `NhEmailDeliveryData.ExpiresAt`, or implement the new `INhExpiringDeliveryData` on the data type of a
+custom dispatcher. The notification processor removes such data as soon as the delivery is sent, fails or
+is cancelled, cancels a delivery instead of dispatching it once `ExpiresAt` has passed, and its cleanup
+pass cancels expired deliveries that are still waiting. `NhTwoFactorMessageComposer` sets `ExpiresAt` to
+the code's expiry, so an e-mailed sign-in or confirmation code leaves the store once it is sent instead of
+at the retention cleanup (30 days by default), and the two-factor service holds every delivery of the code
 e-mail whose data implements `INhExpiringDeliveryData` to the code's lifetime, also when a custom composer
 sets a later moment or none. Delivery data of another type is sent as before and keeps the code until
 the retention cleanup; the service logs a warning that names the type once. No schema change is needed.
@@ -265,8 +218,7 @@ the retention cleanup; the service logs a warning that names the type once. No s
 ## NewHeap.Platform.AspNet.Common: two-factor codes stored as keyed hashes
 
 Recovery codes (`nhv2:`) and e-mailed sign-in and confirmation codes (`nhe1:`) are now stored as
-HMAC-SHA256 hashes; before, they were unkeyed SHA-256 hashes, which a copy of the user-token table could
-test against the million possible six-digit codes. The key comes from the new optional secret
+HMAC-SHA256 hashes; before, they were unkeyed SHA-256 hashes. The key comes from the new optional secret
 `NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey` (`NhTwoFactorCodeKey`), or else from
 `NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key`, or else from the shared JWT signing key.
 New codes are stored with the first configured key, and a presented code is checked against every
@@ -274,6 +226,12 @@ configured key. Unkeyed recovery-code entries and plaintext codes from earlier v
 once, and the first redemption rewrites the user's remaining entries of those kinds into keyed hashes;
 an e-mailed code sent before the upgrade works until it expires. Startup fails when recovery or e-mail
 codes are enabled and no key is configured. No schema change is needed.
+
+`NhUserManager.RedeemTwoFactorRecoveryCodeAsync` compares input that matches no hash with the stored
+entries as they are, for plaintext codes stored before NewHeap hashed recovery codes, only when the input
+contains no `:`. Every stored hash contains one and no generated code does, so input with a `:` fails as
+a wrong code: it counts as a failed attempt and leaves the codes unchanged. A plaintext code stored before
+the upgrade still redeems once.
 
 | Breaking change | Required action |
 |---|---|
@@ -286,8 +244,8 @@ codes are enabled and no key is configured. No schema change is needed.
 
 The background-operation hub (`NhBackgroundOperationHub`), which `MapNewHeapBackgroundOperations` and the
 NewHeap application builder map, now uses `CloseOnAuthenticationExpiration`: a connection, over
-WebSockets as well, closes when the token or cookie it was opened with expires, instead of living on
-through keep-alives and receiving operation changes after the session ended.
+WebSockets as well, closes when the token or cookie it was opened with expires, and receives no operation
+changes after that.
 
 | Breaking change | Required action |
 |---|---|
@@ -298,7 +256,7 @@ through keep-alives and receiving operation changes after the session ended.
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it
 (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`). The session validator refuses the token once
 that stamp changes, for example after the origin's password change or reset, and while the origin is
-locked out or blocked; before, it checked only the impersonated user. `Impersonate` refuses an origin
+locked out or blocked, in addition to its checks of the impersonated user. `Impersonate` refuses an origin
 who may not sign in, and `ImpersonateRevert` issues the origin's new session only when the origin may
 still sign in (`MaySignInAsync`: allowed, not locked out or blocked, a required second factor enrolled).
 
@@ -330,10 +288,9 @@ under `/division-memberships` (SPM-211).
 `NhUserManager.GetValidClaimsByUserIdAsync` counts only the user's own division memberships that
 are not locked out. A membership is locked out from the day its `LockOutStartDateTime` is reached
 through the day of its `LockOutEndDateTime`, or indefinitely without an end date, as
-`IsBlockedAsync` treats account lockout. Before, another member's row or a lockout without an end
-date could keep the division, and its roles were loaded without a lockout check. Issued tokens and
-the claims that division policies, `HasDivisionAccessAsync` and `INhDivisionAccess` reload per
-request now leave out the locked-out division.
+`IsBlockedAsync` treats account lockout, and the user's division roles come only from such an active
+membership. Issued tokens and the claims that division policies, `HasDivisionAccessAsync` and
+`INhDivisionAccess` reload per request now leave out the locked-out division.
 
 | Breaking change | Required action |
 |---|---|
@@ -352,7 +309,7 @@ without division roles, and a division role in the division counts as membership
 
 | Breaking change | Required action |
 |---|---|
-| A division check without requirements denies a user who is no member of the division (it allowed any signed-in user), and one with an empty claim and role list allows a member (it denied everyone). | None, unless people without a membership relied on such a check; add their membership or grant the division access-all permission. |
+| A division check without requirements now denies a user who is no member of the division, and one with an empty claim and role list now allows a member instead of denying everyone. | None, unless people without a membership relied on such a check; add their membership or grant the division access-all permission. |
 | Issued tokens and reloaded claims gain one `nh.platform.division.member` claim per division the user is a member of. | None, unless an application keeps division claims out of the token by type or rebuilds division claims itself; treat the membership claim like the division role and permission claims, or keep a division role on every membership. |
 | `NhPlatformClaimTypes` gains `DivisionMember`. | None. |
 
@@ -361,11 +318,11 @@ without division roles, and a division role in the division counts as membership
 Every path that reaches agent work now applies the tenant rule that the proposal and run reads already
 applied: a thread, run, proposal or subject of another tenant than the caller's reads as unknown, and
 the whole application reaches only callers without a tenant or of the `UseSingleTenant` tenant. The
-subject access resolver gets no tenant, so a person whose actor id holds roles in several tenants no
-longer reaches another tenant's agent work with a sign-in for this one. Forgetting a deleted subject
-can now name its scope, so an equal id of another tenant or division keeps its threads. Hosts without
-tenants, and hosts whose resolver describes each subject in the tenant its people sign in with, see no
-change.
+subject access resolver gets no tenant, so the assistant compares it itself: a person whose actor id
+holds roles in several tenants reaches the agent work of the tenant they signed in for. Forgetting a
+deleted subject can now name its scope, so an equal id of another tenant or division keeps its threads.
+Hosts without tenants, and hosts whose resolver describes each subject in the tenant its people sign in
+with, see no change.
 
 | Breaking change | Required action |
 |---|---|
@@ -382,8 +339,8 @@ change.
 Shadow is now part of the effect decision. A run in an agent's shadow thread (an agent, skill or data
 trigger in shadow, a shadow variant, a skill or trigger candidate, a replay) needs an approval for
 every effect it calls, whatever the effect policy decides, and records it as a shadow proposal that
-never executes. Before, an effect the policy runs without approval ran live: an idempotent mutation
-with `Approval = NotRequired`, the generated `assistant.request.*` tool, an `Issuer` or
+never executes. This includes the effects the policy runs without approval in a live run: an idempotent
+mutation with `Approval = NotRequired`, the generated `assistant.request.*` tool, an `Issuer` or
 `ConsumerAuthoritative` tool of an agent that answers to a technical account or the subject's
 responsible person, and an imported MCP tool that the application's effect policy allows. A read runs
 as before; the generated consult tool, a read, refuses a shadow run itself (see "shadow runs consult and
@@ -395,12 +352,11 @@ request no live agent"). Live runs, people's turns and consultations decide as b
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off follow-up of shadow work stays in shadow
 
-A hand-off with `NotifySource()` sent its follow-up (`agent-handoff-ended`) into the source agent's live
-thread whatever had worked in shadow, so a live source that handed work to an agent in shadow started a
-live run and its thread's readers read the shadow run's summary. When the target's run or the handing
-run worked in shadow, the follow-up now goes to the source agent's shadow thread of the subject, where
-nobody is notified and nothing executes, whatever the source's mode is by then. While the source agent
-or skill is paused, such a follow-up is ignored instead of waiting for a resume.
+A hand-off with `NotifySource()` now sends its follow-up (`agent-handoff-ended`) into the source agent's
+live thread only when neither the target's run nor the handing run worked in shadow. Otherwise the
+follow-up goes to the source agent's shadow thread of the subject, where nobody is notified and nothing
+executes, whatever the source's mode is by then. While the source agent or skill is paused, such a
+follow-up is ignored instead of waiting for a resume.
 
 | Breaking change | Required action |
 |---|---|
@@ -408,12 +364,11 @@ or skill is paused, such a follow-up is ignored instead of waiting for a resume.
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off summary reaches only the target's audience
 
-A hand-off follow-up copied the target run's summary into the source's thread whenever both agents
-worked on the same subject, so every reader of the source's thread read an answer meant for the
-target's audience. The summary is now copied only when every reader of the thread that receives the
-follow-up may read the target's thread: the target's required policy, and for the whole application
-its view policy, names no policy or the source's own, and every person invited to that thread may read
-the target's thread too. Otherwise the follow-up names the outcome and the number of proposals only.
+When both agents work on the same subject, a hand-off follow-up now copies the target run's summary into
+the source's thread only when every reader of the thread that receives the follow-up may read the target's
+thread: the target's required policy, and for the whole application its view policy, names no policy or
+the source's own, and every person invited to that thread may read the target's thread too. Otherwise the
+follow-up names the outcome and the number of proposals only.
 
 | Breaking change | Required action |
 |---|---|
@@ -421,17 +376,15 @@ the target's thread too. Otherwise the follow-up names the outcome and the numbe
 
 ## NewHeap.Platform.AI.Chat: application messages readable by a person follow the live read rule in agent threads
 
-`NhAssistantApplicationMessageAccess.ReadableBy(person)` accepted an agent thread as soon as the person
-had a participant row, which a role on the thread's subject leaves behind and which outlived that role
-until the person opened the thread again. For an agent thread the post now applies the live read rule
-before anything is stored, shown or notified: never a shadow thread or a thread of a shadow variant,
-only a thread of the person's tenant or of the whole application they take part in, and only with a
-live role on the thread's subject or an invitation to the thread. Chats keep their rule: the owner or a
-participant of the same tenant.
+For an agent thread, a post with `NhAssistantApplicationMessageAccess.ReadableBy(person)` now applies the
+live read rule before anything is stored, shown or notified, instead of accepting the person's stored
+participant row: never a shadow thread or a thread of a shadow variant, only a thread of the person's
+tenant or of the whole application they take part in, and only with a live role on the thread's subject
+or an invitation to the thread. Chats keep their rule: the owner or a participant of the same tenant.
 
 | Breaking change | Required action |
 |---|---|
-| `PostAsync` with `ReadableBy` answers `assistant-conversation-not-found` for an agent thread whose subject the person no longer has a role on, a shadow thread and another tenant's thread, also when a participant row remains. | None; such a person may no longer open the thread. |
+| `PostAsync` with `ReadableBy` answers `assistant-conversation-not-found` for an agent thread whose subject the person no longer has a role on, a shadow thread and a thread of another tenant, also when a participant row remains. | None; such a person may no longer open the thread. |
 | `PostAsync` with `ReadableBy` posts into an agent thread of a person with a live role on its subject who never opened it; before, it answered `assistant-conversation-not-found`. | None, unless the application relied on the refusal; check the person's role itself before posting. |
 
 ## @newheap/platform-common: credentials go only to the configured API
@@ -443,24 +396,23 @@ has the base URL's scheme, host and port and its path is the base path or contin
 in any letter case. An empty base URL, the default, stands for the application's own origin:
 relative and same-origin requests still match, while a request to another origin no longer receives
 the access token, `X-NH-ActiveDivisionId` or, in a server render, the forwarded session cookies, and
-its `Set-Cookie` is no longer relayed. Before, an empty base matched every URL and
-`https://api.example.com` also matched `https://api.example.com.attacker.example`. A relative base
-such as `/api` now also matches absolute URLs on the application's own origin. With
-`authType: 'header'`, the access token goes to requests under `authApiBaseUrl` always and to
-requests under `apiBaseUrl` while `addAuthTokensToRequests` is `true`, as before.
+its `Set-Cookie` is no longer relayed. A base URL with a host matches that host only, not a longer
+host name that starts with it. A relative base such as `/api` now also matches absolute URLs on the
+application's own origin. With `authType: 'header'`, the access token goes to requests under
+`authApiBaseUrl` always and to requests under `apiBaseUrl` while `addAuthTokensToRequests` is `true`, as
+before.
 
 | Breaking change | Required action |
 |---|---|
 | With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
 | A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
 
-## @newheap/platform-common: JSON-LD text cannot end its script element
+## @newheap/platform-common: JSON-LD script text escapes every less-than sign
 
 `NhJsonLdComponent` (`<nh-json-ld>`) now writes every `<` in the serialized JSON as `\u003c` and
-escapes U+2028 and U+2029. Before, it escaped only the exact lowercase `</script>`, so a string
-value with `</SCRIPT>`, `</script >`, `</script/>` or `<!--<script>`, such as a review body passed
-through `NhJsonLdService` or `NhPageSettings.jsonLdData`, ended the script element and the rest of
-the value was inserted as markup. The script text still parses to the same values.
+escapes U+2028 and U+2029, so every string value passed through `NhJsonLdService` or
+`NhPageSettings.jsonLdData` stays text inside the script element, whatever markup it contains. The
+script text still parses to the same values.
 
 | Breaking change | Required action |
 |---|---|
@@ -471,7 +423,11 @@ the value was inserted as markup. The script text still parses to the same value
 `NhMetaService.stripHtml` now parses its input in a document without a browsing context, created
 with `DOMParser` (or, where that is missing as in a server render, by the application document's
 `implementation`), instead of in an element of the application's document. Images in the markup
-no longer load and their inline event handlers no longer run; the returned text is the same.
+are not loaded and inline event handlers do not run; the returned text is the same.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |
 
 ## NewHeap.Platform.AI.AspNet.Common: access contexts come from the person's own requests only
 
@@ -479,8 +435,8 @@ no longer load and their inline event handlers no longer run; the returned text 
 an authenticated principal without the marker claims of a delegated read token
 (`nh-ai-delegated-read`, `nh-ai-delegated-read-action`), a delegated MCP token (`nh-ai-mcp-delegated`,
 `nh-ai-mcp-audience`) or an impersonation session (`NhPlatformClaimTypes.ImpersonateOriginUserId`).
-Such a request is an agent working for the person, or someone else acting as the person, so recording
-it kept the person's rights alive past `MaxAge` and recreated them after sign-out. The principal factory
+Such a request is an agent working for the person, or someone else acting as the person, and an access
+source does not record it, so a context reflects the person's own last request. The principal factory
 of `UsePrincipalsFromAccessSource` now refuses a context that holds one of these claims, whatever its
 date. The sample's `SampleAccessSourceComposition` records only the person's own requests and forgets
 the context in the person's own sign-out request (`UseSampleAccessContexts(signOutPath)`).
@@ -495,8 +451,7 @@ With `UsePrincipalsFromAccessSource`, a headless gateway read now asks the host'
 `INhAiDelegatedReadCredentialIssuer` for a credential only while `INhAiPrincipalFactory` builds the
 person's principal from the access source: without a context, with one older than `MaxAge`, or with one
 that holds a derived-credential or impersonation marker, the read fails with
-`api-bridge-unauthenticated` before the issuer is asked and no request is sent. Before, the read was
-issued whenever the host's issuer issued, also for a person who had signed out. Hosts without an access
+`api-bridge-unauthenticated` before the issuer is asked and no request is sent. Hosts without an access
 source keep their issuer's decision, as the built-in issuer with the person's sign-in state.
 
 | Breaking change | Required action |
@@ -541,12 +496,10 @@ Generated tools never pass the MVC authorization filter, so the descriptor's pol
 tool gate, agent grants and the approver check enforce. The generator now reads every `IAuthorizeData`
 declaration ASP.NET would apply to the tool method: on the method and the methods it overrides, and on
 the tool set and its base types. It takes the policy from the named `Policy` argument, otherwise from
-the constructor argument of `[Authorize("policy")]`. Before, only the named `Policy` of an
-`AuthorizeAttribute` directly on the method or the tool set reached the descriptor, so a positional or
-inherited policy, `Roles` and an `AuthorizeAttribute` subclass were dropped and every authenticated
-caller ran the tool. Declarations the gate cannot enforce now fail the build with `NHAI018`. Tools that
-declare only `[Authorize]` and `[Authorize(Policy = ...)]` on the method and the tool set keep their
-contract hashes.
+the constructor argument of `[Authorize("policy")]`, so positional, overridden and inherited policies
+reach the descriptor as well. Declarations the gate cannot enforce, such as `Roles` or an
+`AuthorizeAttribute` subclass, now fail the build with `NHAI018`. Tools that declare only `[Authorize]`
+and `[Authorize(Policy = ...)]` on the method and the tool set keep their contract hashes.
 
 | Breaking change | Required action |
 |---|---|
@@ -555,8 +508,8 @@ contract hashes.
 
 ## NewHeap.Platform.Common and NewHeap.Platform.AI.AspNet.Mvc: gateway search never matches a redacted field
 
-A search matches every field the API searches, so with `RedactResultFields` a search could still test
-the values that redaction removes from the result. `NhAiBridgeQueryDescription.SearchFields` now
+A search matches every field the API searches, so with `RedactResultFields` the gateway now searches only
+resources whose searched fields are known and visible. `NhAiBridgeQueryDescription.SearchFields` now
 publishes the result field paths a search matches, and `describe-resource` shows them as
 `query.searchFields`. The canonical collection provider takes them from the new
 `NhCollectionContract.SearchPaths`: the `[Searchable]` members of the item type, including those of
@@ -589,13 +542,11 @@ the agent's configured classification are unchanged.
 
 ## NewHeap.Platform.AI.Chat: a person's thread turn retrieves within the thread's subject
 
-A person's message in an agent's subject thread retrieved context with the person's request
-context, so the active division the client sent for the whole application decided what was
-retrieved, and items of that division reached a thread that every reader of the subject reads. The
-turn now keeps the person as the actor, so the context sources and their policy still decide for
-that person, but retrieves within the execution scopes and scope values of the thread's subject and
-its division, as the turn's tool calls get them, and without the capabilities the request derived
-from its active division. A plain chat retrieves in the person's own context as before.
+A person's message in an agent's subject thread now retrieves context within the execution scopes and
+scope values of the thread's subject and its division, as the turn's tool calls get them, instead of the
+active division the client sent with the request, and without the capabilities the request derived from
+its active division. The turn keeps the person as the actor, so the context sources and their policy
+still decide for that person. A plain chat retrieves in the person's own context as before.
 
 | Breaking change | Required action |
 |---|---|
@@ -607,10 +558,9 @@ A message to a busy agent thread, a restart of a failed run (`POST runs/{runId}/
 `restart`) and the generated request tool now create a run only for a person who may start the agent
 by hand, as `POST threads/start` decides: the agent's required policy as it is in effect now, on an
 object the participant role, on the whole application the agent's run and view policies, and only
-administrators for an agent in shadow. These paths checked a thread or participant role only, so an
-approver of the whole application without the run policy, or a participant of an agent in shadow,
-could start runs that the start by hand refuses them. Hosts whose approvers pass the run policies of
-their agents, and agents that are not in shadow, see no change on objects.
+administrators for an agent in shadow. A thread or participant role alone no longer creates such a run.
+Hosts whose approvers pass the run policies of their agents, and agents that are not in shadow, see no
+change on objects.
 
 | Breaking change | Required action |
 |---|---|
@@ -662,9 +612,8 @@ changes live work. Runs in live threads and people's own chats are unchanged.
 
 A webhook delivery, or an event with a dedupe key, that joined a pending run or waited while the agent
 was paused is now deduplicated also after the run that took it claimed it, so redelivering it starts no
-second run. Such a run records the key of the event that started it only, and the deduplication looked
-only at that key and at inputs that still waited. The input a delivery wrote now counts once a run took
-it; the receipt of the redelivery reads `deduplicated` with that run. An input dropped without a run,
+second run. The input a delivery wrote now counts once a run took it, although the run records the key
+of the event that started it only; the receipt of the redelivery reads `deduplicated` with that run. An input dropped without a run,
 because its subject or the agent's owner was gone, does not count.
 
 | Breaking change | Required action |
@@ -674,11 +623,11 @@ because its subject or the agent's owner was gone, does not count.
 ## NewHeap.Platform.AI.Chat.AspNet: follow-up runs keep the initiator of the work they continue
 
 A follow-up run after a proposal decision (`StartFollowUpRun`) now keeps the initiator of the run that
-made the proposal, or none for trigger work and for a proposal a run placed at another object. Before,
-it took the person who decided as its initiator, after a rejection, an executed or failed approval, an
-approval refused because the subject changed and an application's execution report alike, so a
-delegating agent's follow-up used the decider's rights and four eyes kept the decider instead of the
-requester out of its proposals. The decider stays in the approval (`DecidedByActorId`) and its audit.
+made the proposal, or none for trigger work and for a proposal a run placed at another object, instead
+of the person who decided. This applies after a rejection, an executed or failed approval, an approval
+refused because the subject changed and an application's execution report alike, so a delegating agent's
+follow-up works with the initiator's rights and four eyes keeps the requester out of its proposals. The
+decider stays in the approval (`DecidedByActorId`) and its audit.
 
 | Breaking change | Required action |
 |---|---|
@@ -692,9 +641,7 @@ the approver's request. That continuation now works for the person who asked as 
 its MCP servers use only that person's consented connection or delegated token, never the approver's
 connection or ambient token, and the approver is not its turn person (`INhAiTurnPerson`). The API bridge
 sends the request's bearer token in an agent turn only inside the initiator's own request turn; in
-another person's request and in a headless turn it sends nobody's token. Before, the continuation's MCP
-calls and the bridge's calls were sent with the approver's credential while the gate authorized them with
-the initiator's rights.
+another person's request and in a headless turn it sends nobody's token.
 
 | Breaking change | Required action |
 |---|---|
@@ -706,9 +653,8 @@ the initiator's rights.
 The continuation of another person's request turn after an approver's decision under the approval policy
 now composes its prompt for the person who asked, as the headless continuation of a run does: that
 person's preferences, custom instructions, turn facts and name ("latest message from"), and that person's
-files and daily budget. Before, the approver's own preferences and custom instructions steered a model
-that acted with the asker's delegated rights. The decision, its stored decider and its audit event stay
-the approver's.
+files and daily budget, instead of the approver's preferences and custom instructions. The decision, its
+stored decider and its audit event stay the approver's.
 
 | Breaking change | Required action |
 |---|---|
@@ -753,8 +699,8 @@ Live updates, Web Push and in-app notifications reach people outside any request
 assistant now applies the read rule of the conversation's snapshot when it sends them, per recipient,
 instead of sending to every stored participant row. An agent thread reaches people whom the subject's
 resolver gives a role now or who were invited, as the thread endpoints decide; a chat reaches its owner,
-and a participant while the person, as the application's
-`INhAiPrincipalFactory` rebuilds them, passes the agent's policy. Live updates reach participants only
+and a participant while the person, as the application's `INhAiPrincipalFactory` rebuilds them, passes
+the agent's policy. Live updates reach participants only
 on hub connections signed in for a tenant that reaches the conversation. A hub connection ends when the
 token it was opened with expires, and when `INhAuthenticationSessionValidator` no longer accepts its
 principal, for example after a password change. Nothing is delivered any more to a person the platform
@@ -771,41 +717,27 @@ no longer resolves, and forgetting a user removes what the assistant keeps to re
 | `INhAiSubjectAccess.RefreshAsync` also removes the participant rows that a role created for people the refreshed members leave out and the resolver gives no role; such a person loses their read position and joins again when they read the thread with a role. Invitation and link rows stay. | None; keep calling `RefreshAsync` after the people on a subject change. |
 | The assistant registers an `INhRetentionParticipant`, and `INhRetention` when none is registered: forgetting a user, as `NhUserManager.DeleteAsync` does, removes their push subscriptions, notification choice, MCP connection notices and participant rows. | None for hosts whose actor ids are user ids; a host with other actor ids removes those rows of a forgotten person in its own retention participant. |
 
-## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL principal verification denies by default
+## NewHeap.Platform.DatabaseRead.Tool: principal verification denies by default
 
-`query` and `schema` verified a PostgreSQL principal against a fixed list of write and DDL privileges.
-Membership in a predefined role such as `pg_monitor`, `pg_read_all_stats`, `pg_read_all_settings`,
-`pg_signal_backend` or a server-file role passed, as did EXECUTE on a `pg_catalog` function that the
-server revokes from PUBLIC, such as `pg_stat_reset`, and every function in a user schema whose name
-starts with `pg` followed by another character, because the schema filter used `pg_%` as a `LIKE`
-pattern. Column-level INSERT or UPDATE, writes through views and USAGE on sequences passed as well.
+`query` and `schema` now verify the diagnostic principal against an allowlist on both providers and
+refuse every other privilege with `read-only-principal-not-verified`; `error.verificationCheck` names the
+first failed check.
 
-The verification now covers the connected role and every role it is a member of, also without
-inheritance, and denies by default. Beyond the privileges the server granted at initialization, the
-principal may hold SELECT on tables, views, sequences and columns, and membership in
-`pg_read_all_data`. Any other predefined role, a role attribute such as CREATEROLE, ownership of the
-database or of any schema, relation, function or type, CREATE on the database or a schema, any other
-relation, column or sequence privilege, EXECUTE on a function outside `pg_catalog` and
-`information_schema`, and EXECUTE on a `pg_catalog` function that the server does not grant to PUBLIC
-reject it. Schema names are compared exactly. A rejected PostgreSQL principal now also reports the
+On PostgreSQL the verification covers the connected role and every role it is a member of, also without
+inheritance. Beyond the privileges the server granted at initialization, the principal may hold SELECT on
+tables, views, sequences and columns, and membership in `pg_read_all_data`. Any other predefined role, a
+role attribute such as CREATEROLE, ownership of the database or of any schema, relation, function or
+type, CREATE on the database or a schema, any other relation, column or sequence privilege, EXECUTE on a
+function outside `pg_catalog` and `information_schema`, and EXECUTE on a `pg_catalog` function that the
+server does not grant to PUBLIC reject it. Schema names are compared exactly. A rejected PostgreSQL principal now also reports the
 first failed check as `error.verificationCheck` with stage `readonly-verification`: one of
 `role-attribute-superuser`, `role-attribute-createrole`, `role-attribute-createdb`,
 `role-attribute-replication`, `role-attribute-bypassrls`, `database-owner`,
 `predefined-role-membership`, `database-create`, `schema-create`, `object-owner`, `relation-write`,
 `column-write`, `sequence-usage`, `function-execute` or `catalog-function-execute`.
 
-| Breaking change | Required action |
-|---|---|
-| A PostgreSQL principal that holds anything beyond SELECT and `pg_read_all_data`, including a predefined monitoring or signalling role, an administrative `pg_catalog` function, a column or view write or USAGE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the grant that `error.verificationCheck` names from the diagnostic principal and the roles it belongs to; grant only CONNECT, schema USAGE and SELECT. |
-| A rejected PostgreSQL principal now reports `error.verificationCheck` and `error.stage`. | Let code that reads the field accept PostgreSQL check identifiers, or discard identifiers it does not know. |
-
-## NewHeap.Platform.DatabaseRead.Tool: SQL Server principal verification denies by default
-
-SQL Server verification checked a fixed list of roles and permissions. A principal with
-`VIEW SERVER STATE`, `ALTER ANY CONNECTION`, `IMPERSONATE ANY LOGIN`, `ALTER ANY SCHEMA`, IMPERSONATE
-on a login or a user, UPDATE on a sequence, ALTER or TAKE OWNERSHIP on a schema or an object, or a
-column-level UPDATE passed. The checks that existed keep their identifiers and order. After them,
-these permissions now reject the principal with `server-permission-view-server-state` (also through
+On SQL Server the existing checks keep their identifiers and order. After them, these permissions now
+reject the principal with `server-permission-view-server-state` (also through
 `##MS_ServerStateReader##`), `server-permission-alter-any-connection`,
 `server-permission-impersonate-any-login`, `database-permission-alter-any-schema`,
 `login-impersonate`, `user-impersonate`, `sequence-update`, `schema-permission-alter`,
@@ -822,52 +754,34 @@ with `server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
 
 | Breaking change | Required action |
 |---|---|
+| A PostgreSQL principal that holds anything beyond SELECT and `pg_read_all_data`, including a predefined monitoring or signalling role, an administrative `pg_catalog` function, a column or view write or USAGE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the grant that `error.verificationCheck` names from the diagnostic principal and the roles it belongs to; grant only CONNECT, schema USAGE and SELECT. |
+| A rejected PostgreSQL principal now reports `error.verificationCheck` and `error.stage`. | Let code that reads the field accept PostgreSQL check identifiers, or discard identifiers it does not know. |
 | A SQL Server principal that holds a permission beyond connecting, SELECT and metadata visibility, such as `VIEW SERVER STATE`, `VIEW DATABASE STATE`, `UNMASK`, `REFERENCES`, IMPERSONATE or UPDATE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the permission that `error.verificationCheck` names from the diagnostic login, its user and the roles they belong to. |
 | `error.verificationCheck` can carry the new SQL Server identifiers listed above. | Let code that reads the field accept them, or discard identifiers it does not know. |
 
-## NewHeap.Platform.DatabaseRead.Tool: quoted PostgreSQL function names are refused
+## NewHeap.Platform.DatabaseRead.Tool: the SQL policy refuses more PostgreSQL constructs
 
-The SQL policy skipped double-quoted text, so a forbidden PostgreSQL function written as a quoted
-identifier, such as `SELECT "pg_sleep"(1)`, `pg_catalog."pg_advisory_lock"(...)` or
-`"pg_terminate_backend"(...)`, passed validation and ran; PostgreSQL resolves the quoted lowercase name
-to the same function. A session-level advisory lock taken this way outlives the rolled-back read-only
-transaction in the pooled session. The policy now compares the text of every double-quoted identifier
-on PostgreSQL, with doubled quotes unescaped and case ignored, with its function list and refuses a
-match with `function-not-allowed`. A Unicode-escaped identifier (`U&"..."`) is refused with the new
-code `unicode-escaped-identifier-not-allowed`. Quoted identifiers that name no forbidden function, also
-keyword names such as `"Update"` or `"Share"`, stay allowed on both providers.
+On PostgreSQL the SQL policy now compares the text of every double-quoted identifier, with doubled quotes
+unescaped and case ignored, with its function list and refuses a match with `function-not-allowed`. A
+Unicode-escaped identifier (`U&"..."`) is refused with the new code
+`unicode-escaped-identifier-not-allowed`. Quoted identifiers that name no forbidden function, also keyword
+names such as `"Update"` or `"Share"`, stay allowed on both providers.
+
+The policy refuses PostgreSQL escape strings (`E'...'`) with the new code `escape-string-not-allowed`, and
+the tool sets `standard_conforming_strings` to `on` for the diagnostic transaction, so a backslash in an
+ordinary string literal is an ordinary character, as the policy reads it.
+
+The policy also refuses the functions that run SQL text passed to them, `query_to_xml`,
+`query_to_xmlschema`, `query_to_xml_and_xmlschema`, `cursor_to_xml`, `cursor_to_xmlschema`, `ts_stat` and
+`ts_rewrite`, and the `pg_sleep` variants `pg_sleep_for` and `pg_sleep_until`, with `function-not-allowed`,
+also as quoted identifiers.
 
 | Breaking change | Required action |
 |---|---|
 | A PostgreSQL query that uses a double-quoted identifier spelled like a forbidden function, also as a column alias, or a `U&"..."` identifier is refused before execution. | Rename the alias, or write the identifier without Unicode escapes. |
-
-## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL escape strings are refused
-
-In a PostgreSQL escape string (`E'...'`), and in every string literal of a role or connection that
-turns `standard_conforming_strings` off, a backslash escapes the quote that would otherwise end the
-literal. The SQL policy did not follow that, so `SELECT E'\'' AS a, pg_sleep(1) AS b, E'\''` passed
-validation with the function call inside what the policy read as a string, and PostgreSQL ran it. The
-policy now refuses escape strings with the new code `escape-string-not-allowed`, and the tool sets
-`standard_conforming_strings` to `on` for the diagnostic transaction, so a backslash in an ordinary
-string literal stays an ordinary character, as the policy reads it.
-
-| Breaking change | Required action |
-|---|---|
 | A PostgreSQL query with an escape string (`E'...'`) is refused before execution. | Pass the value as a typed parameter, or write it as an ordinary string literal. |
 | Ordinary PostgreSQL string literals are read with `standard_conforming_strings` on, also when the principal's role or connection turned it off. | Write a quote inside a literal as `''`; a backslash is an ordinary character. |
-
-## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL functions that run SQL text are refused
-
-`query_to_xml`, `query_to_xmlschema`, `query_to_xml_and_xmlschema`, `cursor_to_xml`,
-`cursor_to_xmlschema`, `ts_stat` and `ts_rewrite` run SQL text that the SQL policy reads as a string
-literal, so a forbidden function inside that text, such as `pg_advisory_lock`, ran for a read-only
-principal; a session advisory lock taken this way stayed held by the pooled session after the tool
-rolled the transaction back. The policy now refuses these functions, and the `pg_sleep` variants
-`pg_sleep_for` and `pg_sleep_until`, with `function-not-allowed`, also as quoted identifiers.
-
-| Breaking change | Required action |
-|---|---|
-| A PostgreSQL diagnostic query that calls one of these functions is refused before execution. | Send the SQL text that the function would run as the diagnostic `SELECT` itself. |
+| A PostgreSQL diagnostic query that calls one of the functions that run SQL text, `pg_sleep_for` or `pg_sleep_until` is refused before execution. | Send the SQL text that the function would run as the diagnostic `SELECT` itself. |
 
 ## NewHeap.Platform.DatabaseRead.Tool: credential-bearing tables stay outside the diagnostic grants
 
@@ -887,45 +801,23 @@ accepts it because it is read-only. The tool's behavior does not change.
 
 The file work a turn does before its model loop now follows the turn's cancellation and ends at
 `NhAssistantLimits.TurnTimeout`: opening the files of people's messages that waited for an agent run,
-the attachments of a person's message and the earlier files a turn opens again. Before, the files of
-waiting messages and the earlier files were opened without a token, so a file source or an MCP reader
-that accepted the request and never answered held the turn, ignored a stop and kept the agent run's
-background worker. The turn now ends with `assistant-turn-timeout` (the conversation `failed`, as at
-the model loop's deadline) or, after a stop or the run's cancellation, `cancelled`.
+the attachments of a person's message and the earlier files a turn opens again. Every such call receives
+the turn's cancellation token. When a file source or reader does not answer in time, the turn ends with
+`assistant-turn-timeout` (the conversation `failed`, as at the model loop's deadline) or, after a stop or
+the run's cancellation, `cancelled`.
 
 | Breaking change | Required action |
 |---|---|
 | A turn whose file source or reader does not answer within `TurnTimeout` ends with `assistant-turn-timeout` before its model call. | Pass the `cancellationToken` of `INhAssistantFileSource.OpenAsync` and `INhAssistantFileReader.ReadAsync` to every call that can wait. |
 
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: tool lists and reader calls of MCP servers are bounded
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: MCP calls are bounded in time and size
 
 `NhAssistantMcpOptions.ConnectTimeout` now bounds listing a server's tools once connected, as it was
-documented to, and not only connecting: a server that accepts `tools/list` and never answers is
+documented to, and not only connecting: a server that accepts `tools/list` and does not answer in time is
 unreachable for the turn, the reader, the test or the sync. The new `NhAssistantMcpOptions.ReaderCallTimeout`
 (`NewHeap:AI:Assistant:Mcp:ReaderCallTimeout`, 60 seconds by default, from one second to 15 minutes,
 checked when the host starts) bounds the call of an MCP server set up as reader. Both are bounded by
 the turn's own deadline and cancellation as well.
-
-| Breaking change | Required action |
-|---|---|
-| A server that does not answer `tools/list` within `ConnectTimeout` is skipped with `assistant-mcp-unreachable`. | Raise `ConnectTimeout` for a server that lists its tools slowly. |
-| An MCP reader that does not answer within `ReaderCallTimeout` fails its file with `assistant-file-reader-failed`, and a value outside its range fails host start. | Set `ReaderCallTimeout` for readers that need longer than a minute. |
-
-## NewHeap.Platform.AspNet.Common: stale attempts spend the retries of their operation
-
-An attempt that reconciliation recovers because its heartbeat went stale now spends a retry of its
-operation, as a failed attempt does. Before, such an abandoned attempt was retried without counting,
-so a handler that never returned, whose heartbeat stopped at the soft time-out while it kept its
-worker, was retried without end and each retry held another worker. Once the retries are spent, the
-attempt that goes stale fails the operation with `stale-attempt-retries-exhausted` and
-`background-operation.failed`. The runner's retry decisions and the agent-run handler's own retry
-count include these attempts; attempts that gave way to contention or a busy resource still spend none.
-
-| Breaking change | Required action |
-|---|---|
-| An idempotent operation whose attempts keep going stale fails with `stale-attempt-retries-exhausted` after `RetryCount` retries instead of being retried again. | Make the handler honour its cancellation token and soft time-out; raise the operation's retry count only when a stalled attempt can still recover. |
-
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: what an MCP server can make the host hold is bounded
 
 The MCP data transport now bounds responses before the MCP SDK, and before the assistant's own result,
 text and tool limits, see them. `NhAssistantMcpOptions.MaxResponseBytes`
@@ -940,34 +832,46 @@ turns, readers, tests and syncs alike, so a sync stores no more tools than that.
 
 | Breaking change | Required action |
 |---|---|
+| A server that does not answer `tools/list` within `ConnectTimeout` is skipped with `assistant-mcp-unreachable`. | Raise `ConnectTimeout` for a server that lists its tools slowly. |
+| An MCP reader that does not answer within `ReaderCallTimeout` fails its file with `assistant-file-reader-failed`, and a value outside its range fails host start. | Set `ReaderCallTimeout` for readers that need longer than a minute. |
 | A response or stream event longer than `MaxResponseBytes` fails its request with `assistant-mcp-response-too-large`. | Raise `MaxResponseBytes`, for example with `MaxFileTokensPerTurn` for readers whose text is longer. |
 | A server that lists more tools than `MaxTools`, or more pages than `MaxToolListPages`, is not connected, and its sync fails with `assistant-mcp-tool-list-too-large` without storing tools. | Raise `MaxTools` or `MaxToolListPages` for such a server, or let it list fewer tools. |
+
+## NewHeap.Platform.AspNet.Common: stale attempts spend the retries of their operation
+
+An attempt that reconciliation recovers because its heartbeat went stale now spends a retry of its
+operation, as a failed attempt does, so a handler that never returns, whose heartbeat stops at the soft
+time-out while it keeps its worker, is retried at most `RetryCount` times. Once the retries are spent, the
+attempt that goes stale fails the operation with `stale-attempt-retries-exhausted` and
+`background-operation.failed`. The runner's retry decisions and the agent-run handler's own retry
+count include these attempts; attempts that gave way to contention or a busy resource still spend none.
+
+| Breaking change | Required action |
+|---|---|
+| An idempotent operation whose attempts keep going stale fails with `stale-attempt-retries-exhausted` after `RetryCount` retries instead of being retried again. | Make the handler honour its cancellation token and soft time-out; raise the operation's retry count only when a stalled attempt can still recover. |
 
 ## NewHeap.Platform.AI.Chat.AspNet: a stored MCP secret stays with the destination it was entered for
 
 A stored secret and a `secretReference` of an MCP server (`bearer`, `api-key` and `basic`) are now kept
 on a save only while the URL's origin (scheme, host and port), the authentication mode and the
 `api-key` header stay the same. A change of any of them clears both, and the save needs a secret or a
-reference again, as for a new server, so an assistant administrator who may edit a server but never
-read its secret can no longer send it to a host of their own. A new path on the same origin, and a
-header name in other letter case, keep the secret. This applies to `PUT admin/mcp-servers/{id}` and
+reference again, as for a new server. A new path on the same origin, and a header name in other letter
+case, keep the secret. This applies to `PUT admin/mcp-servers/{id}` and
 `INhAssistantMcpServers.UpdateAsync` alike.
 
 | Breaking change | Required action |
 |---|---|
 | Moving a server to another origin, or changing its authentication mode or `api-key` header, without a `secret` or `secretReference` is refused with `secret: required`. | Send the secret, or the reference, again with such a change; the server editor asks for it at the secret field. |
 
-## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: imported MCP function names are injective
+## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: imported MCP tools get distinct function names
 
 The function name the model sees for an imported MCP tool is now `mcp_<namespace>_<tool id>` with
-the namespace's dashes kept, instead of every dash becoming an underscore. Before, two servers whose
-ids and tool names met at a dash, such as `acme` with `billing-refund` and `acme-billing` with
-`refund`, gave both tools the name `mcp_acme_billing_refund`, and every call went to whichever came
-first. Names of namespaces without a dash do not change. The assistant also refuses, in every turn,
-all MCP tools that would still share a function name, such as two tools of one server whose names
-differ only in case or punctuation, with the new code
+the namespace's dashes kept, instead of every dash becoming an underscore. Names of namespaces without
+a dash do not change. The assistant also refuses, in every turn, all MCP tools that would still share a
+function name, such as two tools of one server whose names differ only in case or punctuation, with the
+new code
 `NhAssistantAdminErrorCodes.McpToolNameConflict` (`assistant-mcp-tool-name-conflict`, `409`), which
-an approved call of such a tool also ends with. Before, the first of them was offered.
+an approved call of such a tool also ends with; none of them is offered.
 
 | Breaking change | Required action |
 |---|---|
@@ -983,8 +887,8 @@ there and returns a failed result with `NhAssistantErrorCodes.FileTokenLimit` re
 `assistant-file-token-limit` instead of `assistant-file-reader-failed`. The text of an MCP reader is
 measured against the same budget before its blocks are joined. SampleProjectManagement's
 `OfficeDocumentReader` now bounds the text it makes value by value, reads every worksheet once and
-checks the turn's cancellation at every row and paragraph: its per-part bound alone let a few
-kilobytes of workbook whose cells repeat one long shared string become millions of characters.
+checks the turn's cancellation at every row and paragraph, instead of bounding each part of the
+document only.
 
 | Breaking change | Required action |
 |---|---|
@@ -997,8 +901,7 @@ sign-in that `POST authentication/oath/microsoft` started in the same browser. T
 protected flow (ASP.NET Core Data Protection) with the return URL, a nonce and a PKCE code verifier,
 valid for ten minutes; an HttpOnly, Secure, `SameSite=Lax` correlation cookie for the path of
 `CallbackUrl` binds it to the browser, and the callback removes the cookie so the state completes
-once. Before, the state was the return URL and a random value that nothing checked, so a callback with
-any state signed the browser in and redirected it to the URL in that state. The return URL
+once; a callback without a valid state for the browser answers 400. The return URL
 (`callbackUrl`) must now be a path on the callback's host or an absolute URL on
 `MicrosoftAuthSettings.AllowedReturnOrigins`, or on `NewHeapAspNetCommonSettings.AllowedOrigins` while
 that new setting is empty; `NhReturnUrls.IsAllowed` makes the decision and is public for other
@@ -1022,15 +925,14 @@ tenant id (`tid`) and the object id (`oid`), after it checked the token's audien
 its issuer (the v2.0 issuer of that tenant), the sign-in's nonce and its expiry. It signs in the local
 account linked to that pair through an Identity login (`AspNetUserLogins`, provider `microsoft-oauth`,
 key `{tid}/{oid}`, see `NhMicrosoftOAuthLogins`), instead of the account whose user name equals the
-Graph `mail` attribute, which an account of another directory could carry. The new
-`MicrosoftAuthSettings.AllowedTenantIds` limits the tenants that may sign in, and a `TenantId` that is
-a tenant id limits sign-ins to that tenant.
+Graph `mail` attribute. The new `MicrosoftAuthSettings.AllowedTenantIds` limits the tenants that may sign
+in, and a `TenantId` that is a tenant id limits sign-ins to that tenant.
 
 Existing accounts have no link yet. When an account of a tenant that the application names, in
 `AllowedTenantIds` or as `TenantId`, signs in without a link, the callback links it once to the local
 account whose user name is its Graph mail, provided that account is in `AuthDomains` and has no
-Microsoft link yet, and logs the link. Later sign-ins use the link, so a changed mail no longer moves
-a sign-in to another account and another Microsoft account with the same mail is refused. Set
+Microsoft link yet, and logs the link. Later sign-ins use the link, so a sign-in stays with its account
+when the mail changes, and another Microsoft account with the same mail is refused. Set
 `LinkAccountsByEmail` to `false` once every account is linked. With a multi-tenant `TenantId` such as
 `common` and no `AllowedTenantIds`, nothing is linked by mail. The links use Identity's existing login
 table, so no migration is needed.
@@ -1045,11 +947,10 @@ table, so no migration is needed.
 
 ## NewHeap.Platform.AspNet.Common: password reset links come from the server's configuration
 
-`NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete and no longer required. An application that
-built the recovery mail's link from it let anyone who knows a registered address make the application
-mail that account's valid reset token to a site of their choosing. Build the link from the application
-origin in the server's configuration, never from the request's body, `Host` or `Origin`, as the
-sample's `AccountSampleService` does with its `AccountRecovery` settings (SPM-075).
+`NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete and no longer required. Build the recovery
+mail's link from the application origin in the server's configuration, never from the request's body,
+`Host` or `Origin`, as the sample's `AccountSampleService` does with its `AccountRecovery` settings
+(SPM-075).
 
 | Breaking change | Required action |
 |---|---|

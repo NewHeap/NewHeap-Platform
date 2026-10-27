@@ -611,9 +611,9 @@ Downloads (SPM-183) are served by the stored file, not by the name a request sen
 and `MediaSamplesController` both open the file with `IMediaLibraryService.OpenDownloadAsync`, which
 reads it through `DownloadFileAsync`, so its authorization and any override still apply, and returns the
 stored reference with the content type `NhMediaContentTypes` lists for its extension.
-`MediaLibrarySamplesTests` uploads a page with a script and a PNG: the page comes back as an
+`MediaLibrarySamplesTests` uploads an HTML page and a PNG: the page comes back as an
 `application/octet-stream` attachment and the image inline as `image/png`, both with
-`X-Content-Type-Options: nosniff`, so a browser saves the page instead of running it.
+`X-Content-Type-Options: nosniff`, so a browser saves the page instead of rendering it.
 
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
@@ -735,18 +735,17 @@ AND and OR node. `ProjectCollectionSampleService.GetByNestedFiltersAsync`
 (SPM-034) filters projects with `ProjectNestedFilterViewModel`: its owner
 navigation and task collection are `[Filterable]`, and so are the owner's
 e-mail address and the task title. `ownerUser.email` and `tasks{any}.title`
-therefore filter on SQL Server and PostgreSQL. `ownerUser.passwordHash` and
-`tasks{any}.completedByUserId` return a safe `filter` error, although the
-entities have those members, because the owner view has no password hash and
-the task view returns the completing user without marking it filterable.
+therefore filter on SQL Server and PostgreSQL. A key that names a member the view
+models do not mark filterable, such as `tasks{any}.completedByUserId`, returns a
+safe `filter` error although the entity has that member, because the task view
+returns the completing user without marking it filterable.
 
 Order keys follow the same rule against `[Orderable]`. The nested view marks the
 owner navigation and the owner's e-mail address orderable, so `ownerUser.email`
 orders the projects. `creationDateTime` is orderable too, but an order key ends
-there: a key that continues behind it, such as a conditional over the owner's
-password hash that would let the row order reveal the hash, is ignored like an
-unknown order key, so the projects keep the default order by name and nothing of
-the key reaches the database.
+there: a key that continues behind it, such as `creationDateTime.year`, is
+ignored like an unknown order key, so the projects keep the default order by
+name and nothing of the key reaches the database.
 
 Rebuild filters whenever UI state changes so stale filter values do not remain
 silently in the request.
@@ -786,8 +785,8 @@ The platform playground sets the title, the description and a canonical link
 `NhMetaService.stripHtml` returns its text and parses the markup in an inert
 document, so images in it never load and inline handlers never run.
 
-Review text is written by people, so the sample's review body contains markup
-such as `</SCRIPT>`. `nh-json-ld` writes every `<` in the serialized JSON as a
+Review text is written by people and may contain markup, as the sample's review
+body does. `nh-json-ld` writes every `<` in the serialized JSON as a
 JSON unicode escape and escapes the line and paragraph separators, so that text
 stays data inside the one structured-data script element and parses back
 unchanged.
