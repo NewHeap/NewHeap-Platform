@@ -241,3 +241,18 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Chat: a shadow run executes no effect
+
+Shadow is now part of the effect decision. A run in an agent's shadow thread (an agent, skill or data
+trigger in shadow, a shadow variant, a skill or trigger candidate, a replay) needs an approval for
+every effect it calls, whatever the effect policy decides, and records it as a shadow proposal that
+never executes. Before, an effect the policy runs without approval ran live: an idempotent mutation
+with `Approval = NotRequired`, the generated `assistant.request.*` tool, an `Issuer` or
+`ConsumerAuthoritative` tool of an agent that answers to a technical account or the subject's
+responsible person, and an imported MCP tool that the application's effect policy allows. Live runs,
+people's turns and consultations decide as before.
+
+| Breaking change | Required action |
+|---|---|
+| A run in a shadow thread records a call of an effect the policy allows without approval as a shadow proposal instead of running it, and refuses an `Issuer` or `ConsumerAuthoritative` tool with `ai-tool-effect-denied`. | None; put the agent, skill or trigger live to let it act. |

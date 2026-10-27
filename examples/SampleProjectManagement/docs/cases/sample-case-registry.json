@@ -4667,16 +4667,20 @@
       "categoryId": "18",
       "title": "An operator puts the project closer and a planner skill in shadow at runtime while the team evaluates them, and puts them live again",
       "surface": "`INhAssistantAgentControl.SetShadowAsync` and `SetSkillShadowAsync` with `NhAssistantShadowState` on `NhAssistantAgentState` and `NhAssistantSkillState`; `NhAssistantSkillBuilder.Shadow`; `POST admin/agents/{id}/shadow` and `POST admin/agents/{id}/skills/{skillId}/shadow` with `NhAssistantShadowRequest` and `NhAssistantShadowChoices`; shadow threads with `shadow` on `NhAssistantThreadDto` and `shadowThread` on `NhAssistantSubjectAgentDto`; `assistant-moved-to-shadow` and `assistant-shadow-variant`; the AgentRuntimeOverrides migrations for SQL Server and PostgreSQL; `setAgentShadow` and `setSkillShadow` in `NhAssistantAdminApiService`, the shadow actions of `NhAssistantAdminAgentsComponent` and the shadow note of the agent thread view",
-      "outcome": "Through the sample's maintenance page the operator puts the project closer and the planner's task follow-up skill in shadow while the team evaluates them. A completed task then starts their runs in their shadow threads of the project: the closer proposes to complete the project as a shadow proposal that never executes, and the planner follows the task up in the skill. An administrator sees both shadow threads in the project's work; the approver sees neither thread nor proposal, opening the shadow thread answers not found, and the project's status stays. Once the operator lets the code decide again, the closer proposes live in the live thread the approver decides in.",
+      "outcome": "Through the sample's maintenance page the operator puts the project closer and the planner's task follow-up skill in shadow while the team evaluates them. A completed task then starts their runs in their shadow threads of the project: the closer proposes to complete the project as a shadow proposal that never executes, and the planner follows the task up in the skill. An administrator sees both shadow threads in the project's work; the approver sees neither thread nor proposal, opening the shadow thread answers not found, and the project's status stays. Once the operator lets the code decide again, the closer proposes live in the live thread the approver decides in. Shadow is part of the effect decision, not only of the proposal's status: the library tests prove on SQL Server and PostgreSQL that a run in a shadow thread also records an effect the effect policy would run without approval, an agent request and an imported MCP tool the application's effect policy allows as shadow proposals, and refuses a tool that issues or authorizes its own approval, while the same calls run in the live thread.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuntimeOverrideTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantShadowEffectTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationDelegationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html"
       ]
     },

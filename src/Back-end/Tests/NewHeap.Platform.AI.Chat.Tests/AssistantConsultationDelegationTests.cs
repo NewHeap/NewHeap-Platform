@@ -109,6 +109,35 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_delegating_administration_agent_whose_trigger_is_still_in_shadow_proposes_its_request_and_starts_no_run(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient().RespondWithText("The intake review is still open.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(RequestTool, new { input = new { subjectId = ProjectId, message = "Review the intake again." } }, "call-1")
+            .RespondWithText("I would ask the reviewer to review the intake again.");
+        await using var host = await CreateHostAsync(provider, asker, target);
+        await CreateAskingAgentAsync(host, delegateFromInitiator: true, triggerLive: false);
+
+        var run = await PublishAndExecuteAsync(host);
+
+        // The new trigger works in shadow: the request the initiator's rights would allow becomes a
+        // shadow proposal, and the reviewer gets no run.
+        Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);
+        Assert.True(run.Shadow);
+        Assert.Contains(asker.Requests[0].Options?.Tools ?? [], tool => tool.Name == RequestTool);
+        Assert.Empty(target.Requests);
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        Assert.DoesNotContain(await context.Runs.ToListAsync(), stored => stored.TriggerId == NhAssistantTriggerIds.AgentRequest);
+        var proposal = Assert.Single(await host.Services.GetRequiredService<NhAssistantRunStore>().GetRunApprovalsAsync(run.Id, CancellationToken.None));
+        Assert.Equal((RequestToolId, NhAssistantApprovalStatuses.Shadow), (proposal.ToolId, proposal.Status));
+        Assert.DoesNotContain(
+            await context.ToolInvocations.Where(invocation => invocation.ConversationId == run.ConversationId).ToListAsync(),
+            invocation => invocation.Status == NhAssistantToolCallStatuses.Succeeded);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Only_a_delegating_initiator_or_a_person_outside_an_agent_turn_uses_the_consult_and_request_tools(AssistantTestProvider provider)
     {
         var target = new NhAiScriptedChatClient().RespondWithText("The intake review is still open.");
@@ -215,7 +244,7 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
     /// An agent created in the administration that selects the consult and request tools, answers to
     /// a technical account and runs live from the event of an opened project.
     /// </summary>
-    private static async Task CreateAskingAgentAsync(AssistantTestHost host, bool delegateFromInitiator)
+    private static async Task CreateAskingAgentAsync(AssistantTestHost host, bool delegateFromInitiator, bool triggerLive = true)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -248,7 +277,11 @@ public sealed class AssistantConsultationDelegationTests(AssistantDatabaseFixtur
             TriggerId,
             new NhAssistantDataTriggerRequest(NhAssistantDataTriggerSources.Event, Event: EventName, Conflict: NhAssistantTriggerConflictNames.Queue),
             Admin)).Success);
-        Assert.True((await configuration.SetTriggerShadowAsync(AskingAgentId, TriggerId, false, Admin)).Success);
+        if (triggerLive)
+        {
+            // A new data trigger starts in shadow.
+            Assert.True((await configuration.SetTriggerShadowAsync(AskingAgentId, TriggerId, false, Admin)).Success);
+        }
     }
 
     /// <summary>

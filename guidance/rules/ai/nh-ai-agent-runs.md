@@ -638,7 +638,10 @@ at once. Maintenance queues a run again whose operation never committed. Choose
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
 events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
-where nobody is notified and nothing proposed executes. `Retry` (0 to 10, 3 by default, in code
+where nobody is notified and nothing proposed executes. Shadow is part of the effect decision: every
+effect a run calls in a shadow thread needs an approval and becomes a shadow proposal, also a tool the
+effect policy runs without approval, an agent request (`assistant.request.*`) and an imported MCP
+tool, and a tool that issues or authorizes its own approval is refused there. `Retry` (0 to 10, 3 by default, in code
 or in the run settings) alone decides how often a run is retried after a transient failure: the
 run's background operation allows the most an agent can configure, and the run fails once its
 failed attempts exceed the agent's value, so `Retry(0)` never retries and `Retry(5)` gives six

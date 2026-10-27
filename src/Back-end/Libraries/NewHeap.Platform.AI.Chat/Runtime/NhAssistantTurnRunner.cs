@@ -1278,8 +1278,13 @@ internal sealed partial class NhAssistantTurnRunner(
             IsRequestTurn = agentTurn.IsRequestTurn,
             Grants = delegatedOnly ? [] : agentTurn.Options.Grants,
             ElevatedReads = agentTurn.Options.ElevatedReads,
-            // A consultation and the agent's rules only propose: nothing changes without approval.
-            RequireApprovalForEffects = consultation is not null || state.RuleTurn,
+            // A consultation, the agent's rules and every run turn in a shadow thread only propose:
+            // nothing changes without approval, whatever the effect policy allows, and a run in a
+            // shadow thread records its proposals as shadow proposals, which never execute. A tool
+            // that issues or authorizes its own approval does not run there at all.
+            RequireApprovalForEffects = consultation is not null
+                || state.RuleTurn
+                || IsShadowRunTurn(agentTurn),
             // Gateway reads with the accountable person's credential, in headless turns only: a
             // consultation and a turn inside a person's request read with that person's own rights.
             AllowGatewayReads = agentTurn.Options.AllowGatewayReads
@@ -1302,6 +1307,17 @@ internal sealed partial class NhAssistantTurnRunner(
             PromptHash = state.Scope.PromptHash,
             FencingToken = agentTurn.FencingToken
         };
+    }
+
+    /// <summary>
+    /// Whether the turn is a run's turn in the agent's shadow thread: the work of an agent, skill or
+    /// data trigger in shadow, a shadow variant, a candidate or a replay. Its proposals are shadow
+    /// proposals (<see cref="NhAssistantToolCallInterceptor"/>), so none of its effects executes.
+    /// </summary>
+    internal static bool IsShadowRunTurn(NhAssistantAgentTurnContext agentTurn)
+    {
+        ArgumentNullException.ThrowIfNull(agentTurn);
+        return agentTurn.RunId is not null && agentTurn.Thread.Shadow;
     }
 
     /// <summary>
