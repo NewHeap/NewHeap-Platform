@@ -28,7 +28,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("threads/start", StartAgentAsync)
             .WithName("NhAssistantStartAgent")
             .WithSummary("Start an agent on a subject")
-            .WithDescription("Starts a run of the agent with the caller as initiator, by hand. On an object the caller needs at least the participant role and the agent's required policy. On the whole application (subjectType nh-system, subjectId global or division-{id:N}) the agent's run policy decides, by default the administration policy, evaluated for the caller as headless runs see them, and the caller reads it; the approve policy of the whole application gives no start. The agent must work on the subject and, for the whole application, on its scope: app-wide on global, per division on a division (409 assistant-agent-does-not-work-on otherwise). 202 names the outcome: started, queued, coalesced, superseded, ignored, deduplicated, waiting (the agent or skill is paused; reasonCode assistant-agent-paused or assistant-skill-paused) or deferred (until the caller's transaction commits). A refused start answers its code with that code's status, for example 409 assistant-trigger-rate-limited, 409 assistant-agent-stopped or 503 assistant-trigger-rolled-back; a malformed subject answers 400 assistant-subject-invalid.")
+            .WithDescription("Starts a run of the agent with the caller as initiator, by hand. On an object the caller needs at least the participant role and the agent's required policy. On the whole application (subjectType nh-system, subjectId global or division-{id:N}) the agent's run policy decides, by default the administration policy, evaluated for the caller as headless runs see them, and the caller reads it; the approve policy of the whole application gives no start. The agent must work on the subject and, for the whole application, on its scope: app-wide on global, per division on a division (409 assistant-agent-does-not-work-on otherwise). 202 names the outcome: started, queued, coalesced, superseded, ignored, deduplicated, waiting (the agent or skill is paused; reasonCode assistant-agent-paused or assistant-skill-paused) or deferred (until the caller's transaction commits). A refused start answers its code with that code's status, for example 409 assistant-trigger-rate-limited, 409 assistant-agent-stopped or 503 assistant-trigger-rolled-back; a malformed subject answers 400 assistant-subject-invalid, and an unknown subject or one of another tenant than the caller's 404 assistant-subject-not-found.")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -94,7 +94,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns agent proposals across threads that the caller may decide, by default the pending ones sorted by expiry, paged. status=awaiting-application lists approved proposals of tools the application executes that wait for its report, sorted by report deadline, and status=execution-unknown those whose execution is uncertain until an approver resolves it, sorted by decision; both with the same visibility as pending ones. Visibility: proposals on subjects the caller approves according to the member snapshot, proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
+            .WithDescription("Returns agent proposals across threads that the caller may decide, by default the pending ones sorted by expiry, paged. status=awaiting-application lists approved proposals of tools the application executes that wait for its report, sorted by report deadline, and status=execution-unknown those whose execution is uncertain until an approver resolves it, sorted by decision; both with the same visibility as pending ones. Visibility: in threads of the caller's tenant, proposals on subjects the caller approves according to the member snapshot and proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapPost("approvals/inbox/visit", VisitInboxAsync)
@@ -159,13 +159,15 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
-        if (!TryReadSubject(agentId, subjectType, subjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
+        if (!TryReadSubject(agentId, subjectType, subjectId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }
 
         var cancellationToken = httpContext.RequestAborted;
-        var info = await subjects.DescribeAsync(subject!, cancellationToken);
+        // A subject of another tenant, and the whole application for a caller bound to a tenant that
+        // takes no part in it, reads as unknown.
+        var info = await subjects.DescribeForAsync(subject!, caller.Data!.TenantId, cancellationToken);
         // The agent's thread of the whole application is only for people who pass its view policy.
         var access = info is null
             ? NhAiSubjectAccess.None
@@ -183,10 +185,12 @@ internal static class NhAssistantAgentRunEndpoints
         var agent = await agents.FindAsync(agentId!, includeDisabled: false, cancellationToken);
         var runOptions = registration.AgentRuns[agentId!];
         var canStart = await starts.CanStartAsync(agent, subject!, access, caller.Data!.ActorId, httpContext.User, cancellationToken);
-        // People open the live thread; a shadow variant has shadow threads only.
+        // People open the live thread; a shadow variant has shadow threads only. A thread stored under
+        // another tenant than the subject's description now names stays out of reach, as its
+        // conversation does.
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
-        if (thread is not null)
+        if (thread is not null && NhAssistantWholeApplicationTenancy.Reaches(registration, thread, caller.Data!.TenantId))
         {
             await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
             threadDto = await ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken);
@@ -217,12 +221,19 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
-        if (!TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
+        if (!TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }
 
         var cancellationToken = httpContext.RequestAborted;
+        // An unknown subject, a subject of another tenant and the whole application for a caller bound
+        // to a tenant that takes no part in it read alike, before a thread or run is made.
+        if (await subjects.DescribeForAsync(subject!, caller.Data!.TenantId, cancellationToken) is null)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
+        }
+
         // A start leads to the agent's thread: on the whole application only its view policy's people read it.
         var access = await subjects.ResolveForAgentAsync(subject!, request.AgentId!, caller.Data!.ActorId, cancellationToken);
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
@@ -233,7 +244,13 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantHttpErrors.Failure(allowed);
         }
 
-        var receipt = await triggers.StartNowAsync(request.AgentId!, subject!, caller.Data.ActorId, request.Message, cancellationToken);
+        var receipt = await triggers.StartNowAsync(
+            request.AgentId!,
+            subject!,
+            caller.Data.ActorId,
+            request.Message,
+            cancellationToken,
+            new NhAssistantTenantBinding(caller.Data.TenantId));
         return Receipt(receipt);
     }
 
@@ -259,7 +276,7 @@ internal static class NhAssistantAgentRunEndpoints
         }
 
         var (items, total) = await runs.ListRunsAsync(id, pageNumber, size, httpContext.RequestAborted);
-        var links = await HandOffLinksAsync(httpContext, items, access.ActorId!, threads, handOffs);
+        var links = await HandOffLinksAsync(httpContext, items, access.ActorId!, access.TenantId, threads, handOffs);
         return TypedResults.Json(
             new NhAssistantRunListDto(
                 items
@@ -529,7 +546,8 @@ internal static class NhAssistantAgentRunEndpoints
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                 access.ActorId!,
                 "Restart: continue the work of the previous run.",
-                cancellationToken);
+                cancellationToken,
+                new NhAssistantTenantBinding(access.TenantId));
             return Receipt(restarted);
         }
 
@@ -589,9 +607,14 @@ internal static class NhAssistantAgentRunEndpoints
         var system = subjectType is null || subjectType == NhAiSubjectRef.SystemType
             ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted, inboxStatus)
             : NhAssistantSystemInbox.None;
+        // A proposal of another tenant's thread is in no inbox of the caller's, as it is in no read.
         var inbox = await runs.ListInboxAsync(
             caller.Data!.ActorId,
-            new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId) { Status = inboxStatus },
+            new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId)
+            {
+                Status = inboxStatus,
+                TenantId = caller.Data.TenantId
+            },
             pageNumber,
             size,
             httpContext.RequestAborted,
@@ -828,12 +851,13 @@ internal static class NhAssistantAgentRunEndpoints
 
     /// <summary>
     /// The threads of the runs that handed work to these runs, by source run, that the caller may
-    /// open: as a reader of their subject, and not a hidden shadow thread.
+    /// open: in the caller's tenant, as a reader of their subject, and not a hidden shadow thread.
     /// </summary>
     private static async Task<IReadOnlyDictionary<Guid, Guid>> HandOffLinksAsync(
         HttpContext httpContext,
         IReadOnlyList<Entities.AssistantRun> items,
         string actorId,
+        string? tenantId,
         NhAssistantThreadService threads,
         NhAssistantHandOffStore handOffs)
     {
@@ -849,9 +873,9 @@ internal static class NhAssistantAgentRunEndpoints
         {
             if (!readable.TryGetValue(conversationId, out var may))
             {
-                // A hidden shadow thread is checked before access, which records participants. A link
-                // only names the source's thread; opening it checks the caller's tenant.
-                var access = await IsHiddenAsync(httpContext, conversationId, tenantId: null)
+                // A hidden shadow thread, and a thread the caller's tenant does not reach, is checked
+                // before access, which records participants.
+                var access = await IsHiddenAsync(httpContext, conversationId, tenantId)
                     ? null
                     : await threads.ResolveAccessAsync(conversationId, actorId, null, httpContext.RequestAborted);
                 may = access is not null && access.Role >= NhAiSubjectRole.Reader;
@@ -867,9 +891,10 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Whether the conversation is a shadow thread hidden from the caller, or a thread of the whole
-    /// application kept from a caller bound to <paramref name="tenantId"/>, a tenant the single-tenant
-    /// mode does not name.
+    /// Whether the conversation is a thread the caller does not reach: a shadow thread hidden from the
+    /// caller, or a thread stored under another tenant than <paramref name="tenantId"/>, the whole
+    /// application's included for a caller bound to a tenant that takes no part in it
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </summary>
     private static async Task<bool> IsHiddenAsync(HttpContext httpContext, Guid conversationId, string? tenantId)
     {
@@ -879,7 +904,7 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return false;
         }
-        if (NhAssistantWholeApplicationTenancy.KeepsOut(
+        if (!NhAssistantWholeApplicationTenancy.Reaches(
                 httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>(),
                 thread,
                 tenantId))
@@ -891,9 +916,10 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Resolves the caller's live role on a thread and requires <paramref name="minimum"/>.
+    /// Resolves the caller's live role on a thread and requires <paramref name="minimum"/>. A thread
+    /// the caller's tenant does not reach answers like an unknown one.
     /// </summary>
-    internal static async Task<(NhAssistantThreadAccess? Access, string? ActorId, IResult? Error)> ResolveThreadAsync(
+    internal static async Task<(NhAssistantThreadAccess? Access, string? ActorId, IResult? Error, string? TenantId)> ResolveThreadAsync(
         HttpContext httpContext,
         Guid conversationId,
         NhAssistantThreadService threads,
@@ -902,24 +928,24 @@ internal static class NhAssistantAgentRunEndpoints
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
         {
-            return (null, null, NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable());
+            return (null, null, NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable(), null);
         }
 
-        // A hidden shadow thread, and a thread of the whole application kept from a caller bound to a
-        // tenant, is checked before access, which records participants.
+        // A hidden shadow thread, and a thread of another tenant than the caller's, is checked before
+        // access, which records participants.
         var access = await IsHiddenAsync(httpContext, conversationId, caller.Data!.TenantId)
             ? null
             : await threads.ResolveAccessAsync(conversationId, caller.Data!.ActorId, null, httpContext.RequestAborted);
         if (access is null)
         {
-            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ConversationNotFound));
+            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ConversationNotFound), null);
         }
         if (access.Role < minimum)
         {
-            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectAccessDenied));
+            return (null, null, NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectAccessDenied), null);
         }
 
-        return (access, caller.Data.ActorId, null);
+        return (access, caller.Data.ActorId, null, caller.Data.TenantId);
     }
 
     /// <summary>
@@ -953,15 +979,14 @@ internal static class NhAssistantAgentRunEndpoints
     }
 
     /// <summary>
-    /// Reads the agent and subject of a request about an agent's thread. The whole application reads
-    /// as unknown to a caller bound to a tenant that the single-tenant mode does not name
-    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// Reads the agent and subject of a request about an agent's thread. Whether the caller's tenant
+    /// reaches the subject follows from its description
+    /// (<see cref="NhAssistantSubjectAccessService.DescribeForAsync"/>).
     /// </summary>
     internal static bool TryReadSubject(
         string? agentId,
         string? subjectType,
         string? subjectId,
-        string? tenantId,
         NhAssistantRegistrationState registration,
         NhAssistantSubjectAccessService subjects,
         out NhAiSubjectRef? subject,
@@ -988,14 +1013,7 @@ internal static class NhAssistantAgentRunEndpoints
             return false;
         }
 
-        var read = new NhAiSubjectRef(subjectType!, subjectId);
-        if (NhAssistantWholeApplicationTenancy.KeepsOut(registration, read, tenantId))
-        {
-            error = NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
-            return false;
-        }
-
-        subject = read;
+        subject = new NhAiSubjectRef(subjectType!, subjectId);
         return true;
     }
 

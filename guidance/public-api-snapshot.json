@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "27c63569cd45ec136629053d2572c00089339c50cb31cdb6bdd8db8b8b6cb0a4",
-    "declarationCount": 11203,
+    "hash": "1aa8649e2da944f96c7befb47b657569390720af088c248efec74dc46b7c2fac",
+    "declarationCount": 11210,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4367,6 +4367,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public NhAssistantTenantBinding? Tenant { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>( TEvent evt, CancellationToken cancellationToken = default)"
       },
       {
@@ -4723,7 +4727,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantObjectAgents.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantObjectAgentsDto>> ListAsync( NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<NhAssistantObjectAgentsDto>> ListAsync( NhAiSubjectRef subject, string actorId, string? tenantId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
@@ -5067,7 +5071,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
-        "declaration": "public async Task<TaskResult<int>> ForgetSubjectAsync( NhAiSubjectRef subject, CancellationToken cancellationToken = default)"
+        "declaration": "[Obsolete(\"Forgets the subject in every tenant and division. Pass the scope key its resolver described before the deletion.\")] public async Task<TaskResult<int>> ForgetSubjectAsync( NhAiSubjectRef subject, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
+        "declaration": "public async Task<TaskResult<int>> ForgetSubjectAsync( NhAiSubjectRef subject, string scopeKey, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
@@ -5091,11 +5099,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync( NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, string? agentId = null, CancellationToken cancellationToken = default)"
+        "declaration": "[Obsolete(\"Compares no tenant. Pass the person with their tenant.\")] public Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync( NhAiSubjectRef subject, string actorId, ClaimsPrincipal user, string? agentId = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync( string subjectType, IReadOnlyCollection<string> subjectIds, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync( NhAiSubjectRef subject, NhAssistantDecidingPerson person, string? agentId = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
+        "declaration": "[Obsolete(\"Compares no tenant. Pass the person with their tenant.\")] public Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync( string subjectType, IReadOnlyCollection<string> subjectIds, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
+        "declaration": "public Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync( string subjectType, IReadOnlyCollection<string> subjectIds, NhAssistantDecidingPerson person, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSystemSubject.cs",
@@ -20847,7 +20863,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false, IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null, IReadOnlyCollection<Guid>? visibleConversationIds = null)"
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken, bool includeShadow = false, IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null, IReadOnlyCollection<Guid>? visibleConversationIds = null, NhAssistantTenantBinding? tenant = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -20968,6 +20984,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public string Status { get; init; } = NhAssistantApprovalStatuses.Pending;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public string? TenantId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -21635,6 +21655,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
+        "declaration": "public NhAssistantTenantBinding? AskerTenant { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
         "declaration": "public NhAssistantConsultationAsker? Asker { get; init; }"
       },
       {
@@ -22027,6 +22051,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async ValueTask<NhAiSubjectInfo?> DescribeForAsync( NhAiSubjectRef subject, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
         "declaration": "public async ValueTask<NhAiSubjectAccess> ResolveAsync( NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken) {"
       },
       {
@@ -22083,11 +22111,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
-        "declaration": "public static bool KeepsOut(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId) {"
+        "declaration": "public static bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject, string? tenantId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
-        "declaration": "public static bool KeepsOut(NhAssistantRegistrationState registration, NhAiSubjectRef subject, string? tenantId) {"
+        "declaration": "public bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",

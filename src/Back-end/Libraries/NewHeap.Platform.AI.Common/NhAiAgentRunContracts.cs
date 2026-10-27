@@ -432,16 +432,33 @@ public interface INhAiArtifacts
 /// <summary>
 /// Removes what the AI packages keep about a subject when the application deletes or anonymizes
 /// it: agent threads with their messages, proposals, runs, working memory and member snapshot.
-/// Call it after the subject's own deletion committed.
+/// Call it after the subject's own deletion committed, with the scope key its resolver described
+/// (<see cref="NhAiSubjectInfo.ScopeKey"/>), captured before the deletion.
 /// </summary>
 public interface INhAiSubjectRetention
 {
     /// <summary>
-    /// Cancels the subject's active agent runs and deletes its threads. Returns the number of
-    /// deleted threads.
+    /// Cancels the subject's active agent runs and deletes its threads in every scope: an equal
+    /// subject id of another tenant or division loses its threads too. Returns the number of deleted
+    /// threads.
     /// </summary>
+    [Obsolete("Forgets the subject in every tenant and division, also another tenant's subject with the same id. Pass the scope key its resolver described before the deletion: ForgetSubjectAsync(subject, scopeKey). Only subject ids that are unique across tenants and divisions are safe here.")]
     Task<TaskResult<int>> ForgetSubjectAsync(
         NhAiSubjectRef subject,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cancels the subject's active agent runs in <paramref name="scopeKey"/> and deletes its threads
+    /// there; threads of an equal subject id in another tenant or division stay, and their runs go on.
+    /// Returns the number of deleted threads.
+    /// </summary>
+    /// <param name="subject">The subject the application deleted.</param>
+    /// <param name="scopeKey">The scope key the subject's resolver described
+    /// (<see cref="NhAiSubjectInfo.ScopeKey"/>, for example from <see cref="NhAiSubjectInfo.CreateScopeKey"/>),
+    /// captured before the deletion.</param>
+    Task<TaskResult<int>> ForgetSubjectAsync(
+        NhAiSubjectRef subject,
+        string scopeKey,
         CancellationToken cancellationToken = default);
 }
 

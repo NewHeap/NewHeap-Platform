@@ -306,10 +306,12 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         BaseDbEntityServiceOperationOptions? options = null)
     {
         await using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
-        var projectKey = await _repository.GetAll()
+        // The key for the event and the division for the scope the project's agent threads live in,
+        // both read before the project is gone.
+        var deleted = await _repository.GetAll()
             .AsNoTracking()
             .Where(project => project.Id == id)
-            .Select(project => project.Key)
+            .Select(project => new { project.Key, project.DivisionId })
             .SingleOrDefaultAsync(cancellationToken);
 
         var result = await base.DeleteAsync(id, committedByUserId, cancellationToken, options);
@@ -321,15 +323,20 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         await _eventPublisher.PublishAsync(new ProjectDeletedEvent
         {
             ProjectId = id,
-            ProjectKey = projectKey ?? ""
+            ProjectKey = deleted?.Key ?? ""
         });
         await transaction.CommitAsync(cancellationToken);
 
         // SPM-276: the agent threads of a deleted project, with their memory and files, go too,
-        // once the deletion committed; a caller that owns the transaction forgets them itself.
-        if (_subjectRetention is not null && transaction.IsMyTransaction)
+        // once the deletion committed; a caller that owns the transaction forgets them itself. The
+        // scope key is the one the resolver described the project with, so only this project's threads
+        // go, never those of an equal id in another scope.
+        if (_subjectRetention is not null && transaction.IsMyTransaction && deleted is not null)
         {
-            await _subjectRetention.ForgetSubjectAsync(ProjectSubjects.For(id), cancellationToken);
+            await _subjectRetention.ForgetSubjectAsync(
+                ProjectSubjects.For(id),
+                ProjectSubjects.ScopeKeyOf(deleted.DivisionId),
+                cancellationToken);
         }
         return result;
     }

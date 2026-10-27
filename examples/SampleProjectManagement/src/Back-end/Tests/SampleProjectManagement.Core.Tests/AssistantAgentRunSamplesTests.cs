@@ -4301,11 +4301,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains("Noted the intake checks.", continuity);
             Assert.Contains(note.Name + " v1", continuity);
 
-            // Deleting the project deletes its agent thread with the memory and the note.
+            // Deleting the project deletes its agent thread with the memory and the note, in the scope
+            // the resolver described the project with: its runs are gone, not only out of reach.
             await using (var scope = host.Services.CreateAsyncScope())
             {
                 var deleted = await scope.ServiceProvider.GetRequiredService<ProjectService>().DeleteAsync(project);
                 Assert.True(deleted.Success);
+                Assert.Null(await scope.ServiceProvider.GetRequiredService<INhAssistantAgentRunLookup>().FindRunAsync(firstRun.Id));
             }
             var gone = await owner.GetAsync($"/api/assistant/threads/{conversationId}/runs");
             Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);

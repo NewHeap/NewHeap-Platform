@@ -151,6 +151,26 @@ internal sealed class NhAssistantSubjectAccessService(
         return info;
     }
 
+    /// <summary>
+    /// The subject as its resolver describes it, for a caller bound to <paramref name="tenantId"/>:
+    /// <see langword="null"/> when it is unknown or the caller's tenant does not reach it
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>), so a subject of another tenant, and the whole
+    /// application for a caller who takes no part in it, read as unknown.
+    /// </summary>
+    public async ValueTask<NhAiSubjectInfo?> DescribeForAsync(
+        NhAiSubjectRef subject,
+        string? tenantId,
+        CancellationToken cancellationToken)
+    {
+        var info = await DescribeAsync(subject, cancellationToken);
+        if (info is null || !NhAssistantWholeApplicationTenancy.Reaches(registration, info, tenantId))
+        {
+            return null;
+        }
+
+        return info;
+    }
+
     public async ValueTask<NhAiSubjectAccess> ResolveAsync(
         NhAiSubjectRef subject,
         string actorId,

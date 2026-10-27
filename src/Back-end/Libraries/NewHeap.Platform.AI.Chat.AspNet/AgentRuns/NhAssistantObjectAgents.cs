@@ -13,8 +13,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// that the one rule of what agents work on lets work on the subject, scope included, whose required
 /// policy the person passes, and, for administrators only, shadow variants. Per agent its newest run
 /// with the beginning of its result, its open proposals, and whether the person may run it now by
-/// the rule of manual starts (K9). The person needs a role on the subject; work in shadow threads
-/// counts for administrators only.
+/// the rule of manual starts (K9). The person needs a role on the subject, and the subject must be in
+/// the person's tenant (<see cref="NhAssistantWholeApplicationTenancy"/>); work in shadow threads counts
+/// for administrators only.
 /// </summary>
 internal sealed class NhAssistantObjectAgents(
     NhAssistantRegistrationState registration,
@@ -25,9 +26,13 @@ internal sealed class NhAssistantObjectAgents(
     NhAssistantWorksOnRule worksOn,
     NhAssistantManualStarts starts)
 {
+    /// <param name="tenantId">The person's tenant, <see langword="null"/> for a person without one: a
+    /// subject of another tenant, and the whole application for a person bound to a tenant that takes no
+    /// part in it, is unknown.</param>
     public async Task<TaskResult<NhAssistantObjectAgentsDto>> ListAsync(
         NhAiSubjectRef subject,
         string actorId,
+        string? tenantId,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
@@ -38,7 +43,7 @@ internal sealed class NhAssistantObjectAgents(
             return TaskResult<NhAssistantObjectAgentsDto>.Failed(NhAssistantErrorCodes.SubjectTypeUnknown, "The subject type is not registered.");
         }
 
-        var info = await subjects.DescribeAsync(subject, cancellationToken);
+        var info = await subjects.DescribeForAsync(subject, tenantId, cancellationToken);
         var access = info is null ? NhAiSubjectAccess.None : await subjects.ResolveAsync(subject, actorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
@@ -48,9 +53,11 @@ internal sealed class NhAssistantObjectAgents(
         var administrator = await agentAccess.CanAdministerAsync(user);
         var candidates = await CandidatesAsync(subject, actorId, user, administrator, cancellationToken);
 
-        // The threads of the subject in its scope; shadow threads are for administrators only.
+        // The threads of the subject in its scope and the person's tenant; shadow threads are for
+        // administrators only.
         var threads = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
             .Where(thread => string.Equals(thread.ScopeKey, info.ScopeKey, StringComparison.Ordinal)
+                && NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
                 && (administrator || !thread.Shadow)
                 && candidates.Any(agent => string.Equals(agent.Id, thread.AgentId, StringComparison.Ordinal)))
             .ToArray();

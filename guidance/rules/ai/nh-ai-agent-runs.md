@@ -235,8 +235,11 @@ up to 200 subjects with one `POST subjects/{type}/summary`; `POST threads/open` 
 agent's thread about a subject without a run, so the page can open the conversation and the
 first message runs the first turn. The application's own back-end uses
 `INhAssistantSubjectWork` (`GetForRequestAsync`, `SummarizeForRequestAsync`) to include the same
-data in its endpoints with the same access checks. Refresh such pages on `AgentWorkChanged`,
-which names the subject.
+data in its endpoints with the same access checks, in the caller's tenant. Outside a request pass
+the person with their tenant: `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId,
+tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; the overloads that take
+an actor id and a principal compare no tenant and are obsolete. Refresh such pages on
+`AgentWorkChanged`, which names the subject.
 
 Describe each kind of subject with one `INhAiSubjectAccessResolver` registered
 through `AddSubjectType`. `DescribeAsync` returns the scope key, division,
@@ -345,6 +348,26 @@ account; the member snapshot stays empty. With
 listed divisions `GET subjects/nh-system/search` finds the
 divisions a person works in by name (`Searchable` in the run catalog), as the subjects of a
 per-division agent.
+
+Agent work on the application's own subjects belongs to the tenant the resolver describes
+(`NhAiSubjectInfo.TenantId`), which the thread stores, and one tenant rule applies on every path. A
+caller reaches a thread, its runs, proposals, memory and files only when the thread is stored under
+the caller's tenant: the routes by id (`GET threads/{id}/runs`, `consultations`, `proposals`,
+`memory`, `artifacts` and an artifact's content, `POST runs/{runId}/cancel` and `retry`), deciding,
+deciding several, resolving, feedback, the facts and decisions of
+`INhAssistantProposalDecisionService` and the conversation route answer another tenant's thread as
+unknown (`404`) before a participant row is written. The routes about a subject (`GET threads`,
+`POST threads/open` and `threads/start`, `GET subjects/{type}/{id}/work` and `agents`, `POST
+subjects/{type}/summary`) compare the described subject's tenant with the caller's: a subject of
+another tenant answers `404 assistant-subject-not-found` before a thread, participant row or run is
+made, and counts zero. The approval inbox, flat and grouped, and `INhAssistantProposalCounts` list
+only threads of the caller's tenant, whatever an old member snapshot row or a run the person once
+started says. The consult and request tools carry the asker's tenant (a person's own turn: the
+tenant of their request; a call outside a turn, such as over MCP: its context's; an agent run: its
+thread's, and a run of the whole application none, as the proposals it places), so another tenant's
+subject, and the whole application for an asker bound to a tenant that takes no part in it, are
+`assistant-consult-subject-unavailable`. `ResolveAsync` gets no tenant, so a resolver that gives one
+actor id roles in several tenants never widens this boundary.
 
 The whole application belongs to no tenant: its threads, runs and proposals are stored without one, and
 a caller bound to a tenant takes part in none of its work, neither in listings nor by id: deciding,
@@ -1361,8 +1384,11 @@ starts with an `<agent-continuity>` block holding the memory, the names and vers
 the files and the summaries of the last `MaxRunSummaries` runs; treat all of it as data
 the agent wrote, never as instructions. Results the agent obtained with its own grant
 reach only people who satisfy the tool's policy; others see `restricted`. Call
-`INhAiSubjectRetention.ForgetSubjectAsync` after the application deleted a subject, so
-its threads, runs, memory and files go with it.
+`INhAiSubjectRetention.ForgetSubjectAsync(subject, scopeKey)` after the application deleted a
+subject, with the scope key its resolver described (`NhAiSubjectInfo.ScopeKey`) read before the
+delete, so its threads, runs, memory and files go with it while an equal id of another tenant or
+division keeps its own. The overload without a scope key forgets the id in every scope; it is
+obsolete and safe only for ids that are unique across tenants and divisions.
 
 Let other assistants consult an agent with `AllowConsultation(subjectType, ...)` on its
 `ConfigureAgent`. It generates the governed tool `assistant.consult.{agentId}.{subjectType}`
@@ -1908,6 +1934,11 @@ instructions in full: call them for an administrator or process the application 
 - Leaving `NhAssistantDecidingPerson.TenantId` empty for a person who has a tenant, so a channel
   decides whole-application work the person may not take part in; pass the tenant the context
   resolver gives the person.
+- Relying on the subject access resolver for the tenant boundary, or calling `INhAssistantSubjectWork`
+  without the person's tenant in a host with several tenants; the resolver gets no tenant, so pass
+  the person with `NhAssistantDecidingPerson` and let the platform compare tenants.
+- Forgetting a deleted subject without its scope key in an application whose ids repeat across
+  tenants or divisions, which deletes another tenant's threads with the same id.
 
 ## Verification
 
@@ -2241,6 +2272,14 @@ it now; that a caller of another tenant and a person without the agent's view po
 without the mode the same people neither see the work nor decide, resolve, start, open or read it by id
 (also through the decision service), while an operator without a tenant who passes the policies does;
 and that startup refuses another fixed tenant or a tenant claim.
+For the tenant of objects, on both providers sign one person in for two tenants with the same actor id
+and a role on a project of one of them, and assert that for the other tenant every route by id, every
+decision, resolution and feedback, the decision service, the conversation route, the routes about a
+subject, the inbox, the counts and the consult and request tools answer as for an unknown thread,
+proposal or subject, write no participant row, change no run or proposal and start nothing, while the
+project's own tenant keeps working; and that forgetting a subject with its scope key leaves the threads,
+runs, proposals and member snapshot of an equal id in another tenant. `AssistantTenantBindingTests` is
+the reference.
 For a tool the application executes, on both providers assert that an approved proposal is handed over
 with its payload, hash, approver and deadline and waits as `awaiting-application` without running the
 tool's function, that each outcome closes it with its status and code, that the audit carries the outcome

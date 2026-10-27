@@ -479,14 +479,14 @@ public sealed class AssistantAgentRuntimeOverrideTests(AssistantDatabaseFixture 
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantSubjectWork>()
-            .GetAsync(new NhAiSubjectRef("project", projectId.ToString("N")), actorId, Principal(actorId, administrator));
+            .GetAsync(new NhAiSubjectRef("project", projectId.ToString("N")), new NhAssistantDecidingPerson(Principal(actorId, administrator), actorId));
     }
 
     private static async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummaryAsync(AssistantTestHost host, Guid projectId, string actorId, bool administrator)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantSubjectWork>()
-            .SummarizeAsync("project", [projectId.ToString("N")], actorId, Principal(actorId, administrator));
+            .SummarizeAsync("project", [projectId.ToString("N")], new NhAssistantDecidingPerson(Principal(actorId, administrator), actorId));
     }
 
     private static async Task<bool> HiddenAsync(AssistantTestHost host, AssistantThread thread, bool administrator)

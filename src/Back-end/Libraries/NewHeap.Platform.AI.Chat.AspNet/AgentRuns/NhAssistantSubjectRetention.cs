@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -8,7 +9,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Forgets a subject: its active runs are cancelled through their background operations, then
-/// its threads and everything in them are deleted.
+/// its threads and everything in them are deleted, in the scope the application names.
 /// </summary>
 internal sealed class NhAssistantSubjectRetention(
     NhAssistantRunStore runs,
@@ -17,12 +18,35 @@ internal sealed class NhAssistantSubjectRetention(
 {
     internal const string RetentionActorId = "system:subject-retention";
 
+    [Obsolete("Forgets the subject in every tenant and division. Pass the scope key its resolver described before the deletion.")]
     public async Task<TaskResult<int>> ForgetSubjectAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(subject);
         var threads = await runs.FindThreadsBySubjectAsync(subject, cancellationToken);
+        return await ForgetAsync(subject, threads, cancellationToken);
+    }
+
+    public async Task<TaskResult<int>> ForgetSubjectAsync(
+        NhAiSubjectRef subject,
+        string scopeKey,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeKey);
+
+        // Only the forgotten subject's own scope: an equal id of another tenant or division is
+        // another subject, whose threads and runs stay.
+        var threads = await runs.FindThreadsForSubjectAsync(scopeKey, subject, cancellationToken);
+        return await ForgetAsync(subject, threads, cancellationToken);
+    }
+
+    private async Task<TaskResult<int>> ForgetAsync(
+        NhAiSubjectRef subject,
+        IReadOnlyList<AssistantThread> threads,
+        CancellationToken cancellationToken)
+    {
         foreach (var thread in threads)
         {
             foreach (var run in await runs.GetOpenRunsAsync(thread.ConversationId, cancellationToken))

@@ -567,7 +567,8 @@ internal sealed class NhAssistantConsultationToolHandler(
                 asker,
                 requestPrincipal is not null,
                 CultureInfo.CurrentUICulture.Name,
-                new NhAssistantConsultationViewer(services, registration, options, request.SubjectId.Trim(), asker, requestPrincipal)),
+                new NhAssistantConsultationViewer(services, registration, options, request.SubjectId.Trim(), asker, requestPrincipal),
+                AskerTenantOf(context)),
             cancellationToken);
     }
 
@@ -595,10 +596,13 @@ internal sealed class NhAssistantConsultationToolHandler(
                 "The subject does not exist or you may not ask the agent about it.");
         }
 
+        // A subject of another tenant than the asker's, and the whole application for an asker bound
+        // to a tenant that takes no part in it, is unknown, as for a consultation.
         var subject = new NhAiSubjectRef(options.SubjectType, subjectId);
+        var tenant = AskerTenantOf(context);
         var access = await subjects.ResolveAsync(subject, asker, cancellationToken);
-        if (!access.Has(NhAiSubjectRole.Participant)
-            || await subjects.DescribeAsync(subject, cancellationToken) is null)
+        var info = access.Has(NhAiSubjectRole.Participant) ? await subjects.DescribeAsync(subject, cancellationToken) : null;
+        if (info is null || (tenant is not null && !tenant.Reaches(registration, info)))
         {
             await events.RequestAsync(options.AgentId, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable, null, null, CancellationToken.None);
             return TaskResult<NhAssistantAgentRequestReceipt>.Failed(
@@ -624,7 +628,10 @@ internal sealed class NhAssistantConsultationToolHandler(
                 NhAssistantContent.Bound(request.Message.Trim(), registration.Limits.MaxMessageChars),
                 context.IdempotencyKey ?? context.InvocationId.ToString("N"),
                 NhAssistantTriggerConflict.Queue,
-                TimeSpan.Zero),
+                TimeSpan.Zero)
+            {
+                Tenant = tenant
+            },
             cancellationToken);
         var rejected = receipt.Outcome == NhAssistantTriggerOutcomes.Rejected;
         await events.RequestAsync(
@@ -644,6 +651,37 @@ internal sealed class NhAssistantConsultationToolHandler(
 
         return TaskResult<NhAssistantAgentRequestReceipt>.Succeeded(
             new NhAssistantAgentRequestReceipt(receipt.Outcome, receipt.RunId, receipt.ConversationId));
+    }
+
+    /// <summary>
+    /// The tenant the asker's consultation or request is bound to. A person's own turn has the tenant
+    /// of the person's request, and a call outside a turn, such as an MCP call, the tenant of its
+    /// context; a consultation within a consultation keeps the first asker's. An agent run works in
+    /// its subject's tenant, as the proposals it places do: a run bound to a tenant reaches only that
+    /// tenant. A run of the whole application, stored without a tenant, is bound to none, as it places
+    /// at objects of any tenant.
+    /// </summary>
+    private static NhAssistantTenantBinding? AskerTenantOf(NhAiInvocationContext context)
+    {
+        // A consulted agent that consults in turn asks for the same person, in the same tenant.
+        if (NhAssistantExecutionScope.CurrentTurn?.Consultation is { } consultation)
+        {
+            return consultation.AskerTenant;
+        }
+
+        if (NhAiAgentInvocationScopes.Current is { } scope)
+        {
+            return scope.Subject.TenantId is null && NhAiSystemSubjects.IsSystem(scope.Subject.Subject)
+                ? null
+                : new NhAssistantTenantBinding(scope.Subject.TenantId);
+        }
+
+        if (NhAssistantExecutionScope.CurrentTurn is { } turn)
+        {
+            return new NhAssistantTenantBinding(turn.TenantId);
+        }
+
+        return new NhAssistantTenantBinding(context.TenantId);
     }
 
     /// <summary>

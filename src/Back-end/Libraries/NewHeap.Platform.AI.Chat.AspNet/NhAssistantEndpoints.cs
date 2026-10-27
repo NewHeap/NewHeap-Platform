@@ -793,10 +793,11 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             {
                 return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
             }
-            // A caller bound to a tenant that the single-tenant mode does not name is kept from the
-            // whole application's threads, also before access records the caller as a participant. The
-            // store below lets the single tenant's people reach them although they are stored without one.
-            if (NhAssistantWholeApplicationTenancy.KeepsOut(
+            // A thread of another tenant than the caller's, and the whole application's for a caller
+            // bound to a tenant that the single-tenant mode does not name, answers like one that does not
+            // exist, also before access records the caller as a participant. The store below applies the
+            // same rule to the conversation.
+            if (!NhAssistantWholeApplicationTenancy.Reaches(
                     services.GetRequiredService<NhAssistantRegistrationState>(),
                     thread,
                     caller.TenantId))

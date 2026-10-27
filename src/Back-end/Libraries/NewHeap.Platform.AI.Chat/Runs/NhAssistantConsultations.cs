@@ -37,6 +37,10 @@ internal interface INhAssistantConsultationViewer
 /// </summary>
 /// <param name="AskerActorId">The person whose rights the consultation uses.</param>
 /// <param name="AskerInRequest">The asker's own HTTP request is the current request.</param>
+/// <param name="AskerTenant">The tenant the asker works in: a subject it does not reach
+/// (<see cref="NhAssistantWholeApplicationTenancy"/>) is unknown to the consultation.
+/// <see langword="null"/> binds none, for a run of the whole application, which reaches objects of any
+/// tenant as its placement does.</param>
 internal sealed record NhAssistantConsultationRequest(
     NhAssistantConsultationOptions Options,
     string SubjectId,
@@ -44,7 +48,8 @@ internal sealed record NhAssistantConsultationRequest(
     string AskerActorId,
     bool AskerInRequest,
     string Language,
-    INhAssistantConsultationViewer Viewer);
+    INhAssistantConsultationViewer Viewer,
+    NhAssistantTenantBinding? AskerTenant);
 
 /// <summary>
 /// The consultation side of a consult turn: who asked through which agents, how deep the chain is
@@ -71,6 +76,11 @@ internal sealed record NhAssistantConsultationScope(
     /// The person whose rights the consultation uses.
     /// </summary>
     public string AskerActorId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The tenant the asker works in, which a consultation the consulted agent asks for in turn keeps.
+    /// </summary>
+    public NhAssistantTenantBinding? AskerTenant { get; init; }
 
     /// <summary>
     /// The asking turn that can wait for its person's decision (CP9): a person's own turn in their own
@@ -294,6 +304,7 @@ internal sealed class NhAssistantConsultationService(
         {
             Routing = routing,
             AskerActorId = request.AskerActorId,
+            AskerTenant = request.AskerTenant,
             Asker = asker
         };
         var agentTurn = new NhAssistantAgentTurnContext(
@@ -453,9 +464,12 @@ internal sealed class NhAssistantConsultationService(
             return SubjectUnavailable();
         }
 
+        // A subject of another tenant than the asker's, and the whole application for an asker bound to
+        // a tenant that takes no part in it, is unknown, as it is to the asker's own reads.
         var subjectRef = new NhAiSubjectRef(options.SubjectType, subjectId);
         var subject = await subjects.DescribeAsync(subjectRef, cancellationToken);
-        if (subject is null)
+        if (subject is null
+            || (request.AskerTenant is { } tenant && !tenant.Reaches(registration, subject)))
         {
             return SubjectUnavailable();
         }
@@ -486,6 +500,13 @@ internal sealed class NhAssistantConsultationService(
         if (!thread.Success)
         {
             return Refused(NhAssistantErrorCodes.ConsultAgentUnavailable, "The agent cannot be consulted about this subject.");
+        }
+        // A thread stored under another tenant than the subject's description now names stays out of
+        // the asker's reach, as its conversation does.
+        if (request.AskerTenant is { } bound
+            && !NhAssistantWholeApplicationTenancy.Reaches(registration, thread.Data!, bound.TenantId))
+        {
+            return SubjectUnavailable();
         }
         if (thread.Data!.MembersRefreshedAt is null)
         {

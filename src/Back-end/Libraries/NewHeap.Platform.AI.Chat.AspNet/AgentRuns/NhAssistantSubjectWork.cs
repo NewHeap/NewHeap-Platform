@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -12,16 +11,18 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// The agent work on an application's own subjects, such as projects, for the application's back-end:
 /// everything on one subject for a detail page and counts for many subjects for a list. It applies
 /// the same access rules as the assistant endpoints: the subject access resolver decides live whether
-/// the caller sees a subject, the approval policies decide live who may decide a proposal, and list
-/// counts follow the member snapshot like the approval inbox.
+/// the caller sees a subject, the approval policies decide live who may decide a proposal, list
+/// counts follow the member snapshot like the approval inbox, and the person's tenant bounds both like
+/// every read of agent work.
 /// </summary>
 public interface INhAssistantSubjectWork
 {
     /// <summary>
     /// The agents with a thread on the subject, and <paramref name="agentId"/> when given, with their
-    /// open proposals and the caller's decision right on each. Fails with
-    /// <c>assistant-subject-not-found</c> when the subject is unknown or the caller has no role on it.
+    /// open proposals and the caller's decision right on each. Compares no tenant: the application
+    /// vouches that the subject is in the caller's tenant.
     /// </summary>
+    [Obsolete("Compares no tenant, so a subject of another tenant is read as well. Pass the person with their tenant: GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId).")]
     Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync(
         NhAiSubjectRef subject,
         string actorId,
@@ -30,21 +31,51 @@ public interface INhAssistantSubjectWork
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Open proposals, the proposals the caller may decide and active runs for at most 200 subjects
-    /// of one type, in one query.
+    /// The agents with a thread on the subject, and <paramref name="agentId"/> when given, with their
+    /// open proposals and the decision right of <paramref name="person"/> on each. Fails with
+    /// <c>assistant-subject-not-found</c> when the subject is unknown, the person has no role on it, or
+    /// it is described in another tenant than the person's
+    /// (<see cref="NhAssistantDecidingPerson.TenantId"/>; the whole application only for a person without
+    /// a tenant or of the single-tenant mode's tenant).
     /// </summary>
+    /// <param name="person">The person, as the application authenticated them, with their tenant.</param>
+    Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync(
+        NhAiSubjectRef subject,
+        NhAssistantDecidingPerson person,
+        string? agentId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Open proposals, the proposals the caller may decide and active runs for at most 200 subjects
+    /// of one type, in one query. Compares no tenant: an equal subject id of another tenant counts too.
+    /// </summary>
+    [Obsolete("Compares no tenant, so an equal subject id of another tenant counts too. Pass the person with their tenant: SummarizeAsync(subjectType, subjectIds, new NhAssistantDecidingPerson(user, actorId, tenantId)).")]
     Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
         string subjectType,
         IReadOnlyCollection<string> subjectIds,
         string actorId,
         ClaimsPrincipal user,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Open proposals, the proposals <paramref name="person"/> may decide and active runs for at most
+    /// 200 subjects of one type, in one query, counting only the threads of the person's tenant: an
+    /// equal subject id of another tenant counts zero, and so does the whole application for a person
+    /// bound to a tenant that takes no part in it.
+    /// </summary>
+    /// <param name="person">The person, as the application authenticated them, with their tenant.</param>
+    Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
+        string subjectType,
+        IReadOnlyCollection<string> subjectIds,
+        NhAssistantDecidingPerson person,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// Reads the agent work on a subject for the caller of the current request. The whole application
-/// reads as unknown to a caller bound to a tenant, unless the single-tenant mode (<c>UseSingleTenant</c>)
-/// names exactly that tenant; its counts are zero.
+/// Reads the agent work on a subject for the caller of the current request, in the caller's tenant: a
+/// subject of another tenant reads as unknown and counts zero, and so does the whole application for a
+/// caller bound to a tenant, unless the single-tenant mode (<c>UseSingleTenant</c>) names exactly that
+/// tenant.
 /// </summary>
 public static class NhAssistantSubjectWorkExtensions
 {
@@ -62,12 +93,8 @@ public static class NhAssistantSubjectWorkExtensions
         {
             return TaskResult<NhAssistantSubjectWorkDto>.Failed(NhAssistantErrorCodes.ContextUnavailable, "The caller is not available.");
         }
-        if (NhAssistantWholeApplicationTenancy.KeepsOut(RegistrationOf(httpContext), subject, caller.Data!.TenantId))
-        {
-            return TaskResult<NhAssistantSubjectWorkDto>.Failed(NhAssistantErrorCodes.SubjectNotFound, "The subject was not found.");
-        }
 
-        return await work.GetAsync(subject, caller.Data!.ActorId, httpContext.User, agentId, httpContext.RequestAborted);
+        return await work.GetAsync(subject, PersonOf(httpContext, caller.Data!), agentId, httpContext.RequestAborted);
     }
 
     public static async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeForRequestAsync(
@@ -84,28 +111,12 @@ public static class NhAssistantSubjectWorkExtensions
             return TaskResult<NhAssistantSubjectSummaryListDto>.Failed(NhAssistantErrorCodes.ContextUnavailable, "The caller is not available.");
         }
 
-        var summary = await work.SummarizeAsync(subjectType, subjectIds, caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
-        if (summary.Success
-            && NhAssistantWholeApplicationTenancy.KeepsOut(
-                RegistrationOf(httpContext),
-                new NhAiSubjectRef(subjectType, NhAiSystemSubjects.GlobalId),
-                caller.Data.TenantId))
-        {
-            // The caller sees none of the whole application's work: every subject counts zero.
-            return TaskResult<NhAssistantSubjectSummaryListDto>.Succeeded(summary.Data! with
-            {
-                Items = summary.Data.Items
-                    .Select(item => new NhAssistantSubjectSummaryDto(item.SubjectId, 0, 0, false))
-                    .ToArray()
-            });
-        }
-
-        return summary;
+        return await work.SummarizeAsync(subjectType, subjectIds, PersonOf(httpContext, caller.Data!), httpContext.RequestAborted);
     }
 
-    private static NhAssistantRegistrationState RegistrationOf(HttpContext httpContext)
+    private static NhAssistantDecidingPerson PersonOf(HttpContext httpContext, NhAiInvocationContext caller)
     {
-        return httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>();
+        return new NhAssistantDecidingPerson(httpContext.User, caller.ActorId, caller.TenantId);
     }
 }
 
@@ -122,12 +133,58 @@ internal sealed class NhAssistantSubjectWork(
     public const int MaxSummarySubjects = 200;
     private const int MaxProposalsPerThread = 50;
 
-    public async Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync(
+    [Obsolete("Compares no tenant. Pass the person with their tenant.")]
+    public Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync(
         NhAiSubjectRef subject,
         string actorId,
         ClaimsPrincipal user,
         string? agentId = null,
         CancellationToken cancellationToken = default)
+    {
+        return GetCoreAsync(subject, actorId, user, null, agentId, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSubjectWorkDto>> GetAsync(
+        NhAiSubjectRef subject,
+        NhAssistantDecidingPerson person,
+        string? agentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        ArgumentException.ThrowIfNullOrWhiteSpace(person.ActorId, nameof(person));
+        return GetCoreAsync(subject, person.ActorId, person.User, new NhAssistantTenantBinding(person.TenantId), agentId, cancellationToken);
+    }
+
+    [Obsolete("Compares no tenant. Pass the person with their tenant.")]
+    public Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
+        string subjectType,
+        IReadOnlyCollection<string> subjectIds,
+        string actorId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default)
+    {
+        return SummarizeCoreAsync(subjectType, subjectIds, actorId, user, null, cancellationToken);
+    }
+
+    public Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
+        string subjectType,
+        IReadOnlyCollection<string> subjectIds,
+        NhAssistantDecidingPerson person,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        ArgumentException.ThrowIfNullOrWhiteSpace(person.ActorId, nameof(person));
+        return SummarizeCoreAsync(subjectType, subjectIds, person.ActorId, person.User, new NhAssistantTenantBinding(person.TenantId), cancellationToken);
+    }
+
+    /// <param name="tenant">The person's tenant; without a binding no tenant is compared.</param>
+    private async Task<TaskResult<NhAssistantSubjectWorkDto>> GetCoreAsync(
+        NhAiSubjectRef subject,
+        string actorId,
+        ClaimsPrincipal user,
+        NhAssistantTenantBinding? tenant,
+        string? agentId,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subject);
         ArgumentNullException.ThrowIfNull(user);
@@ -136,7 +193,13 @@ internal sealed class NhAssistantSubjectWork(
             return TaskResult<NhAssistantSubjectWorkDto>.Failed(NhAssistantErrorCodes.SubjectTypeUnknown, "The subject type is not registered.");
         }
 
+        // A subject of another tenant, and the whole application for a person bound to a tenant that
+        // takes no part in it, reads as unknown.
         var info = await subjects.DescribeAsync(subject, cancellationToken);
+        if (info is not null && tenant is not null && !tenant.Reaches(registration, info))
+        {
+            info = null;
+        }
         var access = info is null ? NhAiSubjectAccess.None : await subjects.ResolveAsync(subject, actorId, cancellationToken);
         if (info is null || access.Role == NhAiSubjectRole.None)
         {
@@ -144,9 +207,11 @@ internal sealed class NhAssistantSubjectWork(
         }
 
         var administrator = await agentAccess.CanAdministerAsync(user);
-        // Shadow threads, and every thread of a shadow variant, are for administrators only.
+        // Shadow threads, and every thread of a shadow variant, are for administrators only; a thread
+        // stored under another tenant than the person's stays out, as its conversation does.
         var visible = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
             .Where(thread => string.Equals(thread.ScopeKey, info.ScopeKey, StringComparison.Ordinal)
+                && (tenant is null || NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenant.TenantId))
                 && registration.AgentRuns.ContainsKey(thread.AgentId)
                 && IsVisible(thread.AgentId, administrator)
                 && (administrator || !thread.Shadow))
@@ -210,12 +275,14 @@ internal sealed class NhAssistantSubjectWork(
         });
     }
 
-    public async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
+    /// <param name="tenant">The person's tenant; without a binding no tenant is compared.</param>
+    private async Task<TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeCoreAsync(
         string subjectType,
         IReadOnlyCollection<string> subjectIds,
         string actorId,
         ClaimsPrincipal user,
-        CancellationToken cancellationToken = default)
+        NhAssistantTenantBinding? tenant,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subjectIds);
         ArgumentNullException.ThrowIfNull(user);
@@ -231,14 +298,23 @@ internal sealed class NhAssistantSubjectWork(
             return TaskResult<NhAssistantSubjectSummaryListDto>.Failed(NhAssistantErrorCodes.SubjectTypeUnknown, "The subject type is not registered.");
         }
 
+        var system = string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal);
+        if (system && tenant is not null && NhAssistantWholeApplicationTenancy.KeepsOut(registration, tenant.TenantId))
+        {
+            // The person takes no part in the whole application's work: every subject counts zero.
+            return TaskResult<NhAssistantSubjectSummaryListDto>.Succeeded(new NhAssistantSubjectSummaryListDto(
+                subjectType,
+                subjectIds.Select(id => new NhAssistantSubjectSummaryDto(id, 0, 0, false)).ToArray()));
+        }
+
         var administrator = await agentAccess.CanAdministerAsync(user);
         var hidden = registration.AgentRuns
             .Where(entry => !IsVisible(entry.Key, administrator))
             .Select(entry => entry.Key)
             .ToArray();
         // The whole application lists no members: the caller's live roles stand in for the snapshot,
-        // and only the threads of agents whose view policy the caller passes count.
-        var system = string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal);
+        // and only the threads of agents whose view policy the caller passes count. The application's
+        // own subjects count only in the person's tenant.
         var liveRoles = system ? await systemApprovers.RolesAsync(ids, actorId, cancellationToken) : null;
         var visibleThreads = system ? await systemApprovers.VisibleThreadsAsync(ids, actorId, cancellationToken) : null;
         var rows = (await runs.SummarizeSubjectsAsync(
@@ -249,7 +325,8 @@ internal sealed class NhAssistantSubjectWork(
                 cancellationToken,
                 includeShadow: administrator,
                 liveRoles: liveRoles,
-                visibleConversationIds: visibleThreads))
+                visibleConversationIds: visibleThreads,
+                tenant: tenant))
             .ToDictionary(row => row.SubjectId, StringComparer.Ordinal);
         var items = subjectIds
             .Select(id => rows.TryGetValue(id, out var row)

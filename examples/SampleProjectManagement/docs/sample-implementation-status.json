@@ -2272,7 +2272,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantArtifacts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentContinuityTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentContinuityTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
     ],
     "SPM-277": [
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
@@ -2338,7 +2340,8 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
-      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.html"
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.html",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
     ],
     "SPM-279": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
@@ -2389,7 +2392,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-badge/nh-assistant-subject-badge.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
     ],
     "SPM-281": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PartnerPortalSamplesTests.cs",
@@ -2812,7 +2816,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-subject-picker.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-runs.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-subjects.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
     ],
     "SPM-304": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
@@ -3237,7 +3242,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInboxStatusTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSystemMembersTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-agent-run.models.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
     ],
     "SPM-328": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",

@@ -186,8 +186,9 @@ internal sealed class NhAssistantProposalDecisions(
     /// idempotency key.
     /// </summary>
     /// <param name="tenantId">
-    /// The caller's tenant; a caller bound to a tenant that the single-tenant mode does not name finds
-    /// no proposal of the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// The caller's tenant, <see langword="null"/> for a caller without one: a proposal in a thread of
+    /// another tenant is unknown, as is one of the whole application for a caller bound to a tenant that
+    /// the single-tenant mode does not name (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </param>
     public Task<TaskResult<AssistantApproval>> DecideAsync(
         Guid approvalId,
@@ -233,7 +234,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
@@ -445,8 +446,8 @@ internal sealed class NhAssistantProposalDecisions(
     /// <see cref="DecideAsync(Guid, string, ClaimsPrincipal, bool, string?, string?, NhAssistantDecisionOrigin, CancellationToken, string?)"/>
     /// in the same order without their effects: an expired proposal is not closed and the proposal
     /// guards do not run, so a decision may still be refused as stale. A proposal the person may not
-    /// see is unknown, as for a decision, also one of the whole application for a person bound to a
-    /// tenant that the single-tenant mode does not name.
+    /// see is unknown, as for a decision: also one in a thread of another tenant, and one of the whole
+    /// application for a person bound to a tenant that the single-tenant mode does not name.
     /// </summary>
     public async Task<TaskResult<NhAssistantProposalDecisionFacts>> FactsAsync(
         Guid approvalId,
@@ -459,7 +460,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<NhAssistantProposalDecisionFacts>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
@@ -573,7 +574,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId)
+            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");

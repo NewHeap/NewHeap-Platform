@@ -43,8 +43,9 @@ internal sealed class NhAssistantProposalFeedbackService(
     }
 
     /// <param name="tenantId">
-    /// The person's tenant: a person bound to a tenant that the single-tenant mode does not name finds no
-    /// proposal of the whole application (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// The person's tenant, <see langword="null"/> for a person without one: a proposal in a thread of
+    /// another tenant is unknown, as is one of the whole application for a person bound to a tenant that
+    /// the single-tenant mode does not name (<see cref="NhAssistantWholeApplicationTenancy"/>).
     /// </param>
     public async Task<TaskResult<AssistantProposalFeedback>> GiveAsync(
         Guid approvalId,
@@ -69,7 +70,7 @@ internal sealed class NhAssistantProposalFeedbackService(
         if (approval is null
             || thread is null
             || actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal)
-            || NhAssistantWholeApplicationTenancy.KeepsOut(registration, thread, tenantId))
+            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId))
         {
             return TaskResult<AssistantProposalFeedback>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

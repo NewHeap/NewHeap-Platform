@@ -242,10 +242,11 @@ public sealed class AssistantAgentContinuityTests(AssistantDatabaseFixture datab
         var other = await StartAsync(host, Guid.NewGuid());
 
         int deleted;
+        var scopeKey = (await RunStore(host).FindThreadByConversationAsync(started.ConversationId!.Value, CancellationToken.None))!.ScopeKey;
         await using (var scope = host.Services.CreateAsyncScope())
         {
             deleted = (await scope.ServiceProvider.GetRequiredService<INhAiSubjectRetention>()
-                .ForgetSubjectAsync(new NhAiSubjectRef("project", projectId.ToString("N")))).Data;
+                .ForgetSubjectAsync(new NhAiSubjectRef("project", projectId.ToString("N")), scopeKey)).Data;
         }
 
         Assert.Equal(1, deleted);

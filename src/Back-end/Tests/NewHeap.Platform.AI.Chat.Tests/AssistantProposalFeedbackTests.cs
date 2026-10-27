@@ -198,7 +198,7 @@ public sealed class AssistantProposalFeedbackTests(AssistantDatabaseFixture data
         // Feedback is subject data: forgetting the subject deletes it with the thread.
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            await scope.ServiceProvider.GetRequiredService<INhAiSubjectRetention>().ForgetSubjectAsync(Subject(projectId));
+            await scope.ServiceProvider.GetRequiredService<INhAiSubjectRetention>().ForgetSubjectAsync(Subject(projectId), run.Thread.ScopeKey);
         }
         await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
         Assert.False(await context.ProposalFeedback.AnyAsync(item => item.ConversationId == run.Thread.ConversationId));
