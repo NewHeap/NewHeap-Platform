@@ -679,6 +679,16 @@ payloads and diagnostics. `NhApiService.getCollection` serializes paging,
 search, order-by, and the filter tree into query parameters. The backend accepts
 a filter only when the target field is annotated for it.
 
+A nested key is checked segment by segment against the view models, in every
+AND and OR node. `ProjectCollectionSampleService.GetByNestedFiltersAsync`
+(SPM-034) filters projects with `ProjectNestedFilterViewModel`: its owner
+navigation and task collection are `[Filterable]`, and so are the owner's
+e-mail address and the task title. `ownerUser.email` and `tasks{any}.title`
+therefore filter on SQL Server and PostgreSQL. `ownerUser.passwordHash` and
+`tasks{any}.completedByUserId` return a safe `filter` error, although the
+entities have those members, because the owner view has no password hash and
+the task view returns the completing user without marking it filterable.
+
 Rebuild filters whenever UI state changes so stale filter values do not remain
 silently in the request.
 
@@ -816,12 +826,10 @@ key `open-task-title` through `WithFilterable` to
 `Tasks{any}.Title`, which is valid request notation for an any filter on task
 titles.
 
-The remaining boundary is not the request syntax. In the current generic
-processor, a navigation declared as `ICollection<ProjectTask>` is not recognized
-as a generic collection during the final expression construction step. It then
-tries to read `Title` from `ICollection` itself. The sample isolates this
-behavior and shows the generated key; a concrete collection shape can execute
-the same request.
+The service then runs that filter for the requested task title and returns the
+match count. Collection processing treats a navigation declared as
+`ICollection<ProjectTask>` as a collection step, so the inferred key executes as
+an any filter over the tasks.
 
 ## Partial update
 
@@ -1259,7 +1267,7 @@ The current status is **215 implemented, 0 partial, 0 planned, and 3 gap cases
 out of 218**. Implemented cases show evidence paths to tests, endpoints, or
 frontend code; only the remaining gaps stay explicitly visible.
 
-- SPM-033 is now a working resolver example: `WithFilterable` accepts the selector and generates `Tasks{any}.Title`. SPM-031 and SPM-032 cover concrete collection filtering separately;
+- SPM-033 is now a working resolver example: `WithFilterable` accepts the selector, generates `Tasks{any}.Title` and runs it over the task collection. SPM-031 and SPM-032 cover concrete collection filtering separately;
 - SPM-102: the OneOf OpenAPI transformer does not yet construct variants;
 - SPM-113 and SPM-160: the SampleProjectManagement frontends do not yet have their own Angular SSR target and host.
 

@@ -98,8 +98,7 @@ public interface ICollectionProcessingService
 
 public partial class CollectionProcessingService : ICollectionProcessingService
 {
-    private static readonly string[] CollectionFilterTokens =
-        ["{any}", "{!any}", "{not any}", "{all}", "{!all}", "{not all}"];
+    private static readonly string[] CollectionFilterTokens = ["{any}", "{!any}", "{not any}", "{all}", "{!all}", "{not all}"];
 
     protected readonly IMapper _mapper;
     private readonly NewHeapCommonSettings _settings;

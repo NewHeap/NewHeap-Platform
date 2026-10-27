@@ -49231,7 +49231,9 @@
       "NhSelectableField",
       "NhSelectableCollection",
       "NhCollectionSelection",
-      "NhSelectedCollectionMessagePack"
+      "NhSelectedCollectionMessagePack",
+      "FilterableAttribute",
+      "InvalidFilterCollectionResultException"
     ],
     "nh-backend-controller-contracts": [
       "ProtectedNhBaseController",

@@ -472,7 +472,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Expression resolver",
     "category": "Collections, filtering, and projections",
     "surface": "collection expression resolver",
-    "outcome": "The UI displays the generated expression.",
+    "outcome": "The UI displays the generated expression; the resolved `Tasks{any}.Title` filter runs over the `ICollection<ProjectTask>` navigation and reports its match count.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -485,13 +485,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-034",
     "title": "Attribute protection",
     "category": "Collections, filtering, and projections",
-    "surface": "filter/search/order attributes",
-    "outcome": "A disallowed field returns a safe error.",
+    "surface": "filter/search/order attributes, nested [Filterable] filter paths",
+    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
     ]
   },
   {
