@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
@@ -31,7 +32,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// SPM-062: Microsoft sign-in with the API's own settings from <c>appsettings.json</c> and
 /// <see cref="SampleMicrosoftOAuthComposition"/>, against a stand-in for Microsoft
 /// (<see cref="NhMicrosoftOAuthTestPlatform"/>). The management app starts the sign-in; the callback
-/// completes it only in that browser and returns only to one of the sample's origins.
+/// completes it only in that browser and returns only to one of the sample's origins. The first
+/// sign-in of an account in the developer's directory links it by mail; from then on the tenant and
+/// object id find it, and an account of another directory with the same mail signs in to nothing.
 /// </summary>
 public sealed class MicrosoftOAuthSamplesTests(SamplePostgreSqlServer postgreSql)
 {
@@ -73,6 +76,19 @@ public sealed class MicrosoftOAuthSamplesTests(SamplePostgreSqlServer postgreSql
         Assert.Contains(
             callback.Headers.GetValues("Set-Cookie"),
             header => header.StartsWith(SampleMicrosoftOAuthHost.AccessCookieName + "=", StringComparison.Ordinal));
+
+        // That first sign-in linked the account to the Microsoft account's tenant and object id.
+        Assert.Equal(
+            [NhMicrosoftOAuthLogins.ProviderKey(account.TenantId, account.ObjectId)],
+            await host.MicrosoftLoginsAsync(userName));
+
+        // An account of another directory whose mail names the local account signs in to nothing.
+        var otherDirectory = NhMicrosoftOAuthTestAccount.In("5a1f0c3e-8b2d-4c6a-9e7f-1d3b5a7c9e0f", userName);
+        var refused = await host.SignInAsync(userName, otherDirectory, cancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.DoesNotContain(
+            refused.Headers.GetValues("Set-Cookie"),
+            header => header.StartsWith(SampleMicrosoftOAuthHost.AccessCookieName + "=", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -112,6 +128,8 @@ public sealed class MicrosoftOAuthSamplesTests(SamplePostgreSqlServer postgreSql
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "sample-project-management-oauth-signing-key",
                 [SampleMicrosoftOAuthComposition.SettingsSection + ":ClientId"] = "00000000-0000-4000-8000-000000000062",
                 [SampleMicrosoftOAuthComposition.SettingsSection + ":ClientSecret"] = "sample-microsoft-client-secret",
+                // The developer's directory, as appsettings.Development.json or user secrets name it.
+                [SampleMicrosoftOAuthComposition.SettingsSection + ":AllowedTenantIds:0"] = SampleTenantId,
             });
 
             var settings = new MicrosoftAuthSettings();
@@ -178,6 +196,31 @@ public sealed class MicrosoftOAuthSamplesTests(SamplePostgreSqlServer postgreSql
             });
             Assert.True(result.Succeeded);
             return email;
+        }
+
+        public async Task<IReadOnlyList<string>> MicrosoftLoginsAsync(string userName)
+        {
+            await using var scope = _application.Services.CreateAsyncScope();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+            var logins = await users.GetLoginsAsync((await users.FindByNameAsync(userName))!);
+            return logins
+                .Where(login => login.LoginProvider == NhMicrosoftOAuthLogins.LoginProvider)
+                .Select(login => login.ProviderKey)
+                .ToList();
+        }
+
+        /// <summary>A complete sign-in in one browser that returns to the management app.</summary>
+        public async Task<HttpResponseMessage> SignInAsync(
+            string userName,
+            NhMicrosoftOAuthTestAccount account,
+            CancellationToken cancellationToken)
+        {
+            var start = await StartAsync(userName, ManagementReturnUrl, cancellationToken);
+            var authorizationUrl = await start.Content.ReadFromJsonAsync<string>(cancellationToken);
+            var cookie = start.Headers.GetValues("Set-Cookie").Single().Split(';')[0];
+            var state = QueryHelpers.ParseQuery(new Uri(authorizationUrl!).Query)["state"].ToString();
+
+            return await CallbackAsync(Microsoft.SignIn(authorizationUrl!, account), state, cookie, cancellationToken);
         }
 
         /// <summary>The management app's request through its proxy, which reaches the API without <c>/api</c>.</summary>

@@ -5,12 +5,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
+using NewHeap.Platform.Common.Models.MicrosoftAuth;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using System.ComponentModel.DataAnnotations;
@@ -181,13 +183,27 @@ where TUser : IdentityUser<Guid>
             return BadRequest(TaskResult.Failed("Failed to validate token"));
         }
 
-        var profile = await microsoftAuthService.GetProfile(token.AccessToken);
-        var user = await userManager.FindByNameAsync(profile!.Mail!);
+        var identity = NhMicrosoftOAuthIdentity.FromIdToken(
+            token.IdToken,
+            settings.ClientId,
+            flow.Nonce,
+            services.GetRequiredService<TimeProvider>().GetUtcNow());
+        if (identity == null)
+        {
+            return BadRequest(TaskResult.Failed("Failed to validate token"));
+        }
+
+        if (!identity.TenantMaySignIn(settings))
+        {
+            return BadRequest(TaskResult.Failed("Invalid login method"));
+        }
+
+        var user = await FindOrLinkAccountAsync(identity, token, settings);
         if (user == null)
         {
             return BadRequest(TaskResult.Failed("Unknown user"));
         }
-        
+
         if (!userManager.IsOauthAccount(user.UserName!))
         {
             return BadRequest(TaskResult.Failed("Invalid login method"));
@@ -216,6 +232,65 @@ where TUser : IdentityUser<Guid>
         WriteTokenToCookie(tokenResult.Data!);
 
         return TypedResults.Redirect(redirect, preserveMethod:true);
+    }
+
+    /// <summary>
+    /// The local account linked to the Microsoft account by its tenant and object id. Without a
+    /// link, and only when <see cref="NhMicrosoftOAuthIdentity.MayLinkByEmail"/> allows it, the
+    /// local account whose user name is the Graph mail address is linked once, provided it signs in
+    /// with Microsoft and is not linked to another Microsoft account yet.
+    /// </summary>
+    private async Task<TUser?> FindOrLinkAccountAsync(
+        NhMicrosoftOAuthIdentity identity,
+        MicosoftAuthTokenSuccessResponse token,
+        MicrosoftAuthSettings settings)
+    {
+        var services = HttpContext!.RequestServices;
+        var identityUsers = services.GetRequiredService<UserManager<TUser>>();
+        var login = NhMicrosoftOAuthLogins.LoginInfo(identity.TenantId.ToString(), identity.ObjectId.ToString());
+
+        var linkedUser = await identityUsers.FindByLoginAsync(login.LoginProvider, login.ProviderKey);
+        if (linkedUser != null)
+        {
+            return linkedUser;
+        }
+
+        if (!identity.MayLinkByEmail(settings))
+        {
+            return null;
+        }
+
+        var profile = await services.GetRequiredService<MicrosoftAuthService>().GetProfile(token.AccessToken);
+        if (string.IsNullOrWhiteSpace(profile?.Mail))
+        {
+            return null;
+        }
+
+        var userManager = services.GetRequiredService<INhUserManager<TUser>>();
+        var user = await userManager.FindByNameAsync(profile.Mail);
+        if (user == null || !userManager.IsOauthAccount(user.UserName!))
+        {
+            return null;
+        }
+
+        var logins = await identityUsers.GetLoginsAsync(user);
+        if (logins.Any(existing => existing.LoginProvider == NhMicrosoftOAuthLogins.LoginProvider))
+        {
+            // The account belongs to another Microsoft account; the same mail address does not move it.
+            return null;
+        }
+
+        var linked = await identityUsers.AddLoginAsync(user, login);
+        if (!linked.Succeeded)
+        {
+            return null;
+        }
+
+        services.GetRequiredService<ILogger<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>>().LogInformation(
+            "Linked local account {UserId} to a Microsoft account of tenant {TenantId} by its mail address.",
+            user.Id,
+            identity.TenantId);
+        return user;
     }
 
     /// <summary>

@@ -882,8 +882,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-062",
     "title": "Microsoft OAuth",
     "category": "Authentication, identity, and authorization",
-    "surface": "AddMicrosoftOAuth, AddMicrosoftOauthEndpoints, MicrosoftAuthSettings, MicrosoftAuthService, NhReturnUrls and NhMicrosoftOAuthTestPlatform",
-    "outcome": "The management app starts a Microsoft sign-in and the callback completes it only in that browser: the OAuth state is a protected, ten-minute flow with a PKCE verifier and nonce, bound by a correlation cookie for the configured callback path behind the app's /api proxy, and used once. A callback from another browser or with a state the application did not issue, changed or let expire answers 400 without a session, and the sign-in returns only to a path of the application or one of the sample's allowed origins.",
+    "surface": "AddMicrosoftOAuth, AddMicrosoftOauthEndpoints, MicrosoftAuthSettings, MicrosoftAuthService, NhReturnUrls, NhMicrosoftOAuthLogins and NhMicrosoftOAuthTestPlatform",
+    "outcome": "The management app starts a Microsoft sign-in and the callback completes it only in that browser: the OAuth state is a protected, ten-minute flow with a PKCE verifier and nonce, bound by a correlation cookie for the configured callback path behind the app's /api proxy, and used once. A callback from another browser or with a state the application did not issue, changed or let expire answers 400 without a session, and the sign-in returns only to a path of the application or one of the sample's allowed origins. The sign-in finds its local account by the ID token's tenant and object id: the first sign-in of an account in the developer's directory, named in `AllowedTenantIds`, links the local account whose user name is its mail once, and an account of another directory with the same mail signs in to nothing.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMicrosoftOAuthComposition.cs",
@@ -895,7 +895,10 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MicrosoftOAuthProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthIdentity.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhMicrosoftOAuthIdentityTests.cs"
     ]
   },
   {

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "b80f317b627f01e0a767df5bd5c006ee759012dc88c2bf068f0909cc2376717d",
-    "declarationCount": 11221,
+    "hash": "2d79999bd61c31ddb7f8e13fe3ae68d70bc2eddaebc6edfff5fb2a4d56128768",
+    "declarationCount": 11228,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -28610,6 +28610,26 @@
         "declaration": "public NhLogoutAuthenticationHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor ) : base(httpContextAccessor, \"authentication/logout\", configuration) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "declaration": "public static class NhMicrosoftOAuthLogins {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "declaration": "public const string LoginProvider = NhAuthenticationFactors.MicrosoftOAuth;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "declaration": "public const string ProviderDisplayName = \"Microsoft\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "declaration": "public static string ProviderKey(string tenantId, string objectId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+        "declaration": "public static UserLoginInfo LoginInfo(string tenantId, string objectId) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOauthAuthenticationGetUrlHandler.cs",
         "declaration": "public class NhMicrosoftOauthAuthenticationGetUrlHandler : BaseNhAuthenticationEndpoint {"
       },
@@ -41546,6 +41566,14 @@
         "declaration": "public string[] AllowedReturnOrigins { get; set; } = [];"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MicrosoftAuthSettings.cs",
+        "declaration": "public string[] AllowedTenantIds { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MicrosoftAuthSettings.cs",
+        "declaration": "public bool LinkAccountsByEmail { get; set; } = true;"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
         "declaration": "public class NewHeapCommonSettings {"
       },
@@ -49250,6 +49278,7 @@
       "MicrosoftAuthSettings",
       "MicrosoftAuthService",
       "NhReturnUrls",
+      "NhMicrosoftOAuthLogins",
       "NhMicrosoftOAuthTestPlatform"
     ],
     "nh-auth-override-hydration": [

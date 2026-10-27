@@ -200,6 +200,16 @@ public class NhAuthenticationBuilder<
 
         if (MicrosoftOAuthOptionsValue.Enabled)
         {
+            var invalidTenantIds = MicrosoftOAuthOptionsValue.Settings.AllowedTenantIds
+                .Where(tenantId => !Guid.TryParse(tenantId, out _))
+                .ToList();
+            if (invalidTenantIds.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "MicrosoftAuthSettings.AllowedTenantIds lists tenant ids as GUIDs; these entries are not: " +
+                    string.Join(", ", invalidTenantIds.Select(tenantId => $"'{tenantId}'")) + ".");
+            }
+
             services.AddSingleton<NhMicrosoftOauthAuthenticationGetUrlHandler>();
             services.AddSingleton<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
             services.AddHttpClient<MicrosoftAuthService>();
@@ -220,6 +230,8 @@ public class NhAuthenticationBuilder<
                 opt.ProfileEndpoint = MicrosoftOAuthOptionsValue.Settings.ProfileEndpoint;
                 opt.TenantId = MicrosoftOAuthOptionsValue.Settings.TenantId;
                 opt.AllowedReturnOrigins = MicrosoftOAuthOptionsValue.Settings.AllowedReturnOrigins;
+                opt.AllowedTenantIds = MicrosoftOAuthOptionsValue.Settings.AllowedTenantIds;
+                opt.LinkAccountsByEmail = MicrosoftOAuthOptionsValue.Settings.LinkAccountsByEmail;
             });
             
             services.Configure<AuthenticationMethodPickerOptions>(opt =>

@@ -11,6 +11,14 @@ namespace SampleProjectManagement.Api.Composition;
 /// <c>CallbackUrl</c> is the callback behind that same proxy, so the correlation cookie that binds
 /// the sign-in to the browser reaches the callback. The callback returns only to a path of the API
 /// or to one of the sample's origins in <c>NewHeap:PlatformAspNetCommon:Settings:AllowedOrigins</c>.
+/// <para>
+/// A sign-in finds its local account by the Microsoft account's tenant and object id, which the
+/// first sign-in stores as an Identity login. The <c>common</c> authority accepts every directory,
+/// so the shipped settings link no account by mail: name your directory in <c>AllowedTenantIds</c>,
+/// or set <c>TenantId</c> to its id, and the first sign-in of an account of that directory links the
+/// local account whose user name is its mail address, once. Another Microsoft account with the same
+/// mail, in that directory or another one, never reaches the linked account.
+/// </para>
 /// </remarks>
 public static class SampleMicrosoftOAuthComposition
 {

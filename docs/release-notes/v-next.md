@@ -341,3 +341,31 @@ NewHeap.Platform.AspNet.Common.Test stands in for Microsoft in tests.
 | A sign-in started on one instance fails on another that cannot read its state. | Share the Data Protection key ring between instances, as two-factor authentication already requires. |
 | The authorization request also asks for the `openid` and `profile` scopes. | None, unless the tenant restricts user consent: then grant consent for them once. |
 | `MicrosoftAuthService.GetLoginUrl(string?)` and `GetToken(string, string?, CancellationToken)` are obsolete. | Use `GetLoginUrl(state, nonce, codeChallenge)` and `RedeemCodeAsync(code, codeVerifier)` with a state bound to the browser, or the platform endpoints. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: Microsoft sign-ins find the account by tenant and object id
+
+The Microsoft OAuth callback now takes who signed in from the ID token of the code redemption: the
+tenant id (`tid`) and the object id (`oid`), after it checked the token's audience (the client id),
+its issuer (the v2.0 issuer of that tenant), the sign-in's nonce and its expiry. It signs in the local
+account linked to that pair through an Identity login (`AspNetUserLogins`, provider `microsoft-oauth`,
+key `{tid}/{oid}`, see `NhMicrosoftOAuthLogins`), instead of the account whose user name equals the
+Graph `mail` attribute, which an account of another directory could carry. The new
+`MicrosoftAuthSettings.AllowedTenantIds` limits the tenants that may sign in, and a `TenantId` that is
+a tenant id limits sign-ins to that tenant.
+
+Existing accounts have no link yet. When an account of a tenant that the application names, in
+`AllowedTenantIds` or as `TenantId`, signs in without a link, the callback links it once to the local
+account whose user name is its Graph mail, provided that account is in `AuthDomains` and has no
+Microsoft link yet, and logs the link. Later sign-ins use the link, so a changed mail no longer moves
+a sign-in to another account and another Microsoft account with the same mail is refused. Set
+`LinkAccountsByEmail` to `false` once every account is linked. With a multi-tenant `TenantId` such as
+`common` and no `AllowedTenantIds`, nothing is linked by mail. The links use Identity's existing login
+table, so no migration is needed.
+
+| Breaking change | Required action |
+|---|---|
+| With a multi-tenant `TenantId` such as `common` and no `AllowedTenantIds`, an account without a link no longer signs in. | Before upgrading, list your tenant ids in `MicrosoftAuthSettings.AllowedTenantIds` or set `TenantId` to your tenant id; or link the accounts with `UserManager.AddLoginAsync(user, NhMicrosoftOAuthLogins.LoginInfo(tenantId, objectId))`. |
+| A sign-in from a tenant outside `AllowedTenantIds`, or other than a `TenantId` that is a tenant id, answers 400. | List every tenant whose accounts sign in. |
+| A local account that is linked to one Microsoft account is not linked to another, so a recreated Microsoft account answers 400. | Remove the old link with `UserManager.RemoveLoginAsync(user, NhMicrosoftOAuthLogins.LoginProvider, providerKey)`, or add the new one. |
+| An ID token for another client, another sign-in or another issuer, an expired one or one without `tid` and `oid` answers 400. | None. |
+| An `AllowedTenantIds` entry that is not a GUID stops `AddAuthentication` with an `InvalidOperationException`. | Use the directory (tenant) id, not a domain name. |

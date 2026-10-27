@@ -732,7 +732,10 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhReturnUrls.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhMicrosoftOAuthTestPlatform.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MicrosoftOAuthProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhReturnUrlsTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthLogins.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhMicrosoftOAuthIdentity.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhMicrosoftOAuthIdentityTests.cs"
     ],
     "SPM-063": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",

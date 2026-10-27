@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -20,8 +21,10 @@ using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Tests.Relational;
 using System.Collections.Concurrent;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using Xunit;
 using HttpMethod = System.Net.Http.HttpMethod;
 
@@ -223,6 +226,63 @@ internal sealed class MicrosoftOAuthTestHost : IAsyncDisposable
         }
 
         return Client.SendAsync(request, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// A complete sign-in of <paramref name="account"/> in one browser, returning to the
+    /// application's origin; returns the callback's response.
+    /// </summary>
+    public async Task<HttpResponseMessage> SignInAsync(
+        string userName,
+        NhMicrosoftOAuthTestAccount account,
+        Action<IDictionary<string, object>>? configureIdToken = null)
+    {
+        var started = await StartAsync(userName, ApplicationOrigin + "/signed-in");
+        Assert.Equal(HttpStatusCode.OK, started.Status);
+
+        var code = Microsoft.SignIn(started.AuthorizationUrl!, account, configureIdToken);
+        return await CallbackAsync(code, started.State, started.Cookie);
+    }
+
+    /// <summary>The user id in the access token cookie of a callback's response, or null without a session.</summary>
+    public static Guid? SessionUserId(HttpResponseMessage callback)
+    {
+        if (!callback.Headers.TryGetValues("Set-Cookie", out var headers))
+        {
+            return null;
+        }
+
+        var accessCookie = headers
+            .Select(header => header.Split(';')[0])
+            .FirstOrDefault(cookie => cookie.StartsWith(AccessCookieName + "=", StringComparison.Ordinal));
+        if (accessCookie == null)
+        {
+            return null;
+        }
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(accessCookie[(AccessCookieName.Length + 1)..]);
+        return Guid.Parse(token.Claims.First(claim => claim.Type == ClaimTypes.NameIdentifier).Value);
+    }
+
+    /// <summary>The Microsoft logins stored for <paramref name="user"/>, as provider keys.</summary>
+    public async Task<IReadOnlyList<string>> MicrosoftLoginsAsync(NhUser user)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var logins = await scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>().GetLoginsAsync(user);
+        return logins
+            .Where(login => login.LoginProvider == NhMicrosoftOAuthLogins.LoginProvider)
+            .Select(login => login.ProviderKey)
+            .ToList();
+    }
+
+    /// <summary>Links the account as an application does, without a sign-in.</summary>
+    public async Task LinkAsync(NhUser user, NhMicrosoftOAuthTestAccount account)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var stored = await users.FindByIdAsync(user.Id.ToString());
+        var result = await users.AddLoginAsync(stored!, NhMicrosoftOAuthLogins.LoginInfo(account.TenantId, account.ObjectId));
+        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
     }
 
     public async ValueTask DisposeAsync()
