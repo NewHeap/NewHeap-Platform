@@ -83,8 +83,9 @@ internal sealed partial class NhAssistantTurnRunner
     /// <summary>
     /// The classification of the turn's model calls: the skill's, then the agent's, then
     /// <see cref="NhAiDataClassification.Internal"/>, raised to the highest classification of the
-    /// files the model reads. A plain chat with the agent uses the agent's as well. The profile
-    /// resolution refuses a profile that does not permit it.
+    /// files and the retrieved context the model reads. A plain chat with the agent uses the agent's
+    /// as well. The profile resolution refuses a profile that does not permit it, so a skill or
+    /// fallback profile never receives data above what it permits.
     /// </summary>
     private static NhAiDataClassification ClassificationOf(NhAssistantTurnState state)
     {
@@ -258,8 +259,14 @@ internal sealed partial class NhAssistantTurnRunner
                 }
                 if (await services.GetRequiredService<NhAssistantTurnFiles>().CheckSkillAsync(state, target, cancellationToken) is { } fileCode)
                 {
-                    // The files the model already reads go along into the skill; it must take them.
-                    return SkillResult(false, fileCode, "That skill cannot take the files of this turn; continue with the current tools.");
+                    // The files and retrieved context the model already reads go along into the skill;
+                    // it must take them.
+                    return SkillResult(
+                        false,
+                        fileCode,
+                        state.HasFiles
+                            ? "That skill cannot take the files of this turn; continue with the current tools."
+                            : "That skill may not receive the retrieved context of this turn; continue with the current tools.");
                 }
 
                 state.SkillSwitches++;

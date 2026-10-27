@@ -24,7 +24,8 @@ public sealed class NhAiMvcBridgeGatewayOptions
     /// <summary>
     /// Case-insensitive result field name patterns (<c>*</c> is a wildcard) that <c>query</c> and
     /// <c>get</c> remove at every depth, and that <c>describe-resource</c>, <c>fields</c>,
-    /// filters and ordering never expose.
+    /// filters and ordering never expose. A non-empty <c>search</c> is refused on a resource whose
+    /// search fields are unknown or include such a field.
     /// </summary>
     public IReadOnlyList<string> RedactedResultFieldPatterns => RedactedResultFields;
 
@@ -84,6 +85,10 @@ public sealed class NhAiMvcBridgeGatewayBuilder
     /// <c>query</c> and <c>get</c> result, at every depth, before projection and size bounding.
     /// <c>*</c> is a wildcard: <c>"*email*"</c> also matches <c>emailAddress</c>. Redacted fields are
     /// omitted from <c>describe-resource</c> and rejected in <c>fields</c>, filters and ordering.
+    /// A search matches values the result no longer shows, so <c>query</c> refuses a non-empty
+    /// <c>search</c>, also with <c>countOnly</c>, before the HTTP call on a resource whose
+    /// <see cref="NhAiBridgeQueryDescription.SearchFields"/> are unknown or include a redacted field,
+    /// and <c>describe-resource</c> reports such a resource as not searchable.
     /// Direct bridge tools are not redacted; do not expose them next to the gateway when their
     /// results must hide these fields.
     /// </summary>
@@ -200,6 +205,15 @@ public sealed record NhAiBridgeQueryDescription
 
     public bool Searchable { get; init; }
 
+    /// <summary>
+    /// The result field paths a non-empty <c>search</c> matches, such as <c>name</c> or
+    /// <c>owner.email</c>, or <see langword="null"/> when the conventions do not know them. The
+    /// canonical NewHeap collection provider publishes the <c>[Searchable]</c> paths of the item
+    /// type. With <see cref="NhAiMvcBridgeGatewayBuilder.RedactResultFields"/>, the gateway refuses a
+    /// search on a resource whose search fields are unknown or include a redacted field.
+    /// </summary>
+    public IReadOnlyList<string>? SearchFields { get; init; }
+
     public IReadOnlyList<string> OrderFields { get; init; } = [];
 
     public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; init; } = [];
@@ -218,6 +232,13 @@ public sealed record NhAiBridgeResourceQuery
     public IReadOnlyList<NhAiBridgeFilterField> FilterFields { get; init; } = [];
 
     public bool Searchable { get; init; }
+
+    /// <summary>
+    /// The result field paths a <c>search</c> matches, when the conventions know them and the
+    /// resource is searchable.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? SearchFields { get; init; }
 
     public IReadOnlyList<string> OrderFields { get; init; } = [];
 
@@ -1078,6 +1099,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
                 {
                     FilterFields = query.Query.FilterFields,
                     Searchable = query.Query.Searchable,
+                    SearchFields = query.Query.Searchable ? query.Query.SearchFields : null,
                     OrderFields = query.Query.OrderFields,
                     ExtraParameters = NhAiMvcBridgeGatewayBuilderLogic.ExtraParameters(query)
                 },
@@ -1096,7 +1118,8 @@ internal static class NhAiMvcBridgeGatewayFunctions
         {
             description = describer.Describe(description) with { Resource = resource.Resource };
         }
-        return Redact(description, gateway.Redaction) with
+        var searchAllowed = query is null || IsSearchAllowed(query.Query, gateway.Redaction);
+        return Redact(description, gateway.Redaction, searchAllowed) with
         {
             ResultShaping = new NhAiBridgeResultShaping
             {
@@ -1105,16 +1128,21 @@ internal static class NhAiMvcBridgeGatewayFunctions
         };
     }
 
-    /// <summary>Removes redacted fields from the published description, after any describer.</summary>
+    /// <summary>
+    /// Removes redacted fields from the published description, after any describer, and reports a
+    /// resource whose search the gateway refuses as not searchable.
+    /// </summary>
     private static NhAiBridgeResourceDescription Redact(
         NhAiBridgeResourceDescription description,
-        NhAiBridgeResultRedaction redaction)
+        NhAiBridgeResultRedaction redaction,
+        bool searchAllowed)
     {
         if (redaction.IsEmpty)
         {
             return description;
         }
 
+        var searchable = description.Query is { Searchable: true } && searchAllowed;
         return description with
         {
             Query = description.Query is null
@@ -1124,6 +1152,10 @@ internal static class NhAiMvcBridgeGatewayFunctions
                     FilterFields = description.Query.FilterFields
                         .Where(field => !redaction.IsRedactedPath(field.Key))
                         .ToArray(),
+                    Searchable = searchable,
+                    SearchFields = searchable
+                        ? description.Query.SearchFields?.Where(field => !redaction.IsRedactedPath(field)).ToArray()
+                        : null,
                     OrderFields = description.Query.OrderFields
                         .Where(field => !redaction.IsRedactedPath(field))
                         .ToArray()
@@ -1181,6 +1213,13 @@ internal static class NhAiMvcBridgeGatewayFunctions
         {
             return redactedOrder;
         }
+        if (HasSearch(input) && !IsSearchAllowed(description, redaction))
+        {
+            // The API matches a search against every searched field, redacted ones included, so a
+            // search could test the values that redaction removes from the result.
+            return Invalid<NhAiBridgeResponse>(
+                "The input value 'search' is not available for this resource; use its filter fields instead.");
+        }
 
         if (description.FilterFields.Count > 0 && TryGetProperty(input, "filter", out var filter) && filter.ValueKind == JsonValueKind.Array)
         {
@@ -1218,6 +1257,25 @@ internal static class NhAiMvcBridgeGatewayFunctions
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Whether a search may run with this redaction: always without redaction, otherwise only when
+    /// the conventions publish the searched fields and none of them is redacted.
+    /// </summary>
+    private static bool IsSearchAllowed(NhAiBridgeQueryDescription description, NhAiBridgeResultRedaction redaction)
+    {
+        return redaction.IsEmpty
+            || (description.SearchFields is { } searchFields && !searchFields.Any(redaction.IsRedactedPath));
+    }
+
+    private static bool HasSearch(JsonElement input)
+    {
+        if (!TryGetProperty(input, "search", out var search) || search.ValueKind == JsonValueKind.Null)
+        {
+            return false;
+        }
+        return search.ValueKind != JsonValueKind.String || search.GetString()!.Length > 0;
     }
 
     private static TaskResult<NhAiBridgeResponse>? RejectRedactedKeys(

@@ -146,8 +146,20 @@ API through `TryEncodeCountQuery`, for example by adding `countOnly=true`.
 Call `RedactResultFields("*email*", "*phoneNumber*")` on the gateway builder to
 remove matching fields (case-insensitive, `*` wildcard) at every depth of `query`
 and `get` results; redacted fields disappear from `describe-resource` and are
-rejected in `fields`, filters and ordering. Redaction applies to the gateway only,
-so do not also expose the direct bridge tools of those resources to the model.
+rejected in `fields`, filters and ordering. A search matches the fields the API
+searches, redacted ones included, so `describe-resource` publishes those paths as
+`query.searchFields` (`NhAiBridgeQueryDescription.SearchFields`); the canonical
+provider derives them from `[Searchable]` members, including nested searchable
+objects, as `NhCollectionContract.SearchPaths`. With redaction configured, `query`
+refuses a non-empty `search`, also with `countOnly`, before the HTTP call on a
+resource whose search fields are unknown or include a redacted field, and
+`describe-resource` reports it as `searchable: false`. A legacy provider that
+leaves `SearchFields` unset is therefore not searchable through a redacting
+gateway; publish its searched fields to keep search. A service that searches
+through `WithSearchable` selectors instead of `[Searchable]` members needs a
+collection contract provider that publishes those fields. Redaction applies to the
+gateway only, so do not also expose the direct bridge tools of those resources to
+the model.
 
 The gateway is also the application map's source (`INhAiApplicationMapSource`): for
 an agent that uses the map, it lists the resources the acting person may use, with their
@@ -233,6 +245,7 @@ used sees its result, whatever the agent's elevated reads allow; other thread re
 - Routing mutations through the gateway or revealing in a message whether an unavailable resource exists.
 - Letting the model page through full nested list items to count or scan them; use `countOnly`, `fields` or the default compaction.
 - Relying on prompt instructions to hide personal data such as colleagues' e-mail addresses; redact them with `RedactResultFields`.
+- Marking a redacted field `[Searchable]` and expecting the gateway to search the other fields; a search matches every searched field, so the gateway refuses it on that resource.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
 - Writing the application's entities and their relations into the application context by hand;
   the application map lists them from the gateway and stays current.
@@ -262,7 +275,9 @@ that an unknown filter key fails before the HTTP call, trusted bindings cannot b
 overridden, canonical collections need no custom conventions, legacy providers can
 encode a different wire contract and map `countOnly`, `fields` projections and the
 default compaction return the expected shape, redacted fields are removed at every
-depth and rejected in `fields`, filters and ordering, an oversized page returns
+depth and rejected in `fields`, filters and ordering, a search on a resource whose
+search fields include a redacted field or are unknown is refused before the HTTP
+call (also with `countOnly`) and described as not searchable, an oversized page returns
 whole items with structured `truncation` guidance and no `bodyText`, localized
 resource metadata validates at startup,
 export names stay deterministic and bounded, and that the gateway tools are

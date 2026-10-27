@@ -316,3 +316,69 @@ no longer load and their inline event handlers no longer run; the returned text 
 | Breaking change | Required action |
 |---|---|
 | None. | None. |
+
+## NewHeap.Platform.AI.Generators: every authorization declaration reaches the tool descriptor
+
+Generated tools never pass the MVC authorization filter, so the descriptor's policy list is what the
+tool gate, agent grants and the approver check enforce. The generator now reads every `IAuthorizeData`
+declaration ASP.NET would apply to the tool method: on the method and the methods it overrides, and on
+the tool set and its base types. It takes the policy from the named `Policy` argument, otherwise from
+the constructor argument of `[Authorize("policy")]`. Before, only the named `Policy` of an
+`AuthorizeAttribute` directly on the method or the tool set reached the descriptor, so a positional or
+inherited policy, `Roles` and an `AuthorizeAttribute` subclass were dropped and every authenticated
+caller ran the tool. Declarations the gate cannot enforce now fail the build with `NHAI018`. Tools that
+declare only `[Authorize]` and `[Authorize(Policy = ...)]` on the method and the tool set keep their
+contract hashes.
+
+| Breaking change | Required action |
+|---|---|
+| A tool restricted with `Roles`, `AuthenticationSchemes`, an `AuthorizeAttribute` subclass or another `IAuthorizeData` attribute fails to build with `NHAI018`. | Register a named policy for the roles or schemes and declare `[Authorize(Policy = "...")]` instead. |
+| A positional (`[Authorize("policy")]`), overridden or inherited policy is now enforced, and the tool's contract hash includes it. | Grant that policy to the people and agents who use the tool, and refresh pinned manifests or bound proposals of the affected tools. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AI.AspNet.Mvc: gateway search never matches a redacted field
+
+A search matches every field the API searches, so with `RedactResultFields` a search could still test
+the values that redaction removes from the result. `NhAiBridgeQueryDescription.SearchFields` now
+publishes the result field paths a search matches, and `describe-resource` shows them as
+`query.searchFields`. The canonical collection provider takes them from the new
+`NhCollectionContract.SearchPaths`: the `[Searchable]` members of the item type, including those of
+nested searchable objects up to two levels, as collection processing searches them. With redaction
+configured, the gateway `query` refuses a non-empty `search`, also with `countOnly`, before the HTTP
+call on a resource whose search fields are unknown or include a redacted field, and
+`describe-resource` reports that resource as `searchable: false`. Gateways without redaction, and
+resources whose searched fields are all visible, search as before.
+
+| Breaking change | Required action |
+|---|---|
+| With redaction, a search on a resource that marks a redacted field `[Searchable]`, directly or in a nested searchable object, fails with `api-bridge-validation`. | Remove `[Searchable]` from the redacted field, or let the model filter on visible fields. |
+| With redaction, a resource whose collection contract provider sets no `SearchFields` is no longer searchable through the gateway. | Set `NhAiBridgeQueryDescription.SearchFields` to the fields the API searches. |
+| A service that searches through `WithSearchable` selectors publishes only its `[Searchable]` members as search paths. | Describe such a resource with a collection contract provider that publishes the selector fields. |
+
+## NewHeap.Platform.AI.Chat: retrieved context is bound to the profile that serves the turn
+
+A turn retrieves up to the highest classification its agent's profile permits, but its skills and
+fallback profiles may permit less. The highest classification among the retrieved items now raises
+the classification of the turn's model calls, as the files the model reads already did. `use_skill`
+refuses a skill whose profile chain does not permit it with `assistant-classification-not-permitted`,
+also in a turn without files, and the profile resolution no longer falls back to a profile that does
+not permit it: the turn fails instead of sending the items. Turns whose retrieved items stay within
+the agent's configured classification are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A turn whose retrieved items are classified above the agent's classification is served only by profiles that permit them; it fails when none in the chain can serve it. | Let the agent's skill and fallback profiles permit the classifications its retrieval sources return, or classify those sources lower. |
+| `use_skill` refuses a skill whose profile does not permit the retrieved context of the turn. | Give the skill a profile that permits it, or keep that work in the agent's own profile. |
+
+## NewHeap.Platform.AI.Chat: a person's thread turn retrieves within the thread's subject
+
+A person's message in an agent's subject thread retrieved context with the person's request
+context, so the active division the client sent for the whole application decided what was
+retrieved, and items of that division reached a thread that every reader of the subject reads. The
+turn now keeps the person as the actor, so the context sources and their policy still decide for
+that person, but retrieves within the execution scopes and scope values of the thread's subject and
+its division, as the turn's tool calls get them, and without the capabilities the request derived
+from its active division. A plain chat retrieves in the person's own context as before.
+
+| Breaking change | Required action |
+|---|---|
+| A context source that serves a person's turn in a subject thread sees the subject and its division instead of the request's active division, and no capability grants. | Read the division from the context's scope value or execution scopes; let the source policy decide on the person and the subject rather than on capabilities. |

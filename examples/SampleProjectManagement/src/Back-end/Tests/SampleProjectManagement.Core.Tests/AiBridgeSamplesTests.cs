@@ -219,7 +219,13 @@ public sealed class AiBridgeSamplesTests
             "sample-api-gateway_query_v1",
             new { resource = "project-from-query-string", filter = new[] { new { key = "internalScore", @operator = "==", value = "1" } } });
 
-        Assert.True(described.GetProperty("data").GetProperty("query").GetProperty("searchable").GetBoolean());
+        // The gateway publishes the fields a search matches. None of them is a redacted e-mail or phone
+        // field, so the search reaches the API; a resource that searched one would refuse it.
+        var describedQuery = described.GetProperty("data").GetProperty("query");
+        Assert.True(describedQuery.GetProperty("searchable").GetBoolean());
+        Assert.Equal(
+            ["key", "name", "description"],
+            describedQuery.GetProperty("searchFields").EnumerateArray().Select(field => field.GetString()));
         Assert.True(query.GetProperty("success").GetBoolean());
         Assert.True(direct.GetProperty("success").GetBoolean());
         Assert.False(rejected.GetProperty("success").GetBoolean());

@@ -423,6 +423,52 @@ public sealed class StaffProjectController : ControllerBase
     }
 }
 
+public sealed record TestContactOwner(
+    [property: Searchable] string DisplayName,
+    [property: Searchable] string Email);
+
+/// <summary>A contact whose e-mail address is searched, as a consumer might mark it.</summary>
+public sealed record TestContact(
+    [property: Filterable, Orderable] int Id,
+    [property: Filterable, Searchable, Orderable] string Name,
+    [property: Searchable] string ContactEmail);
+
+/// <summary>A contact card that searches the e-mail address of its nested owner.</summary>
+public sealed record TestContactCard(
+    [property: Filterable, Orderable] int Id,
+    [property: Filterable, Searchable, Orderable] string Title,
+    [property: Searchable] TestContactOwner Owner);
+
+[ApiController]
+[Route("contacts")]
+[Authorize(Policy = TestPolicies.OrderView)]
+public sealed class ContactController : ControllerBase
+{
+    [HttpGet]
+    [ProducesResponseType<CollectionResultModel<TestContact>>(StatusCodes.Status200OK)]
+    public ActionResult<CollectionResultModel<TestContact>> Get([FromQuery] CollectionRequestModel request)
+    {
+        return Ok(CollectionResultModel<TestContact>.Create(
+            [new TestContact(1, "Kim", "kim.secret@example.test")],
+            request));
+    }
+}
+
+[ApiController]
+[Route("contact-cards")]
+[Authorize(Policy = TestPolicies.OrderView)]
+public sealed class ContactCardController : ControllerBase
+{
+    [HttpGet]
+    [ProducesResponseType<CollectionResultModel<TestContactCard>>(StatusCodes.Status200OK)]
+    public ActionResult<CollectionResultModel<TestContactCard>> Get([FromQuery] CollectionRequestModel request)
+    {
+        return Ok(CollectionResultModel<TestContactCard>.Create(
+            [new TestContactCard(1, "Supplier", new TestContactOwner("Kim", "kim.secret@example.test"))],
+            request));
+    }
+}
+
 public static class TestPolicies
 {
     public const string OrderView = "order.view";

@@ -1026,7 +1026,8 @@ messages of its inputs and the subject's name, as the agent: context sources and
 the agent actor, its accountable person, the run and the subject's execution scope, and with the
 ASP.NET integration the subject's division where the host maps an active division, exactly as the
 agent's tool calls do. `INhAiAgentInvocationContextFactory` creates that context; replace it only
-to add execution scopes of your own. The same rule as for briefings applies: what a run retrieves
+to add execution scopes of your own. A person's message in the thread retrieves as that person, but
+within the same subject and division scopes, not the active division of the person's request. The same rule as for briefings applies: what a run retrieves
 may reach every reader of the thread through the model's text.
 
 Let a headless run read application data through the API bridge gateway with
