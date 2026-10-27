@@ -176,10 +176,9 @@ such as `pg_sleep` and its variants, the advisory-lock functions,
 functions that run SQL text given as a string, such as `query_to_xml`,
 `ts_stat` and `ts_rewrite`, with `function-not-allowed`, also
 when the name is written as a double-quoted, schema-qualified or differently
-cased identifier such as `pg_catalog."pg_sleep"`. A Unicode-escaped identifier
-(`U&"..."`) is refused with `unicode-escaped-identifier-not-allowed`, and an
-escape string (`E'...'`), in which a backslash can hide the end of the literal,
-with `escape-string-not-allowed`; pass such a value as a parameter. The tool
+cased identifier. A Unicode-escaped identifier (`U&"..."`) is refused with
+`unicode-escaped-identifier-not-allowed`, and an escape string (`E'...'`) with
+`escape-string-not-allowed`; pass such a value as a parameter. The tool
 keeps `standard_conforming_strings` on in the diagnostic transaction, so a
 backslash in an ordinary string literal stays an ordinary character. The policy
 is a safeguard in front of the read-only principal, not a replacement for it.

@@ -394,9 +394,8 @@ records UTC timestamps, outcomes and client IPs. If activity cannot be recorded,
 login fails.
 
 A sign-in from an address outside the allowlist is refused before the login attempt
-limit, so it uses none of the attempts allowed clients share and cannot lock the
-administrator out. Login activity records at most `LoginAttemptLimit` of those refused
-attempts per `LoginAttemptWindow`.
+limit, so it uses none of the attempts allowed clients share. Login activity records
+at most `LoginAttemptLimit` of those refused attempts per `LoginAttemptWindow`.
 
 ## Literal redirects
 
@@ -436,9 +435,9 @@ Query parameter order is not significant in these examples.
 Destinations containing credentials, control characters, backslashes, `//host`
 paths or non-HTTP schemes are rejected. A destination starting with `/` is checked
 as the path the `Location` header carries, after dot segments such as `..`, `.`,
-`%2e%2e` and `%2e` are removed: `/a/..//host` resolves to `//host` and is rejected
-too. A destination starting with `/` cannot redirect to the same path, even when
-only the query changes.
+`%2e%2e` and `%2e` are removed, and is rejected when that path starts with `//`. A
+destination starting with `/` cannot redirect to the same path, even when only the
+query changes.
 
 ## Regex redirects
 
@@ -461,9 +460,8 @@ rules**; include the query captures you want to keep in the destination.
   inputs and expanded destinations to 65,536.
 - Invalid patterns or destination templates cannot be saved. Unsafe expansions
   or input/output limits skip redirect evaluation; timeouts return HTTP 503.
-- Every expansion is validated the same way as a saved destination. A capture
-  with dot segments, for example `/old-projects/%252e%252e//host`, which the
-  server decodes once to `%2e%2e`, cannot turn `/projects/$1$2` into `//host`;
+- Every expansion is validated the same way as a saved destination, after dot
+  segments are removed. An expansion that resolves to `//host` does not redirect;
   the request passes through instead.
 - Older proxy versions without regex support cannot load saved regex rules.
 

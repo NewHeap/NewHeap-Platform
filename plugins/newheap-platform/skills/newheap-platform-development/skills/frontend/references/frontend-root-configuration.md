@@ -30,7 +30,7 @@ Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/
 
 ## Verification
 
-Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that an API request carries the access token and active division, and that another origin, a look-alike host and a path beside the base receive neither.
+Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.
 
 ## Optional source evidence
 

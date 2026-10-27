@@ -179,7 +179,7 @@ are audited before issuing a cookie, and audit failure cannot grant access.
 Attempted usernames and passwords are never audited. One process-wide fixed-window
 budget defaults to five attempts per minute for the single account. A sign-in from
 an address outside the allowlist is refused before that budget and spends none of
-it, so outside traffic cannot lock allowlisted administrators out; the audit records
+it; the audit records
 such denied attempts up to LoginAttemptLimit per LoginAttemptWindow and drops the
 rest. Bounded audit
 retention cleanup runs on credential attempts; idle hosts have no cleanup worker.
@@ -229,8 +229,8 @@ target or capture it from the input. No merge or query parsing occurs in this mo
 Absolute authorities stay fixed; captures belong in the path, query or fragment.
 The runtime prepares regexes per immutable snapshot, validates expanded targets,
 and rejects unsafe or root-relative self expansions. Every expansion is validated in
-its resolved form, so captured ../ or %2e%2e segments, including a double-encoded
-path the server decodes once, cannot turn a root-relative target into //host. A shared wall-clock resolver
+its resolved form, after dot segments (also %2e) are removed, and one that resolves to
+//host does not redirect. A shared wall-clock resolver
 budget includes exact rules, host/method checks and target construction. Configure
 NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds as an integer number of milliseconds (default 50)
 through the section-binding overload or options callback. The runtime captures

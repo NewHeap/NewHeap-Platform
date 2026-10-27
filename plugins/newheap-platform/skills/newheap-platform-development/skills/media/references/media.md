@@ -55,7 +55,7 @@ For file lookups, count the database round trips of one call with a command inte
 
 Assert that routing and the application-wide `EndpointDataSource` share the media endpoints built once.
 
-For downloads, upload a page with a script and a raster image and assert that the page is served as an `application/octet-stream` attachment and the image inline with its type, both with `nosniff` and their stored name, through the library route and every consumer download endpoint.
+For downloads, upload an HTML page and a raster image and assert that the page is served as an `application/octet-stream` attachment and the image inline with its type, both with `nosniff` and their stored name, through the library route and every consumer download endpoint.
 
 For media mutations, use a module scoped to one division and assert the decisions it receives: a move or rename into another division asks for `ActionType.Create` at the destination and is refused before storage is read or written; a tag update or localization asks for `ActionType.Update` of the file and is refused alike for an existing and a missing file. Verify on SQL Server and PostgreSQL that a move or rename onto a name the destination holds fails with the error code while a free name succeeds, that the existing-name check follows each provider's case semantics, and that stored localizations of other properties than the three display strings leave lists, searches and file reads intact. Assert 401, 409 and 400 from the HTTP endpoints.
 
