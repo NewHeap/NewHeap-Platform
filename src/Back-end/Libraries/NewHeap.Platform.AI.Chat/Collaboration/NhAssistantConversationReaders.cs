@@ -5,25 +5,6 @@ using NewHeap.Platform.AI.Chat.Runs;
 namespace NewHeap.Platform.AI.Chat.Collaboration;
 
 /// <summary>
-/// How far a person may follow a conversation at the moment the assistant delivers something about it.
-/// </summary>
-internal enum NhAssistantReaderStanding
-{
-    /// <summary>The person may not read the conversation.</summary>
-    None = 0,
-
-    /// <summary>
-    /// Content-free changes of an agent thread's runs, proposals and feedback: the thread's read rule
-    /// admits the person, as the thread endpoints do, but the agent's policy keeps its messages from
-    /// them.
-    /// </summary>
-    Work = 1,
-
-    /// <summary>The conversation's content, as its snapshot shows it to the person.</summary>
-    Content = 2
-}
-
-/// <summary>
 /// The read rule of one conversation: its owner and tenant, its agent thread, whether its agent works
 /// and the policy the agent requires, and the tenants whose sign-ins reach it.
 /// </summary>
@@ -42,14 +23,13 @@ internal sealed record NhAssistantConversationReadRule(
 /// <summary>
 /// Decides who may follow a conversation when something is delivered to them without a request of
 /// theirs: live updates, Web Push and in-app notifications. It applies, at send time, the rule the
-/// snapshot endpoints apply on every request. An agent thread follows its subject's resolver: a live
-/// role, or an invitation that is no subject join, and for the whole application the agent's view
-/// policy (<see cref="NhAssistantThreadService.ReadAccessAsync(AssistantThread, string, CancellationToken)"/>);
-/// its messages also need the agent's policy, as <c>GET conversations/{id}</c> asks. A chat's owner
-/// always reads it; a participant reads it while the agent works and the person passes its policy, as
-/// the principal factory rebuilds them. Agents never receive anything. The tenant rule binds the
-/// delivery to the sign-ins of <see cref="NhAssistantConversationReadRule.Tenants"/> where a channel
-/// knows the sign-in, as the live hub does.
+/// endpoints apply on every request. An agent thread follows its subject's resolver, as the thread
+/// endpoints do: a live role, or an invitation that is no subject join, and for the whole application
+/// the agent's view policy (<see cref="NhAssistantThreadService.ReadAccessAsync(AssistantThread, string, CancellationToken)"/>).
+/// A chat's owner always reads it; a participant reads it while the agent works and the person, as the
+/// principal factory rebuilds them, passes its policy. Agents never receive anything. The tenant rule
+/// binds the delivery to the sign-ins of <see cref="NhAssistantConversationReadRule.Tenants"/> where a
+/// channel knows the sign-in, as the live hub does.
 /// </summary>
 internal sealed class NhAssistantConversationReaders(
     NhAssistantRunStore runs,
@@ -82,27 +62,38 @@ internal sealed class NhAssistantConversationReaders(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(conversation);
+        if (thread is not null)
+        {
+            IReadOnlyList<string?> tenants = thread.TenantId is null
+                && string.Equals(thread.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)
+                && registration.SingleTenantId is { } single
+                    ? [null, single]
+                    : [thread.TenantId];
+            return new NhAssistantConversationReadRule(
+                conversation.Id,
+                conversation.OwnerActorId,
+                conversation.TenantId,
+                thread,
+                true,
+                null,
+                tenants);
+        }
+
         var agent = await agents.FindAsync(conversation.AgentId, includeDisabled: false, cancellationToken);
-        IReadOnlyList<string?> tenants = thread is not null
-            && thread.TenantId is null
-            && string.Equals(thread.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)
-            && registration.SingleTenantId is { } single
-                ? [null, single]
-                : [thread is null ? conversation.TenantId : thread.TenantId];
         return new NhAssistantConversationReadRule(
             conversation.Id,
             conversation.OwnerActorId,
             conversation.TenantId,
-            thread,
+            null,
             agent is not null,
             agent?.Definition.RequiredPolicy,
-            tenants);
+            [conversation.TenantId]);
     }
 
     /// <summary>
-    /// How far <paramref name="actorId"/> may follow the conversation now.
+    /// Whether <paramref name="actorId"/> may read the conversation now.
     /// </summary>
-    public async ValueTask<NhAssistantReaderStanding> StandingAsync(
+    public async ValueTask<bool> MayReadAsync(
         NhAssistantConversationReadRule rule,
         string actorId,
         CancellationToken cancellationToken)
@@ -111,36 +102,33 @@ internal sealed class NhAssistantConversationReaders(
         if (string.IsNullOrWhiteSpace(actorId)
             || actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal))
         {
-            return NhAssistantReaderStanding.None;
+            return false;
         }
 
         if (rule.Thread is { } thread)
         {
-            if (await threads.ReadAccessAsync(thread, actorId, cancellationToken) is null)
-            {
-                return NhAssistantReaderStanding.None;
-            }
-
-            return await PassesAgentAsync(rule, actorId, cancellationToken)
-                ? NhAssistantReaderStanding.Content
-                : NhAssistantReaderStanding.Work;
+            return await threads.ReadAccessAsync(thread, actorId, cancellationToken) is not null;
         }
 
         if (string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))
         {
-            return NhAssistantReaderStanding.Content;
+            return true;
         }
 
-        return await PassesAgentAsync(rule, actorId, cancellationToken)
-            ? NhAssistantReaderStanding.Content
-            : NhAssistantReaderStanding.None;
+        if (!rule.AgentWorks)
+        {
+            return false;
+        }
+
+        return rule.AgentPolicy is not { } policy
+            || await recipients.PassesPolicyAsync(actorId, ChatSubjectOf(rule), policy, cancellationToken);
     }
 
     /// <summary>
-    /// The people among <paramref name="actorIds"/> who may read the conversation's content now, each
-    /// once, in their first order.
+    /// The people among <paramref name="actorIds"/> who may read the conversation now, each once, in
+    /// their first order.
     /// </summary>
-    public async Task<IReadOnlyList<string>> ContentReadersAsync(
+    public async Task<IReadOnlyList<string>> ReadersAsync(
         NhAssistantConversationReadRule rule,
         IEnumerable<string> actorIds,
         CancellationToken cancellationToken)
@@ -150,7 +138,7 @@ internal sealed class NhAssistantConversationReaders(
         var readers = new List<string>();
         foreach (var actorId in actorIds.Distinct(StringComparer.Ordinal))
         {
-            if (await StandingAsync(rule, actorId, cancellationToken) == NhAssistantReaderStanding.Content)
+            if (await MayReadAsync(rule, actorId, cancellationToken))
             {
                 readers.Add(actorId);
             }
@@ -160,16 +148,16 @@ internal sealed class NhAssistantConversationReaders(
     }
 
     /// <summary>
-    /// The people among <paramref name="actorIds"/> who may read the conversation's content now and
-    /// whom the platform still resolves, each once, in their first order: the recipients of a
-    /// notification about the conversation, which reaches people outside any session of theirs.
+    /// The people among <paramref name="actorIds"/> who may read the conversation now and whom the
+    /// platform still resolves, each once, in their first order: the recipients of a notification about
+    /// the conversation, which reaches people outside any session of theirs.
     /// </summary>
     public async Task<IReadOnlyList<string>> NotificationReadersAsync(
         NhAssistantConversationReadRule rule,
         IEnumerable<string> actorIds,
         CancellationToken cancellationToken)
     {
-        var readers = await ContentReadersAsync(rule, actorIds, cancellationToken);
+        var readers = await ReadersAsync(rule, actorIds, cancellationToken);
         return await ResolvedAsync(readers, cancellationToken);
     }
 
@@ -195,38 +183,11 @@ internal sealed class NhAssistantConversationReaders(
     }
 
     /// <summary>
-    /// Whether the agent works and the person passes its required policy.
+    /// The subject the principal factory rebuilds a chat's participant for: the whole application in the
+    /// chat's tenant, since a chat has no subject.
     /// </summary>
-    private async ValueTask<bool> PassesAgentAsync(
-        NhAssistantConversationReadRule rule,
-        string actorId,
-        CancellationToken cancellationToken)
+    private static NhAiSubjectInfo ChatSubjectOf(NhAssistantConversationReadRule rule)
     {
-        if (!rule.AgentWorks)
-        {
-            return false;
-        }
-
-        return rule.AgentPolicy is not { } policy
-            || await recipients.PassesPolicyAsync(actorId, SubjectOf(rule), policy, cancellationToken);
-    }
-
-    /// <summary>
-    /// The subject the principal factory rebuilds a person for: the thread's subject, or for a chat the
-    /// whole application in the chat's tenant.
-    /// </summary>
-    private static NhAiSubjectInfo SubjectOf(NhAssistantConversationReadRule rule)
-    {
-        if (rule.Thread is { } thread)
-        {
-            return new NhAiSubjectInfo(new NhAiSubjectRef(thread.SubjectType, thread.SubjectId), thread.ScopeKey)
-            {
-                TenantId = thread.TenantId,
-                DivisionId = thread.DivisionId,
-                DisplayName = thread.SubjectDisplayName
-            };
-        }
-
         return new NhAiSubjectInfo(NhAiSystemSubjects.Global, NhAiSubjectInfo.CreateScopeKey(rule.TenantId, null))
         {
             TenantId = rule.TenantId
