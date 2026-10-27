@@ -958,23 +958,14 @@ mail's link from the application origin in the server's configuration, never fro
 
 ## NewHeap.Platform.DatabaseRead.Tool: SQL Server verification while logins and grants change
 
-SQL Server verification checked the permissions on every login, server role, user and role one by
-one. Each check waited for a metadata lock on that principal while the scan still held its catalog
-row, so it deadlocked with a concurrent `CREATE LOGIN`, `GRANT ... ON LOGIN` or `DROP LOGIN`, which
-takes them in the opposite order, and it waited behind every login being changed. The deadlock victim
-was the diagnostic request or the other session's change. The verification now reads the permissions
-granted on these principals, and the roles the principal owns, from the catalog. Permissions held
-through the server or the database, such as `IMPERSONATE ANY LOGIN` or `ALTER ANY ROLE`, are still
-rejected by the server and database checks. CONTROL on a login now reports
-`server-principal-permission-not-allowlisted` instead of `login-impersonate`.
-
-Reading these permission rows can still meet a change in progress. The diagnostic session therefore
-runs with `DEADLOCK_PRIORITY LOW`, so the other session's change is never the victim, and with the
-profile's lock timeout from the verification on. A verification that was the deadlock victim or timed
-out on a lock runs again while the request's timeout leaves time for it; a failed verification never
-passes the principal.
+The SQL Server verification reads the permissions granted on logins, server roles, users and roles,
+and the roles the principal owns, from the catalog, so it does not wait behind logins and grants
+that another session is changing. Reading these permission rows can still meet a change in progress.
+The diagnostic session therefore runs with `DEADLOCK_PRIORITY LOW`, so the other session's change is
+never the deadlock victim, and with the profile's lock timeout from the verification on. A
+verification that was the deadlock victim or timed out on a lock runs again while the request's
+timeout leaves time for it; a failed verification never passes the principal.
 
 | Breaking change | Required action |
 |---|---|
-| CONTROL on a login reports `error.verificationCheck` `server-principal-permission-not-allowlisted` instead of `login-impersonate`. | None; the principal is rejected as before. |
 | The SQL Server diagnostic session runs with `DEADLOCK_PRIORITY LOW`, and the profile's lock timeout applies from the verification on. A verification that was the deadlock victim or timed out on a lock runs again, at most eight times and only while the request's timeout leaves time for it, before the request fails with `deadlock` or `lock-timeout` at stage `readonly-verification`. | None; retry a `deadlock` or `lock-timeout` failure later. |
