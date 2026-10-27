@@ -15,8 +15,9 @@ namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
 /// SPM-034: a nested filter key runs only through members that the project's filter views mark
-/// <c>[Filterable]</c>, segment by segment. A key that names an entity member the views do not
-/// expose, such as the owner's password hash, fails with a safe error instead of filtering on it.
+/// <c>[Filterable]</c>, segment by segment, and a nested order key only through <c>[Orderable]</c>
+/// members. A key that names an entity member the views do not expose, such as the owner's password
+/// hash, fails with a safe error instead of filtering or ordering on it.
 /// <see cref="CollectionAndProjectionSamplesTests.NestedFilterKeysTranslateOnEachProvider"/>
 /// translates the accepted keys for SQL Server and PostgreSQL.
 /// </summary>
@@ -96,6 +97,76 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
         }
     }
 
+    /// <summary>
+    /// An order key runs only through members the nested view marks <c>[Orderable]</c>. A key that
+    /// continues behind the orderable <c>creationDateTime</c> into a conditional over the owner's
+    /// password hash would let row order reveal the hash; it is rejected with the safe error before any
+    /// ordering reaches the database.
+    /// </summary>
+    [Fact]
+    public async Task NestedOrderKeysReachOnlyOrderableViewMembers()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var connectionString = await postgreSql.CreateMigratedDatabaseAsync("nested_orders");
+        await using var dbContext = new SampleProjectManagementDbContext(
+            new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
+                .UseNpgsql(connectionString)
+                .Options);
+
+        var divisionId = Guid.NewGuid();
+        dbContext.Set<NhDivision>().Add(new NhDivision { Id = divisionId, Name = "Nested orders" });
+        var created = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        foreach (var (key, email, passwordHash) in new[]
+                 {
+                     ("ALPHA", "b-owner@example.test", "z-hash"),
+                     ("BETA", "a-owner@example.test", "a-hash")
+                 })
+        {
+            var ownerId = Guid.NewGuid();
+            dbContext.Users.Add(new NhUser
+            {
+                Id = ownerId,
+                UserName = email,
+                NormalizedUserName = email.ToUpperInvariant(),
+                Email = email,
+                PasswordHash = passwordHash
+            });
+            dbContext.Projects.Add(new Project
+            {
+                Id = Guid.NewGuid(),
+                DivisionId = divisionId,
+                OwnerUserId = ownerId,
+                Key = key,
+                Name = $"{key} project",
+                CreationDateTime = created
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var service = CreateService(dbContext);
+
+        var byOwner = await service.GetByNestedFiltersAsync(OrderRequest("ownerUser.email"), cancellationToken);
+        Assert.True(byOwner.Success);
+        Assert.Equal(["BETA", "ALPHA"], byOwner.Data!.Items.Select(project => project.Key));
+
+        foreach (var key in new[]
+                 {
+                     "creationDateTime.year == 2026 ? ownerUser.passwordHash : \"\"",
+                     "ownerUser.passwordHash",
+                     "description",
+                     "name.length",
+                     "tasks.{first:asc}title"
+                 })
+        {
+            var rejected = await service.GetByNestedFiltersAsync(OrderRequest(key), cancellationToken);
+
+            Assert.False(rejected.Success);
+            Assert.Null(rejected.Data);
+            Assert.Equal("filter", Assert.Single(rejected.GetResultItems()).Name);
+        }
+    }
+
     private static ProjectCollectionSampleService CreateService(SampleProjectManagementDbContext dbContext)
     {
         var mapper = new Mapper(new MapperConfiguration(configuration =>
@@ -104,6 +175,16 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
         repository.GetAll().Returns(dbContext.Projects);
 
         return new ProjectCollectionSampleService(repository, new CollectionProcessingService(mapper));
+    }
+
+    private static CollectionRequestModel OrderRequest(string key)
+    {
+        return new CollectionRequestModel
+        {
+            Page = 1,
+            ItemsPerPage = 10,
+            OrderBy = [new OrderByCollectionRequestModel { Key = key, Direction = "ASC" }]
+        };
     }
 
     private static CollectionRequestModel Request(string key, object value)

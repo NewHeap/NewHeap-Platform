@@ -485,8 +485,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-034",
     "title": "Attribute protection",
     "category": "Collections, filtering, and projections",
-    "surface": "filter/search/order attributes, nested [Filterable] filter paths",
-    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them.",
+    "surface": "filter/search/order attributes, nested [Filterable] filter paths and [Orderable] order paths",
+    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `ownerUser.passwordHash` and `tasks{any}.completedByUserId` are rejected although the entities have them. An order key is checked the same way against `[Orderable]`: `ownerUser.email` orders, while a key that continues behind `creationDateTime` into the owner's password hash is rejected before it reaches the database.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -495,7 +495,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionOrderPathValidationTests.cs"
     ]
   },
   {

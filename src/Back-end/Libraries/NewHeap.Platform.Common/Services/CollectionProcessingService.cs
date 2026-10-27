@@ -100,6 +100,8 @@ public partial class CollectionProcessingService : ICollectionProcessingService
 {
     private static readonly string[] CollectionFilterTokens = ["{any}", "{!any}", "{not any}", "{all}", "{!all}", "{not all}"];
 
+    private static readonly string[] CollectionOrderTokens = ["{first:asc}", "{first:desc}", "{last:asc}", "{last:desc}"];
+
     protected readonly IMapper _mapper;
     private readonly NewHeapCommonSettings _settings;
 
@@ -402,6 +404,95 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Checks every dotted segment of every <c>+</c> part of a client order key against the view-model
+    /// type graph, the way <see cref="IsFilterPathAllowed"/> checks a filter key, and builds the Dynamic
+    /// LINQ ordering from the matched property names alone. The first segment must be one of
+    /// <paramref name="orderByProperties"/>; every later segment must be an <see cref="OrderableAttribute"/>
+    /// property of the type the previous segment reaches. A step into a collection must be followed by
+    /// one segment that names a member of its items behind a <c>{first:asc}</c>, <c>{first:desc}</c>,
+    /// <c>{last:asc}</c> or <c>{last:desc}</c> token, and that segment ends the part. A key that reaches
+    /// an unknown or unmarked member, continues behind a scalar value, or contains any other text, such
+    /// as operators or method calls, is rejected.
+    /// </summary>
+    private static bool TryBuildOrderablePath(
+        string key,
+        IReadOnlyCollection<PropertyInfo> orderByProperties,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? ordering)
+    {
+        ordering = null;
+        var parts = new List<string>();
+
+        foreach (var concatPart in key.Split('+'))
+        {
+            var allowedProperties = (IEnumerable<PropertyInfo>)orderByProperties;
+            var path = new List<string>();
+            var expectsCollectionItem = false;
+            var ended = false;
+
+            foreach (var segment in concatPart.Trim().Split('.'))
+            {
+                if (ended)
+                {
+                    return false;
+                }
+
+                var token = CollectionOrderTokens.FirstOrDefault(x => segment.StartsWith(x, StringComparison.OrdinalIgnoreCase));
+                if ((token != null) != expectsCollectionItem)
+                {
+                    return false;
+                }
+
+                var memberName = token == null ? segment : segment[token.Length..];
+                var property = allowedProperties.FirstOrDefault(x => x.Name.Equals(memberName, StringComparison.OrdinalIgnoreCase));
+                if (property == null)
+                {
+                    return false;
+                }
+
+                if (token != null)
+                {
+                    path.Add(GetCollectionOrderExpression(token, property.Name));
+                    expectsCollectionItem = false;
+                    ended = true;
+                    continue;
+                }
+
+                path.Add(property.Name);
+
+                var itemType = GetFilterCollectionItemType(property.PropertyType);
+                expectsCollectionItem = itemType != null;
+                allowedProperties = (itemType ?? property.PropertyType)
+                    .GetProperties()
+                    .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
+                    .ToArray();
+            }
+
+            if (expectsCollectionItem)
+            {
+                return false;
+            }
+
+            parts.Add(string.Join('.', path));
+        }
+
+        ordering = string.Join(" + ", parts);
+        return true;
+    }
+
+    /// <summary>
+    /// The Dynamic LINQ expression of an order step into a collection, as the order key tokens have
+    /// always produced it.
+    /// </summary>
+    private static string GetCollectionOrderExpression(string token, string memberName)
+    {
+        return token.ToLowerInvariant() switch
+        {
+            "{first:asc}" or "{last:asc}" => $"OrderBy(sub => sub.{memberName}).First()",
+            _ => $"OrderByDescending(sub => sub.{memberName}).Last()"
+        };
     }
 
     private static string RemoveCollectionFilterToken(string segment)
@@ -749,12 +840,15 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         if (orderByCollection != null && orderByCollection.Any())
         {
             var orderByProperties = typeof(TViewModel)
-                    .GetProperties()
-                    .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
-                ;
+                .GetProperties()
+                .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
+                .ToArray();
 
             if (orderByProperties.Any())
             {
+                // The orderings hold only the property names and tokens the key validation matched, never
+                // the client's text, so nothing beyond the [Orderable] view-model graph reaches Dynamic LINQ.
+                var orderings = new List<string>();
                 foreach (var orderBy in orderByCollection)
                 {
                     orderBy.Direction = (orderBy.Direction ?? "ASC").ToUpper();
@@ -764,64 +858,9 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                         continue;
                     }
 
-                    //Reslove
-                    var orderByFields = new List<PropertyInfo>();
-                    var concatParts = orderBy.Key.Split("+").Select(x => x.Trim());
-                    foreach (var concatPart in concatParts)
+                    if (!TryBuildOrderablePath(orderBy.Key, orderByProperties, out var ordering))
                     {
-                        var orderByKeys = concatPart
-                            .Split(".")
-                            .Select(x => x
-                                .Replace("{first:asc}", "")
-                                .Replace("{first:desc}", "")
-                                .Replace("{last:asc}", "")
-                                .Replace("{last:desc}", "")
-                            );
-
-                        PropertyInfo? orderByField = null;
-                        var objOrderByProperties = typeof(TViewModel)
-                                .GetProperties()
-                                .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
-                            ;
-
-                        foreach (var orderByKey in orderByKeys)
-                        {
-                            orderByField =
-                                objOrderByProperties.FirstOrDefault(x => x.Name.ToLower().Equals(orderByKey.ToLower()));
-
-                            if (null == orderByField)
-                            {
-                                break;
-                            }
-
-                            if (!orderByField.PropertyType.IsClass)
-                            {
-                                break;
-                            }
-
-                            var propertyType = orderByField.PropertyType;
-                            if (propertyType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(propertyType))
-                            {
-                                propertyType = propertyType.GetGenericArguments()[0];
-                            }
-
-                            objOrderByProperties = propertyType
-                                    .GetProperties()
-                                    .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
-                                ;
-                        }
-
-                        if (null == orderByField)
-                        {
-                            continue;
-                        }
-
-                        orderByFields.Add(orderByField);
-                    }
-
-                    if (orderByFields.Count != concatParts.Count())
-                    {
-                        continue;
+                        throw new InvalidFilterCollectionResultException($"Invalid order field '{orderBy.Key}'");
                     }
 
                     if (!orderBy.Direction.Equals("ASC") && !orderBy.Direction.Equals("DESC"))
@@ -830,6 +869,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     }
 
                     orderByResult.Add(orderBy);
+                    orderings.Add(ordering);
                 }
 
                 if (orderByResult.Any())
@@ -837,25 +877,8 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     var count = 0;
                     foreach (var orderByItem in orderByResult)
                     {
+                        var orderByKey = orderings[count];
                         count++;
-
-                        var orderByKey = string.Join(".", orderByItem
-                                ?.Key
-                                ?.ToLower()
-                                ?.Trim()
-                                ?.Split(".")
-                                .Select(x => x.Trim())
-                                .Select(x => x
-                                    .Replace("{first:asc}" + $"{x.Replace("{first:asc}", "")}",
-                                        $"OrderBy(sub => sub.{x.Replace("{first:asc}", "")}).First()")
-                                    .Replace("{first:desc}" + $"{x.Replace("{first:desc}", "")}",
-                                        $"OrderByDescending(sub => sub.{x.Replace("{first:desc}", "")}).Last()")
-                                    .Replace("{last:asc}" + $"{x.Replace("{last:asc}", "")}",
-                                        $"OrderBy(sub => sub.{x.Replace("{last:asc}", "")}).First()")
-                                    .Replace("{last:desc}" + $"{x.Replace("{last:desc}", "")}",
-                                        $"OrderByDescending(sub => sub.{x.Replace("{last:desc}", "")}).Last()")
-                                ) ?? []
-                        );
 
                         switch (orderByItem?.Method)
                         {

@@ -49369,6 +49369,7 @@
       "NhCollectionSelection",
       "NhSelectedCollectionMessagePack",
       "FilterableAttribute",
+      "OrderableAttribute",
       "InvalidFilterCollectionResultException"
     ],
     "nh-backend-controller-contracts": [

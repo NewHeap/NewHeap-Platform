@@ -38,6 +38,26 @@ attributes, which could reject them with a plain `Exception`.
 | Members of scalar values, such as `name.length` or `creationDateTime.year`, are no longer accepted as filter key segments. | Filter on a `[Filterable]` view-model property, or configure a selector for the value. |
 | On the attribute-based path an unknown field or an unsupported operator throws `InvalidFilterCollectionResultException` instead of `Exception`, and the message names the complete key instead of its first segment. | None, unless code or a test compares the exception's exact type or message; catch `InvalidFilterCollectionResultException`. |
 
+## NewHeap.Platform.Common: complete order keys checked against [Orderable] view models
+
+Collection processing now checks every dotted segment of every `+` part of a client order key on the
+attribute-based path (`ProcessOrderBy<TEntity, TViewModel>`) and on the options-based path
+(`OrderableFromAttributes`), the way it checks filter keys. The first segment must be an `[Orderable]`
+property of the view model, and every later segment an `[Orderable]` property of the view-model type
+that the previous segment reaches; a step into a collection names one member of its items behind a
+`{first:asc}`, `{first:desc}`, `{last:asc}` or `{last:desc}` token, in any letter case, as the
+`orderByFirst` and `orderByLast` helpers send it. Before, validation stopped at the first scalar
+`[Orderable]` property and the rest of the key went to Dynamic LINQ unchecked, so a key such as
+`creationDateTime.year == 2001 ? secret.length : 0` ordered rows by entity columns that the view model
+does not expose, on SQL Server and PostgreSQL. The ordering is now built from the matched property names
+only. A configured `WithOrderable(key, selector)` still allows exactly its own key, and a view model
+without `[Orderable]` members and without configured selectors still ignores order keys.
+
+| Breaking change | Required action |
+|---|---|
+| An order key that names a member that is not `[Orderable]` at any step, or continues behind a scalar such as `name.length`, now fails with `InvalidFilterCollectionResultException` (`400` from the base controllers), like an invalid filter key, instead of being skipped. | Mark each view-model member that clients may sort on `[Orderable]`, together with the navigation or collection that leads to it, or configure `WithOrderable(key, selector)`; stop sending sort keys for other columns. |
+| A collection step in an order key must be followed by exactly one token segment, such as `tasks.{first:asc}deadline`, which ends the key. | Use `orderByFirst` or `orderByLast`, or configure a selector for other collection orderings. |
+
 ## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: moves and renames authorize their destination
 
 A file or folder that moves or gets another name is now also authorized where it lands, as a create:

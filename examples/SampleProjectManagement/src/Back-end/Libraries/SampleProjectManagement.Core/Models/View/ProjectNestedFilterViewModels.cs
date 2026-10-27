@@ -3,17 +3,23 @@ using NewHeap.Platform.Common.Attributes;
 namespace SampleProjectManagement.Core.Models.View;
 
 /// <summary>
-/// SPM-034: the filter contract of the nested-filter sample. Collection processing checks every
-/// segment of a filter key against these view-model types, so <c>ownerUser.email</c> and
+/// SPM-034: the filter and order contract of the nested-filter sample. Collection processing checks
+/// every segment of a filter key against these view-model types, so <c>ownerUser.email</c> and
 /// <c>tasks{any}.title</c> are accepted. <c>ownerUser.passwordHash</c> and
 /// <c>tasks{any}.completedByUserId</c> are rejected, although the entities have those members:
 /// the owner view has no password hash and the task view does not mark the completing user
-/// <see cref="FilterableAttribute"/>.
+/// <see cref="FilterableAttribute"/>. Order keys are checked the same way against
+/// <see cref="OrderableAttribute"/>: <c>ownerUser.email</c> orders, while a key that continues behind
+/// <c>creationDateTime</c>, such as a conditional over the owner's password hash, is rejected.
 /// </summary>
 public sealed class ProjectNestedFilterViewModel
 {
     [Filterable]
     public Guid Id { get; set; }
+
+    /// <summary>An orderable scalar; an order key ends here and cannot continue to its members.</summary>
+    [Orderable]
+    public DateTimeOffset CreationDateTime { get; set; }
 
     [Orderable]
     public string Key { get; set; } = "";
@@ -21,8 +27,11 @@ public sealed class ProjectNestedFilterViewModel
     [Orderable, Filterable]
     public string Name { get; set; } = "";
 
-    /// <summary>A filterable navigation; only its own filterable members can be filtered.</summary>
-    [Filterable]
+    /// <summary>
+    /// A filterable and orderable navigation; only its own filterable or orderable members can be
+    /// filtered or ordered on.
+    /// </summary>
+    [Filterable, Orderable]
     public ProjectNestedFilterOwnerViewModel? OwnerUser { get; set; }
 
     /// <summary>A filterable collection; a key continues inside its items, as in <c>tasks{any}.title</c>.</summary>
@@ -35,7 +44,7 @@ public sealed class ProjectNestedFilterOwnerViewModel
     [Filterable]
     public Guid Id { get; set; }
 
-    [Filterable]
+    [Filterable, Orderable]
     public string? Email { get; set; }
 }
 

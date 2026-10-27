@@ -126,6 +126,41 @@ public class CollectionAndProjectionSamplesTests
                 [new FilterCollectionRequestModel { Key = "ownerUser.passwordHash", Operator = "LIKE", Value = "A%" }]));
     }
 
+    /// <summary>
+    /// SPM-034: an order key that the nested view allows translates to an ordering over the owner join
+    /// on SQL Server and PostgreSQL; a key that continues behind the orderable <c>creationDateTime</c>
+    /// into the owner's password hash is rejected before any SQL exists.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseProvider.SqlServer)]
+    [InlineData(DatabaseProvider.PostgreSql)]
+    public void NestedOrderKeysTranslateOnEachProvider(DatabaseProvider provider)
+    {
+        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>();
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            options.UseSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
+        }
+        else
+        {
+            options.UseNpgsql("Host=localhost;Database=translation_only");
+        }
+
+        using var db = new SampleProjectManagementDbContext(options.Options);
+        IQueryable<Project> projects = db.Projects;
+        _processor.ProcessOrderBy<Project, ProjectNestedFilterViewModel>(ref projects,
+            [new OrderByCollectionRequestModel { Key = "ownerUser.email", Direction = "DESC" }]);
+
+        var sql = projects.Select(project => project.Id).ToQueryString();
+        Assert.Contains("JOIN", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ORDER BY", sql, StringComparison.OrdinalIgnoreCase);
+
+        IQueryable<Project> rejected = db.Projects;
+        Assert.Throws<InvalidFilterCollectionResultException>(() =>
+            _processor.ProcessOrderBy<Project, ProjectNestedFilterViewModel>(ref rejected,
+                [new OrderByCollectionRequestModel { Key = "creationDateTime.year == 2026 ? ownerUser.passwordHash : \"\"" }]));
+    }
+
     [Fact]
     public void ExpressionSelectorsRejectMethodCallsAndAcceptMemberPaths()
     {

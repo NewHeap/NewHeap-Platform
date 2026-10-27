@@ -14,7 +14,7 @@ Keep read and write contracts separate, make filterability explicit, and provide
 
 ## Preferred approach
 
-Use a view model for read contracts and a mutate model for input. Mark only allowed filter fields with `Filterable`; for a nested filter such as `owner.email` or `tasks{any}.title`, mark the navigation or collection and each nested view-model member that may be filtered, because collection processing checks every segment of a filter key. Validate input with the existing NewHeap attributes, and register mappings centrally. Keep resource files complete for every supported language and test for missing keys. Use stable dash-case keys for frontend translations inside the object for the relevant module.
+Use a view model for read contracts and a mutate model for input. Mark only allowed filter fields with `Filterable`; for a nested filter such as `owner.email` or `tasks{any}.title`, mark the navigation or collection and each nested view-model member that may be filtered, because collection processing checks every segment of a filter key. Mark sortable fields with `Orderable` the same way: an order key such as `owner.email` needs the navigation and the nested member marked, and a sortable scalar ends the key. Validate input with the existing NewHeap attributes, and register mappings centrally. Keep resource files complete for every supported language and test for missing keys. Use stable dash-case keys for frontend translations inside the object for the relevant module.
 
 ## Avoid
 

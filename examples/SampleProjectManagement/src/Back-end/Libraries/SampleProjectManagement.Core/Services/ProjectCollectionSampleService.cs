@@ -108,11 +108,12 @@ public sealed class ProjectCollectionSampleService
     }
 
     /// <summary>
-    /// SPM-034: filters projects through the owner navigation and the task collection with the
-    /// view-model attributes. Every segment of a filter key must be <c>[Filterable]</c> on
-    /// <see cref="ProjectNestedFilterViewModel"/> or the nested view model it reaches, so a key that
-    /// names an entity member the views do not expose fails with a safe <c>filter</c> error instead
-    /// of becoming a predicate.
+    /// SPM-034: filters and orders projects through the owner navigation and the task collection with
+    /// the view-model attributes. Every segment of a filter key must be <c>[Filterable]</c>, and every
+    /// segment of an order key <c>[Orderable]</c>, on <see cref="ProjectNestedFilterViewModel"/> or the
+    /// nested view model it reaches, so a key that names an entity member the views do not expose, or
+    /// continues behind a scalar value such as <c>creationDateTime</c>, fails with a safe <c>filter</c>
+    /// error instead of becoming a predicate or an ordering.
     /// </summary>
     public async Task<TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>> GetByNestedFiltersAsync(
         CollectionRequestModel request,
@@ -137,7 +138,7 @@ public sealed class ProjectCollectionSampleService
         {
             return TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>.Failed(
                 "filter",
-                "The filter field is not available for this collection.");
+                "The filter or order field is not available for this collection.");
         }
     }
 }

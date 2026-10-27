@@ -556,7 +556,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectNestedFilterViewModels.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionOrderPathValidationTests.cs"
     ],
     "SPM-035": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
