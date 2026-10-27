@@ -3731,14 +3731,15 @@
       "categoryId": "18",
       "title": "Editable application context and personal assistant preferences",
       "surface": "`UseDefaultApplicationContext`, `GET/PUT admin/context`, `GET admin/context/versions`, `GET/PUT preferences` (`style`, `addressForm`, `responseLength`, `customInstructions`), instruction composition in order of authority, prompt identity in the invocation context and `NhAssistantAuditEvent`",
-      "outcome": "The sample seeds its application context once as version 1; an administrator edits it with the expected version and a later seed never overwrites the edit. A user stores personal style preferences; the next turn uses library rules, the edited application context, the agent instructions and, last and explicitly bounded, the Dutch style lines and custom instructions chosen from `Accept-Language`. Custom instructions cannot change tools or approvals, and the context and preference texts never reach logs or audit, which carry their versions and hashes instead.",
+      "outcome": "The sample seeds its application context once as version 1; an administrator edits it with the expected version and a later seed never overwrites the edit. A user stores personal style preferences; the next turn uses library rules, the edited application context, the agent instructions and, last and explicitly bounded, the Dutch style lines and custom instructions chosen from `Accept-Language`. Custom instructions cannot change tools or approvals, and the context and preference texts never reach logs or audit, which carry their versions and hashes instead. Preferences belong to the person a turn works for: when an approver decides another person's proposal in an agent thread, the continued turn composes its prompt from the preferences, custom instructions, situation and name of the person who asked, never from the approver's.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersonalizationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
       ]
     },
     {

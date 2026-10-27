@@ -271,3 +271,16 @@ the initiator's rights.
 |---|---|
 | A personal MCP server serves an approver's continuation of another person's turn only with that person's consent (`headlessUse` `personal`), otherwise it is left out as in a headless turn. | Let people allow background use of servers their agents need after an approval, or keep such tools out of proposals that others approve. |
 | A bridge call in an agent turn that does not run in its initiator's own request fails with `api-bridge-unauthenticated` before a request is sent. | None; use a gateway read (`AllowGatewayReads`) for headless reads. |
+
+## NewHeap.Platform.AI.Chat: an approver's decision continues with the asker's prompt context
+
+The continuation of another person's request turn after an approver's decision under the approval policy
+now composes its prompt for the person who asked, as the headless continuation of a run does: that
+person's preferences, custom instructions, turn facts and name ("latest message from"), and that person's
+files and daily budget. Before, the approver's own preferences and custom instructions steered a model
+that acted with the asker's delegated rights. The decision, its stored decider and its audit event stay
+the approver's.
+
+| Breaking change | Required action |
+|---|---|
+| Turn context providers (`UseTurnContextProvider`) receive the asker's context for such a continuation, and `INhAiTurnPerson` names nobody in it. | None, unless a provider or tool reads the request's user directly; read the person from the context instead. |

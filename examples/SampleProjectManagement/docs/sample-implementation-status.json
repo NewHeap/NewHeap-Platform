@@ -1980,7 +1980,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersonalizationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
     ],
     "SPM-253": [
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",

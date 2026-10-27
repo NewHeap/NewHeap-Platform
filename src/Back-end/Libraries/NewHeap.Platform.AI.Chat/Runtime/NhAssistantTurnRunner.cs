@@ -1889,8 +1889,15 @@ internal sealed partial class NhAssistantTurnRunner(
         var userMessageId = userMessage?.Id ?? Guid.Empty;
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
-        var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
+        // Another person's decision continues the initiator's turn, which works for the initiator as
+        // the headless continuation of a run does: the initiator's preferences, turn facts and name
+        // shape its prompt, and its files and budget are the initiator's. The decider's own context
+        // never steers a turn that acts with someone else's rights; the decision stays the decider's.
+        var callerContext = request.AgentTurn is { ContinuedByAnotherPerson: true } continued
+            ? CreateAgentCallerContext(continued, agent, conversation)
+            : request.CallerContext;
+        var speakers = await LoadSpeakersAsync(conversation, callerContext.ActorId, request.Language);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, callerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -1917,7 +1924,7 @@ internal sealed partial class NhAssistantTurnRunner(
             invocation.CompletedAt = now;
             await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
             await interceptor.RecordBusinessEventAsync(
-                DecisionEvent(state, approval, invocation, NhAssistantAuditEventKind.ApprovalExpired, NhAssistantErrorCodes.ApprovalExpired, now),
+                DecisionEvent(state, approval, invocation, NhAssistantAuditEventKind.ApprovalExpired, NhAssistantErrorCodes.ApprovalExpired, now, decider),
                 CancellationToken.None);
             await FinishWithErrorAsync(state, NhAssistantErrorCodes.ApprovalExpired, NhAssistantConversationStatuses.Idle);
             return;
@@ -1945,7 +1952,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 invocation,
                 request.Approve ? NhAssistantAuditEventKind.ApprovalApproved : NhAssistantAuditEventKind.ApprovalRejected,
                 decisionStatus,
-                now),
+                now,
+                decider),
             CancellationToken.None);
 
         object? functionResult;
@@ -1987,7 +1995,7 @@ internal sealed partial class NhAssistantTurnRunner(
         messages.Add(new ChatMessage(
             ChatRole.Tool,
             [new FunctionResultContent(invocation.CallId, functionResult)]));
-        await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
+        await RunModelAsync(state, callerContext, messages, cancellationToken);
     }
 
     /// <summary>
@@ -3448,19 +3456,23 @@ internal sealed partial class NhAssistantTurnRunner(
         return part is { Type: NhAssistantStoredPart.FileType, File: not null };
     }
 
+    /// <param name="deciderActorId">The person who decided, when the turn works for someone else: the
+    /// initiator whose turn another person's decision continues. <see langword="null"/> for the person
+    /// whose turn it is.</param>
     private static NhAssistantAuditEvent DecisionEvent(
         NhAssistantTurnState state,
         AssistantApproval approval,
         AssistantToolInvocation invocation,
         NhAssistantAuditEventKind kind,
         string code,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt,
+        string? deciderActorId = null)
     {
         return new NhAssistantAuditEvent(
             kind,
             state.Conversation.Id,
             state.Scope.TurnId,
-            state.Scope.OwnerActorId,
+            deciderActorId ?? state.Scope.OwnerActorId,
             state.Scope.Agent.Id,
             state.Scope.Agent.Version,
             occurredAt)
