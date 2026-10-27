@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c40cfc8249437f1e5ac8f3aab9d2f883fb97b4784d943b8d607789067d89b802",
-    "declarationCount": 11194,
+    "hash": "c1cb3e66a44facc5fa72d304316f8a6b2b0fa1dda2d21fc17158b862321c63d2",
+    "declarationCount": 11197,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -33504,6 +33504,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhJwtSigningKeys.cs",
         "declaration": "public string ToJwksJson() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public static class NhRefreshTokenKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public const string ConfigurationKey = \"NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public const int MinimumBytes = NhJwtSigningKey.MinimumBytes;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",

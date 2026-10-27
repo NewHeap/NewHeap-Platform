@@ -16,6 +16,7 @@ using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -34,6 +35,9 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class AuthenticationSessionProviderTests
 {
+    private const string UserCredential = "Session1!Password";
+    private const string InvalidRefreshToken = "Invalid refresh token";
+
     [Fact]
     public void PlatformServicesBuildWithStartupValidation()
     {
@@ -140,11 +144,82 @@ public sealed class AuthenticationSessionProviderTests
     [InlineData(RelationalTestProvider.PostgreSql)]
     public async Task SessionLifecycleWorksOnEachRelationalProvider(RelationalTestProvider provider)
     {
-        var database = await ProviderTestDatabase.CreateAsync(provider);
-        await VerifyProviderAsync(database.UseNewHeapProvider);
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        await VerifyProviderAsync(environment);
     }
 
-    private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task RefreshTokensAreStoredAsKeyedDigestsOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        var authenticationService = environment.CreateAuthenticationService();
+        var user = await environment.CreateUserAsync("refresh-digest@example.test");
+
+        var session = await authenticationService.AuthenticateVerifiedUserAsync(user);
+        Assert.True(session.Success);
+        var refreshToken = session.Data!.RefreshToken!;
+
+        // The row holds only the keyed digest; the token itself went to the client.
+        var stored = Assert.Single(await environment.StoredRefreshTokensAsync(user.Id));
+        Assert.DoesNotContain(refreshToken, stored, StringComparison.Ordinal);
+        Assert.StartsWith("nhr1:", stored, StringComparison.Ordinal);
+        Assert.Equal(NhRefreshTokenKey.Digest(CreateConfiguration(), refreshToken), stored);
+
+        // A copy of the row is not a refresh token, and presenting it consumes nothing.
+        AssertRefusedLikeAnInvalidRefreshToken(
+            await authenticationService.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, stored)));
+        Assert.Equal([stored], await environment.StoredRefreshTokensAsync(user.Id));
+
+        // A row stored before the upgrade holds the token itself, which no longer matches: that
+        // device signs in again once.
+        await AddRefreshTokensAsync(environment.Context, user.Id, "token-stored-before-the-upgrade");
+        AssertRefusedLikeAnInvalidRefreshToken(
+            await authenticationService.AuthenticateRefreshTokenAsync(
+                new RefreshTokenRequest(user.UserName!, "token-stored-before-the-upgrade")));
+        Assert.Equal(2, await CountRefreshTokensAsync(environment.Context, user.Id));
+
+        // Rotation replaces the presented token's row with the digest of the new token.
+        var refreshed = await authenticationService.AuthenticateRefreshTokenAsync(
+            new RefreshTokenRequest(user.UserName!, refreshToken));
+        Assert.True(refreshed.Success);
+        var rotatedToken = refreshed.Data!.RefreshToken!;
+        Assert.NotEqual(refreshToken, rotatedToken);
+
+        var storedAfterRotation = await environment.StoredRefreshTokensAsync(user.Id);
+        Assert.DoesNotContain(stored, storedAfterRotation);
+        Assert.Contains(NhRefreshTokenKey.Digest(CreateConfiguration(), rotatedToken), storedAfterRotation);
+        AssertRefusedLikeAnInvalidRefreshToken(
+            await authenticationService.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, refreshToken)));
+
+        // A configured refresh-token key takes precedence over the signing key, so a token stored
+        // under the signing key no longer matches once it is set.
+        var keyedSettings = new Dictionary<string, string?>
+        {
+            [NhRefreshTokenKey.ConfigurationKey] = "refresh-token-key-with-at-least-thirty-two-bytes",
+        };
+        var keyedService = environment.CreateAuthenticationService(keyedSettings);
+        AssertRefusedLikeAnInvalidRefreshToken(
+            await keyedService.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, rotatedToken)));
+
+        var keyedSession = await keyedService.AuthenticateVerifiedUserAsync(user);
+        var keyedToken = keyedSession.Data!.RefreshToken!;
+        Assert.Contains(
+            NhRefreshTokenKey.Digest(CreateConfiguration(keyedSettings), keyedToken),
+            await environment.StoredRefreshTokensAsync(user.Id));
+        Assert.True((await keyedService.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, keyedToken))).Success);
+
+        // Logout finds the row by the digest of the token the client presents.
+        Assert.Equal(0, await NhRefreshTokenOperations.RevokeAsync(
+            environment.Context.Set<NhUserAuthRefreshToken>(),
+            rotatedToken));
+        Assert.Equal(1, await NhRefreshTokenOperations.RevokeAsync(
+            environment.Context.Set<NhUserAuthRefreshToken>(),
+            NhRefreshTokenKey.Digest(CreateConfiguration(), rotatedToken)));
+    }
+
+    private static async Task VerifyProviderAsync(SessionEnvironment environment)
     {
         const string initialCredential = "Old1!Password";
         const string changedCredential = "New2!Password";
@@ -152,49 +227,9 @@ public sealed class AuthenticationSessionProviderTests
         const string resetCredential = "Reset4!Password";
         const string customCredential = "Custom5!Password";
 
-        var optionsBuilder = new DbContextOptionsBuilder<AuthenticationSessionDbContext>();
-        configureProvider(optionsBuilder);
-
-        await using var context = new AuthenticationSessionDbContext(optionsBuilder.Options);
-        await context.Database.EnsureCreatedAsync();
-
-        using var serviceProvider = new ServiceCollection().BuildServiceProvider();
-        var repository = new Repository<NhUser>(context, serviceProvider);
-        var identityOptions = new IdentityOptions();
-        identityOptions.Tokens.PasswordResetTokenProvider = TestPasswordResetTokenProvider.ProviderName;
-        var options = Options.Create(identityOptions);
-        var normalizer = new UpperInvariantLookupNormalizer();
-        var errors = new IdentityErrorDescriber();
-        var userStore = new UserStore<NhUser, NhUserRole, AuthenticationSessionDbContext, Guid>(context);
-        var roleStore = new RoleStore<NhUserRole, AuthenticationSessionDbContext, Guid>(context);
-
-        using var roleManager = new RoleManager<NhUserRole>(
-            roleStore,
-            [],
-            normalizer,
-            errors,
-            Substitute.For<ILogger<RoleManager<NhUserRole>>>());
-
-        using var userManager = new ConsumerUserManager(
-            Substitute.For<IWebHostEnvironment>(),
-            userStore,
-            options,
-            new PasswordHasher<NhUser>(),
-            [new UserValidator<NhUser>()],
-            [new PasswordValidator<NhUser>()],
-            normalizer,
-            errors,
-            serviceProvider,
-            Substitute.For<ILogger<UserManager<NhUser>>>(),
-            Options.Create(new MicrosoftAuthSettings()),
-            repository,
-            roleManager,
-            new ValidationService(serviceProvider),
-            Substitute.For<INhDbLogService>());
-
-        userManager.RegisterTokenProvider(
-            TestPasswordResetTokenProvider.ProviderName,
-            new TestPasswordResetTokenProvider());
+        var context = environment.Context;
+        var userManager = environment.UserManager;
+        var options = environment.IdentityOptions;
 
         var user = new NhUser
         {
@@ -440,7 +475,8 @@ public sealed class AuthenticationSessionProviderTests
 
     private static TestAuthenticationService CreateAuthenticationService(
         NhUserManager userManager,
-        IOptions<IdentityOptions> identityOptions)
+        IOptions<IdentityOptions> identityOptions,
+        IReadOnlyDictionary<string, string?>? additionalSettings = null)
     {
         var signInManager = new SignInManager<NhUser>(
             userManager,
@@ -451,13 +487,7 @@ public sealed class AuthenticationSessionProviderTests
             Substitute.For<IAuthenticationSchemeProvider>(),
             Substitute.For<IUserConfirmation<NhUser>>());
 
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
-                ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
-            })
-            .Build();
+        var configuration = CreateConfiguration(additionalSettings);
 
         return new TestAuthenticationService(
             signInManager,
@@ -466,6 +496,34 @@ public sealed class AuthenticationSessionProviderTests
             configuration,
             new TokenValidationParameters(),
             new AuthenticationConfiguration());
+    }
+
+    /// <summary>
+    /// A refused refresh looks exactly like one with an unknown token, so it tells the caller nothing
+    /// about the account.
+    /// </summary>
+    private static void AssertRefusedLikeAnInvalidRefreshToken(TaskResult result)
+    {
+        Assert.False(result.Success);
+        Assert.Equal([InvalidRefreshToken], result.AllErrorMessages.Select(message => message.ToString()));
+    }
+
+    private static IConfiguration CreateConfiguration(IReadOnlyDictionary<string, string?>? additionalSettings = null)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
+            [NhJwtSigningKey.ConfigurationKey] = "test-signing-key-with-at-least-thirty-two-bytes",
+        };
+
+        foreach (var setting in additionalSettings ?? new Dictionary<string, string?>())
+        {
+            settings[setting.Key] = setting.Value;
+        }
+
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
     }
 
     private static ClaimsPrincipal CreatePrincipal(
@@ -511,6 +569,122 @@ public sealed class AuthenticationSessionProviderTests
         Guid userId)
     {
         return context.Set<NhUserAuthRefreshToken>().CountAsync(x => x.UserId == userId);
+    }
+
+    /// <summary>
+    /// A database of its own on one provider with the Identity stack of a consumer: the user and role
+    /// managers over the platform's Identity context, and authentication services built on them.
+    /// </summary>
+    private sealed class SessionEnvironment : IAsyncDisposable
+    {
+        private readonly ServiceProvider _serviceProvider;
+        private readonly RoleManager<NhUserRole> _roleManager;
+
+        private SessionEnvironment(AuthenticationSessionDbContext context)
+        {
+            Context = context;
+            _serviceProvider = new ServiceCollection().BuildServiceProvider();
+
+            var identityOptions = new IdentityOptions();
+            identityOptions.Tokens.PasswordResetTokenProvider = TestPasswordResetTokenProvider.ProviderName;
+            IdentityOptions = Options.Create(identityOptions);
+
+            var normalizer = new UpperInvariantLookupNormalizer();
+            var errors = new IdentityErrorDescriber();
+
+            _roleManager = new RoleManager<NhUserRole>(
+                new RoleStore<NhUserRole, AuthenticationSessionDbContext, Guid>(context),
+                [],
+                normalizer,
+                errors,
+                Substitute.For<ILogger<RoleManager<NhUserRole>>>());
+
+            UserManager = new ConsumerUserManager(
+                Substitute.For<IWebHostEnvironment>(),
+                new UserStore<NhUser, NhUserRole, AuthenticationSessionDbContext, Guid>(context),
+                IdentityOptions,
+                new PasswordHasher<NhUser>(),
+                [new UserValidator<NhUser>()],
+                [new PasswordValidator<NhUser>()],
+                normalizer,
+                errors,
+                _serviceProvider,
+                Substitute.For<ILogger<UserManager<NhUser>>>(),
+                Options.Create(new MicrosoftAuthSettings()),
+                new Repository<NhUser>(context, _serviceProvider),
+                _roleManager,
+                new ValidationService(_serviceProvider),
+                Substitute.For<INhDbLogService>());
+
+            UserManager.RegisterTokenProvider(
+                TestPasswordResetTokenProvider.ProviderName,
+                new TestPasswordResetTokenProvider());
+        }
+
+        internal AuthenticationSessionDbContext Context { get; }
+        internal ConsumerUserManager UserManager { get; }
+        internal IOptions<IdentityOptions> IdentityOptions { get; }
+
+        internal static async Task<SessionEnvironment> CreateAsync(RelationalTestProvider provider)
+        {
+            var database = await ProviderTestDatabase.CreateAsync(provider);
+            var optionsBuilder = new DbContextOptionsBuilder<AuthenticationSessionDbContext>();
+            database.UseNewHeapProvider(optionsBuilder);
+
+            var context = new AuthenticationSessionDbContext(optionsBuilder.Options);
+            await context.Database.EnsureCreatedAsync();
+
+            return new SessionEnvironment(context);
+        }
+
+        internal TestAuthenticationService CreateAuthenticationService(
+            IReadOnlyDictionary<string, string?>? additionalSettings = null)
+        {
+            return AuthenticationSessionProviderTests.CreateAuthenticationService(
+                UserManager,
+                IdentityOptions,
+                additionalSettings);
+        }
+
+        internal async Task<NhUser> CreateUserAsync(string email)
+        {
+            var user = new NhUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+            };
+
+            var createResult = await UserManager.CreateAsync(user, UserCredential);
+            Assert.True(createResult.Succeeded);
+            return user;
+        }
+
+        internal Task<List<string>> StoredRefreshTokensAsync(Guid userId)
+        {
+            return Context.Set<NhUserAuthRefreshToken>()
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Token)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Reloads <paramref name="user"/> from the database, as the next request would.
+        /// </summary>
+        internal async Task<NhUser> ReloadAsync(NhUser user)
+        {
+            Context.ChangeTracker.Clear();
+            return (await UserManager.FindByIdAsync(user.Id.ToString()))!;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            UserManager.Dispose();
+            _roleManager.Dispose();
+            await Context.DisposeAsync();
+            await _serviceProvider.DisposeAsync();
+        }
     }
 
     private sealed class ConsumerUserManager : NhUserManager

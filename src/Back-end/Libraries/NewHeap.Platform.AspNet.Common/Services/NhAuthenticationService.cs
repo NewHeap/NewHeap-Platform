@@ -113,7 +113,7 @@ public class NhAuthenticationService<
             var consumed = await NhRefreshTokenOperations.TryConsumeAsync(
                 refreshTokens,
                 user.Id,
-                request.RefreshToken,
+                NhRefreshTokenKey.Digest(_configuration, request.RefreshToken),
                 now);
 
             if (!consumed)
@@ -149,6 +149,10 @@ public class NhAuthenticationService<
         }
     }
 
+    /// <summary>
+    /// Creates a refresh token for <paramref name="user"/>. The row stores only the token's keyed digest
+    /// (<see cref="NhRefreshTokenKey"/>); the token itself is returned for the client and is not kept.
+    /// </summary>
     protected virtual async Task<TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>> CreateRefreshTokenAsync(TUser user)
     {
         var repo = _userManager.GetRepository()
@@ -162,10 +166,11 @@ public class NhAuthenticationService<
 
         DateTimeOffset expirationDateTimeOffset = token.ValidTo;
 
+        var refreshTokenValue = GenerateRefreshToken();
         var refreshToken = new NhUserAuthRefreshToken()
         {
             UserId = user.Id,
-            Token = GenerateRefreshToken(),
+            Token = NhRefreshTokenKey.Digest(_configuration, refreshTokenValue),
             ExpiryDateTime = expirationDateTimeOffset
         };
 
@@ -179,7 +184,7 @@ public class NhAuthenticationService<
             DateTimeOffset.UtcNow);
 
         return TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>.Succeeded(
-            (refreshToken.Token, refreshToken.ExpiryDateTime)
+            (refreshTokenValue, refreshToken.ExpiryDateTime)
         );
     }
 

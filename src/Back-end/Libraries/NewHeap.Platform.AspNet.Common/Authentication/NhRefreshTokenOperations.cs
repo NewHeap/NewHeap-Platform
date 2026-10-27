@@ -1,26 +1,32 @@
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Extensions;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
+/// <summary>
+/// Reads and deletes refresh-token rows. A row stores the token's digest
+/// (<see cref="NhRefreshTokenKey.Digest"/>), never the token itself, so callers look rows up with the
+/// digest of the token the client presented.
+/// </summary>
 internal static class NhRefreshTokenOperations
 {
     internal static async Task<bool> TryConsumeAsync(
         IQueryable<NhUserAuthRefreshToken> refreshTokens,
         Guid userId,
-        string token,
+        string tokenDigest,
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
         var candidates = await refreshTokens
             .Where(x =>
                 x.UserId == userId
-                && x.Token == token
+                && x.Token == tokenDigest
                 && x.ExpiryDateTime >= now)
             .Select(x => new RefreshTokenMatch(x.Id, x.Token))
             .ToListAsync(cancellationToken);
         var candidate = candidates.FirstOrDefault(x =>
-            string.Equals(x.Token, token, StringComparison.Ordinal));
+            string.Equals(x.Token, tokenDigest, StringComparison.Ordinal));
 
         if (candidate == null)
         {
@@ -38,15 +44,15 @@ internal static class NhRefreshTokenOperations
 
     internal static async Task<int> RevokeAsync(
         IQueryable<NhUserAuthRefreshToken> refreshTokens,
-        string token,
+        string tokenDigest,
         CancellationToken cancellationToken = default)
     {
         var candidates = await refreshTokens
-            .Where(x => x.Token == token)
+            .Where(x => x.Token == tokenDigest)
             .Select(x => new RefreshTokenMatch(x.Id, x.Token))
             .ToListAsync(cancellationToken);
         var exactIds = candidates
-            .Where(x => string.Equals(x.Token, token, StringComparison.Ordinal))
+            .Where(x => string.Equals(x.Token, tokenDigest, StringComparison.Ordinal))
             .Select(x => x.Id)
             .ToList();
 
