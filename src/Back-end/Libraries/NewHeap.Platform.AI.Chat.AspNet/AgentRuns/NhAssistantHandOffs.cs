@@ -13,7 +13,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// works on that type, the subject belongs to the source's scope key, a shadow run hands off only to a shadow agent, the
 /// same run handed the subject off once, the chain stays within its depth and never returns to an
 /// agent in it, and the daily limit per pair and subject holds. The target's run fires as trigger
-/// <see cref="NhAssistantTriggerIds.HandOff"/> without an initiator.
+/// <see cref="NhAssistantTriggerIds.HandOff"/> without an initiator. The follow-up to the source of
+/// work in shadow stays in shadow as well.
 /// </summary>
 internal sealed class NhAssistantHandOffService(
     NhAssistantRegistrationState registration,
@@ -206,7 +207,9 @@ internal sealed class NhAssistantHandOffService(
     /// <summary>
     /// Sends the sources of the hand-offs a run took their follow-up once the run ended: the outcome
     /// and the number of proposals, and the run's summary as data from another agent when the source
-    /// worked on the same subject and the run read nothing restricted with its agent's own grant.
+    /// worked on the same subject and the run read nothing restricted with its agent's own grant. The
+    /// follow-up of work in shadow, the run's or the handing run's, goes to the source agent's shadow
+    /// thread and never starts a live run.
     /// </summary>
     public async Task NotifySourcesAsync(Guid runId, AssistantThread thread, CancellationToken cancellationToken)
     {
@@ -234,6 +237,12 @@ internal sealed class NhAssistantHandOffService(
             {
                 continue;
             }
+
+            // Shadow work never starts live work, also on the way back: the follow-up of a run that
+            // worked in shadow, or of a hand-off a shadow run made, goes to the source agent's shadow
+            // thread of the subject, whatever the source agent's mode is now.
+            var sourceRun = await runs.FindRunAsync(handOff.SourceRunId, cancellationToken);
+            var shadow = run.Shadow || thread.Shadow || sourceThread.Shadow || sourceRun?.Shadow == true;
 
             var sameSubject = string.Equals(sourceThread.SubjectType, handOff.SubjectType, StringComparison.Ordinal)
                 && string.Equals(sourceThread.SubjectId, handOff.SubjectId, StringComparison.Ordinal);
@@ -271,9 +280,18 @@ internal sealed class NhAssistantHandOffService(
                     TimeSpan.Zero)
                 {
                     PayloadJson = JsonSerializer.Serialize(result, JsonSerializerOptions.Web),
-                    SkillId = skillId
+                    SkillId = skillId,
+                    Shadow = shadow
                 },
                 cancellationToken);
+            if (shadow)
+            {
+                logger.LogInformation(
+                    "The follow-up of hand-off {HandOffId} to agent {SourceAgentId} continues shadow work in its shadow thread ({Outcome}).",
+                    handOff.Id,
+                    handOff.SourceAgentId,
+                    receipt.ReasonCode ?? receipt.Outcome);
+            }
             if (receipt.Outcome == NhAssistantTriggerOutcomes.Rejected)
             {
                 logger.LogInformation(

@@ -256,3 +256,16 @@ people's turns and consultations decide as before.
 | Breaking change | Required action |
 |---|---|
 | A run in a shadow thread records a call of an effect the policy allows without approval as a shadow proposal instead of running it, and refuses an `Issuer` or `ConsumerAuthoritative` tool with `ai-tool-effect-denied`. | None; put the agent, skill or trigger live to let it act. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off follow-up of shadow work stays in shadow
+
+A hand-off with `NotifySource()` sent its follow-up (`agent-handoff-ended`) into the source agent's live
+thread whatever had worked in shadow, so a live source that handed work to an agent in shadow started a
+live run and its thread's readers read the shadow run's summary. When the target's run or the handing
+run worked in shadow, the follow-up now goes to the source agent's shadow thread of the subject, where
+nobody is notified and nothing executes, whatever the source's mode is by then. While the source agent
+or skill is paused, such a follow-up is ignored instead of waiting for a resume.
+
+| Breaking change | Required action |
+|---|---|
+| The follow-up of a hand-off whose target or source run worked in shadow starts a run in the source agent's shadow thread instead of its live thread, and is ignored while the source is paused. | None; read the follow-up in the source's shadow thread while the target is evaluated. |

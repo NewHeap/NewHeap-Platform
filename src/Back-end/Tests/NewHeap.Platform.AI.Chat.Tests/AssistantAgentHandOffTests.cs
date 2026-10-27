@@ -356,6 +356,118 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
         Assert.Equal("order", results.First().SubjectType);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_follow_up_of_a_target_in_shadow_goes_to_the_sources_shadow_thread_and_starts_no_live_run(AssistantTestProvider provider)
+    {
+        const string marker = "SHADOW-ANSWER";
+        var models = new HandOffModels();
+        await using var host = await CreateHostAsync(provider, models);
+        var receipts = HandOffByRule(host, Closer, "Please close it.");
+        var closer = host.Services.GetRequiredService<TestSkillRuleScript>();
+        closer.Run = (_, _) => Task.FromResult(NhAssistantRuleResult.Done(marker + ": the project can close."));
+        await ControlAsync(host, control => control.SetShadowAsync(Closer, true, "operator-1", "Evaluate the closer"));
+
+        // The live planner hands the project to the closer, which works in its shadow thread.
+        var source = Assert.Single(await PublishAsync(host, "plan shadow target", Guid.NewGuid()));
+        await ExecuteAsync(host, source.RunId!.Value);
+        var handed = Assert.Single(receipts);
+        Assert.Equal(NhAssistantHandOffOutcomes.Accepted, handed.Outcome);
+        await ExecuteAsync(host, handed.RunId!.Value);
+        Assert.True((await Runs(host).FindRunAsync(handed.RunId.Value, CancellationToken.None))!.Shadow);
+
+        // The planner hears how it ended in its own shadow thread: its live thread gets no run, no
+        // input and no message with the shadow answer.
+        var liveThread = (await Runs(host).FindThreadByConversationAsync(source.ConversationId!.Value, CancellationToken.None))!;
+        Assert.Equal([source.RunId.Value], (await RunsOfAsync(host, liveThread.ConversationId)).Select(run => run.Id).ToArray());
+        var shadowThread = await Runs(host).FindThreadAsync(
+            liveThread.ScopeKey,
+            Planner,
+            new NhAiSubjectRef(liveThread.SubjectType, liveThread.SubjectId),
+            CancellationToken.None,
+            shadow: true);
+        Assert.NotNull(shadowThread);
+        var followUp = Assert.Single(await RunsOfAsync(host, shadowThread.ConversationId));
+        Assert.Equal((NhAssistantTriggerIds.HandOffEnded, true), (followUp.TriggerId, followUp.Shadow));
+        await ExecuteAsync(host, followUp.Id);
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            Assert.DoesNotContain(
+                await context.QueuedInputs.Where(input => input.ConversationId == liveThread.ConversationId).ToListAsync(),
+                input => input.TriggerId == NhAssistantTriggerIds.HandOffEnded);
+            Assert.DoesNotContain(
+                await context.Messages.Where(message => message.ConversationId == liveThread.ConversationId).ToListAsync(),
+                message => message.PartsJson.Contains(marker, StringComparison.Ordinal));
+            Assert.Contains(
+                await context.Messages.Where(message => message.ConversationId == shadowThread.ConversationId).ToListAsync(),
+                message => message.PartsJson.Contains(marker, StringComparison.Ordinal));
+        }
+
+        // While the planner is paused, the follow-up of shadow work waits nowhere: a resume would
+        // otherwise start it in the planner's live thread.
+        var pausedProject = Guid.NewGuid();
+        var pausedSource = Assert.Single(await PublishAsync(host, "plan paused source", pausedProject));
+        await ExecuteAsync(host, pausedSource.RunId!.Value);
+        await ControlAsync(host, control => control.PauseAsync(Planner, "operator-1", "Import running"));
+        await ExecuteAsync(host, receipts.Last().RunId!.Value);
+        await ControlAsync(host, control => control.ResumeAsync(Planner, "operator-1", null));
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            var plannerThreads = await context.Threads
+                .Where(item => item.AgentId == Planner && item.SubjectId == pausedProject.ToString("N"))
+                .Select(item => item.ConversationId)
+                .ToListAsync();
+            Assert.DoesNotContain(
+                await context.Runs.Where(run => plannerThreads.Contains(run.ConversationId)).ToListAsync(),
+                run => run.TriggerId == NhAssistantTriggerIds.HandOffEnded);
+            Assert.DoesNotContain(
+                await context.QueuedInputs.Where(input => plannerThreads.Contains(input.ConversationId)).ToListAsync(),
+                input => input.TriggerId == NhAssistantTriggerIds.HandOffEnded);
+        }
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_follow_up_of_a_hand_off_a_shadow_run_made_stays_in_shadow_after_the_source_went_live(AssistantTestProvider provider)
+    {
+        var models = new HandOffModels();
+        await using var host = await CreateHostAsync(provider, models);
+        var receipts = new ConcurrentQueue<NhAssistantHandOffReceipt>();
+        host.Services.GetRequiredService<TestRuleScript>().Run = async (context, cancellationToken) =>
+        {
+            if (context.TriggerId == NhAssistantTriggerIds.HandOffEnded || context.AgentId != ShadowPlanner)
+            {
+                return NhAssistantRuleResult.Done("Noted.");
+            }
+
+            receipts.Enqueue(await context.HandOffAsync(Closer, context.Subject.Subject, "Please close it.", null, cancellationToken));
+            return NhAssistantRuleResult.Done("Handed off.");
+        };
+        await ControlAsync(host, control => control.SetShadowAsync(Closer, true, "operator-1", "Evaluate the closer"));
+
+        // The shadow planner hands off in shadow; an operator puts it live before the closer answers.
+        var source = Assert.Single(await PublishAsync(host, "shadow plan", Guid.NewGuid()));
+        await ExecuteAsync(host, source.RunId!.Value);
+        Assert.True((await Runs(host).FindRunAsync(source.RunId.Value, CancellationToken.None))!.Shadow);
+        var handed = Assert.Single(receipts);
+        Assert.Equal(NhAssistantHandOffOutcomes.Accepted, handed.Outcome);
+        await ControlAsync(host, control => control.SetShadowAsync(ShadowPlanner, false, "operator-1", "Live now"));
+        await ExecuteAsync(host, handed.RunId!.Value);
+
+        // The follow-up continues the shadow work in the shadow thread it came from.
+        var followUp = await LatestRunAsync(host, source.ConversationId!.Value);
+        Assert.Equal((NhAssistantTriggerIds.HandOffEnded, true), (followUp.TriggerId, followUp.Shadow));
+        var sourceThread = (await Runs(host).FindThreadByConversationAsync(source.ConversationId.Value, CancellationToken.None))!;
+        Assert.True(sourceThread.Shadow);
+        Assert.Null(await Runs(host).FindThreadAsync(
+            sourceThread.ScopeKey,
+            ShadowPlanner,
+            new NhAiSubjectRef(sourceThread.SubjectType, sourceThread.SubjectId),
+            CancellationToken.None));
+    }
+
     [Fact]
     public void Hand_offs_from_the_agent_itself_without_sources_or_from_an_unknown_agent_fail_validation()
     {

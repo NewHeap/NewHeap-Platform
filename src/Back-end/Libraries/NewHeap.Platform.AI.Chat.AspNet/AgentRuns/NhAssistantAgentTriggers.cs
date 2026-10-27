@@ -234,6 +234,14 @@ internal sealed record NhAssistantTriggerFire(
     public int? TriggerVersion { get; init; }
 
     /// <summary>
+    /// The fire continues work in shadow, such as the follow-up of a hand-off whose target or source
+    /// worked in shadow: its run works in the agent's shadow thread whatever the agent's own mode, so
+    /// shadow work never starts live work. While the agent or skill is paused it is ignored, because
+    /// a resume would move a waiting input to the live thread of an agent that works live by then.
+    /// </summary>
+    public bool Shadow { get; init; }
+
+    /// <summary>
     /// The further recorded inputs of the replayed run, written after the fire's own input.
     /// </summary>
     public IReadOnlyList<NhAssistantReplayedInput> ReplayedInputs { get; init; } = [];
@@ -1543,21 +1551,24 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         // Work of an agent, a skill or a data trigger in shadow goes to the agent's shadow thread of
-        // the subject, and so does a candidate version's, of a skill or of a trigger.
+        // the subject, and so does a candidate version's, of a skill or of a trigger, and work that
+        // continues shadow work.
         var shadow = NhAssistantShadowModes.IsAgentShadow(options, agent.ShadowOverride)
             || (fire.SkillId is { } shadowSkill
                 && options.Skills.TryGetValue(shadowSkill, out var skillOptions)
                 && NhAssistantShadowModes.IsSkillShadow(options, skillOptions, skillRow))
             || (!fire.TriggerCandidate && IsTriggerShadow(fire.TriggerId))
             || fire.SkillCandidate
-            || fire.TriggerCandidate;
+            || fire.TriggerCandidate
+            || fire.Shadow;
 
         // A paused agent or a paused skill lets the event wait.
         var paused = (agent.RunState == NhAssistantAgentRunStates.Paused || skillState == NhAssistantAgentRunStates.Paused)
             && !fire.Resume;
-        if (paused && (fire.SkillCandidate || fire.TriggerCandidate))
+        if (paused && (fire.SkillCandidate || fire.TriggerCandidate || fire.Shadow))
         {
-            // A candidate evaluates work as it happens; it lets nothing wait for a resume.
+            // A candidate evaluates work as it happens, and work that continues shadow work could
+            // reach the live thread after a resume; neither lets anything wait for a resume.
             return new NhAssistantTriggerReceipt(
                 fire.TriggerId,
                 NhAssistantTriggerOutcomes.Ignored,

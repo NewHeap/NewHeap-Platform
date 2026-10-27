@@ -3037,6 +3037,55 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_planner_hands_a_finished_project_to_the_closer_in_shadow_and_hears_its_answer_only_in_its_shadow_thread()
+    {
+        // SPM-287
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string closer = SampleProjectCloserComposition.AgentId;
+        var project = await host.CreateProjectAsync("HANDOFF-SHADOW", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(5));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var design = await host.CreateTaskAsync(project, "Approve the design");
+        var delivery = await host.CreateTaskAsync(project, "Deliver the release");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // While the team evaluates the closer in shadow, the planner works live.
+            await ChangeShadowAsync(closer, SampleShadowChange.Shadow, "Evaluate the closing rules");
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(design, host.ParticipantId));
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner);
+            await WaitForRunCountAsync(colleague, plannerThread, 1);
+            var closerShadow = await WaitForShadowThreadAsync(administrator, project, closer);
+            await WaitForRunCountAsync(administrator, closerShadow, 1);
+
+            // The last task: the live planner hands the project to the closer, which answers in its
+            // shadow thread.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(delivery, host.ParticipantId));
+            var handedOff = await WaitForRunWithTriggerAsync(administrator, closerShadow, NhAssistantTriggerIds.HandOff);
+            Assert.True(
+                handedOff.Shadow && handedOff.RequestedByAgentId == planner,
+                $"Expected the closer's hand-off run in shadow, requested by {planner}; found {Describe(handedOff)}.");
+
+            // Shadow work never starts live work: the planner hears how the closer's run ended in its
+            // own shadow thread, which only administrators see, and no live planner run reads the
+            // closer's shadow answer.
+            var plannerShadow = await WaitForShadowThreadAsync(administrator, project, planner);
+            var answered = await WaitForRunWithTriggerAsync(administrator, plannerShadow, NhAssistantTriggerIds.HandOffEnded);
+            Assert.True(answered.Shadow, $"Expected the planner's follow-up in shadow; found {Describe(answered)}.");
+            var liveRuns = await RunsAsync(colleague, plannerThread);
+            Assert.True(
+                liveRuns.All(run => run.TriggerId != NhAssistantTriggerIds.HandOffEnded),
+                $"Expected no follow-up in the planner's live thread {plannerThread}; found {string.Join("; ", liveRuns.Select(Describe))}.");
+            Assert.Equal(HttpStatusCode.NotFound, (await colleague.GetAsync($"/api/assistant/conversations/{plannerShadow}")).StatusCode);
+        }
+        finally
+        {
+            // Other samples share the host and its closer.
+            await ChangeShadowAsync(closer, SampleShadowChange.Code, null);
+        }
+    }
+
+    [Fact]
     public async Task A_variant_of_the_project_planner_runs_in_the_shadow_and_is_compared_with_the_live_planner()
     {
         // SPM-288

@@ -1180,7 +1180,10 @@ target and subject refuse with their codes. One run hands the same subject to th
 With `NotifySource()` the source gets an `agent-handoff-ended` input, in the skill it handed off
 from, whose payload is an `NhAssistantHandOffResult` with the outcome and proposal count, and the
 target's summary only when both worked on the same subject and the target read nothing restricted
-with its own grant.
+with its own grant. Shadow work never starts live work on the way back either: when the target's
+run or the handing run worked in shadow, the follow-up goes to the source agent's shadow thread of
+the subject, whatever the source's mode is by then, and while the source agent or skill is paused it
+is ignored instead of waiting for a resume.
 
 Let administrators connect agents with hand-offs as data only within a ceiling in code. Call
 `UseHandOffsAsData(handOffs => handOffs.Allow(subjectType, rule => rule.To(...).From(...)).MaxPerSubjectPerDay(n))`:

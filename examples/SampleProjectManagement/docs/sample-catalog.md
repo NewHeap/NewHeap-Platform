@@ -373,6 +373,12 @@ replaces the first under the intake policy's `Supersede`, the first becomes `sha
 names its successor, and the audit records `AgentProposalSuperseded`. Nothing reaches the order desk and
 neither order waits in an inbox. A policy with `Skip` reports the newer one as already open instead.
 
+Shadow work never starts live work, also when a live agent hands work to one in shadow (SPM-287). While
+an operator evaluates the project closer in shadow, the live planner still hands it a finished project;
+the closer answers in its shadow thread, and the planner hears how that run ended in its own shadow
+thread of the project, which only administrators see. No live planner run starts, and the project's
+approver never reads the closer's shadow answer. `AssistantAgentRunSamplesTests` runs it.
+
 A changed data trigger can be tried in shadow before it replaces the live one (SPM-316). The planner's
 status follow-up skips the planner's own changes (SPM-308); `SampleAgentConfigurationService` saves the
 change that drops that filter with `Apply = NhAssistantSkillApplyModes.Shadow`, so it becomes the

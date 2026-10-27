@@ -151,7 +151,8 @@ public sealed class NhAssistantHandOffBuilder
     /// <summary>
     /// Gives the source a follow-up when the run for the hand-off ends: the outcome and the number of
     /// proposals, and the run's summary when both agents worked on the same subject and the run read
-    /// nothing restricted with the agent's own grant.
+    /// nothing restricted with the agent's own grant. When the run or the handing run worked in
+    /// shadow, the follow-up goes to the source agent's shadow thread and never starts a live run.
     /// </summary>
     public NhAssistantHandOffBuilder NotifySource()
     {
