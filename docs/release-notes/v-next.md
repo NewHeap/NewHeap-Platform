@@ -27,3 +27,16 @@ digest has 69 characters, so no migration is needed.
 | Refresh tokens issued before the upgrade, or by a node that still runs the previous version, no longer refresh; each device signs in again once. | None. Optionally delete the `NhUserAuthRefreshToken` rows whose `Token` does not start with `nhr1:` once every node runs this version. |
 | Signing in needs a key for the digest: an application that signs asymmetrically without the shared `JWT:Token:Key` fails with a configuration error. | Set `NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key`, a random secret of at least 32 bytes, in the secrets file. |
 | Changing the key in use ends every refresh session: the refresh-token key, or the shared signing key while no refresh-token key is set. | Set `RefreshToken:Key` before you rotate the shared signing key, so refresh sessions survive the rotation. |
+
+## NewHeap.Platform.AspNet.Common: refresh refuses accounts that may not sign in
+
+`AuthenticateRefreshTokenAsync`, behind `POST authentication/refresh`, now refuses a user whom Identity
+does not let sign in (`SignInManager.CanSignInAsync`) or who is locked out or blocked
+(`INhUserManager<TUser>.IsBlockedAsync`, which also sees a `LockoutStart` without an end or on an
+account with lockout disabled). The check runs before the token is consumed and fails with the same
+`Invalid refresh token` as an unknown token, so the response says nothing about the account. The token
+stays stored and refreshes again once the account may sign in.
+
+| Breaking change | Required action |
+|---|---|
+| A locked-out, blocked or otherwise not permitted account no longer refreshes; before, the refresh rotated its token and issued a new session. | None. To end the account's refresh sessions for good, also reset its password, which revokes its refresh tokens. |

@@ -219,6 +219,60 @@ public sealed class AuthenticationSessionProviderTests
             NhRefreshTokenKey.Digest(CreateConfiguration(), rotatedToken)));
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task RefreshRefusesAccountsThatMayNotSignInOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        var userManager = environment.UserManager;
+        var authenticationService = environment.CreateAuthenticationService();
+        var user = await environment.CreateUserAsync("refresh-eligibility@example.test");
+        var refreshToken = (await authenticationService.AuthenticateVerifiedUserAsync(user)).Data!.RefreshToken!;
+        var storedTokens = await environment.StoredRefreshTokensAsync(user.Id);
+
+        Task<TaskResult<UserToken>> RefreshAsync()
+        {
+            return authenticationService.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, refreshToken));
+        }
+
+        // An administrative block without an end, which Identity does not see as a lockout.
+        await userManager.UpdateUserLockout(user, DateTimeOffset.UtcNow.AddMinutes(-1), end: null);
+        Assert.False(await userManager.IsLockedOutAsync(user));
+        AssertRefusedLikeAnInvalidRefreshToken(await RefreshAsync());
+        Assert.Equal(storedTokens, await environment.StoredRefreshTokensAsync(user.Id));
+
+        // A block of an account whose lockout is disabled, so Identity stores no lockout end.
+        await userManager.UpdateUserLockout(user, start: null, end: null);
+        Assert.True((await userManager.SetLockoutEnabledAsync(user, false)).Succeeded);
+        await userManager.UpdateUserLockout(user, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(30));
+        Assert.Null(user.LockoutEnd);
+        AssertRefusedLikeAnInvalidRefreshToken(await RefreshAsync());
+        Assert.Equal(storedTokens, await environment.StoredRefreshTokensAsync(user.Id));
+
+        // An Identity lockout, for example after failed password attempts.
+        await userManager.UpdateUserLockout(user, start: null, end: null);
+        Assert.True((await userManager.SetLockoutEnabledAsync(user, true)).Succeeded);
+        Assert.True((await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddHours(1))).Succeeded);
+        AssertRefusedLikeAnInvalidRefreshToken(await RefreshAsync());
+        Assert.Equal(storedTokens, await environment.StoredRefreshTokensAsync(user.Id));
+
+        // An account that Identity does not let sign in: an unconfirmed address the application requires.
+        Assert.True((await userManager.SetLockoutEndDateAsync(user, null)).Succeeded);
+        environment.IdentityOptions.Value.SignIn.RequireConfirmedEmail = true;
+        user.EmailConfirmed = false;
+        Assert.True((await userManager.UpdateAsync(user)).Succeeded);
+        AssertRefusedLikeAnInvalidRefreshToken(await RefreshAsync());
+        Assert.Equal(storedTokens, await environment.StoredRefreshTokensAsync(user.Id));
+
+        // The token was never consumed, so it refreshes again once the account may sign in.
+        user.EmailConfirmed = true;
+        Assert.True((await userManager.UpdateAsync(user)).Succeeded);
+        var refreshed = await RefreshAsync();
+        Assert.True(refreshed.Success);
+        Assert.DoesNotContain(storedTokens.Single(), await environment.StoredRefreshTokensAsync(user.Id));
+    }
+
     private static async Task VerifyProviderAsync(SessionEnvironment environment)
     {
         const string initialCredential = "Old1!Password";

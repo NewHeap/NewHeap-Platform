@@ -85,11 +85,15 @@ public class NhAuthenticationService<
     /// </summary>
     /// <param name="request">Refresh token to validate</param>
     /// <returns>A new token when refresh token is valid</returns>
+    /// <remarks>
+    /// A user who may not sign in, is locked out or is blocked is refused before the token is consumed,
+    /// with the same failure as an unknown token; the token works again once the account may sign in.
+    /// </remarks>
     public virtual async Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request)
     {
         var user = await FindUserByUsernameAsync(request.UserName);
 
-        if (user == null)
+        if (user == null || !await IsSignInEligibleAsync(user))
         {
             return TaskResult<UserToken>.Failed("Invalid refresh token");
         }
@@ -660,15 +664,29 @@ public class NhAuthenticationService<
     /// </summary>
     private async Task<bool> MaySignInAsync(TUser user)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user)
-            || await _userManager.IsBlockedAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return false;
         }
 
         var gate = await EvaluateSessionGateAsync(user, NhAuthenticationFactors.RefreshToken, allowEnrolledUsers: true);
         return gate.Success;
+    }
+
+    /// <summary>
+    /// The account checks every sign-in and session continuation shares: Identity lets the user sign
+    /// in, and the account is neither locked out nor blocked. <see cref="INhUserManager{TUser}.IsBlockedAsync"/>
+    /// covers the Identity lockout and NewHeap's administrative block (<c>LockoutStart</c>), which
+    /// Identity does not see, for example a block without an end or on an account with lockout disabled.
+    /// </summary>
+    private async Task<bool> IsSignInEligibleAsync(TUser user)
+    {
+        if (!await _signInManager.CanSignInAsync(user))
+        {
+            return false;
+        }
+
+        return !await _userManager.IsBlockedAsync(user);
     }
 
     /// <summary>
