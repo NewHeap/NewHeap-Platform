@@ -750,11 +750,30 @@ public class NhAuthenticationService<
     /// the token from the target user's claims and silently drop the impersonation origin,
     /// turning the session into an ordinary long-lived login as the target user. The session
     /// therefore ends when the access token expires or the origin user reverts it.
+    /// The token also carries the origin user's security stamp
+    /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginSecurityStamp"/>), so the session validator
+    /// ends the impersonation when that stamp changes or the origin user is blocked. An origin user
+    /// who may not sign in cannot start one.
     /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
     {
+        if (!await IsSignInEligibleAsync(currentUser))
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        var originSecurityStamp = await _signInManager.UserManager.GetSecurityStampAsync(currentUser);
+        if (string.IsNullOrEmpty(originSecurityStamp))
+        {
+            throw new InvalidOperationException("The user does not have a security stamp.");
+        }
+
         var claims = await GetClaimsAsync(user!.Id);
+        claims.RemoveAll(x =>
+            x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId
+            || x.Type == NhPlatformClaimTypes.ImpersonateOriginSecurityStamp);
         claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
+        claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp, originSecurityStamp));
         var token = await CreateToken(
             user.Id,
             c: claims,
@@ -827,8 +846,21 @@ public class NhAuthenticationService<
         return await ImpersonateRevert(impersonatedUser, originUser);
     }
 
+    /// <summary>
+    /// Ends an impersonation with a new session of <paramref name="originUser"/>.
+    /// </summary>
+    /// <remarks>
+    /// The new session continues the origin user's session without a credential, so it is refused,
+    /// as a refresh is, when the origin user may no longer sign in, is locked out or blocked, or has
+    /// not enrolled a second factor the policy requires.
+    /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)
     {
+        if (!await MaySignInAsync(originUser))
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
         var claims = await GetClaimsAsync(originUser!.Id);
         var token = await CreateToken(
             originUser.Id,

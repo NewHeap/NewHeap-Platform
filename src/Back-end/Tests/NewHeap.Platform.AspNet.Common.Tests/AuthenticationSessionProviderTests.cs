@@ -317,6 +317,85 @@ public sealed class AuthenticationSessionProviderTests
         Assert.Single(await environment.StoredRefreshTokensAsync(blocked.Id));
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ImpersonationIsBoundToTheOriginSessionOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        var userManager = environment.UserManager;
+        var authenticationService = environment.CreateAuthenticationService();
+        INhAuthenticationSessionValidator validator = new NhAuthenticationSessionValidator<NhUser>(userManager);
+        var administrator = await environment.CreateUserAsync("impersonating-administrator@example.test");
+        var target = await environment.CreateUserAsync("impersonated-user@example.test");
+
+        async Task<ClaimsPrincipal> ImpersonateAsync()
+        {
+            var impersonation = await authenticationService.Impersonate(administrator.Id, new ImpersonateRequest(target.Id));
+            Assert.True(impersonation.Success);
+            return PrincipalOf(impersonation.Data!.Token);
+        }
+
+        // The token carries the origin's security stamp and is valid while that stamp is current.
+        var principal = await ImpersonateAsync();
+        Assert.Equal(
+            await userManager.GetSecurityStampAsync(administrator),
+            principal.FindFirst(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp)!.Value);
+        Assert.True(await validator.ValidateAsync(principal));
+
+        // A password change of the origin ends the impersonation, as it ends the origin's own sessions.
+        var passwordChange = await userManager.ChangePasswordWithoutCurrentPasswordAsync(
+            administrator.Id,
+            new NhWithoutCurrentPasswordChangePasswordUserMutateModel
+            {
+                Password = "Changed2!Password",
+                ConfirmPassword = "Changed2!Password",
+            });
+        Assert.True(passwordChange.Success);
+        Assert.False(await validator.ValidateAsync(principal));
+
+        // While the origin is blocked, its impersonation is refused, no new one starts and revert
+        // issues no session. Lifting the block restores the impersonation.
+        var current = await ImpersonateAsync();
+        Assert.True(await validator.ValidateAsync(current));
+        var administratorRefreshTokens = await CountRefreshTokensAsync(environment.Context, administrator.Id);
+
+        await userManager.UpdateUserLockout(administrator, DateTimeOffset.UtcNow.AddMinutes(-1), end: null);
+        Assert.False(await validator.ValidateAsync(current));
+        Assert.False((await authenticationService.Impersonate(administrator.Id, new ImpersonateRequest(target.Id))).Success);
+        Assert.False((await authenticationService.ImpersonateRevert(target.Id, administrator.Id)).Success);
+
+        await userManager.UpdateUserLockout(administrator, start: null, end: null);
+        Assert.True(await validator.ValidateAsync(current));
+
+        // The same holds for an Identity lockout of the origin.
+        Assert.True((await userManager.SetLockoutEndDateAsync(administrator, DateTimeOffset.UtcNow.AddHours(1))).Succeeded);
+        Assert.False(await validator.ValidateAsync(current));
+        Assert.False((await authenticationService.ImpersonateRevert(target.Id, administrator.Id)).Success);
+        Assert.True((await userManager.SetLockoutEndDateAsync(administrator, null)).Succeeded);
+
+        // Revert also needs an origin whom Identity lets sign in.
+        environment.IdentityOptions.Value.SignIn.RequireConfirmedEmail = true;
+        administrator.EmailConfirmed = false;
+        Assert.True((await userManager.UpdateAsync(administrator)).Succeeded);
+        Assert.False((await authenticationService.ImpersonateRevert(target.Id, administrator.Id)).Success);
+        administrator.EmailConfirmed = true;
+        Assert.True((await userManager.UpdateAsync(administrator)).Succeeded);
+        Assert.Equal(administratorRefreshTokens, await CountRefreshTokensAsync(environment.Context, administrator.Id));
+
+        // A token from before the impersonation was bound to the origin's stamp is no longer accepted.
+        var unbound = new ClaimsPrincipal(new ClaimsIdentity(
+            current.Claims.Where(x => x.Type != NhPlatformClaimTypes.ImpersonateOriginSecurityStamp),
+            "Test"));
+        Assert.False(await validator.ValidateAsync(unbound));
+
+        // Reverting a valid impersonation issues the origin's own session.
+        var revert = await authenticationService.ImpersonateRevert(target.Id, administrator.Id);
+        Assert.True(revert.Success);
+        Assert.NotNull(revert.Data!.RefreshToken);
+        Assert.Equal(administratorRefreshTokens + 1, await CountRefreshTokensAsync(environment.Context, administrator.Id));
+    }
+
     private static async Task VerifyProviderAsync(SessionEnvironment environment)
     {
         const string initialCredential = "Old1!Password";
@@ -630,6 +709,17 @@ public sealed class AuthenticationSessionProviderTests
             .Build();
     }
 
+    /// <summary>
+    /// The principal that bearer validation makes of <paramref name="accessToken"/>, which keeps the
+    /// token's claim types because NewHeap clears the inbound claim map.
+    /// </summary>
+    private static ClaimsPrincipal PrincipalOf(string accessToken)
+    {
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            new JwtSecurityTokenHandler().ReadJwtToken(accessToken).Claims,
+            "Test"));
+    }
+
     private static ClaimsPrincipal CreatePrincipal(
         Guid userId,
         string? securityStamp = null,
@@ -771,15 +861,6 @@ public sealed class AuthenticationSessionProviderTests
                 .Where(x => x.UserId == userId)
                 .Select(x => x.Token)
                 .ToListAsync();
-        }
-
-        /// <summary>
-        /// Reloads <paramref name="user"/> from the database, as the next request would.
-        /// </summary>
-        internal async Task<NhUser> ReloadAsync(NhUser user)
-        {
-            Context.ChangeTracker.Clear();
-            return (await UserManager.FindByIdAsync(user.Id.ToString()))!;
         }
 
         public async ValueTask DisposeAsync()

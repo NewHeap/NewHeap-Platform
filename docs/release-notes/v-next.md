@@ -69,3 +69,17 @@ A plaintext code stored before the upgrade still redeems once.
 | Breaking change | Required action |
 |---|---|
 | None. | None. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
+
+An impersonation token now also carries the security stamp of the user who started it
+(`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`). The session validator refuses the token once
+that stamp changes, for example after the origin's password change or reset, and while the origin is
+locked out or blocked; before, it checked only the impersonated user. `Impersonate` refuses an origin
+who may not sign in, and `ImpersonateRevert` issues the origin's new session only when the origin may
+still sign in (`MaySignInAsync`: allowed, not locked out or blocked, a required second factor enrolled).
+
+| Breaking change | Required action |
+|---|---|
+| Impersonation tokens issued before the upgrade carry no origin stamp and are refused with 401. | None. Start the impersonation again. |
+| A password change, a reset or another security-stamp change of the origin, and a lockout or block of the origin, end its impersonation; `ImpersonateRevert` answers 400 for an origin who may not sign in. | None. |

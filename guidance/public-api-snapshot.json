@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c1cb3e66a44facc5fa72d304316f8a6b2b0fa1dda2d21fc17158b862321c63d2",
-    "declarationCount": 11197,
+    "hash": "629bc08e47eb5954ac364bcac8fe8257743539bdd4966464f4f3265ac06bcb04",
+    "declarationCount": 11198,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -40576,6 +40576,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
         "declaration": "public const string ImpersonateOriginUserId = \"nh.platform.auth.impersonate.origin-user-id\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
+        "declaration": "public const string ImpersonateOriginSecurityStamp = \"nh.platform.auth.impersonate.origin-security-stamp\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Localization/NhCompositeStringLocalizer.cs",

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
@@ -11,7 +13,8 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 public interface INhAuthenticationSessionValidator
 {
     /// <summary>
-    /// Validates the current user and Identity security stamp represented by the principal.
+    /// Validates the current user and Identity security stamp represented by the principal, and for
+    /// an impersonation also the security stamp and block of the user who started it.
     /// </summary>
     /// <param name="principal">Principal produced by token validation.</param>
     /// <param name="cancellationToken">Cancellation token for the current request.</param>
@@ -57,6 +60,16 @@ internal sealed class NhAuthenticationSessionValidator<TUser> : INhAuthenticatio
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!await IsUserSessionValidAsync(principal, user))
+        {
+            return false;
+        }
+
+        return await IsImpersonationOriginValidAsync(principal, cancellationToken);
+    }
+
+    private async Task<bool> IsUserSessionValidAsync(ClaimsPrincipal principal, TUser user)
+    {
         var securityStampClaimType = _userManager.Options.ClaimsIdentity.SecurityStampClaimType;
         var tokenSecurityStamp = principal.FindFirst(securityStampClaimType)?.Value;
         if (!string.IsNullOrEmpty(tokenSecurityStamp))
@@ -73,6 +86,57 @@ internal sealed class NhAuthenticationSessionValidator<TUser> : INhAuthenticatio
         // Tokens issued before this feature do not contain a security stamp. They
         // remain valid until the first password mutation records a session marker.
         return sessionSecurityStamp == null;
+    }
+
+    /// <summary>
+    /// An impersonation session belongs to the session of the user who started it: it ends when
+    /// that user's security stamp changes, for example after a password change, and while that user
+    /// is locked out or blocked. An impersonation token without the origin's stamp, issued before the
+    /// session was bound to it, is no longer accepted.
+    /// </summary>
+    private async Task<bool> IsImpersonationOriginValidAsync(
+        ClaimsPrincipal principal,
+        CancellationToken cancellationToken)
+    {
+        var originUserIdValue = principal.FindFirst(NhPlatformClaimTypes.ImpersonateOriginUserId)?.Value;
+        if (originUserIdValue == null)
+        {
+            return true;
+        }
+
+        var originSecurityStamp = principal.FindFirst(NhPlatformClaimTypes.ImpersonateOriginSecurityStamp)?.Value;
+        if (!Guid.TryParse(originUserIdValue, out var originUserId) || string.IsNullOrEmpty(originSecurityStamp))
+        {
+            return false;
+        }
+
+        var origin = await _userManager.FindByIdAsync(originUserId.ToString());
+        if (origin == null)
+        {
+            return false;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var currentOriginSecurityStamp = await _userManager.GetSecurityStampAsync(origin);
+        if (!string.Equals(originSecurityStamp, currentOriginSecurityStamp, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return !await IsBlockedAsync(origin);
+    }
+
+    private async Task<bool> IsBlockedAsync(TUser user)
+    {
+        // The NewHeap user manager also sees the administrative block (LockoutStart), which Identity's
+        // lockout does not.
+        if (_userManager is INhUserManager<TUser> nhUserManager)
+        {
+            return await nhUserManager.IsBlockedAsync(user);
+        }
+
+        return await _userManager.IsLockedOutAsync(user);
     }
 }
 
