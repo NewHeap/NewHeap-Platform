@@ -14,7 +14,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// same run handed the subject off once, the chain stays within its depth and never returns to an
 /// agent in it, and the daily limit per pair and subject holds. The target's run fires as trigger
 /// <see cref="NhAssistantTriggerIds.HandOff"/> without an initiator. The follow-up to the source of
-/// work in shadow stays in shadow as well.
+/// work in shadow stays in shadow as well, and it carries the target's summary only to a thread whose
+/// readers may all read the target's thread.
 /// </summary>
 internal sealed class NhAssistantHandOffService(
     NhAssistantRegistrationState registration,
@@ -25,7 +26,10 @@ internal sealed class NhAssistantHandOffService(
     NhAssistantAgentEvents events,
     NhAssistantShadowModes shadowModes,
     ILogger<NhAssistantHandOffService> logger,
-    NhAssistantWorksOnRule worksOn) : INhAssistantHandOffs
+    NhAssistantWorksOnRule worksOn,
+    NhAssistantAgentCatalog agents,
+    NhAssistantThreadService threads,
+    INhAssistantStore store) : INhAssistantHandOffs
 {
     /// <summary>
     /// The longest run summary a follow-up carries to the source.
@@ -207,9 +211,10 @@ internal sealed class NhAssistantHandOffService(
     /// <summary>
     /// Sends the sources of the hand-offs a run took their follow-up once the run ended: the outcome
     /// and the number of proposals, and the run's summary as data from another agent when the source
-    /// worked on the same subject and the run read nothing restricted with its agent's own grant. The
-    /// follow-up of work in shadow, the run's or the handing run's, goes to the source agent's shadow
-    /// thread and never starts a live run.
+    /// worked on the same subject, every reader of the thread that receives the follow-up may read the
+    /// run's thread, and the run read nothing restricted with its agent's own grant. The follow-up of
+    /// work in shadow, the run's or the handing run's, goes to the source agent's shadow thread and
+    /// never starts a live run.
     /// </summary>
     public async Task NotifySourcesAsync(Guid runId, AssistantThread thread, CancellationToken cancellationToken)
     {
@@ -246,8 +251,32 @@ internal sealed class NhAssistantHandOffService(
 
             var sameSubject = string.Equals(sourceThread.SubjectType, handOff.SubjectType, StringComparison.Ordinal)
                 && string.Equals(sourceThread.SubjectId, handOff.SubjectId, StringComparison.Ordinal);
-            var summary = sameSubject && !run.UsedRestrictedResults && !string.IsNullOrWhiteSpace(run.Summary)
-                ? NhAssistantContent.Bound(run.Summary.ReplaceLineEndings(" "), MaxSummaryCharacters)
+            var summarized = sameSubject && !run.UsedRestrictedResults && !string.IsNullOrWhiteSpace(run.Summary);
+            if (summarized)
+            {
+                // The summary is bound to the audience, not only to the subject: the thread that
+                // receives the follow-up shows it to all its readers.
+                var receiving = shadow && !sourceThread.Shadow
+                    ? await runs.FindThreadAsync(
+                        sourceThread.ScopeKey,
+                        handOff.SourceAgentId,
+                        new NhAiSubjectRef(sourceThread.SubjectType, sourceThread.SubjectId),
+                        cancellationToken,
+                        shadow: true)
+                    : sourceThread;
+                summarized = await SharesAudienceAsync(handOff.SourceAgentId, receiving, thread, cancellationToken);
+                if (!summarized)
+                {
+                    logger.LogInformation(
+                        "The follow-up of hand-off {HandOffId} to agent {SourceAgentId} carries no summary: not every reader of its thread may read the thread of agent {TargetAgentId}.",
+                        handOff.Id,
+                        handOff.SourceAgentId,
+                        thread.AgentId);
+                }
+            }
+
+            var summary = summarized
+                ? NhAssistantContent.Bound(run.Summary!.ReplaceLineEndings(" "), MaxSummaryCharacters)
                 : null;
             var result = new NhAssistantHandOffResult(
                 handOff.Id,
@@ -301,6 +330,70 @@ internal sealed class NhAssistantHandOffService(
                     receipt.ReasonCode);
             }
         }
+    }
+
+    /// <summary>
+    /// Whether every reader of the thread <paramref name="receiving"/> of <paramref name="sourceAgentId"/>
+    /// may read the target's thread <paramref name="target"/> about the same subject, so the target's
+    /// summary may be copied there. The subject's roles are the same for both threads; the target's
+    /// required policy, and for the whole application its view policy, must name no policy or the
+    /// source's own, and every person invited to the receiving thread must be able to read the target's
+    /// thread. <paramref name="receiving"/> is <see langword="null"/> for a shadow thread the follow-up
+    /// creates, which has no invited people yet.
+    /// </summary>
+    internal async Task<bool> SharesAudienceAsync(
+        string sourceAgentId,
+        AssistantThread? receiving,
+        AssistantThread target,
+        CancellationToken cancellationToken)
+    {
+        var source = await agents.FindAsync(sourceAgentId, includeDisabled: true, cancellationToken);
+        var targetAgent = await agents.FindAsync(target.AgentId, includeDisabled: true, cancellationToken);
+        if (source is null || targetAgent is null)
+        {
+            return false;
+        }
+        if (!AdmitsAll(targetAgent.Definition.RequiredPolicy, source.Definition.RequiredPolicy))
+        {
+            return false;
+        }
+        if (string.Equals(target.SubjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal))
+        {
+            // The whole application's threads are read by the people who pass the agent's view policy.
+            registration.AgentRuns.TryGetValue(sourceAgentId, out var sourceOptions);
+            registration.AgentRuns.TryGetValue(target.AgentId, out var targetOptions);
+            var sourceView = NhAssistantSystemSubjectResolver.ViewPolicyOf(sourceOptions, source.Definition);
+            var targetView = NhAssistantSystemSubjectResolver.ViewPolicyOf(targetOptions, targetAgent.Definition);
+            if (!AdmitsAll(targetView, sourceView))
+            {
+                return false;
+            }
+        }
+        if (receiving is null)
+        {
+            return true;
+        }
+
+        // An invitation lets a person without a role on the subject read one agent's thread only.
+        var participants = await store.GetParticipantsAsync(receiving.ConversationId, cancellationToken);
+        foreach (var invited in participants.Where(item => !string.Equals(item.JoinedVia, NhAssistantParticipantSources.Subject, StringComparison.Ordinal)))
+        {
+            if (await threads.ReadAccessAsync(target, invited.ActorId, cancellationToken) is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the target's policy admits everyone the source's admits: it names no policy, or the
+    /// same one. Two different policies are never compared by what they require.
+    /// </summary>
+    private static bool AdmitsAll(string? targetPolicy, string? sourcePolicy)
+    {
+        return targetPolicy is null || string.Equals(targetPolicy, sourcePolicy, StringComparison.Ordinal);
     }
 
     private async Task<NhAssistantHandOffReceipt> RefuseAsync(

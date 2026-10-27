@@ -269,3 +269,16 @@ or skill is paused, such a follow-up is ignored instead of waiting for a resume.
 | Breaking change | Required action |
 |---|---|
 | The follow-up of a hand-off whose target or source run worked in shadow starts a run in the source agent's shadow thread instead of its live thread, and is ignored while the source is paused. | None; read the follow-up in the source's shadow thread while the target is evaluated. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off summary reaches only the target's audience
+
+A hand-off follow-up copied the target run's summary into the source's thread whenever both agents
+worked on the same subject, so every reader of the source's thread read an answer meant for the
+target's audience. The summary is now copied only when every reader of the thread that receives the
+follow-up may read the target's thread: the target's required policy, and for the whole application
+its view policy, names no policy or the source's own, and every person invited to that thread may read
+the target's thread too. Otherwise the follow-up names the outcome and the number of proposals only.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantHandOffResult.Summary` is `null`, and the follow-up's text names no summary, when the target has a required or view policy the source does not share or a person invited to the source's thread may not read the target's. | None; give both agents the same policies when the source must read the target's answer. |

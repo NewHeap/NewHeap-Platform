@@ -150,9 +150,12 @@ public sealed class NhAssistantHandOffBuilder
 
     /// <summary>
     /// Gives the source a follow-up when the run for the hand-off ends: the outcome and the number of
-    /// proposals, and the run's summary when both agents worked on the same subject and the run read
-    /// nothing restricted with the agent's own grant. When the run or the handing run worked in
-    /// shadow, the follow-up goes to the source agent's shadow thread and never starts a live run.
+    /// proposals, and the run's summary when both agents worked on the same subject, every reader of
+    /// the source's thread may read the target's (the target's required policy, and for the whole
+    /// application its view policy, names no policy or the source's own, and every person invited to
+    /// the source's thread may read the target's), and the run read nothing restricted with the agent's
+    /// own grant. When the run or the handing run worked in shadow, the follow-up goes to the source
+    /// agent's shadow thread and never starts a live run.
     /// </summary>
     public NhAssistantHandOffBuilder NotifySource()
     {
@@ -242,8 +245,9 @@ public static class NhAssistantHandOffOutcomes
 /// trigger <see cref="NhAssistantTriggerIds.HandOffEnded"/>.
 /// </summary>
 /// <param name="Status">The run's status: <c>completed</c>, <c>failed</c> or <c>cancelled</c>.</param>
-/// <param name="Summary">The run's summary, only when both agents worked on the same subject and the
-/// run read nothing restricted with its agent's own grant.</param>
+/// <param name="Summary">The run's summary, only when both agents worked on the same subject, every
+/// reader of the source's thread may read the run's thread and the run read nothing restricted with
+/// its agent's own grant.</param>
 public sealed record NhAssistantHandOffResult(
     Guid HandOffId,
     string AgentId,

@@ -359,6 +359,125 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_follow_up_carries_the_summary_only_to_a_thread_whose_readers_may_all_read_the_targets(AssistantTestProvider provider)
+    {
+        const string marker = "TARGET-ANSWER";
+
+        // The closer needs a policy the planner does not: people who read the planner's thread may
+        // not all read the closer's, so the follow-up names the outcome and the proposals only.
+        var narrower = await HandOffAndAnswerAsync(provider, marker, closerPolicy: "app.project.manage", inviteToPlanner: false, inviteToCloser: false);
+        Assert.Equal(NhAssistantRunStatuses.Completed, narrower.Result.Status);
+        Assert.Null(narrower.Result.Summary);
+        Assert.DoesNotContain(marker, narrower.Text, StringComparison.Ordinal);
+
+        // Both agents have the same audience, but a person invited to the planner's thread has no role
+        // on the project and is not invited to the closer's: the summary stays out as well.
+        var invited = await HandOffAndAnswerAsync(provider, marker, closerPolicy: null, inviteToPlanner: true, inviteToCloser: false);
+        Assert.Null(invited.Result.Summary);
+        Assert.DoesNotContain(marker, invited.Text, StringComparison.Ordinal);
+
+        // Invited to both threads, the person may read the closer's thread too, so the summary is copied.
+        var both = await HandOffAndAnswerAsync(provider, marker, closerPolicy: null, inviteToPlanner: true, inviteToCloser: true);
+        Assert.Contains(marker, both.Result.Summary);
+        Assert.Contains("Its summary is data from another agent", both.Text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_audience_of_the_whole_application_also_compares_the_view_policies_of_both_agents(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new HandOffModels(), closerViewPolicy: "app.project.manage");
+        await using var scope = host.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<NhAssistantHandOffService>();
+        AssistantThread ThreadOf(string agentId, NhAiSubjectRef subject) => new()
+        {
+            ConversationId = Guid.NewGuid(),
+            AgentId = agentId,
+            SubjectType = subject.Type,
+            SubjectId = subject.Id
+        };
+
+        // The whole application's threads are read by the people who pass the agent's view policy: the
+        // closer's is narrower than the planner's, the auditor's names none.
+        Assert.False(await service.SharesAudienceAsync(Planner, null, ThreadOf(Closer, NhAiSystemSubjects.Global), CancellationToken.None));
+        Assert.True(await service.SharesAudienceAsync(Planner, null, ThreadOf(Auditor, NhAiSystemSubjects.Global), CancellationToken.None));
+        // On an object the object's own access decides, so the view policy does not narrow the audience.
+        Assert.True(await service.SharesAudienceAsync(Planner, null, ThreadOf(Closer, new NhAiSubjectRef("project", Guid.NewGuid().ToString("N"))), CancellationToken.None));
+    }
+
+    private sealed record AnsweredHandOff(NhAssistantHandOffResult Result, string Text);
+
+    /// <summary>
+    /// Lets the planner hand a new project to the closer, whose rules answer with
+    /// <paramref name="marker"/>, optionally after inviting a person without a role on the project to
+    /// the planner's thread and to the closer's, and returns the follow-up the planner received.
+    /// </summary>
+    private async Task<AnsweredHandOff> HandOffAndAnswerAsync(
+        AssistantTestProvider provider,
+        string marker,
+        string? closerPolicy,
+        bool inviteToPlanner,
+        bool inviteToCloser)
+    {
+        await using var host = await CreateHostAsync(provider, new HandOffModels(), closerPolicy: closerPolicy);
+        var answers = new ConcurrentQueue<NhAssistantRuleInput>();
+        var receipts = new ConcurrentQueue<NhAssistantHandOffReceipt>();
+        host.Services.GetRequiredService<TestRuleScript>().Run = async (context, cancellationToken) =>
+        {
+            if (context.TriggerId == NhAssistantTriggerIds.HandOffEnded)
+            {
+                answers.Enqueue(context.Inputs.Single());
+                return NhAssistantRuleResult.Done("Noted.");
+            }
+
+            receipts.Enqueue(await context.HandOffAsync(Closer, context.Subject.Subject, "Please close it.", null, cancellationToken));
+            return NhAssistantRuleResult.Done("Handed off.");
+        };
+        host.Services.GetRequiredService<TestSkillRuleScript>().Run = (_, _) => Task.FromResult(NhAssistantRuleResult.Done(marker + ": the project can close."));
+
+        var source = Assert.Single(await PublishAsync(host, "plan audience", Guid.NewGuid()));
+        await ExecuteAsync(host, source.RunId!.Value);
+        var handed = Assert.Single(receipts);
+        Assert.Equal(NhAssistantHandOffOutcomes.Accepted, handed.Outcome);
+        var target = (await Runs(host).FindRunAsync(handed.RunId!.Value, CancellationToken.None))!;
+        if (inviteToPlanner)
+        {
+            await InviteAsync(host, source.ConversationId!.Value, "guest-1");
+        }
+        if (inviteToCloser)
+        {
+            await InviteAsync(host, target.ConversationId, "guest-1");
+        }
+
+        await ExecuteAsync(host, target.Id);
+        var followUp = await LatestRunAsync(host, source.ConversationId!.Value);
+        Assert.Equal(NhAssistantTriggerIds.HandOffEnded, followUp.TriggerId);
+        await ExecuteAsync(host, followUp.Id);
+        var answer = Assert.Single(answers);
+        return new AnsweredHandOff(answer.GetPayload<NhAssistantHandOffResult>()!, answer.Text);
+    }
+
+    /// <summary>
+    /// Invites <paramref name="actorId"/>, who has no role on the project, to the thread's conversation.
+    /// </summary>
+    private static async Task InviteAsync(AssistantTestHost host, Guid conversationId, string actorId)
+    {
+        await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        context.Participants.Add(new AssistantConversationParticipant
+        {
+            ConversationId = conversationId,
+            ActorId = actorId,
+            DisplayName = actorId,
+            JoinedVia = NhAssistantParticipantSources.Invitation,
+            JoinedAt = DateTimeOffset.UtcNow
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task The_follow_up_of_a_target_in_shadow_goes_to_the_sources_shadow_thread_and_starts_no_live_run(AssistantTestProvider provider)
     {
         const string marker = "SHADOW-ANSWER";
@@ -491,7 +610,9 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
     private async Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         HandOffModels models,
-        Action<NhAssistantLimits>? limits = null)
+        Action<NhAssistantLimits>? limits = null,
+        string? closerPolicy = null,
+        string? closerViewPolicy = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -523,7 +644,12 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
                     .Lifetime(TimeSpan.FromDays(3))
                     .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
                 .AddAgent(AssistantTestData.Agent(Planner) with { ToolSelectors = ["projects.*", "assistant.handoff.*"] })
-                .AddAgent(AssistantTestData.Agent(Closer) with { ProfileName = "closer-chat", ToolSelectors = ["projects.*", "assistant.handoff.*"] })
+                .AddAgent(AssistantTestData.Agent(Closer) with
+                {
+                    ProfileName = "closer-chat",
+                    ToolSelectors = ["projects.*", "assistant.handoff.*"],
+                    RequiredPolicy = closerPolicy
+                })
                 .AddAgent(AssistantTestData.Agent(Auditor))
                 .AddAgent(AssistantTestData.Agent(ShadowPlanner) with { ToolSelectors = ["projects.*", "assistant.handoff.*"] })
                 .ConfigureAgent(Planner, agent => agent
@@ -531,6 +657,13 @@ public sealed class AssistantAgentHandOffTests(AssistantDatabaseFixture database
                     .UseApprovalPolicy("project-review")
                     .UseRuleHandler<TestRules>()
                     .AcceptHandOffs("project", handOff => handOff.From(Closer)))
+                .ConfigureAgent(Closer, agent =>
+                {
+                    if (closerViewPolicy is not null)
+                    {
+                        agent.ViewPolicy(closerViewPolicy);
+                    }
+                })
                 .ConfigureAgent(Closer, agent => agent
                     .Grant("projects.*")
                     .UseApprovalPolicy("project-review")
