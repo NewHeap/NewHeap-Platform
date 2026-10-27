@@ -85,7 +85,6 @@ internal static class NhAssistantSubjectEndpoints
         string type,
         string id,
         HttpContext httpContext,
-        NhAssistantRegistrationState registration,
         NhAssistantObjectAgents objectAgents)
     {
         if (!NhAiSubjectRef.IsValidType(type)
@@ -101,14 +100,14 @@ internal static class NhAssistantSubjectEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
 
-        var subject = new NhAiSubjectRef(type, id);
-        // The whole application reads as unknown to a caller bound to a tenant the mode does not name.
-        if (NhAssistantWholeApplicationTenancy.KeepsOut(registration, subject, caller.Data!.TenantId))
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
-        }
-
-        var result = await objectAgents.ListAsync(subject, caller.Data!.ActorId, httpContext.User, httpContext.RequestAborted);
+        // A subject of another tenant, and the whole application for a caller bound to a tenant that
+        // takes no part in it, reads as unknown.
+        var result = await objectAgents.ListAsync(
+            new NhAiSubjectRef(type, id),
+            caller.Data!.ActorId,
+            caller.Data.TenantId,
+            httpContext.User,
+            httpContext.RequestAborted);
         if (!result.Success)
         {
             return Failure(result);
@@ -204,14 +203,16 @@ internal static class NhAssistantSubjectEndpoints
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectInvalid);
         }
-        if (!NhAssistantAgentRunEndpoints.TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, caller.Data!.TenantId, registration, subjects, out var subject, out var error))
+        if (!NhAssistantAgentRunEndpoints.TryReadSubject(request.AgentId, request.SubjectType, request.SubjectId, registration, subjects, out var subject, out var error))
         {
             return error!;
         }
 
         var cancellationToken = httpContext.RequestAborted;
         var agentId = request.AgentId!;
-        var info = await subjects.DescribeAsync(subject!, cancellationToken);
+        // A subject of another tenant, and the whole application for a caller bound to a tenant that
+        // takes no part in it, reads as unknown before a thread or participant row is made.
+        var info = await subjects.DescribeForAsync(subject!, caller.Data!.TenantId, cancellationToken);
         // The agent's thread of the whole application is only for people who pass its view policy.
         var access = info is null
             ? NhAiSubjectAccess.None
@@ -249,6 +250,12 @@ internal static class NhAssistantSubjectEndpoints
             }
 
             thread = created.Data!;
+        }
+        // A thread stored under another tenant than the subject's description now names stays out of
+        // reach, as its conversation does.
+        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, thread, caller.Data!.TenantId))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
         }
 
         await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);

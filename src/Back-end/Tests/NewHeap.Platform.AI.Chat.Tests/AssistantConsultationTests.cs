@@ -411,7 +411,7 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
             Consultation = outer
         });
         var refused = await scope.ServiceProvider.GetRequiredService<NhAssistantConsultationService>().ConsultAsync(
-            new NhAssistantConsultationRequest(options, ProjectId, "Ask yourself.", Member, false, "en", viewer),
+            new NhAssistantConsultationRequest(options, ProjectId, "Ask yourself.", Member, false, "en", viewer, new NhAssistantTenantBinding(null)),
             CancellationToken.None);
 
         Assert.Contains(refused.GetResultItems(), item => item.Name == NhAssistantErrorCodes.ConsultDepthExceeded);
@@ -579,7 +579,7 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         await using (var scope = host.Services.CreateAsyncScope())
         {
             await scope.ServiceProvider.GetRequiredService<INhAiSubjectRetention>()
-                .ForgetSubjectAsync(new NhAiSubjectRef("project", ProjectId));
+                .ForgetSubjectAsync(new NhAiSubjectRef("project", ProjectId), thread.ScopeKey);
         }
 
         Assert.Equal(0, await runs.CountConsultationsSinceAsync(Member, since, CancellationToken.None));

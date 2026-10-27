@@ -244,6 +244,14 @@ internal sealed record NhAssistantTriggerFire(
     /// <see cref="TriggerId"/>.
     /// </summary>
     public string? TriggerKind { get; init; }
+
+    /// <summary>
+    /// The tenant of the person who starts the work by hand or asks an agent for it: the subject must
+    /// be described in that tenant and its thread stored under it, or the fire is refused as for an
+    /// unknown subject before a thread or run is made. <see langword="null"/> for the application's
+    /// events, schedules, webhooks and follow-ups, which name their subject themselves.
+    /// </summary>
+    public NhAssistantTenantBinding? Tenant { get; init; }
 }
 
 /// <summary>
@@ -864,14 +872,17 @@ internal sealed class NhAssistantAgentTriggers(
     /// Starts an agent for a person at once, for the assistant's own endpoints, whose callers need
     /// the run and its thread even when the application wraps the request in a transaction.
     /// </summary>
+    /// <param name="tenant">The person's tenant: a subject it does not reach is refused as unknown. The
+    /// endpoints always pass it.</param>
     internal Task<NhAssistantTriggerReceipt> StartNowAsync(
         string agentId,
         NhAiSubjectRef subject,
         string initiatorActorId,
         string? message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAssistantTenantBinding? tenant = null)
     {
-        return FireAsync(Manual(agentId, subject, initiatorActorId, message), cancellationToken);
+        return FireAsync(Manual(agentId, subject, initiatorActorId, message) with { Tenant = tenant }, cancellationToken);
     }
 
     private static NhAssistantTriggerFire Manual(
@@ -1453,6 +1464,27 @@ internal sealed class NhAssistantAgentTriggers(
         return operations?.Context.Database.CurrentTransaction is not null;
     }
 
+    /// <summary>
+    /// Whether the person's tenant reaches the subject as described now and the agent's thread there,
+    /// when it exists: work a person starts or asks for stays in that person's tenant
+    /// (<see cref="NhAssistantWholeApplicationTenancy"/>).
+    /// </summary>
+    private async Task<bool> ReachesAsync(
+        NhAssistantTenantBinding tenant,
+        NhAssistantAgent agent,
+        NhAiSubjectInfo subject,
+        bool shadow,
+        CancellationToken cancellationToken)
+    {
+        if (!tenant.Reaches(registration, subject))
+        {
+            return false;
+        }
+
+        var existing = await runs.FindThreadAsync(subject.ScopeKey, agent.Id, subject.Subject, cancellationToken, shadow);
+        return existing is null || NhAssistantWholeApplicationTenancy.Reaches(registration, existing, tenant.TenantId);
+    }
+
     private async Task<NhAssistantTriggerReceipt> FireCoreAsync(
         NhAssistantTriggerFire fire,
         CancellationToken cancellationToken)
@@ -1536,6 +1568,10 @@ internal sealed class NhAssistantAgentTriggers(
 
         var subject = await subjects.DescribeAsync(fire.Subject, cancellationToken);
         if (subject is null)
+        {
+            return Rejected(fire, null, NhAssistantErrorCodes.SubjectNotFound);
+        }
+        if (fire.Tenant is { } tenant && !await ReachesAsync(tenant, agent, subject, shadow, cancellationToken))
         {
             return Rejected(fire, null, NhAssistantErrorCodes.SubjectNotFound);
         }

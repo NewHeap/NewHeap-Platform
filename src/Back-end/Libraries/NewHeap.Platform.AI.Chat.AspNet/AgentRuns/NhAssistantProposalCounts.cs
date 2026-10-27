@@ -45,8 +45,9 @@ public static class NhAssistantInboxStatuses
 /// counts follow the inbox's visibility exactly: the proposals of subjects the person approves
 /// according to the member snapshot, those of runs the person started in the run's own thread, and
 /// those of the whole application (<c>nh-system</c>) where the person's live role is approver or the
-/// person started the run, both only when the person passes the agent's view policy. It returns ids
-/// and counts only, never proposal content.
+/// person started the run, both only when the person passes the agent's view policy, and only in the
+/// person's tenant (<see cref="NhAssistantDecidingPerson.TenantId"/>). It returns ids and counts only,
+/// never proposal content.
 /// </summary>
 public interface INhAssistantProposalCounts
 {
@@ -95,11 +96,16 @@ internal sealed class NhAssistantProposalCounts(
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var status in statuses.Distinct(StringComparer.Ordinal))
         {
-            // The whole application lists no members: its approvers are evaluated now, per status.
+            // The whole application lists no members: its approvers are evaluated now, per status. The
+            // application's own subjects count only in the person's tenant, as the inbox lists them.
             var system = await systemApprovers.InboxAsync(person.ActorId, person.TenantId, cancellationToken, status);
             counts[status] = await runs.CountInboxAsync(
                 person.ActorId,
-                new NhAssistantInboxFilter(null, null, null, null) { Status = status },
+                new NhAssistantInboxFilter(null, null, null, null)
+                {
+                    Status = status,
+                    TenantId = person.TenantId
+                },
                 system,
                 cancellationToken);
         }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Runs;
 
 namespace NewHeap.Platform.AI.Chat.Persistence;
 
@@ -2850,6 +2851,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// </summary>
     /// <param name="liveRoles">The caller's live roles on subjects that list no members, such as the
     /// whole application; they replace the member snapshot for those subjects.</param>
+    /// <param name="tenant">The caller's tenant: the threads of the application's own subjects count
+    /// only when they are stored under it, so an equal id of another tenant counts zero. The whole
+    /// application's threads are stored without a tenant; whether the caller takes part in them is
+    /// decided before. Without a binding no tenant is compared.</param>
     public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync(
         string actorId,
         string subjectType,
@@ -2858,7 +2863,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         CancellationToken cancellationToken,
         bool includeShadow = false,
         IReadOnlyDictionary<string, NhAiSubjectRole>? liveRoles = null,
-        IReadOnlyCollection<Guid>? visibleConversationIds = null)
+        IReadOnlyCollection<Guid>? visibleConversationIds = null,
+        NhAssistantTenantBinding? tenant = null)
     {
         await using var context = contextFactory.CreateDbContext();
         // A proposal expires on the application's clock.
@@ -2887,6 +2893,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 && (memberships.Any(member => member.ScopeKey == thread.ScopeKey && member.SubjectId == thread.SubjectId)
                     || readerIds.Contains(thread.SubjectId))
                 && (!restrictThreads || visible.Contains(thread.ConversationId)));
+        if (tenant is not null && !string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal))
+        {
+            threads = InTenant(threads, tenant.TenantId);
+        }
         var pending =
             from approval in context.Approvals.AsNoTracking()
             join thread in threads on approval.ConversationId equals thread.ConversationId
@@ -3091,8 +3101,9 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     /// with its thread and the time it is listed by: a pending proposal by its expiry, one handed to the
     /// application by its report deadline and an uncertain execution by its decision. A person sees the
     /// proposals of subjects they approve according to the member snapshot and those of runs they
-    /// started in the run's own thread; the whole application lists no members, so its threads come
-    /// from <paramref name="system"/>, which the caller evaluated live.
+    /// started in the run's own thread, both only in threads stored under the caller's tenant
+    /// (<see cref="NhAssistantInboxFilter.TenantId"/>); the whole application lists no members, so its
+    /// threads come from <paramref name="system"/>, which the caller evaluated live with its tenant.
     /// </summary>
     private IQueryable<NhAssistantInboxCandidate> InboxQuery(
         NhAssistantDbContext context,
@@ -3106,9 +3117,12 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         var systemViewer = (system?.ViewerConversationIds ?? []).ToArray();
         var approverSubjects = context.SubjectMembers
             .Where(member => member.ActorId == actorId && member.Role >= NhAiSubjectRole.Approver);
+        // An old member snapshot row or a run the person once started in another tenant lists nothing
+        // for a caller of this tenant, as reading the proposal by id finds nothing.
+        var threads = InTenantOrWholeApplication(context.Threads.AsNoTracking(), filter.TenantId);
         var visible =
             from approval in InInboxStatus(context.Approvals.AsNoTracking(), filter.Status, now)
-            join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
+            join thread in threads on approval.ConversationId equals thread.ConversationId
             where (thread.SubjectType != NhAiSubjectRef.SystemType
                     && (approverSubjects.Any(member => member.ScopeKey == thread.ScopeKey
                             && member.SubjectType == thread.SubjectType
@@ -3161,6 +3175,35 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 SortAt = row.approval.ExpiresAt
             })
         };
+    }
+
+    /// <summary>
+    /// The threads stored under <paramref name="tenantId"/>, or without a tenant for a caller without
+    /// one. Server-side, with the null case written out so both providers compare the column directly.
+    /// </summary>
+    private static IQueryable<AssistantThread> InTenant(IQueryable<AssistantThread> threads, string? tenantId)
+    {
+        if (tenantId is null)
+        {
+            return threads.Where(thread => thread.TenantId == null);
+        }
+
+        return threads.Where(thread => thread.TenantId == tenantId);
+    }
+
+    /// <summary>
+    /// The threads of the application's own subjects stored under <paramref name="tenantId"/>, and every
+    /// thread of the whole application, which is stored without a tenant and whose visibility the
+    /// caller decides by its own rule.
+    /// </summary>
+    private static IQueryable<AssistantThread> InTenantOrWholeApplication(IQueryable<AssistantThread> threads, string? tenantId)
+    {
+        if (tenantId is null)
+        {
+            return threads.Where(thread => thread.SubjectType == NhAiSubjectRef.SystemType || thread.TenantId == null);
+        }
+
+        return threads.Where(thread => thread.SubjectType == NhAiSubjectRef.SystemType || thread.TenantId == tenantId);
     }
 }
 
@@ -3360,6 +3403,13 @@ internal sealed record NhAssistantInboxFilter(
     /// <see cref="NhAssistantApprovalStatuses.ExecutionUnknown"/>.
     /// </summary>
     public string Status { get; init; } = NhAssistantApprovalStatuses.Pending;
+
+    /// <summary>
+    /// The caller's tenant, <see langword="null"/> for a caller without one: proposals of the
+    /// application's own subjects are listed only from threads stored under it, as the proposal reads
+    /// by id follow it. The whole application's proposals follow the caller's system inbox.
+    /// </summary>
+    public string? TenantId { get; init; }
 }
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);

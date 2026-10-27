@@ -106,15 +106,9 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
             Assert.Empty(historyOfOther.Items);
             Assert.Null(await services.GetRequiredService<INhAssistantStore>()
                 .FindAccessAsync(thread.ConversationId, ActorOf(Reader), OtherTenant, CancellationToken.None));
-            Assert.False(NhAssistantAgentRunEndpoints.TryReadSubject(
-                Statistics,
-                NhAiSubjectRef.SystemType,
-                NhAiSystemSubjects.GlobalId,
-                OtherTenant,
-                services.GetRequiredService<NhAssistantRegistrationState>(),
-                services.GetRequiredService<NhAssistantSubjectAccessService>(),
-                out _,
-                out _));
+            var subjectAccess = services.GetRequiredService<NhAssistantSubjectAccessService>();
+            Assert.Null(await subjectAccess.DescribeForAsync(NhAiSystemSubjects.Global, OtherTenant, CancellationToken.None));
+            Assert.NotNull(await subjectAccess.DescribeForAsync(NhAiSystemSubjects.Global, Tenant, CancellationToken.None));
             var decidedByOther = await services.GetRequiredService<NhAssistantProposalDecisions>()
                 .DecideAsync(approvalId, ActorOf(Admin), Principal(Admin), false, null, null, CancellationToken.None, OtherTenant);
             Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, CodeOf(decidedByOther));
@@ -288,9 +282,14 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         Assert.False(NhAssistantWholeApplicationTenancy.TakesPart(state, OtherTenant));
         Assert.True(NhAssistantWholeApplicationTenancy.KeepsOut(state, OtherTenant));
         Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, Tenant));
-        // The mode never keeps anyone from the application's own subjects; their tenants decide there.
-        Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, new NhAiSubjectRef("project", "1"), OtherTenant));
-        Assert.True(NhAssistantWholeApplicationTenancy.KeepsOut(state, NhAiSystemSubjects.Global, OtherTenant));
+        // The mode never lets anyone into another tenant's subjects: a described subject reaches only
+        // its own tenant, and the whole application only the tenant that takes part.
+        var project = new NhAiSubjectInfo(new NhAiSubjectRef("project", "1"), NhAiSubjectInfo.CreateScopeKey(OtherTenant, null)) { TenantId = OtherTenant };
+        Assert.True(NhAssistantWholeApplicationTenancy.Reaches(state, project, OtherTenant));
+        Assert.False(NhAssistantWholeApplicationTenancy.Reaches(state, project, Tenant));
+        var global = new NhAiSubjectInfo(NhAiSystemSubjects.Global, NhAiSubjectInfo.CreateScopeKey(null, null));
+        Assert.True(NhAssistantWholeApplicationTenancy.Reaches(state, global, Tenant));
+        Assert.False(NhAssistantWholeApplicationTenancy.Reaches(state, global, OtherTenant));
 
         // The whole application's work, stored without a tenant, reaches the tenant; an object of
         // another tenant never does.
