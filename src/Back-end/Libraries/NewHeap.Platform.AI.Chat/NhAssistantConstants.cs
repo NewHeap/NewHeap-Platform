@@ -1707,6 +1707,13 @@ public static class NhAssistantAdminErrorCodes
     public const string McpToolListTooLarge = "assistant-mcp-tool-list-too-large";
 
     /// <summary>
+    /// Two MCP tools of one turn would reach the model under one function name, such as two tools of a
+    /// server whose names differ only in case or punctuation; the turn offers neither, so the order of
+    /// a list never decides which one a call reaches.
+    /// </summary>
+    public const string McpToolNameConflict = "assistant-mcp-tool-name-conflict";
+
+    /// <summary>
     /// The MCP server answered <c>403</c> with <c>error="insufficient_scope"</c>: the credential is
     /// valid but lacks a permission the call needs.
     /// </summary>

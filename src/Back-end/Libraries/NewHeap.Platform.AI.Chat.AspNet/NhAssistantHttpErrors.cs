@@ -270,6 +270,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.FileScanRefused);
         Add(statuses, StatusCodes.Status429TooManyRequests,
             NhAssistantAdminErrorCodes.McpTooManyAuthorizations);
+        // Two MCP tools that would share one function name in a turn.
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantAdminErrorCodes.McpToolNameConflict);
         // Failures of a remote MCP or OAuth server.
         Add(statuses, StatusCodes.Status502BadGateway,
             NhAssistantAdminErrorCodes.McpUnreachable,

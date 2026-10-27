@@ -655,7 +655,9 @@ internal sealed class NhAssistantMcpConnectionCache(
 /// Imports the enabled tools of the MCP servers assigned to an agent through
 /// <see cref="INhAiMcpClientToolImporter"/>, so every call runs through the shared invoker.
 /// Servers the caller may not use, disabled servers, unreachable servers and, in headless turns,
-/// servers that do not allow headless use are skipped with a stable code.
+/// servers that do not allow headless use are skipped with a stable code. Every function name the
+/// turn offers names one tool: tools that would share one are offered by no server, with
+/// <see cref="NhAssistantAdminErrorCodes.McpToolNameConflict"/>.
 /// </summary>
 internal sealed partial class NhAssistantMcpToolSource(
     NhAssistantAdminStore store,
@@ -686,6 +688,7 @@ internal sealed partial class NhAssistantMcpToolSource(
         var needed = new List<NhAssistantMcpConnectionNeeded>();
         var missing = new List<NhAssistantMcpMissingConnection>();
         var owners = new Dictionary<string, string>(StringComparer.Ordinal);
+        var skippedTools = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var serverId in request.Agent.McpServerIds)
         {
             var server = await store.FindMcpServerAsync(serverId, cancellationToken);
@@ -746,10 +749,10 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
             leases.Add(lease.Data);
             owners[server.Id] = OwnerOf(server, request);
-            functions.AddRange(await ImportAsync(server, plan.Data, enabled, lease.Data.Tools, cancellationToken));
+            functions.AddRange(await ImportAsync(server, plan.Data, enabled, lease.Data.Tools, skippedTools, cancellationToken));
         }
 
-        return new NhAssistantMcpToolSet(functions, async () =>
+        return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
         {
             foreach (var lease in leases)
             {
@@ -759,6 +762,7 @@ internal sealed partial class NhAssistantMcpToolSource(
         })
         {
             SkippedServers = skipped,
+            SkippedTools = skippedTools,
             ConnectionsNeeded = needed,
             ConnectionOwners = owners,
             MissingConnections = missing
@@ -914,17 +918,47 @@ internal sealed partial class NhAssistantMcpToolSource(
         return NhAiCanonicalJson.ComputeHash(tool.JsonSchema);
     }
 
+    /// <summary>
+    /// The functions of a turn without those that share their name with another: a call names its
+    /// function by name only, so none of them is offered, and each is recorded in
+    /// <paramref name="skippedTools"/> with <see cref="NhAssistantAdminErrorCodes.McpToolNameConflict"/>.
+    /// </summary>
+    internal IReadOnlyList<AIFunction> OfferedOnce(IReadOnlyList<AIFunction> functions, Dictionary<string, string> skippedTools)
+    {
+        var shared = functions
+            .GroupBy(function => function.Name, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group)
+            .ToHashSet();
+        if (shared.Count == 0)
+        {
+            return functions;
+        }
+
+        foreach (var function in shared.OfType<INhAiGovernedAIFunction>())
+        {
+            skippedTools[function.Descriptor.Id] = NhAssistantAdminErrorCodes.McpToolNameConflict;
+            LogToolNameConflict(ServerOf(function.Descriptor.Id));
+        }
+        return functions.Where(function => !shared.Contains(function)).ToArray();
+    }
+
+    /// <summary>The server of an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> tool id.</summary>
+    private static string ServerOf(string toolId)
+    {
+        var parts = toolId.Split('.', 3);
+        return parts.Length == 3 ? parts[1] : toolId;
+    }
+
     private async Task<IReadOnlyList<AIFunction>> ImportAsync(
         AssistantMcpServer server,
         NhAssistantMcpConnectionPlan plan,
         IReadOnlyList<AssistantMcpTool> enabled,
         IList<McpClientTool> remoteTools,
+        Dictionary<string, string> skippedTools,
         CancellationToken cancellationToken)
     {
-        var policies = new List<NhAiMcpImportedToolPolicy>();
-        var remotes = new List<McpClientTool>();
-        var localNames = new HashSet<string>(StringComparer.Ordinal);
-        var allowAgentGrant = AllowsHeadlessUse(server);
+        var candidates = new List<(AssistantMcpTool Tool, McpClientTool Remote, string LocalName)>();
         foreach (var tool in enabled)
         {
             var remote = remoteTools.FirstOrDefault(item => string.Equals(item.Name, tool.RemoteName, StringComparison.Ordinal));
@@ -959,11 +993,28 @@ internal sealed partial class NhAssistantMcpToolSource(
                 LogSkipped(server.Id, NhAssistantAdminErrorCodes.McpSchemaChanged);
                 continue;
             }
-            var localName = LocalName(tool.RemoteName);
-            if (!localNames.Add(localName))
+            candidates.Add((tool, remote, LocalName(tool.RemoteName)));
+        }
+
+        // Remote names that differ only in case or punctuation make one local name, and so one
+        // function name: the turn offers none of them rather than the first in a list.
+        var sharedNames = candidates
+            .GroupBy(candidate => candidate.LocalName, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        var policies = new List<NhAiMcpImportedToolPolicy>();
+        var remotes = new List<McpClientTool>();
+        var allowAgentGrant = AllowsHeadlessUse(server);
+        foreach (var (tool, remote, localName) in candidates)
+        {
+            if (sharedNames.Contains(localName))
             {
+                skippedTools[LocalId(server.Id, tool.RemoteName)] = NhAssistantAdminErrorCodes.McpToolNameConflict;
+                LogToolNameConflict(server.Id);
                 continue;
             }
+
             var readOnly = tool.Effect == NhAssistantMcpToolEffects.ReadOnly;
             var description = string.IsNullOrWhiteSpace(tool.DescriptionOverride) ? tool.Description : tool.DescriptionOverride;
             if (string.IsNullOrWhiteSpace(description))
@@ -1084,6 +1135,14 @@ internal sealed partial class NhAssistantMcpToolSource(
     private void LogToolSkipped(string serverId, string code)
     {
         logger.LogInformation("A tool of assistant MCP server {ServerId} was skipped for this caller ({Code}).", serverId, code);
+    }
+
+    private void LogToolNameConflict(string serverId)
+    {
+        logger.LogWarning(
+            "A tool of assistant MCP server {ServerId} shares its function name with another tool of the turn; neither is offered ({Code}).",
+            serverId,
+            NhAssistantAdminErrorCodes.McpToolNameConflict);
     }
 
     private void LogHealthNotRecorded(string serverId, Exception exception)

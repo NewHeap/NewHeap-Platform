@@ -2234,6 +2234,7 @@ internal sealed partial class NhAssistantTurnRunner(
         return new NhAssistantMcpToolSet(readOnly, loaded.DisposeAsync)
         {
             SkippedServers = loaded.SkippedServers,
+            SkippedTools = loaded.SkippedTools,
             ConnectionsNeeded = loaded.ConnectionsNeeded,
             ConnectionOwners = loaded.ConnectionOwners,
             MissingConnections = loaded.MissingConnections

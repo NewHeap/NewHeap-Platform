@@ -315,3 +315,20 @@ header name in other letter case, keep the secret. This applies to `PUT admin/mc
 | Breaking change | Required action |
 |---|---|
 | Moving a server to another origin, or changing its authentication mode or `api-key` header, without a `secret` or `secretReference` is refused with `secret: required`. | Send the secret, or the reference, again with such a change; the server editor asks for it at the secret field. |
+
+## NewHeap.Platform.AI.Mcp, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: imported MCP function names are injective
+
+The function name the model sees for an imported MCP tool is now `mcp_<namespace>_<tool id>` with
+the namespace's dashes kept, instead of every dash becoming an underscore. Before, two servers whose
+ids and tool names met at a dash, such as `acme` with `billing-refund` and `acme-billing` with
+`refund`, gave both tools the name `mcp_acme_billing_refund`, and every call went to whichever came
+first. Names of namespaces without a dash do not change. The assistant also refuses, in every turn,
+all MCP tools that would still share a function name, such as two tools of one server whose names
+differ only in case or punctuation, with the new code
+`NhAssistantAdminErrorCodes.McpToolNameConflict` (`assistant-mcp-tool-name-conflict`, `409`), which
+an approved call of such a tool also ends with. Before, the first of them was offered.
+
+| Breaking change | Required action |
+|---|---|
+| The function names of tools of a server or namespace with a dash change, for example `mcp_team_calendar_next_milestone` becomes `mcp_team-calendar_next_milestone`. | Update instructions, scripted model responses and tests that name such a function; tool ids (`mcp.<server>.<tool>`), approvals and audit are unchanged. |
+| Two enabled tools of one server whose names make one local name, such as `Lookup_Order` and `lookup-order`, are no longer offered. | Disable one of them in the administration. |

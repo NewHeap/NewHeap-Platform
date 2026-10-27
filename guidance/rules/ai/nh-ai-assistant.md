@@ -199,7 +199,12 @@ invalid run filter. Clients map the code, never the status, to a text.
   first sync that sees it makes it `available` with those settings, after which a changed schema
   disables it as any tool (SPM-346). Enabled tools of the servers assigned to an agent are
   imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
-  approval, idempotency, budget and audit apply unchanged. An unreachable server is
+  approval, idempotency, budget and audit apply unchanged. The model calls them as
+  `mcp_<server>_<tool>`, the server id with its dashes and the tool's local name with underscores,
+  so servers whose ids and tool names meet at a dash keep names of their own; tools of one turn that
+  would still share a function name, such as two tools of a server whose names differ only in case
+  or punctuation, are offered by neither (`assistant-mcp-tool-name-conflict`, also the code of an
+  approved call of such a tool). An unreachable server is
   skipped for the turn. The client attaches the credential to every HTTP request and
   checks each request against the planned origin and `AllowedHosts`; a `403` with
   `error="insufficient_scope"` reports `assistant-mcp-insufficient-scope`. A tool list

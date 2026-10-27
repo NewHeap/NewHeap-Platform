@@ -821,7 +821,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         {
             var model = new NhAiScriptedChatClient()
                 .RespondWithText("I have no calendar information here.")
-                .RespondWithFunctionCall("mcp_team_calendar_next_milestone", new { project = "CALENDAR" }, "call-calendar")
+                .RespondWithFunctionCall("mcp_team-calendar_next_milestone", new { project = "CALENDAR" }, "call-calendar")
                 .RespondWithText("The next milestone of CALENDAR is on Friday.");
             host.Model.Use(model);
             var start = new NhAssistantStartAgentRequest(
@@ -836,7 +836,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
             var conversationId = (await first.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
             var withoutConsent = Assert.Single(await WaitForRunCountAsync(participant, conversationId, 1));
-            Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_team_calendar_next_milestone");
+            Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_team-calendar_next_milestone");
             Assert.Equal(beforeRuns, calendar.Requests.Count);
             // The run records the server it left out and why, and the participant finds the reason
             // in the application's inbox, in the language of the run.
@@ -866,7 +866,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var runs = await WaitForRunCountAsync(participant, conversationId, 2);
 
             Assert.All(runs, run => Assert.Equal(NhAssistantRunStatuses.Completed, run.Status));
-            Assert.Contains(model.Requests[1].Options!.Tools!, tool => tool.Name == "mcp_team_calendar_next_milestone");
+            Assert.Contains(model.Requests[1].Options!.Tools!, tool => tool.Name == "mcp_team-calendar_next_milestone");
             Assert.Equal(["CALENDAR"], calendar.Calls);
             // Every request of the run authenticated the participant with a delegated token for this
             // server's origin, a fresh one per request. The host signs asymmetrically, so the token's
@@ -936,7 +936,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         {
             var model = new NhAiScriptedChatClient()
                 .RespondWithText("I have no calendar information here.")
-                .RespondWithFunctionCall("mcp_my_calendar_next_milestone", new { project = "PERSONAL" }, "call-calendar")
+                .RespondWithFunctionCall("mcp_my-calendar_next_milestone", new { project = "PERSONAL" }, "call-calendar")
                 .RespondWithText("The next milestone of PERSONAL is on Friday.");
             host.Model.Use(model);
             var start = new NhAssistantStartAgentRequest(
@@ -952,7 +952,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
             var conversationId = (await first.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
             await WaitForRunCountAsync(participant, conversationId, 1);
-            Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_my_calendar_next_milestone");
+            Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name == "mcp_my-calendar_next_milestone");
 
             // Connecting again with the consent to background use.
             var completion = await SampleMcpOAuthBrowser.ConnectAsync(

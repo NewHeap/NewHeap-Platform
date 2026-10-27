@@ -1724,7 +1724,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpInvocationBinding.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpInvocationBinderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpFunctionNameTests.cs"
     ],
     "SPM-229": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
@@ -1973,7 +1974,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialProviderTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-custom-auth-modes.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpBoundsTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpBoundsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpFunctionNameTests.cs"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

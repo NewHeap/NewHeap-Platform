@@ -435,7 +435,7 @@ public sealed partial class AssistantSamplesTests
             isEnabled = true
         }), cancellation);
         Host.Model.Use(new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("mcp_oauth_planning_next_milestone", new { project = "PRJ-1" })
+            .RespondWithFunctionCall("mcp_oauth-planning_next_milestone", new { project = "PRJ-1" })
             .RespondWithText("PRJ-1 reaches its next milestone on Friday."));
         var conversation = await CreateConversationAsync(user, "oauth-planning-helper");
         var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-1?");
@@ -544,7 +544,7 @@ public sealed partial class AssistantSamplesTests
             isEnabled = true
         }), cancellation);
         Host.Model.Use(new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("mcp_planning_account_next_milestone", new { project = "PRJ-2" })
+            .RespondWithFunctionCall("mcp_planning-account_next_milestone", new { project = "PRJ-2" })
             .RespondWithText("PRJ-2 reaches its next milestone on Friday."));
         var conversation = await CreateConversationAsync(user, "planning-account-helper");
         var events = await Host.SendAsync(user, conversation, "When is the next milestone of PRJ-2?");
@@ -615,7 +615,7 @@ public sealed partial class AssistantSamplesTests
 
         Host.Model.Use(new NhAiScriptedChatClient()
             .RespondWithText("Connect My planning first.")
-            .RespondWithFunctionCall("mcp_personal_planning_next_milestone", new { project = "PRJ-3" })
+            .RespondWithFunctionCall("mcp_personal-planning_next_milestone", new { project = "PRJ-3" })
             .RespondWithText("PRJ-3 reaches its next milestone on Friday.")
             .RespondWithText("Connect My planning first."));
 

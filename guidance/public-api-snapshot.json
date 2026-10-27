@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "8482052e807e6837e100cd8fa432aa68e9dc6d9031a07adba8d9a09c74d4bfc5",
-    "declarationCount": 11242,
+    "hash": "ba3ef046574daf069a1f790c12dc2ec006a2265c8c6d93465e88d017fa4084b5",
+    "declarationCount": 11244,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -17955,6 +17955,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpToolNameConflict = \"assistant-mcp-tool-name-conflict\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string McpInsufficientScope = \"assistant-mcp-insufficient-scope\";"
       },
       {
@@ -22260,6 +22264,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
         "declaration": "public IReadOnlyDictionary<string, string> SkippedServers { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> SkippedTools { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
@@ -27523,7 +27531,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
-        "declaration": "public override string Name => $\"mcp_{imported.Namespace}_{imported.Policy.Id}\".Replace('-', '_');"
+        "declaration": "public override string Name => FunctionNameOf(imported.Namespace, imported.Policy.Id);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",

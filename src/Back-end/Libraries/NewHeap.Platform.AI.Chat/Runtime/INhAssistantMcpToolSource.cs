@@ -26,6 +26,13 @@ internal sealed class NhAssistantMcpToolSet(
     public IReadOnlyDictionary<string, string> SkippedServers { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
+    /// The enabled tools of loaded servers that the turn does not offer, by tool id
+    /// (<c>mcp.&lt;server&gt;.&lt;tool&gt;</c>), with the stable code why, such as
+    /// <see cref="NhAssistantAdminErrorCodes.McpToolNameConflict"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> SkippedTools { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// The servers the person of a request turn has to connect, or connect again, before the agent can
     /// use them fully.
     /// </summary>
@@ -44,11 +51,16 @@ internal sealed class NhAssistantMcpToolSet(
     public IReadOnlyList<NhAssistantMcpMissingConnection> MissingConnections { get; init; } = [];
 
     /// <summary>
-    /// The code why the server of an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> tool id was skipped, or
-    /// <see langword="null"/>.
+    /// The code why the tool of an <c>mcp.&lt;server&gt;.&lt;tool&gt;</c> tool id, or its server, was
+    /// skipped, or <see langword="null"/>.
     /// </summary>
     public string? SkippedCodeOf(string toolId)
     {
+        if (SkippedTools.TryGetValue(toolId, out var toolCode))
+        {
+            return toolCode;
+        }
+
         var parts = toolId.Split('.', 3);
         if (parts.Length < 3 || parts[0] != "mcp")
         {
