@@ -127,7 +127,7 @@ public sealed class ProjectAiReviewTools(
         RequiredCapabilities = new[] { ProjectAiTools.ManageCapability })]
     [Authorize(Policy = ProjectAiTools.ManagePolicy)]
     [Description("Ask the review board to review one project in the authorized active division. Each call sends a new request.")]
-    public Task<TaskResult<ProjectAiReviewRequestReceipt>> RequestReviewAsync(
+    public async Task<TaskResult<ProjectAiReviewRequestReceipt>> RequestReviewAsync(
         ProjectAiReviewRequestInput input,
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
@@ -135,12 +135,21 @@ public sealed class ProjectAiReviewTools(
         if (!context.TryGetScopeValue(ProjectAiTools.DivisionScopeKey, out var divisionValue)
             || !Guid.TryParse(divisionValue, out var divisionId))
         {
-            return Task.FromResult(
-                TaskResult<ProjectAiReviewRequestReceipt>.Failed(
-                    ProjectAiTools.DivisionScopeMissingCode,
-                    "The authorized AI invocation context has no active division."));
+            return TaskResult<ProjectAiReviewRequestReceipt>.Failed(
+                ProjectAiTools.DivisionScopeMissingCode,
+                "The authorized AI invocation context has no active division.");
         }
 
-        return reviewRequests.RequestReviewAsync(divisionId, input.ProjectId, cancellationToken);
+        // The policy authorized the division, not the project the arguments name: the review board
+        // hears only about a project of that division.
+        var project = await projects.GetForAiApprovalAsync(divisionId, input.ProjectId, cancellationToken);
+        if (project is null)
+        {
+            return TaskResult<ProjectAiReviewRequestReceipt>.Failed(
+                ProjectAiTools.ProjectOutOfScopeCode,
+                "The project is unavailable in the authorized division scope.");
+        }
+
+        return await reviewRequests.RequestReviewAsync(divisionId, project.Id, cancellationToken);
     }
 }

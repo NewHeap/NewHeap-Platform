@@ -1,9 +1,14 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AI.Chat;
+using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.DAL;
 
 namespace SampleProjectManagement.Api.Services;
 
@@ -105,18 +110,41 @@ public sealed class SampleEquipmentOrderDesk(IServiceScopeFactory scopes) : IPro
 /// the approved arguments exactly as people approved them, puts the order on the desk and returns at
 /// once; the desk reports later. An order the desk cannot read is refused, which closes the proposal
 /// as failed with the refusal's code.
+/// <para>
+/// The hand-off carries the approved arguments, not the division the call was authorized for, so the
+/// executor binds the project again before the desk takes anything: it reads the project's division
+/// and refuses the order with <see cref="ProjectOutOfScopeCode"/> unless the person who approved it
+/// (<see cref="NhAssistantProposalHandOff.DecidedByActorId"/>) may manage projects there, as the
+/// order tool's <c>app.active-division.project.manage</c> policy requires: a member of the division
+/// with its <see cref="ManagePermission"/> permission, or a person with access to every division. This
+/// holds for an agent's deferred proposal and for a person's own inline approval alike.
+/// </para>
 /// </summary>
-public sealed class SampleEquipmentOrderExecutor(SampleEquipmentOrderDesk desk) : INhAssistantProposalExecutor
+public sealed class SampleEquipmentOrderExecutor(
+    SampleEquipmentOrderDesk desk,
+    SampleProjectManagementDbContext dbContext,
+    INhUserManager users) : INhAssistantProposalExecutor
 {
+    /// <summary>
+    /// The division permission an approver needs in the project's division.
+    /// </summary>
+    public const string ManagePermission = "project.manage";
+
+    /// <summary>
+    /// The code of an order for a project that does not exist, or whose division the approver may not
+    /// manage projects in.
+    /// </summary>
+    public const string ProjectOutOfScopeCode = "order-project-out-of-scope";
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public Task<TaskResult> ExecuteAsync(NhAssistantProposalHandOff handOff, CancellationToken cancellationToken = default)
+    public async Task<TaskResult> ExecuteAsync(NhAssistantProposalHandOff handOff, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handOff);
         cancellationToken.ThrowIfCancellationRequested();
         if (handOff.ToolId != ProjectAiEquipmentTools.OrderEquipmentToolId)
         {
-            return Task.FromResult(TaskResult.Failed("tool-not-executed-here", "The order desk executes equipment orders only."));
+            return TaskResult.Failed("tool-not-executed-here", "The order desk executes equipment orders only.");
         }
 
         ProjectAiEquipmentOrderInput? input;
@@ -130,10 +158,55 @@ public sealed class SampleEquipmentOrderExecutor(SampleEquipmentOrderDesk desk) 
         }
         if (!ProjectAiEquipmentTools.IsValid(input))
         {
-            return Task.FromResult(TaskResult.Failed("order-invalid", "The approved order names no item or quantity the desk takes."));
+            return TaskResult.Failed("order-invalid", "The approved order names no item or quantity the desk takes.");
         }
 
-        desk.Take(handOff, input!);
-        return Task.FromResult(TaskResult.Succeeded());
+        if (!await ApproverManagesProjectAsync(handOff.DecidedByActorId, input!.ProjectId, cancellationToken))
+        {
+            return TaskResult.Failed(
+                ProjectOutOfScopeCode,
+                "The person who approved the order may not manage projects in the division of the project it names.");
+        }
+
+        desk.Take(handOff, input);
+        return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// Whether the approver may manage projects in the division of the project, read from the
+    /// project row and the approver's current claims, so a removed or blocked approver has no rights.
+    /// </summary>
+    private async Task<bool> ApproverManagesProjectAsync(
+        string approverActorId,
+        Guid projectId,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(approverActorId, out var approverId))
+        {
+            return false;
+        }
+
+        var divisionId = await dbContext.Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => (Guid?)project.DivisionId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (divisionId is null)
+        {
+            return false;
+        }
+
+        var claims = await users.GetValidClaimsByUserIdAsync(approverId, true, cancellationToken);
+        if (claims.Any(claim => claim.Type == NhPlatformClaimTypes.Permission
+                && claim.Value == NewHeap.Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
+        {
+            return true;
+        }
+
+        return await users.DivisionAccessAsync(
+            divisionId,
+            claims,
+            [new Claim(NhPlatformClaimTypes.DivisionPermission, ManagePermission)],
+            cancellationToken: cancellationToken);
     }
 }

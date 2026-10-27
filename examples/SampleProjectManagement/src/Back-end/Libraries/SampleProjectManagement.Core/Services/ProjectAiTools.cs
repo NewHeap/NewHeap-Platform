@@ -25,6 +25,13 @@ public sealed class ProjectAiTools(
     public const string DivisionScopeMissingCode = "project-division-scope-missing";
 
     /// <summary>
+    /// The stable code of a call that names a project outside the authorized division. The tool
+    /// policies authorize the call for the active division only, never for the ids in its arguments,
+    /// so a tool that acts on a named project loads it within that division before any side effect.
+    /// </summary>
+    public const string ProjectOutOfScopeCode = "project-out-of-division-scope";
+
+    /// <summary>
     /// The stable code of a search whose query is longer than <see cref="MaxSearchQueryLength"/>.
     /// Its message keeps its format and arguments, which the MCP export publishes next to the text.
     /// </summary>

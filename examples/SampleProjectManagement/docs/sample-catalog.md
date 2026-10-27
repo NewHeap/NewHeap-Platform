@@ -345,8 +345,11 @@ order on `SampleEquipmentOrderDesk` instead of running the tool's function, and 
 executed, failed or uncertain, the approvers are told, the summary appears in the project's thread as a
 message of the application, and the audit records the outcome and the code only. An order nobody
 confirms in time becomes `execution-unknown`, and an approver hands it to the desk again from the
-proposal's card. `AssistantAgentRunSamplesTests` runs the case, with the desk's confirmations standing
-in for the supplier's callback.
+proposal's card. The hand-off carries the approved arguments, not the division the call was authorized
+for, so the executor reads the ordered project's division and refuses the order with
+`order-project-out-of-scope` unless the approver manages projects there; the order and review tools
+themselves act only on a project of the division their call is authorized for. `AssistantAgentRunSamplesTests`
+runs the case, with the desk's confirmations standing in for the supplier's callback.
 
 A person can also order equipment in their own chat with the project assistant (SPM-328). The order tool
 is declared with `AlsoInline`, so approving the card in the chat hands the order to the order desk as
@@ -357,7 +360,8 @@ and a passed deadline read in that language, title included: English for a perso
 English, although the application defaults to Dutch, and Dutch for one whose client reads Dutch. An
 approval handed off before the culture was recorded reads in the default culture, and agent threads
 keep it. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
-offers the person who approved it to hand it to the order desk again or to mark it done.
+offers the person who approved it to hand it to the order desk again or to mark it done. An order for a
+project of another division is refused by the executor in the chat too.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
 waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see

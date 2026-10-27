@@ -37,10 +37,16 @@ public interface IProjectEquipmentOrderDesk
 /// The function below runs only in a host that declares the tool without <c>AlsoInline</c>, when a
 /// person approves the call inline in their own turn; the sample hands those approvals to the order desk
 /// as well (SPM-328).
+/// <para>
+/// The tool's policies authorize the call for the active division, not for the project its arguments
+/// name. The function therefore loads the project within the authorized division before it orders
+/// anything, and the sample's executor checks the approver for the project's division again, because a
+/// hand-off carries the approved arguments without the scope they were authorized in.
+/// </para>
 /// </summary>
 [Authorize]
 [NhAiToolSet("projects")]
-public sealed class ProjectAiEquipmentTools(IProjectEquipmentOrderDesk orders)
+public sealed class ProjectAiEquipmentTools(IProjectEquipmentOrderDesk orders, IProjectAiReadService projects)
 {
     public const string OrderEquipmentToolId = "projects.order-equipment";
 
@@ -64,6 +70,14 @@ public sealed class ProjectAiEquipmentTools(IProjectEquipmentOrderDesk orders)
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
     {
+        if (!context.TryGetScopeValue(ProjectAiTools.DivisionScopeKey, out var divisionValue)
+            || !Guid.TryParse(divisionValue, out var divisionId))
+        {
+            return TaskResult<ProjectAiEquipmentOrderReceipt>.Failed(
+                ProjectAiTools.DivisionScopeMissingCode,
+                "The authorized AI invocation context has no active division.");
+        }
+
         if (!IsValid(input))
         {
             return TaskResult<ProjectAiEquipmentOrderReceipt>.Failed(
@@ -71,14 +85,22 @@ public sealed class ProjectAiEquipmentTools(IProjectEquipmentOrderDesk orders)
                 $"An order names an item of at most {MaxItemLength} characters and a quantity from 1 to {MaxQuantity}.");
         }
 
+        var project = await projects.GetForAiApprovalAsync(divisionId, input.ProjectId, cancellationToken);
+        if (project is null)
+        {
+            return TaskResult<ProjectAiEquipmentOrderReceipt>.Failed(
+                ProjectAiTools.ProjectOutOfScopeCode,
+                "The project is unavailable in the authorized division scope.");
+        }
+
         var submitted = await orders.SubmitAsync(
             context.IdempotencyKey ?? context.InvocationId.ToString("N"),
-            input.ProjectId,
+            project.Id,
             input.Item.Trim(),
             input.Quantity,
             cancellationToken);
         return submitted.Success
-            ? TaskResult<ProjectAiEquipmentOrderReceipt>.Succeeded(new ProjectAiEquipmentOrderReceipt(input.ProjectId, submitted.Data!))
+            ? TaskResult<ProjectAiEquipmentOrderReceipt>.Succeeded(new ProjectAiEquipmentOrderReceipt(project.Id, submitted.Data!))
             : TaskResult<ProjectAiEquipmentOrderReceipt>.Failed(submitted);
     }
 

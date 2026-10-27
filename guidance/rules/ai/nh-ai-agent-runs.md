@@ -58,7 +58,11 @@ consultation's proposal at its subject, the checks of every execution run (the s
 `ExecutionReportDueAt`, and `ExecuteAsync` receives an `NhAssistantProposalHandOff`: the approval id,
 the approved `NhAiProposal` with its arguments and hash, the approver, the agent, the subject, the
 thread's tenant, the attempt and the report deadline. Accept the work and return; key it by the approval
-id, because an approver may hand the same proposal over again. A failed result refuses it
+id, because an approver may hand the same proposal over again. The hand-off carries the approved
+arguments, not the division or scope the call was authorized in, so bind an object the arguments name
+again before acting on it: read the object's division and refuse unless `DecidedByActorId` may act
+there (SPM-314 refuses an order for another division's project with `order-project-out-of-scope`). A
+failed result refuses the proposal
 (`execution-failed` with the result's code), and an exception leaves it `execution-unknown`
 (`hand-off-failed`). Report with `INhAssistantProposalExecutionReports.ReportExecutionAsync`, built with
 `NhAssistantExecutionReport.For(handOff, outcome, code, summary)`: `NhAssistantExecutionOutcome.Completed`
@@ -1798,6 +1802,9 @@ instructions in full: call them for an administrator or process the application 
 - Waiting for an asynchronous system inside a tool's function, or polling it from an agent run, instead of
   declaring the tool with `ExecuteInApplication` and reporting through
   `INhAssistantProposalExecutionReports` when the system answers.
+- Trusting an object id in a tool call's or a hand-off's arguments because the tool's policy passed:
+  the policy authorized the active division or the subject, never the id. Load the object within the
+  authorized division in the tool's function, and bind it to the approver again in an executor.
 - Starting the work of a hand-off twice for one approval id, reporting without the hand-off's
   `TenantId`, putting free text or people's data into a report's code, or putting into its summary what
   the model must follow; the summary is information, the code goes to the audit.
