@@ -93,6 +93,13 @@
       "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
     },
     {
+      "id": "consumer-auth-microsoft-oauth",
+      "skill": "newheap-authentication",
+      "prompt": "Add Microsoft sign-in for our tenant to an application whose Angular front end calls the API through an /api proxy, keep existing accounts working, and cover it with tests.",
+      "expectedRules": ["nh-auth-microsoft-oauth"],
+      "expectedOutcome": "AddMicrosoftOAuth with the tenant in AllowedTenantIds, the callback registered behind the /api proxy so the correlation cookie reaches it, return URLs limited by NhReturnUrls, accounts linked by tenant and object id after one mail link, and provider tests with NhMicrosoftOAuthTestPlatform instead of Microsoft."
+    },
+    {
       "id": "consumer-auth-token-signing",
       "skill": "newheap-authentication",
       "prompt": "Let our planning service validate the application's access tokens and the assistant's delegated MCP tokens without giving it the signing key, and rotate that key every year without signing anybody out.",
