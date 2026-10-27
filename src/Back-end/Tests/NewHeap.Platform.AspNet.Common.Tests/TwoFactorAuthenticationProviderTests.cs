@@ -453,6 +453,100 @@ public sealed class TwoFactorAuthenticationProviderTests
             NhTwoFactorFailureCodes.InvalidCode);
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task AuthenticatorKeysAreProtectedWithIdentityPersonalDataProtectionOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+
+        // Without protection, which is the ASP.NET Core Identity default, the token table holds the
+        // authenticator key as it is.
+        var plainOptions = new DbContextOptionsBuilder<TwoFactorDbContext>();
+        database.UseNewHeapProvider(plainOptions);
+        await using (var context = new TwoFactorDbContext(plainOptions.Options))
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
+
+        var plainEnvironment = new TwoFactorEnvironment(
+            plainOptions.Options,
+            new TestTimeProvider(DateTimeOffset.UtcNow),
+            new EphemeralDataProtectionProvider(),
+            TwoFactorEnvironment.CreateConfiguration(null),
+            new TestTwoFactorPolicy());
+        using (var stack = plainEnvironment.CreateStack())
+        {
+            var user = await stack.CreateUserAsync("unprotected-authenticator@example.test");
+            var key = await stack.EnrollAsync(user, plainEnvironment);
+            Assert.Equal(key, await StoredAuthenticatorKeyAsync(plainOptions.Options, user.Id));
+        }
+
+        // With Identity's personal-data protection, which the context reads from the application's
+        // IdentityOptions, the token values, user names and e-mail addresses are stored protected.
+        await using var protectionServices = new ServiceCollection()
+            .Configure<IdentityOptions>(options => options.Stores.ProtectPersonalData = true)
+            .AddSingleton<ILookupProtectorKeyRing, TestLookupProtectorKeyRing>()
+            .AddSingleton<ILookupProtector, TestLookupProtector>()
+            .AddSingleton<IPersonalDataProtector, DefaultPersonalDataProtector>()
+            .BuildServiceProvider();
+        var protectedOptions = new DbContextOptionsBuilder<ProtectedTwoFactorDbContext>()
+            .UseApplicationServiceProvider(protectionServices);
+        database.UseNewHeapProvider(protectedOptions);
+
+        var protectedEnvironment = new TwoFactorEnvironment(
+            () => new ProtectedTwoFactorDbContext(protectedOptions.Options),
+            new TestTimeProvider(DateTimeOffset.UtcNow),
+            new EphemeralDataProtectionProvider(),
+            TwoFactorEnvironment.CreateConfiguration(null),
+            new TestTwoFactorPolicy());
+        protectedEnvironment.IdentityOptions.Stores.ProtectPersonalData = true;
+        protectedEnvironment.ConfigureUserManagerServices = services => services
+            .AddSingleton<ILookupProtectorKeyRing, TestLookupProtectorKeyRing>()
+            .AddSingleton<ILookupProtector, TestLookupProtector>();
+
+        using var protectedStack = protectedEnvironment.CreateStack();
+        var protectedUser = await protectedStack.CreateUserAsync("protected-authenticator@example.test");
+        var protectedKey = await protectedStack.EnrollAsync(protectedUser, protectedEnvironment);
+
+        var storedKey = await StoredAuthenticatorKeyAsync(plainOptions.Options, protectedUser.Id);
+        Assert.StartsWith(TestLookupProtectorKeyRing.KeyId + ":", storedKey, StringComparison.Ordinal);
+        Assert.DoesNotContain(protectedKey, storedKey, StringComparison.Ordinal);
+        await using (var rawContext = new TwoFactorDbContext(plainOptions.Options))
+        {
+            var storedEmail = await rawContext.Users
+                .Where(user => user.Id == protectedUser.Id)
+                .Select(user => user.Email)
+                .SingleAsync();
+            Assert.NotEqual(protectedUser.Email, storedEmail);
+        }
+
+        // Sign-in finds the user by the protected name, and the protected key completes the challenge.
+        protectedEnvironment.Clock.Advance(TimeSpan.FromSeconds(30));
+        var login = await protectedStack.Authentication.AuthenticateAsync(new AuthenticateRequest(protectedUser.UserName!, Credential));
+        Assert.True(login.Success, string.Join("; ", login.AllErrorMessages));
+        var verified = await protectedStack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = login.Data!.Challenge!.ChallengeToken,
+            Method = NhTwoFactorMethods.Authenticator,
+            Code = protectedEnvironment.CurrentCode(protectedKey),
+        });
+        Assert.True(verified.Success, string.Join("; ", verified.AllErrorMessages));
+        Assert.NotNull(verified.Data!.Session);
+    }
+
+    /// <summary>The authenticator key as the user-token table stores it, read without any protection.</summary>
+    private static async Task<string> StoredAuthenticatorKeyAsync(DbContextOptions<TwoFactorDbContext> options, Guid userId)
+    {
+        await using var context = new TwoFactorDbContext(options);
+        var value = await context.Set<IdentityUserToken<Guid>>()
+            .Where(token => token.UserId == userId && token.Name == "AuthenticatorKey")
+            .Select(token => token.Value)
+            .SingleAsync();
+
+        return value!;
+    }
+
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
@@ -1339,7 +1433,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
     private sealed class TwoFactorEnvironment
     {
-        private readonly DbContextOptions<TwoFactorDbContext> _options;
+        private readonly Func<TwoFactorDbContext> _createContext;
         private readonly IDataProtectionProvider _dataProtectionProvider;
 
         internal TwoFactorEnvironment(
@@ -1348,8 +1442,18 @@ public sealed class TwoFactorAuthenticationProviderTests
             IDataProtectionProvider dataProtectionProvider,
             NhTwoFactorConfiguration configuration,
             INhTwoFactorPolicy policy)
+            : this(() => new TwoFactorDbContext(options), clock, dataProtectionProvider, configuration, policy)
         {
-            _options = options;
+        }
+
+        internal TwoFactorEnvironment(
+            Func<TwoFactorDbContext> createContext,
+            TestTimeProvider clock,
+            IDataProtectionProvider dataProtectionProvider,
+            NhTwoFactorConfiguration configuration,
+            INhTwoFactorPolicy policy)
+        {
+            _createContext = createContext;
             Clock = clock;
             _dataProtectionProvider = dataProtectionProvider;
             Configuration = configuration;
@@ -1371,6 +1475,12 @@ public sealed class TwoFactorAuthenticationProviderTests
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
         };
+
+        /// <summary>The Identity options of the user managers in the stacks created next.</summary>
+        internal IdentityOptions IdentityOptions { get; } = new();
+
+        /// <summary>Services the user managers of the stacks created next resolve, such as lookup protectors.</summary>
+        internal Action<IServiceCollection>? ConfigureUserManagerServices { get; set; }
 
         internal IConfiguration CreateApplicationConfiguration()
         {
@@ -1397,7 +1507,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         internal TwoFactorStack CreateStack()
         {
-            return new TwoFactorStack(this, new TwoFactorDbContext(_options), _dataProtectionProvider);
+            return new TwoFactorStack(this, _createContext(), _dataProtectionProvider);
         }
 
         internal string CurrentCode(string base32Key)
@@ -1433,10 +1543,10 @@ public sealed class TwoFactorAuthenticationProviderTests
             _environment = environment;
             Context = context;
             _configuration = environment.CreateApplicationConfiguration();
-            _serviceProvider = new ServiceCollection()
-                .AddSingleton(_configuration)
-                .BuildServiceProvider();
-            _identityOptions = Options.Create(new IdentityOptions());
+            var services = new ServiceCollection().AddSingleton(_configuration);
+            environment.ConfigureUserManagerServices?.Invoke(services);
+            _serviceProvider = services.BuildServiceProvider();
+            _identityOptions = Options.Create(environment.IdentityOptions);
 
             var repository = new Repository<NhUser>(context, _serviceProvider);
             var normalizer = new UpperInvariantLookupNormalizer();
@@ -1884,9 +1994,75 @@ public sealed class TwoFactorAuthenticationProviderTests
         }
     }
 
-    private sealed class TwoFactorDbContext(DbContextOptions<TwoFactorDbContext> options)
-        : NhIdentityDbContext(options)
+    private class TwoFactorDbContext : NhIdentityDbContext
     {
+        public TwoFactorDbContext(DbContextOptions<TwoFactorDbContext> options)
+            : base(options)
+        {
+        }
+
+        protected TwoFactorDbContext(DbContextOptions options)
+            : base(options)
+        {
+        }
+
         protected override bool IncludeIdentityPasskeys => true;
+    }
+
+    /// <summary>
+    /// The same context with Identity's personal-data protection, which needs a model of its own: the
+    /// protected columns get a value converter.
+    /// </summary>
+    private sealed class ProtectedTwoFactorDbContext(DbContextOptions<ProtectedTwoFactorDbContext> options)
+        : TwoFactorDbContext(options)
+    {
+    }
+
+    /// <summary>
+    /// A deterministic test protector, as lookups of protected user names and e-mail addresses need.
+    /// An application uses a protector backed by its own key management.
+    /// </summary>
+    private sealed class TestLookupProtector : ILookupProtector
+    {
+        private static readonly byte[] Key = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes("test-lookup-protector-key"));
+
+        public string? Protect(string keyId, string? data)
+        {
+            if (data == null)
+            {
+                return null;
+            }
+
+            using var aes = System.Security.Cryptography.Aes.Create();
+            aes.Key = Key;
+            return Convert.ToBase64String(aes.EncryptCbc(System.Text.Encoding.UTF8.GetBytes(data), new byte[16]));
+        }
+
+        public string? Unprotect(string keyId, string? data)
+        {
+            if (data == null)
+            {
+                return null;
+            }
+
+            using var aes = System.Security.Cryptography.Aes.Create();
+            aes.Key = Key;
+            return System.Text.Encoding.UTF8.GetString(aes.DecryptCbc(Convert.FromBase64String(data), new byte[16]));
+        }
+    }
+
+    private sealed class TestLookupProtectorKeyRing : ILookupProtectorKeyRing
+    {
+        internal const string KeyId = "test-lookup-key";
+
+        public string CurrentKeyId => KeyId;
+
+        public string this[string keyId] => KeyId;
+
+        public IEnumerable<string> GetAllKeyIds()
+        {
+            return [KeyId];
+        }
     }
 }
