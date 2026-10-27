@@ -38,4 +38,15 @@ internal static class NhRecoveryCodeHasher
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedCode));
         return VersionPrefix + Convert.ToBase64String(hash);
     }
+
+    /// <summary>
+    /// Whether <paramref name="trimmedCode"/> may be a plaintext code stored before NewHeap
+    /// hashed recovery codes. A stored hash starts with a version prefix that ends in <c>:</c>,
+    /// and Identity never generates a code with <c>:</c>, so input with one is never compared
+    /// with the stored entries as it is: a copy of a stored hash does not redeem a code.
+    /// </summary>
+    internal static bool MayBeLegacyCode(string trimmedCode)
+    {
+        return trimmedCode.Length > 0 && !trimmedCode.Contains(':', StringComparison.Ordinal);
+    }
 }

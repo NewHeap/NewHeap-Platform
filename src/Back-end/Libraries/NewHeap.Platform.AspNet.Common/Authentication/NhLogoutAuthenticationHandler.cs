@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
@@ -51,6 +53,7 @@ public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] LogoutRequest? request,
         [FromServices] IHttpContextAccessor httpContextAccessor,
         [FromServices] IRepository<NhUserAuthRefreshToken> refreshTokenRepository,
+        [FromServices] IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         var authenticationService = GetAuthService();
@@ -66,11 +69,12 @@ public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
                 httpContext.Request.Cookies.TryGetValue(RefreshTokenCookieName, out refreshToken);
             }
 
-            if (!string.IsNullOrWhiteSpace(refreshToken))
+            // Without refresh tokens no client holds one to present.
+            if (Configuration.RefreshTokenEnabled && !string.IsNullOrWhiteSpace(refreshToken))
             {
                 await NhRefreshTokenOperations.RevokeAsync(
                     refreshTokenRepository.GetAll(),
-                    refreshToken,
+                    NhRefreshTokenKey.Digest(configuration, refreshToken),
                     cancellationToken);
             }
 

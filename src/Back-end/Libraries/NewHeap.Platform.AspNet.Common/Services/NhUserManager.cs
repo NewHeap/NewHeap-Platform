@@ -807,7 +807,8 @@ public abstract partial class NhUserManager<
     /// </summary>
     /// <remarks>
     /// Codes generated before NewHeap stored hashes remain redeemable once, so existing
-    /// users are not locked out after an upgrade.
+    /// users are not locked out after an upgrade. Input in the form of a stored hash is never
+    /// compared with the stored entries as it is, so a copy of the token row redeems nothing.
     /// </remarks>
     public override async Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(TUser user, string code)
     {
@@ -826,9 +827,10 @@ public abstract partial class NhUserManager<
             NhRecoveryCodeHasher.Hash(normalizedCode),
             CancellationToken);
 
-        if (!redeemed)
+        var legacyCode = code.Trim();
+        if (!redeemed && NhRecoveryCodeHasher.MayBeLegacyCode(legacyCode))
         {
-            redeemed = await recoveryCodeStore.RedeemCodeAsync(user, code.Trim(), CancellationToken);
+            redeemed = await recoveryCodeStore.RedeemCodeAsync(user, legacyCode, CancellationToken);
         }
 
         if (!redeemed)

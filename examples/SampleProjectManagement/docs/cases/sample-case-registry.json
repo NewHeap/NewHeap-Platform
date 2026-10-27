@@ -925,7 +925,7 @@
       "categoryId": "5",
       "title": "Password login",
       "surface": "username/password handler",
-      "outcome": "Login restores the original route. `UseNhAuthentication` builds the authentication endpoints once, so routing and the application-wide endpoints share them.",
+      "outcome": "Login restores the original route. `UseNhAuthentication` builds the authentication endpoints once, so routing and the application-wide endpoints share them. An account that is locked out or blocked, including a block without an end date and a block of an account with lockout disabled, is refused before its password is checked and receives no session from any first factor, second-factor challenge or enrollment.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -933,7 +933,10 @@
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs"
       ]
     },
     {
@@ -966,15 +969,17 @@
       "id": "SPM-064",
       "categoryId": "5",
       "title": "Refresh token",
-      "surface": "refresh handler and session-validator registration",
-      "outcome": "A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation.",
+      "surface": "refresh handler, `NhRefreshTokenKey` and session-validator registration",
+      "outcome": "A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation. The token table stores only a keyed digest of each token (`NhRefreshTokenKey`), so a copy of a row refreshes nothing, and an account that may not sign in, is locked out or blocked is refused like an unknown token without its token being consumed.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionRegistrationSamplesTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs"
       ]
     },
     {
@@ -1019,14 +1024,15 @@
       "categoryId": "5",
       "title": "Impersonation",
       "surface": "handler/models",
-      "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route.",
+      "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. The token carries a digest of the security stamp of the user who started the impersonation (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`), so the session validator ends it once that user changes the password and while that user is locked out or blocked.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs"
       ]
     },
     {
@@ -1034,14 +1040,15 @@
       "categoryId": "5",
       "title": "Revert impersonation",
       "surface": "revert handler/models",
-      "outcome": "The original user is restored with a new session of its own, including a refresh token, and a custom `RevertImpersonateEndpoint` route is independent of the refresh route.",
+      "outcome": "The original user is restored with a new session of its own, including a refresh token, and a custom `RevertImpersonateEndpoint` route is independent of the refresh route. Revert issues no session while the original user may not sign in, is locked out or blocked.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs"
       ]
     },
     {
@@ -3822,7 +3829,7 @@
       "categoryId": "5",
       "title": "Authenticator enrollment and recovery codes",
       "surface": "`INhTwoFactorService<TUser>`, the account two-factor endpoints, `BaseNhAuthService.beginAuthenticatorSetup`, `confirmAuthenticator`, `regenerateRecoveryCodes` and `disableTwoFactor`, `NhTwoFactorTestCodes`, `NhTwoFactorSettingsComponent` and `NhTwoFactorRecoveryCodesComponent`",
-      "outcome": "A signed-in user enrolls an authenticator app from a pending key with a server-rendered QR code and receives single-use recovery codes that are stored as hashes. Confirmation ends every other session and returns a renewed session for this device. Regenerating recovery codes and disabling two-factor authentication require the password or a code, disabling is refused while the policy requires a second factor, and changes are refused while an administrator impersonates the user. The shared profile page manages every factor with the settings component, which asks for the password or a code before sensitive changes and shows new recovery codes once with copy and download actions.",
+      "outcome": "A signed-in user enrolls an authenticator app from a pending key with a server-rendered QR code and receives single-use recovery codes that are stored as hashes. Confirmation ends every other session and returns a renewed session for this device. Regenerating recovery codes and disabling two-factor authentication require the password or a code, disabling is refused while the policy requires a second factor, and changes are refused while an administrator impersonates the user. The shared profile page manages every factor with the settings component, which asks for the password or a code before sensitive changes and shows new recovery codes once with copy and download actions. A copy of a stored hash completes no challenge or reauthentication, while a plaintext code stored before codes were hashed still redeems once.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",

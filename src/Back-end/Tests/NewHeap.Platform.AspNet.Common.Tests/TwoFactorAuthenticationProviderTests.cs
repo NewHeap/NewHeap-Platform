@@ -69,6 +69,191 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.True(((INhMultiFactorAuthenticationService)stack.Authentication).IsTwoFactorAvailable);
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task BlockedAccountsCompleteNoFactorOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider, configuration =>
+        {
+            configuration.PasskeysEnabled = true;
+            configuration.PasskeyServerDomain = PasskeyDomain;
+            configuration.PasskeyAllowedOrigins = [PasskeyOrigin];
+            configuration.AddRequiredRoles([SecurityOfficerRole]);
+        });
+
+        using var stack = environment.CreateStack();
+        var httpContext = CreatePasskeyHttpContext();
+
+        // An enrolled user with a pending challenge, a refresh token and a passkey.
+        var enrolled = await stack.CreateUserAsync("blocked-enrolled@example.test");
+        var key = await stack.EnrollAsync(enrolled, environment);
+        using var authenticator = new SoftwarePasskeyAuthenticator(PasskeyDomain, PasskeyOrigin);
+        var registrationOptions = (await stack.TwoFactor.BeginPasskeyRegistrationAsync(
+            enrolled,
+            new NhTwoFactorReauthentication { Password = Credential },
+            httpContext)).Data!;
+        var registration = await stack.TwoFactor.CompletePasskeyRegistrationAsync(
+            enrolled,
+            registrationOptions.CeremonyToken,
+            authenticator.CreateCredential(registrationOptions.Options),
+            null,
+            httpContext,
+            enrolled.Id);
+        Assert.True(registration.Success, string.Join("; ", registration.AllErrorMessages));
+
+        var external = await stack.Authentication.AuthenticateExternalAsync(enrolled.Id, NhAuthenticationFactors.MicrosoftOAuth);
+        var refreshToken = external.Data!.Session!.RefreshToken!;
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(enrolled.UserName!, Credential))).Data!.Challenge!;
+        var passkeyChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(enrolled.UserName!, Credential))).Data!.Challenge!;
+        var passkeyAssertion = (await stack.Authentication.BeginTwoFactorPasskeyAsync(passkeyChallenge.ChallengeToken, httpContext)).Data!;
+        var passkeySignIn = (await stack.Authentication.BeginPasskeySignInAsync(httpContext)).Data!;
+
+        // A required user in the middle of enrolling during sign-in.
+        var officer = await stack.CreateUserAsync("blocked-officer@example.test");
+        await stack.AddToRoleAsync(officer, SecurityOfficerRole);
+        var enrollment = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(officer.UserName!, Credential))).Data!.Challenge!;
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, enrollment.Status);
+        var officerSetup = (await stack.Authentication.BeginEnrollmentAuthenticatorSetupAsync(enrollment.ChallengeToken)).Data!;
+        var officerKey = officerSetup.SharedKey.Replace(" ", string.Empty).ToUpperInvariant();
+
+        // Both are blocked without an end, which Identity does not see as a lockout.
+        await stack.UserManager.UpdateUserLockout(enrolled, DateTimeOffset.UtcNow.AddMinutes(-1), end: null);
+        await stack.UserManager.UpdateUserLockout(officer, DateTimeOffset.UtcNow.AddMinutes(-1), end: null);
+        Assert.False(await stack.UserManager.IsLockedOutAsync(enrolled));
+        var refreshTokensBefore = await stack.CountRefreshTokensAsync(enrolled.Id);
+
+        // First factors: password, passkey, a consumer credential and an external provider.
+        AssertLockedOut(await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(enrolled.UserName!, Credential)));
+        AssertLockedOut(await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(enrolled.UserName!, "test-wrong-password")));
+        Assert.Equal(0, await stack.UserManager.GetAccessFailedCountAsync(enrolled));
+        AssertLockedOut(await stack.Authentication.AuthenticatePasskeyAsync(
+            new NhPasskeySignInRequest
+            {
+                CeremonyToken = passkeySignIn.CeremonyToken,
+                Credential = ParseCredential(authenticator.CreateAssertion(passkeySignIn.Options)),
+            },
+            httpContext));
+        AssertLockedOut(await stack.Authentication.CompleteCustomCredentialAsync(enrolled));
+        AssertLockedOut(await stack.Authentication.AuthenticateExternalAsync(enrolled.Id, NhAuthenticationFactors.MicrosoftOAuth));
+
+        // Second factors of a challenge issued before the block.
+        environment.Clock.Advance(TimeSpan.FromSeconds(30));
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = challenge.ChallengeToken,
+                Method = NhTwoFactorMethods.Authenticator,
+                Code = environment.CurrentCode(key),
+            }),
+            NhTwoFactorFailureCodes.LockedOut);
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorPasskeyAsync(
+                new NhTwoFactorPasskeyVerifyRequest
+                {
+                    ChallengeToken = passkeyChallenge.ChallengeToken,
+                    CeremonyToken = passkeyAssertion.CeremonyToken,
+                    Credential = ParseCredential(authenticator.CreateAssertion(passkeyAssertion.Options)),
+                },
+                httpContext),
+            NhTwoFactorFailureCodes.LockedOut);
+
+        // Enrollment completion during sign-in.
+        AssertFailure(
+            await stack.Authentication.ConfirmEnrollmentAuthenticatorAsync(
+                enrollment.ChallengeToken,
+                environment.CurrentCode(officerKey)),
+            NhTwoFactorFailureCodes.LockedOut);
+
+        // Refresh, which fails like an unknown token.
+        var refreshed = await stack.Authentication.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(enrolled.UserName!, refreshToken));
+        Assert.False(refreshed.Success);
+        Assert.Equal(["Invalid refresh token"], refreshed.AllErrorMessages.Select(message => message.ToString()));
+
+        Assert.Equal(refreshTokensBefore, await stack.CountRefreshTokensAsync(enrolled.Id));
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(officer.Id));
+        Assert.False(await stack.UserManager.GetTwoFactorEnabledAsync(officer));
+
+        // A block of an account with lockout disabled stops the password factor as well.
+        var lockoutDisabled = await stack.CreateUserAsync("blocked-lockout-disabled@example.test");
+        Assert.True((await stack.UserManager.SetLockoutEnabledAsync(lockoutDisabled, false)).Succeeded);
+        await stack.UserManager.UpdateUserLockout(
+            lockoutDisabled,
+            DateTimeOffset.UtcNow.AddMinutes(-1),
+            DateTimeOffset.UtcNow.AddDays(30));
+        AssertLockedOut(await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(lockoutDisabled.UserName!, Credential)));
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(lockoutDisabled.Id));
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task StoredRecoveryCodeEntriesRedeemNothingOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider);
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("recovery-entries@example.test");
+        await stack.EnrollAsync(user, environment);
+        var storedEntries = (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';');
+        Assert.Equal(10, storedEntries.Length);
+
+        // A stored entry completes no challenge, as it is, in capitals or padded, and counts as a
+        // failed attempt.
+        string[] presentedEntries = [storedEntries[0], storedEntries[1].ToUpperInvariant(), $"  {storedEntries[2]}  "];
+        for (var attempt = 0; attempt < presentedEntries.Length; attempt++)
+        {
+            var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+            AssertFailure(
+                await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+                {
+                    ChallengeToken = challenge.ChallengeToken,
+                    Method = NhTwoFactorMethods.RecoveryCode,
+                    Code = presentedEntries[attempt],
+                }),
+                NhTwoFactorFailureCodes.InvalidCode);
+
+            user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            Assert.Equal(attempt + 1, await stack.UserManager.GetAccessFailedCountAsync(user));
+        }
+
+        // Nor does it pass the reauthentication of a sensitive change.
+        AssertFailure(
+            await stack.TwoFactor.RegenerateRecoveryCodesAsync(
+                user,
+                new NhTwoFactorReauthentication { Method = NhTwoFactorMethods.RecoveryCode, Code = storedEntries[3] },
+                user.Id),
+            NhTwoFactorFailureCodes.ReauthenticationFailed);
+
+        Assert.Equal(10, await stack.UserManager.CountRecoveryCodesAsync(user));
+        Assert.Equal(storedEntries, (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(user.Id));
+
+        // A plaintext code stored before NewHeap hashed recovery codes still redeems, once.
+        const string legacyCode = "7KQ2M-PX4RB";
+        await stack.ReplaceStoredRecoveryCodesAsync(user.Id, [legacyCode, .. storedEntries[1..]]);
+
+        var legacyChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        var redeemed = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = legacyChallenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = legacyCode,
+        });
+        Assert.True(redeemed.Success, string.Join("; ", redeemed.AllErrorMessages));
+        Assert.NotNull(redeemed.Data!.Session);
+        Assert.Equal(9, await stack.UserManager.CountRecoveryCodesAsync(user));
+
+        var reusedChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = reusedChallenge.ChallengeToken,
+                Method = NhTwoFactorMethods.RecoveryCode,
+                Code = legacyCode,
+            }),
+            NhTwoFactorFailureCodes.InvalidCode);
+    }
+
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
@@ -900,6 +1085,31 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, afterReset.Data!.Challenge!.Status);
     }
 
+    /// <summary>
+    /// A database of its own on one provider, with the two-factor configuration of the test.
+    /// </summary>
+    private static async Task<TwoFactorEnvironment> CreateEnvironmentAsync(
+        RelationalTestProvider provider,
+        Action<NhTwoFactorConfiguration>? configure = null)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
+        database.UseNewHeapProvider(optionsBuilder);
+
+        await using (var context = new TwoFactorDbContext(optionsBuilder.Options))
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
+
+        var configuration = TwoFactorEnvironment.CreateConfiguration(configure);
+        return new TwoFactorEnvironment(
+            optionsBuilder.Options,
+            new TestTimeProvider(DateTimeOffset.UtcNow),
+            new EphemeralDataProtectionProvider(),
+            configuration,
+            new NhDefaultTwoFactorPolicy(configuration));
+    }
+
     private static HttpContext CreatePasskeyHttpContext()
     {
         var httpContext = new DefaultHttpContext();
@@ -917,6 +1127,12 @@ public sealed class TwoFactorAuthenticationProviderTests
     {
         Assert.False(result.Success);
         Assert.Contains(result.GetResultItems(), item => item.Name == failureCode);
+    }
+
+    private static void AssertLockedOut(TaskResult result)
+    {
+        Assert.False(result.Success);
+        Assert.Equal(["User locked out"], result.AllErrorMessages.Select(message => message.ToString()));
     }
 
     private sealed class TwoFactorEnvironment
@@ -978,6 +1194,9 @@ public sealed class TwoFactorAuthenticationProviderTests
 
     private sealed class TwoFactorStack : IDisposable
     {
+        /// <summary>The name Identity's user store keeps the recovery codes under.</summary>
+        private const string RecoveryCodesTokenName = "RecoveryCodes";
+
         private readonly ServiceProvider _serviceProvider;
         private readonly RoleManager<NhUserRole> _roleManager;
         private readonly IOptions<IdentityOptions> _identityOptions;
@@ -1124,6 +1343,31 @@ public sealed class TwoFactorAuthenticationProviderTests
         internal Task<int> CountRefreshTokensAsync(Guid userId)
         {
             return Context.Set<NhUserAuthRefreshToken>().CountAsync(x => x.UserId == userId);
+        }
+
+        /// <summary>
+        /// The recovery codes as the Identity token row stores them, separated by <c>;</c>.
+        /// </summary>
+        internal async Task<string> StoredRecoveryCodesAsync(Guid userId)
+        {
+            var value = await Context.Set<IdentityUserToken<Guid>>()
+                .Where(x => x.UserId == userId && x.Name == RecoveryCodesTokenName)
+                .Select(x => x.Value)
+                .SingleAsync();
+
+            return value!;
+        }
+
+        /// <summary>
+        /// Overwrites the stored recovery codes, as a row written before an upgrade would hold them.
+        /// </summary>
+        internal async Task ReplaceStoredRecoveryCodesAsync(Guid userId, IEnumerable<string> storedCodes)
+        {
+            var row = await Context.Set<IdentityUserToken<Guid>>()
+                .SingleAsync(x => x.UserId == userId && x.Name == RecoveryCodesTokenName);
+            row.Value = string.Join(';', storedCodes);
+
+            await Context.SaveChangesAsync();
         }
 
         public void Dispose()

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "ff50eb12e077d6cb6b6804347a5463c7aeb36ddd7312595961f9a65d310741f9",
-    "declarationCount": 11198,
+    "hash": "210b9c67abf486dfda11a79f14232a316c4449dade267b7b0ff9f857b3bc8003",
+    "declarationCount": 11202,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -33506,6 +33506,18 @@
         "declaration": "public string ToJwksJson() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public static class NhRefreshTokenKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public const string ConfigurationKey = \"NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NhRefreshTokenKey.cs",
+        "declaration": "public const int MinimumBytes = NhJwtSigningKey.MinimumBytes;"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",
         "declaration": "public static partial class ServiceCollectionExtensions {"
       },
@@ -40564,6 +40576,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
         "declaration": "public const string ImpersonateOriginUserId = \"nh.platform.auth.impersonate.origin-user-id\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Identity/Claims/NhPlatformClaimTypes.cs",
+        "declaration": "public const string ImpersonateOriginSecurityStamp = \"nh.platform.auth.impersonate.origin-security-stamp\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Localization/NhCompositeStringLocalizer.cs",
@@ -49176,7 +49192,9 @@
       "NhUserManager",
       "BaseNhAuthService",
       "NhSessionRejectionInterceptor",
-      "AuthSessionExpirationInformation"
+      "AuthSessionExpirationInformation",
+      "NhRefreshTokenKey",
+      "NhPlatformClaimTypes"
     ],
     "nh-auth-token-signing": [
       "NhJwtSigningKeys",

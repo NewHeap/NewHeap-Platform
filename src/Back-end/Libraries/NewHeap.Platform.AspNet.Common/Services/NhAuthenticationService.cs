@@ -85,11 +85,15 @@ public class NhAuthenticationService<
     /// </summary>
     /// <param name="request">Refresh token to validate</param>
     /// <returns>A new token when refresh token is valid</returns>
+    /// <remarks>
+    /// A user who may not sign in, is locked out or is blocked is refused before the token is consumed,
+    /// with the same failure as an unknown token; the token works again once the account may sign in.
+    /// </remarks>
     public virtual async Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request)
     {
         var user = await FindUserByUsernameAsync(request.UserName);
 
-        if (user == null)
+        if (user == null || !await IsSignInEligibleAsync(user))
         {
             return TaskResult<UserToken>.Failed("Invalid refresh token");
         }
@@ -113,7 +117,7 @@ public class NhAuthenticationService<
             var consumed = await NhRefreshTokenOperations.TryConsumeAsync(
                 refreshTokens,
                 user.Id,
-                request.RefreshToken,
+                NhRefreshTokenKey.Digest(_configuration, request.RefreshToken),
                 now);
 
             if (!consumed)
@@ -149,6 +153,10 @@ public class NhAuthenticationService<
         }
     }
 
+    /// <summary>
+    /// Creates a refresh token for <paramref name="user"/>. The row stores only the token's keyed digest
+    /// (<see cref="NhRefreshTokenKey"/>); the token itself is returned for the client and is not kept.
+    /// </summary>
     protected virtual async Task<TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>> CreateRefreshTokenAsync(TUser user)
     {
         var repo = _userManager.GetRepository()
@@ -162,10 +170,11 @@ public class NhAuthenticationService<
 
         DateTimeOffset expirationDateTimeOffset = token.ValidTo;
 
+        var refreshTokenValue = GenerateRefreshToken();
         var refreshToken = new NhUserAuthRefreshToken()
         {
             UserId = user.Id,
-            Token = GenerateRefreshToken(),
+            Token = NhRefreshTokenKey.Digest(_configuration, refreshTokenValue),
             ExpiryDateTime = expirationDateTimeOffset
         };
 
@@ -179,7 +188,7 @@ public class NhAuthenticationService<
             DateTimeOffset.UtcNow);
 
         return TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>.Succeeded(
-            (refreshToken.Token, refreshToken.ExpiryDateTime)
+            (refreshTokenValue, refreshToken.ExpiryDateTime)
         );
     }
 
@@ -280,6 +289,12 @@ public class NhAuthenticationService<
 
     protected virtual async Task<TaskResult<UserToken>> Authenticate(TUser user, AuthenticateRequest request, IEnumerable<Claim>? requiredClaims = null)
     {
+        // Like Identity's own lockout, a blocked account is refused before its password is checked.
+        if (!await IsSignInEligibleAsync(user))
+        {
+            return TaskResult<UserToken>.Failed("User locked out");
+        }
+
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, true);
 
         if (result.IsLockedOut || result.IsNotAllowed)
@@ -303,7 +318,8 @@ public class NhAuthenticationService<
     /// <remarks>
     /// Use this extension point for credentials such as a PIN, passkey or trusted
     /// upstream assertion. The caller remains responsible for verifying that credential
-    /// and recording failed attempts. NewHeap enforces account eligibility and lockout,
+    /// and recording failed attempts. NewHeap enforces account eligibility, lockout and the
+    /// administrative block (<see cref="INhUserManager{TUser}.IsBlockedAsync"/>),
     /// resets an existing failed-attempt count after successful verification, and checks
     /// required claims without changing the user's password or revoking another device's
     /// refresh token.
@@ -376,8 +392,7 @@ public class NhAuthenticationService<
         IEnumerable<Claim>? requiredClaims = null,
         string? rememberDeviceToken = null)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult<NhAuthenticationResult>.Failed("User locked out");
         }
@@ -427,8 +442,7 @@ public class NhAuthenticationService<
         TUser user,
         IEnumerable<Claim>? requiredClaims)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult<UserToken>.Failed("User locked out");
         }
@@ -655,15 +669,29 @@ public class NhAuthenticationService<
     /// </summary>
     private async Task<bool> MaySignInAsync(TUser user)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user)
-            || await _userManager.IsBlockedAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return false;
         }
 
         var gate = await EvaluateSessionGateAsync(user, NhAuthenticationFactors.RefreshToken, allowEnrolledUsers: true);
         return gate.Success;
+    }
+
+    /// <summary>
+    /// The account checks every sign-in and session continuation shares: Identity lets the user sign
+    /// in, and the account is neither locked out nor blocked. <see cref="INhUserManager{TUser}.IsBlockedAsync"/>
+    /// covers the Identity lockout and NewHeap's administrative block (<c>LockoutStart</c>), which
+    /// Identity does not see, for example a block without an end or on an account with lockout disabled.
+    /// </summary>
+    private async Task<bool> IsSignInEligibleAsync(TUser user)
+    {
+        if (!await _signInManager.CanSignInAsync(user))
+        {
+            return false;
+        }
+
+        return !await _userManager.IsBlockedAsync(user);
     }
 
     /// <summary>
@@ -722,11 +750,32 @@ public class NhAuthenticationService<
     /// the token from the target user's claims and silently drop the impersonation origin,
     /// turning the session into an ordinary long-lived login as the target user. The session
     /// therefore ends when the access token expires or the origin user reverts it.
+    /// The token also carries a digest of the origin user's security stamp
+    /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginSecurityStamp"/>), so the session validator
+    /// ends the impersonation when that stamp changes or the origin user is blocked. An origin user
+    /// who may not sign in cannot start one.
     /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
     {
+        if (!await IsSignInEligibleAsync(currentUser))
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        var originSecurityStamp = await _signInManager.UserManager.GetSecurityStampAsync(currentUser);
+        if (string.IsNullOrEmpty(originSecurityStamp))
+        {
+            throw new InvalidOperationException("The user does not have a security stamp.");
+        }
+
         var claims = await GetClaimsAsync(user!.Id);
+        claims.RemoveAll(x =>
+            x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId
+            || x.Type == NhPlatformClaimTypes.ImpersonateOriginSecurityStamp);
         claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
+        claims.Add(new Claim(
+            NhPlatformClaimTypes.ImpersonateOriginSecurityStamp,
+            NhAuthenticationSessionDefaults.ImpersonationOriginStamp(originSecurityStamp)));
         var token = await CreateToken(
             user.Id,
             c: claims,
@@ -799,8 +848,21 @@ public class NhAuthenticationService<
         return await ImpersonateRevert(impersonatedUser, originUser);
     }
 
+    /// <summary>
+    /// Ends an impersonation with a new session of <paramref name="originUser"/>.
+    /// </summary>
+    /// <remarks>
+    /// The new session continues the origin user's session without a credential, so it is refused,
+    /// as a refresh is, when the origin user may no longer sign in, is locked out or blocked, or has
+    /// not enrolled a second factor the policy requires.
+    /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)
     {
+        if (!await MaySignInAsync(originUser))
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
         var claims = await GetClaimsAsync(originUser!.Id);
         var token = await CreateToken(
             originUser.Id,
@@ -1287,8 +1349,7 @@ public class NhAuthenticationService<
     /// </summary>
     protected virtual async Task<TaskResult> VerifyPasswordFactorAsync(TUser user, string password)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult.Failed("User locked out");
         }
@@ -1330,8 +1391,7 @@ public class NhAuthenticationService<
             return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.ChallengeExpired);
         }
 
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.LockedOut);
         }
