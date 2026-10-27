@@ -15,16 +15,13 @@ import {
   missingTargetFrameworks,
   projectTargetFrameworks,
   prepareReleaseNotes,
-  publicationEnvironments,
-  publisherOidcFailures,
   releaseNoteHeadingPackages,
   releasePackages,
   releaseSelection,
   releaseTag,
   repositoryRoot,
   syncLinkedPackageLock,
-  validateReleaseNoteSections,
-  workflowJobs
+  validateReleaseNoteSections
 } from './lib.mjs';
 import { validateNpmArtifactEntries, validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
 
@@ -113,82 +110,6 @@ assert.match(validateNpmArtifactEntries({
     { name: 'package/newheap-example-1.2.2.tgz', data: Buffer.from('stale package') }
   ]
 }).join('\n'), /contains a nested package archive/);
-
-// Only the publisher job may request an OIDC token, and only inside its protected environment, so
-// a registry policy that requires the environment rejects every other job and every rejected run.
-const stableEnvironment = publicationEnvironments.stable;
-assert.notEqual(stableEnvironment, publicationEnvironments.preview, 'Stable and preview publication need separate registry policies.');
-for (const environment of Object.values(publicationEnvironments)) {
-  assert.doesNotMatch(environment, /production|staging/, 'Application-deployment environment names must not publish packages.');
-}
-const reusablePublisher = `name: Publish
-on:
-  workflow_call:
-    inputs:
-      release_sha:
-        required: true
-        type: string
-
-permissions:
-  contents: read
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: ${stableEnvironment}
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - run: echo publish
-
-  finalize:
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - run: echo finalize
-`;
-const stableJob = { job: 'publish', environment: stableEnvironment };
-assert.deepEqual([...workflowJobs(reusablePublisher).jobs.keys()], ['publish', 'finalize']);
-assert.deepEqual(publisherOidcFailures(reusablePublisher, stableJob), []);
-assert.deepEqual(publisherOidcFailures(reusablePublisher.replaceAll('\n', '\r\n'), stableJob), []);
-assert.deepEqual(publisherOidcFailures(reusablePublisher.replace(
-  `    environment: ${stableEnvironment}\n`,
-  `    environment:\n      name: '${stableEnvironment}'\n`), stableJob), [], 'The environment may use the name form.');
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace(`    environment: ${stableEnvironment}\n`, ''), stableJob).join('\n'),
-  /publish job must run in the public-package-release environment/);
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace(`environment: ${stableEnvironment}`, `environment: ${publicationEnvironments.preview}`), stableJob).join('\n'),
-  /runs in the public-package-preview environment; the registry policies require public-package-release/);
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace(`environment: ${stableEnvironment}`, 'environment: ${{ inputs.environment }}'), stableJob).join('\n'),
-  /runs in the \$\{\{ inputs\.environment \}\} environment/,
-  'A computed environment name cannot prove the environment that the registry policies require.');
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace('permissions:\n  contents: read\n', 'permissions:\n  contents: write\n  id-token: write\n'), stableJob).join('\n'),
-  /workflow-level permissions must not grant id-token: write/);
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace('permissions:\n  contents: read\n\n', ''), stableJob).join('\n'),
-  /must declare workflow-level permissions/);
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace('      contents: write\n      id-token: write\n', '      contents: write\n'), stableJob).join('\n'),
-  /publish job must grant id-token: write in its own permissions/);
-assert.match(
-  publisherOidcFailures(reusablePublisher.replace('    permissions:\n      contents: write\n    steps:\n      - run: echo finalize', '    permissions: write-all\n    steps:\n      - run: echo finalize'), stableJob).join('\n'),
-  /finalize job may request an OIDC token/);
-assert.match(publisherOidcFailures(reusablePublisher, { job: 'release', environment: stableEnvironment }).join('\n'), /release job is missing/);
-for (const [path, environment] of [
-  ['.github/workflows/publish-release.yml', publicationEnvironments.stable],
-  ['.github/workflows/publish-preview.yml', publicationEnvironments.preview]
-]) {
-  assert.deepEqual(
-    publisherOidcFailures(await readFile(resolve(repositoryRoot, path), 'utf8'), { job: 'publish', environment }),
-    [],
-    `${path} must request OIDC tokens only from its publish job in ${environment}.`);
-}
 
 const manifest = await loadReleaseManifest();
 

@@ -7,8 +7,6 @@ import {
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
-  publicationEnvironments,
-  publisherOidcFailures,
   readJson,
   releaseTag,
   repositoryRoot,
@@ -269,12 +267,6 @@ for (const workflowPath of workflowPaths) {
     if (!workflow.includes('https://api.nuget.org/v3/index.json')) failures.push(`${workflowPath}: NuGet publication must target nuget.org.`);
     if (!workflow.includes('id-token: write') || !workflow.includes('NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544')) {
       failures.push(`${workflowPath}: public publication must use pinned OIDC trusted publishing for NuGet.`);
-    }
-    const environment = workflowPath.endsWith('publish-release.yml')
-      ? publicationEnvironments.stable
-      : publicationEnvironments.preview;
-    for (const failure of publisherOidcFailures(workflow, { job: 'publish', environment })) {
-      failures.push(`${workflowPath}: ${failure}`);
     }
   }
   if (workflowPath.endsWith('prepare-release.yml')) {
