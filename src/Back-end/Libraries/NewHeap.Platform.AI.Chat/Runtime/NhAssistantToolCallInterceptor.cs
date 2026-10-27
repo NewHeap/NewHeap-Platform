@@ -65,9 +65,16 @@ internal sealed class NhAssistantTurnState
     public IReadOnlyList<NhAiApplicationMapEntry>? ApplicationMapEntries { get; set; }
 
     /// <summary>
-    /// The retrieved context of the turn and its hash, retrieved once before the first model call.
+    /// The retrieved context of the turn, its hash and the highest classification of its items,
+    /// retrieved once before the first model call.
     /// </summary>
-    public (string Block, string Hash)? RetrievedContext { get; set; }
+    public (string Block, string Hash, NhAiDataClassification Classification)? RetrievedContext { get; set; }
+
+    /// <summary>
+    /// The highest classification of the retrieved context the model of this turn reads;
+    /// <see cref="NhAiDataClassification.Public"/> without retrieved context.
+    /// </summary>
+    public NhAiDataClassification RetrievedClassification => RetrievedContext?.Classification ?? NhAiDataClassification.Public;
 
     /// <summary>
     /// Assistant functions of an agent turn next to its tools, such as the working memory.

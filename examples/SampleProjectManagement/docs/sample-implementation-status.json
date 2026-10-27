@@ -2569,6 +2569,7 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedContextTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRetrievedClassificationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
     ],
     "SPM-292": [

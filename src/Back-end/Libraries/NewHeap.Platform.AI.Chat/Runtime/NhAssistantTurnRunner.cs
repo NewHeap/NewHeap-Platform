@@ -1216,7 +1216,7 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Retrieves the turn's context once, for an agent that retrieves.
     /// </summary>
-    private Task<(string Block, string Hash)?> RetrieveAsync(
+    private Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync(
         NhAssistantTurnState state,
         NhAiInvocationContext context,
         string? query,

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "fc9c26a74906a20135740ccc102948fa9a1c0f97231117d695ca8022f02c5b51",
-    "declarationCount": 11213,
+    "hash": "246c8d89c97a2c2afa7500ffd3f9876d7aabd317e2a97c836f872c482b14a5c4",
+    "declarationCount": 11214,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -22803,7 +22803,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
-        "declaration": "public async Task<(string Block, string Hash)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
@@ -22859,7 +22859,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public (string Block, string Hash)? RetrievedContext { get; set; }"
+        "declaration": "public (string Block, string Hash, NhAiDataClassification Classification)? RetrievedContext { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiDataClassification RetrievedClassification => RetrievedContext?.Classification ?? NhAiDataClassification.Public;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",

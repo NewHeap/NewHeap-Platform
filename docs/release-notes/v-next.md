@@ -278,3 +278,18 @@ resources whose searched fields are all visible, search as before.
 | With redaction, a search on a resource that marks a redacted field `[Searchable]`, directly or in a nested searchable object, fails with `api-bridge-validation`. | Remove `[Searchable]` from the redacted field, or let the model filter on visible fields. |
 | With redaction, a resource whose collection contract provider sets no `SearchFields` is no longer searchable through the gateway. | Set `NhAiBridgeQueryDescription.SearchFields` to the fields the API searches. |
 | A service that searches through `WithSearchable` selectors publishes only its `[Searchable]` members as search paths. | Describe such a resource with a collection contract provider that publishes the selector fields. |
+
+## NewHeap.Platform.AI.Chat: retrieved context is bound to the profile that serves the turn
+
+A turn retrieves up to the highest classification its agent's profile permits, but its skills and
+fallback profiles may permit less. The highest classification among the retrieved items now raises
+the classification of the turn's model calls, as the files the model reads already did. `use_skill`
+refuses a skill whose profile chain does not permit it with `assistant-classification-not-permitted`,
+also in a turn without files, and the profile resolution no longer falls back to a profile that does
+not permit it: the turn fails instead of sending the items. Turns whose retrieved items stay within
+the agent's configured classification are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A turn whose retrieved items are classified above the agent's classification is served only by profiles that permit them; it fails when none in the chain can serve it. | Let the agent's skill and fallback profiles permit the classifications its retrieval sources return, or classify those sources lower. |
+| `use_skill` refuses a skill whose profile does not permit the retrieved context of the turn. | Give the skill a profile that permits it, or keep that work in the agent's own profile. |

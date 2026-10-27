@@ -53,7 +53,12 @@ run the messages of its inputs and the subject's name, at most 1,000 characters.
 the turn's own invocation context, so the policy and the scope filter see the person, or in a run
 the agent with its accountable person, the subject and, where the host maps an active division,
 the subject's division. It asks for at most the highest classification the agent's model profile
-permits. `MaxItems` (8 by default, at most 50) and `MaxCharacters` (6,000, within
+permits. The highest classification among the retrieved items then raises the classification of
+the turn's model calls, as the files the model reads do, so every profile that serves the turn must
+permit it: `use_skill` refuses a skill whose profile chain does not
+(`assistant-classification-not-permitted`), and a fallback profile that does not permit it never
+serves the turn, which fails instead. Give skill and fallback profiles the classifications of the
+sources their agent retrieves from. `MaxItems` (8 by default, at most 50) and `MaxCharacters` (6,000, within
 `NhAssistantLimits.MaxRetrievedCharacters`, at most 24,000) become the request's item, character
 and token budgets. A turn that continues after an approval does not retrieve again.
 
@@ -81,6 +86,8 @@ than the full text, and stamp every item with the execution scopes it was read f
 - Connecting every registered source to every agent; name the sources each agent needs.
 - Letting an agent act on retrieved text; its tools read the current state with their own
   authorization.
+- Giving an agent's skills or fallbacks profiles that permit less than the agent's own while its
+  sources return items up to that profile's classification; such turns refuse the skill or fail.
 
 ## Verification
 
@@ -92,7 +99,8 @@ capability changes. For agent turns, assert that a person's turn, a consultation
 retrieve once with their query, scopes and classification, that the block follows the situation
 and is reused by the tool rounds, that items of another division or above the classification never
 reach the model, that a slow resolver leaves the turn without it and that the trace holds no
-content. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
+content. Assert that a skill or fallback profile that does not permit the highest retrieved
+classification never receives the block: `use_skill` is refused and the turn does not fall back. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
 executable references.
 
 ## Executable evidence
