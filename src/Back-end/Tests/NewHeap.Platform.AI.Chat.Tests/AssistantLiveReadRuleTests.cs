@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -270,7 +271,8 @@ internal sealed class LiveReadPeople : INhAiPrincipalFactory
 
 /// <summary>
 /// Signs the test client's person in at <see cref="AssistantTenantBindingTests.Issuer"/> with the tenant
-/// of <see cref="TenantHeader"/> and the permission of <see cref="PermissionHeader"/>.
+/// of <see cref="TenantHeader"/> and the permission of <see cref="PermissionHeader"/>, and with the
+/// expiry of <see cref="ExpiresHeader"/> as a bearer token's lifetime ends.
 /// </summary>
 internal sealed class LiveReadAuthentication(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -281,6 +283,7 @@ internal sealed class LiveReadAuthentication(
     public const string TenantHeader = "X-Test-Tenant";
     public const string PermissionHeader = "X-Test-Permission";
     public const string ManagerPermission = "manager";
+    public const string ExpiresHeader = "X-Test-Expires";
 
     public static IReadOnlyDictionary<string, string> Headers(string person, string tenantId, string? permission)
     {
@@ -328,6 +331,11 @@ internal sealed class LiveReadAuthentication(
         }
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
-        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName)));
+        var properties = new AuthenticationProperties();
+        if (DateTimeOffset.TryParse(Request.Headers[ExpiresHeader].ToString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var expires))
+        {
+            properties.ExpiresUtc = expires;
+        }
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, SchemeName)));
     }
 }

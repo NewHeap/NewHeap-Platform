@@ -80,6 +80,9 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
         // the actor reaches a conversation of that tenant.
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId), Context.ConnectionAborted);
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId, caller.Data.TenantId), Context.ConnectionAborted);
+        // The connection lasts as long as its session: it closes when its token expires, and when the
+        // session validator no longer accepts its principal.
+        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Watch(Context);
         await base.OnConnectedAsync();
     }
 

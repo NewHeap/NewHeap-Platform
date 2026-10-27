@@ -87,6 +87,8 @@ public static class NhAssistantServiceCollectionExtensions
             // Web Push sent directly after a turn; the core library keeps no-op defaults.
             services.AddSignalR();
             services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport, NhAssistantSignalRLiveUpdateTransport>());
+            // Hub connections end with their session, not only when their token expires.
+            services.TryAddSingleton<NhAssistantHubSessions>();
             // The NewHeap bearer setup reads the query token for the hub at its configured path (LS27).
             services.TryAddEnumerable(ServiceDescriptor.Singleton<NewHeap.Platform.AspNet.Common.Authentication.INhLibraryHubPath, NhAssistantHubPath>());
             services.TryAddSingleton<INhAssistantShareTokenProtector, NhAssistantShareTokenProtector>();
