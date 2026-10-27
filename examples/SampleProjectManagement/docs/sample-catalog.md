@@ -725,10 +725,30 @@ the entry so a later request reaches the network again. In addition to URL and
 query, the key includes `Accept`, language, authorization, cookie, and active
 division. Requests from different users or divisions are therefore never shared.
 
-This sample does not change the existing URL matching or token logic of the
-authentication, active-division, and server interceptors. The application
-therefore configures explicit API bases and demonstrates only optional request
-deduplication.
+The sample sets `apiBaseUrl` and `authApiBaseUrl` explicitly to `/api` (SPM-106).
+The authentication and active-division interceptors add the access token and
+`X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies,
+only to a request on the base URL's origin whose path is the base path or
+continues it after a `/`. Project requests under `/api` therefore carry both,
+while the translation files under `./i18n/`, a path such as `/apiary` and any
+other origin receive neither. An empty base URL stands for the application's
+own origin, so it never sends credentials to another origin, but an explicit
+base states where the API is. `verify-frontend-integrity.mjs` keeps both bases
+explicit; the library's interceptor spec proves the matching rule.
+
+## Document head and structured data
+
+The platform playground sets the title, the description and a canonical link
+(SPM-151) and builds JSON-LD with `NhJsonLdService`, review placeholder keys and
+`<nh-json-ld nhToHead>` (SPM-152). The description starts as rich text:
+`NhMetaService.stripHtml` returns its text and parses the markup in an inert
+document, so images in it never load and inline handlers never run.
+
+Review text is written by people, so the sample's review body contains markup
+such as `</SCRIPT>`. `nh-json-ld` writes every `<` in the serialized JSON as a
+JSON unicode escape and escapes the line and paragraph separators, so that text
+stays data inside the one structured-data script element and parses back
+unchanged.
 
 ## Backend configuration for runtime and automation
 

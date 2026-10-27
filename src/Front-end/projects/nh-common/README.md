@@ -24,12 +24,14 @@ View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/pl
 Import the core module once in the root of the application, for example in `AppModule`:
 
 ```typescript
-import { NhCommonModule } from '@newheap/platform-common';
+import { NhCommonModule, NhCommonModuleConfig } from '@newheap/platform-common';
 
 @NgModule({
   imports: [
     NhCommonModule.forRoot(new NhCommonModuleConfig({
       baseUrl: environment.baseUrl,
+      apiBaseUrl: environment.apiBaseUrl,
+      authApiBaseUrl: environment.apiBaseUrl,
       language: environment.defaultLanguage,
       defaultLanguage: environment.defaultLanguage,
       supportedLanguages: environment.supportedLanguages,
@@ -37,12 +39,18 @@ import { NhCommonModule } from '@newheap/platform-common';
       defaultCulture: environment.defaultCulture,
       environment: environment.name,
       cookieDomain: environment.cookieDomain
-    }))
+    }), AppAuthService)
   ],
   bootstrap: [AppComponent]
 })
 export class AppModule {}
 ```
+
+`AppAuthService` is the application's `BaseNhAuthService` implementation. Set `apiBaseUrl`
+and `authApiBaseUrl` to where the API is, for example `/api` or `https://api.example.com`.
+The interceptors add the access token and the active division only to requests on that origin
+whose path is the base path or continues it after a `/`. An empty base stands for the
+application's own origin, so requests to other origins never receive them.
 
 ## Two-factor components
 

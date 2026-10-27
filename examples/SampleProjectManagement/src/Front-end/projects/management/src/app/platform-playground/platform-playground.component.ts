@@ -262,9 +262,11 @@ export class PlatformPlaygroundComponent {
   applySeo(): void {
     this.clearSeo();
     this.titleService.setTitle('Sample Project Management | NewHeap');
+    // A description often starts as rich text. stripHtml returns its text and parses the markup in an
+    // inert document, so nothing in it loads or runs.
     this.metaService.updateTag({
       name: 'description',
-      content: 'Executable examples for the NewHeap Platform libraries.'
+      content: this.metaService.stripHtml('<p>Executable examples for the <strong>NewHeap Platform</strong> libraries.</p>')
     });
     this.headService.addLinkTag(
       'canonical',
@@ -305,10 +307,15 @@ export class PlatformPlaygroundComponent {
       resolvePlaceholderKey: aggregateRatingKey,
       data: { '@type': 'AggregateRating', ratingValue: 5, reviewCount: 1 }
     }));
+    // Review text is written by people and may contain markup. nh-json-ld writes every '<' as a JSON
+    // escape, so text such as </SCRIPT> stays data inside the structured-data script element.
     this.jsonLdService.addItem(new NhJsonLdDataItem({
       id: 'sample-review',
       resolvePlaceholderKey: reviewKey,
-      data: { '@type': 'Review', reviewBody: 'Every library case has executable documentation.' }
+      data: {
+        '@type': 'Review',
+        reviewBody: 'Every library case has executable documentation, and review text such as </SCRIPT> or <b>markup</b> stays data.'
+      }
     }));
 
     const document = this.jsonLdService.build();

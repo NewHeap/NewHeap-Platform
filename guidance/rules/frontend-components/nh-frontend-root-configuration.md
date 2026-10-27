@@ -4,8 +4,8 @@ title: "Root configuration with compatible opt-ins"
 area: frontend
 reference: frontend-root-configuration
 summary: "Register NhCommonModule once at the root and explicitly enable recommended optimizations without changing library defaults for existing consumers."
-sample-cases: ["SPM-112", "SPM-121", "SPM-215"]
-public-symbols: ["NhCommonModule", "NhHttpNhCommonModuleConfig", "NhFormDropDownNhCommonModuleConfig"]
+sample-cases: ["SPM-112", "SPM-121", "SPM-215", "SPM-106"]
+public-symbols: ["NhCommonModule", "NhHttpNhCommonModuleConfig", "NhFormDropDownNhCommonModuleConfig", "NhCommonModuleConfig", "AuthenticationNhCommonModuleConfig"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: critical
@@ -16,13 +16,16 @@ Call `NhCommonModule.forRoot(...)` exactly once at the application root and impo
 
 GET deduplication remains GET-only, ends when the source request finalizes, and distinguishes authorization, cookie, language, and active-division headers. The library defaults for these opt-ins remain `false` for upgrade compatibility.
 
+Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/api` or `https://api.example.com`. The authentication and active-division interceptors add the access token and `X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies, only to a request on the base URL's origin whose path is the base path or continues it after a `/`. An empty base stands for the application's own origin. With `authType: 'header'` the token always goes to requests under `authApiBaseUrl`, which the library's own logout, impersonation, two-factor and passkey calls need; `addAuthTokensToRequests: false` stops it only for requests under `apiBaseUrl`.
+
 ## Avoid
 
 - Repeating `forRoot` in a lazy feature or standalone component.
 - Turning a recommended sample opt-in into a new global library default.
 - Deduplicating POST, PUT, PATCH, or DELETE requests.
 - Duplicating enum labels or numeric assumptions in templates.
+- Leaving the API bases empty when the API runs on another origin, or adding the access token to other origins in an interceptor of your own.
 
 ## Verification
 
-Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value.
+Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that an API request carries the access token and active division, and that another origin, a look-alike host and a path beside the base receive neither.

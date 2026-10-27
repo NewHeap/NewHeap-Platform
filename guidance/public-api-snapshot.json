@@ -44848,8 +44848,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "324b61b99bb2dc0172a41b4a89b62e4a6c8cf341f02dbb83c6fbb75d3e1a11f6",
-    "declarationCount": 870,
+    "hash": "40b1b9f88a5225addf2882fd441107d67e1851b2141521c97ec57591d6aa582f",
+    "declarationCount": 871,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -45622,6 +45622,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-active-division.interceptor.ts",
         "declaration": "export class NhActiveDivisionInterceptor implements HttpInterceptor {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-api-base-url.ts",
+        "declaration": "export function nhIsRequestToBaseUrl("
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-api.auth.interceptor.ts",
@@ -49417,7 +49421,9 @@
     "nh-frontend-root-configuration": [
       "NhCommonModule",
       "NhHttpNhCommonModuleConfig",
-      "NhFormDropDownNhCommonModuleConfig"
+      "NhFormDropDownNhCommonModuleConfig",
+      "NhCommonModuleConfig",
+      "AuthenticationNhCommonModuleConfig"
     ],
     "nh-frontend-toast-notifications": [
       "provideNhToastr",

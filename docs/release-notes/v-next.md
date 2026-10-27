@@ -241,3 +241,46 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## @newheap/platform-common: credentials go only to the configured API
+
+`NhApiAuthInterceptor`, `NhActiveDivisionInterceptor` and `NhServerHttpInterceptor` now compare a
+request with `apiBaseUrl` and `authApiBaseUrl` by origin and path instead of by string prefix. Both
+URLs are resolved against the document as the browser resolves them, and a request matches when it
+has the base URL's scheme, host and port and its path is the base path or continues it after a `/`,
+in any letter case. An empty base URL, the default, stands for the application's own origin:
+relative and same-origin requests still match, while a request to another origin no longer receives
+the access token, `X-NH-ActiveDivisionId` or, in a server render, the forwarded session cookies, and
+its `Set-Cookie` is no longer relayed. Before, an empty base matched every URL and
+`https://api.example.com` also matched `https://api.example.com.attacker.example`. A relative base
+such as `/api` now also matches absolute URLs on the application's own origin. With
+`authType: 'header'`, the access token goes to requests under `authApiBaseUrl` always and to
+requests under `apiBaseUrl` while `addAuthTokensToRequests` is `true`, as before.
+
+| Breaking change | Required action |
+|---|---|
+| With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
+| A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
+
+## @newheap/platform-common: JSON-LD text cannot end its script element
+
+`NhJsonLdComponent` (`<nh-json-ld>`) now writes every `<` in the serialized JSON as `\u003c` and
+escapes U+2028 and U+2029. Before, it escaped only the exact lowercase `</script>`, so a string
+value with `</SCRIPT>`, `</script >`, `</script/>` or `<!--<script>`, such as a review body passed
+through `NhJsonLdService` or `NhPageSettings.jsonLdData`, ended the script element and the rest of
+the value was inserted as markup. The script text still parses to the same values.
+
+| Breaking change | Required action |
+|---|---|
+| The JSON-LD script text holds `\u003c` instead of `<`, and escapes U+2028 and U+2029. | None, unless a test compares the script's raw text; compare the parsed JSON instead. |
+
+## @newheap/platform-common: stripHtml parses in an inert document
+
+`NhMetaService.stripHtml` now parses its input in a document without a browsing context, created
+with `DOMParser` (or, where that is missing as in a server render, by the application document's
+`implementation`), instead of in an element of the application's document. Images in the markup
+no longer load and their inline event handlers no longer run; the returned text is the same.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |

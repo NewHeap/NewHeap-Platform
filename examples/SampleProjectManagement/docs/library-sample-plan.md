@@ -177,7 +177,7 @@ The complete public-surface mapping and intended sample entry points are documen
 
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
-| SPM-106 | Typed GET | API service/request options | A typed detail request uses the uniform error flow. |
+| SPM-106 | Typed GET | API service/request options; `apiBaseUrl` and `authApiBaseUrl` matching of the authentication, active-division and server interceptors | A typed detail request uses the uniform error flow. The access token and the active division reach it because it is under the explicit `/api` base on the application's origin; a request to another origin, a look-alike host or a path such as `/apiary` receives neither. |
 | SPM-107 | POST, PUT, and DELETE | API mutation methods | All mutations use one loading and TaskResult flow. |
 | SPM-108 | Binary response | array-buffer options | Bytes are returned without JSON conversion. |
 | SPM-109 | Text response | text request options | The plain-text preview is correct. |
@@ -233,8 +233,8 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-148 | Custom form control | value accessor/provider | Reactive forms and disabled state work. |
 | SPM-149 | Cookies | cookie service | Consent can be set, read, and deleted. |
 | SPM-150 | Internet status | connection service | The offline banner and reconnect retry work. |
-| SPM-151 | Title, metadata, and head | services/directive | Title, description, and canonical URL change. |
-| SPM-152 | JSON-LD | service/component/keys | Valid structured data appears in the document head. |
+| SPM-151 | Title, metadata, and head | services/directive; `NhMetaService.stripHtml` | Title, description, and canonical URL change. The description is the text of rich-text markup from `NhMetaService.stripHtml`, which parses the markup in an inert document, so its images never load and its inline handlers never run. |
+| SPM-152 | JSON-LD | service/component/keys | Valid structured data appears in the document head. A review body with markup such as `</SCRIPT>` stays data inside the one structured-data script element and parses back unchanged. |
 | SPM-153 | Breadcrumb and sitemap | page/app/router metadata | Both derive from the same route configuration. |
 | SPM-154 | Loader and error boundary | components/handlers | Loading, empty, and error states are separate. |
 | SPM-155 | Safe content | safe HTML/style/URL pipes | Only trusted content is exposed. |
