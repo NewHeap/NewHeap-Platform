@@ -91,6 +91,7 @@ public class ProjectTaskController : DbEntityProtectedNhBaseController<
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] ProjectTaskMutateModel mutateModel,

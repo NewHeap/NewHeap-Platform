@@ -2924,14 +2924,18 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-211",
     "title": "Division-role permissions",
     "category": "Authorization implementation patterns",
-    "surface": "division user, role, and claims with the active division",
-    "outcome": "The division editor has project rights inside Sample North but not application-wide.",
+    "surface": "division user, role, and claims with the active division; NhBaseDivisionUserController with the app.division.view and app.division.manage division policies",
+    "outcome": "The division editor has project rights inside Sample North but not application-wide. The manager manages the memberships of Sample North only: with Sample North active, a body that names Sample South is forbidden and a Sample South membership is not found, and every inherited update stays inside the controller's scope.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/DivisionMembershipController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleDivisionPolicies.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DivisionMembershipSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionWriteScopeProviderTests.cs"
     ]
   },
   {

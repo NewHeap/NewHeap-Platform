@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c40cfc8249437f1e5ac8f3aab9d2f883fb97b4784d943b8d607789067d89b802",
+    "hash": "dc17ebe78d7f68af05c86d463962e20a06f2ff2ff1218208a904144f25b639f4",
     "declarationCount": 11194,
     "declarations": [
       {
@@ -30519,7 +30519,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/CompositeDbEntityProtectedNhBaseController.cs",
-        "declaration": "[NonAction] protected virtual Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
+        "declaration": "[NonAction] protected virtual async Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/CompositeDbEntityProtectedNhBaseController.cs",
@@ -30659,7 +30659,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
-        "declaration": "[NonAction] protected virtual Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
+        "declaration": "[NonAction] protected virtual async Task<IActionResult> DoUpdatePartial( [FromRoute] Guid id, [FromBody] JObject? partialUpdate, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
@@ -49151,7 +49151,9 @@
     "nh-auth-permission-scopes": [
       "ProtectedNhBaseController",
       "NhDivisionRoleClaim",
-      "NhUserManager"
+      "NhUserManager",
+      "NhBaseDivisionUserController",
+      "NhBaseDivisionController"
     ],
     "nh-auth-session-lifecycle": [
       "LogoutRequest",

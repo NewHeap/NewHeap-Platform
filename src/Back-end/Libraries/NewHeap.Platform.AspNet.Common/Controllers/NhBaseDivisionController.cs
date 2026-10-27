@@ -11,6 +11,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using System;
 using System.ComponentModel;
 using System.Linq;
@@ -80,25 +81,38 @@ public abstract class NhBaseDivisionController<
         return DoGetById(id);
     }
 
+    /// <summary>
+    /// Adds a division. A new division lies outside the active division, so only a caller with the
+    /// division access-all permission may add one; others get <c>403</c>.
+    /// </summary>
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Create([FromBody] TDivisionMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
-        return DoCreate(mutateModel);
+        if (!User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
+        {
+            return Task.FromResult<IActionResult>(Forbid());
+        }
+
+        return DoCreate(mutateModel, cancellationToken);
     }
 
+    /// <summary>
+    /// Changes the active division. Without the division access-all permission another division
+    /// returns <c>404</c>.
+    /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
-        return DoUpdate(id, mutateModel);
+        return DoUpdate(id, mutateModel, cancellationToken);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
     public virtual Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
-        return DoDelete(id);
+        return DoDelete(id, cancellationToken);
     }
 
     [HttpGet("roles")]

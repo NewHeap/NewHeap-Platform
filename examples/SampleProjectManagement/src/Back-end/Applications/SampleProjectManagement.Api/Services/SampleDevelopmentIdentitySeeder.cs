@@ -122,6 +122,10 @@ public static class SampleDevelopmentIdentitySeeder
             dbContext,
             SampleAuthorizationDefaults.ProjectMemberRole,
             ["general.view"]);
+        var divisionManagerRole = await EnsureDivisionRoleAsync(
+            dbContext,
+            SampleAuthorizationDefaults.DivisionManagerRole,
+            ["general.view", "division.view", "division.manage"]);
 
         await EnsureDivisionAssignmentAsync(
             dbContext,
@@ -140,6 +144,12 @@ public static class SampleDevelopmentIdentitySeeder
             manager.Id,
             SampleAuthorizationDefaults.NorthDivisionId,
             divisionEditorRole.Id);
+        // SPM-211: the manager manages the memberships of Sample North, not of Sample South.
+        await EnsureDivisionAssignmentAsync(
+            dbContext,
+            manager.Id,
+            SampleAuthorizationDefaults.NorthDivisionId,
+            divisionManagerRole.Id);
         await EnsureDivisionAssignmentAsync(
             dbContext,
             viewer.Id,

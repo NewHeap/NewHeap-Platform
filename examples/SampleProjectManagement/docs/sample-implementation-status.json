@@ -1553,8 +1553,12 @@
     "SPM-211": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/DivisionMembershipController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleDivisionPolicies.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DivisionMembershipSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionWriteScopeProviderTests.cs"
     ],
     "SPM-212": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/ProjectAccessHandler.cs",
