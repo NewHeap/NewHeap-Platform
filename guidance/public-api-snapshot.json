@@ -49176,7 +49176,9 @@
       "NhUserManager",
       "BaseNhAuthService",
       "NhSessionRejectionInterceptor",
-      "AuthSessionExpirationInformation"
+      "AuthSessionExpirationInformation",
+      "NhRefreshTokenKey",
+      "NhPlatformClaimTypes"
     ],
     "nh-auth-token-signing": [
       "NhJwtSigningKeys",

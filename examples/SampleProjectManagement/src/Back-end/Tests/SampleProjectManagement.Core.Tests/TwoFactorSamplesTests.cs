@@ -112,6 +112,34 @@ public sealed class TwoFactorSamplesTests(SamplePostgreSqlServer postgreSql)
         var status = await twoFactor.GetStatusAsync(officer!, cancellationToken);
         Assert.True(status.Required);
         Assert.Empty(await twoFactor.GetPasskeysAsync(officer!, cancellationToken));
+
+        // The recovery codes are stored as hashes: a copy of a stored entry completes no challenge,
+        // while a code from the list shown at enrollment does.
+        var storedRecoveryCodes = await context.Set<IdentityUserToken<Guid>>()
+            .Where(x => x.UserId == officer!.Id && x.Name == "RecoveryCodes")
+            .Select(x => x.Value)
+            .SingleAsync(cancellationToken);
+        var officerChallenge = (await sampleService.AuthenticateAsync(new AuthenticateRequest(
+            SampleAuthorizationDefaults.SecurityOfficerEmail,
+            SampleAuthorizationDefaults.Password))).Data!.Challenge!;
+        Assert.Contains(NhTwoFactorMethods.RecoveryCode, officerChallenge.Methods);
+
+        var withStoredEntry = await sampleService.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = officerChallenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = storedRecoveryCodes!.Split(';')[0],
+        });
+        Assert.False(withStoredEntry.Success);
+
+        var withRecoveryCode = await sampleService.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = officerChallenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = completion.Data.RecoveryCodes![0],
+        });
+        Assert.True(withRecoveryCode.Success);
+        Assert.NotNull(withRecoveryCode.Data!.Session);
     }
 
     private static WebApplication BuildApplication(string connectionString)

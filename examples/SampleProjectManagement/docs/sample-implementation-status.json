@@ -713,7 +713,10 @@
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/NhEndpointsBuiltOnce.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs"
     ],
     "SPM-062": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -730,7 +733,9 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionRegistrationSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs"
     ],
     "SPM-065": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -758,14 +763,16 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs"
     ],
     "SPM-068": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs"
     ],
     "SPM-069": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
