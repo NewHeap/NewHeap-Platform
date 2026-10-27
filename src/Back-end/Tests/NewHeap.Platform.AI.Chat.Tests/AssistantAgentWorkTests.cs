@@ -282,7 +282,7 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database) :
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentTriggers>()
-            .StartNowAsync(AgentId, Subject(projectId), actorId, "Have a look at this project.", CancellationToken.None);
+            .StartNowAsync(new NhAssistantStartClearance(AgentId, Subject(projectId), actorId), "Have a look at this project.", CancellationToken.None);
     }
 
     /// <summary>

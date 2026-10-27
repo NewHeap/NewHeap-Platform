@@ -441,3 +441,68 @@ from its active division. A plain chat retrieves in the person's own context as 
 |---|---|
 | A context source that serves a person's turn in a subject thread sees the subject and its division instead of the request's active division, and no capability grants. | Read the division from the context's scope value or execution scopes; let the source policy decide on the person and the subject rather than on capabilities. |
 
+## NewHeap.Platform.AI.Chat.AspNet: one start rule for every run a person asks for
+
+A message to a busy agent thread, a restart of a failed run (`POST runs/{runId}/retry` with `mode`
+`restart`) and the generated request tool now create a run only for a person who may start the agent
+by hand, as `POST threads/start` decides: the agent's required policy as it is in effect now, on an
+object the participant role, on the whole application the agent's run and view policies, and only
+administrators for an agent in shadow. These paths checked a thread or participant role only, so an
+approver of the whole application without the run policy, or a participant of an agent in shadow,
+could start runs that the start by hand refuses them. Hosts whose approvers pass the run policies of
+their agents, and agents that are not in shadow, see no change on objects.
+
+| Breaking change | Required action |
+|---|---|
+| A message to a busy agent thread from someone who may not start the agent answers `409 assistant-conversation-busy`, and nothing waits for them. | None; give the people who leave messages for runs the agent's required policy and, for the whole application, its run policy. |
+| `POST runs/{runId}/retry` with `mode` `restart` refuses as `POST threads/start` does, for example `403 assistant-agent-forbidden`. | Give the people who restart runs the agent's required policy and, for the whole application, its run policy. |
+| The request tool follows the same rule, also when its consultation names a `Policy` of its own: it answers `assistant-agent-forbidden` when the rule refuses and `assistant-consult-subject-unavailable` without a role for the agent's thread; on the whole application the run policy decides instead of the approve policy. | Give the people who request runs the agent's required policy and, for the whole application, its run policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: consultations follow the agent's required policy in effect
+
+A consultation that names no asker policy of its own, in code (`Policy`) or as data (`askerPolicy`),
+now checks at every call the consulted agent's required policy as it is in effect, so an administrator
+who changes the required policy of an agent in code in its editor also changes who consults it. The
+request tool follows the rule of a start by hand, which includes that policy. The generated tools keep
+the policies of code, so a change that admits more people does not offer the tools to them.
+
+| Breaking change | Required action |
+|---|---|
+| The consult tool answers `assistant-agent-forbidden`, without consulting, to an asker who fails the agent's required policy in effect after an administrator changed it. | None; give the consultation an asker policy of its own when its askers should differ from the agent's users. |
+
+## NewHeap.Platform.AI.Chat: consultations about the whole application follow the agent's view policy
+
+Consulting an agent about the whole application (`nh-system`) now resolves the asker's role for the
+agent's thread, as the thread, its runs, its proposals and the request tool do: a person who reads the
+whole application but fails the agent's view policy (by default its required policy) is refused before
+a consultation is recorded or the consulted model runs. Consultations about the application's own
+subject types are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| A consultation of an agent about the whole application answers `assistant-consult-subject-unavailable` to an asker who fails the agent's view policy. | None; give the people who consult such an agent its view policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow runs consult and request no live agent
+
+A run in an agent's shadow thread that calls the generated consult or request tool of another agent is
+now refused with `assistant-consult-agent-unavailable`, as a hand-off from shadow work to a live agent
+already is. The consulted agent records no consultation in its live thread, leaves no proposal for its
+subject's approvers, notifies nobody and starts no run, so evaluating an agent in shadow, a new data
+trigger included, never changes live work. Runs in live threads and people's own chats are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| The consult and request tools refuse a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult and request other agents. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a claimed delivery stays deduplicated
+
+A webhook delivery, or an event with a dedupe key, that joined a pending run or waited while the agent
+was paused is now deduplicated also after the run that took it claimed it, so redelivering it starts no
+second run. Such a run records the key of the event that started it only, and the deduplication looked
+only at that key and at inputs that still waited. The input a delivery wrote now counts once a run took
+it; the receipt of the redelivery reads `deduplicated` with that run. An input dropped without a run,
+because its subject or the agent's owner was gone, does not count.
+
+| Breaking change | Required action |
+|---|---|
+| A redelivery of an event that a run already took answers `deduplicated`, naming that run, instead of starting a new run. | None. |

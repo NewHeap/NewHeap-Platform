@@ -252,6 +252,13 @@ internal sealed record NhAssistantTriggerFire(
     /// events, schedules, webhooks and follow-ups, which name their subject themselves.
     /// </summary>
     public NhAssistantTenantBinding? Tenant { get; init; }
+
+    /// <summary>
+    /// That the start rule admitted <see cref="InitiatorActorId"/> to start <see cref="AgentId"/> on
+    /// <see cref="Subject"/> (K9). A fire a person asks for, a start by hand, a message to a busy
+    /// thread or a request through another assistant, creates nothing without it.
+    /// </summary>
+    public NhAssistantStartClearance? StartClearance { get; init; }
 }
 
 /// <summary>
@@ -635,7 +642,11 @@ internal sealed class NhAssistantAgentTriggers(
         string? message,
         CancellationToken cancellationToken = default)
     {
-        var fire = Manual(agentId, subject, initiatorActorId, message);
+        // The application checked that the person may start the agent, as this method asks of it.
+        var fire = Manual(agentId, subject, initiatorActorId, message) with
+        {
+            StartClearance = new NhAssistantStartClearance(agentId, subject, initiatorActorId)
+        };
         if (await RefusalOfAsync(agentId, refusePaused: false, cancellationToken) is { } refusal)
         {
             if (refusal != NhAssistantErrorCodes.Disabled)
@@ -695,6 +706,18 @@ internal sealed class NhAssistantAgentTriggers(
     private static bool IsAutomatic(NhAssistantTriggerFire fire)
     {
         return !fire.Resume && !NhAssistantTriggerIds.IsAskedByPerson(fire.TriggerId);
+    }
+
+    /// <summary>
+    /// Whether the fire starts work a person asks for, which needs the start rule's clearance: a start
+    /// by hand, a message to a busy thread or a request through another assistant. The continuation of
+    /// work the agent already accepted and a replay into a shadow variant start nothing new for anyone.
+    /// </summary>
+    private static bool NeedsStartClearance(NhAssistantTriggerFire fire)
+    {
+        return !fire.Resume
+               && fire.ReplayOfRunId is null
+               && NhAssistantTriggerIds.IsAskedByPerson(fire.TriggerId);
     }
 
     private static NhAssistantTriggerReceipt Ignored(string triggerId, string reason)
@@ -870,19 +893,26 @@ internal sealed class NhAssistantAgentTriggers(
 
     /// <summary>
     /// Starts an agent for a person at once, for the assistant's own endpoints, whose callers need
-    /// the run and its thread even when the application wraps the request in a transaction.
+    /// the run and its thread even when the application wraps the request in a transaction. The
+    /// clearance of the start rule names the agent, the subject and the person, who becomes the run's
+    /// initiator.
     /// </summary>
     /// <param name="tenant">The person's tenant: a subject it does not reach is refused as unknown. The
     /// endpoints always pass it.</param>
     internal Task<NhAssistantTriggerReceipt> StartNowAsync(
-        string agentId,
-        NhAiSubjectRef subject,
-        string initiatorActorId,
+        NhAssistantStartClearance clearance,
         string? message,
         CancellationToken cancellationToken,
         NhAssistantTenantBinding? tenant = null)
     {
-        return FireAsync(Manual(agentId, subject, initiatorActorId, message) with { Tenant = tenant }, cancellationToken);
+        ArgumentNullException.ThrowIfNull(clearance);
+        return FireAsync(
+            Manual(clearance.AgentId, clearance.Subject, clearance.ActorId, message) with
+            {
+                Tenant = tenant,
+                StartClearance = clearance
+            },
+            cancellationToken);
     }
 
     private static NhAssistantTriggerFire Manual(
@@ -1235,7 +1265,12 @@ internal sealed class NhAssistantAgentTriggers(
             {
                 PayloadJson = request.PayloadJson,
                 InputId = request.InputId,
-                SkillId = registration.Triggers.TryGetValue(request.TriggerId, out var trigger) ? SkillFor(trigger, request.AgentId) : null
+                SkillId = registration.Triggers.TryGetValue(request.TriggerId, out var trigger) ? SkillFor(trigger, request.AgentId) : null,
+                // Only StartAsync defers a start a person asks for; the application checked it before
+                // its transaction committed.
+                StartClearance = NhAssistantTriggerIds.IsAskedByPerson(request.TriggerId) && request.InitiatorActorId is { } initiator
+                    ? new NhAssistantStartClearance(request.AgentId, request.Subject, initiator)
+                    : null
             },
             cancellationToken);
     }
@@ -1489,6 +1524,13 @@ internal sealed class NhAssistantAgentTriggers(
         NhAssistantTriggerFire fire,
         CancellationToken cancellationToken)
     {
+        if (NeedsStartClearance(fire) && fire.StartClearance?.Covers(fire) != true)
+        {
+            // Every path that lets a person start an agent applies the start rule first (K9); a fire
+            // without its clearance is a defect of that path, never something a person may do.
+            throw new InvalidOperationException(
+                $"Trigger '{fire.TriggerId}' for agent '{fire.AgentId}' names a person as initiator without the clearance of the start rule.");
+        }
         if (!assistantOptions.CurrentValue.Enabled)
         {
             return Rejected(fire, null, NhAssistantErrorCodes.Disabled);
@@ -1607,12 +1649,15 @@ internal sealed class NhAssistantAgentTriggers(
                     conversationId,
                     NhAssistantTriggerReasons.Deduplicated);
             }
-            if (await runs.HasWaitingInputAsync(conversationId, fire.TriggerId, eventKey, cancellationToken))
+            // A run records the key of the event that started it only: an event that waited, joined a
+            // pending run or was claimed by one is known through its input, which stays after the
+            // claim, so a redelivery starts no second run.
+            if (await runs.FindEventInputInThreadAsync(conversationId, fire.TriggerId, eventKey, cancellationToken) is { } known)
             {
                 return new NhAssistantTriggerReceipt(
                     fire.TriggerId,
                     NhAssistantTriggerOutcomes.Deduplicated,
-                    null,
+                    known.ConsumedByRunId,
                     conversationId,
                     NhAssistantTriggerReasons.Deduplicated);
             }

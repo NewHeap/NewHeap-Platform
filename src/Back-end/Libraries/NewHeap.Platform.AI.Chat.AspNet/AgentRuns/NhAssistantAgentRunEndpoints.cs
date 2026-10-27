@@ -84,7 +84,7 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("runs/{runId:guid}/retry", RetryRunAsync)
             .WithName("NhAssistantRetryRun")
             .WithSummary("Retry an agent run")
-            .WithDescription("Resumes a failed or cancelled run from its last checkpoint, or restarts the agent in the same thread. The caller needs the approver role on the subject. A restart answers like POST threads/start: a refused start with its code and that code's status.")
+            .WithDescription("Resumes a failed or cancelled run from its last checkpoint, or restarts the agent in the same thread. The caller needs the approver role on the subject. A restart starts the agent with the caller as initiator, so it also follows the rule of POST threads/start (the agent's required policy, on the whole application its run policy, and only administrators start an agent in shadow) and answers like it: a refused start with its code and that code's status.")
             .Produces<NhAssistantTriggerReceiptDto>(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -238,16 +238,14 @@ internal static class NhAssistantAgentRunEndpoints
         var access = await subjects.ResolveForAgentAsync(subject!, request.AgentId!, caller.Data!.ActorId, cancellationToken);
         var agent = await agents.FindAsync(request.AgentId!, includeDisabled: false, cancellationToken);
         // K9: on an object the participant role, on the whole application the agent's run policy.
-        var allowed = await starts.CheckStartAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken);
+        var allowed = await starts.ClearAsync(agent, subject!, access, caller.Data.ActorId, httpContext.User, cancellationToken);
         if (!allowed.Success)
         {
             return NhAssistantHttpErrors.Failure(allowed);
         }
 
         var receipt = await triggers.StartNowAsync(
-            request.AgentId!,
-            subject!,
-            caller.Data.ActorId,
+            allowed.Data!,
             request.Message,
             cancellationToken,
             new NhAssistantTenantBinding(caller.Data.TenantId));
@@ -512,7 +510,8 @@ internal static class NhAssistantAgentRunEndpoints
         HttpContext httpContext,
         NhAssistantThreadService threads,
         NhAssistantRunStore runs,
-        NhAssistantAgentTriggers triggers)
+        NhAssistantAgentTriggers triggers,
+        NhAssistantManualStarts starts)
     {
         var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
             httpContext,
@@ -541,10 +540,21 @@ internal static class NhAssistantAgentRunEndpoints
         var thread = access.Access!.Thread;
         if (mode == "restart")
         {
-            var restarted = await triggers.StartNowAsync(
+            // A restart starts the agent again with the caller as initiator, so the start rule of
+            // POST threads/start decides (K9), not the approver role that a resume needs.
+            var allowed = await starts.ClearAsync(
                 thread.AgentId,
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                 access.ActorId!,
+                httpContext.User,
+                cancellationToken);
+            if (!allowed.Success)
+            {
+                return NhAssistantHttpErrors.Failure(allowed);
+            }
+
+            var restarted = await triggers.StartNowAsync(
+                allowed.Data!,
                 "Restart: continue the work of the previous run.",
                 cancellationToken,
                 new NhAssistantTenantBinding(access.TenantId));

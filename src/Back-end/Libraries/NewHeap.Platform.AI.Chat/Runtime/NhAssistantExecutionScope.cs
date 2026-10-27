@@ -73,6 +73,12 @@ internal sealed class NhAssistantTurnScope
     public Guid? RunId { get; init; }
 
     /// <summary>
+    /// The turn belongs to a run in an agent's shadow thread: its work is evaluated, so it never
+    /// reaches a live agent, neither through a consultation nor through a request for a run.
+    /// </summary>
+    public bool ShadowRun { get; init; }
+
+    /// <summary>
     /// The skill the turn works in; <see langword="null"/> while it works with the agent's own tools.
     /// </summary>
     public string? SkillId { get; set; }

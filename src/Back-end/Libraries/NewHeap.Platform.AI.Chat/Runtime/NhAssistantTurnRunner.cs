@@ -804,6 +804,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 Limits = registration.Limits,
                 BudgetPurpose = NhAiBudgetPurposes.ProposalExecution,
                 RunId = approval.RunId,
+                ShadowRun = request.AgentTurn is { RunId: not null } executedFor && executedFor.Thread.Shadow,
                 SkillId = request.AgentTurn?.SkillId
             },
             Conversation = conversation,
@@ -3093,6 +3094,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 Limits = limits,
                 BudgetPurpose = agentTurn is null ? NhAiBudgetPurposes.Chat : NhAiBudgetPurposes.AgentRun,
                 RunId = agentTurn?.RunId,
+                // A run in a shadow thread is evaluated, as its proposals are: it reaches no live agent.
+                ShadowRun = agentTurn is { RunId: not null } && agentTurn.Thread.Shadow,
                 Channel = channel
             },
             Conversation = conversation,

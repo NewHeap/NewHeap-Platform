@@ -6,22 +6,69 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
-/// The one rule of who may run an agent by hand (K9), for <c>POST threads/start</c>, a new thread of
-/// <c>POST threads/open</c> and every <c>canStart</c> people see. The agent works on the subject
-/// (<see cref="NhAssistantWorksOnRule"/>, with its scope for the whole application) and the person
-/// may use the agent (its required policy). On an object the person takes part in it: the
-/// participant role from the application's resolver. On the whole application the agent's run policy
-/// decides, by default the administration policy, evaluated as the roles of the whole application
-/// are; the person reads it as well, so the thread the start leads to can be opened. An agent in
-/// shadow works in shadow threads, which administrators alone see, so only they start it.
+/// The one rule of who may run an agent by hand (K9), for every run a person asks for:
+/// <c>POST threads/start</c>, a restart of a failed run, a message to a busy agent thread and the
+/// generated request tool, as well as a new thread of <c>POST threads/open</c> and every
+/// <c>canStart</c> people see. The agent works on the subject (<see cref="NhAssistantWorksOnRule"/>,
+/// with its scope for the whole application) and the person may use the agent (its required policy as
+/// it is in effect now). On an object the person takes part in it: the participant role from the
+/// application's resolver. On the whole application the agent's run policy decides, by default the
+/// administration policy, evaluated as the roles of the whole application are; the person reads it as
+/// well, so the thread the start leads to can be opened. An agent in shadow works in shadow threads,
+/// which administrators alone see, so only they start it. A run a person asks for is created only with
+/// the <see cref="NhAssistantStartClearance"/> this rule issues.
 /// </summary>
 internal sealed class NhAssistantManualStarts(
     NhAssistantRegistrationState registration,
     NhAssistantWorksOnRule worksOn,
     NhAssistantAgentAccess agentAccess,
     IEnumerable<INhAiSubjectAccessResolver> resolvers,
-    IOptionsMonitor<NhAssistantOptions> options)
+    IOptionsMonitor<NhAssistantOptions> options,
+    NhAssistantSubjectAccessService subjects,
+    NhAssistantAgentCatalog agents)
 {
+    /// <summary>
+    /// The start rule for a person who asks for a run of <paramref name="agentId"/> on
+    /// <paramref name="subject"/>: with the agent as it is in effect now and the person's live role for
+    /// the agent's thread there, so the whole application's thread counts only for people who pass the
+    /// agent's view policy. Succeeds with the clearance the run's fire needs, and fails as
+    /// <see cref="CheckStartAsync"/> does.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync(
+        string agentId,
+        NhAiSubjectRef subject,
+        string actorId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(subject);
+        var access = await subjects.ResolveForAgentAsync(subject, agentId, actorId, cancellationToken);
+        var agent = await agents.FindAsync(agentId, includeDisabled: false, cancellationToken);
+        return await ClearAsync(agent, subject, access, actorId, user, cancellationToken);
+    }
+
+    /// <summary>
+    /// The start rule for a caller that already holds the agent and the person's live role on the
+    /// subject; see <see cref="ClearAsync(string, NhAiSubjectRef, string, ClaimsPrincipal, CancellationToken)"/>.
+    /// </summary>
+    public async Task<TaskResult<NhAssistantStartClearance>> ClearAsync(
+        NhAssistantAgent? agent,
+        NhAiSubjectRef subject,
+        NhAiSubjectAccess access,
+        string actorId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        var allowed = await CheckStartAsync(agent, subject, access, actorId, user, cancellationToken);
+        if (!allowed.Success)
+        {
+            return TaskResult<NhAssistantStartClearance>.Failed(allowed);
+        }
+
+        return TaskResult<NhAssistantStartClearance>.Succeeded(new NhAssistantStartClearance(agent!.Id, subject, actorId));
+    }
+
     /// <summary>
     /// Whether the person may run <paramref name="agent"/> by hand on <paramref name="subject"/>: a
     /// failure with <see cref="NhAssistantErrorCodes.SubjectAccessDenied"/> without the role,
@@ -107,5 +154,28 @@ internal sealed class NhAssistantManualStarts(
 
         var policy = NhAssistantSystemSubjectResolver.RunPolicyOf(runOptions, registration, options.CurrentValue);
         return await resolver.MayRunAsync(subject, actorId, policy, cancellationToken);
+    }
+}
+
+/// <summary>
+/// That a person may start an agent on a subject (K9), for the fire that names that agent, subject
+/// and person as its initiator. <see cref="NhAssistantAgentTriggers"/> creates the run or the waiting
+/// input of a run a person asks for (<see cref="NhAssistantTriggerIds.Manual"/>,
+/// <see cref="NhAssistantTriggerIds.QueuedMessage"/>, <see cref="NhAssistantTriggerIds.AgentRequest"/>)
+/// only with a clearance that covers it. <see cref="NhAssistantManualStarts"/> issues it once the start
+/// rule passed; <see cref="INhAssistantAgentTriggers.StartAsync"/> issues it for the application, whose
+/// callers check the start themselves.
+/// </summary>
+internal sealed record NhAssistantStartClearance(string AgentId, NhAiSubjectRef Subject, string ActorId)
+{
+    /// <summary>
+    /// Whether the clearance is for the agent, subject and initiator of <paramref name="fire"/>.
+    /// </summary>
+    public bool Covers(NhAssistantTriggerFire fire)
+    {
+        ArgumentNullException.ThrowIfNull(fire);
+        return string.Equals(AgentId, fire.AgentId, StringComparison.Ordinal)
+               && Subject == fire.Subject
+               && string.Equals(ActorId, fire.InitiatorActorId, StringComparison.Ordinal);
     }
 }

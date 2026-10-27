@@ -722,7 +722,8 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
                 NhAssistantTriggerConflict.Coalesce,
                 TimeSpan.Zero)
             {
-                Files = files
+                Files = files,
+                StartClearance = new NhAssistantStartClearance(Reader, subject, actorId)
             },
             CancellationToken.None);
     }
