@@ -1054,3 +1054,19 @@ sample's `AccountSampleService` does with its `AccountRecovery` settings (SPM-07
 | Breaking change | Required action |
 |---|---|
 | `NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete, and a recovery request without it now passes validation. | Build the reset link from a configured application origin and stop reading `ResetUrl`; code that still reads it must handle `null`. Clients may stop sending it. |
+
+## NewHeap.Platform.DatabaseRead.Tool: SQL Server verification while logins and grants change
+
+SQL Server verification checked the permissions on every login, server role, user and role one by
+one. Each check waited for a metadata lock on that principal while the scan still held its catalog
+row, so it deadlocked with a concurrent `CREATE LOGIN`, `GRANT ... ON LOGIN` or `DROP LOGIN`, which
+takes them in the opposite order, and it waited behind every login being changed. The deadlock victim
+was the diagnostic request or the other session's change. The verification now reads the permissions
+granted on these principals, and the roles the principal owns, from the catalog. Permissions held
+through the server or the database, such as `IMPERSONATE ANY LOGIN` or `ALTER ANY ROLE`, are still
+rejected by the server and database checks. CONTROL on a login now reports
+`server-principal-permission-not-allowlisted` instead of `login-impersonate`.
+
+| Breaking change | Required action |
+|---|---|
+| CONTROL on a login reports `error.verificationCheck` `server-principal-permission-not-allowlisted` instead of `login-impersonate`. | None; the principal is rejected as before. |

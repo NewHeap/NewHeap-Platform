@@ -138,6 +138,7 @@ public sealed class DatabaseReadPrincipalVerificationTests
         var reader = admin.InitialCatalog + "_reader";
         var target = admin.InitialCatalog + "_target";
         var role = admin.InitialCatalog + "_role";
+        var serverRole = admin.InitialCatalog + "_server_role";
         var passwordKeyword = "PASS" + "WORD";
         await ExecuteSqlServerAsync(
             master.ConnectionString,
@@ -202,9 +203,16 @@ public sealed class DatabaseReadPrincipalVerificationTests
                 $"REVOKE REFERENCES ON OBJECT::dbo.Items FROM [{reader}]", "object-permission-not-allowlisted"),
             new("ALTER on a role", $"GRANT ALTER ON ROLE::[{role}] TO [{reader}]",
                 $"REVOKE ALTER ON ROLE::[{role}] FROM [{reader}]", "database-principal-permission-not-allowlisted"),
+            new("ownership of a role", $"ALTER AUTHORIZATION ON ROLE::[{role}] TO [{reader}]",
+                $"ALTER AUTHORIZATION ON ROLE::[{role}] TO [dbo]", "database-principal-permission-not-allowlisted"),
             new("ALTER on a login", $"GRANT ALTER ON LOGIN::[{target}] TO [{reader}]",
                 $"REVOKE ALTER ON LOGIN::[{target}] FROM [{reader}]", "server-principal-permission-not-allowlisted",
                 ServerScope: true),
+            new("CONTROL on a login", $"GRANT CONTROL ON LOGIN::[{target}] TO [{reader}]",
+                $"REVOKE CONTROL ON LOGIN::[{target}] FROM [{reader}]", "server-principal-permission-not-allowlisted",
+                ServerScope: true),
+            new("ownership of a server role", $"CREATE SERVER ROLE [{serverRole}] AUTHORIZATION [{reader}]",
+                $"DROP SERVER ROLE [{serverRole}]", "server-principal-permission-not-allowlisted", ServerScope: true),
             new("db_datareader", $"ALTER ROLE db_datareader ADD MEMBER [{reader}]",
                 $"ALTER ROLE db_datareader DROP MEMBER [{reader}]", null),
             new("database-level SELECT, VIEW DEFINITION and SHOWPLAN",

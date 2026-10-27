@@ -33,6 +33,15 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     /// owned by fixed database roles are skipped, because a member of such a role controls that
     /// role's empty schema; objects in them are still checked.
     /// </summary>
+    /// <remarks>
+    /// Permissions on logins, server roles, users and roles come from their grants and owners in
+    /// the catalog, not from <c>HAS_PERMS_BY_NAME</c> per principal: that took a metadata lock on
+    /// each principal while the scan still held its catalog row, and deadlocked with a concurrent
+    /// <c>CREATE LOGIN</c>, <c>GRANT</c> or <c>DROP LOGIN</c>, which takes them in the opposite
+    /// order. What a principal holds through the server or the database, such as
+    /// <c>IMPERSONATE ANY LOGIN</c> or <c>ALTER ANY ROLE</c>, is rejected by the server and
+    /// database checks.
+    /// </remarks>
     private const string ReadOnlyVerificationSql =
         """
         SELECT CASE
@@ -113,17 +122,19 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER ANY SCHEMA') = 1 THEN 'database-permission-alter-any-schema'
             WHEN EXISTS (
                 SELECT 1
-                FROM sys.server_principals AS candidate
-                WHERE candidate.type <> 'R' AND
-                    candidate.sid <> SUSER_SID() AND
-                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'LOGIN', 'IMPERSONATE') = 1
+                FROM sys.server_permissions AS candidate
+                WHERE candidate.class = 101 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name = 'IMPERSONATE' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.login_token AS token)
             ) THEN 'login-impersonate'
             WHEN EXISTS (
                 SELECT 1
-                FROM sys.database_principals AS candidate
-                WHERE candidate.type NOT IN ('A', 'R') AND
-                    candidate.principal_id <> DATABASE_PRINCIPAL_ID() AND
-                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'USER', 'IMPERSONATE') = 1
+                FROM sys.database_permissions AS candidate
+                WHERE candidate.class = 4 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name = 'IMPERSONATE' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token)
             ) THEN 'user-impersonate'
             WHEN EXISTS (
                 SELECT 1
@@ -248,34 +259,29 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             ) THEN 'column-permission-not-allowlisted'
             WHEN EXISTS (
                 SELECT 1
+                FROM sys.database_permissions AS candidate
+                WHERE candidate.class = 4 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name <> 'VIEW DEFINITION' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token)
+                UNION ALL
+                SELECT 1
                 FROM sys.database_principals AS candidate
-                CROSS APPLY (
-                    SELECT CASE candidate.type
-                        WHEN 'R' THEN 'ROLE'
-                        WHEN 'A' THEN 'APPLICATION ROLE'
-                        ELSE 'USER' END AS securable_class
-                ) AS candidate_class
-                CROSS APPLY sys.fn_builtin_permissions(candidate_class.securable_class) AS candidate_permission
-                WHERE candidate.principal_id <> DATABASE_PRINCIPAL_ID() AND
-                    candidate_permission.permission_name <> 'VIEW DEFINITION' AND
-                    HAS_PERMS_BY_NAME(
-                        QUOTENAME(candidate.name),
-                        candidate_class.securable_class,
-                        candidate_permission.permission_name) = 1
+                WHERE candidate.type IN ('A', 'R') AND
+                    candidate.owning_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token)
             ) THEN 'database-principal-permission-not-allowlisted'
             WHEN EXISTS (
                 SELECT 1
+                FROM sys.server_permissions AS candidate
+                WHERE candidate.class = 101 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name <> 'VIEW DEFINITION' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.login_token AS token)
+                UNION ALL
+                SELECT 1
                 FROM sys.server_principals AS candidate
-                CROSS APPLY (
-                    SELECT CASE candidate.type WHEN 'R' THEN 'SERVER ROLE' ELSE 'LOGIN' END AS securable_class
-                ) AS candidate_class
-                CROSS APPLY sys.fn_builtin_permissions(candidate_class.securable_class) AS candidate_permission
-                WHERE candidate.sid <> SUSER_SID() AND
-                    candidate_permission.permission_name <> 'VIEW DEFINITION' AND
-                    HAS_PERMS_BY_NAME(
-                        QUOTENAME(candidate.name),
-                        candidate_class.securable_class,
-                        candidate_permission.permission_name) = 1
+                WHERE candidate.type = 'R' AND
+                    candidate.owning_principal_id IN (SELECT token.principal_id FROM sys.login_token AS token)
             ) THEN 'server-principal-permission-not-allowlisted'
             WHEN EXISTS (
                 SELECT 1
