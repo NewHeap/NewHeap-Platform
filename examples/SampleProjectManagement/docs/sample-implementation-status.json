@@ -2725,7 +2725,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-connect.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpOwnerSweepTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpOwnerSweepTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpImpersonationTests.cs"
     ],
     "SPM-301": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
@@ -3086,7 +3088,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAccessSourceTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs"
     ],
     "SPM-316": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",

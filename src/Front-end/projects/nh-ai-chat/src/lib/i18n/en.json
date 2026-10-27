@@ -387,6 +387,7 @@
       "assistant-directory-unavailable": "Inviting colleagues directly is not available.",
       "assistant-push-unavailable": "Desktop notifications are not available.",
       "assistant-push-subscription-invalid": "This browser could not be registered for notifications.",
+      "assistant-not-allowed-while-impersonating": "While you act as someone else, you cannot connect accounts, allow background use or register notifications for them.",
       "assistant-conversation-removed": "This conversation is no longer available to you.",
       "assistant-subject-not-found": "This object does not exist, or you may not see it.",
       "assistant-subject-invalid": "This is not a valid reference to an object. Check the kind of object and its id.",

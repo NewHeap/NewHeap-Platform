@@ -61,6 +61,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-directory-unavailable',
   'assistant-push-unavailable',
   'assistant-push-subscription-invalid',
+  'assistant-not-allowed-while-impersonating',
   // Agent runs
   'assistant-subject-not-found',
   'assistant-subject-invalid',

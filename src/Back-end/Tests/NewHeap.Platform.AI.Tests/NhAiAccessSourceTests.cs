@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using Xunit;
 
@@ -151,6 +152,54 @@ public sealed class NhAiAccessSourceTests
         Assert.NotNull(await principals.CreateAsync(Initiator, Project(), CancellationToken.None));
         contexts.Remember(Initiator, DateTimeOffset.MaxValue, Permission(ManagePermission));
         Assert.Null(await principals.CreateAsync(Initiator, Project(), CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(NhAiDelegatedReadDefaults.ClaimType)]
+    [InlineData(NhAiDelegatedReadDefaults.ActionClaimType)]
+    [InlineData(NhAiMcpDelegatedTokenDefaults.MarkerClaimType)]
+    [InlineData(NhAiMcpDelegatedTokenDefaults.AudienceClaimType)]
+    [InlineData(NhPlatformClaimTypes.ImpersonateOriginUserId)]
+    public async Task A_context_recorded_from_a_derived_credential_or_an_impersonation_session_lends_nothing(string marker)
+    {
+        var contexts = new ApplicationContexts();
+        contexts.Remember(Initiator, SignedIn, Permission(ManagePermission), new Claim(marker, "marker"));
+        contexts.Remember(Account, SignedIn, Permission(ManagePermission), new Claim(marker, "marker"));
+        await using var provider = CreateProvider(contexts, new TestClock(SignedIn));
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+
+        // A recorder that took an agent's own request, or someone acting as the person, for the person's
+        // would keep the person's rights alive; a fresh context with such a marker lends nothing.
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<INhAiPrincipalFactory>()
+            .CreateAsync(Initiator, Project(), CancellationToken.None));
+        foreach (var run in new[] { DelegatingRun(), AccountableRun() })
+        {
+            using (NhAiAgentInvocationScopes.Begin(run))
+            {
+                Assert.Equal(NhAiAgentFailureCodes.NotGranted, FailureCode(await gate.AuthorizeAsync(MutationTool())));
+            }
+        }
+    }
+
+    [Fact]
+    public void Only_an_authenticated_principal_without_derived_or_impersonation_markers_is_the_persons_own_request()
+    {
+        static ClaimsPrincipal Signed(params Claim[] claims)
+        {
+            return new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "ada"), .. claims], "identity-provider"));
+        }
+
+        Assert.True(NhAiAccessContext.IsPersonsOwnRequest(Signed(Permission(ManagePermission))));
+        Assert.False(NhAiAccessContext.IsPersonsOwnRequest(new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "ada")]))));
+        Assert.False(NhAiAccessContext.IsPersonsOwnRequest(Signed(new Claim(NhAiDelegatedReadDefaults.ClaimType, Guid.NewGuid().ToString("D")))));
+        Assert.False(NhAiAccessContext.IsPersonsOwnRequest(Signed(new Claim(NhAiMcpDelegatedTokenDefaults.MarkerClaimType, Guid.NewGuid().ToString("D")))));
+        Assert.False(NhAiAccessContext.IsPersonsOwnRequest(Signed(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, Guid.NewGuid().ToString()))));
+
+        // A principal that authorization merged from several schemes is judged by all its identities.
+        var merged = Signed();
+        merged.AddIdentity(new ClaimsIdentity([new Claim(NhAiDelegatedReadDefaults.ActionClaimType, "orders.get")], "delegated-read"));
+        Assert.False(NhAiAccessContext.IsPersonsOwnRequest(merged));
     }
 
     [Fact]

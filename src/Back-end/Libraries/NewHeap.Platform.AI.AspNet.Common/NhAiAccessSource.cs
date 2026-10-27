@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using NewHeap.Platform.Common.Identity.Claims;
 
 namespace NewHeap.Platform.AI.AspNet;
 
@@ -13,7 +14,11 @@ namespace NewHeap.Platform.AI.AspNet;
 /// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/>, so an agent acts with a
 /// person's rights in a background run only while the application's context of that person is fresh.
 /// NewHeap stores nothing: the application decides whether and where it keeps contexts, for example
-/// next to its sessions or in a distributed cache, and answers for technical accounts as well.
+/// next to its sessions or in a distributed cache, and answers for technical accounts as well. It
+/// records only the person's own requests (<see cref="NhAiAccessContext.IsPersonsOwnRequest"/>): a
+/// request that a credential NewHeap derived for background work authenticates, or an impersonation
+/// session, never renews, replaces or recreates a context, and it forgets a person's context when the
+/// person signs out.
 /// </summary>
 public interface INhAiAccessSource
 {
@@ -39,11 +44,30 @@ public interface INhAiAccessSource
 
 /// <summary>
 /// The claims of a person as the application knew them at <see cref="ValidAt"/>, typically the claims of
-/// the person's last request after the claims transformation. The principal built from it carries exactly
-/// these claims: NewHeap adds none, so it never grants more than they say.
+/// the person's last own request after the claims transformation. The principal built from it carries
+/// exactly these claims: NewHeap adds none, so it never grants more than they say. A context that holds
+/// the marker of a credential NewHeap derived for background work, or of an impersonation session, lends
+/// nothing (<see cref="IsPersonsOwnRequest"/>).
 /// </summary>
 public sealed class NhAiAccessContext
 {
+    /// <summary>
+    /// The claims that mark a principal that is not the person's own sign-in: the delegated read token of
+    /// a headless gateway read (<see cref="NhAiDelegatedReadDefaults.ClaimType"/>,
+    /// <see cref="NhAiDelegatedReadDefaults.ActionClaimType"/>), a delegated MCP token
+    /// (<see cref="NhAiMcpDelegatedTokenDefaults.MarkerClaimType"/>,
+    /// <see cref="NhAiMcpDelegatedTokenDefaults.AudienceClaimType"/>) and an impersonation session
+    /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginUserId"/>).
+    /// </summary>
+    private static readonly HashSet<string> NotOwnRequestClaimTypes = new(StringComparer.Ordinal)
+    {
+        NhAiDelegatedReadDefaults.ClaimType,
+        NhAiDelegatedReadDefaults.ActionClaimType,
+        NhAiMcpDelegatedTokenDefaults.MarkerClaimType,
+        NhAiMcpDelegatedTokenDefaults.AudienceClaimType,
+        NhPlatformClaimTypes.ImpersonateOriginUserId
+    };
+
     /// <param name="claims">The person's claims; they are copied.</param>
     /// <param name="validAt">
     /// When the claims were valid, on the application's clock (the registered <see cref="TimeProvider"/>,
@@ -67,6 +91,35 @@ public sealed class NhAiAccessContext
 
     /// <summary>When the claims were valid, on the application's clock.</summary>
     public DateTimeOffset ValidAt { get; }
+
+    /// <summary>
+    /// Whether <paramref name="principal"/> is the person's own sign-in, whose claims an access source may
+    /// record: an authenticated principal without the marker of a credential NewHeap derives for
+    /// background work, such as the delegated read token of a headless gateway read
+    /// (<see cref="NhAiDelegatedReadDefaults"/>) or a delegated MCP token
+    /// (<see cref="NhAiMcpDelegatedTokenDefaults"/>), and outside an impersonation session
+    /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginUserId"/>). A request authenticated by such a
+    /// credential is an agent working, or someone else acting as the person, not the person coming back:
+    /// a recorder skips it, so it never renews, replaces or recreates the person's context.
+    /// </summary>
+    public static bool IsPersonsOwnRequest(ClaimsPrincipal principal)
+    {
+        ArgumentNullException.ThrowIfNull(principal);
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return false;
+        }
+
+        return !HoldsNotOwnRequestClaims(principal.Claims);
+    }
+
+    /// <summary>
+    /// Whether the claims hold the marker of a derived credential or of an impersonation session.
+    /// </summary>
+    internal static bool HoldsNotOwnRequestClaims(IEnumerable<Claim> claims)
+    {
+        return claims.Any(claim => NotOwnRequestClaimTypes.Contains(claim.Type));
+    }
 }
 
 /// <summary>
@@ -168,7 +221,8 @@ internal sealed record NhAiAccessSourceRegistration(
 /// <summary>
 /// Builds a principal from the application's access source, for every decision outside a person's
 /// request that asks <see cref="INhAiPrincipalFactory"/>. It returns none when the source holds no
-/// context, when the context is older than <see cref="NhAiAccessSourceOptions.MaxAge"/> on the
+/// context, when the context holds the marker of a derived credential or an impersonation session
+/// (<see cref="NhAiAccessContext.IsPersonsOwnRequest"/>), when the context is older than <see cref="NhAiAccessSourceOptions.MaxAge"/> on the
 /// application's clock (a context dated later than now counts as fresh only within the same bound, so a
 /// wrong date never keeps it fresh), and when the AI ASP.NET integration takes tenants from a claim and
 /// the context's tenant claim does not name exactly the subject's tenant. The principal carries exactly
@@ -197,6 +251,15 @@ internal sealed partial class NhAiAccessSourcePrincipalFactory(
         var context = await source.GetAsync(actorId, subject, cancellationToken);
         if (context is null)
         {
+            return null;
+        }
+
+        // A recorder that took a derived credential's request, or an impersonation session, for the
+        // person's own would keep the person's rights alive without the person; such a context lends
+        // nothing, whatever its date.
+        if (NhAiAccessContext.HoldsNotOwnRequestClaims(context.Claims))
+        {
+            LogNotOwnRequest(_logger);
             return null;
         }
 
@@ -253,6 +316,9 @@ internal sealed partial class NhAiAccessSourcePrincipalFactory(
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "The AI access source returned a context whose tenant claim does not name the subject's tenant; no principal is built.")]
     private static partial void LogOtherTenant(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The AI access source returned a context with the claims of a delegated credential or an impersonation session, not of the person's own request; no principal is built.")]
+    private static partial void LogNotOwnRequest(ILogger logger);
 }
 
 /// <summary>

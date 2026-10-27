@@ -268,6 +268,9 @@ public sealed class AssistantRegistrationTests
                     // SHA-256 of its canonical JSON and a part key such as skill:triage (S7-2 of
                     // the agent runs adoption plan); never the package's content.
                     or "PackageId" or "PackageHash" or "PackagePart"
+                    // The actor id of the user who impersonated the event's actor when a withdrawal
+                    // was made in an impersonation session.
+                    or "ImpersonationOriginActorId"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

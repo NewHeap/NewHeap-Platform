@@ -31,6 +31,7 @@ public sealed class AssistantHttpErrorTests
 
     [Theory]
     [InlineData(NhAssistantErrorCodes.AgentDoesNotWorkOn, StatusCodes.Status409Conflict)]
+    [InlineData(NhAssistantErrorCodes.NotAllowedWhileImpersonating, StatusCodes.Status403Forbidden)]
     [InlineData(NhAssistantErrorCodes.SubjectSearchUnavailable, StatusCodes.Status404NotFound)]
     [InlineData(NhAssistantErrorCodes.SubjectNotFound, StatusCodes.Status404NotFound)]
     [InlineData(NhAssistantErrorCodes.SubjectInvalid, StatusCodes.Status400BadRequest)]

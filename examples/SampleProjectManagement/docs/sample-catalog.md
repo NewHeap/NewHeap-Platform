@@ -119,15 +119,19 @@ stays stored without a tenant. Startup refuses the mode next to a projection of 
 tenant claim.
 When such a deployment adds its people's rights in its own claims transformation at every request,
 the NewHeap user store cannot rebuild them for work outside a request (SPM-315).
-`SampleAccessSourceComposition` records the claims of every signed-in request after the transformation
-in the application's own `SampleAccessContexts`, under the platform's actor id and with the time, and
-registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour; NewHeap stores
-none of it. A run the manager started on a project changes its status with the rights of the manager's
-last request, and so does an agent that acts with the rights of the project's responsible person; the
-colleague without the manage permission and someone the application never saw are refused. Half an hour
-later the run is no longer offered the status tool, until the manager's next request; signing out
-forgets the rights at once. `AssistantAccessSourceSamplesTests` shows it in a focused composition,
-because the sample's own API signs in with the NewHeap user store.
+`SampleAccessSourceComposition` records the claims of each person's own signed-in requests after the
+transformation in the application's own `SampleAccessContexts`, under the platform's actor id and with
+the time, and registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour;
+NewHeap stores none of it. A run the manager started on a project changes its status with the rights of
+the manager's last request, and so does an agent that acts with the rights of the project's responsible
+person; the colleague without the manage permission and someone the application never saw are refused.
+Half an hour later the run is no longer offered the status tool, until the manager's next request; the
+manager's own request to the host's sign-out path forgets the rights at once. A request that an agent's
+delegated read or delegated MCP token authenticated, and an impersonation session, are not the
+manager's own (`NhAiAccessContext.IsPersonsOwnRequest`): they never renew the rights, and after sign-out
+they bring nothing back. A headless gateway read asks the host's delegated read issuer for a credential
+only while the manager's recorded rights are fresh. `AssistantAccessSourceSamplesTests` shows it in a focused composition, because
+the sample's own API signs in with the NewHeap user store.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
 keeps next to the small summary its next runs start from. The rules write it per culture, so an
@@ -480,7 +484,12 @@ their messages and their answer to an approval card with the link token, without
 division and with the person's own rights for every tool, never the rights of the provider's request.
 The answer carries the assistant's text and, when the turn waits, the approval card with its proposal
 hash; a `yes` approves it. A repeated delivery starts no second turn, a link to someone else's chat finds
-nothing, and the audit records the `messaging-chat` channel. In Development the sample also sets
+nothing, and the audit records the `messaging-chat` channel. Only the person's own session links a
+chat: an administrator who impersonates the person gets `403 assistant-not-allowed-while-impersonating`,
+because the link would act as the person after the impersonation ended. Every link carries a digest of
+the person's security stamp, so a password change or a revocation of the person's sessions ends all
+their links, and a chat started from the messaging app gets a link that expires with the one it was
+started from. In Development the sample also sets
 `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
 the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
 
@@ -553,8 +562,12 @@ for his own account and never gets Ann's, and disconnecting in `nh-assistant-mcp
 her tokens at once. The status advisor, which a participant starts and which acts with that
 participant's rights, uses the participant's connection in its background run only when an
 administrator offers the server in background runs (`headlessUse: personal`) and the participant
-consented while connecting; the audit names whose connection a call used. The playground shows the
-connect card in the chat, the preferences and the organization's CRM account on the mock.
+consented while connecting; the audit names whose connection a call used. An administrator who
+impersonates Ann connects no account in her name: an impersonation session neither consents to
+background use, nor starts or completes a personal connection, nor registers a browser for push
+(`assistant-not-allowed-while-impersonating`), while withdrawing and disconnecting stay allowed and the
+audit names the administrator. The playground shows the connect card in the chat, the preferences and
+the organization's CRM account on the mock.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

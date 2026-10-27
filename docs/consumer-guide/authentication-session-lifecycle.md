@@ -53,6 +53,7 @@ Deploy backend versions across the cluster before relying on immediate access-to
 - Overriding `logout()` or `clearAuthorization()` so that a failed logout request or an expired access token leaves the stored authorization and its refresh token in the browser.
 - Claiming cluster-wide access-token invalidation while old backend nodes still serve traffic.
 - Issuing or refreshing a refresh token for an impersonation session, which turns it into an ordinary long-lived login as the impersonated user.
+- Recording a durable grant in the impersonated user's name from an impersonation session, such as a second factor, a passkey, the assistant's background-use consent, a personal MCP connection, a push subscription or a messaging link token; refuse it while `NhPlatformClaimTypes.ImpersonateOriginUserId` is present and keep withdrawals open.
 - Writing refresh-token rows yourself or comparing `NhUserAuthRefreshToken.Token` with a presented token; the column holds a digest, never the token.
 - Rotating the shared signing key of an application with refresh tokens and no `RefreshToken:Key` without expecting every device to sign in again.
 - Checking only Identity's `IsLockedOutAsync` before issuing a session in a derived service; complete the credential through `CreateAuthenticationSessionAsync` or `CompleteFirstFactorAsync`, which also apply the administrative block.

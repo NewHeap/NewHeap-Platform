@@ -313,6 +313,64 @@ with `DOMParser` (or, where that is missing as in a server render, by the applic
 `implementation`), instead of in an element of the application's document. Images in the markup
 no longer load and their inline event handlers no longer run; the returned text is the same.
 
+## NewHeap.Platform.AI.AspNet.Common: access contexts come from the person's own requests only
+
+`NhAiAccessContext.IsPersonsOwnRequest(principal)` says whether an access source may record a request:
+an authenticated principal without the marker claims of a delegated read token
+(`nh-ai-delegated-read`, `nh-ai-delegated-read-action`), a delegated MCP token (`nh-ai-mcp-delegated`,
+`nh-ai-mcp-audience`) or an impersonation session (`NhPlatformClaimTypes.ImpersonateOriginUserId`).
+Such a request is an agent working for the person, or someone else acting as the person, so recording
+it kept the person's rights alive past `MaxAge` and recreated them after sign-out. The principal factory
+of `UsePrincipalsFromAccessSource` now refuses a context that holds one of these claims, whatever its
+date. The sample's `SampleAccessSourceComposition` records only the person's own requests and forgets
+the context in the person's own sign-out request (`UseSampleAccessContexts(signOutPath)`).
+
+| Breaking change | Required action |
+|---|---|
+| A context whose claims hold a delegated read, delegated MCP or impersonation marker yields no principal, so background work that relied on it is refused with the usual codes. | Record only requests for which `NhAiAccessContext.IsPersonsOwnRequest` is true, and forget the person's context at sign-out; the next own request of the person records a context that lends again. |
+
+## NewHeap.Platform.AI.AspNet.Common: headless gateway reads need a fresh access context
+
+With `UsePrincipalsFromAccessSource`, a headless gateway read now asks the host's
+`INhAiDelegatedReadCredentialIssuer` for a credential only while `INhAiPrincipalFactory` builds the
+person's principal from the access source: without a context, with one older than `MaxAge`, or with one
+that holds a derived-credential or impersonation marker, the read fails with
+`api-bridge-unauthenticated` before the issuer is asked and no request is sent. Before, the read was
+issued whenever the host's issuer issued, also for a person who had signed out. Hosts without an access
+source keep their issuer's decision, as the built-in issuer with the person's sign-in state.
+
+| Breaking change | Required action |
+|---|---|
+| Under `UsePrincipalsFromAccessSource` an agent's gateway read for a person without a fresh context fails with `api-bridge-unauthenticated`. | None; the read works again after the person's next own request. Keep refusing unknown or disabled people in a custom issuer. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: impersonation sessions grant nothing in the person's name
+
+While a NewHeap impersonation marker (`NhPlatformClaimTypes.ImpersonateOriginUserId`) is present, the
+assistant refuses the personal grants that would outlive the session with
+`403 assistant-not-allowed-while-impersonating` (`NhAssistantErrorCodes.NotAllowedWhileImpersonating`):
+consent to background use (`PUT mcp-connections/{serverId}` with `allowBackgroundUse: true`), starting a
+personal OAuth connection (`POST mcp-connections/{serverId}/authorize`), completing one
+(`POST mcp-connections/complete`, which ends the flow) and registering a browser for push
+(`PUT notifications/push-subscription`). Withdrawing the consent, disconnecting and removing a
+subscription stay allowed; their `McpBackgroundUseChanged` and `McpConnectionDisconnected` audit events
+name the impersonating user in the new `NhAssistantAuditEvent.ImpersonationOriginActorId`. Organization
+connections and hosts without NewHeap impersonation are unchanged. An application channel that issues
+its own credential for the person, such as the sample's messaging link token (SPM-332), applies the same
+rule: no issuance from an impersonation session, a binding to the person's security stamp so that a
+password change or session revocation ends it, and no renewal beyond the presented credential's expiry.
+
+| Breaking change | Required action |
+|---|---|
+| An impersonation session can no longer consent to background use, connect a personal MCP account or register a push subscription for the impersonated person. | None; the person does it in their own session. Map `assistant-not-allowed-while-impersonating` (403) where your own client shows assistant errors. |
+| `NhAssistantErrorCodes` gains `NotAllowedWhileImpersonating` and `NhAssistantAuditEvent` gains `ImpersonationOriginActorId`. | None; an audit sink that stores events field by field may store the new value. |
+
+## @newheap/platform-ai-chat: the impersonation refusal has a text
+
+The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include
+`assistant-not-allowed-while-impersonating`, which the server answers when an impersonation session tries
+to connect an account, allow background use or register push notifications for the impersonated person.
+The mock API's status table maps it to 403.
+
 | Breaking change | Required action |
 |---|---|
 | None. | None. |
@@ -382,3 +440,4 @@ from its active division. A plain chat retrieves in the person's own context as 
 | Breaking change | Required action |
 |---|---|
 | A context source that serves a person's turn in a subject thread sees the subject and its division instead of the request's active division, and no capability grants. | Read the division from the context's scope value or execution scopes; let the source policy decide on the person and the subject rather than on capabilities. |
+

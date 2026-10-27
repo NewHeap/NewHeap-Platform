@@ -829,6 +829,14 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
 
+    /// <summary>
+    /// An impersonation session (an access token with the NewHeap impersonation origin) acts as the
+    /// person, but does not grant anything in the person's name that outlives the session: consent to
+    /// background use of an MCP server, a personal MCP connection (starting or completing its OAuth
+    /// authorization) and a browser's push subscription. Withdrawing them stays allowed.
+    /// </summary>
+    public const string NotAllowedWhileImpersonating = "assistant-not-allowed-while-impersonating";
+
     public const string SubjectNotFound = "assistant-subject-not-found";
 
     /// <summary>
