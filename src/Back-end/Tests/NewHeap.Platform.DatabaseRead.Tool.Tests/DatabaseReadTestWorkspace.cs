@@ -153,6 +153,15 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         return new MemoryStream(Encoding.UTF8.GetBytes(json));
     }
 
+    /// <summary>
+    /// The tool's JSON response as text, for the message of an assertion that fails on an unexpected
+    /// exit code. The response never contains a credential or a provider message.
+    /// </summary>
+    public static string OutputText(MemoryStream output)
+    {
+        return Encoding.UTF8.GetString(output.ToArray());
+    }
+
     public static JsonDocument ParseOutput(MemoryStream output)
     {
         output.Position = 0;

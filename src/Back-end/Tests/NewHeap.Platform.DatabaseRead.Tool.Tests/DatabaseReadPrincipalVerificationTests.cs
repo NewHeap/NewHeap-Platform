@@ -318,7 +318,7 @@ public sealed class DatabaseReadPrincipalVerificationTests
                 input,
                 output);
 
-            exitCode.Should().Be(4);
+            exitCode.Should().Be(4, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
             using var response = DatabaseReadTestWorkspace.ParseOutput(output);
             var error = response.RootElement.GetProperty("error");
             error.GetProperty("code").GetString().Should().Be("read-only-principal-not-verified");
