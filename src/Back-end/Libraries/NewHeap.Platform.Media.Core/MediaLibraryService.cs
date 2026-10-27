@@ -44,6 +44,9 @@ public class MediaLibraryService : IMediaLibraryService
 
     public virtual async Task<TaskResult> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags)
     {
+        // Authorized before the lookup, so a refused caller cannot tell an existing file from a missing one.
+        await EnsureAuthorized(path, fileName, null, ActionType.Update);
+
         var current = await _fileStructureStorage.GetFileAsync(path, fileName, null);
 
         if (current == null)

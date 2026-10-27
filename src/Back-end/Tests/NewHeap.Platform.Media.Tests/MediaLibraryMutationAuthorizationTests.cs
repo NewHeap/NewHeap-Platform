@@ -236,6 +236,41 @@ public sealed class MediaLibraryMutationAuthorizationTests
             "/divisions/a/projects", "Staging");
     }
 
+    [Theory]
+    [InlineData("secret.pdf")]
+    [InlineData("does-not-exist.pdf")]
+    public async Task UpdatingTagsAuthorizesAnUpdateOfTheFileBeforeItIsRead(string fileName)
+    {
+        var context = new ServiceContext();
+        context.AddFile(OtherDocuments, "secret.pdf");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            context.Service.UpdateFileTagsAsync(OtherDocuments, fileName, ["planted"]));
+
+        // An existing and a missing file are refused alike, before any lookup.
+        Assert.Equal([new Decision(ActionType.Update, OtherDocuments, fileName)], context.Module.Decisions);
+        await context.Storage.DidNotReceive().GetFileAsync(Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<string?>());
+        await context.Storage.DidNotReceive().UpdateTagsAsync(Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+        Assert.Empty(context.Handler.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task UpdatingTagsOfAnAuthorizedFileWritesThem()
+    {
+        var context = new ServiceContext();
+        context.AddFile(OwnDocuments, "report.pdf");
+        context.Storage.UpdateTagsAsync(OwnDocuments, "report.pdf", Arg.Any<IEnumerable<string>>())
+            .Returns(TaskResult.Succeeded());
+
+        var result = await context.Service.UpdateFileTagsAsync(OwnDocuments, "report.pdf", ["quarterly"]);
+
+        Assert.True(result.Success);
+        Assert.Equal([new Decision(ActionType.Update, OwnDocuments, "report.pdf")], context.Module.Decisions);
+        await context.Storage.Received(1).UpdateTagsAsync(OwnDocuments, "report.pdf",
+            Arg.Is<IEnumerable<string>>(tags => tags.SequenceEqual(new[] { "quarterly" })));
+    }
+
     private static void AssertError(TaskResult result, string name, string errorCode)
     {
         var item = Assert.Single(result.GetResultItems());

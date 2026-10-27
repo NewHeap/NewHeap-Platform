@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Media;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 using NSubstitute;
 using Xunit;
 using ServiceContext = NewHeap.Platform.Media.Tests.MediaLibraryMutationAuthorizationTests.ServiceContext;
@@ -99,6 +100,36 @@ public sealed class MediaEndpointAuthorizationTests(MediaEndpointAuthorizationTe
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         await media.Storage.DidNotReceive().MoveFolderAsync(Arg.Any<string?>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Theory]
+    [InlineData("secret.pdf")]
+    [InlineData("does-not-exist.pdf")]
+    public async Task UpdatingTagsOfADeniedFileReturnsUnauthorizedWhetherOrNotItExists(string fileName)
+    {
+        var media = host.Reset();
+        media.AddFile(OtherDocuments, "secret.pdf");
+
+        using var response = await host.Client.PostAsJsonAsync("/media/file/tags",
+            new { path = OtherDocuments, fileName, tags = new[] { "planted" } });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await media.Storage.DidNotReceive().UpdateTagsAsync(Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+    }
+
+    [Fact]
+    public async Task UpdatingTagsOfAnAuthorizedFileReturnsNoContent()
+    {
+        var media = host.Reset();
+        media.AddFile(OwnDocuments, "report.pdf");
+        media.Storage.UpdateTagsAsync(OwnDocuments, "report.pdf", Arg.Any<IEnumerable<string>>())
+            .Returns(TaskResult.Succeeded());
+
+        using var response = await host.Client.PostAsJsonAsync("/media/file/tags",
+            new { path = OwnDocuments, fileName = "report.pdf", tags = new[] { "quarterly" } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
     /// <summary>

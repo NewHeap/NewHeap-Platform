@@ -29,3 +29,15 @@ or the destination, instead of failing with 500, and 409 with the error code for
 | A move or rename now needs create rights at its destination. | Grant `ActionType.Create` there in your `IAuthorizationModule` to principals who may move or rename into that folder. |
 | A move or rename onto an existing name now fails instead of creating a second entry with that name. | Handle the failed result, or 409 from the HTTP endpoints, and choose another name. |
 | The file and folder update endpoints now return 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |
+
+## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: tag updates are authorized
+
+`IMediaLibraryService.UpdateFileTagsAsync` now asks `IAuthorizationModule` for an `ActionType.Update` of the
+file's path and name before it reads or writes the file, like the other file mutations. A refused caller
+gets the same answer for an existing and a missing file. `POST {prefix}/file/tags` returns 401 when the
+module refuses the update.
+
+| Breaking change | Required action |
+|---|---|
+| Tag updates now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may change a file's tags. |
+| `POST {prefix}/file/tags` now returns 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |

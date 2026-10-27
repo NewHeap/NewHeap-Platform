@@ -231,7 +231,12 @@ public static class WebApplicationExtensions
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Update file tags")]
-    private static async Task<Results<NoContent, NotFound, BadRequest<Dictionary<string, string[]>>>> UpdateTags(
+    private static async Task<Results<
+        NoContent,
+        NotFound,
+        UnauthorizedHttpResult,
+        BadRequest<Dictionary<string, string[]>>
+    >> UpdateTags(
         [FromBody] UpdateTagsRequest request,
         [FromServices] IMediaLibraryService mediaLibrary
     )
@@ -241,8 +246,15 @@ public static class WebApplicationExtensions
             return BadRequest("Field is required", nameof(request.FileName));
         }
 
-        var result = await mediaLibrary.UpdateFileTagsAsync(request.Path, request.FileName, request.Tags);
-        return result.Success ? TypedResults.NoContent() : TypedResults.NotFound();
+        try
+        {
+            var result = await mediaLibrary.UpdateFileTagsAsync(request.Path, request.FileName, request.Tags);
+            return result.Success ? TypedResults.NoContent() : TypedResults.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Unauthorized();
+        }
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
