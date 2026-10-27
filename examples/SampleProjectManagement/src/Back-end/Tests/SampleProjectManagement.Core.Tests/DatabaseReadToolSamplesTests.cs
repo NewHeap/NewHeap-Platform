@@ -16,6 +16,8 @@ public sealed class DatabaseReadToolSamplesTests
     [Theory]
     [InlineData("function-select", true)]
     [InlineData("database-role-db_owner", true)]
+    [InlineData("predefined-role-membership", true)]
+    [InlineData("catalog-function-execute", true)]
     [InlineData("private-canary", false)]
     [InlineData(null, false)]
     public void McpPreservesOnlyKnownVerificationChecks(string? check, bool expected)

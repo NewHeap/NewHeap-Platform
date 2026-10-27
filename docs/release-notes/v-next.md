@@ -241,3 +241,31 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL principal verification denies by default
+
+`query` and `schema` verified a PostgreSQL principal against a fixed list of write and DDL privileges.
+Membership in a predefined role such as `pg_monitor`, `pg_read_all_stats`, `pg_read_all_settings`,
+`pg_signal_backend` or a server-file role passed, as did EXECUTE on a `pg_catalog` function that the
+server revokes from PUBLIC, such as `pg_stat_reset`, and every function in a user schema whose name
+starts with `pg` followed by another character, because the schema filter used `pg_%` as a `LIKE`
+pattern. Column-level INSERT or UPDATE, writes through views and USAGE on sequences passed as well.
+
+The verification now covers the connected role and every role it is a member of, also without
+inheritance, and denies by default. Beyond the privileges the server granted at initialization, the
+principal may hold SELECT on tables, views, sequences and columns, and membership in
+`pg_read_all_data`. Any other predefined role, a role attribute such as CREATEROLE, ownership of the
+database or of any schema, relation, function or type, CREATE on the database or a schema, any other
+relation, column or sequence privilege, EXECUTE on a function outside `pg_catalog` and
+`information_schema`, and EXECUTE on a `pg_catalog` function that the server does not grant to PUBLIC
+reject it. Schema names are compared exactly. A rejected PostgreSQL principal now also reports the
+first failed check as `error.verificationCheck` with stage `readonly-verification`: one of
+`role-attribute-superuser`, `role-attribute-createrole`, `role-attribute-createdb`,
+`role-attribute-replication`, `role-attribute-bypassrls`, `database-owner`,
+`predefined-role-membership`, `database-create`, `schema-create`, `object-owner`, `relation-write`,
+`column-write`, `sequence-usage`, `function-execute` or `catalog-function-execute`.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL principal that holds anything beyond SELECT and `pg_read_all_data`, including a predefined monitoring or signalling role, an administrative `pg_catalog` function, a column or view write or USAGE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the grant that `error.verificationCheck` names from the diagnostic principal and the roles it belongs to; grant only CONNECT, schema USAGE and SELECT. |
+| A rejected PostgreSQL principal now reports `error.verificationCheck` and `error.stage`. | Let code that reads the field accept PostgreSQL check identifiers, or discard identifiers it does not know. |

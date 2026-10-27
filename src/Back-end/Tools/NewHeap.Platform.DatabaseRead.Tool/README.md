@@ -62,12 +62,33 @@ are only additional safeguards. The `query` and `schema` commands refuse
 principals with detected write, DDL or elevated permissions, including in
 Production.
 
-On SQL Server a rejected principal returns `read-only-principal-not-verified`
-with an optional `verificationCheck` that names the first rejected check. The
-function policy is strict: SELECT or EXECUTE on any user-defined function
-rejects the principal with `function-select` or `function-execute`, because the
-tool does not verify a function's dependencies or side effects. Grant the
-diagnostic principal table, view or column permissions instead.
+A rejected principal returns `read-only-principal-not-verified` with an
+optional `verificationCheck` that names the first rejected check, with stage
+`readonly-verification`. The field never names the principal or an object.
+
+On SQL Server the function policy is strict: SELECT or EXECUTE on any
+user-defined function rejects the principal with `function-select` or
+`function-execute`, because the tool does not verify a function's dependencies
+or side effects. Grant the diagnostic principal table, view or column
+permissions instead.
+
+On PostgreSQL the verification covers the connected role and every role it is
+a member of, also a membership without inheritance, because the principal can
+switch to such a role. It denies by default. Apart from the privileges the
+server granted when it was initialized, the principal may hold SELECT on
+tables, views, sequences and columns and nothing else. It may be a member of
+`pg_read_all_data`, but of no other predefined role, such as `pg_monitor`,
+`pg_read_all_stats`, `pg_read_all_settings`, `pg_signal_backend` or the
+server-file roles. It may not own the database or any schema, relation,
+function or type, may not execute a function outside `pg_catalog` and
+`information_schema`, and may not execute a `pg_catalog` function that the
+server does not grant to PUBLIC, such as `pg_stat_reset` or `pg_ls_logdir`.
+The checks, in order, are `role-attribute-superuser`,
+`role-attribute-createrole`, `role-attribute-createdb`,
+`role-attribute-replication`, `role-attribute-bypassrls`, `database-owner`,
+`predefined-role-membership`, `database-create`, `schema-create`,
+`object-owner`, `relation-write` (also through views), `column-write`,
+`sequence-usage`, `function-execute` and `catalog-function-execute`.
 
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the

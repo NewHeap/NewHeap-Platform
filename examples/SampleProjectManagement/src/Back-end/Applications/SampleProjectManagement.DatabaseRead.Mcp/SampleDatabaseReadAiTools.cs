@@ -422,6 +422,20 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         "procedure-execute" or
         "function-execute" or
         "function-select" or
+        "role-attribute-superuser" or
+        "role-attribute-createrole" or
+        "role-attribute-createdb" or
+        "role-attribute-replication" or
+        "role-attribute-bypassrls" or
+        "database-owner" or
+        "predefined-role-membership" or
+        "database-create" or
+        "schema-create" or
+        "object-owner" or
+        "relation-write" or
+        "column-write" or
+        "sequence-usage" or
+        "catalog-function-execute" or
         "table" or
         "view" or
         "table" or
