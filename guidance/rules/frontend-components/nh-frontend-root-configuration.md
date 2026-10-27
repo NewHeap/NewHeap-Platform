@@ -16,7 +16,7 @@ Call `NhCommonModule.forRoot(...)` exactly once at the application root and impo
 
 GET deduplication remains GET-only, ends when the source request finalizes, and distinguishes authorization, cookie, language, and active-division headers. The library defaults for these opt-ins remain `false` for upgrade compatibility.
 
-Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/api` or `https://api.example.com`. The authentication and active-division interceptors add the access token and `X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies, only to a request on the base URL's origin whose path is the base path or continues it after a `/`. An empty base stands for the application's own origin. Keep `addAuthTokensToRequests` at `true` unless the application adds the `Authorization` header itself: `false` stops the token for both bases.
+Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/api` or `https://api.example.com`. The authentication and active-division interceptors add the access token and `X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies, only to a request on the base URL's origin whose path is the base path or continues it after a `/`. An empty base stands for the application's own origin. With `authType: 'header'` the token always goes to requests under `authApiBaseUrl`, which the library's own logout, impersonation, two-factor and passkey calls need; `addAuthTokensToRequests: false` stops it only for requests under `apiBaseUrl`.
 
 ## Avoid
 

@@ -253,13 +253,14 @@ relative and same-origin requests still match, while a request to another origin
 the access token, `X-NH-ActiveDivisionId` or, in a server render, the forwarded session cookies, and
 its `Set-Cookie` is no longer relayed. Before, an empty base matched every URL and
 `https://api.example.com` also matched `https://api.example.com.attacker.example`. A relative base
-such as `/api` now also matches absolute URLs on the application's own origin.
+such as `/api` now also matches absolute URLs on the application's own origin. With
+`authType: 'header'`, the access token goes to requests under `authApiBaseUrl` always and to
+requests under `apiBaseUrl` while `addAuthTokensToRequests` is `true`, as before.
 
 | Breaking change | Required action |
 |---|---|
 | With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
 | A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
-| `addAuthTokensToRequests: false` now also stops the access token on `authApiBaseUrl` requests, such as logout, impersonation and the two-factor account settings. | Keep the default `true`, or add the `Authorization` header to those requests yourself. |
 
 ## @newheap/platform-common: JSON-LD text cannot end its script element
 

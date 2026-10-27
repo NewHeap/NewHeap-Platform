@@ -12,9 +12,11 @@ import { NhAuthService } from '../services/nh-auth.service';
 import { nhIsRequestToBaseUrl } from './nh-api-base-url';
 
 /**
- * Adds the access token as a bearer `Authorization` header to requests under `apiBaseUrl` or
- * `authApiBaseUrl` (see `nhIsRequestToBaseUrl`), unless `addAuthTokensToRequests` is `false`.
- * Requests to other origins never receive the token.
+ * Adds the access token as a bearer `Authorization` header when `authType` is `'header'`: to
+ * requests under `authApiBaseUrl` always, because the library's own logout, impersonation,
+ * two-factor and passkey calls rely on it, and to requests under `apiBaseUrl` while
+ * `addAuthTokensToRequests` is `true`. Both use `nhIsRequestToBaseUrl`, so requests to other
+ * origins never receive the token.
  */
 @Injectable()
 export class NhApiAuthInterceptor implements HttpInterceptor {
@@ -31,7 +33,7 @@ export class NhApiAuthInterceptor implements HttpInterceptor {
       return next.handle(req.clone({headers}));
     }
 
-    if(this.moduleConfig?.authentication?.addAuthTokensToRequests === true && this.isApiRequest(req.url)) {
+    if(this.shouldAddToken(req.url)) {
       const authorization = this.authService.getAuthorization();
       if((authorization?.token?.length ?? 0) > 0) {
         if(!headers.get('Authorization')) {
@@ -43,8 +45,12 @@ export class NhApiAuthInterceptor implements HttpInterceptor {
     return next.handle(req.clone({headers}));
   }
 
-  private isApiRequest(url: string): boolean {
-    return nhIsRequestToBaseUrl(url, this.moduleConfig.apiBaseUrl, this.document)
-      || nhIsRequestToBaseUrl(url, this.moduleConfig.authApiBaseUrl, this.document);
+  private shouldAddToken(url: string): boolean {
+    if (nhIsRequestToBaseUrl(url, this.moduleConfig.authApiBaseUrl, this.document)) {
+      return true;
+    }
+
+    return this.moduleConfig?.authentication?.addAuthTokensToRequests === true
+      && nhIsRequestToBaseUrl(url, this.moduleConfig.apiBaseUrl, this.document);
   }
 }

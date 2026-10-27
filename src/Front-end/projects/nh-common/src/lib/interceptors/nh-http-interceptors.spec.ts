@@ -273,7 +273,7 @@ describe('NewHeap HTTP interceptors', () => {
       expectNoCredentials('https://api.example.com/projects', versioned);
     });
 
-    it('adds no access token to auth API requests when addAuthTokensToRequests is false', () => {
+    it('keeps the access token on auth API requests when addAuthTokensToRequests is false', () => {
       const optedOut = new NhCommonModuleConfig({
         apiBaseUrl: '/api',
         authApiBaseUrl: '/auth-api',
@@ -281,15 +281,36 @@ describe('NewHeap HTTP interceptors', () => {
       });
 
       expect(headersSentTo('/api/projects', optedOut).has('Authorization')).toBeFalse();
-      expect(headersSentTo('/auth-api/authentication/logout', optedOut).has('Authorization')).toBeFalse();
       expect(headersSentTo('/api/projects', optedOut).get('X-NH-ActiveDivisionId')).toBe('division-a');
+      expect(headersSentTo('/auth-api/authentication/logout', optedOut).get('Authorization')).toBe('Bearer dummy-token');
+      expect(headersSentTo('/auth-api/authentication/impersonate', optedOut).get('Authorization')).toBe('Bearer dummy-token');
+      expect(headersSentTo('https://external.example/auth-api/authentication/logout', optedOut).has('Authorization')).toBeFalse();
+      expect(headersSentTo('/auth-apiary/authentication/logout', optedOut).has('Authorization')).toBeFalse();
+
+      const optedOutWithAbsoluteAuthBase = new NhCommonModuleConfig({
+        apiBaseUrl: 'https://api.example.com',
+        authApiBaseUrl: 'https://api.example.com',
+        authentication: new AuthenticationNhCommonModuleConfig({addAuthTokensToRequests: false})
+      });
+
+      expect(headersSentTo('https://api.example.com/authentication/logout', optedOutWithAbsoluteAuthBase).get('Authorization')).toBe('Bearer dummy-token');
+      expect(headersSentTo('https://api.example.com.attacker.example/authentication/logout', optedOutWithAbsoluteAuthBase).has('Authorization')).toBeFalse();
 
       const optedOutWithEmptyAuthBase = new NhCommonModuleConfig({
         apiBaseUrl: '/api',
         authentication: new AuthenticationNhCommonModuleConfig({addAuthTokensToRequests: false})
       });
 
+      expect(headersSentTo('/authentication/logout', optedOutWithEmptyAuthBase).get('Authorization')).toBe('Bearer dummy-token');
       expect(headersSentTo('https://external.example/projects', optedOutWithEmptyAuthBase).has('Authorization')).toBeFalse();
+      expect(headersSentTo('//external.example/authentication/logout', optedOutWithEmptyAuthBase).has('Authorization')).toBeFalse();
+    });
+
+    it('adds no access token when authType is cookie', () => {
+      const cookieAuth = new NhCommonModuleConfig({apiBaseUrl: '/api', authApiBaseUrl: '/api', authType: 'cookie'});
+
+      expect(headersSentTo('/api/projects', cookieAuth).has('Authorization')).toBeFalse();
+      expect(headersSentTo('/api/authentication/logout', cookieAuth).has('Authorization')).toBeFalse();
     });
 
     it('forwards server-side request cookies only to the configured API', () => {
