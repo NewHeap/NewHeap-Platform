@@ -147,19 +147,32 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return result;
   }
 
+  /**
+   * Ends the local session: removes the stored authorization record and the cached authorization,
+   * also when its access token has already expired, so neither a later request nor a reload can use
+   * the record or the refresh token it holds. When there was an authorization to remove, `authSubject`
+   * emits `undefined` (unless `doDispatchEvent` is `false`) and the session expiration information
+   * is dispatched again.
+   */
   public clearAuthorization(doDispatchEvent: boolean = true): void {
-    if (this.isAuthenticated()) {
-      try {
-        localStorage.removeItem('at');
-      } finally {
-      }
+    let hadAuthorization = this.authorization !== undefined;
 
-      this.authorization = undefined;
-      if (doDispatchEvent) {
-        this.authSubject.next(this.authorization);
-      }
-      this.dispatchSessionExpirationInformationChanged();
+    try {
+      hadAuthorization = localStorage.getItem('at') !== null || hadAuthorization;
+      localStorage.removeItem('at');
+    } catch {
+      // Without storage, as during server rendering, there is no stored record to remove.
     }
+
+    this.authorization = undefined;
+    if (!hadAuthorization) {
+      return;
+    }
+
+    if (doDispatchEvent) {
+      this.authSubject.next(this.authorization);
+    }
+    this.dispatchSessionExpirationInformationChanged();
   }
 
   public setAuthorization(auth: TAuthorization, noEvent = false): void {
@@ -1245,6 +1258,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
   }
 
+  /**
+   * Asks the server to revoke the current login's refresh token and end its session, then ends the
+   * local session. The local session always ends, also when the request fails (offline, a timeout,
+   * CORS or an error response), so the next person on the device does not keep it. A failed request
+   * still returns a failed result: a cookie session can only be ended by the server's response, so
+   * report that the sign-out did not reach the server.
+   */
   async logout(): Promise<TaskResult<void>> {
     const result = new TaskResult<void>();
     const refreshToken = this.getAuthorization()?.refreshToken ?? null;
@@ -1259,13 +1279,11 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
     try {
       await lastValueFrom(request$);
-
-      if (result.isSuccess) {
-        this.clearAuthorization();
-      }
     } catch (ex) {
       const errResult = NhApiUtil.taskResultFromResponse(ex);
       errResult.copyTo(result);
+    } finally {
+      this.clearAuthorization();
     }
 
     return result;

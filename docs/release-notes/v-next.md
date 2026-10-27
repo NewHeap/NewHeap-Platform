@@ -114,6 +114,24 @@ without bound.
 |---|---|
 | Denied attempts beyond `LoginAttemptLimit` per `LoginAttemptWindow` no longer appear in the login audit. | None, unless monitoring counts `IpDenied` rows to measure outside traffic; count refused requests in the host's request logs instead. |
 
+## @newheap/platform-common: logout always ends the browser session
+
+`BaseNhAuthService.logout()` now ends the local session after the logout request whether the request
+succeeds or not. Before, a failed request (offline, a timeout, CORS or an error response such as 500)
+left the stored authorization (`at` in `localStorage`) with its access and refresh token, so
+`isAuthenticated()` stayed `true` and the next person on the device kept the session, also after a
+reload. The result still fails in that case, so the application can report that the sign-out did not
+reach the server, which alone can end a cookie session. `clearAuthorization()` now removes the stored
+record and the cached authorization also when the access token has expired; before, it did nothing
+unless the session was still valid, which left the refresh token in the browser. It emits `undefined`
+on `authSubject` (unless `doDispatchEvent` is `false`) and dispatches the session expiration information
+only when there was an authorization to remove, as before for a valid session.
+
+| Breaking change | Required action |
+|---|---|
+| `logout()` ends the local session also when it returns a failed result. | None, unless the application kept people signed in after a failed logout; report the failure and let them sign in again. |
+| `clearAuthorization()` removes an expired authorization and then emits `undefined` on `authSubject` and new session expiration information. | None, unless a subscriber treats that emission as an explicit sign-out; an expired session already read as signed out. Remove overrides that only made either method clear in these cases. |
+
 ## NewHeap.Platform.AspNet.Common: refresh tokens stored as keyed digests
 
 A refresh-token row (`NhUserAuthRefreshToken.Token`) now holds `nhr1:` and the HMAC-SHA256 of the token

@@ -946,7 +946,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Logout",
     "category": "Authentication, identity, and authorization",
     "surface": "logout handler",
-    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint.",
+    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. `BaseNhAuthService.logout()` ends the browser session itself also when the request fails and still returns the failure, and `clearAuthorization()` also removes an authorization whose access token expired, so the sample's auth service keeps both methods and its session coordinator removes an expired session with the library call. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -955,7 +955,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
     ]
   },
   {

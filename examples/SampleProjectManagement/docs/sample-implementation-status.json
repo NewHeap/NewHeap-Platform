@@ -760,7 +760,9 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
     ],
     "SPM-067": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
