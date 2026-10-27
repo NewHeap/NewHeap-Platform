@@ -49645,7 +49645,8 @@
       "FileStructureDbContext",
       "RelationalFileStructureStorage",
       "IMediaLibraryService",
-      "IFileStructureStorage"
+      "IFileStructureStorage",
+      "NhMediaErrorCodes"
     ],
     "nh-observability-logging": [
       "AddNewHeapObservability",
