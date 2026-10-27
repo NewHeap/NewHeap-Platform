@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,7 @@ using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Events;
@@ -540,7 +542,7 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
 
     /// <summary>
     /// Adds a document to the project's documents folder through the media library, as the media
-    /// playground does for a person with the manage permission in the active division.
+    /// playground does for a signed-in person with the project manage permission.
     /// </summary>
     private Task<Guid> AddProjectDocumentAsync(Guid projectId, string name, byte[] content)
     {
@@ -561,16 +563,22 @@ public sealed class AssistantFileSamplesTests(AssistantFileSampleHost host) : IC
     }
 
     /// <summary>
-    /// Uses the media library as its endpoints do, in a request of a person with the manage
-    /// permission in the host's active division.
+    /// Uses the media library as its endpoints do, in the host's active division and in a request
+    /// of a signed-in person with the application-wide project view and manage permissions.
     /// </summary>
     private async Task WithMediaRequestAsync(Func<IMediaLibraryService, Task> action)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                new Claim(NhPlatformClaimTypes.Permission, "app.project.view"),
+                new Claim(NhPlatformClaimTypes.Permission, "app.project.manage")
+            ],
+            "sample-test"));
+        var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider, User = user };
         httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] = host.DivisionId.ToString();
-        httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] = "app.project.view,app.project.manage";
         accessor.HttpContext = httpContext;
         try
         {

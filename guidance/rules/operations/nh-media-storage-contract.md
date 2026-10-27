@@ -22,6 +22,8 @@ Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup h
 
 Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
 
+Map the media routes for authenticated users and let the `IAuthorizationModule` decide each operation from the signed-in user's current rights. Name the bearer scheme in the route policy when the default scheme is a cookie, check that the path lies in the active division, and authorize that division with the application permission or with `HasDivisionAccessAsync` and the division permission, which reads membership from the user store. The active-division header only selects the division; a request header never grants a permission.
+
 Map the media HTTP API with `MapNhMediaEndpoints` and configure its routes, through the `MediaLibraryRouteBuilder` callback or the returned group, before the host starts. The group builds its endpoints once; routing, the authorization policy cache, link generation and API descriptions share them, so a convention added after the host started no longer applies.
 
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
@@ -31,6 +33,7 @@ Configure the media schema through `FileStructureDbContextOptions.Scheme` for ei
 ## Avoid
 
 - Storage-provider choices in controllers or frontend code.
+- Anonymous media routes, or an authorization module that accepts permissions a client sends in a request header.
 - Trusting only file extensions for content type or safety.
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.

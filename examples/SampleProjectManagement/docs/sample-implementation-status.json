@@ -1369,6 +1369,8 @@
     ],
     "SPM-181": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectMediaComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"

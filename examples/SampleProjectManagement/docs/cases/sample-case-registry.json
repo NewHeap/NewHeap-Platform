@@ -2563,10 +2563,12 @@
       "categoryId": "13",
       "title": "Media authorization",
       "surface": "authorization module/context",
-      "outcome": "Read, mutate, and delete operations respect the active user and division.",
+      "outcome": "Read, mutate, and delete operations respect the active user and division: the media routes admit only signed-in users, the path must lie in the active division's projects, and the user's current application permission or user-store division permission authorizes it; no request header grants a permission.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectMediaComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
         "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
         "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
