@@ -1083,7 +1083,9 @@ policies are division policies (`SampleDivisionPolicies`), and the manager holds
 the `sample-division-manager` role in Sample North only. With Sample North
 active, a body that names Sample South returns `403` and a Sample South
 membership returns `404`, because the inherited update and delete first
-resolve their row through the controller's `GetQueryableAsync`.
+resolve their row through the controller's `GetQueryableAsync`. A lockout the
+manager sets on a membership removes that member's claims for Sample North from
+the next request until the lockout ends; the other members keep theirs.
 
 ## Authentication service overrides and request claims
 

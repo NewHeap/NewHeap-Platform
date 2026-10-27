@@ -81,6 +81,68 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
         }
     }
 
+    [Fact]
+    public async Task ALockedOutMemberLosesTheDivisionUntilTheLockoutEnds()
+    {
+        await using var application = await BuildSeededApplicationAsync("division_membership_lockout");
+        var manager = await FindUserIdAsync(application, SampleAuthorizationDefaults.ManagerEmail);
+        var divisionEditor = await FindUserIdAsync(application, SampleAuthorizationDefaults.DivisionEditorEmail);
+        var editorInNorth = await FindMembershipIdAsync(application, divisionEditor, North);
+        var editorRole = await FindDivisionRoleIdAsync(application, SampleAuthorizationDefaults.DivisionEditorRole);
+        var now = DateTimeOffset.UtcNow;
+        Assert.True(await HasProjectViewAsync(application, divisionEditor, North));
+
+        // The manager suspends the division editor's membership of Sample North for a week.
+        var lockout = Membership(North, divisionEditor, editorRole);
+        lockout.LockOutStartDateTime = now.AddDays(-1);
+        lockout.LockOutEndDateTime = now.AddDays(6);
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            Assert.IsType<OkResult>(await CreateController(scope, manager, North).Update(editorInNorth, lockout));
+        }
+
+        // Every request reloads the claims, so the lockout applies at once, while other members of
+        // Sample North keep their access.
+        Assert.Empty(await DivisionClaimsAsync(application, divisionEditor, North));
+        Assert.False(await HasProjectViewAsync(application, divisionEditor, North));
+        Assert.True(await HasProjectViewAsync(application, manager, North));
+
+        // Once the lockout has ended, the membership counts again.
+        lockout.LockOutEndDateTime = now.AddDays(-1);
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            Assert.IsType<OkResult>(await CreateController(scope, manager, North).Update(editorInNorth, lockout));
+        }
+
+        Assert.NotEmpty(await DivisionClaimsAsync(application, divisionEditor, North));
+        Assert.True(await HasProjectViewAsync(application, divisionEditor, North));
+    }
+
+    private static async Task<List<string>> DivisionClaimsAsync(WebApplication application, Guid userId, Guid divisionId)
+    {
+        await using var scope = application.Services.CreateAsyncScope();
+        var claims = await scope.ServiceProvider
+            .GetRequiredService<INhUserManager>()
+            .GetValidClaimsByUserIdAsync(userId, withDivision: true, TestContext.Current.CancellationToken);
+
+        return claims
+            .Where(claim => claim.Value.StartsWith($"{divisionId}_", StringComparison.Ordinal))
+            .Select(claim => claim.Value)
+            .ToList();
+    }
+
+    /// <summary>The division check of the sample's project policies, from the current claims.</summary>
+    private static async Task<bool> HasProjectViewAsync(WebApplication application, Guid userId, Guid divisionId)
+    {
+        await using var scope = application.Services.CreateAsyncScope();
+        var request = CreateRequest(scope, userId, divisionId);
+
+        return await request.HasDivisionAccessAsync(
+            divisionId,
+            [new Claim(NhPlatformClaimTypes.DivisionPermission, "project.view")],
+            cancellationToken: TestContext.Current.CancellationToken);
+    }
+
     private async Task<WebApplication> BuildSeededApplicationAsync(string databaseName)
     {
         var application = BuildApplication(await postgreSql.CreateMigratedDatabaseAsync(databaseName));

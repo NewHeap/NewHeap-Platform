@@ -16,7 +16,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// controller. Its policies <c>app.division.view</c> and <c>app.division.manage</c> are division
 /// policies, so a division manager reads and changes the memberships of the division in the
 /// <c>X-NH-ActiveDivisionId</c> header only: a membership of another division returns <c>404</c>,
-/// and a body that names another division returns <c>403</c>.
+/// and a body that names another division returns <c>403</c>. A lockout that has started removes
+/// the member's claims for the division until it ends.
 /// </summary>
 [Route("division-memberships")]
 public sealed class DivisionMembershipController : NhBaseDivisionUserController<
@@ -111,7 +112,7 @@ public sealed class DivisionMembershipController : NhBaseDivisionUserController<
     }
 
     [EndpointSummary("Change a membership of the active division")]
-    [EndpointDescription("Changes the division roles or the lockout window of a membership of the active division. A membership of another division is not found, and moving one to another division is forbidden.")]
+    [EndpointDescription("Changes the division roles or the lockout window of a membership of the active division. A lockout that has started removes the member's claims for the division until it ends. A membership of another division is not found, and moving one to another division is forbidden.")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

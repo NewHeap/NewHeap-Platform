@@ -2925,7 +2925,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Division-role permissions",
     "category": "Authorization implementation patterns",
     "surface": "division user, role, and claims with the active division; NhBaseDivisionUserController with the app.division.view and app.division.manage division policies",
-    "outcome": "The division editor has project rights inside Sample North but not application-wide. The manager manages the memberships of Sample North only: with Sample North active, a body that names Sample South is forbidden and a Sample South membership is not found, and every inherited update stays inside the controller's scope.",
+    "outcome": "The division editor has project rights inside Sample North but not application-wide. The manager manages the memberships of Sample North only: with Sample North active, a body that names Sample South is forbidden and a Sample South membership is not found, and every inherited update stays inside the controller's scope. A lockout the manager sets on a membership removes the member's claims for Sample North at once and until it ends, while the other members keep theirs.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
@@ -2935,7 +2935,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DivisionMembershipSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionWriteScopeProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionWriteScopeProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionLockoutProviderTests.cs"
     ]
   },
   {

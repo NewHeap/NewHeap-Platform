@@ -341,15 +341,21 @@ public abstract partial class NhUserManager<
             var currentDate = DateTimeOffset.UtcNow.Date;
             IQueryable<TDivision> divisionsQuery = _userRepository.GetDbSet<TDivision>().AsNoTracking();
 
+            // Only the user's own memberships count, and only while they are not locked out. As
+            // IsBlockedAsync does for account lockout, a membership is locked out once its lockout
+            // has started and until it has ended; without an end date it stays locked out, and
+            // without a start date it is not locked out. Lockout dates count in whole UTC days,
+            // from the start day through the end day.
+            IQueryable<TDivisionUser> activeMemberships = _userRepository.GetDbSet<TDivisionUser>()
+                .AsNoTracking()
+                .Where(c => c.UserId == user.Id
+                    && !(c.LockOutStartDateTime != null
+                        && c.LockOutStartDateTime.Value.Date <= currentDate
+                        && (c.LockOutEndDateTime == null || c.LockOutEndDateTime.Value.Date >= currentDate)));
+
             if (!divisionAccessAll)
             {
-                divisionsQuery = divisionsQuery.Where(x => x.DivisionUsers.Any(c =>
-                    c.UserId == user.Id
-                    && c.LockOutStartDateTime == null ? true :
-                    !(c.LockOutStartDateTime!.Value.Date <= currentDate)
-                    && c.LockOutEndDateTime == null ? true :
-                    !(c.LockOutEndDateTime!.Value.Date >= currentDate)
-                ));
+                divisionsQuery = divisionsQuery.Where(x => activeMemberships.Any(c => c.DivisionId == x.Id));
             }
 
             List<TDivisionRoleClaim> divisionRolesClaims =
@@ -362,9 +368,10 @@ public abstract partial class NhUserManager<
                 IQueryable<TDivisionRole> divisionRolesQuery = _userRepository.GetDbSet<TDivisionRole>().AsNoTracking();
                 if (!divisionAccessAll)
                 {
+                    // The roles of the same active membership, so no other row can bring them back.
                     divisionRolesQuery = divisionRolesQuery.Where(x =>
-                        x.DivisionUserRoles.Any(c =>
-                            c.DivisionUser.UserId == user.Id && c.DivisionUser.DivisionId == divisionId));
+                        x.DivisionUserRoles.Any(c => activeMemberships.Any(m =>
+                            m.Id == c.DivisionUserId && m.DivisionId == divisionId)));
                 }
 
                 // List of roles this user has in this division
