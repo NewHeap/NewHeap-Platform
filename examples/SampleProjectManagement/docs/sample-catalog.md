@@ -736,6 +736,16 @@ own origin, so it never sends credentials to another origin, but an explicit
 base states where the API is. `verify-frontend-integrity.mjs` keeps both bases
 explicit; the library's interceptor spec proves the matching rule.
 
+## Document head and structured data
+
+The platform playground sets the title, the description and a canonical link
+(SPM-151) and builds JSON-LD with `NhJsonLdService`, review placeholder keys and
+`<nh-json-ld nhToHead>` (SPM-152). Review text is written by people, so the
+sample's review body contains markup such as `</SCRIPT>`. `nh-json-ld` writes
+every `<` in the serialized JSON as a JSON unicode escape and escapes the line
+and paragraph separators, so that text stays data inside the one
+structured-data script element and parses back unchanged.
+
 ## Backend configuration for runtime and automation
 
 The API and AppHost explicitly pass their `args` to the NewHeap configuration

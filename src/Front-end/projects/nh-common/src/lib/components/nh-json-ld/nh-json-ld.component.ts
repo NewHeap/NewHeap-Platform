@@ -22,10 +22,25 @@ export class NhJsonLdComponent {
 
   private _getSafeHTML(value: any) {
     const json = value
-      ? JSON.stringify(value, null, 2).replace(/<\/script>/g, '<\\/script>')
+      ? NhJsonLdComponent.serializeForScriptElement(value)
       : '';
     const html = `<script type="application/ld+json">${json}</script>`;
 
     return this._sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  /**
+   * Serializes the structured data so that no string value can end its script element. Every `<`
+   * becomes the JSON escape `\u003c`, which rules out `</script` in any letter case and `<!--`, and
+   * the line and paragraph separators U+2028 and U+2029 are escaped as well. `JSON.parse` returns
+   * the original values.
+   */
+  private static serializeForScriptElement(value: unknown): string {
+    const json = JSON.stringify(value, null, 2) ?? '';
+
+    return json
+      .replace(/</g, '\\u003c')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   }
 }

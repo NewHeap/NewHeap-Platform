@@ -2157,11 +2157,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "JSON-LD",
     "category": "Utilities, SEO, SSR, and observability",
     "surface": "service/component/keys",
-    "outcome": "Valid structured data appears in the document head.",
+    "outcome": "Valid structured data appears in the document head. A review body with markup such as `</SCRIPT>` stays data inside the one structured-data script element and parses back unchanged.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-json-ld/nh-json-ld.component.spec.ts"
     ]
   },
   {

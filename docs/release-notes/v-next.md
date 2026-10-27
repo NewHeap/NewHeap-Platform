@@ -260,3 +260,15 @@ such as `/api` now also matches absolute URLs on the application's own origin.
 | With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
 | A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
 | `addAuthTokensToRequests: false` now also stops the access token on `authApiBaseUrl` requests, such as logout, impersonation and the two-factor account settings. | Keep the default `true`, or add the `Authorization` header to those requests yourself. |
+
+## @newheap/platform-common: JSON-LD text cannot end its script element
+
+`NhJsonLdComponent` (`<nh-json-ld>`) now writes every `<` in the serialized JSON as `\u003c` and
+escapes U+2028 and U+2029. Before, it escaped only the exact lowercase `</script>`, so a string
+value with `</SCRIPT>`, `</script >`, `</script/>` or `<!--<script>`, such as a review body passed
+through `NhJsonLdService` or `NhPageSettings.jsonLdData`, ended the script element and the rest of
+the value was inserted as markup. The script text still parses to the same values.
+
+| Breaking change | Required action |
+|---|---|
+| The JSON-LD script text holds `\u003c` instead of `<`, and escapes U+2028 and U+2029. | None, unless a test compares the script's raw text; compare the parsed JSON instead. |
