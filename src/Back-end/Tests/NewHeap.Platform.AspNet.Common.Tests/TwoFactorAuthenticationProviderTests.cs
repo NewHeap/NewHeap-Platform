@@ -295,6 +295,164 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.Contains(nameof(INhExpiringDeliveryData), refused.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EarlierRecoveryCodeEntriesRedeemOnceAndAreRehashedOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider);
+        NhUser user;
+        List<string> codes;
+        using (var enrollmentStack = environment.CreateStack())
+        {
+            user = await enrollmentStack.CreateUserAsync("recovery-rehash@example.test");
+            await enrollmentStack.EnrollAsync(user, environment);
+            codes = (await enrollmentStack.UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 4))!.ToList();
+
+            // The entries as earlier versions stored them: unkeyed hashes, and a plaintext code from
+            // before NewHeap hashed recovery codes.
+            await enrollmentStack.ReplaceStoredRecoveryCodesAsync(
+                user.Id,
+                [
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[0])),
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[1])),
+                    codes[2],
+                    NhRecoveryCodeHasher.UnkeyedHash(NhRecoveryCodeHasher.Normalize(codes[3])),
+                ]);
+        }
+
+        using (var stack = environment.CreateStack())
+        {
+            // The first redemption accepts an unkeyed entry once and rewrites the remaining entries
+            // into keyed hashes under the signing key, the only key configured.
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[0]);
+
+            var signingKey = NhTwoFactorCodeKey.DeriveKeys(
+                environment.CreateApplicationConfiguration(),
+                NhTwoFactorCodeKey.RecoveryCodePurpose)[0];
+            Assert.Equal(
+                codes[1..].Select(code => NhRecoveryCodeHasher.Hash(signingKey, NhRecoveryCodeHasher.Normalize(code))),
+                (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+
+            // The rewritten entries redeem once each, the former plaintext code in lower case as well.
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[2].ToLowerInvariant());
+            await AssertRecoveryCodeRefusedAsync(stack, user, codes[0]);
+            await AssertRecoveryCodeRefusedAsync(stack, user, codes[2]);
+        }
+
+        // Configuring a code key keeps the entries stored with the signing key working, and new codes
+        // are stored with the code key.
+        environment.ApplicationSettings[NhTwoFactorCodeKey.ConfigurationKey] = "test-two-factor-code-key-of-thirty-two-bytes";
+        using (var stack = environment.CreateStack())
+        {
+            await AssertRecoveryCodeSignsInAsync(stack, user, codes[1]);
+
+            var reloaded = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            Assert.Equal(1, await stack.UserManager.CountRecoveryCodesAsync(reloaded));
+
+            var newCodes = (await stack.UserManager.GenerateNewTwoFactorRecoveryCodesAsync(reloaded, 2))!.ToList();
+            var codeKey = NhTwoFactorCodeKey.DeriveKeys(
+                environment.CreateApplicationConfiguration(),
+                NhTwoFactorCodeKey.RecoveryCodePurpose)[0];
+            Assert.Equal(
+                newCodes.Select(code => NhRecoveryCodeHasher.Hash(codeKey, NhRecoveryCodeHasher.Normalize(code))),
+                (await stack.StoredRecoveryCodesAsync(user.Id)).Split(';'));
+            await AssertRecoveryCodeSignsInAsync(stack, user, newCodes[0]);
+        }
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EmailedCodesAreKeyedAndEarlierCodesWorkUntilTheyExpireOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider, configuration => configuration.EmailCodesEnabled = true);
+        NhUser user;
+        string code;
+        using (var stack = environment.CreateStack())
+        {
+            user = await stack.CreateUserAsync("email-code-keyed@example.test");
+            Assert.True((await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null)).Success);
+            code = environment.Notifications.LastEmailCode();
+
+            var stored = NhStoredEmailCode.Parse(await stack.StoredEmailCodeAsync(user.Id))!;
+            Assert.StartsWith("nhe1:", stored.Hash, StringComparison.Ordinal);
+            Assert.NotEqual(UnkeyedEmailCodeHash(user.Id, code), stored.Hash);
+        }
+
+        // A code stored with the signing key still confirms after a code key is configured.
+        environment.ApplicationSettings[NhTwoFactorCodeKey.ConfigurationKey] = "test-two-factor-code-key-of-thirty-two-bytes";
+        using (var stack = environment.CreateStack())
+        {
+            user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+            var confirmed = await stack.TwoFactor.ConfirmEmailSetupAsync(user, code, user.Id);
+            Assert.True(confirmed.Success, string.Join("; ", confirmed.AllErrorMessages));
+        }
+
+        // A code that an earlier version stored with an unkeyed hash works until it expires.
+        using (var stack = environment.CreateStack())
+        {
+            var other = await stack.CreateUserAsync("email-code-unkeyed@example.test");
+            Assert.True((await stack.TwoFactor.BeginEmailSetupAsync(other, reauthentication: null)).Success);
+            var now = environment.Clock.GetUtcNow();
+
+            await stack.ReplaceStoredEmailCodeAsync(
+                other.Id,
+                new NhStoredEmailCode(
+                    NhTwoFactorEmailCodePurpose.Confirmation,
+                    UnkeyedEmailCodeHash(other.Id, "135791"),
+                    now.AddMinutes(-1),
+                    now.AddMinutes(-11)).Serialize());
+            AssertFailure(
+                await stack.TwoFactor.ConfirmEmailSetupAsync(other, "135791", other.Id),
+                NhTwoFactorFailureCodes.InvalidCode);
+
+            await stack.ReplaceStoredEmailCodeAsync(
+                other.Id,
+                new NhStoredEmailCode(
+                    NhTwoFactorEmailCodePurpose.Confirmation,
+                    UnkeyedEmailCodeHash(other.Id, "246802"),
+                    now.AddMinutes(5),
+                    now.AddMinutes(-5)).Serialize());
+            var confirmed = await stack.TwoFactor.ConfirmEmailSetupAsync(other, "246802", other.Id);
+            Assert.True(confirmed.Success, string.Join("; ", confirmed.AllErrorMessages));
+        }
+    }
+
+    /// <summary>The unkeyed hash that versions before keyed hashes stored for an e-mailed code.</summary>
+    private static string UnkeyedEmailCodeHash(Guid userId, string code)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(userId.ToString("N") + ":" + code));
+        return Convert.ToBase64String(hash);
+    }
+
+    private static async Task AssertRecoveryCodeSignsInAsync(TwoFactorStack stack, NhUser user, string code)
+    {
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        var verified = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = challenge.ChallengeToken,
+            Method = NhTwoFactorMethods.RecoveryCode,
+            Code = code,
+        });
+
+        Assert.True(verified.Success, string.Join("; ", verified.AllErrorMessages));
+        Assert.NotNull(verified.Data!.Session);
+    }
+
+    private static async Task AssertRecoveryCodeRefusedAsync(TwoFactorStack stack, NhUser user, string code)
+    {
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = challenge.ChallengeToken,
+                Method = NhTwoFactorMethods.RecoveryCode,
+                Code = code,
+            }),
+            NhTwoFactorFailureCodes.InvalidCode);
+    }
+
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
@@ -401,7 +559,7 @@ public sealed class TwoFactorAuthenticationProviderTests
             .Where(x => x.UserId == user.Id && x.Name == "RecoveryCodes")
             .Select(x => x.Value)
             .SingleAsync();
-        Assert.All(storedRecoveryCodes!.Split(';'), code => Assert.StartsWith("nhv1:", code, StringComparison.Ordinal));
+        Assert.All(storedRecoveryCodes!.Split(';'), code => Assert.StartsWith("nhv2:", code, StringComparison.Ordinal));
         Assert.DoesNotContain(confirmation.Data.RecoveryCodes[0], storedRecoveryCodes, StringComparison.Ordinal);
 
         // The activated key is a normal Identity authenticator key.
@@ -1207,6 +1365,20 @@ public sealed class TwoFactorAuthenticationProviderTests
         /// <summary>The message composer of the stacks created next; the default composer when empty.</summary>
         internal INhTwoFactorMessageComposer? MessageComposer { get; set; }
 
+        /// <summary>The application configuration of the stacks created next, such as the signing and code keys.</summary>
+        internal Dictionary<string, string?> ApplicationSettings { get; } = new()
+        {
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
+        };
+
+        internal IConfiguration CreateApplicationConfiguration()
+        {
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(ApplicationSettings)
+                .Build();
+        }
+
         internal static NhTwoFactorConfiguration CreateConfiguration(Action<NhTwoFactorConfiguration>? configure)
         {
             var configuration = new NhTwoFactorConfiguration
@@ -1244,10 +1416,14 @@ public sealed class TwoFactorAuthenticationProviderTests
         /// <summary>The name Identity's user store keeps the recovery codes under.</summary>
         private const string RecoveryCodesTokenName = "RecoveryCodes";
 
+        /// <summary>The name the two-factor service keeps a pending e-mailed code under.</summary>
+        private const string EmailCodeTokenName = "TwoFactorEmailCode";
+
         private readonly ServiceProvider _serviceProvider;
         private readonly RoleManager<NhUserRole> _roleManager;
         private readonly IOptions<IdentityOptions> _identityOptions;
         private readonly TwoFactorEnvironment _environment;
+        private readonly IConfiguration _configuration;
 
         internal TwoFactorStack(
             TwoFactorEnvironment environment,
@@ -1256,7 +1432,10 @@ public sealed class TwoFactorAuthenticationProviderTests
         {
             _environment = environment;
             Context = context;
-            _serviceProvider = new ServiceCollection().BuildServiceProvider();
+            _configuration = environment.CreateApplicationConfiguration();
+            _serviceProvider = new ServiceCollection()
+                .AddSingleton(_configuration)
+                .BuildServiceProvider();
             _identityOptions = Options.Create(new IdentityOptions());
 
             var repository = new Repository<NhUser>(context, _serviceProvider);
@@ -1312,6 +1491,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 new NhTwoFactorTicketProtector(dataProtectionProvider, environment.Clock),
                 new NhQrCodeRenderer(),
                 hostEnvironment,
+                _configuration,
                 environment.Clock,
                 environment.MessageComposer ?? new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
                 environment.Notifications,
@@ -1333,7 +1513,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 CreateSignInManager(),
                 UserManager,
                 Substitute.For<ILogger<AuthenticationService>>(),
-                CreateConfiguration(),
+                _configuration,
                 new TokenValidationParameters(),
                 new AuthenticationConfiguration());
         }
@@ -1417,6 +1597,27 @@ public sealed class TwoFactorAuthenticationProviderTests
             await Context.SaveChangesAsync();
         }
 
+        /// <summary>The e-mailed code as the Identity token row stores it.</summary>
+        internal async Task<string> StoredEmailCodeAsync(Guid userId)
+        {
+            var value = await Context.Set<IdentityUserToken<Guid>>()
+                .Where(x => x.UserId == userId && x.Name == EmailCodeTokenName)
+                .Select(x => x.Value)
+                .SingleAsync();
+
+            return value!;
+        }
+
+        /// <summary>Overwrites the stored e-mailed code, as a row written before an upgrade would hold it.</summary>
+        internal async Task ReplaceStoredEmailCodeAsync(Guid userId, string storedCode)
+        {
+            var row = await Context.Set<IdentityUserToken<Guid>>()
+                .SingleAsync(x => x.UserId == userId && x.Name == EmailCodeTokenName);
+            row.Value = storedCode;
+
+            await Context.SaveChangesAsync();
+        }
+
         public void Dispose()
         {
             UserManager.Dispose();
@@ -1432,7 +1633,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 CreateSignInManager(),
                 UserManager,
                 Substitute.For<ILogger<AuthenticationService>>(),
-                CreateConfiguration(),
+                _configuration,
                 new TokenValidationParameters(),
                 new AuthenticationConfiguration(),
                 twoFactorContext);
@@ -1450,16 +1651,6 @@ public sealed class TwoFactorAuthenticationProviderTests
                 Substitute.For<IUserConfirmation<NhUser>>());
         }
 
-        private static IConfiguration CreateConfiguration()
-        {
-            return new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://auth.example.test",
-                    ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] = "test-signing-key-with-at-least-thirty-two-bytes",
-                })
-                .Build();
-        }
     }
 
     private sealed class TestTwoFactorAuthenticationService : NhAuthenticationService<

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "12fe061f4acfce9fe42916d22312c3b3856cfaf3d5725877acca6ffb31c0440b",
-    "declarationCount": 11223,
+    "hash": "dd824e15fc14cba6ea3ea13f31ac7d09b2a7eee91c13b62fcf2a722b40708130",
+    "declarationCount": 11226,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -28874,6 +28874,18 @@
         "declaration": "public string RenderPngDataUri(string content) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public static class NhTwoFactorCodeKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public const string ConfigurationKey = \"NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorCodeKey.cs",
+        "declaration": "public const int MinimumBytes = NhJwtSigningKey.MinimumBytes;"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public sealed class NhTwoFactorConfiguration {"
       },
@@ -49308,6 +49320,7 @@
       "NhDefaultTwoFactorPolicy",
       "INhTwoFactorMessageComposer",
       "INhExpiringDeliveryData",
+      "NhTwoFactorCodeKey",
       "NhLoginResponse",
       "BaseNhAuthService",
       "NhTwoFactorChallengeComponent",

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -212,7 +213,9 @@ public sealed class NhTwoFactorChangeResult
 /// <summary>
 /// Default two-factor implementation built on ASP.NET Core Identity storage. Keys, recovery
 /// codes, e-mail codes and replay state live in the Identity user-token table, so no schema
-/// change is needed. Passkeys use the Identity passkey table, see
+/// change is needed. Recovery codes and e-mail codes are stored as keyed hashes
+/// (<see cref="NhTwoFactorCodeKey"/>); authenticator keys follow the Identity default and are
+/// stored as they are. Passkeys use the Identity passkey table, see
 /// <c>NhIdentityDbContext.IncludeIdentityPasskeys</c>.
 /// </summary>
 public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
@@ -224,6 +227,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     private const string ConsumedChallengesTokenName = "TwoFactorConsumedChallenges";
     private const string EmailFactorTokenName = "TwoFactorEmailFactor";
     private const string EmailCodeTokenName = "TwoFactorEmailCode";
+    private const string KeyedEmailCodePrefix = "nhe1:";
 
     private readonly UserManager<TUser> _userManager;
     private readonly INhUserManager<TUser> _nhUserManager;
@@ -234,6 +238,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     private readonly NhTwoFactorTicketProtector _ticketProtector;
     private readonly INhQrCodeRenderer _qrCodeRenderer;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IConfiguration _applicationConfiguration;
     private readonly TimeProvider _timeProvider;
     private readonly INhTwoFactorMessageComposer _messageComposer;
     private readonly INhNotificationService? _notificationService;
@@ -250,6 +255,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         NhTwoFactorTicketProtector ticketProtector,
         INhQrCodeRenderer qrCodeRenderer,
         IHostEnvironment hostEnvironment,
+        IConfiguration applicationConfiguration,
         TimeProvider timeProvider,
         INhTwoFactorMessageComposer messageComposer,
         INhNotificationService? notificationService,
@@ -265,6 +271,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         _ticketProtector = ticketProtector;
         _qrCodeRenderer = qrCodeRenderer;
         _hostEnvironment = hostEnvironment;
+        _applicationConfiguration = applicationConfiguration;
         _timeProvider = timeProvider;
         _messageComposer = messageComposer;
         _notificationService = notificationService;
@@ -1498,10 +1505,32 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         return (email ?? string.Empty).Trim().ToUpperInvariant();
     }
 
-    private static string HashEmailCode(TUser user, string code)
+    /// <summary>
+    /// The stored hash of an e-mailed code: <c>nhe1:</c> and the HMAC-SHA256, under the key new codes
+    /// are stored with (<see cref="NhTwoFactorCodeKey"/>), of the user id and the code. Without the key a
+    /// copy of the token table cannot be tested against the million possible codes.
+    /// </summary>
+    private string HashEmailCode(TUser user, string code)
+    {
+        return KeyedEmailCodeHash(GetEmailCodeKeys()[0], user, code);
+    }
+
+    private static string KeyedEmailCodeHash(byte[] key, TUser user, string code)
+    {
+        var hash = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(user.Id.ToString("N") + ":" + code));
+        return KeyedEmailCodePrefix + Convert.ToBase64String(hash);
+    }
+
+    /// <summary>The unkeyed hash that versions before keyed hashes stored for an e-mailed code.</summary>
+    private static string UnkeyedEmailCodeHash(TUser user, string code)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(user.Id.ToString("N") + ":" + code));
         return Convert.ToBase64String(hash);
+    }
+
+    private IReadOnlyList<byte[]> GetEmailCodeKeys()
+    {
+        return NhTwoFactorCodeKey.DeriveKeys(_applicationConfiguration, NhTwoFactorCodeKey.EmailCodePurpose);
     }
 
     private bool MatchesEmailCode(TUser user, NhStoredEmailCode storedCode, string? code)
@@ -1511,9 +1540,25 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             return false;
         }
 
-        var presented = Encoding.ASCII.GetBytes(HashEmailCode(user, code.Trim()));
+        var presentedCode = code.Trim();
         var expected = Encoding.ASCII.GetBytes(storedCode.Hash);
-        return CryptographicOperations.FixedTimeEquals(presented, expected);
+        if (!storedCode.Hash.StartsWith(KeyedEmailCodePrefix, StringComparison.Ordinal))
+        {
+            // A code sent before codes were keyed keeps working until it expires.
+            var unkeyed = Encoding.ASCII.GetBytes(UnkeyedEmailCodeHash(user, presentedCode));
+            return CryptographicOperations.FixedTimeEquals(unkeyed, expected);
+        }
+
+        // A code stored with another configured key still matches, for example right after a
+        // two-factor code key was configured.
+        var matches = false;
+        foreach (var key in GetEmailCodeKeys())
+        {
+            var presented = Encoding.ASCII.GetBytes(KeyedEmailCodeHash(key, user, presentedCode));
+            matches |= CryptographicOperations.FixedTimeEquals(presented, expected);
+        }
+
+        return matches;
     }
 
     private static NhStoredEmailCode? ReadEmailCode(string? stored)

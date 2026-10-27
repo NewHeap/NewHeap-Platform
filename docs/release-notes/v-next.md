@@ -220,6 +220,26 @@ change is needed.
 | A custom `INhTwoFactorMessageComposer` whose code notification has a delivery with data that does not implement `INhExpiringDeliveryData`, which is anything but `NhEmailDeliveryData`, now fails with an `InvalidOperationException` when a code is sent. | Compose the code e-mail with `NhEmailDeliveryData`, or implement `INhExpiringDeliveryData` on the custom delivery data, and set `ExpiresAt = message.ExpiresAt`. |
 | Code e-mails sent before the upgrade keep their content until the retention cleanup removes it. | None. Optionally clear `Data` and set `IsCleaned` on the deliveries of the notifications named `two-factor-email-code`. |
 
+## NewHeap.Platform.AspNet.Common: two-factor codes stored as keyed hashes
+
+Recovery codes (`nhv2:`) and e-mailed sign-in and confirmation codes (`nhe1:`) are now stored as
+HMAC-SHA256 hashes; before, they were unkeyed SHA-256 hashes, which a copy of the user-token table could
+test against the million possible six-digit codes. The key comes from the new optional secret
+`NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey` (`NhTwoFactorCodeKey`), or else from
+`NewHeap:PlatformAspNetCommon:Authorization:RefreshToken:Key`, or else from the shared JWT signing key.
+New codes are stored with the first configured key, and a presented code is checked against every
+configured key. Unkeyed recovery-code entries and plaintext codes from earlier versions still redeem
+once, and the first redemption rewrites the user's remaining entries of those kinds into keyed hashes;
+an e-mailed code sent before the upgrade works until it expires. Startup fails when recovery or e-mail
+codes are enabled and no key is configured. No schema change is needed.
+
+| Breaking change | Required action |
+|---|---|
+| An application with recovery or e-mail codes that configures none of the three keys fails at startup with a configuration error that names them. | Set `NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey`, a random secret of at least 32 bytes, in the secrets file. |
+| A recovery code stops working when the key it was stored with is removed or changed; without `TwoFactor:CodeKey` that is the refresh-token key or the shared signing key. | Set `TwoFactor:CodeKey` with the upgrade, before users enroll or regenerate codes. Keep an earlier key configured until its users regenerated their codes. |
+| `NhUserManager` reads the key from the `IConfiguration` of its service provider; a manager built with a provider without one fails when it generates or redeems recovery codes. | Register `IConfiguration` in that provider, as ASP.NET Core hosts do; a test helper that builds the manager by hand adds it. |
+| Users who redeem no recovery code keep their unkeyed entries. | None. Optionally ask them to regenerate their recovery codes. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it

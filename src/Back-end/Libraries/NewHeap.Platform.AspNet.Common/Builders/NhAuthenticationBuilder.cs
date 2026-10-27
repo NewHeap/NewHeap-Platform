@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -287,6 +288,7 @@ public class NhAuthenticationBuilder<
             serviceProvider.GetRequiredService<NhTwoFactorTicketProtector>(),
             serviceProvider.GetRequiredService<INhQrCodeRenderer>(),
             serviceProvider.GetRequiredService<IHostEnvironment>(),
+            serviceProvider.GetRequiredService<IConfiguration>(),
             serviceProvider.GetRequiredService<TimeProvider>(),
             serviceProvider.GetRequiredService<INhTwoFactorMessageComposer>(),
             serviceProvider.GetService<INhNotificationService>(),

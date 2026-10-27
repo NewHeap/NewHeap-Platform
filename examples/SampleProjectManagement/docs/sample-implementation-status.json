@@ -2056,6 +2056,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhTotpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhTwoFactorCodeKeyTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",

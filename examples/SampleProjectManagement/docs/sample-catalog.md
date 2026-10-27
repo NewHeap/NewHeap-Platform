@@ -1266,7 +1266,9 @@ expired. `TwoFactorMessageComposerSamplesTests` proves that expiry.
 `TwoFactorSamplesTests` applies the PostgreSQL migrations, confirms that the model
 matches them and includes the passkey table, completes the seeded account's
 challenge with `NhTwoFactorTestCodes` from the reusable test package, and enrolls
-the security officer during sign-in.
+the security officer during sign-in. Its recovery codes are stored as keyed hashes
+under `NewHeap:PlatformAspNetCommon:Authorization:TwoFactor:CodeKey`, which
+`appsettings.json` reads from the secrets file next to the JWT key.
 
 ## API-to-API client
 
