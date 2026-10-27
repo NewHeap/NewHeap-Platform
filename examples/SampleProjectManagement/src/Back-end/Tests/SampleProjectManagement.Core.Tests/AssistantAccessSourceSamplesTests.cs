@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Core.Services;
@@ -29,6 +30,7 @@ public sealed class AssistantAccessSourceSamplesTests
     private const string ManagePermission = "app.project.manage";
     private const string Manager = "manager-1";
     private const string Colleague = "colleague-1";
+    private const string SignOutPath = "/account/sign-out";
     private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
     private static readonly Guid DivisionId = Guid.NewGuid();
     private static readonly Guid ProjectId = Guid.NewGuid();
@@ -81,8 +83,55 @@ public sealed class AssistantAccessSourceSamplesTests
         await SignInAsync(scope.ServiceProvider, Manager);
         Assert.Equal(NhAiGrantSource.Delegated, await authorizer.AuthorizeAsync(statusTool, DelegatingRun(manager), TestContext.Current.CancellationToken));
 
-        // Signing out forgets them at once.
-        scope.ServiceProvider.GetRequiredService<SampleAccessContexts>().Forget(manager);
+        // Signing out of an impersonation session of the manager is not the manager signing out; the
+        // manager's own sign-out forgets the rights at once.
+        await RequestAsync(scope.ServiceProvider, Manager, HttpMethods.Post, SignOutPath, new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, Guid.NewGuid().ToString()));
+        Assert.Equal(NhAiGrantSource.Delegated, await authorizer.AuthorizeAsync(statusTool, DelegatingRun(manager), TestContext.Current.CancellationToken));
+        await RequestAsync(scope.ServiceProvider, Manager, HttpMethods.Post, SignOutPath);
+        Assert.Equal(NhAiAgentFailureCodes.NotGranted, Code(await AuthorizeAsync(gate, DelegatingRun(manager))));
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<SampleAccessContexts>().GetAsync(manager, Run().Subject, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task An_agents_derived_credentials_and_an_impersonation_session_never_renew_or_recreate_the_persons_rights()
+    {
+        var clock = new SampleTestClock();
+        await using var provider = CreateProvider(clock);
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+        var contexts = scope.ServiceProvider.GetRequiredService<SampleAccessContexts>();
+        var manager = await SignInAsync(scope.ServiceProvider, Manager);
+        var signedIn = (await contexts.GetAsync(manager, Run().Subject, TestContext.Current.CancellationToken))!.ValidAt;
+
+        // While the manager is away, the agent reads for the manager through the gateway with a delegated
+        // read token, an MCP server is called with a delegated MCP token and an administrator impersonates
+        // the manager. The resolver takes each for the manager, yet none is the manager's own request: the
+        // recorded rights keep the date and the claims of the manager's last request.
+        clock.Advance(TimeSpan.FromMinutes(20));
+        Claim[][] notOwnRequests =
+        [
+            [new Claim(NhAiDelegatedReadDefaults.ClaimType, Guid.NewGuid().ToString("D")), new Claim(NhAiDelegatedReadDefaults.ActionClaimType, "sample-api.project.get")],
+            [new Claim(NhAiMcpDelegatedTokenDefaults.MarkerClaimType, Guid.NewGuid().ToString("D")), new Claim(NhAiMcpDelegatedTokenDefaults.AudienceClaimType, "https://sample.localhost")],
+            [new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, Guid.NewGuid().ToString())]
+        ];
+        foreach (var markers in notOwnRequests)
+        {
+            Assert.Equal(manager, await RequestAsync(scope.ServiceProvider, Manager, HttpMethods.Get, "/projects", markers));
+            var recorded = (await contexts.GetAsync(manager, Run().Subject, TestContext.Current.CancellationToken))!;
+            Assert.Equal(signedIn, recorded.ValidAt);
+            Assert.DoesNotContain(recorded.Claims, claim => markers.Any(marker => marker.Type == claim.Type));
+        }
+
+        // Half an hour after the manager's own last request the run is refused, although the agent kept
+        // working for the manager.
+        clock.Advance(TimeSpan.FromMinutes(11));
+        Assert.Equal(NhAiAgentFailureCodes.NotGranted, Code(await AuthorizeAsync(gate, DelegatingRun(manager))));
+
+        // After the manager signed out, the agent's next read does not bring the rights back.
+        await SignInAsync(scope.ServiceProvider, Manager);
+        await RequestAsync(scope.ServiceProvider, Manager, HttpMethods.Post, SignOutPath);
+        await RequestAsync(scope.ServiceProvider, Manager, HttpMethods.Get, "/projects", notOwnRequests[0]);
+        Assert.Null(await contexts.GetAsync(manager, Run().Subject, TestContext.Current.CancellationToken));
         Assert.Equal(NhAiAgentFailureCodes.NotGranted, Code(await AuthorizeAsync(gate, DelegatingRun(manager))));
     }
 
@@ -111,19 +160,32 @@ public sealed class AssistantAccessSourceSamplesTests
     /// application's claims transformation and the middleware that records the rights. Returns the
     /// platform's actor id of the person.
     /// </summary>
-    private static async Task<string> SignInAsync(IServiceProvider services, string subject)
+    private static Task<string> SignInAsync(IServiceProvider services, string subject)
+    {
+        return RequestAsync(services, subject, HttpMethods.Get, "/projects");
+    }
+
+    /// <summary>
+    /// A request of a token with <paramref name="subject"/> and <paramref name="markers"/> to
+    /// <paramref name="path"/>, through the claims transformation and the middleware that records the
+    /// rights, with the host's sign-out at <see cref="SignOutPath"/>. Returns the platform's actor id the
+    /// resolver resolves for the request.
+    /// </summary>
+    private static async Task<string> RequestAsync(IServiceProvider services, string subject, string method, string path, params Claim[] markers)
     {
         var token = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim("iss", Issuer), new Claim("sub", subject)],
+            [new Claim("iss", Issuer), new Claim("sub", subject), .. markers],
             "customer-identity"));
         var httpContext = new DefaultHttpContext
         {
             RequestServices = services,
             User = await services.GetRequiredService<IClaimsTransformation>().TransformAsync(token)
         };
+        httpContext.Request.Method = method;
+        httpContext.Request.Path = path;
 
         var application = new ApplicationBuilder(services);
-        application.UseSampleAccessContexts();
+        application.UseSampleAccessContexts(SignOutPath);
         application.Run(_ => Task.CompletedTask);
         await application.Build()(httpContext);
 

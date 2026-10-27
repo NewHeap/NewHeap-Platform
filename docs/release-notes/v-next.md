@@ -241,3 +241,19 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.AspNet.Common: access contexts come from the person's own requests only
+
+`NhAiAccessContext.IsPersonsOwnRequest(principal)` says whether an access source may record a request:
+an authenticated principal without the marker claims of a delegated read token
+(`nh-ai-delegated-read`, `nh-ai-delegated-read-action`), a delegated MCP token (`nh-ai-mcp-delegated`,
+`nh-ai-mcp-audience`) or an impersonation session (`NhPlatformClaimTypes.ImpersonateOriginUserId`).
+Such a request is an agent working for the person, or someone else acting as the person, so recording
+it kept the person's rights alive past `MaxAge` and recreated them after sign-out. The principal factory
+of `UsePrincipalsFromAccessSource` now refuses a context that holds one of these claims, whatever its
+date. The sample's `SampleAccessSourceComposition` records only the person's own requests and forgets
+the context in the person's own sign-out request (`UseSampleAccessContexts(signOutPath)`).
+
+| Breaking change | Required action |
+|---|---|
+| A context whose claims hold a delegated read, delegated MCP or impersonation marker yields no principal, so background work that relied on it is refused with the usual codes. | Record only requests for which `NhAiAccessContext.IsPersonsOwnRequest` is true, and forget the person's context at sign-out; the next own request of the person records a context that lends again. |

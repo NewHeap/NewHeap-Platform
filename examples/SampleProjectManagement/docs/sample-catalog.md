@@ -119,15 +119,18 @@ stays stored without a tenant. Startup refuses the mode next to a projection of 
 tenant claim.
 When such a deployment adds its people's rights in its own claims transformation at every request,
 the NewHeap user store cannot rebuild them for work outside a request (SPM-315).
-`SampleAccessSourceComposition` records the claims of every signed-in request after the transformation
-in the application's own `SampleAccessContexts`, under the platform's actor id and with the time, and
-registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour; NewHeap stores
-none of it. A run the manager started on a project changes its status with the rights of the manager's
-last request, and so does an agent that acts with the rights of the project's responsible person; the
-colleague without the manage permission and someone the application never saw are refused. Half an hour
-later the run is no longer offered the status tool, until the manager's next request; signing out
-forgets the rights at once. `AssistantAccessSourceSamplesTests` shows it in a focused composition,
-because the sample's own API signs in with the NewHeap user store.
+`SampleAccessSourceComposition` records the claims of each person's own signed-in requests after the
+transformation in the application's own `SampleAccessContexts`, under the platform's actor id and with
+the time, and registers it with `UsePrincipalsFromAccessSource` and a maximum age of half an hour;
+NewHeap stores none of it. A run the manager started on a project changes its status with the rights of
+the manager's last request, and so does an agent that acts with the rights of the project's responsible
+person; the colleague without the manage permission and someone the application never saw are refused.
+Half an hour later the run is no longer offered the status tool, until the manager's next request; the
+manager's own request to the host's sign-out path forgets the rights at once. A request that an agent's
+delegated read or delegated MCP token authenticated, and an impersonation session, are not the
+manager's own (`NhAiAccessContext.IsPersonsOwnRequest`): they never renew the rights, and after sign-out
+they bring nothing back. `AssistantAccessSourceSamplesTests` shows it in a focused composition, because
+the sample's own API signs in with the NewHeap user store.
 Each run keeps its whole answer as its result (SPM-304): the follow-up's completion rules write
 "N open projects; proposed completing X, Y" with the keys of the projects they proposed, which the run
 keeps next to the small summary its next runs start from. The rules write it per culture, so an
