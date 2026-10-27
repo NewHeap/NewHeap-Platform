@@ -73,9 +73,16 @@ public class MediaLibraryService : IMediaLibraryService
         }
         
         MediaLibraryPath.Split(newPath, out var folderFullPath, out var fileName);
-        
+
+        // Storage keeps the file's name and places it in folderFullPath, so that is the destination.
+        var destination = await EnsureFileDestinationAsync(fileRef, folderFullPath, fileRef.Name);
+        if (!destination.Success)
+        {
+            return TaskResult<FileReference>.Failed(destination);
+        }
+
         MediaLibraryPath.Split(folderFullPath ?? "", out var folderPath, out var folderName);
-        
+
         var newRef = fileRef.Copy(x =>
         {
             x.Name = fileName;
@@ -110,6 +117,13 @@ public class MediaLibraryService : IMediaLibraryService
         {
             return TaskResult.Failed("File not found");
         }
+
+        var destination = await EnsureFileDestinationAsync(fileRef, fileRef.Folder.FullPath, newFilename);
+        if (!destination.Success)
+        {
+            return destination;
+        }
+
         var newRef = fileRef.Copy(x =>
         {
             x.Name = newFilename;
@@ -149,6 +163,12 @@ public class MediaLibraryService : IMediaLibraryService
         if (fileRef == null)
         {
             return TaskResult.Failed("File not found");
+        }
+
+        var destination = await EnsureFileDestinationAsync(fileRef, newPath, newFilename);
+        if (!destination.Success)
+        {
+            return destination;
         }
 
         var newRef = fileRef.Copy(x =>
@@ -241,7 +261,8 @@ public class MediaLibraryService : IMediaLibraryService
     public virtual async Task<TaskResult<FolderReference>> UpdateFolderAsync(string? path, string folderName, string? newPath,
         string newName)
     {
-        await EnsureAuthorized(MediaLibraryPath.Combine(path, folderName), null, null, ActionType.Update);
+        var sourcePath = MediaLibraryPath.Combine(path, folderName);
+        await EnsureAuthorized(sourcePath, null, null, ActionType.Update);
 
         newName = newName.Replace(NhMediaValues.DirectorySeparator, string.Empty).Trim();
 
@@ -250,7 +271,26 @@ public class MediaLibraryService : IMediaLibraryService
             return TaskResult<FolderReference>.Failed("New folder name cannot be empty or whitespace.");
         }
 
-        var reference = await _fileStructureStorage.GetFolderReferenceAsync(MediaLibraryPath.Combine(path, folderName));
+        // A folder that moves or gets another name is authorized as a folder created in its destination
+        // parent, the check a direct folder create there passes.
+        var destinationParent = MediaLibraryPath.Combine(newPath ?? NhMediaValues.DirectorySeparator);
+        var destinationPath = MediaLibraryPath.Combine(destinationParent, newName);
+        var changesLocation = !string.Equals(destinationPath, sourcePath, StringComparison.Ordinal);
+        if (changesLocation)
+        {
+            await EnsureAuthorized(destinationParent, null, null, ActionType.Create);
+        }
+
+        var reference = await _fileStructureStorage.GetFolderReferenceAsync(sourcePath);
+        if (changesLocation)
+        {
+            var existing = await _fileStructureStorage.GetFolderReferenceAsync(destinationPath);
+            if (existing?.Id is not null && existing.Id != reference?.Id)
+            {
+                return TaskResult<FolderReference>.Failed(nameof(newName), NhMediaErrorCodes.FolderNameExists);
+            }
+        }
+
         var newRef = reference.Copy(x =>
         {
             x.Path = newPath;
@@ -402,6 +442,12 @@ public class MediaLibraryService : IMediaLibraryService
             return TaskResult.Failed("Name is required");
         }
 
+        var destination = await EnsureFileDestinationAsync(reference, model.Path, model.Name);
+        if (!destination.Success)
+        {
+            return destination;
+        }
+
         var folder = await _fileStructureStorage.GetFolderReferenceAsync(model.Path);
         var newRef = reference.Copy(x =>
         {
@@ -537,6 +583,38 @@ public class MediaLibraryService : IMediaLibraryService
         {
             await handler.HandleEvent(folderEvent);
         }
+    }
+
+    /// <summary>
+    /// Authorizes the destination of a file that moves to another folder or gets another name as a file
+    /// created there, the check a direct upload to that place passes, and refuses a destination folder
+    /// that already holds another file with that name. A file that keeps its folder and name needs no
+    /// destination check.
+    /// </summary>
+    /// <remarks>
+    /// The existing-name lookup follows the storage's own path and name lookup, so it refuses exactly the
+    /// names a later path-based read, overwrite or delete could no longer tell apart.
+    /// </remarks>
+    private async Task<TaskResult> EnsureFileDestinationAsync(FileReference file, string? destinationPath,
+        string destinationName)
+    {
+        var sourcePath = MediaLibraryPath.Combine(file.Folder.FullPath);
+        var targetPath = MediaLibraryPath.Combine(destinationPath);
+        if (string.Equals(targetPath, sourcePath, StringComparison.Ordinal)
+            && string.Equals(destinationName, file.Name, StringComparison.Ordinal))
+        {
+            return TaskResult.Succeeded();
+        }
+
+        await EnsureAuthorized(targetPath, destinationName, null, ActionType.Create);
+
+        var existing = await _fileStructureStorage.GetFileAsync(targetPath, destinationName, null);
+        if (existing != null && existing.Id != file.Id)
+        {
+            return TaskResult.Failed(nameof(FileModel.Name), NhMediaErrorCodes.FileNameExists);
+        }
+
+        return TaskResult.Succeeded();
     }
 
     protected async Task EnsureAuthorized(

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c40cfc8249437f1e5ac8f3aab9d2f883fb97b4784d943b8d607789067d89b802",
-    "declarationCount": 11194,
+    "hash": "c4371b16fb927c513c10eb164ce8ea608c4d0e70969b23fdaa50a3cdd483a80c",
+    "declarationCount": 11197,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -44076,6 +44076,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContext.cs",
         "declaration": "public T Get<T>(string key) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaErrorCodes.cs",
+        "declaration": "public static class NhMediaErrorCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaErrorCodes.cs",
+        "declaration": "public const string FileNameExists = \"media.file.name-exists\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaErrorCodes.cs",
+        "declaration": "public const string FolderNameExists = \"media.folder.name-exists\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaServiceConfigurationContext.cs",
