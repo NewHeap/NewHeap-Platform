@@ -173,7 +173,7 @@
     "npm-platform-common": {
       "displayName": "@newheap/platform-common",
       "kind": "npm",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "tagPrefix": "npm-platform-common-v",
       "packageName": "@newheap/platform-common",
       "packageJson": "src/Front-end/projects/nh-common/package.json",
