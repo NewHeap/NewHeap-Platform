@@ -429,8 +429,11 @@ Repeated values and URL fragments are retained; query escaping is normalized.
 Query parameter order is not significant in these examples.
 
 Destinations containing credentials, control characters, backslashes, `//host`
-paths or non-HTTP schemes are rejected. A destination starting with `/` cannot
-redirect to the same path, even when only the query changes.
+paths or non-HTTP schemes are rejected. A destination starting with `/` is checked
+as the path the `Location` header carries, after dot segments such as `..`, `.`,
+`%2e%2e` and `%2e` are removed: `/a/..//host` resolves to `//host` and is rejected
+too. A destination starting with `/` cannot redirect to the same path, even when
+only the query changes.
 
 ## Regex redirects
 
@@ -453,6 +456,10 @@ rules**; include the query captures you want to keep in the destination.
   inputs and expanded destinations to 65,536.
 - Invalid patterns or destination templates cannot be saved. Unsafe expansions
   or input/output limits skip redirect evaluation; timeouts return HTTP 503.
+- Every expansion is validated the same way as a saved destination. A capture
+  with dot segments, for example `/old-projects/%252e%252e//host`, which the
+  server decodes once to `%2e%2e`, cannot turn `/projects/$1$2` into `//host`;
+  the request passes through instead.
 - Older proxy versions without regex support cannot load saved regex rules.
 
 ## Stored rewrites and the test tool

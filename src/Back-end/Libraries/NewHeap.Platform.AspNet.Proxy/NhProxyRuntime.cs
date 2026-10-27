@@ -13,6 +13,8 @@ namespace NewHeap.Platform.AspNet.Proxy;
 public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime
 {
     internal const string ResolutionTimeoutFailure = "Redirect resolution exceeded its configured time limit.";
+    private const string InvalidRegexDestinationFailure = "The regex produced an invalid destination. Check the capture groups and target URL.";
+    private const string InvalidDestinationFailure = "The redirect target resolves to a destination outside this origin.";
     private readonly TimeSpan _resolutionTimeout = TimeSpan.FromMilliseconds(options.Value.Limits.RedirectResolutionTimeoutMilliseconds);
     private readonly TimeProvider _timeProvider = TimeProvider.System;
     private sealed record Snapshot(long Revision, ImmutableArray<(NhProxyRedirectRule Rule, ConcurrentDictionary<int, Regex>? Patterns)> Rules);
@@ -179,6 +181,11 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                 }
 
                 location = BuildLocation(rule, context.Request.QueryString);
+                if (location is null)
+                {
+                    failure = InvalidDestinationFailure;
+                    return null;
+                }
             }
             else
             {
@@ -224,13 +231,20 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                         return null;
                     }
 
+                    // Every expansion is validated as the Location it resolves to, dot segments removed.
                     if (target.Length > 65536 || !NhProxyConfigurationValidator.IsValidTarget(target))
                     {
-                        failure = "The regex produced an invalid destination. Check the capture groups and target URL.";
+                        failure = InvalidRegexDestinationFailure;
                         return null;
                     }
 
                     location = BuildLocation(rule with { Target = target, QueryMode = NhProxyRedirectQueryMode.Replace }, QueryString.Empty);
+                    if (location is null)
+                    {
+                        failure = InvalidRegexDestinationFailure;
+                        return null;
+                    }
+
                     if (!allowSelfRedirect && target.StartsWith('/') && location.Split('#')[0] == context.Request.PathBase.ToUriComponent() + input)
                     {
                         failure = "The regex would redirect to the same request URL.";
@@ -295,11 +309,22 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
             && (configured.Port is null || configured.Port == requestHost.Port);
     }
 
-    private static string BuildLocation(NhProxyRedirectRule rule, QueryString incoming)
+    /// <summary>
+    /// Builds the Location value of a validated target. Returns <see langword="null"/> when a host-relative
+    /// target would resolve to a path that leaves the request's origin; validation already rejects those
+    /// targets, so this only keeps the invariant at the point where the header value is made.
+    /// </summary>
+    private static string? BuildLocation(NhProxyRedirectRule rule, QueryString incoming)
     {
-        var target = new Uri(new Uri("https://newheap.invalid"), rule.Target);
+        var hostRelative = rule.Target.StartsWith('/');
+        var target = new Uri(NhProxyConfigurationValidator.HostRelativeBase, rule.Target);
         target = new UriBuilder(target) { Host = target.IdnHost }.Uri;
-        var address = rule.Target.StartsWith('/') ? target.AbsolutePath : target.GetLeftPart(UriPartial.Path);
+        var address = hostRelative ? target.AbsolutePath : target.GetLeftPart(UriPartial.Path);
+        if (hostRelative && !NhProxyConfigurationValidator.IsHostRelativeLocation(address))
+        {
+            return null;
+        }
+
         var query = rule.QueryMode switch
         {
             NhProxyRedirectQueryMode.Discard => QueryString.Empty,

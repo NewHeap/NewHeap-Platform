@@ -21,6 +21,9 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
     private static readonly SearchValues<char> TokenCharacters =
         SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'*+-.^_`|~");
 
+    /// <summary>The origin against which host-relative targets are resolved, as the runtime resolves them.</summary>
+    internal static readonly Uri HostRelativeBase = new("https://newheap.invalid");
+
     public NhProxyConfigurationValidator(IOptions<NhProxyOptions> options) : this(options, null)
     {
     }
@@ -266,12 +269,24 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
 
         if (target.StartsWith('/'))
         {
+            // The Location header carries the resolved path, whose dot segments (also %2e) are removed.
+            // Validate that path, so a target such as /a/..//host cannot become the network-path //host.
             return !target.StartsWith("//", StringComparison.Ordinal)
-                && Uri.IsWellFormedUriString("https://newheap.invalid" + target, UriKind.Absolute);
+                && Uri.IsWellFormedUriString("https://newheap.invalid" + target, UriKind.Absolute)
+                && Uri.TryCreate(HostRelativeBase, target, out var resolved)
+                && IsHostRelativeLocation(resolved.AbsolutePath);
         }
 
         return Uri.TryCreate(target, UriKind.Absolute, out var uri)
             && uri.IsWellFormedOriginalString() && (uri.Scheme == "http" || uri.Scheme == "https")
             && string.IsNullOrEmpty(uri.UserInfo);
+    }
+
+    /// <summary>
+    /// Whether a host-relative location stays on the request's origin: it starts with exactly one slash.
+    /// </summary>
+    internal static bool IsHostRelativeLocation(string location)
+    {
+        return location.StartsWith('/') && !location.StartsWith("//", StringComparison.Ordinal);
     }
 }
