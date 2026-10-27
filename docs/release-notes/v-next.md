@@ -241,3 +241,27 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: live updates and notifications follow the read rule and the account
+
+Live updates, Web Push and in-app notifications reach people outside any request of theirs, so the
+assistant now applies the read rule of the conversation's snapshot when it sends them, per recipient,
+instead of sending to every stored participant row. An agent thread reaches people whom the subject's
+resolver gives a role now or who were invited, as the thread endpoints decide; a chat reaches its owner,
+and a participant while the person, as the application's
+`INhAiPrincipalFactory` rebuilds them, passes the agent's policy. Live updates reach participants only
+on hub connections signed in for a tenant that reaches the conversation. A hub connection ends when the
+token it was opened with expires, and when `INhAuthenticationSessionValidator` no longer accepts its
+principal, for example after a password change. Nothing is delivered any more to a person the platform
+no longer resolves, and forgetting a user removes what the assistant keeps to reach them.
+`INhAiSubjectAccess.RefreshAsync` removes the participant rows of people whose role on the subject ended.
+
+| Breaking change | Required action |
+|---|---|
+| Live updates of a conversation reach only the people its read rule admits when they are sent, decided again every ten seconds per person; a stale participant row of a thread reaches nobody. | None. |
+| Participants receive live updates only on hub connections signed in for a tenant that reaches the conversation; a chat's owner and a person's own read position and removal still reach all their connections. | None, unless a client follows a conversation through a sign-in for another tenant; sign in for the conversation's tenant. |
+| The assistant hub closes a connection when its token expires (`CloseOnAuthenticationExpiration`) and, within a minute, when the session validator refuses its principal. | None for `@newheap/platform-ai-chat`, which reconnects with a fresh token and reloads its snapshots; other clients reconnect on close and reload their snapshots. |
+| Web Push about a turn, an invitation or an application message, and the in-app entry of an application message, go only to the people the conversation's read rule admits when they are sent. | None. |
+| No Web Push, in-app or agent notification reaches a person for whom the principal factory, as the MCP owner sweep selects it, rebuilds nobody for the whole application, such as a deleted, blocked or locked-out account. | A host with its own `INhAiPrincipalFactory` returns a principal for every person who may still sign in when asked for `NhAiSystemSubjects.Global`, as the MCP owner sweep already expects. |
+| `INhAiSubjectAccess.RefreshAsync` also removes the participant rows that a role created for people the refreshed members leave out and the resolver gives no role; such a person loses their read position and joins again when they read the thread with a role. Invitation and link rows stay. | None; keep calling `RefreshAsync` after the people on a subject change. |
+| The assistant registers an `INhRetentionParticipant`, and `INhRetention` when none is registered: forgetting a user, as `NhUserManager.DeleteAsync` does, removes their push subscriptions, notification choice, MCP connection notices and participant rows. | None for hosts whose actor ids are user ids; a host with other actor ids removes those rows of a forgotten person in its own retention participant. |

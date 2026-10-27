@@ -205,7 +205,9 @@ without running shows `rejected` or `not-executed` instead of waiting.
 Agent-run clients refresh through the live hub: `AgentWorkChanged` tells the thread's
 participants and everyone in the subject's member snapshot that a run, a proposal or
 its feedback changed, without content, so an approval inbox updates before its owner
-opened the thread. An update that names a run, about the run or one of its proposals, also
+opened the thread. Each of them hears it only while the subject's resolver gives them a role,
+or they were invited to the thread, at the moment it is sent; the thread's messages and turn
+events follow the same rule. An update that names a run, about the run or one of its proposals, also
 reaches the person who started that run while `ResolveAsync` still gives them a role on the
 subject, also when no member list names them, and the first update of a thread whose member
 snapshot was never filled fills it. A person who starts an agent by hand therefore sees its
@@ -250,7 +252,10 @@ person and is called on every request; `ListMembersAsync` feeds the member
 snapshot that listings, notifications and live updates use. Both also run inside
 background operations, for notifications and live updates, so keep them free of
 request-only state. Call `INhAiSubjectAccess.RefreshAsync` after the people on a
-subject change. A parent is a label for grouping: the platform never resolves it or grants access
+subject change: it replaces the member snapshot and removes the participant rows that a role
+created for people it no longer lists and the resolver, asked again, gives no role on the agent's
+thread; invitations stay. Live updates and notifications ask the resolver when they are sent
+either way, so a stale row reaches nobody. A parent is a label for grouping: the platform never resolves it or grants access
 through it, its type needs no resolver (a registered type adds its name and link), and everyone who sees
 the subject's proposals reads its name, so give only a name the subject's readers may read. A subject is
 never its own parent; the platform refuses such a description.
@@ -979,7 +984,9 @@ checked when the run settings are saved.
 People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
 `INhAssistantAgentNotificationChannel`; `INhAssistantAgentNotificationPolicy` picks the
-recipients from the subject's member snapshot, by default its approvers. The proposals of a
+recipients from the subject's member snapshot, by default its approvers. Whatever it picks, a
+person the platform no longer resolves, for whom the principal factory rebuilds nobody, such as a
+deleted, blocked or locked-out account, is left out for every subject. The proposals of a
 run reach each person once per run: the policy is still asked per object
 (`RunEndedWithProposals`) or per proposal (`ProposalExpiring`, `ProposalEscalated`), and the
 platform then gives Web Push and the channels one context of `RunProposalsWaiting`,
@@ -1775,6 +1782,8 @@ instructions in full: call them for an administrator or process the application 
 - Deriving who may decide a thread's proposal in the client from the subject role alone;
   four-eyes and the tool's approve policy are part of `thread.decisions`.
 - Authorizing thread access from the member snapshot instead of the resolver.
+- Keeping a person's subject-joined participant rows after their role ended instead of calling
+  `INhAiSubjectAccess.RefreshAsync` when the people on the subject change.
 - Publishing triggers inside a transaction on a DbContext that does not hold the
   background operations, or inside an ambient `TransactionScope`, which the
   background operations do not support; the platform cannot defer such a trigger.
@@ -1941,6 +1950,13 @@ instructions in full: call them for an administrator or process the application 
   tenants or divisions, which deletes another tenant's threads with the same id.
 
 ## Verification
+
+For subject access, remove a member after they opened the thread and assert on both providers
+that the refresh removes their subject-joined participant row while an invitation stays, and that
+no live update, Web Push or in-app notification of the thread reaches them, also before the
+refresh; assert that agent notifications leave out a person the principal factory no longer
+rebuilds (`AssistantLiveReadRuleTests`, `AssistantNotificationReadRuleTests`,
+`AssistantUnresolvedPeopleTests`, SPM-270).
 
 For agent metadata, on both providers, save a value of an agent created at runtime and assert the
 agent's next version, a stale `expectedVersion` (`assistant-version-conflict`), the field errors of

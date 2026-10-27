@@ -546,8 +546,22 @@ Sharing, joining, inviting, removing and leaving are content-free audit events
 on the host's root at `NhAssistantOptions.HubPath` (`NewHeap:AI:Assistant:HubPath`,
 `/hub/assistant` by default, outside the prefix; empty turns live updates off). A
 proxy or client therefore routes both the prefix and the hub path. A connection joins
-the group of its authenticated actor, and the server decides per event who belongs to
-the conversation, so a removed participant stops receiving updates. The hub sends
+the group of its authenticated actor and the group of that actor in the tenant of its
+sign-in. The server decides per event, with the read rule the conversation's snapshot
+applies on every request, who may receive it: a chat's owner, and a participant while the
+agent works and the person, as the application's `INhAiPrincipalFactory` rebuilds them,
+passes the agent's policy; an agent thread's people while the subject's resolver gives them
+a role or they were invited, as the thread endpoints decide, for the whole application only
+those who also pass the agent's view policy. Participants receive updates only on connections signed in for a tenant that
+reaches the conversation, while a person's own read position and removal reach all their
+connections. A removed participant, a person whose role on the subject ended and one whose
+agent permission was revoked therefore stop receiving updates within ten seconds without any
+client action, also while an old participant row still names them. A connection lasts as long
+as its session: the hub closes it when the token it was opened with expires
+(`CloseOnAuthenticationExpiration`), and every minute it validates the connection's principal
+again with `INhAuthenticationSessionValidator` and closes it once a password change or reset
+changed the security stamp, the user was deleted or an impersonation's origin session ended;
+the client reconnects with its current session. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
@@ -566,13 +580,29 @@ subscribes with `PUT notifications/push-subscription`; the endpoint must be http
 host in `AllowedEndpointHosts` (the Chrome, Edge, Firefox and Safari push services by
 default), so the server never posts to an address a client chose. When a turn that ran
 at least `MinimumTurnDuration` (10 seconds) completes or fails, the owner and
-participants receive an RFC 8291 encrypted, VAPID-signed notification; an approval
+participants whom the conversation's read rule admits at that moment receive an RFC 8291
+encrypted, VAPID-signed notification; an approval
 notifies only the person who decides it, a question only its addressee with a notice of its own
 (`question-waiting`, in English or Dutch), also when another person's turn asked it, and cancelled
 turns stay silent. The payload
 carries the conversation id, a kind and short localized texts with the conversation
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
+
+Every notification reaches people outside any session of theirs, so it applies the rules at
+the moment it is sent. A notification about a conversation, by Web Push or in the
+application's inbox (a turn that ended, an invitation, an application message), goes only to
+the people the conversation's read rule admits, as the live hub does. No notification, agent
+notifications included, reaches a person the platform no longer resolves: one for whom the
+principal factory, as the MCP owner sweep selects it, rebuilds nobody, such as a deleted, blocked
+or locked-out account. A host whose factory cannot tell, without the NewHeap user manager or with
+an access source (`UsePrincipalsFromAccessSource`), keeps delivering. The assistant registers an
+`INhRetentionParticipant`: when the application forgets a user (`INhRetention.ForgetUserAsync`,
+which `NhUserManager.DeleteAsync` calls), it removes the person's push subscriptions,
+notification choice, MCP connection notices and participant rows, so no browser of theirs is
+notified again. The person's actor id is the user id as `NhActorRef.ForUser` writes it; a host
+with other actor ids removes those rows through its own retention. Conversations the person owns
+and their personal MCP connections follow their own retention.
 
 ## Structured questions
 
@@ -1103,6 +1133,9 @@ or output of the running turn, also not text written before an approval pause.
   conversation owner as the actor of every turn.
 - Committing VAPID private keys, widening `AllowedEndpointHosts` to arbitrary hosts or
   putting message content into notification texts.
+- Sending a conversation's updates or notifications to its stored participant rows without
+  its read rule, or keeping a hub connection, push subscription or participant row of a person
+  whose session ended or whose account the platform deleted.
 - Binding the assistant context to a server id without its reviewed URL, asking the model
   to repeat conversation text as tool arguments, or treating the metadata as
   authorization on the remote side.
@@ -1211,10 +1244,17 @@ person add one row without an EF Core error log and concurrent joins of differen
 stay within the participant limit; over HTTP that a wrong or revoked token fails,
 the model sees named user messages, the owner cannot decide a participant's approval,
 another participant cannot cancel, removal stops access and live updates, and the hub
-rejects anonymous connections (SPM-263). For push, check the RFC 8291 test vector,
+rejects anonymous connections (SPM-263). Over the real hub, assert on both providers that a
+thread's events reach only people whose role holds, also with a stale participant row, a chat's
+only participants who pass the agent's policy and only on connections of the chat's tenant, and
+that a connection closes when its token expires and when the session validator refuses it
+(`AssistantLiveReadRuleTests`, `AssistantHubSessionTests`). For push, check the RFC 8291 test vector,
 a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
-subscription (SPM-264). For the MCP context, read `_meta` in the server's call handler
+subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a
+participant whose role ended, who fails the agent's policy or whom the platform no longer
+resolves, and that forgetting a user removes their subscriptions, notification choice, notices
+and participant rows (`AssistantNotificationReadRuleTests`, `AssistantUnresolvedPeopleTests`). For the MCP context, read `_meta` in the server's call handler
 over the official transport: the reviewed tool receives the identities and snapshot, the
 same tool under another server id or URL receives nothing, an approved call carries its
 approval, and the snapshot refuses another person, another invocation or run, a stale
