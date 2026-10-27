@@ -177,7 +177,7 @@ The complete public-surface mapping and intended sample entry points are documen
 
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
-| SPM-106 | Typed GET | API service/request options | A typed detail request uses the uniform error flow. |
+| SPM-106 | Typed GET | API service/request options; `apiBaseUrl` and `authApiBaseUrl` matching of the authentication, active-division and server interceptors | A typed detail request uses the uniform error flow. The access token and the active division reach it because it is under the explicit `/api` base on the application's origin; a request to another origin, a look-alike host or a path such as `/apiary` receives neither. |
 | SPM-107 | POST, PUT, and DELETE | API mutation methods | All mutations use one loading and TaskResult flow. |
 | SPM-108 | Binary response | array-buffer options | Bytes are returned without JSON conversion. |
 | SPM-109 | Text response | text request options | The plain-text preview is correct. |

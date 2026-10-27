@@ -43,6 +43,8 @@ export function provideSampleProjectManagement(routes: Routes = []) {
   const newHeapConfig = new NhCommonModuleConfig({
     appDisplayName: 'Sample Project Management',
     baseUrl: window.location.origin,
+    // The access token and the active division go only to requests under these bases: on this
+    // origin, with a path that is /api or continues after /api/. Other origins receive neither.
     apiBaseUrl: SAMPLE_API_BASE_URL,
     authApiBaseUrl: SAMPLE_API_BASE_URL,
     language: 'en',

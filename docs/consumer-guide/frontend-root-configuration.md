@@ -18,16 +18,19 @@ Call `NhCommonModule.forRoot(...)` exactly once at the application root and impo
 
 GET deduplication remains GET-only, ends when the source request finalizes, and distinguishes authorization, cookie, language, and active-division headers. The library defaults for these opt-ins remain `false` for upgrade compatibility.
 
+Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/api` or `https://api.example.com`. The authentication and active-division interceptors add the access token and `X-NH-ActiveDivisionId`, and the server interceptor forwards session cookies, only to a request on the base URL's origin whose path is the base path or continues it after a `/`. An empty base stands for the application's own origin. Keep `addAuthTokensToRequests` at `true` unless the application adds the `Authorization` header itself: `false` stops the token for both bases.
+
 ## Avoid
 
 - Repeating `forRoot` in a lazy feature or standalone component.
 - Turning a recommended sample opt-in into a new global library default.
 - Deduplicating POST, PUT, PATCH, or DELETE requests.
 - Duplicating enum labels or numeric assumptions in templates.
+- Leaving the API bases empty when the API runs on another origin, or adding the access token to other origins in an interceptor of your own.
 
 ## Verification
 
-Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value.
+Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that an API request carries the access token and active division, and that another origin, a look-alike host and a path beside the base receive neither.
 
 ## Executable evidence
 
@@ -46,3 +49,8 @@ Test with the opt-ins enabled in the consumer and test the library defaults sepa
   - [src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts)
   - [src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html)
   - [../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts)
+- SPM-106 — Typed GET
+  - [src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts)
+  - [src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs)
+  - [src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts)

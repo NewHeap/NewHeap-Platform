@@ -241,3 +241,22 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## @newheap/platform-common: credentials go only to the configured API
+
+`NhApiAuthInterceptor`, `NhActiveDivisionInterceptor` and `NhServerHttpInterceptor` now compare a
+request with `apiBaseUrl` and `authApiBaseUrl` by origin and path instead of by string prefix. Both
+URLs are resolved against the document as the browser resolves them, and a request matches when it
+has the base URL's scheme, host and port and its path is the base path or continues it after a `/`,
+in any letter case. An empty base URL, the default, stands for the application's own origin:
+relative and same-origin requests still match, while a request to another origin no longer receives
+the access token, `X-NH-ActiveDivisionId` or, in a server render, the forwarded session cookies, and
+its `Set-Cookie` is no longer relayed. Before, an empty base matched every URL and
+`https://api.example.com` also matched `https://api.example.com.attacker.example`. A relative base
+such as `/api` now also matches absolute URLs on the application's own origin.
+
+| Breaking change | Required action |
+|---|---|
+| With an empty `apiBaseUrl` or `authApiBaseUrl`, requests to another origin no longer receive the access token, the active division or forwarded server cookies. | Set `apiBaseUrl` and `authApiBaseUrl` to the API's URL, for example `https://api.example.com`, when the API runs on another origin. |
+| A base URL matches only at a path-segment boundary: `/api` no longer matches `/apiary` or `/api-docs`, and `https://api.example.com/v1` no longer matches `/v10`. | Configure the base path that the API's requests start with. |
+| `addAuthTokensToRequests: false` now also stops the access token on `authApiBaseUrl` requests, such as logout, impersonation and the two-factor account settings. | Keep the default `true`, or add the `Authorization` header to those requests yourself. |

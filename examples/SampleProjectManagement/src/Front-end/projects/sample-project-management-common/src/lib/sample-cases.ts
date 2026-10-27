@@ -1544,13 +1544,16 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-106",
     "title": "Typed GET",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "API service/request options",
-    "outcome": "A typed detail request uses the uniform error flow.",
+    "surface": "API service/request options; apiBaseUrl and authApiBaseUrl matching of the authentication, active-division and server interceptors",
+    "outcome": "A typed detail request uses the uniform error flow. The access token and the active division reach it because it is under the explicit `/api` base on the application's origin; a request to another origin, a look-alike host or a path such as `/apiary` receives neither.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Front-end/projects/nh-common/src/lib/interceptors/nh-http-interceptors.spec.ts"
     ]
   },
   {

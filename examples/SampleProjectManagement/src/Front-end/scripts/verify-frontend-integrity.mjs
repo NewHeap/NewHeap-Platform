@@ -50,6 +50,12 @@ assert.match(providers, /culture:\s*'en-US'/,
   'The sample must start with an English culture.');
 assert.match(providers, /defaultCulture:\s*'en-US'/,
   'The sample must use an English fallback culture.');
+assert.match(providers, /apiBaseUrl:\s*SAMPLE_API_BASE_URL/,
+  'The sample must name its API base explicitly, so the interceptors send credentials only to the API.');
+assert.match(providers, /authApiBaseUrl:\s*SAMPLE_API_BASE_URL/,
+  'The sample must name its authentication API base explicitly, so the interceptors send credentials only to the API.');
+assert.match(connectionState, /export const SAMPLE_API_BASE_URL = '\/api';/,
+  'The sample API base must be the same-origin /api path that the development proxy serves.');
 assert.match(managementIndex, /<html\s+lang="en">/,
   'The management document language must default to English.');
 assert.match(workspaceIndex, /<html\s+lang="en">/,

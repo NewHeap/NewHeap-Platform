@@ -14,6 +14,7 @@ import {NhCommonConfig, NhCommonModuleConfig} from "../models/config.models";
 import {NhCookieService} from "../services/nh-cookie.service";
 import {NhAuthService} from "../services/nh-auth.service";
 import {Cookie} from "../util/though-cookie-custom/cookie";
+import {nhIsRequestToBaseUrl} from "./nh-api-base-url";
 
 @Injectable({
   providedIn: 'root'
@@ -44,8 +45,8 @@ export class NhServerHttpInterceptor implements HttpInterceptor {
   }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    const normalizedReqUrl = req.url?.trim()?.toLowerCase() ?? '';
-    const isApiRequest = normalizedReqUrl.startsWith(this.moduleConfig.apiBaseUrl);
+    // Session cookies are forwarded to, and taken from, the configured API only.
+    const isApiRequest = nhIsRequestToBaseUrl(req.url, this.moduleConfig.apiBaseUrl, this.document);
 
     const handleExpiredHeaderDetected = (event: HttpResponse<any>) => {
       if (event.headers.has('X-Expired-Authentication')) {
