@@ -1,20 +1,24 @@
 using AwesomeAssertions;
 using Microsoft.Data.SqlClient;
 using NewHeap.Platform.Tests.Relational;
+using System.Data.Common;
 using Xunit;
 
 namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 
 /// <summary>
 /// SQL Server principal verification reads the permission catalog, which a concurrent change of
-/// logins or grants locks. A transaction that grants a permission on a login and stays open holds
-/// those locks for as long as the test wants: the verification must wait it out with retries,
-/// yield deadlocks to the other session, and fail rather than pass when the conflict outlasts the
-/// request's timeout.
+/// grants locks. A transaction that grants a permission on a role and stays open holds those locks
+/// for as long as the test wants: the verification must wait it out with retries, yield deadlocks to
+/// the other session, and fail rather than pass when the conflict outlasts the request's timeout.
 /// </summary>
 /// <remarks>
-/// The logins belong to the server that the test process shares, so their names start with the
-/// name of the test's own database, and the test drops them when it ends.
+/// The open grant stays inside the test's own database: a grant on a login would lock permission
+/// rows in <c>master</c>, which the verifications of every other test on the shared server read, and
+/// stall them for as long as the grant stays open. The test opens every connection it needs before
+/// it starts the grant, so none of them has to log in while the grant holds its locks. The reader's
+/// login belongs to the shared server, so its name starts with the name of the test's database, and
+/// the test drops it when it ends.
 /// </remarks>
 public sealed class DatabaseReadVerificationLockConflictTests
 {
@@ -22,7 +26,7 @@ public sealed class DatabaseReadVerificationLockConflictTests
 
     /// <summary>
     /// A short lock timeout, so a blocked attempt ends quickly, and a request timeout that leaves
-    /// time for the attempts after the conflict ends, also while other tests change logins.
+    /// time for the attempts after the conflict ends.
     /// </summary>
     private static readonly DatabaseReadLimits Limits = new(10, 15, 500, 65_536, 4_096, 8_192);
 
@@ -38,19 +42,19 @@ public sealed class DatabaseReadVerificationLockConflictTests
             await RelationalTestServer.For(RelationalTestProvider.SqlServer).CreateDatabaseAsync("lockconflict"));
         var master = new SqlConnectionStringBuilder(admin.ConnectionString) { InitialCatalog = "master" };
         var reader = admin.InitialCatalog + "_reader";
-        var grantee = admin.InitialCatalog + "_grantee";
-        var target = admin.InitialCatalog + "_target";
+        const string grantee = "diagnostic_grantee";
+        const string role = "diagnostic_role";
         var passwordKeyword = "PASS" + "WORD";
-        await ExecuteAsync(
-            master.ConnectionString,
-            $"""
-            CREATE LOGIN [{reader}] WITH {passwordKeyword} = '{Password}';
-            CREATE LOGIN [{grantee}] WITH {passwordKeyword} = '{Password}';
-            CREATE LOGIN [{target}] WITH {passwordKeyword} = '{Password}';
-            """);
+        await ExecuteAsync(master.ConnectionString, $"CREATE LOGIN [{reader}] WITH {passwordKeyword} = '{Password}';");
         await ExecuteAsync(
             admin.ConnectionString,
-            $"CREATE USER [{reader}] FOR LOGIN [{reader}]; CREATE TABLE dbo.Items (Id int); GRANT SELECT ON dbo.Items TO [{reader}];");
+            $"""
+            CREATE USER [{reader}] FOR LOGIN [{reader}];
+            CREATE USER [{grantee}] WITHOUT LOGIN;
+            CREATE ROLE [{role}];
+            CREATE TABLE dbo.Items (Id int);
+            GRANT SELECT ON dbo.Items TO [{reader}];
+            """);
         var readerConnectionString = new SqlConnectionStringBuilder(admin.ConnectionString)
         {
             UserID = reader,
@@ -62,23 +66,23 @@ public sealed class DatabaseReadVerificationLockConflictTests
 
         try
         {
-            await using (var blocker = await BeginConflictingGrantAsync(master.ConnectionString, grantee, target))
-            await using (var connection = provider.CreateConnection(
-                             readerConnectionString,
-                             Guid.NewGuid().ToString("N"),
-                             Limits))
+            await using (var monitor = await OpenAsync(admin.ConnectionString))
+            await using (var connection = await OpenVerificationConnectionAsync(provider, readerConnectionString, Limits))
+            await using (var blocker = await BeginConflictingGrantAsync(admin.ConnectionString, role, grantee))
             {
-                await connection.OpenAsync();
+                (await CountLocksInMasterAsync(monitor, blocker.SessionId)).Should().Be(
+                    0,
+                    "the open grant must not lock anything that other tests' sessions read in master");
                 var sessionId = await GetSessionIdAsync(connection);
                 var verification = provider.VerifyReadOnlyPrincipalAsync(connection, Limits, CancellationToken.None);
 
                 try
                 {
-                    var firstAttempt = await WaitForBlockedVerificationAsync(master.ConnectionString, sessionId, null);
+                    var firstAttempt = await WaitForBlockedVerificationAsync(monitor, sessionId, null);
                     firstAttempt.DeadlockPriority.Should().Be(
                         -5,
                         "the verification yields deadlocks to the other session");
-                    await WaitForBlockedVerificationAsync(master.ConnectionString, sessionId, firstAttempt.StartTime);
+                    await WaitForBlockedVerificationAsync(monitor, sessionId, firstAttempt.StartTime);
                 }
                 finally
                 {
@@ -91,14 +95,9 @@ public sealed class DatabaseReadVerificationLockConflictTests
                 (await verification).Should().Be(new DatabaseReadPrincipalVerification(true));
             }
 
-            await using (var blocker = await BeginConflictingGrantAsync(master.ConnectionString, grantee, target))
+            await using (var connection = await OpenVerificationConnectionAsync(provider, readerConnectionString, ShortLimits))
+            await using (var blocker = await BeginConflictingGrantAsync(admin.ConnectionString, role, grantee))
             {
-                await using var connection = provider.CreateConnection(
-                    readerConnectionString,
-                    Guid.NewGuid().ToString("N"),
-                    ShortLimits);
-                await connection.OpenAsync();
-
                 var verify = () => provider.VerifyReadOnlyPrincipalAsync(connection, ShortLimits, CancellationToken.None);
 
                 var failure = await verify.Should().ThrowAsync<SqlException>();
@@ -109,45 +108,53 @@ public sealed class DatabaseReadVerificationLockConflictTests
         finally
         {
             await ExecuteAsync(admin.ConnectionString, $"DROP USER [{reader}];");
-            await DropLoginsAsync(master.ConnectionString, reader, grantee, target);
+            await ExecuteAsync(master.ConnectionString, $"DROP LOGIN [{reader}];");
         }
     }
 
     /// <summary>
-    /// Grants a permission on one login to another in a transaction that stays open, so the grant's
-    /// catalog row and the login's permission metadata stay locked until the test ends it.
+    /// Grants a permission on a role of the test's database in a transaction that stays open, so the
+    /// grant's catalog row and the role's permission metadata stay locked until the test ends it.
     /// </summary>
     private static async Task<OpenGrant> BeginConflictingGrantAsync(
-        string masterConnectionString,
-        string grantee,
-        string target)
+        string databaseConnectionString,
+        string role,
+        string grantee)
     {
-        var connection = new SqlConnection(masterConnectionString);
-        await connection.OpenAsync();
+        var connection = await OpenAsync(databaseConnectionString);
         var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = $"GRANT ALTER ON LOGIN::[{target}] TO [{grantee}];";
-        await command.ExecuteNonQueryAsync();
+        command.CommandText = $"GRANT ALTER ON ROLE::[{role}] TO [{grantee}]; SELECT CAST(@@SPID AS smallint);";
+        var sessionId = (short)(await command.ExecuteScalarAsync())!;
 
-        return new OpenGrant(connection, transaction);
+        return new OpenGrant(connection, transaction, sessionId);
+    }
+
+    private static async Task<DbConnection> OpenVerificationConnectionAsync(
+        SqlServerDatabaseReadProvider provider,
+        string readerConnectionString,
+        DatabaseReadLimits limits)
+    {
+        var connection = provider.CreateConnection(readerConnectionString, Guid.NewGuid().ToString("N"), limits);
+        await connection.OpenAsync();
+
+        return connection;
     }
 
     /// <summary>
-    /// Waits until the verification of the request waits for a lock, in an attempt that started
+    /// Waits until the verification on the session waits for a lock, in an attempt that started
     /// after <paramref name="after"/> when it is given. The bound only matters when the test fails.
     /// </summary>
     private static async Task<BlockedAttempt> WaitForBlockedVerificationAsync(
-        string masterConnectionString,
+        SqlConnection monitor,
         short sessionId,
         DateTime? after)
     {
-        await using var connection = new SqlConnection(masterConnectionString);
-        await connection.OpenAsync();
         var deadline = DateTime.UtcNow.AddSeconds(30);
         while (true)
         {
-            await using (var command = connection.CreateCommand())
+            await using (var command = monitor.CreateCommand())
             {
                 command.CommandText =
                     """
@@ -173,15 +180,21 @@ public sealed class DatabaseReadVerificationLockConflictTests
         }
     }
 
-    private static async Task DropLoginsAsync(string masterConnectionString, params string[] logins)
+    private static async Task<int> CountLocksInMasterAsync(SqlConnection monitor, short sessionId)
     {
-        foreach (var login in logins)
-        {
-            await ExecuteAsync(masterConnectionString, $"DROP LOGIN [{login}];");
-        }
+        await using var command = monitor.CreateCommand();
+        command.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM sys.dm_tran_locks
+            WHERE request_session_id = @sessionId AND resource_database_id = 1
+            """;
+        command.Parameters.AddWithValue("@sessionId", sessionId);
+
+        return (int)(await command.ExecuteScalarAsync())!;
     }
 
-    private static async Task<short> GetSessionIdAsync(System.Data.Common.DbConnection connection)
+    private static async Task<short> GetSessionIdAsync(DbConnection connection)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT CAST(@@SPID AS smallint);";
@@ -189,10 +202,17 @@ public sealed class DatabaseReadVerificationLockConflictTests
         return (short)(await command.ExecuteScalarAsync())!;
     }
 
+    private static async Task<SqlConnection> OpenAsync(string connectionString)
+    {
+        var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        return connection;
+    }
+
     private static async Task ExecuteAsync(string connectionString, string sql)
     {
-        await using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
+        await using var connection = await OpenAsync(connectionString);
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         await command.ExecuteNonQueryAsync();
@@ -200,9 +220,12 @@ public sealed class DatabaseReadVerificationLockConflictTests
 
     private sealed record BlockedAttempt(DateTime StartTime, int DeadlockPriority);
 
-    private sealed class OpenGrant(SqlConnection connection, SqlTransaction transaction) : IAsyncDisposable
+    private sealed class OpenGrant(SqlConnection connection, SqlTransaction transaction, short sessionId)
+        : IAsyncDisposable
     {
         public SqlTransaction Transaction { get; } = transaction;
+
+        public short SessionId { get; } = sessionId;
 
         public async ValueTask DisposeAsync()
         {
