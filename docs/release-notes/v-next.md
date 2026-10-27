@@ -339,3 +339,17 @@ rolled the transaction back. The policy now refuses these functions, and the `pg
 | Breaking change | Required action |
 |---|---|
 | A PostgreSQL diagnostic query that calls one of these functions is refused before execution. | Send the SQL text that the function would run as the diagnostic `SELECT` itself. |
+
+## NewHeap.Platform.DatabaseRead.Tool: credential-bearing tables stay outside the diagnostic grants
+
+The read-only diagnostics guidance, the tool README and the sample's database-read instructions now
+name the platform tables that hold credentials and must stay outside the diagnostic principal's
+SELECT allowlist: the refresh tokens (`NhUserAuthRefreshToken` by default), `AspNetUserTokens` and
+`NotificationDeliveries`, and the `PasswordHash` and `SecurityStamp` columns of `AspNetUsers`. A
+database-wide read grant, such as `db_datareader`, database-level or schema-level SELECT,
+`pg_read_all_data` or `GRANT SELECT ON ALL TABLES`, includes them, and principal verification
+accepts it because it is read-only. The tool's behavior does not change.
+
+| Breaking change | Required action |
+|---|---|
+| None. | Revoke SELECT on these tables and columns from the diagnostic principal, and replace a database-wide read grant on a platform database with per-table, view or column grants. |

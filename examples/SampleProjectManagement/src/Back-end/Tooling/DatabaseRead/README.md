@@ -17,7 +17,11 @@ database timeout. Each query call must state `requestedRows` between 1 and 1,000
 An excessive request fails before execution, and an actual result above that
 requested limit fails without returning partial data. The database credential
 still provides the security boundary and must be a dedicated principal with only
-the required `CONNECT`, schema usage and `SELECT` grants.
+the required `CONNECT`, schema usage and `SELECT` grants. Grant SELECT per table,
+view or column, and never on the platform's credential-bearing tables: the refresh
+tokens (`NhUserAuthRefreshToken`), `AspNetUserTokens` and `NotificationDeliveries`,
+nor on the `PasswordHash` and `SecurityStamp` columns of `AspNetUsers`. A
+database-wide read grant such as `pg_read_all_data` would include them.
 
 ## Direct fast path for agents
 

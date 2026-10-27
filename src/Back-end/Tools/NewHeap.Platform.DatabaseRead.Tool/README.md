@@ -378,6 +378,17 @@ cancellation. Exit code `1` is reserved for an unexpected tool failure.
 - Prefer a read replica or masked diagnostic views for production data.
 - Grant access only to schemas, views and columns approved for the developers or
   agents that will consume the output.
+- Keep the NewHeap platform's credential-bearing tables outside the SELECT
+  allowlist: the refresh tokens (`NhUserAuthRefreshToken` by default),
+  `AspNetUserTokens` (authenticator keys and recovery codes) and
+  `NotificationDeliveries` (delivery payloads, including e-mailed sign-in and
+  confirmation codes). Grant `AspNetUsers` only by column, without
+  `PasswordHash` and `SecurityStamp`.
+- On a database that holds those tables, grant SELECT per table, view or column.
+  A database-wide read grant, such as `db_datareader`, database-level or
+  schema-level SELECT, PostgreSQL `pg_read_all_data` or
+  `GRANT SELECT ON ALL TABLES`, includes them. Principal verification accepts
+  such grants because they are read-only, so it cannot catch this.
 - Treat query results as potentially sensitive data even though configuration
   secrets are not displayed.
 - Treat index metadata as query-design evidence, not as permission to run an
