@@ -851,8 +851,10 @@ public sealed class NhAssistantAgentRunBuilder
 
     /// <summary>
     /// Starts the agent in shadow mode: it reads and proposes in shadow threads, but nobody is
-    /// notified and nothing executes, so a team can evaluate it on real events. An administrator
-    /// puts it live at runtime without a deploy.
+    /// notified and nothing executes, so a team can evaluate it on real events. Every effect a run
+    /// calls there becomes a shadow proposal, also one the effect policy would run without approval;
+    /// a tool that issues or authorizes its own approval is refused. An administrator puts it live at
+    /// runtime without a deploy.
     /// </summary>
     public NhAssistantAgentRunBuilder Shadow(bool enabled = true)
     {

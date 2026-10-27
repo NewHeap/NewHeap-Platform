@@ -142,9 +142,13 @@ public sealed record NhAssistantApplicationMessageAccess
     public NhAssistantConversationPerson? Person { get; }
 
     /// <summary>
-    /// Posts only when <paramref name="person"/> may open the conversation, as its owner or as a
-    /// participant of the same tenant; any other conversation is
-    /// <c>assistant-conversation-not-found</c>. Choose it whenever a client named the conversation.
+    /// Posts only when <paramref name="person"/> may open the conversation now: a chat as its owner or
+    /// as a participant of the same tenant; an agent thread by the live read rule, so with a live role
+    /// on the thread's subject or an invitation to the thread, never through a participant row left
+    /// from an earlier role, never in a shadow thread or a thread of a shadow variant, and only in the
+    /// person's tenant or the whole application they take part in. Any other conversation is
+    /// <c>assistant-conversation-not-found</c>, and nothing is stored, shown or notified. Choose it
+    /// whenever a client named the conversation.
     /// </summary>
     public static NhAssistantApplicationMessageAccess ReadableBy(NhAssistantConversationPerson person)
     {

@@ -1118,8 +1118,9 @@ internal sealed class NhAssistantToolCallInterceptor(
                 ? NhAiApprovalMode.Deferred
                 : policy.Mode;
         // A run in a shadow thread proposes only shadow proposals, which never execute; a proposal it
-        // places waits in the agent's shadow thread at the object.
-        var shadow = agentTurn is { RunId: not null } && agentTurn.Thread.Shadow;
+        // places waits in the agent's shadow thread at the object. Its agent scope requires approval
+        // for every effect, so each effect it calls arrives here as a proposal.
+        var shadow = agentTurn is not null && NhAssistantTurnRunner.IsShadowRunTurn(agentTurn);
         var bindPrompt = policy is null || policy.BindTo == NhAiApprovalBinding.ToolContractAndPrompt;
         var lifetime = policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime;
         // The thread the proposal waits in: the run's own, or the agent's thread at the object.

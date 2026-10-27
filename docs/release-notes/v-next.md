@@ -274,6 +274,63 @@ change.
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
 
+## NewHeap.Platform.AI.Chat: a shadow run executes no effect
+
+Shadow is now part of the effect decision. A run in an agent's shadow thread (an agent, skill or data
+trigger in shadow, a shadow variant, a skill or trigger candidate, a replay) needs an approval for
+every effect it calls, whatever the effect policy decides, and records it as a shadow proposal that
+never executes. Before, an effect the policy runs without approval ran live: an idempotent mutation
+with `Approval = NotRequired`, the generated `assistant.request.*` tool, an `Issuer` or
+`ConsumerAuthoritative` tool of an agent that answers to a technical account or the subject's
+responsible person, and an imported MCP tool that the application's effect policy allows. A read runs
+as before; the generated consult tool, a read, refuses a shadow run itself (see "shadow runs consult and
+request no live agent"). Live runs, people's turns and consultations decide as before.
+
+| Breaking change | Required action |
+|---|---|
+| A run in a shadow thread records a call of an effect the policy allows without approval as a shadow proposal instead of running it, and refuses an `Issuer` or `ConsumerAuthoritative` tool with `ai-tool-effect-denied`. | None; put the agent, skill or trigger live to let it act. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off follow-up of shadow work stays in shadow
+
+A hand-off with `NotifySource()` sent its follow-up (`agent-handoff-ended`) into the source agent's live
+thread whatever had worked in shadow, so a live source that handed work to an agent in shadow started a
+live run and its thread's readers read the shadow run's summary. When the target's run or the handing
+run worked in shadow, the follow-up now goes to the source agent's shadow thread of the subject, where
+nobody is notified and nothing executes, whatever the source's mode is by then. While the source agent
+or skill is paused, such a follow-up is ignored instead of waiting for a resume.
+
+| Breaking change | Required action |
+|---|---|
+| The follow-up of a hand-off whose target or source run worked in shadow starts a run in the source agent's shadow thread instead of its live thread, and is ignored while the source is paused. | None; read the follow-up in the source's shadow thread while the target is evaluated. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a hand-off summary reaches only the target's audience
+
+A hand-off follow-up copied the target run's summary into the source's thread whenever both agents
+worked on the same subject, so every reader of the source's thread read an answer meant for the
+target's audience. The summary is now copied only when every reader of the thread that receives the
+follow-up may read the target's thread: the target's required policy, and for the whole application
+its view policy, names no policy or the source's own, and every person invited to that thread may read
+the target's thread too. Otherwise the follow-up names the outcome and the number of proposals only.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantHandOffResult.Summary` is `null`, and the follow-up's text names no summary, when the target has a required or view policy the source does not share or a person invited to the source's thread may not read the target's. | None; give both agents the same policies when the source must read the target's answer. |
+
+## NewHeap.Platform.AI.Chat: application messages readable by a person follow the live read rule in agent threads
+
+`NhAssistantApplicationMessageAccess.ReadableBy(person)` accepted an agent thread as soon as the person
+had a participant row, which a role on the thread's subject leaves behind and which outlived that role
+until the person opened the thread again. For an agent thread the post now applies the live read rule
+before anything is stored, shown or notified: never a shadow thread or a thread of a shadow variant,
+only a thread of the person's tenant or of the whole application they take part in, and only with a
+live role on the thread's subject or an invitation to the thread. Chats keep their rule: the owner or a
+participant of the same tenant.
+
+| Breaking change | Required action |
+|---|---|
+| `PostAsync` with `ReadableBy` answers `assistant-conversation-not-found` for an agent thread whose subject the person no longer has a role on, a shadow thread and another tenant's thread, also when a participant row remains. | None; such a person may no longer open the thread. |
+| `PostAsync` with `ReadableBy` posts into an agent thread of a person with a live role on its subject who never opened it; before, it answered `assistant-conversation-not-found`. | None, unless the application relied on the refusal; check the person's role itself before posting. |
+
 ## @newheap/platform-common: credentials go only to the configured API
 
 `NhApiAuthInterceptor`, `NhActiveDivisionInterceptor` and `NhServerHttpInterceptor` now compare a
@@ -484,15 +541,19 @@ subject types are unchanged.
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: shadow runs consult and request no live agent
 
-A run in an agent's shadow thread that calls the generated consult or request tool of another agent is
-now refused with `assistant-consult-agent-unavailable`, as a hand-off from shadow work to a live agent
-already is. The consulted agent records no consultation in its live thread, leaves no proposal for its
-subject's approvers, notifies nobody and starts no run, so evaluating an agent in shadow, a new data
-trigger included, never changes live work. Runs in live threads and people's own chats are unchanged.
+A run in an agent's shadow thread never consults or requests another agent, as a hand-off from shadow
+work to a live agent is already refused. The generated consult tool, which reads, is refused with
+`assistant-consult-agent-unavailable`. The generated request tool is an effect, so the shadow run's
+effect decision records the call as a shadow proposal that never executes before the tool runs (see "a
+shadow run executes no effect"); the request tool refuses a call from a shadow run itself as well. The
+other agent records no consultation, gets no thread, input or run, leaves no proposal for its subject's
+approvers and notifies nobody, so evaluating an agent in shadow, a new data trigger included, never
+changes live work. Runs in live threads and people's own chats are unchanged.
 
 | Breaking change | Required action |
 |---|---|
-| The consult and request tools refuse a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult and request other agents. |
+| The consult tool refuses a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult other agents. |
+| The request tool's call from a run in a shadow thread is recorded as a shadow proposal and starts no run of the other agent. | None; put the asking agent or its trigger live to let its runs request other agents. |
 
 ## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a claimed delivery stays deduplicated
 

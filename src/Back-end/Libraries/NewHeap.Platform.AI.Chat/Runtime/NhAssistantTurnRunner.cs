@@ -821,7 +821,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 Limits = registration.Limits,
                 BudgetPurpose = NhAiBudgetPurposes.ProposalExecution,
                 RunId = approval.RunId,
-                ShadowRun = request.AgentTurn is { RunId: not null } executedFor && executedFor.Thread.Shadow,
+                ShadowRun = request.AgentTurn is { } executedFor && IsShadowRunTurn(executedFor),
                 SkillId = request.AgentTurn?.SkillId
             },
             Conversation = conversation,
@@ -1323,8 +1323,13 @@ internal sealed partial class NhAssistantTurnRunner(
             IsRequestTurn = agentTurn.IsRequestTurn,
             Grants = delegatedOnly ? [] : agentTurn.Options.Grants,
             ElevatedReads = agentTurn.Options.ElevatedReads,
-            // A consultation and the agent's rules only propose: nothing changes without approval.
-            RequireApprovalForEffects = consultation is not null || state.RuleTurn,
+            // A consultation, the agent's rules and every run turn in a shadow thread only propose:
+            // nothing changes without approval, whatever the effect policy allows, and a run in a
+            // shadow thread records its proposals as shadow proposals, which never execute. A tool
+            // that issues or authorizes its own approval does not run there at all.
+            RequireApprovalForEffects = consultation is not null
+                || state.RuleTurn
+                || IsShadowRunTurn(agentTurn),
             // Gateway reads with the accountable person's credential, in headless turns only: a
             // consultation and a turn inside a person's request read with that person's own rights.
             AllowGatewayReads = agentTurn.Options.AllowGatewayReads
@@ -1348,6 +1353,21 @@ internal sealed partial class NhAssistantTurnRunner(
             PromptHash = state.Scope.PromptHash,
             FencingToken = agentTurn.FencingToken
         };
+    }
+
+    /// <summary>
+    /// Whether the turn is a run's turn in the agent's shadow thread: the work of an agent, skill or
+    /// data trigger in shadow, a shadow variant, a candidate or a replay. The one rule for shadow work
+    /// in a turn: its agent scope requires approval for every effect, so an effect, such as the
+    /// generated request tool, becomes a shadow proposal before its handler runs
+    /// (<see cref="NhAssistantToolCallInterceptor"/>), and <see cref="NhAssistantTurnScope.ShadowRun"/>
+    /// lets the consultation service and the request tool refuse what still reaches them, such as the
+    /// consult tool, which only reads. Shadow work reaches no live agent and executes nothing.
+    /// </summary>
+    internal static bool IsShadowRunTurn(NhAssistantAgentTurnContext agentTurn)
+    {
+        ArgumentNullException.ThrowIfNull(agentTurn);
+        return agentTurn.RunId is not null && agentTurn.Thread.Shadow;
     }
 
     /// <summary>
@@ -3144,7 +3164,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 BudgetPurpose = agentTurn is null ? NhAiBudgetPurposes.Chat : NhAiBudgetPurposes.AgentRun,
                 RunId = agentTurn?.RunId,
                 // A run in a shadow thread is evaluated, as its proposals are: it reaches no live agent.
-                ShadowRun = agentTurn is { RunId: not null } && agentTurn.Thread.Shadow,
+                ShadowRun = agentTurn is not null && IsShadowRunTurn(agentTurn),
                 Channel = channel
             },
             Conversation = conversation,

@@ -551,6 +551,38 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_312_an_analysis_that_names_a_projects_agent_thread_tells_only_a_person_who_may_read_it_now()
+    {
+        // The client names the conversation of the analysis notice, so the notice is readable by the
+        // person who started the analysis. For an agent thread that means the live read rule.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var project = await host.CreateProjectAsync("NOTICE", ownerId: host.OwnerId);
+        var readerMembership = await host.AddMemberAsync(project, host.ReaderId, ProjectMemberRole.Reader);
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: null));
+        var conversationId = receipt.ConversationId!.Value;
+        using var reader = host.CreateClient(host.ReaderId.ToString());
+        // The reader opens the intake reviewer's thread while a member of the project and keeps its id.
+        Assert.Equal(HttpStatusCode.OK, (await reader.GetAsync($"/api/assistant/conversations/{conversationId}", cancellationToken)).StatusCode);
+        await host.RemoveMemberAsync(readerMembership);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var notices = scope.ServiceProvider.GetRequiredService<ProjectAnalysisAssistantNotices>();
+        // The reader's role ended, so the analysis they start with the thread's id tells them nothing
+        // there; the participant row of their earlier visit gives no access.
+        var former = await notices.AnalysisFinishedAsync(conversationId, host.ReaderId, Guid.NewGuid(), host.DivisionId, 3, cancellationToken);
+        // The project's owner may read the thread now, without having opened it.
+        var owner = await notices.AnalysisFinishedAsync(conversationId, host.OwnerId, Guid.NewGuid(), host.DivisionId, 3, cancellationToken);
+
+        Assert.False(former.Success);
+        Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, former.GetResultItems().First().Name);
+        Assert.True(owner.Success);
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events
+            .Where(evt => evt.Kind == NhAssistantAuditEventKind.ApplicationMessagePosted && evt.ConversationId == conversationId)
+            .ToArray();
+        Assert.Equal(2, audit.Length);
+    }
+
+    [Fact]
     public async Task An_approved_proposal_for_a_project_edited_since_closes_as_stale()
     {
         // SPM-271
@@ -3107,6 +3139,55 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         finally
         {
             host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
+    public async Task The_planner_hands_a_finished_project_to_the_closer_in_shadow_and_hears_its_answer_only_in_its_shadow_thread()
+    {
+        // SPM-287
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        const string closer = SampleProjectCloserComposition.AgentId;
+        var project = await host.CreateProjectAsync("HANDOFF-SHADOW", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(5));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var design = await host.CreateTaskAsync(project, "Approve the design");
+        var delivery = await host.CreateTaskAsync(project, "Deliver the release");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // While the team evaluates the closer in shadow, the planner works live.
+            await ChangeShadowAsync(closer, SampleShadowChange.Shadow, "Evaluate the closing rules");
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(design, host.ParticipantId));
+            var plannerThread = await WaitForThreadAsync(colleague, project, planner);
+            await WaitForRunCountAsync(colleague, plannerThread, 1);
+            var closerShadow = await WaitForShadowThreadAsync(administrator, project, closer);
+            await WaitForRunCountAsync(administrator, closerShadow, 1);
+
+            // The last task: the live planner hands the project to the closer, which answers in its
+            // shadow thread.
+            await host.DeliverAsync(await host.CompleteTaskByHandAsync(delivery, host.ParticipantId));
+            var handedOff = await WaitForRunWithTriggerAsync(administrator, closerShadow, NhAssistantTriggerIds.HandOff);
+            Assert.True(
+                handedOff.Shadow && handedOff.RequestedByAgentId == planner,
+                $"Expected the closer's hand-off run in shadow, requested by {planner}; found {Describe(handedOff)}.");
+
+            // Shadow work never starts live work: the planner hears how the closer's run ended in its
+            // own shadow thread, which only administrators see, and no live planner run reads the
+            // closer's shadow answer.
+            var plannerShadow = await WaitForShadowThreadAsync(administrator, project, planner);
+            var answered = await WaitForRunWithTriggerAsync(administrator, plannerShadow, NhAssistantTriggerIds.HandOffEnded);
+            Assert.True(answered.Shadow, $"Expected the planner's follow-up in shadow; found {Describe(answered)}.");
+            var liveRuns = await RunsAsync(colleague, plannerThread);
+            Assert.True(
+                liveRuns.All(run => run.TriggerId != NhAssistantTriggerIds.HandOffEnded),
+                $"Expected no follow-up in the planner's live thread {plannerThread}; found {string.Join("; ", liveRuns.Select(Describe))}.");
+            Assert.Equal(HttpStatusCode.NotFound, (await colleague.GetAsync($"/api/assistant/conversations/{plannerShadow}")).StatusCode);
+        }
+        finally
+        {
+            // Other samples share the host and its closer.
+            await ChangeShadowAsync(closer, SampleShadowChange.Code, null);
         }
     }
 

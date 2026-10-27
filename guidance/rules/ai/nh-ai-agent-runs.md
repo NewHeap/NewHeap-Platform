@@ -661,7 +661,11 @@ at once. Maintenance queues a run again whose operation never committed. Choose
 coalesce, queue, supersede or ignore. Bound agents with `Budget`, `Retry`,
 `Enabled`, and `Shadow()` on the agent or a skill to start it in shadow for evaluation on real
 events: its work goes to the agent's shadow thread of the subject, which administrators alone see,
-where nobody is notified and nothing proposed executes. `Retry` (0 to 10, 3 by default, in code
+where nobody is notified and nothing proposed executes. Shadow is part of the effect decision: every
+effect a run calls in a shadow thread needs an approval and becomes a shadow proposal before the tool
+runs, also a tool the effect policy runs without approval, an agent request (`assistant.request.*`)
+and an imported MCP tool, and a tool that issues or authorizes its own approval is refused there.
+Reads still run; the consult tool, which reads, refuses a shadow run itself (below). `Retry` (0 to 10, 3 by default, in code
 or in the run settings) alone decides how often a run is retried after a transient failure: the
 run's background operation allows the most an agent can configure, and the run fails once its
 failed attempts exceed the agent's value, so `Retry(0)` never retries and `Retry(5)` gives six
@@ -778,10 +782,12 @@ in the shadow thread takes its events, and `use_skill` in a live thread does not
 that started finish in the mode they started in; a run still queued when the mode changes starts in
 the new one, and waiting events move along when they resume. The live thread, its open proposals
 and people's chat in it stay as they are, but only administrators start an agent in shadow by
-hand, and consultations and requests are refused. Shadow work never reaches a live agent: a run in a
-shadow thread that calls a consult or request tool is refused with `assistant-consult-agent-unavailable`,
-as a hand-off to a live agent is, so it records no consultation, leaves no proposal for the subject's
-approvers, notifies nobody and starts no run. A shadow variant always works in shadow
+hand, and consultations and requests are refused. Shadow work never reaches a live agent, as a
+hand-off to a live agent is refused: a run in a shadow thread that calls a consult tool is refused with
+`assistant-consult-agent-unavailable`, and its call of a request tool, an effect, becomes a shadow
+proposal that never executes before the tool runs (the request tool refuses a shadow run itself as
+well). The other agent records no consultation, gets no thread, input or run, leaves no proposal for
+the subject's approvers and notifies nobody. A shadow variant always works in shadow
 (`assistant-shadow-variant`). `SetServiceAccountAsync(agentId, actorId | null)` lets another
 technical account answer for an agent that answers to one in code (`ServiceAccount(actorId)`
 stays the default; `assistant-service-account-not-used` otherwise). The account must exist and be
@@ -1221,8 +1227,15 @@ a chain beyond `MaxHandOffDepth` (2) or back to an agent in it, and the daily li
 target and subject refuse with their codes. One run hands the same subject to the same agent once.
 With `NotifySource()` the source gets an `agent-handoff-ended` input, in the skill it handed off
 from, whose payload is an `NhAssistantHandOffResult` with the outcome and proposal count, and the
-target's summary only when both worked on the same subject and the target read nothing restricted
-with its own grant.
+target's summary only when both worked on the same subject, every reader of the thread that receives
+the follow-up may read the target's thread, and the target read nothing restricted with its own
+grant. The audiences match when the target's required policy, and for the whole application its view
+policy, names no policy or the source's own, and every person invited to the source's thread may read
+the target's thread too; otherwise the follow-up names the outcome and the proposal count only, so a
+target with a narrower audience tells its source how it ended without its answer. Shadow work never starts live work on the way back either: when the target's
+run or the handing run worked in shadow, the follow-up goes to the source agent's shadow thread of
+the subject, whatever the source's mode is by then, and while the source agent or skill is paused it
+is ignored instead of waiting for a resume.
 
 Let administrators connect agents with hand-offs as data only within a ceiling in code. Call
 `UseHandOffsAsData(handOffs => handOffs.Allow(subjectType, rule => rule.To(...).From(...)).MaxPerSubjectPerDay(n))`:
@@ -2410,8 +2423,9 @@ override is served, and that a consultation with its own asker policy keeps admi
 Assert that an agent of the whole application with a `ViewPolicy` refuses the consultation to a reader
 of the whole application who fails it, with `assistant-consult-subject-unavailable`, before a
 consultation is recorded or its model runs, and serves someone who passes it. Run a delegating agent
-whose new data trigger is still in shadow and assert that its consult and request calls of a live agent
-are refused, and that the live agent gets no consultation, thread, proposal or run.
+whose new data trigger is still in shadow and assert that its consult call of a live agent is refused,
+that its request call is a shadow proposal of the asking run, and that the live agent gets no
+consultation, thread, proposal or run.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an

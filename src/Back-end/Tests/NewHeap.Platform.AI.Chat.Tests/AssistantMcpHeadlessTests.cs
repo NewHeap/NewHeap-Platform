@@ -103,6 +103,40 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_shadow_run_proposes_an_mcp_call_the_effect_policy_allows_without_approval_and_never_calls_the_server(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(RescheduleFunction, new { order = "A-100", day = "Friday" }, "call-live")
+            .RespondWithText("I moved order A-100 to Friday.")
+            .RespondWithFunctionCall(RescheduleFunction, new { order = "A-200", day = "Friday" }, "call-shadow")
+            .RespondWithText("I would move order A-200 to Friday.");
+        var servers = new InMemoryMcpServers();
+        servers.Register(ServerUrl, () => servers.PlanningTools());
+        await using var host = await CreateHostAsync(provider, model, servers, allowEffects: true);
+        await ConnectPlanningServerAsync(host, ("reschedule", NhAssistantMcpToolEffects.Mutation));
+        await SetHeadlessUseAsync(host, NhAssistantMcpHeadlessUses.Organization);
+
+        // The application's effect policy lets a live run call the imported tool without approval.
+        var live = await StartRunAsync(host);
+        var liveTurn = await RunTurnAsync(host, live, "Move order A-100 to Friday.");
+
+        Assert.Equal(0, liveTurn.ProposalCount);
+        Assert.Equal(["reschedule"], servers.Calls);
+
+        // In the shadow thread the same call is a shadow proposal, and the server is never called.
+        var shadow = await StartRunAsync(host, shadow: true);
+        var shadowTurn = await RunTurnAsync(host, shadow, "Move order A-200 to Friday.");
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, shadowTurn.Outcome);
+        Assert.Equal(1, shadowTurn.ProposalCount);
+        Assert.Equal(["reschedule"], servers.Calls);
+        var proposal = Assert.Single(await RunStore(host).GetRunApprovalsAsync(shadow.Run.Id, CancellationToken.None));
+        Assert.Equal(("mcp.planning.reschedule", NhAssistantApprovalStatuses.Shadow), (proposal.ToolId, proposal.Status));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_deferred_mcp_proposal_is_refused_when_the_server_no_longer_allows_headless_use(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
@@ -491,7 +525,8 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
         bool delegation = false,
         bool grants = true,
         string? redirectUri = null,
-        bool accountable = false)
+        bool accountable = false,
+        bool allowEffects = false)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -503,6 +538,10 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
                 {
                     // Without in-memory servers the assistant connects over HTTP.
                     services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers));
+                }
+                if (allowEffects)
+                {
+                    services.Replace(ServiceDescriptor.Scoped<INhAiEffectPolicy, AllowEffectsPolicy>());
                 }
                 services.AddSingleton(new TestSubjects());
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, ManagerPrincipalFactory>());
@@ -620,14 +659,18 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
 
     private sealed record StartedRun(AssistantRun Run, NhAssistantAgentTurnContext AgentTurn);
 
-    private static async Task<StartedRun> StartRunAsync(AssistantTestHost host, string? initiator = null, string triggerId = "project-created")
+    private static async Task<StartedRun> StartRunAsync(
+        AssistantTestHost host,
+        string? initiator = null,
+        string triggerId = "project-created",
+        bool shadow = false)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var subject = new NhAiSubjectRef("project", Guid.NewGuid().ToString());
         var info = (await services.GetRequiredService<NhAssistantSubjectAccessService>().DescribeAsync(subject, CancellationToken.None))!;
         var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(AgentId, false, CancellationToken.None))!;
-        var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None)).Data!;
+        var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None, shadow)).Data!;
         var run = new AssistantRun
         {
             Id = Guid.NewGuid(),
@@ -637,6 +680,7 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
             AccountableOwnerId = thread.AccountableOwnerId,
             Status = NhAssistantRunStatuses.Queued,
             AgentVersion = agent.Definition.Version,
+            Shadow = shadow,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()
         };
@@ -716,6 +760,21 @@ public sealed partial class AssistantMcpHeadlessTests(AssistantDatabaseFixture d
     private static NhAssistantRunStore RunStore(AssistantTestHost host)
     {
         return host.Services.GetRequiredService<NhAssistantRunStore>();
+    }
+
+    /// <summary>
+    /// An application's own effect policy that runs every tool without an approval, imported MCP
+    /// tools included.
+    /// </summary>
+    private sealed class AllowEffectsPolicy : INhAiEffectPolicy
+    {
+        public ValueTask<NhAiEffectDecision> EvaluateAsync(
+            NhAiToolDescriptor descriptor,
+            NhAiInvocationContext context,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(new NhAiEffectDecision(NhAiEffectDecisionKind.Allow, "application-allows"));
+        }
     }
 
     /// <summary>

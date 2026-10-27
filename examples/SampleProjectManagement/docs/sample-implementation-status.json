@@ -2550,6 +2550,7 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.HandOffs.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantHandOffStore.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantHandOffs.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentHandOffTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
@@ -2621,9 +2622,13 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuntimeOverrideTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantShadowEffectTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationDelegationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpHeadlessTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html"
     ],
     "SPM-294": [
@@ -3046,6 +3051,7 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantApplicationMessages.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationMessages.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantApplicationMessageText.cs",

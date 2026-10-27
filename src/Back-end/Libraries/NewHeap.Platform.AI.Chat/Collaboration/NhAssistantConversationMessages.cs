@@ -4,6 +4,7 @@ using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
@@ -20,6 +21,7 @@ namespace NewHeap.Platform.AI.Chat.Collaboration;
 internal sealed class NhAssistantConversationMessages(
     INhAssistantStore store,
     NhAssistantRunStore runs,
+    NhAssistantThreadService threads,
     NhAssistantLivePublisher live,
     INhAssistantNotifier notifier,
     NhAssistantInAppApplicationMessageNotifier inAppNotifier,
@@ -51,11 +53,14 @@ internal sealed class NhAssistantConversationMessages(
             return invalid;
         }
 
-        var conversation = message.Access.Person is { } person
-            ? (await store.FindAccessAsync(conversationId, person.ActorId, person.TenantId, cancellationToken))?.Conversation
-            : await store.FindShareableConversationAsync(conversationId, cancellationToken);
-        if (conversation is null)
+        var conversation = await store.FindShareableConversationAsync(conversationId, cancellationToken);
+        var thread = conversation is not null && string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal)
+            ? await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken)
+            : null;
+        if (conversation is null
+            || (message.Access.Person is { } person && !await MayReadAsync(conversation, thread, person, cancellationToken)))
         {
+            // Nothing is stored, shown, notified or audited for a conversation the person may not read.
             return Failed(NhAssistantErrorCodes.ConversationNotFound, "The conversation does not exist or is archived.");
         }
 
@@ -107,9 +112,6 @@ internal sealed class NhAssistantConversationMessages(
             CancellationToken.None);
         await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
 
-        var thread = string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal)
-            ? await runs.FindThreadByConversationAsync(conversation.Id, cancellationToken)
-            : null;
         // A shadow thread holds work only administrators see; nobody is notified about it.
         var notified = message.Notify && thread?.Shadow != true;
         if (notified)
@@ -129,6 +131,41 @@ internal sealed class NhAssistantConversationMessages(
             conversation.Id);
         return TaskResult<NhAssistantApplicationMessageReceipt>.Succeeded(
             new NhAssistantApplicationMessageReceipt(stored.Id, stored.Sequence, Duplicate: false));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="person"/> may read the conversation now, which a message
+    /// <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> them needs. A chat they own or take
+    /// part in within their tenant. An agent thread by the live read rule, never by a stored participant
+    /// row, which can outlive the role that created it: no shadow thread or thread of a shadow variant,
+    /// only a thread the person's tenant reaches, and only with a live role on the thread's subject or
+    /// an invitation to the thread. Nothing here records the person as a participant.
+    /// </summary>
+    private async Task<bool> MayReadAsync(
+        AssistantConversation conversation,
+        AssistantThread? thread,
+        NhAssistantConversationPerson person,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal))
+        {
+            return await store.FindAccessAsync(conversation.Id, person.ActorId, person.TenantId, cancellationToken) is not null;
+        }
+        if (thread is null || IsShadow(thread) || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, person.TenantId))
+        {
+            return false;
+        }
+
+        return await threads.ReadAccessAsync(thread, person.ActorId, cancellationToken) is not null;
+    }
+
+    /// <summary>
+    /// Shadow threads, and every thread of a shadow variant, are read by administrators only.
+    /// </summary>
+    private bool IsShadow(AssistantThread thread)
+    {
+        return thread.Shadow
+            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var options) && options.ShadowOfAgentId is not null);
     }
 
     /// <summary>
