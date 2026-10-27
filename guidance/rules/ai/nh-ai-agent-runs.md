@@ -1409,7 +1409,10 @@ the asking person's rights, the person chatting or the initiator who delegated a
 a call in an agent turn that no initiator delegated is refused with
 `assistant-consult-subject-unavailable`. Give it a `Description` the
 asking model can choose by, a `Policy` the asker must pass (otherwise the agent's
-required policy or the assistant's access policy), and keep the defaults unless the
+required policy or the assistant's access policy; without a `Policy` of its own every call also
+checks the agent's required policy as it is in effect then, so an administrator who changes it
+in the agent's editor restricts the tools at once, while the generated tools keep the policy of
+code and a change that admits more people does not offer them more), and keep the defaults unless the
 subject needs others: `MinimumRole(Reader)` to ask, `Proposals(true, Participant)` before
 tools that change anything are offered, `Limits(4 calls, 60 seconds, 4,000 characters)`
 and `Exposure(Local | Agent)`; add `NhAiToolExposure.Mcp` only when MCP clients may run
@@ -1493,7 +1496,8 @@ rights: for an agent created in the administration it means its technical accoun
 and saving it is refused for one that answers for itself. Save a consultation with
 `INhAssistantAgentConfiguration.SaveConsultationAsync` (or `PUT admin/agents/{id}/consultations/{subjectType}`)
 with `NhAssistantDataConsultationRequest`: a description, optional instructions, who may
-ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`), the routes, the
+ask (`minimumRole` and an `askerPolicy` listed with `AddAgentPolicy`; without one the agent's
+required policy as it is in effect at each call decides, as in code), the routes, the
 proposal role and approval policy, the tools (`ToolSelectors`, within the agent's own selectors,
 refused otherwise with `toolSelectors: not-allowed`; none offers every tool of the agent), limits
 within the bounds of `AllowConsultation` and the ceiling, requests, MCP and the classification of
@@ -2343,6 +2347,10 @@ proposal in another status is refused and that handing it again starts a new att
 and that without it the inline approval still runs the function. For
 `MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
 default without a limit and an agent's own limit. SPM-327 and SPM-328 are the executable references.
+On both providers, override the required policy of an agent in code to one an asker lacks and assert
+that its consult and request tools, in code and as data without an asker policy, refuse that asker
+with `assistant-agent-forbidden` and leave no consultation, run or input, that someone who passes the
+override is served, and that a consultation with its own asker policy keeps admitting its askers.
 For definitions from code, on both providers, update an agent created at runtime at its version and
 with a stale one, assert that its MCP assignments stay unless named, that a field a package locks is
 refused, that an agent in code is overridden, reset and never deleted, and that the directory returns an

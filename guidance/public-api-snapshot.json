@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "43cc0e04aacbad43f6126ab3548f87008d73bde195968fcad84d5c4bee7050a3",
-    "declarationCount": 11214,
+    "hash": "39fd6fdcc4479b6fd280802bfa8b616bd8989b77d766980088c75316697f594e",
+    "declarationCount": 11215,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4544,6 +4544,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
         "declaration": "public async ValueTask<bool> MayDecideAsync( NhAiApprovalPolicy policy, AssistantThread thread, string toolId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+        "declaration": "public async ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantDataConsultationTools.cs",

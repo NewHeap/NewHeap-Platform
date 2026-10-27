@@ -1001,7 +1001,9 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
                 ? runOptions.DataClassification ?? NhAiDataClassification.Internal
                 : classification,
             Source = NhAssistantConsultationSources.Data,
-            DataVersion = row.Version
+            DataVersion = row.Version,
+            // Without an asker policy every call checks the agent's required policy in effect then.
+            NamesAskerPolicy = row.AskerPolicy is not null
         };
         if ((row.AskerPolicy ?? agentRequiredPolicy) is { } policy)
         {

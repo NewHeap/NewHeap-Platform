@@ -258,3 +258,15 @@ their agents, and agents that are not in shadow, see no change on objects.
 | A message to a busy agent thread from someone who may not start the agent answers `409 assistant-conversation-busy`, and nothing waits for them. | None; give the people who leave messages for runs the agent's required policy and, for the whole application, its run policy. |
 | `POST runs/{runId}/retry` with `mode` `restart` refuses as `POST threads/start` does, for example `403 assistant-agent-forbidden`. | Give the people who restart runs the agent's required policy and, for the whole application, its run policy. |
 | The request tool follows the same rule, also when its consultation names a `Policy` of its own: it answers `assistant-agent-forbidden` when the rule refuses and `assistant-consult-subject-unavailable` without a role for the agent's thread; on the whole application the run policy decides instead of the approve policy. | Give the people who request runs the agent's required policy and, for the whole application, its run policy. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: consultations follow the agent's required policy in effect
+
+A consultation that names no asker policy of its own, in code (`Policy`) or as data (`askerPolicy`),
+now checks at every call the consulted agent's required policy as it is in effect, so an administrator
+who changes the required policy of an agent in code in its editor also changes who consults it. The
+request tool follows the rule of a start by hand, which includes that policy. The generated tools keep
+the policies of code, so a change that admits more people does not offer the tools to them.
+
+| Breaking change | Required action |
+|---|---|
+| The consult tool answers `assistant-agent-forbidden`, without consulting, to an asker who fails the agent's required policy in effect after an administrator changed it. | None; give the consultation an asker policy of its own when its askers should differ from the agent's users. |

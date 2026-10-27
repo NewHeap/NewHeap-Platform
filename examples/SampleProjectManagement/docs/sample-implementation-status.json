@@ -2341,7 +2341,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.html",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationPolicyTests.cs"
     ],
     "SPM-279": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",

@@ -879,6 +879,19 @@ internal sealed class NhAssistantConsultationViewer(
         return check.Success;
     }
 
+    public async ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(agent);
+        if (agent.RequiredPolicy is null)
+        {
+            return true;
+        }
+
+        await ResolveAsync(cancellationToken);
+        return _principal is not null
+               && await services.GetRequiredService<NhAssistantAgentAccess>().CanUseAsync(_principal, agent);
+    }
+
     private async Task ResolveAsync(CancellationToken cancellationToken)
     {
         if (_resolved)

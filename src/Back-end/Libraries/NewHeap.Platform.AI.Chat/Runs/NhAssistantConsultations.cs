@@ -30,6 +30,13 @@ internal interface INhAssistantConsultationViewer
         AssistantThread thread,
         string toolId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the asking person passes the required policy of <paramref name="agent"/> as it is in
+    /// effect now, with the principal of their own request or one the application rebuilds for the
+    /// subject; without a principal only an agent without a required policy passes.
+    /// </summary>
+    ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -478,6 +485,14 @@ internal sealed class NhAssistantConsultationService(
         if (!access.Has(options.MinimumRole))
         {
             return SubjectUnavailable();
+        }
+
+        // Without an asker policy of its own the consultation asks what the agent asks of the people
+        // who use it: its required policy as it is in effect now, also after an administrator changed
+        // it.
+        if (!options.NamesAskerPolicy && !await request.Viewer.MayUseAgentAsync(agent.Definition, cancellationToken))
+        {
+            return Refused(NhAssistantErrorCodes.AgentForbidden, "The person may not use the agent.");
         }
 
         var since = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero);

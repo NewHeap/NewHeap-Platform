@@ -833,6 +833,11 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         {
             return ValueTask.FromResult(true);
         }
+
+        public ValueTask<bool> MayUseAgentAsync(NhAssistantAgentDefinition agent, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(true);
+        }
     }
 }
 
