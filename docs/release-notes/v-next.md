@@ -100,6 +100,20 @@ expansion now skips redirect evaluation and the request passes through, as other
 |---|---|
 | An exact target or regex template that resolves to `//host`, such as `/a/..//host`, now fails validation; a snapshot with one no longer saves or activates. | Use the host's absolute URL, or a path that resolves to one leading `/`. |
 
+## NewHeap.Platform.AspNet.Proxy: denied addresses no longer spend the administrator's login budget
+
+`NhProxyAdministrationService.SignInAsync` now refuses a caller outside the IP allowlist before it takes a
+permit from the shared login budget (`Administrator:LoginAttemptLimit` per `LoginAttemptWindow`). Before,
+every tokenless `POST /newheap-proxy/Login` from a denied address spent one, so about five such requests
+a minute kept allowlisted administrators at 429. Denied attempts are still audited as `IpDenied`, now
+within a separate budget of `LoginAttemptLimit` rows per `LoginAttemptWindow`; further denied attempts
+in that window are refused with 403 without an audit row, so outside traffic cannot grow the login audit
+without bound.
+
+| Breaking change | Required action |
+|---|---|
+| Denied attempts beyond `LoginAttemptLimit` per `LoginAttemptWindow` no longer appear in the login audit. | None, unless monitoring counts `IpDenied` rows to measure outside traffic; count refused requests in the host's request logs instead. |
+
 ## NewHeap.Platform.AspNet.Common: refresh tokens stored as keyed digests
 
 A refresh-token row (`NhUserAuthRefreshToken.Token`) now holds `nhr1:` and the HMAC-SHA256 of the token

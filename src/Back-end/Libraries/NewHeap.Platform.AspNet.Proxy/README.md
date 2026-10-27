@@ -139,7 +139,7 @@ All durations, counts and size limits must be positive.
 | `Administrator:PasswordHash` | Empty | Alternative ASP.NET Identity password hash. A stable hash and persistent Data Protection keys allow sessions to survive restarts. |
 | `Administrator:CredentialVersion` | Empty | Change to invalidate existing sessions after restarting. |
 | `Administrator:SessionDuration` | `08:00:00` | Maximum administration session duration. |
-| `Administrator:LoginAttemptLimit` | `5` | Login attempts allowed per window, shared across all clients. |
+| `Administrator:LoginAttemptLimit` | `5` | Login attempts allowed per window, shared across all allowed clients. Attempts from addresses outside the IP allowlist use none of them; the login activity records at most this many of those per window. |
 | `Administrator:LoginAttemptWindow` | `00:01:00` | Time window for the login attempt limit. |
 | `Administrator:ApiAuthenticationFailureLimit` | `5` | Failed API credential checks allowed per window, independent of browser logins. Successful API calls consume no allowance. |
 | `Administrator:ApiAuthenticationFailureWindow` | `00:01:00` | Window for failed API authentication; after exhaustion API authentication returns 429 until reset. |

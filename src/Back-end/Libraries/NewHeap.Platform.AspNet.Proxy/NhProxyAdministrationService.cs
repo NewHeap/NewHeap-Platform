@@ -17,6 +17,7 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
     private readonly NhProxyOptions _options;
     private readonly INhProxyLoginAuditStore _audit;
     private readonly FixedWindowRateLimiter _limiter;
+    private readonly FixedWindowRateLimiter _deniedAudit;
     private readonly FixedWindowRateLimiter _apiFailures;
     private readonly System.Net.IPNetwork[] _networks;
     private readonly PasswordHasher<string> _hasher = new();
@@ -79,6 +80,13 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
             PermitLimit = administrator.LoginAttemptLimit, Window = administrator.LoginAttemptWindow,
             QueueLimit = 0, AutoReplenishment = true
         });
+        // Attempts from addresses outside the allowlist never spend the budget above; this one only
+        // bounds how many of them the login audit records per window.
+        _deniedAudit = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = administrator.LoginAttemptLimit, Window = administrator.LoginAttemptWindow,
+            QueueLimit = 0, AutoReplenishment = true
+        });
         _apiFailures = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
             PermitLimit = administrator.ApiAuthenticationFailureLimit, Window = administrator.ApiAuthenticationFailureWindow,
@@ -133,35 +141,45 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
             && string.Equals(request.UserName, administrator.UserName, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Signs the administrator in. A caller outside the IP allowlist is refused before the shared login
+    /// budget is touched, so traffic from denied addresses can never throttle allowlisted administrators.
+    /// Its attempt is audited as <see cref="NhProxyLoginOutcome.IpDenied"/> within a separate budget of
+    /// <see cref="NhProxyAdministratorOptions.LoginAttemptLimit"/> rows per
+    /// <see cref="NhProxyAdministratorOptions.LoginAttemptWindow"/>; further denied attempts in that window
+    /// are refused without an audit row, so they cannot grow the audit without bound.
+    /// </summary>
     public async Task<TaskResult> SignInAsync(HttpContext context, NhProxyLoginRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var access = await CheckIpAccessAsync(context, cancellationToken);
+        if (!access.Success)
+        {
+            using var auditLease = _deniedAudit.AttemptAcquire();
+            if (auditLease.IsAcquired)
+            {
+                await AuditAsync(context, NhProxyLoginOutcome.IpDenied, null, cancellationToken);
+            }
+
+            return TaskResult.Failed(NhProxyErrorCodes.AccessDenied, NhProxyErrorCodes.AccessDenied);
+        }
+
         using var lease = _limiter.AttemptAcquire();
         var administrator = _options.Administrator;
-        var outcome = !access.Success ? NhProxyLoginOutcome.IpDenied
-            : !lease.IsAcquired ? NhProxyLoginOutcome.Throttled : NhProxyLoginOutcome.InvalidCredentials;
-        if (access.Success && lease.IsAcquired && VerifyCredentials(request))
+        var outcome = !lease.IsAcquired ? NhProxyLoginOutcome.Throttled : NhProxyLoginOutcome.InvalidCredentials;
+        if (lease.IsAcquired && VerifyCredentials(request))
         {
             outcome = NhProxyLoginOutcome.Success;
         }
 
-        await _audit.AppendAsync(new NhProxyLoginAuditEvent
-        {
-            Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow, Outcome = outcome,
-            ClientIp = context.Connection.RemoteIpAddress is { } ip ? Normalize(ip).ToString() : null,
-            CorrelationId = context.TraceIdentifier,
-            AuthenticatedUserName = outcome == NhProxyLoginOutcome.Success ? administrator.UserName : null
-        }, cancellationToken);
-        await _audit.DeleteExpiredAsync(DateTimeOffset.UtcNow - _options.LoginAudit.Retention, _options.LoginAudit.CleanupBatchSize, cancellationToken);
+        await AuditAsync(
+            context,
+            outcome,
+            outcome == NhProxyLoginOutcome.Success ? administrator.UserName : null,
+            cancellationToken);
         if (outcome != NhProxyLoginOutcome.Success)
         {
-            var code = outcome switch
-            {
-                NhProxyLoginOutcome.IpDenied => NhProxyErrorCodes.AccessDenied,
-                NhProxyLoginOutcome.Throttled => NhProxyErrorCodes.Throttled,
-                _ => NhProxyErrorCodes.InvalidCredentials
-            };
+            var code = outcome == NhProxyLoginOutcome.Throttled ? NhProxyErrorCodes.Throttled : NhProxyErrorCodes.InvalidCredentials;
             return TaskResult.Failed(code, code);
         }
 
@@ -182,9 +200,26 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         return context.SignOutAsync(NhProxyOptions.AuthenticationScheme);
     }
 
+    private async Task AuditAsync(
+        HttpContext context,
+        NhProxyLoginOutcome outcome,
+        string? authenticatedUserName,
+        CancellationToken cancellationToken)
+    {
+        await _audit.AppendAsync(new NhProxyLoginAuditEvent
+        {
+            Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow, Outcome = outcome,
+            ClientIp = context.Connection.RemoteIpAddress is { } ip ? Normalize(ip).ToString() : null,
+            CorrelationId = context.TraceIdentifier,
+            AuthenticatedUserName = authenticatedUserName
+        }, cancellationToken);
+        await _audit.DeleteExpiredAsync(DateTimeOffset.UtcNow - _options.LoginAudit.Retention, _options.LoginAudit.CleanupBatchSize, cancellationToken);
+    }
+
     public void Dispose()
     {
         _limiter.Dispose();
+        _deniedAudit.Dispose();
         _apiFailures.Dispose();
     }
 }

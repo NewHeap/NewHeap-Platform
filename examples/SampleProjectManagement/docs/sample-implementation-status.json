@@ -1784,7 +1784,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyHostAuthenticationSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhEndpointsBuiltOnce.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyApiTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NhProxyAdministrationTests.cs"
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
