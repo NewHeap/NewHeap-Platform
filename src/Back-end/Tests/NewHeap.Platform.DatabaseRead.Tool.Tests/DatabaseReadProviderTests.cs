@@ -268,6 +268,10 @@ public sealed class DatabaseReadProviderTests
         await AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(
             "sql-server",
             readerBuilder.ConnectionString);
+        await AssertQuotedIdentifiersExecuteAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "SELECT TOP (1) [Id] AS [Update], \"Name\" AS \"Share\" FROM [dbo].[DiagnosticProjects]");
         await AssertElevatedPrincipalIsRejectedAsync("sql-server", adminBuilder.ConnectionString);
 
         await using var readerConnection = new SqlConnection(readerBuilder.ConnectionString);
@@ -444,6 +448,16 @@ public sealed class DatabaseReadProviderTests
         await AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(
             "postgresql",
             readerBuilder.ConnectionString);
+        await AssertQuotedIdentifiersExecuteAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "SELECT \"id\" AS \"Update\", \"name\" AS \"Share\" FROM \"public\".\"diagnostic_projects\" LIMIT 1");
+        await AssertQuotedForbiddenFunctionIsRefusedBeforeExecutionAsync(
+            readerBuilder.ConnectionString,
+            "SELECT \"pg_sleep\"(0) AS slept");
+        await AssertQuotedForbiddenFunctionIsRefusedBeforeExecutionAsync(
+            readerBuilder.ConnectionString,
+            "SELECT pg_catalog.\"pg_advisory_lock\"(hashtextextended('diagnostic-probe', 0)) AS locked");
         await AssertElevatedPrincipalIsRejectedAsync("postgresql", adminBuilder.ConnectionString);
 
         await using var readerConnection = new NpgsqlConnection(readerBuilder.ConnectionString);
@@ -831,6 +845,53 @@ public sealed class DatabaseReadProviderTests
         error.GetProperty("provider").GetString().Should().Be(provider);
         error.GetProperty("providerCode").GetString().Should().Be(providerCode);
         error.GetProperty("stage").GetString().Should().Be("query-execution");
+    }
+
+    private static async Task AssertQuotedIdentifiersExecuteAsync(
+        string provider,
+        string connectionString,
+        string sql)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
+        using var input = DatabaseReadTestWorkspace.Request(sql);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(0, "quoted identifiers returned {0}", System.Text.Encoding.UTF8.GetString(output.ToArray()));
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        var result = response.RootElement.GetProperty("result");
+        result.GetProperty("rowCount").GetInt32().Should().Be(1);
+        result.GetProperty("columns").EnumerateArray()
+            .Select(column => column.GetProperty("name").GetString())
+            .Should().Equal("Update", "Share");
+    }
+
+    /// <summary>
+    /// PostgreSQL would run the quoted name as the forbidden function; the policy refuses the request
+    /// before the tool opens a connection.
+    /// </summary>
+    private static async Task AssertQuotedForbiddenFunctionIsRefusedBeforeExecutionAsync(
+        string connectionString,
+        string sql)
+    {
+        using var workspace = new DatabaseReadTestWorkspace("postgresql", connectionString);
+        using var input = DatabaseReadTestWorkspace.Request(sql);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(4, "the quoted function returned {0}", System.Text.Encoding.UTF8.GetString(output.ToArray()));
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("function-not-allowed");
     }
 
     private static async Task AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(

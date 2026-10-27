@@ -169,6 +169,15 @@ JSON number precision would be unsafe. A JSON `null` is accepted for every
 type. SQL identifiers are not data parameters; keep table and column names fixed
 in reviewed request files.
 
+The SQL policy accepts one `SELECT` or read-only `WITH` statement without
+comments. On PostgreSQL it refuses functions with session or server effects,
+such as `pg_sleep`, the advisory-lock functions, `pg_terminate_backend`,
+`pg_read_file`, `set_config` and `dblink`, with `function-not-allowed`, also
+when the name is written as a double-quoted, schema-qualified or differently
+cased identifier such as `pg_catalog."pg_sleep"`. A Unicode-escaped identifier
+(`U&"..."`) is refused with `unicode-escaped-identifier-not-allowed`. The policy
+is a safeguard in front of the read-only principal, not a replacement for it.
+
 Use `validate` only for CI, request-template checks or another deliberate dry
 run without a database connection:
 

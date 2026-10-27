@@ -295,3 +295,19 @@ with `server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
 |---|---|
 | A SQL Server principal that holds a permission beyond connecting, SELECT and metadata visibility, such as `VIEW SERVER STATE`, `VIEW DATABASE STATE`, `UNMASK`, `REFERENCES`, IMPERSONATE or UPDATE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the permission that `error.verificationCheck` names from the diagnostic login, its user and the roles they belong to. |
 | `error.verificationCheck` can carry the new SQL Server identifiers listed above. | Let code that reads the field accept them, or discard identifiers it does not know. |
+
+## NewHeap.Platform.DatabaseRead.Tool: quoted PostgreSQL function names are refused
+
+The SQL policy skipped double-quoted text, so a forbidden PostgreSQL function written as a quoted
+identifier, such as `SELECT "pg_sleep"(1)`, `pg_catalog."pg_advisory_lock"(...)` or
+`"pg_terminate_backend"(...)`, passed validation and ran; PostgreSQL resolves the quoted lowercase name
+to the same function. A session-level advisory lock taken this way outlives the rolled-back read-only
+transaction in the pooled session. The policy now compares the text of every double-quoted identifier
+on PostgreSQL, with doubled quotes unescaped and case ignored, with its function list and refuses a
+match with `function-not-allowed`. A Unicode-escaped identifier (`U&"..."`) is refused with the new
+code `unicode-escaped-identifier-not-allowed`. Quoted identifiers that name no forbidden function, also
+keyword names such as `"Update"` or `"Share"`, stay allowed on both providers.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL query that uses a double-quoted identifier spelled like a forbidden function, also as a column alias, or a `U&"..."` identifier is refused before execution. | Rename the alias, or write the identifier without Unicode escapes. |
