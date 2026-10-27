@@ -191,6 +191,88 @@ public sealed class NhAiMvcBridgeGatewayShapingTests
         Assert.Equal(requestsBeforeRejections, factory.Requests.Count);
     }
 
+    [Theory]
+    [InlineData("contact")]
+    [InlineData("contact-card")]
+    [InlineData("legacy-order")]
+    public async Task Search_that_could_match_a_redacted_or_unknown_field_is_refused_before_the_http_call(string resource)
+    {
+        // contact searches contactEmail, contact-card searches owner.email, and the legacy provider
+        // does not say which fields its search matches.
+        using var factory = CreateSearchFactory(redact: true);
+
+        var described = await factory.InvokeAsync(TestTokenHandler.Viewer, Describe, new { resource });
+        var searched = await factory.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource, search = "kim.secret" });
+        var counted = await factory.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource, search = "kim.secret", countOnly = true });
+        var whitespace = await factory.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource, search = " " });
+        var requestsAfterRefusals = factory.Requests.Count;
+        var unsearched = await factory.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource, search = "" });
+
+        Assert.True(described.Success, described.Errors);
+        var query = described.Data.GetProperty("query");
+        Assert.False(query.GetProperty("searchable").GetBoolean());
+        Assert.False(query.TryGetProperty("searchFields", out _));
+        foreach (var refused in new[] { searched, counted, whitespace })
+        {
+            Assert.False(refused.Success);
+            Assert.Equal(NhAiBridgeFailureCodes.Validation, refused.Property("code").GetString());
+            Assert.Contains("'search'", refused.Property("message").GetString(), StringComparison.Ordinal);
+        }
+        Assert.Equal(0, requestsAfterRefusals);
+        Assert.True(unsearched.Success, unsearched.Errors);
+        Assert.Single(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Search_over_published_fields_without_a_redacted_field_reaches_the_api()
+    {
+        using var redacted = CreateSearchFactory(redact: true);
+        using var plain = CreateSearchFactory(redact: false);
+
+        var staff = await redacted.InvokeAsync(TestTokenHandler.Viewer, Describe, new { resource = "staff-project" });
+        var staffSearch = await redacted.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource = "staff-project", search = "Project", countOnly = true });
+        var contact = await plain.InvokeAsync(TestTokenHandler.Viewer, Describe, new { resource = "contact-card" });
+        var contactSearch = await plain.InvokeAsync(TestTokenHandler.Viewer, Query, new { resource = "contact-card", search = "kim.secret" });
+
+        Assert.True(staff.Success, staff.Errors);
+        Assert.True(staff.Data.GetProperty("query").GetProperty("searchable").GetBoolean());
+        Assert.Equal(["name"], SearchFields(staff.Data));
+        Assert.True(staffSearch.Success, staffSearch.Errors);
+        Assert.Contains("search=Project", Assert.Single(redacted.Requests), StringComparison.Ordinal);
+
+        // Without redaction nothing is hidden, so the search fields are published and searched as before.
+        Assert.True(contact.Success, contact.Errors);
+        Assert.True(contact.Data.GetProperty("query").GetProperty("searchable").GetBoolean());
+        Assert.Equal(["title", "owner.displayName", "owner.email"], SearchFields(contact.Data));
+        Assert.True(contactSearch.Success, contactSearch.Errors);
+        Assert.Contains("search=kim.secret", Assert.Single(plain.Requests), StringComparison.Ordinal);
+    }
+
+    private static BridgeApiFactory CreateSearchFactory(bool redact)
+    {
+        return new BridgeApiFactory(bridge => bridge
+            .UseToolSetId("test-api")
+            .UseSelfBaseUrl("http://localhost/")
+            .IncludeControllers("StaffProject", "Contact", "ContactCard", "LegacyOrder")
+            .EnableMcpExposure()
+            .AddCollectionContractProvider<NhAiMvcBridgeGatewayCollectionTests.LegacyCollectionContractProvider>()
+            .EnableGateway(gateway =>
+            {
+                gateway.UseGatewayToolSetId("test-gateway");
+                if (redact)
+                {
+                    gateway.RedactResultFields("*email*");
+                }
+            }));
+    }
+
+    private static string[] SearchFields(JsonElement description)
+    {
+        return description.GetProperty("query").GetProperty("searchFields").EnumerateArray()
+            .Select(field => field.GetString()!)
+            .ToArray();
+    }
+
     [Fact]
     public async Task Oversized_page_keeps_whole_items_and_returns_structured_truncation_guidance()
     {

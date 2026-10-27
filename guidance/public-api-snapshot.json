@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "1aa8649e2da944f96c7befb47b657569390720af088c248efec74dc46b7c2fac",
-    "declarationCount": 11210,
+    "hash": "fc9c26a74906a20135740ccc102948fa9a1c0f97231117d695ca8022f02c5b51",
+    "declarationCount": 11213,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1483,6 +1483,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<string>? SearchFields { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public IReadOnlyList<string> OrderFields { get; init; } = [];"
       },
       {
@@ -1504,6 +1508,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public bool Searchable { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public IReadOnlyList<string>? SearchFields { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
@@ -41319,7 +41327,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
-        "declaration": "public sealed record NhCollectionContract( Type ItemType, IReadOnlyList<NhCollectionFieldDescriptor> FilterFields, IReadOnlyList<NhCollectionFieldDescriptor> OrderFields, IReadOnlyList<NhCollectionFieldDescriptor> SearchFields, IReadOnlyList<NhCollectionFieldDescriptor> ResultFields);"
+        "declaration": "public sealed record NhCollectionContract( Type ItemType, IReadOnlyList<NhCollectionFieldDescriptor> FilterFields, IReadOnlyList<NhCollectionFieldDescriptor> OrderFields, IReadOnlyList<NhCollectionFieldDescriptor> SearchFields, IReadOnlyList<NhCollectionFieldDescriptor> ResultFields) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public IReadOnlyList<string> SearchPaths { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",

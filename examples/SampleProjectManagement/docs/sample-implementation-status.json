@@ -2023,7 +2023,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayShapingTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionSearchPathTests.cs"
     ],
     "SPM-256": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",

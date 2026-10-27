@@ -259,3 +259,22 @@ contract hashes.
 |---|---|
 | A tool restricted with `Roles`, `AuthenticationSchemes`, an `AuthorizeAttribute` subclass or another `IAuthorizeData` attribute fails to build with `NHAI018`. | Register a named policy for the roles or schemes and declare `[Authorize(Policy = "...")]` instead. |
 | A positional (`[Authorize("policy")]`), overridden or inherited policy is now enforced, and the tool's contract hash includes it. | Grant that policy to the people and agents who use the tool, and refresh pinned manifests or bound proposals of the affected tools. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AI.AspNet.Mvc: gateway search never matches a redacted field
+
+A search matches every field the API searches, so with `RedactResultFields` a search could still test
+the values that redaction removes from the result. `NhAiBridgeQueryDescription.SearchFields` now
+publishes the result field paths a search matches, and `describe-resource` shows them as
+`query.searchFields`. The canonical collection provider takes them from the new
+`NhCollectionContract.SearchPaths`: the `[Searchable]` members of the item type, including those of
+nested searchable objects up to two levels, as collection processing searches them. With redaction
+configured, the gateway `query` refuses a non-empty `search`, also with `countOnly`, before the HTTP
+call on a resource whose search fields are unknown or include a redacted field, and
+`describe-resource` reports that resource as `searchable: false`. Gateways without redaction, and
+resources whose searched fields are all visible, search as before.
+
+| Breaking change | Required action |
+|---|---|
+| With redaction, a search on a resource that marks a redacted field `[Searchable]`, directly or in a nested searchable object, fails with `api-bridge-validation`. | Remove `[Searchable]` from the redacted field, or let the model filter on visible fields. |
+| With redaction, a resource whose collection contract provider sets no `SearchFields` is no longer searchable through the gateway. | Set `NhAiBridgeQueryDescription.SearchFields` to the fields the API searches. |
+| A service that searches through `WithSearchable` selectors publishes only its `[Searchable]` members as search paths. | Describe such a resource with a collection contract provider that publishes the selector fields. |
