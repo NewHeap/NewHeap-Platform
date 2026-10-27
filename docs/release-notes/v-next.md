@@ -271,3 +271,32 @@ source keep their issuer's decision, as the built-in issuer with the person's si
 | Breaking change | Required action |
 |---|---|
 | Under `UsePrincipalsFromAccessSource` an agent's gateway read for a person without a fresh context fails with `api-bridge-unauthenticated`. | None; the read works again after the person's next own request. Keep refusing unknown or disabled people in a custom issuer. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: impersonation sessions grant nothing in the person's name
+
+While a NewHeap impersonation marker (`NhPlatformClaimTypes.ImpersonateOriginUserId`) is present, the
+assistant refuses the personal grants that would outlive the session with
+`403 assistant-not-allowed-while-impersonating` (`NhAssistantErrorCodes.NotAllowedWhileImpersonating`):
+consent to background use (`PUT mcp-connections/{serverId}` with `allowBackgroundUse: true`), starting a
+personal OAuth connection (`POST mcp-connections/{serverId}/authorize`), completing one
+(`POST mcp-connections/complete`, which ends the flow) and registering a browser for push
+(`PUT notifications/push-subscription`). Withdrawing the consent, disconnecting and removing a
+subscription stay allowed; their `McpBackgroundUseChanged` and `McpConnectionDisconnected` audit events
+name the impersonating user in the new `NhAssistantAuditEvent.ImpersonationOriginActorId`. Organization
+connections and hosts without NewHeap impersonation are unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| An impersonation session can no longer consent to background use, connect a personal MCP account or register a push subscription for the impersonated person. | None; the person does it in their own session. Map `assistant-not-allowed-while-impersonating` (403) where your own client shows assistant errors. |
+| `NhAssistantErrorCodes` gains `NotAllowedWhileImpersonating` and `NhAssistantAuditEvent` gains `ImpersonationOriginActorId`. | None; an audit sink that stores events field by field may store the new value. |
+
+## @newheap/platform-ai-chat: the impersonation refusal has a text
+
+The bundled English and Dutch texts and `NH_ASSISTANT_SERVER_ERROR_CODES` include
+`assistant-not-allowed-while-impersonating`, which the server answers when an impersonation session tries
+to connect an account, allow background use or register push notifications for the impersonated person.
+The mock API's status table maps it to 403.
+
+| Breaking change | Required action |
+|---|---|
+| None. | None. |

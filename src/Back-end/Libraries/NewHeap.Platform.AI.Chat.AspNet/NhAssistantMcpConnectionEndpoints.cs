@@ -23,7 +23,7 @@ internal static class NhAssistantMcpConnectionEndpoints
         enabled.MapPut("mcp-connections/{serverId}", PutConnectionAsync)
             .WithName("NhAssistantUpdateMcpConnection")
             .WithSummary("Allow or withdraw background use of an MCP server")
-            .WithDescription("Records the caller's consent to background use of the server with the caller's own credential, or withdraws it. The consent holds for the server as it is configured now; a changed address or authentication needs consent again. A server an administrator does not offer for background use answers 409 assistant-mcp-headless-not-allowed.")
+            .WithDescription("Records the caller's consent to background use of the server with the caller's own credential, or withdraws it. The consent holds for the server as it is configured now; a changed address or authentication needs consent again. A server an administrator does not offer for background use answers 409 assistant-mcp-headless-not-allowed. An impersonation session may withdraw the consent but not give it: 403 assistant-not-allowed-while-impersonating.")
             .Produces<NhAssistantMcpConnectionDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -33,7 +33,7 @@ internal static class NhAssistantMcpConnectionEndpoints
         enabled.MapPost("mcp-connections/{serverId}/authorize", AuthorizeAsync)
             .WithName("NhAssistantAuthorizeMcpConnection")
             .WithSummary("Connect my account to an MCP server")
-            .WithDescription("Starts the caller's OAuth authorization of a server each person connects to. Open the returned URL in the caller's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates. allowBackgroundUse also records the consent to background use when an administrator offers it; returnUrl chooses redirect mode, and a failed callback returns to it with nh-mcp-error and nh-mcp-message-key in the fragment. Another kind of server answers 409 assistant-mcp-connection-not-supported.")
+            .WithDescription("Starts the caller's OAuth authorization of a server each person connects to. Open the returned URL in the caller's browser; the callback hands a one-time completion code to it, which POST mcp-connections/complete activates. allowBackgroundUse also records the consent to background use when an administrator offers it; returnUrl chooses redirect mode, and a failed callback returns to it with nh-mcp-error and nh-mcp-message-key in the fragment. Another kind of server answers 409 assistant-mcp-connection-not-supported, and an impersonation session 403 assistant-not-allowed-while-impersonating.")
             .Produces<NhAssistantMcpAuthorizationStartDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -46,7 +46,7 @@ internal static class NhAssistantMcpConnectionEndpoints
         enabled.MapDelete("mcp-connections/{serverId}", DisconnectAsync)
             .WithName("NhAssistantDeleteMcpConnection")
             .WithSummary("Disconnect my account from an MCP server")
-            .WithDescription("Removes the caller's OAuth connection of the server and revokes its tokens at the authorization server. A consent to background use stays until the caller withdraws it; background runs then fail as not connected. A server without personal OAuth connections answers 409 assistant-mcp-connection-not-supported.")
+            .WithDescription("Removes the caller's OAuth connection of the server and revokes its tokens at the authorization server. A consent to background use stays until the caller withdraws it; background runs then fail as not connected. A server without personal OAuth connections answers 409 assistant-mcp-connection-not-supported. An impersonation session may disconnect; the audit names the user who impersonated.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -55,7 +55,7 @@ internal static class NhAssistantMcpConnectionEndpoints
         enabled.MapPost("mcp-connections/complete", CompleteAsync)
             .WithName("NhAssistantCompleteMcpAuthorization")
             .WithSummary("Complete an MCP authorization")
-            .WithDescription("Activates the OAuth connection of an authorization the caller started, with the flow and the one-time completion code the callback handed to the caller's browser. An organization connection also needs the admin policy. The code is single use and expires with the flow.")
+            .WithDescription("Activates the OAuth connection of an authorization the caller started, with the flow and the one-time completion code the callback handed to the caller's browser. An organization connection also needs the admin policy. The code is single use and expires with the flow. A person's own connection is not completed in an impersonation session: the flow ends with 403 assistant-not-allowed-while-impersonating.")
             .Produces<NhAssistantMcpCompletionDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -134,6 +134,7 @@ internal static class NhAssistantMcpConnectionEndpoints
             body.CompletionCode,
             actor,
             () => NhAssistantEndpointRouteBuilderExtensions.IsAdministratorAsync(httpContext),
+            NhAssistantImpersonation.IsImpersonating(httpContext.User),
             httpContext.RequestAborted);
         if (!completed.Success)
         {

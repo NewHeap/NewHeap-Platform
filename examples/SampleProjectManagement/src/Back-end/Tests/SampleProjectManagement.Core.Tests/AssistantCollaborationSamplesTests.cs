@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -209,6 +211,27 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
             AssistantSampleHost.Json(new { endpoint = "https://attacker.example/push", keys = new { p256dh = "x", auth = "y" } }),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, blocked.StatusCode);
+
+        // An administrator who impersonates the owner registers no browser for the owner: it would keep
+        // receiving the owner's notifications after the impersonation ended.
+        using var impersonated = host.CreateImpersonationClient(host.OwnerId.ToString(), Guid.NewGuid().ToString());
+        using var browser = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        var point = browser.ExportParameters(false).Q;
+        byte[] browserKey = [0x04, .. point.X!, .. point.Y!];
+        using var refused = await impersonated.PutAsync(
+            "/api/assistant/notifications/push-subscription",
+            AssistantSampleHost.Json(new
+            {
+                endpoint = "https://fcm.googleapis.com/fcm/send/spm-264-impersonation",
+                keys = new
+                {
+                    p256dh = WebEncoders.Base64UrlEncode(browserKey),
+                    auth = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(16))
+                }
+            }),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal(NhAssistantErrorCodes.NotAllowedWhileImpersonating, (await AssistantSampleHost.ReadJsonAsync(refused)).GetProperty("code").GetString());
 
         using var optOut = await owner.PutAsync(
             "/api/assistant/notifications",

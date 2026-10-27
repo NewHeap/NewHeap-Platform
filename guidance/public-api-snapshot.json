@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "43e512c409f21dff7b3bdb71f916250a319a70f24096e2d7f34b2742f67d2b98",
-    "declarationCount": 11211,
+    "hash": "f0a038a221636a66b26075151ecf1de4176b00386f776537a5afb71a5f3be703",
+    "declarationCount": 11217,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5987,7 +5987,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantMcpCompletion>> CompleteAsync( Guid flowId, string completionCode, string actorId, Func<Task<bool>> isAdministrator, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<TaskResult<NhAssistantMcpCompletion>> CompleteAsync( Guid flowId, string completionCode, string actorId, Func<Task<bool>> isAdministrator, bool impersonating, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpAuthorizationFlows.cs",
@@ -6187,7 +6187,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
-        "declaration": "public async Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, CancellationToken cancellationToken) {"
+        "declaration": "public Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
+        "declaration": "public async Task<int> DisconnectAsync( AssistantMcpServer server, string? ownerKind, string? ownerActorId, string reason, string actorId, string? impersonationOriginActorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/OAuth/NhAssistantMcpOAuthConnections.cs",
@@ -7064,6 +7068,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
         "declaration": "public static IResult Error(string code, IReadOnlyDictionary<string, string[]>? fieldErrors) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static bool IsImpersonating(ClaimsPrincipal? user) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static string? OriginOf(ClaimsPrincipal? user) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
+        "declaration": "public static TaskResult<T> Refused<T>() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
@@ -17047,6 +17063,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NotAllowedWhileImpersonating = \"assistant-not-allowed-while-impersonating\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SubjectNotFound = \"assistant-subject-not-found\";"
       },
       {
@@ -18512,6 +18532,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public int? PackageAgentCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? ImpersonationOriginActorId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",

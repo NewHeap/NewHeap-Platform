@@ -257,13 +257,16 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
 
     /// <summary>
     /// Activates the connection of a flow when its starter presents the completion code with their own
-    /// session; an organization flow also needs the admin policy then.
+    /// session; an organization flow also needs the admin policy then. A person's own connection is never
+    /// completed in an impersonation session (<paramref name="impersonating"/>): the flow ends with
+    /// <see cref="NhAssistantErrorCodes.NotAllowedWhileImpersonating"/>.
     /// </summary>
     public async Task<TaskResult<NhAssistantMcpCompletion>> CompleteAsync(
         Guid flowId,
         string completionCode,
         string actorId,
         Func<Task<bool>> isAdministrator,
+        bool impersonating,
         CancellationToken cancellationToken)
     {
         var flow = await store.FindFlowAsync(flowId, cancellationToken);
@@ -282,6 +285,11 @@ internal sealed partial class NhAssistantMcpAuthorizationFlows(
         if (flow.OwnerKind == NhAssistantMcpConnectionOwners.Organization && !await isAdministrator())
         {
             return TaskResult<NhAssistantMcpCompletion>.Failed(NhAssistantAdminErrorCodes.Forbidden, "Completing an organization connection needs the admin policy.");
+        }
+        // An impersonation session connects nothing in the person's name that outlives it.
+        if (flow.OwnerKind == NhAssistantMcpConnectionOwners.User && impersonating)
+        {
+            return await FailCompletionAsync(flow, NhAssistantErrorCodes.NotAllowedWhileImpersonating, cancellationToken);
         }
         // Every check runs before the flow is used up; a completion that fails ends the flow with its code.
         var server = await adminStore.FindMcpServerAsync(flow.ServerId, cancellationToken);

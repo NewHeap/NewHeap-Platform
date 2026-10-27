@@ -553,8 +553,12 @@ for his own account and never gets Ann's, and disconnecting in `nh-assistant-mcp
 her tokens at once. The status advisor, which a participant starts and which acts with that
 participant's rights, uses the participant's connection in its background run only when an
 administrator offers the server in background runs (`headlessUse: personal`) and the participant
-consented while connecting; the audit names whose connection a call used. The playground shows the
-connect card in the chat, the preferences and the organization's CRM account on the mock.
+consented while connecting; the audit names whose connection a call used. An administrator who
+impersonates Ann connects no account in her name: an impersonation session neither consents to
+background use, nor starts or completes a personal connection, nor registers a browser for push
+(`assistant-not-allowed-while-impersonating`), while withdrawing and disconnecting stay allowed and the
+audit names the administrator. The playground shows the connect card in the chat, the preferences and
+the organization's CRM account on the mock.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

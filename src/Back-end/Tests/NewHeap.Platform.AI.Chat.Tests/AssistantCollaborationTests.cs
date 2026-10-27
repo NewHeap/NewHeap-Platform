@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Notifications;
 using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using Xunit;
@@ -341,6 +342,58 @@ public sealed class AssistantCollaborationTests(AssistantDatabaseFixture databas
         await SendAsync(owner, id, "And another?");
         // The push service reported the subscription as gone, so it was removed after one attempt.
         Assert.Equal(2, pushService.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_impersonation_session_registers_no_browser_for_the_person_but_may_remove_one(AssistantTestProvider provider)
+    {
+        var (publicKey, privateKey) = NhAssistantWebPushKeys.Generate();
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            new NhAiScriptedChatClient(),
+            provider: provider,
+            assistantBuilder: assistant => assistant.ConfigurePush(push =>
+            {
+                push.PublicKey = publicKey;
+                push.PrivateKey = privateKey;
+                push.Subject = "mailto:assistant@example.com";
+            }));
+        using var owner = app.CreateClient();
+        using var impersonated = app.CreateClient(impersonatedBy: "admin-9");
+        using var browser = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        var keys = new
+        {
+            p256dh = NhAssistantBase64Url.Encode(NhAssistantWebPushKeys.UncompressedPoint(browser.ExportParameters(false).Q)),
+            auth = NhAssistantBase64Url.Encode(RandomNumberGenerator.GetBytes(16))
+        };
+        await using var scope = app.Services.CreateAsyncScope();
+        var notifications = scope.ServiceProvider.GetRequiredService<NhAssistantNotificationStore>();
+
+        // A browser registered in an impersonation session would keep receiving the person's
+        // notifications after the session ended.
+        using (var refused = await impersonated.PutAsync(
+            "/api/assistant/notifications/push-subscription",
+            Json(new { endpoint = "https://fcm.googleapis.com/fcm/send/impersonator", keys })))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.NotAllowedWhileImpersonating, (await ReadJsonAsync(refused)).GetProperty("code").GetString());
+        }
+        Assert.Empty(await notifications.GetDeliverableSubscriptionsAsync(["user-1"], CancellationToken.None));
+
+        // The person's own browser registers; the impersonation session may remove it.
+        const string endpoint = "https://fcm.googleapis.com/fcm/send/own-browser";
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await owner.PutAsync("/api/assistant/notifications/push-subscription", Json(new { endpoint, keys }))).StatusCode);
+        Assert.Single(await notifications.GetDeliverableSubscriptionsAsync(["user-1"], CancellationToken.None));
+        using var removal = new HttpRequestMessage(HttpMethod.Delete, "/api/assistant/notifications/push-subscription")
+        {
+            Content = Json(new { endpoint })
+        };
+        Assert.Equal(HttpStatusCode.NoContent, (await impersonated.SendAsync(removal)).StatusCode);
+        Assert.Empty(await notifications.GetDeliverableSubscriptionsAsync(["user-1"], CancellationToken.None));
     }
 
     private static HubConnection Connect(AssistantWebApplication app, string? user)

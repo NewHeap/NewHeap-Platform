@@ -387,6 +387,7 @@
       "assistant-directory-unavailable": "Collega’s direct uitnodigen is niet beschikbaar.",
       "assistant-push-unavailable": "Bureaubladmeldingen zijn niet beschikbaar.",
       "assistant-push-subscription-invalid": "Deze browser kon niet worden aangemeld voor meldingen.",
+      "assistant-not-allowed-while-impersonating": "Terwijl je als iemand anders werkt, kun je voor die persoon geen accounts koppelen, geen gebruik op de achtergrond toestaan en geen meldingen aanzetten.",
       "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar.",
       "assistant-subject-not-found": "Dit object bestaat niet, of je mag het niet zien.",
       "assistant-subject-invalid": "Dit is geen geldige verwijzing naar een object. Controleer het soort object en het id.",

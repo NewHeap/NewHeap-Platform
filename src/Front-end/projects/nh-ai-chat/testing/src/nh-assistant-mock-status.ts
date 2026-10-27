@@ -60,7 +60,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-forbidden',
     'assistant-mcp-credential-mismatch',
     'assistant-mcp-initiator-only',
-    'assistant-file-forbidden'
+    'assistant-file-forbidden',
+    'assistant-not-allowed-while-impersonating'
   ],
   404: [
     'assistant-disabled',

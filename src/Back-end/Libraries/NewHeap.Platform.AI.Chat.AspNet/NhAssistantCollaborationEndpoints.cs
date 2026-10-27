@@ -88,9 +88,10 @@ internal static class NhAssistantCollaborationEndpoints
         enabled.MapPut("notifications/push-subscription", SubscribeAsync)
             .WithName("NhAssistantSubscribePush")
             .WithSummary("Register a browser for push notifications")
-            .WithDescription("Stores the browser's push subscription for the caller. The endpoint must belong to an allowed push service.")
+            .WithDescription("Stores the browser's push subscription for the caller. The endpoint must belong to an allowed push service. An impersonation session registers no browser for the person: 403 assistant-not-allowed-while-impersonating.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         enabled.MapDelete("notifications/push-subscription", UnsubscribeAsync)
             .WithName("NhAssistantUnsubscribePush")
@@ -358,6 +359,12 @@ internal static class NhAssistantCollaborationEndpoints
         if (!caller.Success)
         {
             return ContextUnavailable();
+        }
+        // A browser of an impersonation session would keep receiving the person's notifications after
+        // the session ended; removing a subscription stays allowed.
+        if (NhAssistantImpersonation.IsImpersonating(httpContext.User))
+        {
+            return Error(NhAssistantErrorCodes.NotAllowedWhileImpersonating);
         }
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantPushSubscriptionRequest);
         var subscription = NhAssistantPushSubscriptionValidator.Validate(request, push);
