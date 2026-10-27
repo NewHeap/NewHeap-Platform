@@ -180,7 +180,13 @@ invalid run filter. Clients map the code, never the status, to a text.
   loopback in Development or with `AllowLoopback`), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
   `ToolListCacheDuration`, `ConnectTimeout`, which bounds connecting to a server and, once connected,
   listing its tools (a server that does not answer is unreachable for the turn, test or sync, with
-  `assistant-mcp-unreachable`), and `ReaderCallTimeout` for readers (below). Secrets for `bearer` and `api-key`
+  `assistant-mcp-unreachable`), and `ReaderCallTimeout` for readers (below). What a server can make
+  the host hold is bounded before the assistant's own limits apply: `MaxResponseBytes` (16 MiB, 64 KiB
+  to 256 MiB) bounds a JSON response and each event of an event stream, which the host stops reading
+  past the bound (`assistant-mcp-response-too-large`), and `tools/list` is read page by page within
+  `MaxToolListPages` (20, up to 1,000) and `MaxTools` (500, up to 10,000), beyond which the server is
+  not connected and a sync stores no tool (`assistant-mcp-tool-list-too-large`); all are checked at
+  start. Raise `MaxResponseBytes` with `MaxFileTokensPerTurn` for readers whose text is longer. Secrets for `bearer` and `api-key`
   are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
   or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;

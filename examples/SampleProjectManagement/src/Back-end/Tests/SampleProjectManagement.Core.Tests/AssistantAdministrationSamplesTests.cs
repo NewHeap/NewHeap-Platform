@@ -159,7 +159,8 @@ public sealed partial class AssistantSamplesTests
 
     /// <summary>
     /// The sample bounds every request to an MCP server in its composition: connecting and listing the
-    /// tools by the connect timeout, and a reader's call by the reader call timeout (SPM-305).
+    /// tools by the connect timeout, a reader's call by the reader call timeout (SPM-305), what one
+    /// response may hold and how many pages and tools a tool list may have.
     /// </summary>
     [Fact]
     public void SPM_251_the_composition_bounds_every_mcp_request()
@@ -168,6 +169,7 @@ public sealed partial class AssistantSamplesTests
 
         Assert.Equal(TimeSpan.FromSeconds(10), mcp.ConnectTimeout);
         Assert.Equal(TimeSpan.FromSeconds(60), mcp.ReaderCallTimeout);
+        Assert.Equal((16 * 1024 * 1024, 20, 500), (mcp.MaxResponseBytes, mcp.MaxToolListPages, mcp.MaxTools));
     }
 
     [Fact]

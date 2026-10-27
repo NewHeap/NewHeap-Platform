@@ -283,3 +283,21 @@ count include these attempts; attempts that gave way to contention or a busy res
 | Breaking change | Required action |
 |---|---|
 | An idempotent operation whose attempts keep going stale fails with `stale-attempt-retries-exhausted` after `RetryCount` retries instead of being retried again. | Make the handler honour its cancellation token and soft time-out; raise the operation's retry count only when a stalled attempt can still recover. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: what an MCP server can make the host hold is bounded
+
+The MCP data transport now bounds responses before the MCP SDK, and before the assistant's own result,
+text and tool limits, see them. `NhAssistantMcpOptions.MaxResponseBytes`
+(`NewHeap:AI:Assistant:Mcp:MaxResponseBytes`, 16 MiB by default, from 64 KiB to 256 MiB) bounds a JSON
+response and each event of an event stream: the host stops reading past it, and a declared length
+beyond it fails before the body is read. `tools/list` is read page by page within
+`MaxToolListPages` (20 by default, up to 1,000) and `MaxTools` (500 by default, up to 10,000) for
+turns, readers, tests and syncs alike, so a sync stores no more tools than that. The new codes are
+`NhAssistantAdminErrorCodes.McpResponseTooLarge` (`assistant-mcp-response-too-large`) and
+`McpToolListTooLarge` (`assistant-mcp-tool-list-too-large`), both `502`, with texts in the
+`@newheap/platform-ai-chat` translations. All three bounds are checked when the host starts.
+
+| Breaking change | Required action |
+|---|---|
+| A response or stream event longer than `MaxResponseBytes` fails its request with `assistant-mcp-response-too-large`. | Raise `MaxResponseBytes`, for example with `MaxFileTokensPerTurn` for readers whose text is longer. |
+| A server that lists more tools than `MaxTools`, or more pages than `MaxToolListPages`, is not connected, and its sync fails with `assistant-mcp-tool-list-too-large` without storing tools. | Raise `MaxTools` or `MaxToolListPages` for such a server, or let it list fewer tools. |

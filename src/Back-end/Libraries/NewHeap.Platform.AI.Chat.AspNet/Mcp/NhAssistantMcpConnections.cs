@@ -408,9 +408,10 @@ internal interface INhAssistantMcpClientFactory
 /// rebinding cannot reach a blocked range, and every request passes
 /// <see cref="NhAssistantMcpCredentialHandler"/>, which keeps it on the configured origin (also the
 /// SSE <c>endpoint</c> event) and attaches the current credential. A configured client certificate
-/// is presented for mutual TLS. SDK logging is disabled because it can include request headers, and
-/// the client opens no standalone stream for server-initiated messages, which the assistant does not
-/// handle.
+/// is presented for mutual TLS. Every response passes <see cref="NhAssistantMcpResponseLimitHandler"/>,
+/// which stops reading one longer than <see cref="NhAssistantMcpOptions.MaxResponseBytes"/>. SDK logging
+/// is disabled because it can include request headers, and the client opens no standalone stream for
+/// server-initiated messages, which the assistant does not handle.
 /// </summary>
 internal sealed class NhAssistantHttpMcpClientFactory(
     NhAssistantMcpHostGuard guard,
@@ -419,12 +420,14 @@ internal sealed class NhAssistantHttpMcpClientFactory(
     public async Task<McpClient> ConnectAsync(NhAssistantMcpConnectionPlan plan, CancellationToken cancellationToken)
     {
         var handler = CreateSocketsHandler(plan);
-        var timeout = options.CurrentValue.Mcp.ConnectTimeout;
-        HttpMessageHandler pipeline = handler;
+        var mcp = options.CurrentValue.Mcp;
+        var timeout = mcp.ConnectTimeout;
+        // Responses are bounded before the SDK or a credential retry reads them.
+        HttpMessageHandler pipeline = new NhAssistantMcpResponseLimitHandler(mcp.BoundedMaxResponseBytes()) { InnerHandler = handler };
         IDictionary<string, string>? staticHeaders = null;
         if (plan.Credentials is { } credentials)
         {
-            pipeline = new NhAssistantMcpCredentialHandler(credentials, plan.Endpoint, guard) { InnerHandler = handler };
+            pipeline = new NhAssistantMcpCredentialHandler(credentials, plan.Endpoint, guard) { InnerHandler = pipeline };
         }
         else
         {
@@ -515,7 +518,8 @@ internal sealed class NhAssistantMcpLease(McpClient client, IList<McpClientTool>
 /// Connects to servers and caches connections with shared credentials for
 /// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. A person's OAuth connection is cached for
 /// that person only; connections that forward the caller's token are never cached. Connecting and
-/// listing the tools are each bounded by <see cref="NhAssistantMcpOptions.ConnectTimeout"/>.
+/// listing the tools are each bounded by <see cref="NhAssistantMcpOptions.ConnectTimeout"/>, and the
+/// listing by its pages and tools (<see cref="NhAssistantMcpToolLists"/>).
 /// </summary>
 internal sealed class NhAssistantMcpConnectionCache(
     INhAssistantMcpClientFactory factory,
@@ -548,7 +552,7 @@ internal sealed class NhAssistantMcpConnectionCache(
             using (var listing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 listing.CancelAfter(options.CurrentValue.Mcp.ConnectTimeout);
-                tools = await client.ListToolsAsync(cancellationToken: listing.Token);
+                tools = await NhAssistantMcpToolLists.ListAsync(client, options.CurrentValue.Mcp, listing.Token);
             }
             if (!cacheable)
             {

@@ -1971,7 +1971,9 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTokenExchangeService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialProviderTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-custom-auth-modes.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-custom-auth-modes.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpBoundsTests.cs"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2893,7 +2895,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-uploads.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-files.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-files.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-files.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs"
     ],
     "SPM-306": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",

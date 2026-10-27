@@ -205,6 +205,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-mcp-host-blocked',
   'assistant-mcp-schema-changed',
   'assistant-mcp-tool-disabled',
+  'assistant-mcp-response-too-large',
+  'assistant-mcp-tool-list-too-large',
   'assistant-mcp-insufficient-scope',
   'assistant-mcp-headless-not-allowed',
   'assistant-mcp-credential-mismatch',

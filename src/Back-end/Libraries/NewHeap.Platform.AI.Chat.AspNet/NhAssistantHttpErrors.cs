@@ -277,7 +277,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpInsufficientScope,
             NhAssistantAdminErrorCodes.McpDelegatedTokenUnavailable,
             NhAssistantAdminErrorCodes.McpDiscoveryFailed,
-            NhAssistantAdminErrorCodes.McpTokenRequestFailed);
+            NhAssistantAdminErrorCodes.McpTokenRequestFailed,
+            NhAssistantAdminErrorCodes.McpResponseTooLarge,
+            NhAssistantAdminErrorCodes.McpToolListTooLarge);
         // A reading tool, of the application or an MCP server, that failed to turn a file into text.
         Add(statuses, StatusCodes.Status502BadGateway,
             NhAssistantErrorCodes.FileReaderFailed);

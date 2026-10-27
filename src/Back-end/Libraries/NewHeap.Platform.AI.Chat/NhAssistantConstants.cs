@@ -1695,6 +1695,18 @@ public static class NhAssistantAdminErrorCodes
     public const string McpToolDisabled = "assistant-mcp-tool-disabled";
 
     /// <summary>
+    /// A response of the MCP server, a JSON response or one event of its event stream, is longer than
+    /// <see cref="NhAssistantMcpOptions.MaxResponseBytes"/>; the host stopped reading it.
+    /// </summary>
+    public const string McpResponseTooLarge = "assistant-mcp-response-too-large";
+
+    /// <summary>
+    /// The MCP server lists more tools than <see cref="NhAssistantMcpOptions.MaxTools"/>, or more pages
+    /// of them than <see cref="NhAssistantMcpOptions.MaxToolListPages"/>; the host takes none of them.
+    /// </summary>
+    public const string McpToolListTooLarge = "assistant-mcp-tool-list-too-large";
+
+    /// <summary>
     /// The MCP server answered <c>403</c> with <c>error="insufficient_scope"</c>: the credential is
     /// valid but lacks a permission the call needs.
     /// </summary>

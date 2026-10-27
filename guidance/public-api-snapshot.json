@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "a3bb09f40f4b8e445a2693279da55ace93db96e1c226d234a6cdc2a9cf3955ee",
-    "declarationCount": 11211,
+    "hash": "8482052e807e6837e100cd8fa432aa68e9dc6d9031a07adba8d9a09c74d4bfc5",
+    "declarationCount": 11242,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5840,6 +5840,110 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpOwnerSweep.cs",
         "declaration": "public async Task<NhAssistantMcpOwnerSweepBatch> RunBatchAsync(string? after, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public NhAssistantMcpResponseTooLargeException() : base(NhAssistantAdminErrorCodes.McpResponseTooLarge, \"The MCP server's response is larger than the host accepts.\") {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public NhAssistantMcpBoundedContent(HttpContent inner, long maxBytes, bool perEvent) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override Task<Stream> CreateContentReadStreamAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override async Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override bool TryComputeLength(out long length) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override void Dispose(bool disposing) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override bool CanRead => true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override bool CanSeek => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override bool CanWrite => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override long Length => throw new NotSupportedException();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override long Position {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override int Read(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override int Read(Span<byte> buffer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override void Flush() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override long Seek(long offset, SeekOrigin origin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override void SetLength(long value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override void Write(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public override async ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "protected override void Dispose(bool disposing) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public static async Task<IList<McpClientTool>> ListAsync( McpClient client, NhAssistantMcpOptions options, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
+        "declaration": "public NhAssistantMcpToolListTooLargeException() : base(NhAssistantAdminErrorCodes.McpToolListTooLarge, \"The MCP server lists more tools than the host accepts.\") {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
@@ -17843,6 +17947,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpResponseTooLarge = \"assistant-mcp-response-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpToolListTooLarge = \"assistant-mcp-tool-list-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string McpInsufficientScope = \"assistant-mcp-insufficient-scope\";"
       },
       {
@@ -18860,6 +18972,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public TimeSpan ReaderCallTimeout { get; set; } = TimeSpan.FromSeconds(60);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public int MaxResponseBytes { get; set; } = 16 * 1024 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public int MaxToolListPages { get; set; } = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public int MaxTools { get; set; } = 500;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
@@ -49008,6 +49132,9 @@
       "UseScanner",
       "ReaderTextRetention",
       "ReaderCallTimeout",
+      "MaxResponseBytes",
+      "MaxToolListPages",
+      "MaxTools",
       "INhAssistantConversationMessages",
       "NhAssistantApplicationMessage",
       "NhAssistantApplicationMessageLink",
