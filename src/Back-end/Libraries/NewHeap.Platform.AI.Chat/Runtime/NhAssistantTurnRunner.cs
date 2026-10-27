@@ -318,6 +318,23 @@ internal sealed partial class NhAssistantTurnRunner(
                 (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, events, token));
         }
 
+        if (request.PolicyAuthorized
+            && request.AgentTurn is { InitiatorActorId: { } initiator } agentTurn
+            && !string.Equals(initiator, actorId, StringComparison.Ordinal))
+        {
+            // Another person's decision continues the initiator's request turn inside the decider's
+            // request. The decider lends it neither rights nor credentials, and is not its person: it
+            // works for the initiator as a headless turn does.
+            var continued = request with { AgentTurn = agentTurn with { ContinuedByAnotherPerson = true } };
+            return Start(
+                conversation,
+                approval.TurnId,
+                continued.RequestAborted,
+                null,
+                null,
+                (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, continued, events, token));
+        }
+
         return Start(
             conversation,
             approval.TurnId,
@@ -1638,7 +1655,9 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <param name="requestAborted">Cancels the turn with its caller; <see cref="CancellationToken.None"/>
     /// for a turn that outlives it, which <c>POST cancel</c> and its timeout still end.</param>
     /// <param name="caller">The invocation context of the person whose turn it is, whom
-    /// <see cref="INhAiTurnPerson"/> names for the whole turn.</param>
+    /// <see cref="INhAiTurnPerson"/> names for the whole turn; <see langword="null"/> for a turn that
+    /// works for nobody in the request, such as another person's decision that continues an
+    /// initiator's turn, which names no turn person, as an agent run does.</param>
     /// <param name="person">The person captured when the turn started, made ambient for the whole turn
     /// so its tools authorize that person instead of the request; <see langword="null"/> for a turn that
     /// lives within its request.</param>
@@ -1646,7 +1665,7 @@ internal sealed partial class NhAssistantTurnRunner(
         AssistantConversation conversation,
         Guid turnId,
         CancellationToken requestAborted,
-        NhAiInvocationContext caller,
+        NhAiInvocationContext? caller,
         NhAiPersonInvocation? person,
         Func<ChannelWriter<NhAssistantTurnEvent>, CancellationToken, Task> run)
     {
@@ -1656,12 +1675,12 @@ internal sealed partial class NhAssistantTurnRunner(
             SingleWriter = false
         });
         var cancellation = cancellations.Register(conversation.Id, turnId, requestAborted);
-        var turnPerson = new NhAiTurnPersonMarker(caller.ActorId, caller.TenantId, person?.User);
+        var turnPerson = caller is null ? null : new NhAiTurnPersonMarker(caller.ActorId, caller.TenantId, person?.User);
         var completion = Task.Run(async () =>
         {
             using var personScope = person is null ? null : NhAiPersonInvocationScopes.Begin(person);
             // Tools, policies and turn context providers learn whose turn it is (INhAiTurnPerson).
-            using var turnPersonScope = NhAiTurnPersonScopes.Begin(turnPerson);
+            using var turnPersonScope = turnPerson is null ? null : NhAiTurnPersonScopes.Begin(turnPerson);
             try
             {
                 await run(channel.Writer, cancellation.Token);
@@ -2189,11 +2208,15 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Who the turn's MCP tools are for. A turn that no person's request carries is headless: a
     /// background run, and the execution of a deferred proposal. It uses the person whose rights
-    /// the turn uses, as the invocation gate decides them.
+    /// the turn uses, as the invocation gate decides them. So does a request turn that another
+    /// person's decision continues: the gate delegates the initiator's rights, so the decider's own
+    /// connections and token never serve it.
     /// </summary>
     internal static NhAssistantMcpToolRequest CreateMcpToolRequest(NhAssistantTurnState state)
     {
-        if (state.AgentTurn is not { IsRequestTurn: false } agentTurn || CreateAgentScope(state) is not { } scope)
+        if (state.AgentTurn is not { } agentTurn
+            || (agentTurn.IsRequestTurn && !agentTurn.ContinuedByAnotherPerson)
+            || CreateAgentScope(state) is not { } scope)
         {
             // A person's request: that person's own connections serve it.
             return new NhAssistantMcpToolRequest(state.EffectiveAgent) { PersonActorId = state.Scope.OwnerActorId };

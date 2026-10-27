@@ -254,3 +254,20 @@ requester out of its proposals. The decider stays in the approval (`DecidedByAct
 | Breaking change | Required action |
 |---|---|
 | The `proposal-decided` and `proposal-executed` runs, their trigger audit and the proposals they make name the proposal's initiator, or none, instead of the person who decided. | None; read the decider from the approval or its decision audit. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.AspNet.Mvc: an approver's decision lends no credentials
+
+When an approver decides another person's proposal in an agent thread under the approval policy
+(`POST conversations/{id}/approvals/{approvalId}/decide`), the person's request turn continues inside
+the approver's request. That continuation now works for the person who asked as a headless turn does:
+its MCP servers use only that person's consented connection or delegated token, never the approver's
+connection or ambient token, and the approver is not its turn person (`INhAiTurnPerson`). The API bridge
+sends the request's bearer token in an agent turn only inside the initiator's own request turn; in
+another person's request and in a headless turn it sends nobody's token. Before, the continuation's MCP
+calls and the bridge's calls were sent with the approver's credential while the gate authorized them with
+the initiator's rights.
+
+| Breaking change | Required action |
+|---|---|
+| A personal MCP server serves an approver's continuation of another person's turn only with that person's consent (`headlessUse` `personal`), otherwise it is left out as in a headless turn. | Let people allow background use of servers their agents need after an approval, or keep such tools out of proposals that others approve. |
+| A bridge call in an agent turn that does not run in its initiator's own request fails with `api-bridge-unauthenticated` before a request is sent. | None; use a gateway read (`AllowGatewayReads`) for headless reads. |

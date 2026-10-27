@@ -139,7 +139,8 @@ internal sealed record NhAssistantDecisionTurnRequest(
 
     /// <summary>
     /// The caller already satisfied the proposal's approval policy, so the decision is not limited
-    /// to the person who started the turn.
+    /// to the person who started the turn. When the caller is not the agent turn's initiator, the
+    /// continuation works for the initiator (<see cref="NhAssistantAgentTurnContext.ContinuedByAnotherPerson"/>).
     /// </summary>
     public bool PolicyAuthorized { get; init; }
 
@@ -227,6 +228,15 @@ internal sealed record NhAssistantAgentTurnContext(
     /// inputs as well; a turn that continues after a wait has only these.
     /// </summary>
     public IReadOnlyList<string> RequestedBy { get; init; } = [];
+
+    /// <summary>
+    /// The request turn continues inside the request of another person than its initiator: an approver
+    /// decided one of its proposals under the approval policy. That person lends the turn neither
+    /// rights nor credentials. The turn works for its initiator as a headless turn does: its MCP
+    /// servers use only the initiator's consented credentials, no person's ambient token serves it and
+    /// the request's person is not its turn person.
+    /// </summary>
+    public bool ContinuedByAnotherPerson { get; init; }
 }
 
 /// <summary>

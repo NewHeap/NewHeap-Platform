@@ -289,6 +289,17 @@ internal sealed partial class NhAiMvcBridgeExecutor(
     {
         if (context.GrantSource != NhAiGrantSource.DelegatedRead)
         {
+            // The request's token is its person's and serves only a call authorized for that person.
+            // Outside an agent turn the request gate bound the call to the request's person; in an
+            // agent turn only the initiator's own request carries the initiator's token. A turn that
+            // runs in another person's request, such as an approver's decision that continues the
+            // initiator's turn, and a headless turn send nobody's token.
+            if (NhAiAgentInvocationScopes.Current is { } agentScope
+                && !await IsInitiatorsOwnRequestAsync(agentScope, cancellationToken))
+            {
+                return (null, NhAiBridgeFailureCodes.Unauthenticated);
+            }
+
             return (await credentialAccessor.GetBearerTokenAsync(cancellationToken), null);
         }
         if (NhAiAgentInvocationScopes.Current is not { AllowGatewayReads: true } scope
@@ -307,6 +318,18 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         return issued.Success
             ? (issued.Data!.BearerToken, null)
             : (null, NhAiBridgeFailureCodes.Unauthenticated);
+    }
+
+    /// <summary>
+    /// Whether the agent turn runs inside its initiator's own request: a request turn whose request is
+    /// sent by the person it delegates from, recognized by the platform's actor id of the request.
+    /// </summary>
+    private async ValueTask<bool> IsInitiatorsOwnRequestAsync(NhAiAgentInvocationScope scope, CancellationToken cancellationToken)
+    {
+        return scope.IsRequestTurn
+            && !string.IsNullOrWhiteSpace(scope.InitiatorActorId)
+            && httpContextAccessor.HttpContext is { } httpContext
+            && await NhAiRequestActor.IsAsync(httpContext, scope.InitiatorActorId, requestServices, cancellationToken);
     }
 
     private HttpRequestMessage CreateMessage(

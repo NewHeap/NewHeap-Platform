@@ -19,8 +19,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// server, so the person's own token never reaches the server. The token service is
 /// <see cref="EndpointKey"/> with the client <see cref="ClientIdKey"/>; its secret lives in the secrets
 /// file (<see cref="ClientSecretKey"/>, read with <see cref="NhConfigurationSecrets.Read"/>). A
-/// background run carries nobody's token, so the mode serves only a person's own requests. Tokens
-/// never reach a log.
+/// background run carries nobody's token, so the mode serves only a person's own requests. An
+/// approver's decision that continues another person's turn is headless for the person who asked,
+/// so the approver's token is never exchanged for it. Tokens never reach a log.
 /// </summary>
 public sealed partial class SampleTokenExchangeCredentialProvider(
     IConfiguration configuration,
