@@ -22,6 +22,17 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     /// </summary>
     private const int CertificateChaining = unchecked((int)0x800B010A);
 
+    /// <summary>
+    /// Returns <c>verified</c>, or the first check that the principal fails. The named checks come
+    /// first and keep their order, so a principal reports the same check as before; the
+    /// <c>*-not-allowlisted</c> checks after them deny by default. They test the effective server,
+    /// database, schema and object permissions of every permission name the server knows, which
+    /// includes permissions held through roles, ownership and implication, and allow only
+    /// connecting, SELECT, metadata visibility (<c>VIEW DEFINITION</c>, <c>VIEW CHANGE TRACKING</c>,
+    /// <c>SHOWPLAN</c>) and the column-key definitions that every database grants to public. Schemas
+    /// owned by fixed database roles are skipped, because a member of such a role controls that
+    /// role's empty schema; objects in them are still checked.
+    /// </summary>
     private const string ReadOnlyVerificationSql =
         """
         SELECT CASE
@@ -96,6 +107,184 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
                         'OBJECT', 'SELECT') = 1
             ) THEN 'function-select'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW SERVER STATE') = 1 THEN 'server-permission-view-server-state'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY CONNECTION') = 1 THEN 'server-permission-alter-any-connection'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'IMPERSONATE ANY LOGIN') = 1 THEN 'server-permission-impersonate-any-login'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER ANY SCHEMA') = 1 THEN 'database-permission-alter-any-schema'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.server_principals AS candidate
+                WHERE candidate.type <> 'R' AND
+                    candidate.sid <> SUSER_SID() AND
+                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'LOGIN', 'IMPERSONATE') = 1
+            ) THEN 'login-impersonate'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.database_principals AS candidate
+                WHERE candidate.type NOT IN ('A', 'R') AND
+                    candidate.principal_id <> DATABASE_PRINCIPAL_ID() AND
+                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'USER', 'IMPERSONATE') = 1
+            ) THEN 'user-impersonate'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type = 'SO' AND
+                    candidate.is_ms_shipped = 0 AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'UPDATE') = 1
+            ) THEN 'sequence-update'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.schemas AS candidate
+                LEFT JOIN sys.database_principals AS candidate_owner
+                    ON candidate_owner.principal_id = candidate.principal_id
+                WHERE COALESCE(candidate_owner.is_fixed_role, 0) = 0 AND
+                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'SCHEMA', 'ALTER') = 1
+            ) THEN 'schema-permission-alter'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.schemas AS candidate
+                LEFT JOIN sys.database_principals AS candidate_owner
+                    ON candidate_owner.principal_id = candidate.principal_id
+                WHERE COALESCE(candidate_owner.is_fixed_role, 0) = 0 AND
+                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'SCHEMA', 'TAKE OWNERSHIP') = 1
+            ) THEN 'schema-permission-take-ownership'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN (
+                        'U', 'V', 'SO', 'SN', 'P', 'PC', 'X', 'RF', 'FN', 'IF', 'TF', 'FS', 'FT', 'AF', 'SQ') AND
+                    candidate.is_ms_shipped = 0 AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'ALTER') = 1
+            ) THEN 'object-permission-alter'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN (
+                        'U', 'V', 'SO', 'SN', 'P', 'PC', 'X', 'RF', 'FN', 'IF', 'TF', 'FS', 'FT', 'AF', 'SQ') AND
+                    candidate.is_ms_shipped = 0 AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'TAKE OWNERSHIP') = 1
+            ) THEN 'object-permission-take-ownership'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.database_permissions AS candidate
+                INNER JOIN sys.columns AS candidate_column
+                    ON candidate_column.object_id = candidate.major_id AND
+                       candidate_column.column_id = candidate.minor_id
+                WHERE candidate.class = 1 AND
+                    candidate.minor_id > 0 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name = 'UPDATE' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token) AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.major_id)) + '.' +
+                            QUOTENAME(OBJECT_NAME(candidate.major_id)),
+                        'OBJECT', 'UPDATE', candidate_column.name, 'COLUMN') = 1
+            ) THEN 'column-update'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.fn_builtin_permissions('SERVER') AS candidate
+                WHERE candidate.permission_name NOT IN ('CONNECT SQL', 'VIEW ANY DATABASE') AND
+                    HAS_PERMS_BY_NAME(NULL, NULL, candidate.permission_name) = 1
+            ) THEN 'server-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.fn_builtin_permissions('DATABASE') AS candidate
+                WHERE candidate.permission_name NOT IN (
+                        'CONNECT',
+                        'SELECT',
+                        'SHOWPLAN',
+                        'VIEW DEFINITION',
+                        'VIEW SECURITY DEFINITION',
+                        'VIEW PERFORMANCE DEFINITION',
+                        'VIEW ANY COLUMN ENCRYPTION KEY DEFINITION',
+                        'VIEW ANY COLUMN MASTER KEY DEFINITION') AND
+                    HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', candidate.permission_name) = 1
+            ) THEN 'database-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.schemas AS candidate
+                LEFT JOIN sys.database_principals AS candidate_owner
+                    ON candidate_owner.principal_id = candidate.principal_id
+                CROSS JOIN sys.fn_builtin_permissions('SCHEMA') AS candidate_permission
+                WHERE COALESCE(candidate_owner.is_fixed_role, 0) = 0 AND
+                    candidate_permission.permission_name NOT IN (
+                        'SELECT', 'VIEW DEFINITION', 'VIEW CHANGE TRACKING') AND
+                    HAS_PERMS_BY_NAME(QUOTENAME(candidate.name), 'SCHEMA', candidate_permission.permission_name) = 1
+            ) THEN 'schema-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                CROSS JOIN sys.fn_builtin_permissions('OBJECT') AS candidate_permission
+                WHERE candidate.type IN (
+                        'U', 'V', 'SO', 'SN', 'P', 'PC', 'X', 'RF', 'FN', 'IF', 'TF', 'FS', 'FT', 'AF', 'SQ') AND
+                    candidate.is_ms_shipped = 0 AND
+                    candidate_permission.permission_name NOT IN (
+                        'SELECT', 'VIEW DEFINITION', 'VIEW CHANGE TRACKING') AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', candidate_permission.permission_name) = 1
+            ) THEN 'object-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.database_permissions AS candidate
+                INNER JOIN sys.columns AS candidate_column
+                    ON candidate_column.object_id = candidate.major_id AND
+                       candidate_column.column_id = candidate.minor_id
+                WHERE candidate.class = 1 AND
+                    candidate.minor_id > 0 AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name <> 'SELECT' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token) AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.major_id)) + '.' +
+                            QUOTENAME(OBJECT_NAME(candidate.major_id)),
+                        'OBJECT', candidate.permission_name, candidate_column.name, 'COLUMN') = 1
+            ) THEN 'column-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.database_principals AS candidate
+                CROSS APPLY (
+                    SELECT CASE candidate.type
+                        WHEN 'R' THEN 'ROLE'
+                        WHEN 'A' THEN 'APPLICATION ROLE'
+                        ELSE 'USER' END AS securable_class
+                ) AS candidate_class
+                CROSS APPLY sys.fn_builtin_permissions(candidate_class.securable_class) AS candidate_permission
+                WHERE candidate.principal_id <> DATABASE_PRINCIPAL_ID() AND
+                    candidate_permission.permission_name <> 'VIEW DEFINITION' AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(candidate.name),
+                        candidate_class.securable_class,
+                        candidate_permission.permission_name) = 1
+            ) THEN 'database-principal-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.server_principals AS candidate
+                CROSS APPLY (
+                    SELECT CASE candidate.type WHEN 'R' THEN 'SERVER ROLE' ELSE 'LOGIN' END AS securable_class
+                ) AS candidate_class
+                CROSS APPLY sys.fn_builtin_permissions(candidate_class.securable_class) AS candidate_permission
+                WHERE candidate.sid <> SUSER_SID() AND
+                    candidate_permission.permission_name <> 'VIEW DEFINITION' AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(candidate.name),
+                        candidate_class.securable_class,
+                        candidate_permission.permission_name) = 1
+            ) THEN 'server-principal-permission-not-allowlisted'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.database_permissions AS candidate
+                WHERE candidate.class NOT IN (0, 1, 3, 4) AND
+                    candidate.state IN ('G', 'W') AND
+                    candidate.permission_name <> 'VIEW DEFINITION' AND
+                    candidate.grantee_principal_id IN (SELECT token.principal_id FROM sys.user_token AS token)
+            ) THEN 'database-securable-permission-not-allowlisted'
             ELSE 'verified' END;
         """;
 

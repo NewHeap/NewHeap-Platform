@@ -62,12 +62,61 @@ are only additional safeguards. The `query` and `schema` commands refuse
 principals with detected write, DDL or elevated permissions, including in
 Production.
 
-On SQL Server a rejected principal returns `read-only-principal-not-verified`
-with an optional `verificationCheck` that names the first rejected check. The
-function policy is strict: SELECT or EXECUTE on any user-defined function
-rejects the principal with `function-select` or `function-execute`, because the
-tool does not verify a function's dependencies or side effects. Grant the
-diagnostic principal table, view or column permissions instead.
+A rejected principal returns `read-only-principal-not-verified` with an
+optional `verificationCheck` that names the first rejected check, with stage
+`readonly-verification`. The field never names the principal or an object.
+
+On SQL Server the function policy is strict: SELECT or EXECUTE on any
+user-defined function rejects the principal with `function-select` or
+`function-execute`, because the tool does not verify a function's dependencies
+or side effects. Grant the diagnostic principal table, view or column
+permissions instead.
+
+SQL Server verification checks the effective permissions of the login and the
+database user, including those held through roles, ownership and implication.
+After the role and permission checks above it rejects `VIEW SERVER STATE`
+(also through `##MS_ServerStateReader##`), `ALTER ANY CONNECTION`,
+`IMPERSONATE ANY LOGIN`, `ALTER ANY SCHEMA`, IMPERSONATE on a login or a user,
+UPDATE on a sequence, ALTER or TAKE OWNERSHIP on a schema or an object and
+column-level UPDATE, with `server-permission-view-server-state`,
+`server-permission-alter-any-connection`,
+`server-permission-impersonate-any-login`,
+`database-permission-alter-any-schema`, `login-impersonate`,
+`user-impersonate`, `sequence-update`, `schema-permission-alter`,
+`schema-permission-take-ownership`, `object-permission-alter`,
+`object-permission-take-ownership` and `column-update`. It then denies by
+default: on the server, the database, a schema, an object, a column, a login,
+a server role, a database principal or another database securable, every
+permission the server knows other than connecting, SELECT, metadata visibility
+(`VIEW DEFINITION`, `VIEW CHANGE TRACKING`, `SHOWPLAN`) and the column-key
+definitions that every database grants to public rejects the principal with
+`server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
+`schema-permission-not-allowlisted`, `object-permission-not-allowlisted`,
+`column-permission-not-allowlisted`,
+`server-principal-permission-not-allowlisted`,
+`database-principal-permission-not-allowlisted` or
+`database-securable-permission-not-allowlisted`. Examples are
+`VIEW DATABASE STATE`, `UNMASK`, `REFERENCES` and ALTER on a role. The empty
+schemas of fixed database roles are skipped, so `db_datareader` membership
+still passes.
+
+On PostgreSQL the verification covers the connected role and every role it is
+a member of, also a membership without inheritance, because the principal can
+switch to such a role. It denies by default. Apart from the privileges the
+server granted when it was initialized, the principal may hold SELECT on
+tables, views, sequences and columns and nothing else. It may be a member of
+`pg_read_all_data`, but of no other predefined role, such as `pg_monitor`,
+`pg_read_all_stats`, `pg_read_all_settings`, `pg_signal_backend` or the
+server-file roles. It may not own the database or any schema, relation,
+function or type, may not execute a function outside `pg_catalog` and
+`information_schema`, and may not execute a `pg_catalog` function that the
+server does not grant to PUBLIC, such as `pg_stat_reset` or `pg_ls_logdir`.
+The checks, in order, are `role-attribute-superuser`,
+`role-attribute-createrole`, `role-attribute-createdb`,
+`role-attribute-replication`, `role-attribute-bypassrls`, `database-owner`,
+`predefined-role-membership`, `database-create`, `schema-create`,
+`object-owner`, `relation-write` (also through views), `column-write`,
+`sequence-usage`, `function-execute` and `catalog-function-execute`.
 
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the
@@ -119,6 +168,21 @@ Supported parameter types are `string`, `boolean`, `int32`, `int64`, `decimal`,
 JSON number precision would be unsafe. A JSON `null` is accepted for every
 type. SQL identifiers are not data parameters; keep table and column names fixed
 in reviewed request files.
+
+The SQL policy accepts one `SELECT` or read-only `WITH` statement without
+comments. On PostgreSQL it refuses functions with session or server effects,
+such as `pg_sleep` and its variants, the advisory-lock functions,
+`pg_terminate_backend`, `pg_read_file`, `set_config` and `dblink`, and the
+functions that run SQL text given as a string, such as `query_to_xml`,
+`ts_stat` and `ts_rewrite`, with `function-not-allowed`, also
+when the name is written as a double-quoted, schema-qualified or differently
+cased identifier such as `pg_catalog."pg_sleep"`. A Unicode-escaped identifier
+(`U&"..."`) is refused with `unicode-escaped-identifier-not-allowed`, and an
+escape string (`E'...'`), in which a backslash can hide the end of the literal,
+with `escape-string-not-allowed`; pass such a value as a parameter. The tool
+keeps `standard_conforming_strings` on in the diagnostic transaction, so a
+backslash in an ordinary string literal stays an ordinary character. The policy
+is a safeguard in front of the read-only principal, not a replacement for it.
 
 Use `validate` only for CI, request-template checks or another deliberate dry
 run without a database connection:
@@ -314,6 +378,17 @@ cancellation. Exit code `1` is reserved for an unexpected tool failure.
 - Prefer a read replica or masked diagnostic views for production data.
 - Grant access only to schemas, views and columns approved for the developers or
   agents that will consume the output.
+- Keep the NewHeap platform's credential-bearing tables outside the SELECT
+  allowlist: the refresh tokens (`NhUserAuthRefreshToken` by default),
+  `AspNetUserTokens` (authenticator keys and recovery codes) and
+  `NotificationDeliveries` (delivery payloads, including e-mailed sign-in and
+  confirmation codes). Grant `AspNetUsers` only by column, without
+  `PasswordHash` and `SecurityStamp`.
+- On a database that holds those tables, grant SELECT per table, view or column.
+  A database-wide read grant, such as `db_datareader`, database-level or
+  schema-level SELECT, PostgreSQL `pg_read_all_data` or
+  `GRANT SELECT ON ALL TABLES`, includes them. Principal verification accepts
+  such grants because they are read-only, so it cannot catch this.
 - Treat query results as potentially sensitive data even though configuration
   secrets are not displayed.
 - Treat index metadata as query-design evidence, not as permission to run an

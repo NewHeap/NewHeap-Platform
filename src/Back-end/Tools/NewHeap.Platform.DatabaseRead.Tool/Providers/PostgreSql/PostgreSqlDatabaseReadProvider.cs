@@ -6,44 +6,168 @@ namespace NewHeap.Platform.DatabaseRead;
 
 internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
 {
+    /// <summary>
+    /// Returns <c>verified</c>, or the first check that the principal fails. The checks cover the
+    /// connected role and every role it is a member of, also without inheritance, because a member
+    /// can switch to such a role. They deny by default: apart from the privileges the server
+    /// granted when it was initialized, the principal may hold SELECT on relations and columns, may
+    /// be a member of <c>pg_read_all_data</c> but of no other predefined role, and may neither own
+    /// objects nor execute functions outside <c>pg_catalog</c> and <c>information_schema</c>.
+    /// Temporary schemas of other sessions are skipped; schema names are compared exactly, never
+    /// as <c>LIKE</c> patterns.
+    /// </summary>
     private const string ReadOnlyVerificationSql =
         """
-        SELECT
-            NOT role.rolsuper AND
-            NOT role.rolcreaterole AND
-            NOT role.rolcreatedb AND
-            NOT role.rolreplication AND
-            NOT role.rolbypassrls AND
-            NOT has_database_privilege(current_user, current_database(), 'CREATE') AND
-            NOT EXISTS (
+        WITH principal_role AS (
+            SELECT
+                role.oid,
+                role.rolname,
+                role.rolsuper,
+                role.rolcreaterole,
+                role.rolcreatedb,
+                role.rolreplication,
+                role.rolbypassrls
+            FROM pg_catalog.pg_roles AS role
+            WHERE pg_catalog.pg_has_role(current_user, role.oid, 'MEMBER')
+        ),
+        principal_grantee AS (
+            SELECT principal_role.oid
+            FROM principal_role
+            UNION ALL
+            SELECT 0::pg_catalog.oid
+        )
+        SELECT CASE
+            WHEN EXISTS (SELECT 1 FROM principal_role WHERE principal_role.rolsuper)
+                THEN 'role-attribute-superuser'
+            WHEN EXISTS (SELECT 1 FROM principal_role WHERE principal_role.rolcreaterole)
+                THEN 'role-attribute-createrole'
+            WHEN EXISTS (SELECT 1 FROM principal_role WHERE principal_role.rolcreatedb)
+                THEN 'role-attribute-createdb'
+            WHEN EXISTS (SELECT 1 FROM principal_role WHERE principal_role.rolreplication)
+                THEN 'role-attribute-replication'
+            WHEN EXISTS (SELECT 1 FROM principal_role WHERE principal_role.rolbypassrls)
+                THEN 'role-attribute-bypassrls'
+            WHEN EXISTS (
                 SELECT 1
-                FROM pg_catalog.pg_class AS candidate
-                WHERE candidate.relkind IN ('r', 'p', 'f') AND (
-                    has_table_privilege(current_user, candidate.oid, 'INSERT') OR
-                    has_table_privilege(current_user, candidate.oid, 'UPDATE') OR
-                    has_table_privilege(current_user, candidate.oid, 'DELETE') OR
-                    has_table_privilege(current_user, candidate.oid, 'TRUNCATE') OR
-                    has_table_privilege(current_user, candidate.oid, 'TRIGGER')
-                )
-            ) AND
-            NOT EXISTS (
+                FROM pg_catalog.pg_database AS candidate
+                WHERE candidate.datname = pg_catalog.current_database() AND
+                      candidate.datdba IN (SELECT principal_role.oid FROM principal_role)
+            ) THEN 'database-owner'
+            WHEN EXISTS (
+                SELECT 1
+                FROM principal_role
+                WHERE pg_catalog.starts_with(principal_role.rolname, 'pg_') AND
+                      principal_role.rolname <> 'pg_read_all_data'
+            ) THEN 'predefined-role-membership'
+            WHEN EXISTS (
+                SELECT 1
+                FROM principal_role
+                WHERE pg_catalog.has_database_privilege(
+                    principal_role.oid,
+                    pg_catalog.current_database(),
+                    'CREATE')
+            ) THEN 'database-create'
+            WHEN EXISTS (
                 SELECT 1
                 FROM pg_catalog.pg_namespace AS candidate
-                WHERE candidate.nspname NOT LIKE 'pg_temp_%' AND
-                      candidate.nspname NOT LIKE 'pg_toast_temp_%' AND
-                      has_schema_privilege(current_user, candidate.oid, 'CREATE')
-            ) AND
-            NOT EXISTS (
+                CROSS JOIN principal_role
+                WHERE NOT pg_catalog.pg_is_other_temp_schema(candidate.oid) AND
+                      candidate.oid <> pg_catalog.pg_my_temp_schema() AND
+                      pg_catalog.has_schema_privilege(principal_role.oid, candidate.oid, 'CREATE')
+            ) THEN 'schema-create'
+            WHEN EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_namespace AS candidate
+                WHERE candidate.nspowner IN (SELECT principal_role.oid FROM principal_role)
+                UNION ALL
+                SELECT 1
+                FROM pg_catalog.pg_class AS candidate
+                WHERE candidate.relowner IN (SELECT principal_role.oid FROM principal_role)
+                UNION ALL
+                SELECT 1
+                FROM pg_catalog.pg_proc AS candidate
+                WHERE candidate.proowner IN (SELECT principal_role.oid FROM principal_role)
+                UNION ALL
+                SELECT 1
+                FROM pg_catalog.pg_type AS candidate
+                WHERE candidate.typowner IN (SELECT principal_role.oid FROM principal_role)
+            ) THEN 'object-owner'
+            WHEN EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_class AS candidate
+                CROSS JOIN LATERAL pg_catalog.aclexplode(
+                    COALESCE(candidate.relacl, pg_catalog.acldefault('r', candidate.relowner))) AS privilege
+                WHERE candidate.relkind IN ('r', 'p', 'f', 'v', 'm') AND
+                      privilege.privilege_type <> 'SELECT' AND
+                      privilege.grantee IN (SELECT principal_grantee.oid FROM principal_grantee) AND
+                      NOT EXISTS (
+                          SELECT 1
+                          FROM pg_catalog.pg_init_privs AS initial
+                          CROSS JOIN LATERAL pg_catalog.aclexplode(initial.initprivs) AS initial_privilege
+                          WHERE initial.objoid = candidate.oid AND
+                                initial.classoid = 'pg_catalog.pg_class'::pg_catalog.regclass AND
+                                initial.objsubid = 0 AND
+                                initial.privtype = 'i' AND
+                                initial_privilege.grantee = privilege.grantee AND
+                                initial_privilege.privilege_type = privilege.privilege_type
+                      )
+            ) THEN 'relation-write'
+            WHEN EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_attribute AS candidate
+                CROSS JOIN LATERAL pg_catalog.aclexplode(candidate.attacl) AS privilege
+                WHERE candidate.attacl IS NOT NULL AND
+                      privilege.privilege_type <> 'SELECT' AND
+                      privilege.grantee IN (SELECT principal_grantee.oid FROM principal_grantee) AND
+                      NOT EXISTS (
+                          SELECT 1
+                          FROM pg_catalog.pg_init_privs AS initial
+                          CROSS JOIN LATERAL pg_catalog.aclexplode(initial.initprivs) AS initial_privilege
+                          WHERE initial.objoid = candidate.attrelid AND
+                                initial.classoid = 'pg_catalog.pg_class'::pg_catalog.regclass AND
+                                initial.objsubid = candidate.attnum AND
+                                initial.privtype = 'i' AND
+                                initial_privilege.grantee = privilege.grantee AND
+                                initial_privilege.privilege_type = privilege.privilege_type
+                      )
+            ) THEN 'column-write'
+            WHEN EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_class AS candidate
+                CROSS JOIN LATERAL pg_catalog.aclexplode(
+                    COALESCE(candidate.relacl, pg_catalog.acldefault('s', candidate.relowner))) AS privilege
+                WHERE candidate.relkind = 'S' AND
+                      privilege.privilege_type <> 'SELECT' AND
+                      privilege.grantee IN (SELECT principal_grantee.oid FROM principal_grantee)
+            ) THEN 'sequence-usage'
+            WHEN EXISTS (
                 SELECT 1
                 FROM pg_catalog.pg_proc AS candidate
                 INNER JOIN pg_catalog.pg_namespace AS candidate_namespace
                     ON candidate_namespace.oid = candidate.pronamespace
-                WHERE candidate_namespace.nspname NOT LIKE 'pg_%' AND
-                      candidate_namespace.nspname <> 'information_schema' AND
-                      has_function_privilege(current_user, candidate.oid, 'EXECUTE')
-            )
-        FROM pg_catalog.pg_roles AS role
-        WHERE role.rolname = current_user;
+                CROSS JOIN principal_role
+                WHERE candidate_namespace.nspname NOT IN ('pg_catalog', 'information_schema') AND
+                      NOT pg_catalog.pg_is_other_temp_schema(candidate_namespace.oid) AND
+                      pg_catalog.has_function_privilege(principal_role.oid, candidate.oid, 'EXECUTE')
+            ) THEN 'function-execute'
+            WHEN EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_proc AS candidate
+                INNER JOIN pg_catalog.pg_init_privs AS initial
+                    ON initial.objoid = candidate.oid AND
+                       initial.classoid = 'pg_catalog.pg_proc'::pg_catalog.regclass AND
+                       initial.objsubid = 0
+                CROSS JOIN principal_role
+                WHERE NOT EXISTS (
+                          SELECT 1
+                          FROM pg_catalog.aclexplode(initial.initprivs) AS initial_privilege
+                          WHERE initial_privilege.grantee = 0 AND
+                                initial_privilege.privilege_type = 'EXECUTE'
+                      ) AND
+                      pg_catalog.has_function_privilege(principal_role.oid, candidate.oid, 'EXECUTE')
+            ) THEN 'catalog-function-execute'
+            ELSE 'verified'
+        END;
         """;
 
     public string Name => "postgresql";
@@ -73,7 +197,9 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         command.CommandTimeout = limits.TimeoutSeconds;
         var value = await command.ExecuteScalarAsync(cancellationToken);
 
-        return new DatabaseReadPrincipalVerification(value is true);
+        return value is string check
+            ? new DatabaseReadPrincipalVerification(check == "verified", check == "verified" ? null : check)
+            : new DatabaseReadPrincipalVerification(false, "verification-result-invalid");
     }
 
     public async Task ConfigureReadOnlyTransactionAsync(
@@ -90,11 +216,14 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             await readOnlyCommand.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        // standard_conforming_strings keeps a backslash in a string literal an ordinary character,
+        // as SqlReadOnlyPolicy reads it, also for a role or connection that turned it off.
         await using var timeoutCommand = connection.CreateCommand();
         timeoutCommand.Transaction = transaction;
         timeoutCommand.CommandText =
             "SELECT set_config('statement_timeout', @statementTimeout, true), " +
-            "set_config('lock_timeout', @lockTimeout, true);";
+            "set_config('lock_timeout', @lockTimeout, true), " +
+            "set_config('standard_conforming_strings', 'on', true);";
         timeoutCommand.CommandTimeout = limits.TimeoutSeconds;
         AddTextParameter(timeoutCommand, "@statementTimeout", $"{limits.TimeoutSeconds * 1000}ms");
         AddTextParameter(timeoutCommand, "@lockTimeout", $"{limits.LockTimeoutMilliseconds}ms");

@@ -667,3 +667,115 @@ no longer resolves, and forgetting a user removes what the assistant keeps to re
 | No Web Push, in-app or agent notification reaches a person for whom the principal factory, as the MCP owner sweep selects it, rebuilds nobody for the whole application, such as a deleted, blocked or locked-out account. | A host with its own `INhAiPrincipalFactory` returns a principal for every person who may still sign in when asked for `NhAiSystemSubjects.Global`, as the MCP owner sweep already expects. |
 | `INhAiSubjectAccess.RefreshAsync` also removes the participant rows that a role created for people the refreshed members leave out and the resolver gives no role; such a person loses their read position and joins again when they read the thread with a role. Invitation and link rows stay. | None; keep calling `RefreshAsync` after the people on a subject change. |
 | The assistant registers an `INhRetentionParticipant`, and `INhRetention` when none is registered: forgetting a user, as `NhUserManager.DeleteAsync` does, removes their push subscriptions, notification choice, MCP connection notices and participant rows. | None for hosts whose actor ids are user ids; a host with other actor ids removes those rows of a forgotten person in its own retention participant. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL principal verification denies by default
+
+`query` and `schema` verified a PostgreSQL principal against a fixed list of write and DDL privileges.
+Membership in a predefined role such as `pg_monitor`, `pg_read_all_stats`, `pg_read_all_settings`,
+`pg_signal_backend` or a server-file role passed, as did EXECUTE on a `pg_catalog` function that the
+server revokes from PUBLIC, such as `pg_stat_reset`, and every function in a user schema whose name
+starts with `pg` followed by another character, because the schema filter used `pg_%` as a `LIKE`
+pattern. Column-level INSERT or UPDATE, writes through views and USAGE on sequences passed as well.
+
+The verification now covers the connected role and every role it is a member of, also without
+inheritance, and denies by default. Beyond the privileges the server granted at initialization, the
+principal may hold SELECT on tables, views, sequences and columns, and membership in
+`pg_read_all_data`. Any other predefined role, a role attribute such as CREATEROLE, ownership of the
+database or of any schema, relation, function or type, CREATE on the database or a schema, any other
+relation, column or sequence privilege, EXECUTE on a function outside `pg_catalog` and
+`information_schema`, and EXECUTE on a `pg_catalog` function that the server does not grant to PUBLIC
+reject it. Schema names are compared exactly. A rejected PostgreSQL principal now also reports the
+first failed check as `error.verificationCheck` with stage `readonly-verification`: one of
+`role-attribute-superuser`, `role-attribute-createrole`, `role-attribute-createdb`,
+`role-attribute-replication`, `role-attribute-bypassrls`, `database-owner`,
+`predefined-role-membership`, `database-create`, `schema-create`, `object-owner`, `relation-write`,
+`column-write`, `sequence-usage`, `function-execute` or `catalog-function-execute`.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL principal that holds anything beyond SELECT and `pg_read_all_data`, including a predefined monitoring or signalling role, an administrative `pg_catalog` function, a column or view write or USAGE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the grant that `error.verificationCheck` names from the diagnostic principal and the roles it belongs to; grant only CONNECT, schema USAGE and SELECT. |
+| A rejected PostgreSQL principal now reports `error.verificationCheck` and `error.stage`. | Let code that reads the field accept PostgreSQL check identifiers, or discard identifiers it does not know. |
+
+## NewHeap.Platform.DatabaseRead.Tool: SQL Server principal verification denies by default
+
+SQL Server verification checked a fixed list of roles and permissions. A principal with
+`VIEW SERVER STATE`, `ALTER ANY CONNECTION`, `IMPERSONATE ANY LOGIN`, `ALTER ANY SCHEMA`, IMPERSONATE
+on a login or a user, UPDATE on a sequence, ALTER or TAKE OWNERSHIP on a schema or an object, or a
+column-level UPDATE passed. The checks that existed keep their identifiers and order. After them,
+these permissions now reject the principal with `server-permission-view-server-state` (also through
+`##MS_ServerStateReader##`), `server-permission-alter-any-connection`,
+`server-permission-impersonate-any-login`, `database-permission-alter-any-schema`,
+`login-impersonate`, `user-impersonate`, `sequence-update`, `schema-permission-alter`,
+`schema-permission-take-ownership`, `object-permission-alter`, `object-permission-take-ownership`
+and `column-update`. The verification then denies by default: every effective permission on the
+server, the database, a schema, an object, a column, a login, a server role, a database principal or
+another database securable other than connecting, SELECT, `VIEW DEFINITION`, `VIEW CHANGE TRACKING`,
+`SHOWPLAN` and the column-key definitions that every database grants to public rejects the principal
+with `server-permission-not-allowlisted`, `database-permission-not-allowlisted`,
+`schema-permission-not-allowlisted`, `object-permission-not-allowlisted`,
+`column-permission-not-allowlisted`, `server-principal-permission-not-allowlisted`,
+`database-principal-permission-not-allowlisted` or `database-securable-permission-not-allowlisted`.
+`db_datareader` and database-level SELECT still pass.
+
+| Breaking change | Required action |
+|---|---|
+| A SQL Server principal that holds a permission beyond connecting, SELECT and metadata visibility, such as `VIEW SERVER STATE`, `VIEW DATABASE STATE`, `UNMASK`, `REFERENCES`, IMPERSONATE or UPDATE on a sequence, is refused with `read-only-principal-not-verified`. | Revoke the permission that `error.verificationCheck` names from the diagnostic login, its user and the roles they belong to. |
+| `error.verificationCheck` can carry the new SQL Server identifiers listed above. | Let code that reads the field accept them, or discard identifiers it does not know. |
+
+## NewHeap.Platform.DatabaseRead.Tool: quoted PostgreSQL function names are refused
+
+The SQL policy skipped double-quoted text, so a forbidden PostgreSQL function written as a quoted
+identifier, such as `SELECT "pg_sleep"(1)`, `pg_catalog."pg_advisory_lock"(...)` or
+`"pg_terminate_backend"(...)`, passed validation and ran; PostgreSQL resolves the quoted lowercase name
+to the same function. A session-level advisory lock taken this way outlives the rolled-back read-only
+transaction in the pooled session. The policy now compares the text of every double-quoted identifier
+on PostgreSQL, with doubled quotes unescaped and case ignored, with its function list and refuses a
+match with `function-not-allowed`. A Unicode-escaped identifier (`U&"..."`) is refused with the new
+code `unicode-escaped-identifier-not-allowed`. Quoted identifiers that name no forbidden function, also
+keyword names such as `"Update"` or `"Share"`, stay allowed on both providers.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL query that uses a double-quoted identifier spelled like a forbidden function, also as a column alias, or a `U&"..."` identifier is refused before execution. | Rename the alias, or write the identifier without Unicode escapes. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL escape strings are refused
+
+In a PostgreSQL escape string (`E'...'`), and in every string literal of a role or connection that
+turns `standard_conforming_strings` off, a backslash escapes the quote that would otherwise end the
+literal. The SQL policy did not follow that, so `SELECT E'\'' AS a, pg_sleep(1) AS b, E'\''` passed
+validation with the function call inside what the policy read as a string, and PostgreSQL ran it. The
+policy now refuses escape strings with the new code `escape-string-not-allowed`, and the tool sets
+`standard_conforming_strings` to `on` for the diagnostic transaction, so a backslash in an ordinary
+string literal stays an ordinary character, as the policy reads it.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL query with an escape string (`E'...'`) is refused before execution. | Pass the value as a typed parameter, or write it as an ordinary string literal. |
+| Ordinary PostgreSQL string literals are read with `standard_conforming_strings` on, also when the principal's role or connection turned it off. | Write a quote inside a literal as `''`; a backslash is an ordinary character. |
+
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL functions that run SQL text are refused
+
+`query_to_xml`, `query_to_xmlschema`, `query_to_xml_and_xmlschema`, `cursor_to_xml`,
+`cursor_to_xmlschema`, `ts_stat` and `ts_rewrite` run SQL text that the SQL policy reads as a string
+literal, so a forbidden function inside that text, such as `pg_advisory_lock`, ran for a read-only
+principal; a session advisory lock taken this way stayed held by the pooled session after the tool
+rolled the transaction back. The policy now refuses these functions, and the `pg_sleep` variants
+`pg_sleep_for` and `pg_sleep_until`, with `function-not-allowed`, also as quoted identifiers.
+
+| Breaking change | Required action |
+|---|---|
+| A PostgreSQL diagnostic query that calls one of these functions is refused before execution. | Send the SQL text that the function would run as the diagnostic `SELECT` itself. |
+
+## NewHeap.Platform.DatabaseRead.Tool: credential-bearing tables stay outside the diagnostic grants
+
+The read-only diagnostics guidance, the tool README and the sample's database-read instructions now
+name the platform tables that hold credentials and must stay outside the diagnostic principal's
+SELECT allowlist: the refresh tokens (`NhUserAuthRefreshToken` by default), `AspNetUserTokens` and
+`NotificationDeliveries`, and the `PasswordHash` and `SecurityStamp` columns of `AspNetUsers`. A
+database-wide read grant, such as `db_datareader`, database-level or schema-level SELECT,
+`pg_read_all_data` or `GRANT SELECT ON ALL TABLES`, includes them, and principal verification
+accepts it because it is read-only. The tool's behavior does not change.
+
+| Breaking change | Required action |
+|---|---|
+| None. | Revoke SELECT on these tables and columns from the diagnostic principal, and replace a database-wide read grant on a platform database with per-table, view or column grants. |

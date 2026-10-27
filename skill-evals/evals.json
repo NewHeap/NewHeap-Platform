@@ -142,6 +142,13 @@
       "expectedOutcome": "The consumer pins newheap-db and checks in bounded provider profiles, local database-read instructions, and typed query request files as the execution contract. A profile governs provider, configuration path, connection-string name, ceilings and a default environment. Validate runs locally and advertises outbound-network, while Codex starts the first schema or query invocation with network-enabled execution and a narrow reusable permission scoped only to newheap-db instead of probing the restricted sandbox. An explicitly requested runtime environment is passed with --environment to schema and query without requiring a duplicate profile solely for Production or Staging. The agent uses direct schema search-and-describe without a JSON schema file, uses --request-file instead of serialized query arguments, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
     },
     {
+      "id": "consumer-read-only-diagnostics-credential-tables",
+      "skill": "newheap-database-development",
+      "prompt": "Create the read-only database principal that agents use for newheap-db diagnostics on our NewHeap application database, so they can investigate users, divisions and notifications.",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The agent creates a dedicated login or role that can only connect and select approved tables, views and columns, granted per object rather than through db_datareader, database-level or schema-level SELECT, pg_read_all_data or GRANT SELECT ON ALL TABLES. The grants leave out the refresh tokens (NhUserAuthRefreshToken), AspNetUserTokens and NotificationDeliveries, and grant AspNetUsers only by column without PasswordHash and SecurityStamp. The principal holds no write, DDL, function, procedure, sequence USAGE or UPDATE, impersonation, server-state or predefined monitoring or signalling permission, and the agent explains that principal verification accepts a database-wide read grant, so excluding the credential-bearing tables is the consumer's responsibility."
+    },
+    {
       "id": "consumer-database-diagnostic-network-capability",
       "skill": "newheap-database-development",
       "prompt": "Use Codex to run the checked-in newheap-db schema and query diagnostics. Should it try the normal sandbox first or run validate before connecting?",

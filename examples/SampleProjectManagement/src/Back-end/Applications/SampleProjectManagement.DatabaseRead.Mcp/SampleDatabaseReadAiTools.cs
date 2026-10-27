@@ -422,6 +422,40 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         "procedure-execute" or
         "function-execute" or
         "function-select" or
+        "role-attribute-superuser" or
+        "role-attribute-createrole" or
+        "role-attribute-createdb" or
+        "role-attribute-replication" or
+        "role-attribute-bypassrls" or
+        "database-owner" or
+        "predefined-role-membership" or
+        "database-create" or
+        "schema-create" or
+        "object-owner" or
+        "relation-write" or
+        "column-write" or
+        "sequence-usage" or
+        "catalog-function-execute" or
+        "server-permission-view-server-state" or
+        "server-permission-alter-any-connection" or
+        "server-permission-impersonate-any-login" or
+        "database-permission-alter-any-schema" or
+        "login-impersonate" or
+        "user-impersonate" or
+        "sequence-update" or
+        "schema-permission-alter" or
+        "schema-permission-take-ownership" or
+        "object-permission-alter" or
+        "object-permission-take-ownership" or
+        "column-update" or
+        "server-permission-not-allowlisted" or
+        "database-permission-not-allowlisted" or
+        "schema-permission-not-allowlisted" or
+        "object-permission-not-allowlisted" or
+        "column-permission-not-allowlisted" or
+        "database-principal-permission-not-allowlisted" or
+        "server-principal-permission-not-allowlisted" or
+        "database-securable-permission-not-allowlisted" or
         "table" or
         "view" or
         "table" or

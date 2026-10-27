@@ -17,7 +17,17 @@ internal static class SqlReadOnlyPolicy
         "HOLDLOCK", "PAGLOCK", "ROWLOCK", "TABLOCK", "TABLOCKX", "UPDLOCK", "XLOCK"
     };
 
-    private static readonly HashSet<string> PostgreSqlForbiddenTokens = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> PostgreSqlForbiddenKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SHARE"
+    };
+
+    /// <summary>
+    /// Functions refused on PostgreSQL. A double-quoted identifier names the same function when its
+    /// text matches, so quoted identifiers are compared with this list as well. The XML and text
+    /// search functions on the last lines run SQL text that the policy reads as a string literal.
+    /// </summary>
+    private static readonly HashSet<string> PostgreSqlForbiddenFunctions = new(StringComparer.OrdinalIgnoreCase)
     {
         "DBLINK", "DBLINK_CONNECT", "DBLINK_EXEC", "LO_EXPORT", "LO_IMPORT", "NEXTVAL",
         "PG_ADVISORY_LOCK", "PG_ADVISORY_LOCK_SHARED", "PG_ADVISORY_UNLOCK",
@@ -25,15 +35,16 @@ internal static class SqlReadOnlyPolicy
         "PG_ADVISORY_XACT_LOCK_SHARED", "PG_BACKUP_START", "PG_BACKUP_STOP",
         "PG_CANCEL_BACKEND", "PG_CREATE_RESTORE_POINT", "PG_LOGICAL_EMIT_MESSAGE", "PG_LOGDIR_LS",
         "PG_LS_DIR", "PG_NOTIFY", "PG_PROMOTE", "PG_READ_BINARY_FILE", "PG_READ_FILE",
-        "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_SLEEP", "PG_STAT_FILE",
-        "PG_TERMINATE_BACKEND", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED",
+        "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_SLEEP", "PG_SLEEP_FOR", "PG_SLEEP_UNTIL",
+        "PG_STAT_FILE", "PG_TERMINATE_BACKEND", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED",
         "PG_TRY_ADVISORY_XACT_LOCK", "PG_TRY_ADVISORY_XACT_LOCK_SHARED", "SET_CONFIG", "SETVAL",
-        "SHARE"
+        "CURSOR_TO_XML", "CURSOR_TO_XMLSCHEMA", "QUERY_TO_XML", "QUERY_TO_XML_AND_XMLSCHEMA",
+        "QUERY_TO_XMLSCHEMA", "TS_REWRITE", "TS_STAT"
     };
 
     public static void Validate(string sql, DatabaseProviderKind provider)
     {
-        var tokens = Tokenize(sql, provider);
+        var (tokens, quotedIdentifiers) = Tokenize(sql, provider);
         if (tokens.Count == 0 ||
             !(tokens[0].Equals("SELECT", StringComparison.OrdinalIgnoreCase) ||
               tokens[0].Equals("WITH", StringComparison.OrdinalIgnoreCase)))
@@ -58,16 +69,32 @@ internal static class SqlReadOnlyPolicy
                 Reject("locking-hint-not-allowed", $"SQL Server locking hint '{token}' is not allowed.");
             }
 
-            if (provider == DatabaseProviderKind.PostgreSql && PostgreSqlForbiddenTokens.Contains(token))
+            if (provider == DatabaseProviderKind.PostgreSql &&
+                (PostgreSqlForbiddenFunctions.Contains(token) || PostgreSqlForbiddenKeywords.Contains(token)))
             {
                 Reject("function-not-allowed", $"PostgreSQL function '{token}' is not allowed.");
             }
         }
+
+        foreach (var identifier in quotedIdentifiers)
+        {
+            if (PostgreSqlForbiddenFunctions.Contains(identifier))
+            {
+                Reject("function-not-allowed", $"PostgreSQL function '{identifier}' is not allowed.");
+            }
+        }
     }
 
-    private static IReadOnlyList<string> Tokenize(string sql, DatabaseProviderKind provider)
+    /// <summary>
+    /// Splits the SQL into upper-cased words outside quoted text and, on PostgreSQL, the upper-cased
+    /// text of every double-quoted identifier, with doubled quotes unescaped.
+    /// </summary>
+    private static (IReadOnlyList<string> Tokens, IReadOnlyList<string> QuotedIdentifiers) Tokenize(
+        string sql,
+        DatabaseProviderKind provider)
     {
         var tokens = new List<string>();
+        var quotedIdentifiers = new List<string>();
         var semicolonPositions = new List<int>();
         var lastOutsideWhitespace = -1;
 
@@ -108,7 +135,15 @@ internal static class SqlReadOnlyPolicy
 
             if (current == '"')
             {
-                index = SkipQuoted(sql, index, '"', '"');
+                var end = SkipQuoted(sql, index, '"', '"');
+                if (provider == DatabaseProviderKind.PostgreSql)
+                {
+                    quotedIdentifiers.Add(sql[(index + 1)..(end - 1)]
+                        .Replace("\"\"", "\"", StringComparison.Ordinal)
+                        .ToUpperInvariant());
+                }
+
+                index = end;
                 continue;
             }
 
@@ -133,6 +168,32 @@ internal static class SqlReadOnlyPolicy
                     index++;
                 }
 
+                if (provider == DatabaseProviderKind.PostgreSql &&
+                    index - start == 1 &&
+                    sql[start] is 'U' or 'u' &&
+                    index + 1 < sql.Length &&
+                    sql[index] == '&' &&
+                    sql[index + 1] == '"')
+                {
+                    Reject(
+                        "unicode-escaped-identifier-not-allowed",
+                        "PostgreSQL Unicode-escaped identifiers are not allowed.");
+                }
+
+                // In an escape string a backslash can escape the quote that would end a standard
+                // string, so its end is not where this tokenizer would look for it. The provider
+                // keeps standard_conforming_strings on, so other string literals end as read here.
+                if (provider == DatabaseProviderKind.PostgreSql &&
+                    index - start == 1 &&
+                    sql[start] is 'E' or 'e' &&
+                    index < sql.Length &&
+                    sql[index] == '\'')
+                {
+                    Reject(
+                        "escape-string-not-allowed",
+                        "PostgreSQL escape strings are not allowed. Pass the value as a parameter.");
+                }
+
                 tokens.Add(sql[start..index].ToUpperInvariant());
                 continue;
             }
@@ -146,7 +207,7 @@ internal static class SqlReadOnlyPolicy
             Reject("multiple-statements-not-allowed", "Only one SQL statement is allowed.");
         }
 
-        return tokens;
+        return (tokens, quotedIdentifiers);
     }
 
     private static int SkipQuoted(string sql, int start, char opening, char closing)
