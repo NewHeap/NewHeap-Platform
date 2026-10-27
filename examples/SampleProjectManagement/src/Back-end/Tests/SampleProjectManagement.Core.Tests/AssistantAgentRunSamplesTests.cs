@@ -5207,6 +5207,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                     && followUp.SkillChosenBy == NhAssistantSkillChoosers.FollowUp
                     && followUp.Kind == NhAssistantRunKinds.Rule,
                 $"Expected the follow-up run completed in skill {skill}, chosen by {NhAssistantSkillChoosers.FollowUp}, of kind {NhAssistantRunKinds.Rule}; found {Describe(followUp)}.");
+            // The follow-up continues the trigger's work, which nobody asked for: it has no initiator,
+            // and the approver who decided lends it no rights.
+            Assert.True(
+                followUp.InitiatorActorId is null,
+                $"The follow-up of trigger work should have no initiator; it names {followUp.InitiatorActorId}.");
             // The follow-up's rules took the decision as the answer without the model.
             Assert.True(
                 late.Requests.Count == 2,

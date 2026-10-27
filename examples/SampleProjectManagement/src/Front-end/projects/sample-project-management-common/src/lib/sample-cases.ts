@@ -4585,7 +4585,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "A skill's rules hand a doubtful case to the skill's own model, and the decision is followed up in the skill",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantSkillBuilder.UseRuleHandler together with Instructions, Tools and UseApprovalPolicy (and UseProfile); NhAssistantRuleResult.HandOver inside a skill; NhAiApprovalPolicyBuilder.StartFollowUpRun; the proposal-executed and proposal-decided follow-up triggers; NhAssistantSkillChoosers.FollowUp and skillChosenBy follow-up on NhAssistantRunDto; follow-up in AgentSkillChooser and the run timeline",
-    "outcome": "The project planner's task follow-up skill works by rules. When a task is completed after the project's deadline, its rules cannot judge the case and hand it over: the skill's own model works with the skill's instructions and only the status tool, with the rules' reason in the briefing, and proposes to put the project on hold. The run stays recorded in the skill as a rule-then-model run. The approver approves; once the proposal executed, the follow-up run continues in the same skill, chosen as a follow-up, and its rules take the decision as the answer without a model. The follow-up waits 30 seconds on the application's clock: the test host registers its own `TimeProvider` and moves it past that debounce instead of waiting. Moving the clock never makes waiting work look like a stalled dispatch, because reconciliation also requires the stale timeout of real time without a change.",
+    "outcome": "The project planner's task follow-up skill works by rules. When a task is completed after the project's deadline, its rules cannot judge the case and hand it over: the skill's own model works with the skill's instructions and only the status tool, with the rules' reason in the briefing, and proposes to put the project on hold. The run stays recorded in the skill as a rule-then-model run. The approver approves; once the proposal executed, the follow-up run continues in the same skill, chosen as a follow-up, and its rules take the decision as the answer without a model. The follow-up waits 30 seconds on the application's clock: the test host registers its own `TimeProvider` and moves it past that debounce instead of waiting. Moving the clock never makes waiting work look like a stalled dispatch, because reconciliation also requires the stale timeout of real time without a change. The follow-up continues the work of the run that made the proposal: it keeps that run's initiator, and trigger work such as this task's follow-up has none, so the approver who decided never becomes its initiator and lends it no rights.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
@@ -4598,7 +4598,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationReconciliationService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentSkillTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOwnershipProviderTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html"
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantFollowUpInitiatorTests.cs"
     ]
   },
   {

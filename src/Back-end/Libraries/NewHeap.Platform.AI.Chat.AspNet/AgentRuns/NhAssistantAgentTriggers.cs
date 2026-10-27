@@ -910,11 +910,13 @@ internal sealed class NhAssistantAgentTriggers(
     /// continues with the outcome. An approved proposal follows up once its execution ended. The
     /// run continues in the skill of the run that made the proposal while the agent declares it, so
     /// that skill's state applies: a paused skill lets the follow-up wait, a stopped one refuses it.
+    /// The follow-up continues the work of the run that made the proposal, so it keeps that work's
+    /// initiator (<see cref="FollowUpInitiatorOf"/>); the person who decided stays in the approval and
+    /// its audit and never lends rights to the follow-up.
     /// </summary>
     internal async Task<NhAssistantTriggerReceipt> StartFollowUpAsync(
         AssistantThread thread,
         AssistantApproval approval,
-        string? actorId,
         CancellationToken cancellationToken)
     {
         var skillId = approval.RunId is { } runId
@@ -946,7 +948,7 @@ internal sealed class NhAssistantAgentTriggers(
                 executed ? NhAssistantTriggerIds.ProposalExecuted : NhAssistantTriggerIds.ProposalDecided,
                 thread.AgentId,
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-                actorId,
+                FollowUpInitiatorOf(approval),
                 $"Proposal {approval.ProposalId:N} for tool {approval.ToolId} was {outcome}.",
                 eventKey,
                 NhAssistantTriggerConflict.Coalesce,
@@ -955,6 +957,18 @@ internal sealed class NhAssistantAgentTriggers(
                 SkillId = skillId
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The initiator of the follow-up run of <paramref name="approval"/>: the person who started the
+    /// work that made the proposal, or <see langword="null"/> for trigger work and for a proposal a run
+    /// placed at another object, whose follow-up in that object's thread is nobody's request. Never the
+    /// person who decided: a decider neither asked for the follow-up nor approved what it does.
+    /// </summary>
+    internal static string? FollowUpInitiatorOf(AssistantApproval approval)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+        return approval.PlacedFromConversationId is null ? approval.InitiatorActorId : null;
     }
 
     /// <summary>

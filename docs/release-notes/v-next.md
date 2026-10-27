@@ -241,3 +241,16 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Chat.AspNet: follow-up runs keep the initiator of the work they continue
+
+A follow-up run after a proposal decision (`StartFollowUpRun`) now keeps the initiator of the run that
+made the proposal, or none for trigger work and for a proposal a run placed at another object. Before,
+it took the person who decided as its initiator, after a rejection, an executed or failed approval, an
+approval refused because the subject changed and an application's execution report alike, so a
+delegating agent's follow-up used the decider's rights and four eyes kept the decider instead of the
+requester out of its proposals. The decider stays in the approval (`DecidedByActorId`) and its audit.
+
+| Breaking change | Required action |
+|---|---|
+| The `proposal-decided` and `proposal-executed` runs, their trigger audit and the proposals they make name the proposal's initiator, or none, instead of the person who decided. | None; read the decider from the approval or its decision audit. |

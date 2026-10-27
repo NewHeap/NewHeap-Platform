@@ -685,7 +685,10 @@ so decisions made together reach one run. Debounces, this one included, run on t
 application's clock (a registered `TimeProvider`, otherwise the system clock): a test moves
 its clock past them instead of waiting. The follow-up continues in the skill of
 the run that made the proposal (`skillChosenBy` `follow-up`) while the agent declares that skill:
-a paused skill lets it wait and a stopped one refuses it.
+a paused skill lets it wait and a stopped one refuses it. It also keeps that run's initiator, or
+none for trigger work and for a proposal the run placed at another object: the person who decided
+stays in the approval and its audit, never becomes the follow-up's initiator and lends it no rights,
+so four eyes keeps the requester out of what the follow-up proposes.
 
 Filter events that do not concern the agent with `When` on `AddTrigger` and
 `AddWebhookTrigger`: it runs before every other lambda of the trigger, and a refused event

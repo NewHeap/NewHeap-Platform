@@ -1150,7 +1150,7 @@ internal sealed class NhAssistantProposalExecution(
         var policy = closed?.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(closed.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
-            await triggers.StartFollowUpAsync(thread, closed!, closed!.DecidedByActorId, CancellationToken.None);
+            await triggers.StartFollowUpAsync(thread, closed!, CancellationToken.None);
         }
     }
 
@@ -1201,7 +1201,7 @@ internal sealed class NhAssistantProposalExecution(
         var policy = current.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(current.PolicyJson);
         if (policy?.StartFollowUpRun == true)
         {
-            await triggers.StartFollowUpAsync(thread, current, current.DecidedByActorId, CancellationToken.None);
+            await triggers.StartFollowUpAsync(thread, current, CancellationToken.None);
         }
     }
 }
