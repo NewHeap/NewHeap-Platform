@@ -6,14 +6,16 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Tests.Relational;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
 
 /// <summary>
-/// How long the notification processor keeps the data of a delivery, with the notification model
-/// that applications map through <c>AddNewHeapNotifications</c>.
+/// How long the notification processor keeps the data of a delivery, short-lived content
+/// (<see cref="INhExpiringDeliveryData"/>) included, with the notification model that applications
+/// map through <c>AddNewHeapNotifications</c>.
 /// </summary>
 public sealed class NhNotificationDeliveryRetentionProviderTests
 {
@@ -65,6 +67,110 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
         }
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ExpiringContentLeavesTheStoreOnceTheDeliveryEndsOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        await using var host = await DeliveryHost.CreateAsync(
+            provider,
+            settings => settings.ProcessingMaxRetryAttempts = 1);
+        var now = DateTimeOffset.UtcNow;
+        var codeExpiresAt = now.AddMinutes(10);
+
+        // Claimed in this order: by scheduled time, as they have the same priority.
+        var expiredBeforeDispatch = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddMinutes(-5), expiresAt: now.AddMinutes(-1));
+        var sent = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddMinutes(-4), expiresAt: codeExpiresAt);
+        var failed = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddMinutes(-3), expiresAt: codeExpiresAt);
+        var withoutExpiry = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddMinutes(-2));
+
+        // Scheduled later, so no claim reaches them before the cleanup pass does.
+        var expiredWhileWaiting = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddHours(1), expiresAt: now.AddMinutes(-1));
+        var stillValidWhileWaiting = await host.AddDeliveryAsync(
+            NotificationDeliveryStatus.Queued, scheduledAt: now.AddHours(1), expiresAt: codeExpiresAt);
+
+        // A claim cancels expired content instead of sending it and takes the next delivery.
+        var sentClaim = await host.Processor.TryClaimNextDeliveryAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            CancellationToken.None);
+        Assert.Equal(sent, sentClaim?.DeliveryId);
+
+        var deliveries = await host.GetDeliveriesAsync();
+        Assert.Equal(NotificationDeliveryStatus.Cancelled, deliveries[expiredBeforeDispatch].Status);
+        Assert.Equal(
+            NhNotificationProcessingService.ExpiredBeforeDispatchMessage,
+            deliveries[expiredBeforeDispatch].LastFailedMessage);
+        Assert.Equal(0, deliveries[expiredBeforeDispatch].AttemptCount);
+        AssertDiscarded(deliveries[expiredBeforeDispatch], host.Label);
+
+        // While the delivery is being sent its content is still there; once sent, it is gone.
+        Assert.NotNull(deliveries[sent].Data);
+        await host.Processor.CompleteDeliveryAttemptAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            sentClaim!,
+            TaskResult.Succeeded(),
+            CancellationToken.None);
+
+        deliveries = await host.GetDeliveriesAsync();
+        Assert.Equal(NotificationDeliveryStatus.Succeeded, deliveries[sent].Status);
+        Assert.NotNull(deliveries[sent].SentAt);
+        AssertDiscarded(deliveries[sent], host.Label);
+
+        // A delivery that fails for good loses its content as well.
+        var failedClaim = await host.Processor.TryClaimNextDeliveryAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            CancellationToken.None);
+        Assert.Equal(failed, failedClaim?.DeliveryId);
+        var failure = new TaskResult();
+        failure.AddError("DispatchError", "The mail server refused the message.");
+        await host.Processor.CompleteDeliveryAttemptAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            failedClaim!,
+            failure,
+            CancellationToken.None);
+
+        deliveries = await host.GetDeliveriesAsync();
+        Assert.Equal(NotificationDeliveryStatus.Failed, deliveries[failed].Status);
+        AssertDiscarded(deliveries[failed], host.Label);
+
+        // Content without an expiry follows the retention period.
+        var regularClaim = await host.Processor.TryClaimNextDeliveryAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            CancellationToken.None);
+        Assert.Equal(withoutExpiry, regularClaim?.DeliveryId);
+        await host.Processor.CompleteDeliveryAttemptAsync(
+            NhEmailNotificationDispatcher.DispatcherIdValue,
+            regularClaim!,
+            TaskResult.Succeeded(),
+            CancellationToken.None);
+
+        deliveries = await host.GetDeliveriesAsync();
+        Assert.Equal(NotificationDeliveryStatus.Succeeded, deliveries[withoutExpiry].Status);
+        Assert.False(deliveries[withoutExpiry].IsCleaned, host.Label);
+        Assert.NotNull(deliveries[withoutExpiry].Data);
+
+        // The cleanup pass cancels waiting deliveries whose content expired, also when no worker claims them.
+        await host.Processor.CancelExpiredWaitingDeliveriesAsync(CancellationToken.None);
+
+        deliveries = await host.GetDeliveriesAsync();
+        Assert.Equal(NotificationDeliveryStatus.Cancelled, deliveries[expiredWhileWaiting].Status);
+        AssertDiscarded(deliveries[expiredWhileWaiting], host.Label);
+        Assert.Equal(NotificationDeliveryStatus.Queued, deliveries[stillValidWhileWaiting].Status);
+        Assert.False(deliveries[stillValidWhileWaiting].IsCleaned, host.Label);
+        Assert.NotNull(deliveries[stillValidWhileWaiting].Data);
+    }
+
+    private static void AssertDiscarded(NhNotificationDelivery delivery, string label)
+    {
+        Assert.True(delivery.IsCleaned, label);
+        Assert.Null(delivery.Data);
+    }
+
     /// <summary>
     /// The processor and a database of its own, mapped like an application maps the notification tables.
     /// </summary>
@@ -84,7 +190,9 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
 
         internal NhNotificationProcessingService Processor { get; }
 
-        internal static async Task<DeliveryHost> CreateAsync(RelationalTestProvider provider)
+        internal static async Task<DeliveryHost> CreateAsync(
+            RelationalTestProvider provider,
+            Action<NhNotificationSettings>? configure = null)
         {
             var database = await ProviderTestDatabase.CreateAsync(provider);
             var services = new ServiceCollection();
@@ -98,6 +206,7 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
                 new Repository<NhNotificationDelivery>(
                     serviceProvider.GetRequiredService<DeliveryDbContext>(),
                     serviceProvider));
+            services.AddSingleton<INhNotificationDispatcher, TestEmailDispatcher>();
             var serviceProvider = services.BuildServiceProvider();
 
             await using (var scope = serviceProvider.CreateAsyncScope())
@@ -111,6 +220,7 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
                 ProcessingLockTimeout = TimeSpan.FromMinutes(1),
                 ProcessingPollerLockTimeout = TimeSpan.FromSeconds(5),
             };
+            configure?.Invoke(settings);
             var processor = new NhNotificationProcessingService(
                 serviceProvider.GetRequiredService<IServiceScopeFactory>(),
                 NullLogger<NhNotificationProcessingService>.Instance,
@@ -128,7 +238,8 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
             DateTimeOffset scheduledAt,
             DateTimeOffset? lastSendAttemptAt = null,
             DateTimeOffset? sentAt = null,
-            DateTimeOffset? lastModifiedAt = null)
+            DateTimeOffset? lastModifiedAt = null,
+            DateTimeOffset? expiresAt = null)
         {
             await using var scope = _services.CreateAsyncScope();
             var context = scope.ServiceProvider.GetRequiredService<DeliveryDbContext>();
@@ -148,6 +259,7 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
                     To = ["recipient@example.test"],
                     Subject = $"{Label} {status}",
                     Body = $"Delivery for {Label} with status {status}.",
+                    ExpiresAt = expiresAt,
                 },
             };
             context.Set<NhNotificationDelivery>().Add(delivery);
@@ -184,6 +296,19 @@ public sealed class NhNotificationDeliveryRetentionProviderTests
                 Priority = NhNotificationPriority.Normal,
             });
             await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Takes the place of the e-mail dispatcher; the tests report the result of each attempt themselves.
+    /// </summary>
+    private sealed class TestEmailDispatcher : INhNotificationDispatcher<NhEmailDeliveryData>
+    {
+        public string DispatcherId => NhEmailNotificationDispatcher.DispatcherIdValue;
+
+        public Task<TaskResult> DispatchAsync(NhEmailDeliveryData? deliveryData, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(TaskResult.Succeeded());
         }
     }
 

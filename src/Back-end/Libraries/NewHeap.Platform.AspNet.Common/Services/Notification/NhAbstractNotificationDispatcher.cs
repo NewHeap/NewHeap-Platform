@@ -16,6 +16,24 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
+/// <summary>
+/// Delivery data whose content must not outlive a moment, such as an e-mail that carries a sign-in
+/// code. When <see cref="ExpiresAt"/> has a value, the notification processor removes the data from
+/// the delivery store as soon as the delivery ends (sent, failed or cancelled), cancels the delivery
+/// instead of dispatching it once that moment has passed, and removes the data of a delivery that is
+/// still waiting at that moment in its next cleanup pass. Without a value the data follows
+/// <see cref="NhNotificationSettings.ProcessingRetentionPeriod"/>.
+/// </summary>
+/// <remarks>
+/// The processor recognizes the data through the delivery data type of the registered
+/// <see cref="INhNotificationDispatcher{TDeliveryData}"/>, so implement this interface on that type.
+/// </remarks>
+public interface INhExpiringDeliveryData
+{
+    /// <summary>When the content stops being valid; <see langword="null"/> keeps it for the retention period.</summary>
+    DateTimeOffset? ExpiresAt { get; set; }
+}
+
 public interface INhNotificationDispatcher
 {
     string DispatcherId { get; }

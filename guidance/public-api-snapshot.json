@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "14ad2aa23928f66ce6a2532b23753f8bdae7561056eebd815e86a7d2d720ef4a",
-    "declarationCount": 11221,
+    "hash": "12fe061f4acfce9fe42916d22312c3b3856cfaf3d5725877acca6ffb31c0440b",
+    "declarationCount": 11223,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -37763,6 +37763,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhAbstractNotificationDispatcher.cs",
+        "declaration": "public interface INhExpiringDeliveryData {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhAbstractNotificationDispatcher.cs",
         "declaration": "public interface INhNotificationDispatcher {"
       },
       {
@@ -37819,7 +37823,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
-        "declaration": "public partial class NhEmailDeliveryData {"
+        "declaration": "public partial class NhEmailDeliveryData : INhExpiringDeliveryData {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
@@ -37872,6 +37876,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
         "declaration": "public List<Attachment> Attachments { get; set; } = new List<Attachment>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
@@ -49299,6 +49307,7 @@
       "INhTwoFactorPolicy",
       "NhDefaultTwoFactorPolicy",
       "INhTwoFactorMessageComposer",
+      "INhExpiringDeliveryData",
       "NhLoginResponse",
       "BaseNhAuthService",
       "NhTwoFactorChallengeComponent",
@@ -49782,6 +49791,7 @@
       "NhBackgroundOperationAccessTarget",
       "NhBackgroundOperationAccessCodes",
       "INhNotificationDispatcher",
+      "INhExpiringDeliveryData",
       "INhUserNotificationService",
       "NhBackgroundOperationAdministrationService",
       "NhBackgroundOperationAdministrationViewModel",

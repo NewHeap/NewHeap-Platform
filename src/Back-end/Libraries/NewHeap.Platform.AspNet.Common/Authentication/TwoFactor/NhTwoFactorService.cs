@@ -1252,6 +1252,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
                 Purpose = purpose,
             },
             cancellationToken);
+        ExpireWithTheCode(notification, storedCode.ExpiresAt);
 
         var notificationResult = await _notificationService.CreateAsync(notification, cancellationToken);
         if (!notificationResult.Success)
@@ -1267,6 +1268,34 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             ExpiresAt = storedCode.ExpiresAt,
             ResendAvailableAt = now.Add(_configuration.EmailCodeResendCooldown),
         };
+    }
+
+    /// <summary>
+    /// The e-mail carries the code in plaintext, so its content may not stay in the delivery store:
+    /// every delivery expires no later than the code (<see cref="INhExpiringDeliveryData"/>), and the
+    /// notification processor removes it once it is sent and never keeps it after the code's lifetime.
+    /// A composer that sets a later moment, or none, is held to the code's.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The composer added a delivery whose data cannot expire, which would keep the code in the store.
+    /// </exception>
+    private static void ExpireWithTheCode(NhNotification notification, DateTimeOffset codeExpiresAt)
+    {
+        foreach (var delivery in notification.Deliveries)
+        {
+            if (delivery.Data is not INhExpiringDeliveryData data)
+            {
+                throw new InvalidOperationException(
+                    $"The e-mailed two-factor code has a delivery for '{delivery.DispatcherId}' whose data does not implement " +
+                    $"{nameof(INhExpiringDeliveryData)}, so the code would stay in the notification store. " +
+                    $"Compose e-mailed codes with {nameof(NhEmailDeliveryData)}, or implement {nameof(INhExpiringDeliveryData)} on the delivery data.");
+            }
+
+            if (data.ExpiresAt == null || data.ExpiresAt > codeExpiresAt)
+            {
+                data.ExpiresAt = codeExpiresAt;
+            }
+        }
     }
 
     /// <summary>

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Models;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -33,11 +34,23 @@ public class NhNotificationSettings
 
 internal class NhNotificationProcessingService : BackgroundService
 {
+    /// <summary>The most expired deliveries one claim cancels before it gives the turn back.</summary>
+    private const int ExpiredDeliveryBatchSize = 100;
+
+    internal const string ExpiredBeforeDispatchMessage = "The delivery expired before it was sent.";
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDictionary<string, Type> _dispatchers
         = new Dictionary<string, Type>();
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, int>> _inFlight
         = new ConcurrentDictionary<string, ConcurrentDictionary<Guid, int>>();
+
+    /// <summary>
+    /// Per dispatcher id, the delivery data type when it implements <see cref="INhExpiringDeliveryData"/>,
+    /// otherwise <see langword="null"/>.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, Type?> _expiringDataTypes
+        = new ConcurrentDictionary<string, Type?>();
     private readonly ILogger<NhNotificationProcessingService> _logger;
     private readonly TimeSpan _idleDelay;
     private readonly TimeSpan _retryDelay;
@@ -124,6 +137,7 @@ internal class NhNotificationProcessingService : BackgroundService
         {
             _dispatchers[disp.DispatcherId] = disp.GetType();
             _inFlight[disp.DispatcherId] = new ConcurrentDictionary<Guid, int>();
+            _expiringDataTypes[disp.DispatcherId] = GetExpiringDataType(disp.GetType());
         }
     }
 
@@ -227,28 +241,63 @@ internal class NhNotificationProcessingService : BackgroundService
             .Keys
             .ToList();
 
-        var delivery = await repository
-            .GetAll()
-            .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
-            .Where(x => x.DispatcherId == dispatcherId)
-            .Where(x =>
-                (x.Status == NotificationDeliveryStatus.Queued && x.ScheduledAt <= now)
-                || (x.Status == NotificationDeliveryStatus.Processing
-                    && !activeDeliveryIds.Contains(x.Id)
-                    && (x.LastSendAttemptAt == null || x.LastSendAttemptAt <= staleThreshold)))
-            .Select(x => new
+        Task<NhNotificationDelivery?> FindNextCandidateAsync()
+        {
+            return repository
+                .GetAll()
+                .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
+                .Where(x => x.DispatcherId == dispatcherId)
+                .Where(x =>
+                    (x.Status == NotificationDeliveryStatus.Queued && x.ScheduledAt <= now)
+                    || (x.Status == NotificationDeliveryStatus.Processing
+                        && !activeDeliveryIds.Contains(x.Id)
+                        && (x.LastSendAttemptAt == null || x.LastSendAttemptAt <= staleThreshold)))
+                .Select(x => new
+                {
+                    Priority = x.Priority.HasValue ? x.Priority : x.Notification!.Priority,
+                    Delivery = x
+                })
+                .OrderByDescending(x => x.Priority)
+                .ThenBy(x => x.Delivery.ScheduledAt)
+                .ThenBy(x => x.Delivery.Id)
+                .Select(x => x.Delivery)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        // A delivery whose short-lived content expired is cancelled instead of sent, and the next
+        // candidate is considered within the same transaction.
+        var expiredCount = 0;
+        var delivery = await FindNextCandidateAsync();
+        while (delivery is not null && HasExpired(scope.ServiceProvider, delivery, now))
+        {
+            CancelExpired(delivery, now);
+            await repository.SaveChangesAsync(cancellationToken);
+            expiredCount++;
+
+            if (expiredCount >= ExpiredDeliveryBatchSize)
             {
-                Priority = x.Priority.HasValue ? x.Priority : x.Notification!.Priority,
-                Delivery = x
-            })
-            .OrderByDescending(x => x.Priority)
-            .ThenBy(x => x.Delivery.ScheduledAt)
-            .ThenBy(x => x.Delivery.Id)
-            .Select(x => x.Delivery)
-            .FirstOrDefaultAsync(cancellationToken);
+                delivery = null;
+                break;
+            }
+
+            delivery = await FindNextCandidateAsync();
+        }
+
+        if (expiredCount > 0)
+        {
+            _logger.LogInformation(
+                "Cancelled {Count} notification deliveries for dispatcher {DispatcherId} whose content expired before they were sent",
+                expiredCount,
+                dispatcherId);
+        }
 
         if (delivery is null)
         {
+            if (expiredCount > 0)
+            {
+                await transactionScope.CommitAsync(cancellationToken);
+            }
+
             return null;
         }
 
@@ -257,6 +306,7 @@ internal class NhNotificationProcessingService : BackgroundService
         {
             delivery.Status = NotificationDeliveryStatus.Failed;
             delivery.LastFailedMessage ??= "Max attempts reached while recovering notification processing.";
+            DiscardDataWhenExpiring(scope.ServiceProvider, delivery, now);
             await repository.SaveChangesAsync(cancellationToken);
             await transactionScope.CommitAsync(cancellationToken);
             return null;
@@ -359,14 +409,116 @@ internal class NhNotificationProcessingService : BackgroundService
 
     private static string GetDeliveryDataType(Type dispatcherType, object? deliveryData)
     {
+        return GetTypedDeliveryDataType(dispatcherType)?.FullName
+            ?? deliveryData?.GetType().FullName
+            ?? "null";
+    }
+
+    /// <summary>The <c>TDeliveryData</c> of a dispatcher that implements <see cref="INhNotificationDispatcher{TDeliveryData}"/>.</summary>
+    private static Type? GetTypedDeliveryDataType(Type dispatcherType)
+    {
         var typedDispatcher = dispatcherType
             .GetInterfaces()
             .FirstOrDefault(type => type.IsGenericType
                 && type.GetGenericTypeDefinition() == typeof(INhNotificationDispatcher<>));
 
-        return typedDispatcher?.GenericTypeArguments[0].FullName
-            ?? deliveryData?.GetType().FullName
-            ?? "null";
+        return typedDispatcher?.GenericTypeArguments[0];
+    }
+
+    private static Type? GetExpiringDataType(Type dispatcherType)
+    {
+        var dataType = GetTypedDeliveryDataType(dispatcherType);
+        if (dataType == null || !typeof(INhExpiringDeliveryData).IsAssignableFrom(dataType))
+        {
+            return null;
+        }
+
+        return dataType;
+    }
+
+    /// <summary>
+    /// The data type of the dispatcher registered for <paramref name="dispatcherId"/> when it implements
+    /// <see cref="INhExpiringDeliveryData"/>. A processor that has not set up its workers, such as one on a
+    /// host that only cleans up, looks the dispatcher up in <paramref name="services"/>.
+    /// </summary>
+    private Type? ResolveExpiringDataType(IServiceProvider services, string dispatcherId)
+    {
+        return _expiringDataTypes.GetOrAdd(dispatcherId, id =>
+        {
+            var dispatcher = services
+                .GetServices<INhNotificationDispatcher>()
+                .FirstOrDefault(candidate => candidate.DispatcherId == id);
+
+            return dispatcher == null ? null : GetExpiringDataType(dispatcher.GetType());
+        });
+    }
+
+    /// <summary>
+    /// When the delivery's content expires (<see cref="INhExpiringDeliveryData.ExpiresAt"/>), or
+    /// <see langword="null"/> when its data is not short-lived. Stored data is read back as JSON and
+    /// converted to the data type of the delivery's dispatcher.
+    /// </summary>
+    private DateTimeOffset? GetDataExpiry(IServiceProvider services, NhNotificationDelivery delivery)
+    {
+        if (delivery.Data is INhExpiringDeliveryData expiringData)
+        {
+            return expiringData.ExpiresAt;
+        }
+
+        if (delivery.Data is not JObject json)
+        {
+            return null;
+        }
+
+        var dataType = ResolveExpiringDataType(services, delivery.DispatcherId);
+        if (dataType == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return (json.ToObject(dataType) as INhExpiringDeliveryData)?.ExpiresAt;
+        }
+        catch (Newtonsoft.Json.JsonException exception)
+        {
+            // The dispatcher reports data it cannot read when it dispatches the delivery.
+            _logger.LogWarning(
+                exception,
+                "Notification delivery {DeliveryId} for dispatcher {DispatcherId} holds data that cannot be read as {DataType}",
+                delivery.Id,
+                delivery.DispatcherId,
+                dataType.FullName);
+            return null;
+        }
+    }
+
+    private bool HasExpired(IServiceProvider services, NhNotificationDelivery delivery, DateTimeOffset now)
+    {
+        var expiresAt = GetDataExpiry(services, delivery);
+        return expiresAt.HasValue && expiresAt.Value <= now;
+    }
+
+    private void DiscardDataWhenExpiring(IServiceProvider services, NhNotificationDelivery delivery, DateTimeOffset now)
+    {
+        if (GetDataExpiry(services, delivery).HasValue)
+        {
+            DiscardData(delivery, now);
+        }
+    }
+
+    private static void CancelExpired(NhNotificationDelivery delivery, DateTimeOffset now)
+    {
+        delivery.Status = NotificationDeliveryStatus.Cancelled;
+        delivery.LastFailedMessage = ExpiredBeforeDispatchMessage;
+        DiscardData(delivery, now);
+    }
+
+    private static void DiscardData(NhNotificationDelivery delivery, DateTimeOffset now)
+    {
+        delivery.Data = null;
+        delivery.IsCleaned = true;
+        delivery.LastModifiedDateTime = now;
     }
 
     internal async Task CompleteDeliveryAttemptAsync(
@@ -419,10 +571,11 @@ internal class NhNotificationProcessingService : BackgroundService
                 return;
             }
 
+            var completedAt = DateTimeOffset.UtcNow;
             if (taskResult.Success)
             {
                 delivery.Status = NotificationDeliveryStatus.Succeeded;
-                delivery.SentAt = DateTimeOffset.UtcNow;
+                delivery.SentAt = completedAt;
             }
             else
             {
@@ -442,8 +595,22 @@ internal class NhNotificationProcessingService : BackgroundService
                 else
                 {
                     delivery.Status = NotificationDeliveryStatus.Queued;
-                    delivery.ScheduledAt = DateTimeOffset.UtcNow.Add(_retryDelay);
+                    delivery.ScheduledAt = completedAt.Add(_retryDelay);
                 }
+            }
+
+            // Short-lived content leaves the store once the delivery ended, and a retry of content
+            // that already expired is cancelled instead.
+            if (delivery.Status == NotificationDeliveryStatus.Queued)
+            {
+                if (HasExpired(scope.ServiceProvider, delivery, completedAt))
+                {
+                    CancelExpired(delivery, completedAt);
+                }
+            }
+            else
+            {
+                DiscardDataWhenExpiring(scope.ServiceProvider, delivery, completedAt);
             }
 
             await repository.SaveChangesAsync(cancellationToken);
@@ -531,6 +698,15 @@ internal class NhNotificationProcessingService : BackgroundService
         {
             try
             {
+                await CancelExpiredWaitingDeliveriesAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception during cleanup of expired notification deliveries");
+            }
+
+            try
+            {
                 await CleanupFinishedDeliveriesAsync(stoppingToken);
             }
             catch (Exception ex)
@@ -538,6 +714,76 @@ internal class NhNotificationProcessingService : BackgroundService
                 _logger.LogError(ex, "Exception during cleanup of old notifications");
             }
         }
+    }
+
+    /// <summary>
+    /// Cancels the deliveries that still wait for their dispatcher while their short-lived content
+    /// (<see cref="INhExpiringDeliveryData"/>) has expired, and removes that content. A claim does the
+    /// same for the delivery it picks; this pass also covers deliveries that no worker claims, for
+    /// example while processing is disabled. Deliveries that a worker is dispatching are left to it.
+    /// </summary>
+    internal async Task CancelExpiredWaitingDeliveriesAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var expiringDispatcherIds = scope.ServiceProvider
+            .GetServices<INhNotificationDispatcher>()
+            .Where(dispatcher => GetExpiringDataType(dispatcher.GetType()) != null)
+            .Select(dispatcher => dispatcher.DispatcherId)
+            .Distinct()
+            .ToList();
+        if (expiringDispatcherIds.Count == 0)
+        {
+            return;
+        }
+
+        var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhNotificationDelivery>>();
+        await using var transactionScope = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
+
+        if (!await repository.TryAcquireTransactionLockAsync(
+                transactionScope,
+                GetPollerLockResourceName(),
+                (int)Math.Max(0, _settings.ProcessingPollerLockTimeout.TotalMilliseconds),
+                cancellationToken))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var staleThreshold = now - _settings.ProcessingLockTimeout;
+        var activeDeliveryIds = _inFlight.Values
+            .SelectMany(inFlight => inFlight.Keys)
+            .ToList();
+
+        var waitingDeliveries = await repository
+            .GetAll()
+            .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
+            .Where(x => !x.IsCleaned && expiringDispatcherIds.Contains(x.DispatcherId))
+            .Where(x =>
+                x.Status == NotificationDeliveryStatus.Queued
+                || (x.Status == NotificationDeliveryStatus.Processing
+                    && !activeDeliveryIds.Contains(x.Id)
+                    && (x.LastSendAttemptAt == null || x.LastSendAttemptAt <= staleThreshold)))
+            .OrderBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var expiredDeliveries = waitingDeliveries
+            .Where(delivery => HasExpired(scope.ServiceProvider, delivery, now))
+            .ToList();
+        if (expiredDeliveries.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var delivery in expiredDeliveries)
+        {
+            CancelExpired(delivery, now);
+        }
+
+        await repository.SaveChangesAsync(cancellationToken);
+        await transactionScope.CommitAsync(cancellationToken);
+        _logger.LogInformation(
+            "Cancelled {Count} waiting notification deliveries whose content expired before they were sent",
+            expiredDeliveries.Count);
     }
 
     /// <summary>

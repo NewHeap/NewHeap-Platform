@@ -203,6 +203,23 @@ data, as before.
 |---|---|
 | The first cleanup after the upgrade clears failed and cancelled deliveries that ended longer than the retention period ago; their content can no longer be inspected or sent again. | None. Copy what you still need from those deliveries before upgrading, or raise `ProcessingRetentionPeriod`. |
 
+## NewHeap.Platform.AspNet.Common: e-mailed two-factor codes leave the notification store once sent
+
+An e-mailed sign-in or confirmation code stayed in plaintext in the notification delivery store
+(`NhNotificationDelivery.Data`) until the retention cleanup, 30 days by default. Delivery data can now be
+short-lived: set `NhEmailDeliveryData.ExpiresAt`, or implement the new `INhExpiringDeliveryData` on the
+data type of a custom dispatcher. The notification processor removes such data as soon as the delivery
+is sent, fails or is cancelled, cancels a delivery instead of dispatching it once `ExpiresAt` has
+passed, and its cleanup pass cancels expired deliveries that are still waiting. `NhTwoFactorMessageComposer`
+sets `ExpiresAt` to the code's expiry, and the two-factor service holds every delivery of the code
+e-mail to the code's lifetime, also when a custom composer sets a later moment or none. No schema
+change is needed.
+
+| Breaking change | Required action |
+|---|---|
+| A custom `INhTwoFactorMessageComposer` whose code notification has a delivery with data that does not implement `INhExpiringDeliveryData`, which is anything but `NhEmailDeliveryData`, now fails with an `InvalidOperationException` when a code is sent. | Compose the code e-mail with `NhEmailDeliveryData`, or implement `INhExpiringDeliveryData` on the custom delivery data, and set `ExpiresAt = message.ExpiresAt`. |
+| Code e-mails sent before the upgrade keep their content until the retention cleanup removes it. | None. Optionally clear `Data` and set `IsCleaned` on the deliveries of the notifications named `two-factor-email-code`. |
+
 ## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common: impersonation bound to the origin's session
 
 An impersonation token now also carries a SHA-256 digest of the security stamp of the user who started it

@@ -18,6 +18,7 @@ using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -252,6 +253,46 @@ public sealed class TwoFactorAuthenticationProviderTests
                 Code = legacyCode,
             }),
             NhTwoFactorFailureCodes.InvalidCode);
+    }
+
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task EmailedCodeDeliveriesExpireWithTheCodeOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        var environment = await CreateEnvironmentAsync(provider, configuration => configuration.EmailCodesEnabled = true);
+        var composer = new ExpiryTestComposer(environment.Clock);
+        environment.MessageComposer = composer;
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("email-code-expiry@example.test");
+
+        // A composer that sets no expiry is held to the code's lifetime.
+        composer.ExpiresAt = null;
+        var first = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(first.Success, string.Join("; ", first.AllErrorMessages));
+        Assert.Equal(first.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // So is one that sets a later moment.
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        composer.ExpiresAt = DateTimeOffset.MaxValue;
+        var second = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(second.Success, string.Join("; ", second.AllErrorMessages));
+        Assert.Equal(second.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // An earlier moment stays.
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        var earlier = environment.Clock.GetUtcNow().AddMinutes(1);
+        composer.ExpiresAt = earlier;
+        var third = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(third.Success, string.Join("; ", third.AllErrorMessages));
+        Assert.Equal(earlier, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
+        // A delivery whose data cannot expire would keep the code in the store, so it is refused.
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        composer.AddInAppDelivery = true;
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null));
+        Assert.Contains(nameof(INhExpiringDeliveryData), refused.Message, StringComparison.Ordinal);
     }
 
     private static async Task VerifyProviderAsync(Action<DbContextOptionsBuilder> configureProvider)
@@ -726,6 +767,9 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.True(sent.Success);
         var signInCode = environment.Notifications.LastEmailCode();
 
+        // The delivery holding the code expires with it, so the notification store drops it once sent.
+        Assert.Equal(sent.Data!.ExpiresAt, environment.Notifications.LastEmailCodeDelivery().ExpiresAt);
+
         if (firstCode != signInCode)
         {
             AssertFailure(
@@ -1160,6 +1204,9 @@ public sealed class TwoFactorAuthenticationProviderTests
         internal NhTwoFactorConfiguration Configuration { get; }
         internal NotificationRecorder Notifications { get; } = new();
 
+        /// <summary>The message composer of the stacks created next; the default composer when empty.</summary>
+        internal INhTwoFactorMessageComposer? MessageComposer { get; set; }
+
         internal static NhTwoFactorConfiguration CreateConfiguration(Action<NhTwoFactorConfiguration>? configure)
         {
             var configuration = new NhTwoFactorConfiguration
@@ -1266,7 +1313,7 @@ public sealed class TwoFactorAuthenticationProviderTests
                 new NhQrCodeRenderer(),
                 hostEnvironment,
                 environment.Clock,
-                new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
+                environment.MessageComposer ?? new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
                 environment.Notifications,
                 NullLogger<NhTwoFactorService<NhUser>>.Instance,
                 passkeyHandler);
@@ -1538,17 +1585,19 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         internal string LastEmailCode()
         {
+            return Regex.Match(LastEmailCodeDelivery().Body!, "\\d{6}").Value;
+        }
+
+        internal NhEmailDeliveryData LastEmailCodeDelivery()
+        {
             lock (_gate)
             {
-                var body = _notifications
+                return _notifications
                     .Where(x => x.Name == "two-factor-email-code")
                     .SelectMany(x => x.Deliveries)
                     .Select(x => x.Data)
                     .OfType<NhEmailDeliveryData>()
-                    .Last()
-                    .Body!;
-
-                return Regex.Match(body, "\\d{6}").Value;
+                    .Last();
             }
         }
 
@@ -1564,6 +1613,47 @@ public sealed class TwoFactorAuthenticationProviderTests
                     .Select(x => x.Notification.UserId!.Value)
                     .ToList();
             }
+        }
+    }
+
+    /// <summary>
+    /// The default code e-mail with the expiry a custom composer chose, optionally with a delivery
+    /// whose data cannot expire.
+    /// </summary>
+    private sealed class ExpiryTestComposer(TimeProvider clock) : NhTwoFactorMessageComposer(new TestLocalizer(), clock)
+    {
+        internal DateTimeOffset? ExpiresAt { get; set; }
+
+        internal bool AddInAppDelivery { get; set; }
+
+        public override async Task<NhNotification> ComposeEmailCodeAsync(
+            NhTwoFactorEmailCodeMessage message,
+            CancellationToken cancellationToken = default)
+        {
+            var notification = await base.ComposeEmailCodeAsync(message, cancellationToken);
+            foreach (var data in notification.Deliveries.Select(delivery => delivery.Data).OfType<NhEmailDeliveryData>())
+            {
+                data.ExpiresAt = ExpiresAt;
+            }
+
+            if (AddInAppDelivery)
+            {
+                notification.Deliveries.Add(new NhNotificationDelivery
+                {
+                    DispatcherId = NhUserNotificaitonNotificationDispatcher.DispatcherIdValue,
+                    Data = new NhUserNotificationDeliveryData
+                    {
+                        Notification = new NhUserNotificationMutateModel
+                        {
+                            UserId = message.UserId,
+                            Title = "Your sign-in code",
+                            Message = message.Code,
+                        },
+                    },
+                });
+            }
+
+            return notification;
         }
     }
 

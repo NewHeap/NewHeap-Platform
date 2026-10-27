@@ -76,7 +76,14 @@ public sealed class NhTwoFactorSecurityEventMessage
 /// </summary>
 public interface INhTwoFactorMessageComposer
 {
-    /// <summary>Builds the notification that e-mails a code. It must only use e-mail delivery.</summary>
+    /// <summary>
+    /// Builds the notification that e-mails a code. It must only use e-mail delivery
+    /// (<see cref="NhEmailDeliveryData"/>), with <see cref="NhEmailDeliveryData.ExpiresAt"/> set to
+    /// <see cref="NhTwoFactorEmailCodeMessage.ExpiresAt"/>: the notification processor then removes the
+    /// code from the delivery store once the e-mail is sent, and never keeps it after the code expired.
+    /// The two-factor service holds every delivery to the code's lifetime and refuses data that cannot
+    /// expire (<see cref="INhExpiringDeliveryData"/>).
+    /// </summary>
     Task<NhNotification> ComposeEmailCodeAsync(
         NhTwoFactorEmailCodeMessage message,
         CancellationToken cancellationToken = default);
@@ -153,6 +160,8 @@ public class NhTwoFactorMessageComposer : INhTwoFactorMessageComposer
                 Subject = subject,
                 Body = body,
                 IsBodyHtml = false,
+                // The body holds the code: the delivery store keeps it only until the e-mail is sent.
+                ExpiresAt = message.ExpiresAt,
             })
             .Build();
 

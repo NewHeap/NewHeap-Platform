@@ -10,7 +10,7 @@ using System.Net.Mail;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
-public partial class NhEmailDeliveryData
+public partial class NhEmailDeliveryData : INhExpiringDeliveryData
 {
     public partial class Attachment
     {
@@ -29,6 +29,15 @@ public partial class NhEmailDeliveryData
     public List<string> CC { get; set; } = new List<string>();
     public List<string> BCC { get; set; } = new List<string>();
     public List<Attachment> Attachments { get; set; } = new List<Attachment>();
+
+    /// <summary>
+    /// When the content of this e-mail stops being valid, for example because the body carries a
+    /// code that expires. Set it for content that must not stay in the delivery store: the
+    /// notification processor removes this data once the e-mail is sent, failed or cancelled, and no
+    /// later than this moment (see <see cref="INhExpiringDeliveryData"/>). Leave it empty for e-mails
+    /// that follow <see cref="NhNotificationSettings.ProcessingRetentionPeriod"/>.
+    /// </summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 
 public class NhEmailNotificationSettings
