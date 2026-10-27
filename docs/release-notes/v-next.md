@@ -86,6 +86,25 @@ localization and 401 when the module refuses the update.
 | Only `Title`, `Description` and `AltText` can be localized; stored localizations of other properties are ignored. | Localize only these three; remove other stored rows from the `Localizations` table if you want them gone. |
 | `POST {prefix}/file/localize` now returns 400 or 404 when the localization fails instead of 204. | Handle these responses; removing a localization that does not exist returns 404. |
 
+## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: downloads served with a server-chosen type
+
+`GET {prefix}/download` used to pass the requested file name to the response as its `Content-Type` and
+served every file inline without `X-Content-Type-Options`. It now opens the file with the new
+`IMediaLibraryService.OpenDownloadAsync`, which authorizes the read like `DownloadFileAsync` and returns a
+`MediaFileDownload` with the stored file reference. The stored name chooses the content type from the
+fixed list in the new `NhMediaContentTypes`; a name with another extension or none, and every type a
+browser runs scripts in such as HTML, XHTML, XML and JavaScript, is served as `application/octet-stream`.
+Every download carries `X-Content-Type-Options: nosniff`. Raster images (PNG, JPEG, GIF, WebP, AVIF, BMP)
+are served inline with `Content-Disposition: inline`; SVG, PDF and every other file are served as an
+attachment, both under the stored file name. `OpenDownloadAsync` has a default interface implementation,
+so custom `IMediaLibraryService` implementations keep compiling; it reads the reference and the content
+through `GetFileAsync` and `DownloadFileAsync`. `DownloadFileAsync` itself is unchanged.
+
+| Breaking change | Required action |
+|---|---|
+| `GET {prefix}/download` now returns a listed content type or `application/octet-stream`, `nosniff`, and `Content-Disposition: attachment` for every file but a raster image. | Read the file name from `Content-Disposition` and the type from `Content-Type`; show SVG, PDF or other documents from a blob or a sandboxed viewer instead of navigating to the download URL. |
+| The download endpoint calls `IMediaLibraryService.OpenDownloadAsync` instead of `DownloadFileAsync(path, fileName)`. | If a subclass of `MediaLibraryService` customized `DownloadFileAsync(path, fileName)`, override `OpenDownloadAsync` the same way. |
+
 ## NewHeap.Platform.AspNet.Proxy: host-relative redirect destinations stay on this origin
 
 A redirect destination that starts with `/` is now validated as the path the `Location` header

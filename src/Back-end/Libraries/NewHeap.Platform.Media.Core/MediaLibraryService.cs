@@ -386,6 +386,24 @@ public class MediaLibraryService : IMediaLibraryService
         return stream;
     }
 
+    public virtual async Task<DisposableTaskResult<MediaFileDownload>> OpenDownloadAsync(string? path, string fileName)
+    {
+        await EnsureAuthorized(path, fileName, null, ActionType.Read);
+        var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
+        if (fileRef == null)
+        {
+            return DisposableTaskResult<MediaFileDownload>.Failed("File not found");
+        }
+
+        var stream = await _fileStorage.GetFileAsync(fileRef.Id);
+        if (stream == null)
+        {
+            return DisposableTaskResult<MediaFileDownload>.Failed("File not found");
+        }
+
+        return new MediaFileDownload(fileRef, stream);
+    }
+
     public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id)
     {
         var fileRef = await _fileStructureStorage.GetByIdAsync(id);

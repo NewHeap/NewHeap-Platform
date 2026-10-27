@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
+using Microsoft.Net.Http.Headers;
 using NewHeap.Media.Models;
 using NhMedia.Http;
 using NewHeap.Media.Modules;
@@ -76,7 +77,10 @@ public static class WebApplicationExtensions
         list = options.AllRoutesAction?.Invoke(list) ?? list;
         options.ListAction?.Invoke(list);
 
-        var download = group.MapGet("download", Download).WithDescription("Download a file");
+        var download = group.MapGet("download", Download)
+            .WithDescription("Download a file. The content type comes from the stored file name through a fixed list " +
+                             "(application/octet-stream for any other name); raster images are served inline, every " +
+                             "other file as an attachment, always with X-Content-Type-Options: nosniff.");
         options.AllRoutesAction?.Invoke(download);
         options.DownloadAction?.Invoke(download);
 
@@ -405,7 +409,8 @@ public static class WebApplicationExtensions
     >> Download(
         string? path,
         string fileName,
-        IMediaLibraryService mediaLibraryService)
+        IMediaLibraryService mediaLibraryService,
+        HttpContext httpContext)
     {
         try
         {
@@ -414,13 +419,25 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            var stream = await mediaLibraryService.DownloadFileAsync(path, fileName);
-            if (!stream.Success)
+            var download = await mediaLibraryService.OpenDownloadAsync(path, fileName);
+            if (!download.Success)
             {
                 return TypedResults.NotFound();
             }
 
-            return TypedResults.File(stream.Data, fileName);
+            // The stored name chooses the type from a fixed list; nosniff keeps a browser from guessing
+            // another one from the bytes, and every type but a raster image is saved instead of rendered.
+            var file = download.Data;
+            httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+            if (!file.Inline)
+            {
+                return TypedResults.File(file.Content, file.ContentType, file.File.Name);
+            }
+
+            var disposition = new ContentDispositionHeaderValue("inline");
+            disposition.SetHttpFileName(file.File.Name);
+            httpContext.Response.Headers.ContentDisposition = disposition.ToString();
+            return TypedResults.File(file.Content, file.ContentType);
         }
         catch (UnauthorizedAccessException)
         {

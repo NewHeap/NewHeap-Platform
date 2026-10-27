@@ -1409,7 +1409,9 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaContentTypes.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaDownloadEndpointTests.cs"
     ],
     "SPM-184": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",

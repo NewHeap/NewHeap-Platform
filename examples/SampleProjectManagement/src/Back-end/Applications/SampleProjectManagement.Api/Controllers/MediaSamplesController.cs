@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using SampleProjectManagement.Api.Services;
 
 namespace SampleProjectManagement.Api.Controllers;
@@ -31,7 +32,7 @@ public sealed class MediaSamplesController : ControllerBase
 
     [HttpGet("download")]
     [EndpointSummary("Download a sample media file")]
-    [EndpointDescription("Downloads a file from the configured media storage for the signed-in user. The media authorization module requires the path to lie in the active division and the user to hold the project view permission there; otherwise the response is 401.")]
+    [EndpointDescription("Downloads a file from the configured media storage for the signed-in user. The media authorization module requires the path to lie in the active division and the user to hold the project view permission there; otherwise the response is 401. The stored file name chooses the content type from the media library's fixed list (application/octet-stream for any other name); raster images are served inline, every other file as an attachment, always with X-Content-Type-Options: nosniff.")]
     [Produces("application/octet-stream")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -41,9 +42,21 @@ public sealed class MediaSamplesController : ControllerBase
         try
         {
             var download = await _mediaSamples.DownloadAsync(path, fileName);
-            return download is null
-                ? NotFound()
-                : File(download.Stream, download.ContentType, download.FileName);
+            if (download is null)
+            {
+                return NotFound();
+            }
+
+            Response.Headers.XContentTypeOptions = "nosniff";
+            if (!download.Inline)
+            {
+                return File(download.Stream, download.ContentType, download.FileName);
+            }
+
+            var disposition = new ContentDispositionHeaderValue("inline");
+            disposition.SetHttpFileName(download.FileName);
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(download.Stream, download.ContentType);
         }
         catch (UnauthorizedAccessException)
         {

@@ -585,6 +585,13 @@ user store. No request header grants a permission. `MediaLibrarySamplesTests` se
 anonymously with a header that claims both permissions and gets 401, and shows that a North member
 can read and delete North's documents but not South's.
 
+Downloads (SPM-183) are served by the stored file, not by the name a request sends. The library route
+and `MediaSamplesController` both open the file with `IMediaLibraryService.OpenDownloadAsync`, which
+returns the stored reference with the content type `NhMediaContentTypes` lists for its extension.
+`MediaLibrarySamplesTests` uploads a page with a script and a PNG: the page comes back as an
+`application/octet-stream` attachment and the image inline as `image/png`, both with
+`X-Content-Type-Options: nosniff`, so a browser saves the page instead of running it.
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call
