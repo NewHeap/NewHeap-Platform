@@ -361,6 +361,8 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             // What an agent works on is checked against the registered subject types.
             services.AddSingleton<NhAssistantWorksOnRule>();
             services.AddScoped<NhAssistantRunStore>();
+            // A refresh of a subject's members reloads the live audience of its threads.
+            services.AddSingleton<NewHeap.Platform.AI.Chat.Live.NhAssistantConversationAudience>();
             services.AddScoped<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
             // Changes of administration agents reach the run configuration defined as data.
             services.AddLogging();
