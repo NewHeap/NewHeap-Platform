@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "c4371b16fb927c513c10eb164ce8ea608c4d0e70969b23fdaa50a3cdd483a80c",
-    "declarationCount": 11197,
+    "hash": "ff50eb12e077d6cb6b6804347a5463c7aeb36ddd7312595961f9a65d310741f9",
+    "declarationCount": 11198,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -43659,7 +43659,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
-        "declaration": "public virtual Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value) {"
+        "declaration": "public virtual async Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
@@ -44088,6 +44088,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaErrorCodes.cs",
         "declaration": "public const string FolderNameExists = \"media.folder.name-exists\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaErrorCodes.cs",
+        "declaration": "public const string PropertyNotLocalizable = \"media.file.property-not-localizable\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NhMediaServiceConfigurationContext.cs",

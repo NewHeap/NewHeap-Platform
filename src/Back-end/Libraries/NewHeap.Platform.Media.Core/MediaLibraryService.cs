@@ -36,10 +36,23 @@ public class MediaLibraryService : IMediaLibraryService
         _logger = logger;
     }
 
-    public virtual Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language,
-        string value)
+    public virtual async Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName,
+        string language, string value)
     {
-        return _fileStructureStorage.LocalizeAsync(fileReferenceId, language, propertyName, value);
+        var reference = await _fileStructureStorage.GetByIdAsync(fileReferenceId);
+        if (reference == null)
+        {
+            return TaskResult.Failed("File not found");
+        }
+
+        await EnsureAuthorized(reference.Folder.FullPath, reference.Name, language, ActionType.Update);
+
+        if (!LocalizableFileProperties.Contains(propertyName))
+        {
+            return TaskResult.Failed(nameof(propertyName), NhMediaErrorCodes.PropertyNotLocalizable);
+        }
+
+        return await _fileStructureStorage.LocalizeAsync(fileReferenceId, language, propertyName, value);
     }
 
     public virtual async Task<TaskResult> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags)

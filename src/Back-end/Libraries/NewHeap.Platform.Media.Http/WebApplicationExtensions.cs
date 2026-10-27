@@ -491,7 +491,12 @@ public static class WebApplicationExtensions
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Localize file")]
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> LocalizeFile(
+    private static async Task<Results<
+        NoContent,
+        NotFound,
+        UnauthorizedHttpResult,
+        BadRequest<Dictionary<string, string[]>>
+    >> LocalizeFile(
         [FromQuery, Required] string? path,
         [FromQuery, Required] string fileName,
         [FromQuery, Required] string language,
@@ -512,8 +517,19 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            await mediaLibraryService.LocalizeFieldAsync(reference.Data.Id, propertyName, language, value);
-            return TypedResults.NoContent();
+            var result = await mediaLibraryService.LocalizeFieldAsync(reference.Data.Id, propertyName, language,
+                value);
+            if (result.Success)
+            {
+                return TypedResults.NoContent();
+            }
+
+            if (HasError(result, NhMediaErrorCodes.PropertyNotLocalizable))
+            {
+                return BadRequest(result);
+            }
+
+            return TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
         {

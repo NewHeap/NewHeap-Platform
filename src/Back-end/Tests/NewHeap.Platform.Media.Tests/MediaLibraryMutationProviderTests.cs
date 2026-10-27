@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Media;
 using NewHeap.Media.FileStructureStorage.SqlServer;
+using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
+using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.Tests.Relational;
 using NSubstitute;
@@ -82,6 +84,64 @@ public sealed class MediaLibraryMutationProviderTests
         })).Success);
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task LocalizationsStoreAndApplyOnlyDisplayStrings(RelationalTestProvider provider)
+    {
+        await using var media = await MediaLibrary.CreateAsync(provider);
+        var plan = await media.CreateFileAsync("/projects/docs", "plan.txt");
+        var other = await media.CreateFileAsync("/projects/docs", "other.txt");
+
+        foreach (var propertyName in new[] { "Name", "Id", "Creator", "Folder" })
+        {
+            var refused = await media.Storage.LocalizeAsync(plan, "nl", propertyName, "approved-invoice.pdf");
+            Assert.False(refused.Success);
+            Assert.Equal(NhMediaErrorCodes.PropertyNotLocalizable,
+                Assert.Single(refused.GetResultItems()).ErrorMessages.Single().ToString());
+        }
+
+        Assert.True((await media.Storage.LocalizeAsync(plan, "nl", "title", "Projectplan")).Success);
+        Assert.True((await media.Storage.LocalizeAsync(plan, "nl", "AltText", "Plan van aanpak")).Success);
+        Assert.Empty(await media.DbContext.Localizations.Where(x => x.PropertyName == "Name").ToListAsync());
+
+        // Rows of other properties that were stored before only display strings could be localized are
+        // ignored when files are read in that language.
+        media.DbContext.Localizations.AddRange(
+            CreateLocalization(plan, "Id", "x"),
+            CreateLocalization(plan, "Name", "approved-invoice.pdf"),
+            CreateLocalization(plan, "CreationDateTime", "yesterday"));
+        await media.DbContext.SaveChangesAsync();
+
+        var folder = await media.Storage.GetFolderAsync("/projects/docs", "nl", null);
+        var listed = Assert.Single(folder.Files, file => file.Id == plan);
+        Assert.Equal("plan.txt", listed.Name);
+        Assert.Equal("Projectplan", listed.Title);
+        Assert.Equal("Plan van aanpak", listed.AltText);
+        Assert.Contains(folder.Files, file => file.Id == other);
+
+        var search = await media.Storage.SearchAsync("", "/projects", new SearchOptions { Language = "nl" });
+        Assert.Equal(new[] { plan, other }.Order(), search.Results.Select(file => file.Id).Order());
+        Assert.Equal("plan.txt", search.Results.Single(file => file.Id == plan).Name);
+
+        var byPath = await media.Storage.GetFileAsync("/projects/docs", "plan.txt", "nl");
+        Assert.Equal(plan, byPath?.Id);
+        Assert.Equal("plan.txt", byPath?.Name);
+        Assert.Equal("Projectplan", byPath?.Title);
+    }
+
+    private static Localization CreateLocalization(Guid fileId, string propertyName, string value)
+    {
+        return new Localization
+        {
+            TypeName = nameof(FileEntity),
+            EntityId = fileId,
+            Language = "nl",
+            PropertyName = propertyName,
+            Value = value
+        };
+    }
+
     private sealed class MediaLibrary : IAsyncDisposable
     {
         private readonly ServiceProvider _provider;
@@ -91,10 +151,13 @@ public sealed class MediaLibraryMutationProviderTests
         {
             _provider = provider;
             _scope = provider.CreateAsyncScope();
+            DbContext = _scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
             Storage = _scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
             Service = new MediaLibraryService([], new ThumbnailService(), Storage, Substitute.For<IMediaStorage>(),
                 new DefaultAuthorizationModule(), NullLogger<MediaLibraryService>.Instance);
         }
+
+        public FileStructureDbContext DbContext { get; }
 
         public IFileStructureStorage Storage { get; }
 

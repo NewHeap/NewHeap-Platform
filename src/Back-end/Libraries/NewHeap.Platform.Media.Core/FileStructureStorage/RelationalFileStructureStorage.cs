@@ -19,14 +19,6 @@ namespace NewHeap.Media.FileStructureStorage;
 /// </summary>
 public abstract partial class RelationalFileStructureStorage : IFileStructureStorage
 {
-    private static readonly IReadOnlyDictionary<string, Action<FileReference, object?>> FileReferenceAccessors =
-        typeof(FileReference)
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .ToDictionary(
-                x => x.Name,
-                x => (Action<FileReference, object?>)x.SetValue,
-                StringComparer.OrdinalIgnoreCase);
-
     // Both limits keep a single command well below the SQL Server parameter limit of 2100.
     private const int MaxFileIdsPerQuery = 500;
     private const int MaxFoldersPerQuery = 50;
@@ -421,6 +413,11 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
 
     public async Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string? value)
     {
+        if (!LocalizableFileProperties.Contains(propertyName))
+        {
+            return TaskResult.Failed(nameof(propertyName), NhMediaErrorCodes.PropertyNotLocalizable);
+        }
+
         var entity = await _dbContext.Localizations.FirstOrDefaultAsync(x =>
             x.TypeName == nameof(FileEntity)
             && x.EntityId == entityId
@@ -737,9 +734,11 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
             .AsNoTracking()
             .Where(x => x.TypeName == nameof(FileEntity) && fileIds.Contains(x.EntityId) && x.Language == language)
             .ToListAsync();
+        // A stored localization of any other property, for example one written before only display
+        // strings could be localized, is ignored.
         foreach (var localization in localizations)
         {
-            if (FileReferenceAccessors.TryGetValue(localization.PropertyName, out var setter))
+            if (LocalizableFileProperties.TryGetSetter(localization.PropertyName, out var setter))
             {
                 foreach (var file in referencesById[localization.EntityId])
                 {

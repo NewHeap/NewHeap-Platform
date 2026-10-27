@@ -132,6 +132,68 @@ public sealed class MediaEndpointAuthorizationTests(MediaEndpointAuthorizationTe
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    [Fact]
+    public async Task LocalizingAsAViewerReturnsUnauthorized()
+    {
+        var media = host.Reset();
+        media.AddFile(OwnDocuments, "plan.txt");
+        media.Module.Deny(decision => decision.Action != ActionType.Read);
+
+        using var response = await host.Client.PostAsync(LocalizeUrl("plan.txt", "Title", "Defaced"), null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal([ActionType.Read, ActionType.Update], media.Module.Decisions.Select(decision => decision.Action));
+        await media.Storage.DidNotReceive().LocalizeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task LocalizingAPropertyThatIsNoDisplayStringReturnsBadRequest()
+    {
+        var media = host.Reset();
+        media.AddFile(OwnDocuments, "plan.txt");
+
+        using var response = await host.Client.PostAsync(LocalizeUrl("plan.txt", "Id", "x"), null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var errors = await response.Content.ReadFromJsonAsync<Dictionary<string, string[]>>();
+        Assert.Equal([NhMediaErrorCodes.PropertyNotLocalizable], errors!["propertyName"]);
+    }
+
+    [Fact]
+    public async Task LocalizingADisplayStringReturnsNoContent()
+    {
+        var media = host.Reset();
+        var file = media.AddFile(OwnDocuments, "plan.txt");
+        media.Storage.LocalizeAsync(file.Id, "nl", "title", "Projectplan").Returns(TaskResult.Succeeded());
+
+        using var response = await host.Client.PostAsync(LocalizeUrl("plan.txt", "title", "Projectplan"), null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AFailedLocalizationIsNotReportedAsDone()
+    {
+        var media = host.Reset();
+        var file = media.AddFile(OwnDocuments, "plan.txt");
+        media.Storage.LocalizeAsync(file.Id, "nl", "Title", "").Returns(TaskResult.Failed("Localization not found"));
+
+        using var response = await host.Client.PostAsync(LocalizeUrl("plan.txt", "Title", ""), null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private static string LocalizeUrl(string fileName, string propertyName, string value)
+    {
+        return "/media/file/localize" +
+               $"?path={Uri.EscapeDataString(OwnDocuments)}" +
+               $"&fileName={Uri.EscapeDataString(fileName)}" +
+               "&language=nl" +
+               $"&propertyName={Uri.EscapeDataString(propertyName)}" +
+               $"&value={Uri.EscapeDataString(value)}";
+    }
+
     /// <summary>
     /// The library's media endpoints over a <see cref="MediaLibraryService"/> with substituted storage and a
     /// module scoped to <c>/divisions/a</c>, started once for the class. Each test resets the service it

@@ -15,4 +15,9 @@ public static class NhMediaErrorCodes
     /// A folder move or rename was refused because its destination already holds a folder with that name.
     /// </summary>
     public const string FolderNameExists = "media.folder.name-exists";
+
+    /// <summary>
+    /// A localization was refused because only a file's title, description and alt text can be localized.
+    /// </summary>
+    public const string PropertyNotLocalizable = "media.file.property-not-localizable";
 }

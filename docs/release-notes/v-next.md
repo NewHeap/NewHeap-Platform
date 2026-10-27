@@ -41,3 +41,21 @@ module refuses the update.
 |---|---|
 | Tag updates now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may change a file's tags. |
 | `POST {prefix}/file/tags` now returns 401 when authorization is refused. | Treat 401 as a refused media mutation, as for the other media endpoints. |
+
+## NewHeap.Platform.Media.Core and NewHeap.Platform.Media.Http: localizations are authorized updates of display strings
+
+`IMediaLibraryService.LocalizeFieldAsync` now asks `IAuthorizationModule` for an `ActionType.Update` of the
+file, with the localization's language, before it writes; until now only the endpoint's read of the file
+was authorized. Only `Title`, `Description` and `AltText` can be localized, in any case: the service and
+`RelationalFileStructureStorage.LocalizeAsync` refuse any other property name with
+`NhMediaErrorCodes.PropertyNotLocalizable`, and reading files in a language applies only these three, so a
+stored localization of another property, such as a file's name or id, no longer changes or breaks lists,
+searches and file reads. `POST {prefix}/file/localize` returns the service's result: 204 when the
+localization was stored or removed, 400 with the error code for another property, 404 for a missing file or
+localization and 401 when the module refuses the update.
+
+| Breaking change | Required action |
+|---|---|
+| Localization writes now need update rights on the file. | Grant `ActionType.Update` in your `IAuthorizationModule` to principals who may translate a file's display strings. |
+| Only `Title`, `Description` and `AltText` can be localized; stored localizations of other properties are ignored. | Localize only these three; remove other stored rows from the `Localizations` table if you want them gone. |
+| `POST {prefix}/file/localize` now returns 400 or 404 when the localization fails instead of 204. | Handle these responses; removing a localization that does not exist returns 404. |

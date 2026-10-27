@@ -271,6 +271,71 @@ public sealed class MediaLibraryMutationAuthorizationTests
             Arg.Is<IEnumerable<string>>(tags => tags.SequenceEqual(new[] { "quarterly" })));
     }
 
+    [Fact]
+    public async Task LocalizingAFieldAuthorizesAnUpdateOfTheFile()
+    {
+        var context = new ServiceContext();
+        var file = context.AddFile(OwnDocuments, "plan.txt");
+        context.Module.Deny(decision => decision.Action != ActionType.Read);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            context.Service.LocalizeFieldAsync(file.Id, "Title", "nl", "Defaced by a viewer"));
+
+        Assert.Equal([new Decision(ActionType.Update, OwnDocuments, "plan.txt", "nl")], context.Module.Decisions);
+        await context.Storage.DidNotReceive().LocalizeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>());
+    }
+
+    [Theory]
+    [InlineData("Name")]
+    [InlineData("Id")]
+    [InlineData("Creator")]
+    [InlineData("Folder")]
+    [InlineData("Tags")]
+    [InlineData("MetaData")]
+    [InlineData("CreationDateTime")]
+    public async Task OnlyDisplayStringsCanBeLocalized(string propertyName)
+    {
+        var context = new ServiceContext();
+        var file = context.AddFile(OwnDocuments, "plan.txt");
+
+        var result = await context.Service.LocalizeFieldAsync(file.Id, propertyName, "nl", "approved-invoice.pdf");
+
+        Assert.False(result.Success);
+        AssertError(result, "propertyName", NhMediaErrorCodes.PropertyNotLocalizable);
+        await context.Storage.DidNotReceive().LocalizeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>());
+    }
+
+    [Theory]
+    [InlineData("Title")]
+    [InlineData("description")]
+    [InlineData("altText")]
+    public async Task DisplayStringsAreLocalizedThroughStorage(string propertyName)
+    {
+        var context = new ServiceContext();
+        var file = context.AddFile(OwnDocuments, "plan.txt");
+        context.Storage.LocalizeAsync(file.Id, "nl", propertyName, "Projectplan").Returns(TaskResult.Succeeded());
+
+        var result = await context.Service.LocalizeFieldAsync(file.Id, propertyName, "nl", "Projectplan");
+
+        Assert.True(result.Success);
+        await context.Storage.Received(1).LocalizeAsync(file.Id, "nl", propertyName, "Projectplan");
+    }
+
+    [Fact]
+    public async Task LocalizingAMissingFileFailsWithoutWriting()
+    {
+        var context = new ServiceContext();
+
+        var result = await context.Service.LocalizeFieldAsync(Guid.NewGuid(), "Title", "nl", "Projectplan");
+
+        Assert.False(result.Success);
+        Assert.Empty(context.Module.Decisions);
+        await context.Storage.DidNotReceive().LocalizeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>());
+    }
+
     private static void AssertError(TaskResult result, string name, string errorCode)
     {
         var item = Assert.Single(result.GetResultItems());
