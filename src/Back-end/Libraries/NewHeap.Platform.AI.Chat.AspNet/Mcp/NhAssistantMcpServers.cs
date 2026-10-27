@@ -141,7 +141,10 @@ public interface INhAssistantMcpServers
 /// An MCP server as the application saves it, the input of the administration's server editor.
 /// <see cref="Secret"/>, <see cref="SecretReference"/> and <see cref="ClientCertificateReference"/>:
 /// <see langword="null"/> keeps the stored value, an empty string clears it, any other value replaces
-/// it; a stored secret and a reference exclude each other. <see cref="HeadlessUse"/>,
+/// it; a stored secret and a reference exclude each other. The stored secret and reference are kept
+/// only while the URL's origin, <see cref="AuthMode"/> and the <c>api-key</c> header stay the same; a
+/// change of any of them clears both and needs one of them again (<c>secret: required</c>).
+/// <see cref="HeadlessUse"/>,
 /// <see cref="Transport"/>, <see cref="UserName"/> and <see cref="ConnectionScope"/>:
 /// <see langword="null"/> keeps the stored value; a new server starts at <c>never</c>,
 /// <c>streamable-http</c> and <c>organization</c>.

@@ -349,6 +349,24 @@ public sealed partial class AssistantSamplesTests
             Assert.True(await TestAsync(admin, "secured-planning"));
             Assert.Equal(basic, planning.Authorizations.Last());
 
+            // The stored password never follows the server to another origin: moving it there needs
+            // the password again, so an administrator who cannot read it cannot send it elsewhere.
+            var otherOrigin = new UriBuilder(planning.Url) { Port = new Uri(planning.Url).Port + 1 }.Uri.ToString();
+            using var moved = await admin.PutAsync("/api/assistant/admin/mcp-servers/secured-planning", AssistantSampleHost.Json(new
+            {
+                server.id,
+                server.displayName,
+                url = otherOrigin,
+                authMode = "basic",
+                userName = "planner",
+                server.requiredPolicy,
+                server.isEnabled
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, moved.StatusCode);
+            Assert.Equal("required", (await AssistantSampleHost.ReadJsonAsync(moved)).GetProperty("errors").GetProperty("secret")[0].GetString());
+            Assert.True(await TestAsync(admin, "secured-planning"));
+            Assert.Equal(basic, planning.Authorizations.Last());
+
             var listed = await (await admin.GetAsync("/api/assistant/admin/mcp-servers", TestContext.Current.CancellationToken)).Content
                 .ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.DoesNotContain("spm-251-basic-password", listed);

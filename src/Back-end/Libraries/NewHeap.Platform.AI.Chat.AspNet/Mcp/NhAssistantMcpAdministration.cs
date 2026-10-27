@@ -11,7 +11,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// <summary>
 /// Administrator input for an MCP server. <see cref="Secret"/>, <see cref="SecretReference"/> and
 /// <see cref="ClientCertificateReference"/>: null keeps the stored value, an empty string clears it,
-/// any other value replaces it; a stored secret and a reference exclude each other.
+/// any other value replaces it; a stored secret and a reference exclude each other. Both are kept only
+/// while the URL's origin, the authentication mode and the <c>api-key</c> header stay the same.
 /// <see cref="HeadlessUse"/>, <see cref="Transport"/> and <see cref="UserName"/>: null keeps the stored
 /// value; a new server starts at <see cref="NhAssistantMcpHeadlessUses.Never"/> and
 /// <see cref="NhAssistantMcpTransports.StreamableHttp"/>.
@@ -537,7 +538,9 @@ internal sealed partial class NhAssistantMcpAdministration(
         var headlessUse = input.HeadlessUse ?? existing?.HeadlessUse ?? NhAssistantMcpHeadlessUses.Never;
         var transport = input.Transport ?? existing?.Transport ?? NhAssistantMcpTransports.StreamableHttp;
         var userName = input.UserName ?? existing?.UserName;
-        var reference = Effective(input.SecretReference, existing?.SecretReference);
+        // A stored secret or reference serves only the destination it was entered for.
+        var keepsSecret = existing is not null && !SecretDestinationChanged(existing, input);
+        var reference = Effective(input.SecretReference, keepsSecret ? existing!.SecretReference : null);
         var certificate = Effective(input.ClientCertificateReference, existing?.ClientCertificateReference);
         var connectionScope = input.ConnectionScope ?? existing?.ConnectionScope ?? NhAssistantMcpConnectionScopes.Organization;
         var oauth = input.OAuth;
@@ -605,9 +608,10 @@ internal sealed partial class NhAssistantMcpAdministration(
         }
         if (NhAssistantMcpAuthModes.UsesSecret(input.AuthMode))
         {
-            // A new stored secret replaces a reference, a new reference replaces a stored secret.
+            // A new stored secret replaces a reference, a new reference replaces a stored secret, and
+            // another destination needs either again.
             var willHaveStoredSecret = input.Secret is null
-                ? existing?.ProtectedSecret is not null && input.SecretReference is not { Length: > 0 }
+                ? keepsSecret && existing!.ProtectedSecret is not null && input.SecretReference is not { Length: > 0 }
                 : input.Secret.Length > 0;
             var willHaveReference = reference is not null && input.Secret is not { Length: > 0 };
             if (!willHaveStoredSecret && !willHaveReference)
@@ -745,6 +749,13 @@ internal sealed partial class NhAssistantMcpAdministration(
 
     private void Apply(AssistantMcpServer server, NhAssistantMcpServerInput input)
     {
+        if (SecretDestinationChanged(server, input))
+        {
+            // The stored secret and reference never follow the server to another origin, mode or
+            // header; the input names them again, or the server has none.
+            server.ProtectedSecret = null;
+            server.SecretReference = null;
+        }
         if (input.Readers is { } readers)
         {
             ApplyReaders(server, readers);
@@ -793,6 +804,32 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             server.SecretReference = null;
         }
+    }
+
+    /// <summary>
+    /// Whether the stored secret of <paramref name="server"/> would go somewhere else with
+    /// <paramref name="input"/>: to another origin (scheme, host and port) of the URL, in another
+    /// authentication mode or, for <c>api-key</c>, in another header. The stored secret and reference
+    /// are then cleared, and the input has to give them again.
+    /// </summary>
+    private static bool SecretDestinationChanged(AssistantMcpServer server, NhAssistantMcpServerInput input)
+    {
+        if (!string.Equals(server.AuthMode, input.AuthMode, StringComparison.Ordinal))
+        {
+            return true;
+        }
+        if (!Uri.TryCreate(server.Url, UriKind.Absolute, out var before)
+            || !Uri.TryCreate(input.Url?.Trim(), UriKind.Absolute, out var after)
+            || !string.Equals(before.GetLeftPart(UriPartial.Authority), after.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return input.AuthMode == NhAssistantMcpAuthModes.ApiKeyHeader
+            && !string.Equals(
+                server.HeaderName ?? NhAssistantMcpConnectionPlanner.DefaultApiKeyHeader,
+                input.HeaderName ?? NhAssistantMcpConnectionPlanner.DefaultApiKeyHeader,
+                StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

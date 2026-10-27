@@ -186,9 +186,13 @@ invalid run filter. Clients map the code, never the status, to a text.
   past the bound (`assistant-mcp-response-too-large`), and `tools/list` is read page by page within
   `MaxToolListPages` (20, up to 1,000) and `MaxTools` (500, up to 10,000), beyond which the server is
   not connected and a sync stores no tool (`assistant-mcp-tool-list-too-large`); all are checked at
-  start. Raise `MaxResponseBytes` with `MaxFileTokensPerTurn` for readers whose text is longer. Secrets for `bearer` and `api-key`
-  are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
-  or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
+  start. Raise `MaxResponseBytes` with `MaxFileTokensPerTurn` for readers whose text is longer.
+  Secrets for `bearer`, `api-key` and `basic` are protected with ASP.NET Data Protection and never
+  returned (`hasSecret`), logged or audited, and serve only the destination they were entered for:
+  a change of the URL's origin (scheme, host or port), of the authentication mode or of the `api-key`
+  header clears the stored secret and the `secretReference`, and the save needs one of them again
+  (`secret: required`), so an administrator who may edit a server but never read its secret cannot
+  send it to another host; a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts. Synced tools start disabled as approval-required mutations;
   administrators activate them and may mark them read-only, and a changed input
   schema disables a tool again. The reviewed settings of a tool that no sync has seen yet, such as

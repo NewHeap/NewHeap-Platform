@@ -317,6 +317,27 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(noneMode.hasSecret).toBeFalse();
   });
 
+  it('keeps a stored secret only on the origin, mode and api-key header it was given for, as the server does', async () => {
+    const [server] = await firstValueFrom(admin.getMcpServers());
+    const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...input } = server;
+
+    const otherPath = await firstValueFrom(admin.updateMcpServer('files', { ...input, url: 'https://files.example.com/v2/mcp' }));
+    const otherOrigin = await failure(firstValueFrom(admin.updateMcpServer('files', { ...input, url: 'https://collector.example.org/mcp' })));
+    const otherMode = await failure(firstValueFrom(admin.updateMcpServer('files', { ...input, authMode: 'api-key' })));
+    const moved = await firstValueFrom(admin.updateMcpServer('files', { ...input, url: 'https://collector.example.org/mcp', secret: 'entered-again' }));
+    const there = { ...input, url: 'https://collector.example.org/mcp', authMode: 'api-key' as const };
+    const apiKey = await firstValueFrom(admin.updateMcpServer('files', { ...there, headerName: 'X-Api-Key', secret: 'api-key' }));
+    const sameHeader = await firstValueFrom(admin.updateMcpServer('files', { ...there, headerName: 'x-api-key' }));
+    const otherHeader = await failure(firstValueFrom(admin.updateMcpServer('files', { ...there, headerName: 'X-Other-Key' })));
+
+    expect(otherPath.hasSecret).toBeTrue();
+    for (const refused of [otherOrigin, otherMode, otherHeader]) {
+      expect(refused).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-validation', fieldErrors: { secret: ['required'] } }));
+    }
+    expect([moved.url, moved.hasSecret]).toEqual(['https://collector.example.org/mcp', true]);
+    expect([apiKey.hasSecret, sameHeader.hasSecret]).toEqual([true, true]);
+  });
+
   it('syncs tools disabled as mutations, keeps hints as hints and disables a tool on a schema change', async () => {
     const synced = await firstValueFrom(admin.syncMcpServer('files'));
 

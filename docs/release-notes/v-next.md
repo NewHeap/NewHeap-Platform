@@ -301,3 +301,17 @@ turns, readers, tests and syncs alike, so a sync stores no more tools than that.
 |---|---|
 | A response or stream event longer than `MaxResponseBytes` fails its request with `assistant-mcp-response-too-large`. | Raise `MaxResponseBytes`, for example with `MaxFileTokensPerTurn` for readers whose text is longer. |
 | A server that lists more tools than `MaxTools`, or more pages than `MaxToolListPages`, is not connected, and its sync fails with `assistant-mcp-tool-list-too-large` without storing tools. | Raise `MaxTools` or `MaxToolListPages` for such a server, or let it list fewer tools. |
+
+## NewHeap.Platform.AI.Chat.AspNet: a stored MCP secret stays with the destination it was entered for
+
+A stored secret and a `secretReference` of an MCP server (`bearer`, `api-key` and `basic`) are now kept
+on a save only while the URL's origin (scheme, host and port), the authentication mode and the
+`api-key` header stay the same. A change of any of them clears both, and the save needs a secret or a
+reference again, as for a new server, so an assistant administrator who may edit a server but never
+read its secret can no longer send it to a host of their own. A new path on the same origin, and a
+header name in other letter case, keep the secret. This applies to `PUT admin/mcp-servers/{id}` and
+`INhAssistantMcpServers.UpdateAsync` alike.
+
+| Breaking change | Required action |
+|---|---|
+| Moving a server to another origin, or changing its authentication mode or `api-key` header, without a `secret` or `secretReference` is refused with `secret: required`. | Send the secret, or the reference, again with such a change; the server editor asks for it at the secret field. |

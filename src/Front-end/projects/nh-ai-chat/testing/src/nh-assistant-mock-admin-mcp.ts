@@ -451,6 +451,10 @@ export class NhAssistantMockAdminMcp {
           stored.organization?.status === 'issuer-changed') {
           stored.organization = { ...stored.organization, status: 'active' };
         }
+        if (!keepsSecret(before, input)) {
+          // As on the server: a stored secret never follows the server to another destination.
+          stored.secret = null;
+        }
         if (!secretModes.includes(input.authMode)) {
           stored.secret = null;
           stored.server.secretReference = null;
@@ -1031,17 +1035,20 @@ export class NhAssistantMockAdminMcp {
     if (input.secret && input.secretReference) {
       add('secretReference', 'invalid');
     }
+    // As on the server: a stored secret and reference serve only the destination they were given for.
+    const keeps = keepsSecret(stored?.server, input);
     const reference = input.secretReference === undefined || input.secretReference === null
-      ? (input.secret ? null : stored?.server.secretReference ?? null)
+      ? (input.secret || !keeps ? null : stored?.server.secretReference ?? null)
       : input.secretReference || null;
     if (reference !== null && (!secretReference.test(reference) || reference.includes('..'))) {
       add('secretReference', 'invalid');
     }
     if (secretModes.includes(input.authMode)) {
       // As on the server: bearer, api-key and basic need a stored secret or a reference. A new stored
-      // secret replaces a reference, a new reference a stored secret.
+      // secret replaces a reference, a new reference a stored secret, and another destination needs
+      // either again.
       const storedSecret = input.secret === undefined || input.secret === null
-        ? !!stored?.secret && !input.secretReference
+        ? keeps && !!stored?.secret && !input.secretReference
         : input.secret.length > 0;
       if (!storedSecret && (reference === null || !!input.secret)) {
         add('secret', 'required');
@@ -1116,13 +1123,39 @@ export class NhAssistantMockAdminMcp {
   }
 }
 
+/**
+ * Whether a stored secret and reference stay with the server after the input, as on the server: the
+ * URL keeps its origin (scheme, host and port), and the authentication mode and the `api-key` header,
+ * in any letter case, stay the same.
+ */
+function keepsSecret(
+  stored: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'> | undefined,
+  input: McpServerInput
+): boolean {
+  const before = stored ? originOf(stored.url) : null;
+  if (!stored || before === null || stored.authMode !== input.authMode || before !== originOf(input.url)) {
+    return false;
+  }
+  return input.authMode !== 'api-key'
+    || (stored.headerName || 'X-Api-Key').toLowerCase() === (input.headerName || 'X-Api-Key').toLowerCase();
+}
+
+/** The origin of an absolute URL in lowercase, or `null` for an invalid one. */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url.trim()).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 function toServerFields(
   input: McpServerInput,
   stored?: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>
 ): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled' | 'userName' | 'secretReference' | 'clientCertificateReference'> {
   const usesSecret = secretModes.includes(input.authMode);
   const reference = input.secretReference === undefined || input.secretReference === null
-    ? (input.secret ? null : stored?.secretReference ?? null)
+    ? (input.secret || !keepsSecret(stored, input) ? null : stored?.secretReference ?? null)
     : input.secretReference || null;
   const certificate = input.clientCertificateReference === undefined || input.clientCertificateReference === null
     ? stored?.clientCertificateReference ?? null
