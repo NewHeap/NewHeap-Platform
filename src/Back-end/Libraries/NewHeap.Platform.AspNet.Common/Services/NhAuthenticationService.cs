@@ -289,6 +289,12 @@ public class NhAuthenticationService<
 
     protected virtual async Task<TaskResult<UserToken>> Authenticate(TUser user, AuthenticateRequest request, IEnumerable<Claim>? requiredClaims = null)
     {
+        // Like Identity's own lockout, a blocked account is refused before its password is checked.
+        if (!await IsSignInEligibleAsync(user))
+        {
+            return TaskResult<UserToken>.Failed("User locked out");
+        }
+
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, true);
 
         if (result.IsLockedOut || result.IsNotAllowed)
@@ -312,7 +318,8 @@ public class NhAuthenticationService<
     /// <remarks>
     /// Use this extension point for credentials such as a PIN, passkey or trusted
     /// upstream assertion. The caller remains responsible for verifying that credential
-    /// and recording failed attempts. NewHeap enforces account eligibility and lockout,
+    /// and recording failed attempts. NewHeap enforces account eligibility, lockout and the
+    /// administrative block (<see cref="INhUserManager{TUser}.IsBlockedAsync"/>),
     /// resets an existing failed-attempt count after successful verification, and checks
     /// required claims without changing the user's password or revoking another device's
     /// refresh token.
@@ -385,8 +392,7 @@ public class NhAuthenticationService<
         IEnumerable<Claim>? requiredClaims = null,
         string? rememberDeviceToken = null)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult<NhAuthenticationResult>.Failed("User locked out");
         }
@@ -436,8 +442,7 @@ public class NhAuthenticationService<
         TUser user,
         IEnumerable<Claim>? requiredClaims)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult<UserToken>.Failed("User locked out");
         }
@@ -1310,8 +1315,7 @@ public class NhAuthenticationService<
     /// </summary>
     protected virtual async Task<TaskResult> VerifyPasswordFactorAsync(TUser user, string password)
     {
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return TaskResult.Failed("User locked out");
         }
@@ -1353,8 +1357,7 @@ public class NhAuthenticationService<
             return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.ChallengeExpired);
         }
 
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
+        if (!await IsSignInEligibleAsync(user))
         {
             return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.LockedOut);
         }

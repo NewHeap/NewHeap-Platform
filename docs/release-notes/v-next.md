@@ -40,3 +40,19 @@ stays stored and refreshes again once the account may sign in.
 | Breaking change | Required action |
 |---|---|
 | A locked-out, blocked or otherwise not permitted account no longer refreshes; before, the refresh rotated its token and issued a new session. | None. To end the account's refresh sessions for good, also reset its password, which revokes its refresh tokens. |
+
+## NewHeap.Platform.AspNet.Common: every sign-in path refuses blocked accounts
+
+`NhAuthenticationService` now applies one eligibility check to every first factor and every step that
+completes a sign-in: Identity must let the user sign in (`SignInManager.CanSignInAsync`), and the account
+may be neither locked out nor blocked (`INhUserManager<TUser>.IsBlockedAsync`). Before, these paths saw
+only Identity's lockout, so an account blocked through `UpdateUserLockout` without an end date, or on an
+account with lockout disabled, still received a session. The check covers the password with and without
+two-factor authentication, passkey sign-in, consumer credentials through `CreateAuthenticationSessionAsync`
+and `CompleteFirstFactorAsync`, external providers, second-factor challenges, enrollment during sign-in
+and refresh. The password is not checked for a blocked account, so a wrong one no longer counts as a
+failed attempt.
+
+| Breaking change | Required action |
+|---|---|
+| A blocked account receives `User locked out` on a first factor and `two-factor-locked-out` on a pending challenge or enrollment, instead of a session. | None. |

@@ -273,6 +273,50 @@ public sealed class AuthenticationSessionProviderTests
         Assert.DoesNotContain(storedTokens.Single(), await environment.StoredRefreshTokensAsync(user.Id));
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task BlockedAccountsReceiveNoSessionOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        var userManager = environment.UserManager;
+        var authenticationService = environment.CreateAuthenticationService();
+
+        // Blocked without an end: Identity sees no lockout, NewHeap's block does.
+        var blocked = await environment.CreateUserAsync("blocked-indefinitely@example.test");
+        await userManager.UpdateUserLockout(blocked, DateTimeOffset.UtcNow.AddMinutes(-1), end: null);
+        Assert.False(await userManager.IsLockedOutAsync(blocked));
+
+        AssertLockedOut(await authenticationService.Authenticate(new AuthenticateRequest(blocked.UserName!, UserCredential)));
+        AssertLockedOut(await authenticationService.AuthenticateAsync(new AuthenticateRequest(blocked.UserName!, UserCredential)));
+        AssertLockedOut(await authenticationService.AuthenticateVerifiedUserAsync(blocked));
+
+        // The block is checked before the password, so a guess neither counts nor tells anything.
+        AssertLockedOut(await authenticationService.Authenticate(new AuthenticateRequest(blocked.UserName!, "Wrong1!Password")));
+        Assert.Equal(0, await userManager.GetAccessFailedCountAsync(blocked));
+
+        // Blocked while lockout is disabled for the account, so Identity stores no lockout end.
+        var lockoutDisabled = await environment.CreateUserAsync("blocked-lockout-disabled@example.test");
+        Assert.True((await userManager.SetLockoutEnabledAsync(lockoutDisabled, false)).Succeeded);
+        await userManager.UpdateUserLockout(
+            lockoutDisabled,
+            DateTimeOffset.UtcNow.AddMinutes(-1),
+            DateTimeOffset.UtcNow.AddDays(30));
+        Assert.Null(lockoutDisabled.LockoutEnd);
+
+        AssertLockedOut(await authenticationService.Authenticate(new AuthenticateRequest(lockoutDisabled.UserName!, UserCredential)));
+        AssertLockedOut(await authenticationService.AuthenticateVerifiedUserAsync(lockoutDisabled));
+
+        Assert.Empty(await environment.StoredRefreshTokensAsync(blocked.Id));
+        Assert.Empty(await environment.StoredRefreshTokensAsync(lockoutDisabled.Id));
+
+        // Lifting the block lets the account sign in again.
+        await userManager.UpdateUserLockout(blocked, start: null, end: null);
+        var signedIn = await authenticationService.Authenticate(new AuthenticateRequest(blocked.UserName!, UserCredential));
+        Assert.True(signedIn.Success);
+        Assert.Single(await environment.StoredRefreshTokensAsync(blocked.Id));
+    }
+
     private static async Task VerifyProviderAsync(SessionEnvironment environment)
     {
         const string initialCredential = "Old1!Password";
@@ -560,6 +604,12 @@ public sealed class AuthenticationSessionProviderTests
     {
         Assert.False(result.Success);
         Assert.Equal([InvalidRefreshToken], result.AllErrorMessages.Select(message => message.ToString()));
+    }
+
+    private static void AssertLockedOut(TaskResult result)
+    {
+        Assert.False(result.Success);
+        Assert.Equal(["User locked out"], result.AllErrorMessages.Select(message => message.ToString()));
     }
 
     private static IConfiguration CreateConfiguration(IReadOnlyDictionary<string, string?>? additionalSettings = null)
