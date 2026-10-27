@@ -458,10 +458,48 @@ public sealed class AssistantFileReaderTests(AssistantDatabaseFixture database) 
         Assert.Equal(expected, results);
         // A turn without room for any text never sends a file to a reader.
         Assert.Equal(["small", "large", "tiny"], harness.Readers.Requests.Select(request => request.Id).ToArray());
+        // Every reader learns how much text the turn can still take: 2,000 tokens, then 1,000.
+        Assert.Equal([8_000L, 4_000L, 4_000L], harness.Readers.Budgets.ToArray());
         var refused = harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRefused).ToArray();
         Assert.Equal(
             [("large", (string?)SpreadsheetReader), ("more", null)],
             refused.Select(evt => (evt.FileId, evt.FileReaderId)).ToArray());
+    }
+
+    /// <summary>
+    /// A reader of the application that stops at the turn's budget refuses its file with the token
+    /// limit, not as a failed reader, and an MCP reader's text longer than the budget is refused alike
+    /// before its blocks are joined; a text within the budget still reads.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_text_longer_than_the_turns_budget_is_refused_with_the_token_limit(AssistantTestProvider provider)
+    {
+        var models = new ReaderModels();
+        models.Default
+            .RespondWithFunctionCall(OpenTool, new { input = new { ids = new[] { "sheet", "brief", "note" } } }, "call-1")
+            .RespondWithText("Only the note fits.");
+        await using var harness = await CreateAsync(provider, models, limits => limits.MaxFileTokensPerTurn = 2_000);
+        await SetUpReaderAsync(harness, "documents", [NhAiMediaTypes.Docx], "confidential");
+        harness.Readers.StopsAtBudget = true;
+        harness.Readers.Text = _ => new string('x', 8_001);
+        harness.Files.Add("sheet", "Sheet.xlsx", NhAiMediaTypes.Xlsx, "sheet");
+        harness.Files.Add("brief", "Brief.docx", NhAiMediaTypes.Docx, new string('b', 7_990));
+        harness.Files.Add("note", "Note.docx", NhAiMediaTypes.Docx, "short note");
+        var conversation = await harness.Host.CreateConversationAsync(agentId: ChatAgent);
+
+        await harness.Host.SendAsync(conversation.Id, "Read the sheet, the brief and the note.");
+
+        var named = ResultFiles(Assert.Single(models.Default.FunctionResults)).ToArray();
+        Assert.Equal(
+            [("sheet", NhAssistantErrorCodes.FileTokenLimit), ("brief", NhAssistantErrorCodes.FileTokenLimit), ("note", (string?)null)],
+            named.Select(file => (file.GetProperty("id").GetString(), Code(file))).ToArray());
+        var refused = harness.Host.Business.Events.Where(evt => evt.Kind == NhAssistantAuditEventKind.FileRefused).ToArray();
+        Assert.Equal(
+            [("sheet", NhAssistantErrorCodes.FileTokenLimit, (string?)SpreadsheetReader), ("brief", NhAssistantErrorCodes.FileTokenLimit, "mcp.documents")],
+            refused.Select(evt => (evt.FileId, evt.ResultCode, evt.FileReaderId)).ToArray());
+        Assert.Equal(["Brief.docx", "Note.docx"], harness.Mcp.Calls.Select(call => call.Name).ToArray());
     }
 
     [Theory]
@@ -1087,6 +1125,16 @@ public sealed class TestReaderScript
     /// The exception the reader throws, or <see langword="null"/>.
     /// </summary>
     public Exception? Failure { get; set; }
+
+    /// <summary>
+    /// The budget for the text of every request, in characters, in the order of the requests.
+    /// </summary>
+    public ConcurrentQueue<long> Budgets { get; } = new();
+
+    /// <summary>
+    /// Whether the reader stops at the budget, as the guidance asks, instead of returning a longer text.
+    /// </summary>
+    public bool StopsAtBudget { get; set; }
 }
 
 /// <summary>
@@ -1098,12 +1146,19 @@ public sealed class TestSpreadsheetReader(TestReaderScript script) : INhAssistan
     {
         // The content is valid during the call only.
         script.Requests.Enqueue((request.Reference.Id, request.MediaType, request.Classification, request.Actor.ActorId, request.Content.ToArray()));
+        script.Budgets.Enqueue(request.MaxTextCharacters);
         if (script.Failure is { } failure)
         {
             throw failure;
         }
 
-        return Task.FromResult(TaskResult<string>.Succeeded(script.Text(request)));
+        var text = script.Text(request);
+        if (script.StopsAtBudget && text.Length > request.MaxTextCharacters)
+        {
+            return Task.FromResult(TaskResult<string>.Failed(NhAssistantErrorCodes.FileTokenLimit, "The text is longer than the turn can take."));
+        }
+
+        return Task.FromResult(TaskResult<string>.Succeeded(text));
     }
 }
 

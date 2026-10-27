@@ -332,3 +332,19 @@ an approved call of such a tool also ends with. Before, the first of them was of
 |---|---|
 | The function names of tools of a server or namespace with a dash change, for example `mcp_team_calendar_next_milestone` becomes `mcp_team-calendar_next_milestone`. | Update instructions, scripted model responses and tests that name such a function; tool ids (`mcp.<server>.<tool>`), approvals and audit are unchanged. |
 | Two enabled tools of one server whose names make one local name, such as `Lookup_Order` and `lookup-order`, are no longer offered. | Disable one of them in the administration. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: readers learn the turn's budget for their text
+
+`NhAssistantFileReadRequest.MaxTextCharacters` tells a reading tool how many characters of text the
+turn can still take from the file: what is left of `MaxFileTokensPerTurn` and of the serving profile's
+input budget, four characters to a token, as the limits count a reader's text. A reader that stops
+there and returns a failed result with `NhAssistantErrorCodes.FileTokenLimit` refuses the file with
+`assistant-file-token-limit` instead of `assistant-file-reader-failed`. The text of an MCP reader is
+measured against the same budget before its blocks are joined. SampleProjectManagement's
+`OfficeDocumentReader` now bounds the text it makes value by value, reads every worksheet once and
+checks the turn's cancellation at every row and paragraph: its per-part bound alone let a few
+kilobytes of workbook whose cells repeat one long shared string become millions of characters.
+
+| Breaking change | Required action |
+|---|---|
+| None for readers that ignore the budget; their text is refused at the token limit as before. | In a reader copied from the sample, bound the text by `request.MaxTextCharacters` while it is made, read each part once and check the cancellation token per row, as the sample's reader now does. |

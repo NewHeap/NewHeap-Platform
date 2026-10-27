@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "ba3ef046574daf069a1f790c12dc2ec006a2265c8c6d93465e88d017fa4084b5",
-    "declarationCount": 11244,
+    "hash": "7fef36d9e4eb41b361ac5e3916e46d5f1fec9b30358fb3ec409b91c3254ae4f5",
+    "declarationCount": 11246,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -18139,7 +18139,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
-        "declaration": "public sealed record NhAssistantFileReadRequest( NhAiFileReference Reference, string MediaType, ReadOnlyMemory<byte> Content, NhAiDataClassification Classification, NhAssistantFileActor Actor);"
+        "declaration": "public sealed record NhAssistantFileReadRequest( NhAiFileReference Reference, string MediaType, ReadOnlyMemory<byte> Content, NhAiDataClassification Classification, NhAssistantFileActor Actor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
+        "declaration": "public long MaxTextCharacters { get; init; } = long.MaxValue;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
@@ -22832,6 +22836,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
         "declaration": "public static NhAssistantFileReading Failed(string readerId, string? connectionOwner = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
+        "declaration": "public static NhAssistantFileReading TooLong(string readerId, string? connectionOwner = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantFileReaders.cs",
@@ -49140,6 +49148,7 @@
       "UseScanner",
       "ReaderTextRetention",
       "ReaderCallTimeout",
+      "MaxTextCharacters",
       "MaxResponseBytes",
       "MaxToolListPages",
       "MaxTools",

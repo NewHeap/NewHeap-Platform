@@ -2898,7 +2898,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-files.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-files.ts",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/OfficeDocumentReaderSamplesTests.cs"
     ],
     "SPM-306": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDocumentAiTools.cs",

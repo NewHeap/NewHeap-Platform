@@ -878,7 +878,9 @@ never serve the uploads.
 - The limits count a reader's text, one token per started four characters, instead of pages: a
   file is sent to a reader only while the turn has room for its text, and text beyond
   `MaxFileTokensPerTurn` or the profile's input budget is refused with `assistant-file-token-limit`.
-  The file's own bytes and pages still count against `MaxFileBytes` and `MaxFilePages`.
+  Every reader learns that budget beforehand as `NhAssistantFileReadRequest.MaxTextCharacters`, four
+  characters to each token left. The file's own bytes and pages still count against `MaxFileBytes`
+  and `MaxFilePages`.
 - The result names per file whether the model received it (`attached` with the SHA-256 of what it
   read as `hash`) or the `code` and `message` of its refusal; the tool call itself succeeds.
 - `NhAssistantLimits` bounds every file and turn: `MaxFileBytes` (20 MB), `MaxFilePages` (100,
@@ -939,6 +941,13 @@ services.AddNewHeapAssistant(assistant => assistant
 
 - Bound what a reader unpacks, such as OpenXml's `OpenSettings.MaxCharactersInPart`, and return a
   failed result for a damaged document instead of text cut off; the turn's limits count the text.
+- A part bound is no bound on the text: cells can name one shared string again and again, and
+  several sheets can name one worksheet, so a few kilobytes become millions of characters. Bound the
+  text while it is made, value by value, by `NhAssistantFileReadRequest.MaxTextCharacters`, the
+  characters the turn can still take, and stop with a failed result with
+  `NhAssistantErrorCodes.FileTokenLimit`, which refuses the file with `assistant-file-token-limit`;
+  read each part once and check the `cancellationToken` at every row or paragraph. MCP readers get
+  the same budget host-side: a longer text is refused before its blocks are joined.
 
 People attach files to a chat message in two steps. First the client uploads each file to the
 conversation with `POST {prefix}/conversations/{id}/files`: `multipart/form-data` with one file part

@@ -267,6 +267,12 @@ internal sealed partial class NhAssistantMcpFileReader(
             LogReaderFailed(logger, server.Id, result.IsError is true ? "tool-error" : "no-text");
             return NhAssistantFileReading.Failed(readerId, owner);
         }
+        // The blocks are joined only when the text fits what the turn can still take.
+        var length = texts.Sum(text => (long)text.Length) + texts.Length - 1;
+        if (length > file.MaxTextCharacters)
+        {
+            return NhAssistantFileReading.TooLong(readerId, owner);
+        }
 
         return NhAssistantFileReading.Read(readerId, string.Join("\n", texts), owner);
     }
