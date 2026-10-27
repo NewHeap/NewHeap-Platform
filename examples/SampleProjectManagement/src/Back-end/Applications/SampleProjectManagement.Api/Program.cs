@@ -392,6 +392,8 @@ builder.Services.AddNhMedia(media =>
     media.AddEventHandler<ProjectDocumentEventHandler>();
 });
 builder.Services.AddScoped<ProjectMediaSampleService>();
+// SPM-075: the recovery mail links to the reset page on the configured application origin.
+builder.Services.AddSampleAccountRecovery(builder.Configuration);
 builder.Services.AddScoped<AccountSampleService>();
 builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();

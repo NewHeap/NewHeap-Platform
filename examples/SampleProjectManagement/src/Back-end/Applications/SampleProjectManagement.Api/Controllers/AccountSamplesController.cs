@@ -79,7 +79,7 @@ public sealed class AccountSamplesController : ProtectedNhBaseController
     [HttpPost("password/recover")]
     [AllowAnonymous]
     [EndpointSummary("Start password recovery")]
-    [EndpointDescription("Starts the password recovery flow without revealing whether the supplied account exists.")]
+    [EndpointDescription("Starts the password recovery flow without revealing whether the supplied account exists. The mailed reset link always points at the configured application origin; a resetUrl in the body is ignored.")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RecoverPassword(

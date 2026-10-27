@@ -369,3 +369,15 @@ table, so no migration is needed.
 | A local account that is linked to one Microsoft account is not linked to another, so a recreated Microsoft account answers 400. | Remove the old link with `UserManager.RemoveLoginAsync(user, NhMicrosoftOAuthLogins.LoginProvider, providerKey)`, or add the new one. |
 | An ID token for another client, another sign-in or another issuer, an expired one or one without `tid` and `oid` answers 400. | None. |
 | An `AllowedTenantIds` entry that is not a GUID stops `AddAuthentication` with an `InvalidOperationException`. | Use the directory (tenant) id, not a domain name. |
+
+## NewHeap.Platform.AspNet.Common: password reset links come from the server's configuration
+
+`NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete and no longer required. An application that
+built the recovery mail's link from it let anyone who knows a registered address make the application
+mail that account's valid reset token to a site of their choosing. Build the link from the application
+origin in the server's configuration, never from the request's body, `Host` or `Origin`, as the
+sample's `AccountSampleService` does with its `AccountRecovery` settings (SPM-075).
+
+| Breaking change | Required action |
+|---|---|
+| `NhRecoverPasswordUserMutateModel.ResetUrl` is obsolete, and a recovery request without it now passes validation. | Build the reset link from a configured application origin and stop reading `ResetUrl`; code that still reads it must handle `null`. Clients may stop sending it. |

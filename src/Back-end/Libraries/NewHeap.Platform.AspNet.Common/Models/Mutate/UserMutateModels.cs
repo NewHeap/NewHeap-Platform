@@ -43,7 +43,12 @@ public class NhRecoverPasswordUserMutateModel
     [Display(Name = "Email address")]
     public string? Email { get; set; }
 
-    [NhRequired]
+    /// <summary>
+    /// A reset page URL supplied by the client. Do not build the reset link from it: whoever asks
+    /// for a recovery mail could name a site of their own and receive the account owner's reset
+    /// token. Build the link from the application origin in the server's configuration instead.
+    /// </summary>
+    [Obsolete("Build the password reset link from the application origin in the server's configuration; a client-supplied URL lets the requester choose where the reset token goes.")]
     public string? ResetUrl { get; set; }
 }
 

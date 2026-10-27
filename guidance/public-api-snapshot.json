@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "2d79999bd61c31ddb7f8e13fe3ae68d70bc2eddaebc6edfff5fb2a4d56128768",
+    "hash": "14ee2f28e76f8c995dc91009c12e80bf5436ca270f6db4fb31e0eae1c1068b01",
     "declarationCount": 11228,
     "declarations": [
       {
@@ -34107,7 +34107,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/UserMutateModels.cs",
-        "declaration": "[NhRequired] public string? ResetUrl { get; set; }"
+        "declaration": "[Obsolete(\"Build the password reset link from the application origin in the server's configuration; a client-supplied URL lets the requester choose where the reset token goes.\")] public string? ResetUrl { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/UserMutateModels.cs",

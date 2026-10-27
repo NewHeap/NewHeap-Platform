@@ -1,11 +1,13 @@
-using System.Net;
 using System.Net.Mail;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using SampleProjectManagement.Api.Composition;
 
 namespace SampleProjectManagement.Api.Services;
 
@@ -13,13 +15,16 @@ public sealed class AccountSampleService
 {
     private readonly NhMailService _mailService;
     private readonly INhUserManager<NhUser> _userManager;
+    private readonly SampleAccountRecoveryOptions _recovery;
 
     public AccountSampleService(
         INhUserManager<NhUser> userManager,
-        NhMailService mailService)
+        NhMailService mailService,
+        IOptions<SampleAccountRecoveryOptions> recovery)
     {
         _userManager = userManager;
         _mailService = mailService;
+        _recovery = recovery.Value;
     }
 
     public async Task<TaskResult> ChangeActiveDivisionAsync(
@@ -43,6 +48,11 @@ public sealed class AccountSampleService
             cancellationToken);
     }
 
+    /// <summary>
+    /// Mails the account's owner a link to the reset page with a password-reset token. The link is
+    /// built from the configured application origin and reset path only (SPM-075); the request's
+    /// reset URL, host and origin are never used, so the token reaches only the application.
+    /// </summary>
     public async Task RecoverPasswordAsync(
         NhRecoverPasswordUserMutateModel model,
         CancellationToken cancellationToken = default)
@@ -54,13 +64,19 @@ public sealed class AccountSampleService
         }
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var resetUrl = $"{model.ResetUrl}?userId={user.Id}&token={WebUtility.UrlEncode(token)}";
+        var resetUrl = QueryHelpers.AddQueryString(
+            _recovery.ResetPasswordPage().AbsoluteUri,
+            new Dictionary<string, string?>
+            {
+                ["userId"] = user.Id.ToString(),
+                ["token"] = token,
+            });
         using var message = new MailMessage
         {
-            Subject = "Wachtwoord herstellen",
+            Subject = "Reset your password",
             Body = $"Open this link to reset your password: {resetUrl}"
         };
-        message.To.Add(model.Email!);
+        message.To.Add(user.Email!);
         await _mailService.SendAsync(message, cancellationToken: cancellationToken);
     }
 
