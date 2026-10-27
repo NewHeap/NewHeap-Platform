@@ -794,8 +794,12 @@ await conversations.CancelAsync(person, created.Data!.Id, options, cancellationT
 SampleProjectManagement's messaging channel (SPM-332, `SampleAssistantMessagingChannel`) links a chat
 for the signed-in person, rebuilds the person from the user store for every delivery and runs the
 turn in their active division; a repeated delivery starts no second turn and a link to someone else's
-chat finds nothing. SPM-341 starts a chat with another agent from the messaging app, reads the linked
-chat, answers its question card by the choice's number or text and stops its turn. SPM-342 names the
+chat finds nothing. A link is a credential of the person: issue it only from the person's own session
+(an impersonation session gets `403 assistant-not-allowed-while-impersonating`), bind it to the
+person's security stamp so that a password change or session revocation ends it, and let a chat
+started through it inherit its expiry instead of a fresh lifetime. SPM-341 starts a chat with another
+agent from the messaging app, reads the linked chat, answers its question card by the choice's number
+or text and stops its turn. SPM-342 names the
 turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
 from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
 
@@ -1064,6 +1068,9 @@ or output of the running turn, also not text written before an approval pause.
   background-use consent, a personal MCP connection or a push subscription, in an endpoint of your
   own; refuse it as the assistant does with `assistant-not-allowed-while-impersonating` and keep
   withdrawals open.
+- Issuing a channel credential, such as a messaging link token, from an impersonation session, binding
+  it to nothing but the person's id, or renewing it with a full lifetime from itself; it would act as
+  the person after the impersonation, the password change or the revocation that should end it.
 - Writing prompts, messages, tool arguments or results to logs, `INhAiAuditSink`,
   usage records or `INhAssistantBusinessAuditSink`; those receive identifiers,
   versions, codes and timestamps only.

@@ -480,7 +480,12 @@ their messages and their answer to an approval card with the link token, without
 division and with the person's own rights for every tool, never the rights of the provider's request.
 The answer carries the assistant's text and, when the turn waits, the approval card with its proposal
 hash; a `yes` approves it. A repeated delivery starts no second turn, a link to someone else's chat finds
-nothing, and the audit records the `messaging-chat` channel. In Development the sample also sets
+nothing, and the audit records the `messaging-chat` channel. Only the person's own session links a
+chat: an administrator who impersonates the person gets `403 assistant-not-allowed-while-impersonating`,
+because the link would act as the person after the impersonation ended. Every link carries a digest of
+the person's security stamp, so a password change or a revocation of the person's sessions ends all
+their links, and a chat started from the messaging app gets a link that expires with the one it was
+started from. In Development the sample also sets
 `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
 the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
 

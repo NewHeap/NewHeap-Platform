@@ -283,7 +283,10 @@ personal OAuth connection (`POST mcp-connections/{serverId}/authorize`), complet
 (`PUT notifications/push-subscription`). Withdrawing the consent, disconnecting and removing a
 subscription stay allowed; their `McpBackgroundUseChanged` and `McpConnectionDisconnected` audit events
 name the impersonating user in the new `NhAssistantAuditEvent.ImpersonationOriginActorId`. Organization
-connections and hosts without NewHeap impersonation are unchanged.
+connections and hosts without NewHeap impersonation are unchanged. An application channel that issues
+its own credential for the person, such as the sample's messaging link token (SPM-332), applies the same
+rule: no issuance from an impersonation session, a binding to the person's security stamp so that a
+password change or session revocation ends it, and no renewal beyond the presented credential's expiry.
 
 | Breaking change | Required action |
 |---|---|
