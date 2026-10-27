@@ -92,6 +92,10 @@ internal static class NhAssistantServiceRegistration
         // replaces the transport, the notifier and the token protector.
         services.TryAddSingleton<NhAssistantConversationAudience>();
         services.TryAddSingleton<INhAssistantLiveUpdateTransport, NhAssistantNoLiveUpdateTransport>();
+        // Who may follow a conversation when something is delivered without their request; the
+        // ASP.NET package asks the application's principal factory.
+        services.TryAddScoped<INhAssistantRecipientRules, NhAssistantEveryoneReceives>();
+        services.TryAddScoped<NhAssistantConversationReaders>();
         services.TryAddScoped<NhAssistantLivePublisher>();
         services.TryAddScoped<INhAssistantNotifier, NhAssistantNoNotifier>();
         services.TryAddScoped<NhAssistantNotificationStore>();

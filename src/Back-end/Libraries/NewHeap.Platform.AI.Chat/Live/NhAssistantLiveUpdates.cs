@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using NewHeap.Platform.AI.Chat.Collaboration;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
-using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.Live;
@@ -87,6 +87,23 @@ internal interface INhAssistantLiveUpdateTransport
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Sends an update to the connections of each recipient: all of them, or only those signed in for
+    /// one of the recipient's tenants. A transport that does not know the tenant of a connection sends
+    /// to every connection of the recipients.
+    /// </summary>
+    Task SendAsync(
+        IReadOnlyCollection<NhAssistantLiveRecipient> recipients,
+        NhAssistantLiveEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recipients);
+        return SendAsync(
+            recipients.Select(recipient => recipient.ActorId).Distinct(StringComparer.Ordinal).ToArray(),
+            evt,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Sends an update about an agent's work for the whole application to the connections that watch
     /// that work. A transport without watchers sends nothing.
     /// </summary>
@@ -111,19 +128,94 @@ internal sealed class NhAssistantNoLiveUpdateTransport : INhAssistantLiveUpdateT
 }
 
 /// <summary>
-/// Who belongs to a conversation: its owner and participants, and, for an agent's thread of the whole
-/// application, the subject and agent whose view policy every listener must pass.
+/// One actor a live update reaches: on every connection, or only on the connections signed in for one
+/// of <see cref="Tenants"/>, the sign-ins through which the actor reaches the conversation.
 /// </summary>
-internal sealed record NhAssistantConversationAudienceEntry(IReadOnlyList<string> ActorIds, NhAiSubjectRef? SystemSubject, string? AgentId);
+internal sealed record NhAssistantLiveRecipient(string ActorId, IReadOnlyList<string?>? Tenants)
+{
+    /// <summary>The actor on every connection, such as for their own read position.</summary>
+    public static NhAssistantLiveRecipient Everywhere(string actorId)
+    {
+        return new NhAssistantLiveRecipient(actorId, null);
+    }
+
+    /// <summary>The actor on the connections signed in for one of <paramref name="tenants"/>.</summary>
+    public static NhAssistantLiveRecipient InTenants(string actorId, IReadOnlyList<string?> tenants)
+    {
+        ArgumentNullException.ThrowIfNull(tenants);
+        return new NhAssistantLiveRecipient(actorId, tenants);
+    }
+}
+
+/// <summary>
+/// Who belongs to a conversation: the conversation, its owner and participants, and its agent thread
+/// when it is one. The publisher keeps the conversation's read rule and, for
+/// <paramref name="readerLifetime"/>, how far each person may follow it.
+/// </summary>
+internal sealed class NhAssistantConversationAudienceEntry(
+    AssistantConversation? conversation,
+    IReadOnlyList<string> actorIds,
+    AssistantThread? thread,
+    TimeSpan readerLifetime)
+{
+    private readonly ConcurrentDictionary<string, (NhAssistantReaderStanding Standing, long At)> _standings = new(StringComparer.Ordinal);
+
+    /// <summary>The conversation, or <see langword="null"/> when it was deleted or never existed.</summary>
+    public AssistantConversation? Conversation { get; } = conversation;
+
+    /// <summary>The owner, then the participants.</summary>
+    public IReadOnlyList<string> ActorIds { get; } = actorIds;
+
+    /// <summary>The conversation's agent thread, or <see langword="null"/> for a chat.</summary>
+    public AssistantThread? Thread { get; } = thread;
+
+    /// <summary>The read rule, once a publisher decided it.</summary>
+    public NhAssistantConversationReadRule? Rule { get; set; }
+
+    public bool TryGetStanding(string actorId, out NhAssistantReaderStanding standing)
+    {
+        if (_standings.TryGetValue(actorId, out var cached)
+            && Environment.TickCount64 - cached.At < (long)readerLifetime.TotalMilliseconds)
+        {
+            standing = cached.Standing;
+            return true;
+        }
+
+        standing = NhAssistantReaderStanding.None;
+        return false;
+    }
+
+    public void SetStanding(string actorId, NhAssistantReaderStanding standing)
+    {
+        if (_standings.Count >= NhAssistantConversationAudience.MaxReadersPerEntry)
+        {
+            _standings.Clear();
+        }
+        _standings[actorId] = (standing, Environment.TickCount64);
+    }
+}
 
 /// <summary>
 /// Caches who belongs to a conversation, so every streamed delta reaches the owner and current
 /// participants without a database round trip. Membership changes in this process take effect
-/// immediately; changes made by another instance after at most <see cref="TimeToLive"/>.
+/// immediately; changes made by another instance after at most <see cref="TimeToLive"/>. How far each
+/// person may follow the conversation is decided again after <see cref="ReaderTimeToLive"/>, so a
+/// role, permission or account that ended stops the updates within that time.
 /// </summary>
 internal sealed class NhAssistantConversationAudience(NhAssistantDbContextFactory contextFactory)
 {
     public static readonly TimeSpan TimeToLive = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long a decision about one person's reading is kept.</summary>
+    public static readonly TimeSpan ReaderTimeToLive = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How long this audience keeps a decision about one person's reading: <see cref="ReaderTimeToLive"/>,
+    /// or less in a test that changes people between two updates.
+    /// </summary>
+    internal TimeSpan ReaderLifetime { get; init; } = ReaderTimeToLive;
+
+    internal const int MaxReadersPerEntry = 1_024;
     private const int MaxEntries = 10_000;
 
     private readonly ConcurrentDictionary<Guid, Entry> _entries = new();
@@ -141,18 +233,29 @@ internal sealed class NhAssistantConversationAudience(NhAssistantDbContextFactor
             return cached.Audience;
         }
 
-        var actorIds = await new NhAssistantStore(contextFactory, NullLogger<NhAssistantStore>.Instance)
-            .GetAudienceAsync(conversationId, cancellationToken);
         await using var context = contextFactory.CreateDbContext();
-        var system = await context.Threads
+        var conversation = await context.Conversations
             .AsNoTracking()
-            .Where(thread => thread.ConversationId == conversationId && thread.SubjectType == NhAiSubjectRef.SystemType)
-            .Select(thread => new { thread.SubjectId, thread.AgentId })
+            .Where(item => item.Id == conversationId
+                && item.Status != NhAssistantConversationStatuses.Archived)
             .SingleOrDefaultAsync(cancellationToken);
-        var audience = new NhAssistantConversationAudienceEntry(
-            actorIds,
-            system is null ? null : new NhAiSubjectRef(NhAiSubjectRef.SystemType, system.SubjectId),
-            system?.AgentId);
+        IReadOnlyList<string> actorIds = [];
+        AssistantThread? thread = null;
+        if (conversation is not null)
+        {
+            var participants = await context.Participants
+                .AsNoTracking()
+                .Where(participant => participant.ConversationId == conversationId)
+                .Select(participant => participant.ActorId)
+                .ToListAsync(cancellationToken);
+            actorIds = [conversation.OwnerActorId, .. participants];
+            thread = await context.Threads
+                .AsNoTracking()
+                .Where(item => item.ConversationId == conversationId)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        var audience = new NhAssistantConversationAudienceEntry(conversation, actorIds, thread, ReaderLifetime);
         if (_entries.Count >= MaxEntries)
         {
             _entries.Clear();
@@ -169,17 +272,23 @@ internal sealed class NhAssistantConversationAudience(NhAssistantDbContextFactor
     private sealed record Entry(NhAssistantConversationAudienceEntry Audience, DateTimeOffset LoadedAt);
 }
 
-/// <summary>
-/// Publishes conversation changes and turn events to everyone who belongs to the conversation. An
-/// agent's thread of the whole application reaches only the people who may read it, those who pass
-/// the agent's view policy, as its thread, results and proposals do. Publishing never fails a turn or
-/// a request: a failure is logged, because clients recover through snapshots.
+//// <summary>
+/// Publishes conversation changes and turn events to the people who may read the conversation at the
+/// moment of sending, with the rule its snapshot endpoints apply on every request
+/// (<see cref="NhAssistantConversationReaders"/>): a chat reaches its owner and the participants who pass
+/// the agent's policy, an agent thread the people the subject's resolver gives a role now or who were
+/// invited, and for the whole application only those who pass the agent's view policy. A stale
+/// participant row, such as that of a person whose role on the subject ended, reaches nobody. Only
+/// content-free changes of an agent's work reach people whom the agent's policy keeps from the thread's
+/// messages. Participants hear about a conversation only on the connections signed in for a tenant that
+/// reaches it. Publishing never fails a turn or a request: a failure is logged, because clients recover
+/// through snapshots.
 /// </summary>
 internal sealed class NhAssistantLivePublisher(
     INhAssistantLiveUpdateTransport transport,
     NhAssistantConversationAudience audience,
     INhAssistantStore store,
-    NhAssistantSubjectAccessService subjects,
+    NhAssistantConversationReaders readers,
     ILogger<NhAssistantLivePublisher> logger)
 {
     public async ValueTask PublishAsync(NhAssistantLiveEvent evt, CancellationToken cancellationToken = default)
@@ -188,7 +297,7 @@ internal sealed class NhAssistantLivePublisher(
         try
         {
             var entry = await audience.GetEntryAsync(evt.ConversationId, cancellationToken);
-            await transport.SendAsync(await ReadersAsync(entry, entry.ActorIds, cancellationToken), evt, cancellationToken);
+            await transport.SendAsync(await RecipientsAsync(entry, entry.ActorIds, evt, cancellationToken), evt, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
@@ -218,13 +327,14 @@ internal sealed class NhAssistantLivePublisher(
     }
 
     /// <summary>
-    /// Sends an event to one actor only, such as their own read position or their removal.
+    /// Sends an event to one actor only, on every connection, such as their own read position or their
+    /// removal.
     /// </summary>
     public async ValueTask PublishToAsync(string actorId, NhAssistantLiveEvent evt, CancellationToken cancellationToken = default)
     {
         try
         {
-            await transport.SendAsync([actorId], evt, cancellationToken);
+            await transport.SendAsync([NhAssistantLiveRecipient.Everywhere(actorId)], evt, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
@@ -233,7 +343,8 @@ internal sealed class NhAssistantLivePublisher(
     }
 
     /// <summary>
-    /// Sends an event to the conversation's audience and to <paramref name="actorIds"/>.
+    /// Sends an event to the conversation's audience and to <paramref name="actorIds"/>, each of them
+    /// only while the conversation's read rule admits them.
     /// </summary>
     public async ValueTask PublishWithAsync(
         IReadOnlyCollection<string> actorIds,
@@ -243,7 +354,7 @@ internal sealed class NhAssistantLivePublisher(
         try
         {
             var entry = await audience.GetEntryAsync(evt.ConversationId, cancellationToken);
-            await transport.SendAsync(await ReadersAsync(entry, [.. entry.ActorIds, .. actorIds], cancellationToken), evt, cancellationToken);
+            await transport.SendAsync(await RecipientsAsync(entry, [.. entry.ActorIds, .. actorIds], evt, cancellationToken), evt, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
@@ -274,31 +385,49 @@ internal sealed class NhAssistantLivePublisher(
     }
 
     /// <summary>
-    /// The people among <paramref name="actorIds"/> who may hear about the conversation: everyone for
-    /// a conversation or an object's thread, for an agent's thread of the whole application only those
-    /// who pass the agent's view policy (the resolver keeps these decisions a few seconds).
+    /// The people among <paramref name="actorIds"/> who may receive <paramref name="evt"/> now: the
+    /// owner of a chat on every connection, everyone else on the connections of the tenants that reach
+    /// the conversation, once the read rule admits them. A content-free change of an agent's work needs
+    /// the thread's read rule, every other event the conversation's content. Decisions are kept for
+    /// <see cref="NhAssistantConversationAudience.ReaderTimeToLive"/>.
     /// </summary>
-    private async ValueTask<IReadOnlyCollection<string>> ReadersAsync(
+    private async ValueTask<IReadOnlyCollection<NhAssistantLiveRecipient>> RecipientsAsync(
         NhAssistantConversationAudienceEntry entry,
         IReadOnlyCollection<string> actorIds,
+        NhAssistantLiveEvent evt,
         CancellationToken cancellationToken)
     {
-        if (entry.SystemSubject is not { } subject || entry.AgentId is not { } agentId)
+        if (entry.Conversation is not { } conversation)
         {
-            return actorIds;
+            return [];
         }
 
-        var readers = new List<string>(actorIds.Count);
+        var rule = entry.Rule ??= await readers.RuleOfAsync(conversation, entry.Thread, cancellationToken);
+        var needed = evt is NhAssistantLiveAgentWorkChanged
+            ? NhAssistantReaderStanding.Work
+            : NhAssistantReaderStanding.Content;
+        var recipients = new List<NhAssistantLiveRecipient>(actorIds.Count);
         foreach (var actorId in actorIds.Distinct(StringComparer.Ordinal))
         {
-            if (!actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal)
-                && await subjects.MayReadAgentThreadAsync(subject, agentId, actorId, cancellationToken))
+            if (rule.Thread is null && string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))
             {
-                readers.Add(actorId);
+                // The owner of a chat reads it in every tenant, as its snapshot endpoint answers them.
+                recipients.Add(NhAssistantLiveRecipient.Everywhere(actorId));
+                continue;
+            }
+
+            if (!entry.TryGetStanding(actorId, out var standing))
+            {
+                standing = await readers.StandingAsync(rule, actorId, cancellationToken);
+                entry.SetStanding(actorId, standing);
+            }
+            if (standing >= needed)
+            {
+                recipients.Add(NhAssistantLiveRecipient.InTenants(actorId, rule.Tenants));
             }
         }
 
-        return readers;
+        return recipients;
     }
 
     /// <summary>

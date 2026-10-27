@@ -1,8 +1,7 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
-using NewHeap.Platform.AspNet.Common.Services;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 
@@ -89,20 +88,15 @@ internal sealed partial class NhAssistantMcpOwnerSweep(
     }
 
     /// <summary>
-    /// The principal factory when it can resolve people: not the built-in factory in a host without
-    /// the NewHeap user manager, which resolves nobody and would remove every connection, and not the
-    /// access source's factory, which says only whether the application holds a fresh context of the
-    /// person and would remove the connections of everyone who was not active within its maximum age.
+    /// The principal factory when it can resolve people (<see cref="NhAssistantPlatformPrincipals.Resolving"/>):
+    /// not the built-in factory in a host without the NewHeap user manager, which resolves nobody and
+    /// would remove every connection, and not the access source's factory, which says only whether the
+    /// application holds a fresh context of the person and would remove the connections of everyone
+    /// who was not active within its maximum age.
     /// </summary>
     private INhAiPrincipalFactory? ResolvingPrincipalFactory()
     {
-        var principals = services.GetService<INhAiPrincipalFactory>();
-        if (principals is null or NhAiAccessSourcePrincipalFactory)
-        {
-            return null;
-        }
-        var builtIn = principals.GetType().Assembly == typeof(INhAiPrincipalFactory).Assembly;
-        return builtIn && services.GetService<INhUserManager>() is null ? null : principals;
+        return NhAssistantPlatformPrincipals.Resolving(services);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "The assistant's MCP owner sweep removed {Removed} connections of {People} people the platform no longer resolves.")]

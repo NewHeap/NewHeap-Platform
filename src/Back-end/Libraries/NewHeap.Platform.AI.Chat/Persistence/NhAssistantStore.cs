@@ -6,7 +6,7 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 
 /// <param name="registration">
 /// The registration, for the single-tenant mode's access to the whole application's threads; a store
-/// made without it, as for audiences, applies the tenant rule alone.
+/// made without it applies the tenant rule alone.
 /// </param>
 internal sealed class NhAssistantStore(
     NhAssistantDbContextFactory contextFactory,

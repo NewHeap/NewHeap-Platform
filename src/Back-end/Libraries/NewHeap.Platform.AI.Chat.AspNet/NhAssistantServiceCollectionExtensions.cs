@@ -95,6 +95,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<INhAssistantReaderTextProtector, NhAssistantReaderTextProtector>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantReaderTextMaintenance>());
             services.Replace(ServiceDescriptor.Scoped<INhAssistantNotifier, NhAssistantWebPushNotifier>());
+            // Live updates and notifications rebuild their recipients with the application's principal
+            // factory, as headless runs do, to check the agent's policy at send time.
+            services.Replace(ServiceDescriptor.Scoped<INhAssistantRecipientRules, NhAssistantPrincipalRecipientRules>());
             services.AddHttpClient(NhAssistantWebPushNotifier.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                 {
