@@ -610,7 +610,10 @@ maintenance removes inbox visits by age only.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
-changed row and its version, so an at-least-once delivery starts one run. Publish
+changed row and its version, so an at-least-once delivery starts one run: an event is known in its
+agent's thread by its input once it waited, joined a pending run or was claimed by one, so a
+redelivery after that run took it is `deduplicated` with that run, even though the run records the
+key of the event that started it only. Publish
 either inside the domain transaction or after the commit. Inside the transaction of
 the context that holds the background operations, `PublishAsync` and `StartAsync`
 write nothing to the assistant's tables: each trigger becomes a background operation
@@ -1981,6 +1984,11 @@ was made and keeps it when the parent changes later, that a subject named as its
 that `NewApprovalIds` follows the last visit per person and scope (all before the first visit),
 that a visit of a division the caller does not work in answers `404` and stores nothing, that the run
 maintenance keeps recent inbox visits, and that `AddAgentGroup` refuses `nh-` ids.
+
+For webhook deliveries, on both providers, post a signed delivery that starts a run and a second one
+that joins it, let the run claim both and end, and assert that delivering either again answers
+`deduplicated` with that run and starts none; do the same for two deliveries that waited while the
+agent was paused and that the resume run claimed.
 
 For trigger event filters, publish the agent's own change on the trigger's subject and assert
 `ignored` with `filtered` and no audit, publish the same agent's change made on another subject and a

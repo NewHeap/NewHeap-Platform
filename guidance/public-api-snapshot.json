@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.86",
   "backEnd": {
-    "hash": "930da01203812abee390aecdee2c21685e55c97b3ed206410d6286d49609fa08",
+    "hash": "9da1f2bc4023d87450a4e185872864dff71facbcc1efb00682258c3a5e1c41aa",
     "declarationCount": 11216,
     "declarations": [
       {
@@ -20703,7 +20703,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-        "declaration": "public async Task<bool> HasWaitingInputAsync( Guid conversationId, string triggerId, string eventKey, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<AssistantQueuedInput?> FindEventInputInThreadAsync( Guid conversationId, string triggerId, string eventKey, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",

@@ -294,3 +294,16 @@ trigger included, never changes live work. Runs in live threads and people's own
 | Breaking change | Required action |
 |---|---|
 | The consult and request tools refuse a call from a run in a shadow thread with `assistant-consult-agent-unavailable`. | None; put the asking agent or its trigger live to let its runs consult and request other agents. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a claimed delivery stays deduplicated
+
+A webhook delivery, or an event with a dedupe key, that joined a pending run or waited while the agent
+was paused is now deduplicated also after the run that took it claimed it, so redelivering it starts no
+second run. Such a run records the key of the event that started it only, and the deduplication looked
+only at that key and at inputs that still waited. The input a delivery wrote now counts once a run took
+it; the receipt of the redelivery reads `deduplicated` with that run. An input dropped without a run,
+because its subject or the agent's owner was gone, does not count.
+
+| Breaking change | Required action |
+|---|---|
+| A redelivery of an event that a run already took answers `deduplicated`, naming that run, instead of starting a new run. | None. |

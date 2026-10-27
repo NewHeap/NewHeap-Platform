@@ -1649,12 +1649,15 @@ internal sealed class NhAssistantAgentTriggers(
                     conversationId,
                     NhAssistantTriggerReasons.Deduplicated);
             }
-            if (await runs.HasWaitingInputAsync(conversationId, fire.TriggerId, eventKey, cancellationToken))
+            // A run records the key of the event that started it only: an event that waited, joined a
+            // pending run or was claimed by one is known through its input, which stays after the
+            // claim, so a redelivery starts no second run.
+            if (await runs.FindEventInputInThreadAsync(conversationId, fire.TriggerId, eventKey, cancellationToken) is { } known)
             {
                 return new NhAssistantTriggerReceipt(
                     fire.TriggerId,
                     NhAssistantTriggerOutcomes.Deduplicated,
-                    null,
+                    known.ConsumedByRunId,
                     conversationId,
                     NhAssistantTriggerReasons.Deduplicated);
             }
