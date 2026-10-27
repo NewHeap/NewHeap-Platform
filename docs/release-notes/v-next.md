@@ -241,3 +241,21 @@ change.
 | The consult and request tools refuse a subject of another tenant than the asker's, and the whole application for an asker bound to a tenant that takes no part in it, with `assistant-consult-subject-unavailable`. | None. |
 | `INhAssistantSubjectWork.GetAsync` and `SummarizeAsync` with an actor id and a principal are obsolete: they compare no tenant. | Call `GetAsync(subject, new NhAssistantDecidingPerson(user, actorId, tenantId), agentId)` and `SummarizeAsync(subjectType, subjectIds, person)`; an implementation of the interface adds both. |
 | `INhAiSubjectRetention.ForgetSubjectAsync(subject)` is obsolete: it forgets the id in every tenant and division. | Read the subject's scope key (`NhAiSubjectInfo.ScopeKey`) before the delete and call `ForgetSubjectAsync(subject, scopeKey)`; an implementation of the interface adds the overload. |
+
+## NewHeap.Platform.AI.Generators: every authorization declaration reaches the tool descriptor
+
+Generated tools never pass the MVC authorization filter, so the descriptor's policy list is what the
+tool gate, agent grants and the approver check enforce. The generator now reads every `IAuthorizeData`
+declaration ASP.NET would apply to the tool method: on the method and the methods it overrides, and on
+the tool set and its base types. It takes the policy from the named `Policy` argument, otherwise from
+the constructor argument of `[Authorize("policy")]`. Before, only the named `Policy` of an
+`AuthorizeAttribute` directly on the method or the tool set reached the descriptor, so a positional or
+inherited policy, `Roles` and an `AuthorizeAttribute` subclass were dropped and every authenticated
+caller ran the tool. Declarations the gate cannot enforce now fail the build with `NHAI018`. Tools that
+declare only `[Authorize]` and `[Authorize(Policy = ...)]` on the method and the tool set keep their
+contract hashes.
+
+| Breaking change | Required action |
+|---|---|
+| A tool restricted with `Roles`, `AuthenticationSchemes`, an `AuthorizeAttribute` subclass or another `IAuthorizeData` attribute fails to build with `NHAI018`. | Register a named policy for the roles or schemes and declare `[Authorize(Policy = "...")]` instead. |
+| A positional (`[Authorize("policy")]`), overridden or inherited policy is now enforced, and the tool's contract hash includes it. | Grant that policy to the people and agents who use the tool, and refresh pinned manifests or bound proposals of the affected tools. |

@@ -11,6 +11,14 @@ duplicate contracts, missing tool-set metadata, and remote exposure without an
 authorization boundary. The compiler-hosted generator deliberately has no
 runtime dependency on `NewHeap.Platform.AI.Common`.
 
+Generated tools never pass the MVC authorization filter, so the descriptor's
+policy list is the boundary the tool gate enforces. The generator reads every
+`[Authorize]` declaration on the method, the methods it overrides, the tool set
+and its base types, with the policy from the named `Policy` argument or the
+constructor argument. `Roles`, `AuthenticationSchemes` and attribute classes
+other than `AuthorizeAttribute` itself report `NHAI018`; express them as a named
+policy.
+
 Each generated function returns the shared `NhAiToolResult` shape: the output as
 `data` on success, otherwise the stable failure `code` and `message`. Only `data`
 follows the tool set's serializer options.

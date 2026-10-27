@@ -65,6 +65,25 @@ public sealed class AiToolSamplesTests
     }
 
     [Fact]
+    public void Generated_project_tools_carry_every_declared_policy_into_the_descriptor()
+    {
+        // Generated tools never pass the MVC authorization filter, so the descriptor's policy list is
+        // the whole boundary the tool gate enforces. The class-level [Authorize] only requires an
+        // authenticated caller; each method names its policy with [Authorize(Policy = ...)]. The
+        // generator refuses roles, authentication schemes and AuthorizeAttribute subclasses (NHAI018).
+        var catalog = new ProjectAiToolsNhAiCatalog();
+
+        var search = Assert.Single(catalog.Descriptors, item => item.Id == "projects.search");
+        var changeStatus = Assert.Single(catalog.Descriptors, item => item.Id == ProjectAiTools.ChangeStatusToolId);
+
+        Assert.True(search.RequiresAuthorization);
+        Assert.Empty(search.AuthorizationPolicies);
+        Assert.True(changeStatus.RequiresAuthorization);
+        Assert.Equal([ProjectAiTools.ManagePolicy], changeStatus.AuthorizationPolicies);
+        Assert.Equal([ProjectAiTools.ManagePolicy], changeStatus.ApproverPolicies);
+    }
+
+    [Fact]
     public async Task Project_tool_failure_reaches_the_model_with_its_stable_code()
     {
         var readService = new RecordingProjectAiReadService();

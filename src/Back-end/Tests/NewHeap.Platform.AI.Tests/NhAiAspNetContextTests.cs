@@ -111,6 +111,33 @@ public sealed class NhAiAspNetContextTests
         Assert.False(invalid.Success);
     }
 
+    [Theory]
+    [InlineData(new string[0], false)]
+    [InlineData(new[] { "authorization-forms.positional" }, false)]
+    [InlineData(new[] { "authorization-forms.inherited" }, false)]
+    [InlineData(new[] { "authorization-forms.positional", "authorization-forms.inherited" }, true)]
+    public async Task Tool_gate_enforces_positional_and_inherited_policies_of_a_generated_tool(
+        string[] allowedPolicies,
+        bool expectedAuthorized)
+    {
+        var descriptor = Assert.Single(new AuthorizationFormToolsNhAiCatalog().Descriptors);
+        var services = CreateServices(
+            CreateHttpContext("actor-1", Guid.NewGuid()),
+            allowedPolicies);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiToolInvocationGate>()
+            .AuthorizeAsync(descriptor);
+
+        Assert.Equal(
+            ["authorization-forms.inherited", "authorization-forms.positional"],
+            descriptor.AuthorizationPolicies);
+        Assert.Equal(descriptor.AuthorizationPolicies, descriptor.ApproverPolicies);
+        Assert.Equal(expectedAuthorized, result.Success);
+    }
+
     [Fact]
     public async Task Authenticated_resolver_projects_exact_issuer_subject_tenant_claims_and_scopes()
     {
@@ -607,5 +634,25 @@ public sealed class NhAiAspNetContextTests
             NhBackgroundOperationResultReference result,
             CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+}
+
+[Authorize(Policy = "authorization-forms.inherited")]
+public abstract class AuthorizationFormToolsBase
+{
+}
+
+[NhAiToolSet("authorization-forms")]
+public sealed class AuthorizationFormTools : AuthorizationFormToolsBase
+{
+    [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local | NhAiToolExposure.Agent)]
+    [Authorize("authorization-forms.positional")]
+    [System.ComponentModel.Description("Read data behind a positional and an inherited policy.")]
+    public Task<NewHeap.Platform.Common.Models.TaskResult<string>> ReadAsync(
+        string input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        return Task.FromResult(NewHeap.Platform.Common.Models.TaskResult<string>.Succeeded(input));
     }
 }
