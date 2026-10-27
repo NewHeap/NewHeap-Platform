@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -18,11 +19,15 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Notifications;
 /// <see cref="NhAssistantPushOptions.DeliveryTimeout"/> and removes subscriptions the push service
 /// reports as gone. Notifications carry the conversation id, a kind and short texts, and the run id
 /// of a notification about the proposals of a run; never messages, tool data or other content.
-/// Failures are logged with status codes or exception types only.
+/// Notifications about a conversation reach only the people its read rule admits when they are sent
+/// (<see cref="NhAssistantConversationReaders"/>), as its snapshot would answer them: a stored
+/// participant whose role on a thread's subject ended, or who no longer passes the agent's policy,
+/// hears nothing. Failures are logged with status codes or exception types only.
 /// </summary>
 internal sealed class NhAssistantWebPushNotifier(
     INhAssistantStore store,
     NhAssistantNotificationStore notifications,
+    NhAssistantConversationReaders readers,
     IOptionsMonitor<NhAssistantOptions> options,
     IHttpClientFactory httpClients,
     IServiceProvider services,
@@ -49,14 +54,15 @@ internal sealed class NhAssistantWebPushNotifier(
                 return;
             }
             var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
-            var recipients = new Dictionary<string, string>(StringComparer.Ordinal);
+            var kinds = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var actorId in participants.Select(participant => participant.ActorId).Prepend(conversation.OwnerActorId))
             {
                 if (KindFor(outcome, actorId, push.MinimumTurnDuration) is { } kind)
                 {
-                    recipients[actorId] = kind;
+                    kinds[actorId] = kind;
                 }
             }
+            var recipients = await ReadersOfAsync(conversation, kinds, cancellationToken);
             if (recipients.Count == 0)
             {
                 return;
@@ -102,10 +108,18 @@ internal sealed class NhAssistantWebPushNotifier(
             {
                 return;
             }
+            var recipients = await ReadersOfAsync(
+                conversation,
+                new Dictionary<string, string>(StringComparer.Ordinal) { [inviteeActorId] = NhAssistantPushKinds.Invited },
+                cancellationToken);
+            if (recipients.Count == 0)
+            {
+                return;
+            }
             await DeliverAsync(
                 push,
                 conversation,
-                new Dictionary<string, string>(StringComparer.Ordinal) { [inviteeActorId] = NhAssistantPushKinds.Invited },
+                recipients,
                 (kind, language) => NhAssistantPushTexts.ForInvitation(
                     language,
                     push.IncludeConversationTitle ? conversation.Title : null,
@@ -203,8 +217,11 @@ internal sealed class NhAssistantWebPushNotifier(
             }
 
             var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
-            var recipients = NhAssistantApplicationMessageRecipients.Of(conversation, participants)
-                .ToDictionary(actorId => actorId, _ => NhAssistantPushKinds.ApplicationMessage, StringComparer.Ordinal);
+            var recipients = await ReadersOfAsync(
+                conversation,
+                NhAssistantApplicationMessageRecipients.Of(conversation, participants)
+                    .ToDictionary(actorId => actorId, _ => NhAssistantPushKinds.ApplicationMessage, StringComparer.Ordinal),
+                cancellationToken);
             if (recipients.Count == 0)
             {
                 return;
@@ -226,6 +243,25 @@ internal sealed class NhAssistantWebPushNotifier(
                 conversationId,
                 exception.GetType().Name);
         }
+    }
+
+    /// <summary>
+    /// The recipients among <paramref name="kindsByActor"/> whom the conversation's read rule admits
+    /// now, with their kinds.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> ReadersOfAsync(
+        AssistantConversation conversation,
+        IReadOnlyDictionary<string, string> kindsByActor,
+        CancellationToken cancellationToken)
+    {
+        if (kindsByActor.Count == 0)
+        {
+            return kindsByActor;
+        }
+
+        var rule = await readers.RuleOfAsync(conversation, cancellationToken);
+        var admitted = await readers.ContentReadersAsync(rule, kindsByActor.Keys, cancellationToken);
+        return admitted.ToDictionary(actorId => actorId, actorId => kindsByActor[actorId], StringComparer.Ordinal);
     }
 
     /// <summary>

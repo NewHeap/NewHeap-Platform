@@ -464,6 +464,12 @@ public interface INhAiSubjectRetention
 
 public interface INhAiSubjectAccess
 {
+    /// <summary>
+    /// Replaces the subject's member snapshot with the resolver's <c>ListMembersAsync</c>, and removes
+    /// the participant rows of the subject's agent threads that a role created for people the members
+    /// leave out and the resolver gives no role now. Call it after the people on the subject change.
+    /// Live updates and notifications ask the resolver at send time either way.
+    /// </summary>
     Task<TaskResult> RefreshAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default);

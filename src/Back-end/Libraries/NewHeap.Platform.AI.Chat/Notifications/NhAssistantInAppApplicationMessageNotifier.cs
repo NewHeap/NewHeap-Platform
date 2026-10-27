@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.Common.Actors;
@@ -43,11 +44,14 @@ internal static class NhAssistantApplicationMessageRecipients
 /// <see cref="NhAssistantApplicationMessage.Notify"/> outside a shadow thread. The in-app message has
 /// its own category (<see cref="Category"/>), one group per conversation, the conversation's title and
 /// a fixed text in the recipient's language from <see cref="INhActorDirectory"/>, otherwise the
-/// current UI culture; never the message itself. Recipients whose actor id is not a user id are
-/// skipped. It never throws: a failed notification does not fail the post.
+/// current UI culture; never the message itself. Only people whom the conversation's read rule admits
+/// when the message is posted hear about it (<see cref="NhAssistantConversationReaders"/>), as its
+/// snapshot would answer them; recipients whose actor id is not a user id are skipped. It never throws:
+/// a failed notification does not fail the post.
 /// </summary>
 internal sealed class NhAssistantInAppApplicationMessageNotifier(
     INhAssistantStore store,
+    NhAssistantConversationReaders readers,
     IServiceProvider services,
     ILogger<NhAssistantInAppApplicationMessageNotifier> logger)
 {
@@ -68,8 +72,12 @@ internal sealed class NhAssistantInAppApplicationMessageNotifier(
         try
         {
             var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
+            var rule = await readers.RuleOfAsync(conversation, cancellationToken);
             var recipients = new List<NhActorRef>();
-            foreach (var actorId in NhAssistantApplicationMessageRecipients.Of(conversation, participants))
+            foreach (var actorId in await readers.ContentReadersAsync(
+                         rule,
+                         NhAssistantApplicationMessageRecipients.Of(conversation, participants),
+                         cancellationToken))
             {
                 if (Guid.TryParse(actorId, out var userId))
                 {
