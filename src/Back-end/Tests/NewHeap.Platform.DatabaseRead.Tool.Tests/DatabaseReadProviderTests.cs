@@ -59,7 +59,7 @@ public sealed class DatabaseReadProviderTests
                 using var output = new MemoryStream();
                 var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
                     [command, "--profiles", workspace.ProfileCatalogPath], input, output);
-                exitCode.Should().Be(4);
+                exitCode.Should().Be(4, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
                 using var response = DatabaseReadTestWorkspace.ParseOutput(output);
                 var error = response.RootElement.GetProperty("error");
                 error.GetProperty("code").GetString().Should().Be("read-only-principal-not-verified");
@@ -73,8 +73,9 @@ public sealed class DatabaseReadProviderTests
 
         using var validInput = DatabaseReadTestWorkspace.SchemaRequest("search");
         using var validOutput = new MemoryStream();
-        (await NewHeapDatabaseReadApplication.RunAsync(
-            ["schema", "--profiles", workspace.ProfileCatalogPath], validInput, validOutput)).Should().Be(0);
+        var validExitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["schema", "--profiles", workspace.ProfileCatalogPath], validInput, validOutput);
+        validExitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(validOutput));
     }
 
     [Fact]
@@ -218,7 +219,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(0);
+        exitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         AssertSuccessfulProjectResult(response, "sql-server", "Production");
         await AssertSchemaInspectionAsync(
@@ -398,7 +399,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(0);
+        exitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         AssertSuccessfulProjectResult(response, "postgresql", "Production");
         await AssertSchemaInspectionAsync(
@@ -497,7 +498,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(4);
+        exitCode.Should().Be(4, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
             .Should().Be("read-only-principal-not-verified");
@@ -535,7 +536,7 @@ public sealed class DatabaseReadProviderTests
                 searchInput,
                 searchOutput);
 
-            exitCode.Should().Be(0);
+            exitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(searchOutput));
             using var response = DatabaseReadTestWorkspace.ParseOutput(searchOutput);
             var schema = response.RootElement.GetProperty("schema");
             schema.GetProperty("operation").GetString().Should().Be("search");
@@ -598,7 +599,7 @@ public sealed class DatabaseReadProviderTests
                 ambiguousInput,
                 ambiguousOutput);
 
-            exitCode.Should().Be(0);
+            exitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(ambiguousOutput));
             using var response = DatabaseReadTestWorkspace.ParseOutput(ambiguousOutput);
             var schema = response.RootElement.GetProperty("schema");
             schema.GetProperty("operation").GetString().Should().Be("search-and-describe");
@@ -814,7 +815,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(5);
+        exitCode.Should().Be(5, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
@@ -837,7 +838,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(5);
+        exitCode.Should().Be(5, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         var error = response.RootElement.GetProperty("error");
         error.GetProperty("code").GetString().Should().Be("database-query-failed");
@@ -909,7 +910,7 @@ public sealed class DatabaseReadProviderTests
             input,
             output);
 
-        exitCode.Should().Be(4);
+        exitCode.Should().Be(4, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("ok").GetBoolean().Should().BeFalse();
         response.RootElement.TryGetProperty("result", out _).Should().BeFalse();

@@ -100,6 +100,15 @@ definitions that every database grants to public rejects the principal with
 schemas of fixed database roles are skipped, so `db_datareader` membership
 still passes.
 
+The verification reads catalog rows that a concurrent change of logins, users
+or grants locks. On SQL Server it runs with `DEADLOCK_PRIORITY LOW`, so in a
+deadlock the diagnostic request and not the other session's change is the
+victim, and with the profile's lock timeout. A verification that was the
+deadlock victim or timed out on a lock runs again, a few times at most and only
+while the request's timeout leaves time for it. When the conflict lasts longer,
+the request fails with the `deadlock` or `lock-timeout` classification at stage
+`readonly-verification`; a failed verification never passes the principal.
+
 On PostgreSQL the verification covers the connected role and every role it is
 a member of, also a membership without inheritance, because the principal can
 switch to such a role. It denies by default. Apart from the privileges the
