@@ -1067,6 +1067,13 @@ through the server or the database, such as `IMPERSONATE ANY LOGIN` or `ALTER AN
 rejected by the server and database checks. CONTROL on a login now reports
 `server-principal-permission-not-allowlisted` instead of `login-impersonate`.
 
+Reading these permission rows can still meet a change in progress. The diagnostic session therefore
+runs with `DEADLOCK_PRIORITY LOW`, so the other session's change is never the victim, and with the
+profile's lock timeout from the verification on. A verification that was the deadlock victim or timed
+out on a lock runs again while the request's timeout leaves time for it; a failed verification never
+passes the principal.
+
 | Breaking change | Required action |
 |---|---|
 | CONTROL on a login reports `error.verificationCheck` `server-principal-permission-not-allowlisted` instead of `login-impersonate`. | None; the principal is rejected as before. |
+| The SQL Server diagnostic session runs with `DEADLOCK_PRIORITY LOW`, and the profile's lock timeout applies from the verification on. A verification that was the deadlock victim or timed out on a lock runs again, at most eight times and only while the request's timeout leaves time for it, before the request fails with `deadlock` or `lock-timeout` at stage `readonly-verification`. | None; retry a `deadlock` or `lock-timeout` failure later. |

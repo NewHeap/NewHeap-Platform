@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace NewHeap.Platform.DatabaseRead;
@@ -21,6 +22,26 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     /// <c>CERT_E_CHAINING</c>: no chain could be built to a trusted root certificate.
     /// </summary>
     private const int CertificateChaining = unchecked((int)0x800B010A);
+
+    /// <summary>
+    /// SQL Server error 1205: the server chose the statement as deadlock victim.
+    /// </summary>
+    private const int DeadlockVictim = 1205;
+
+    /// <summary>
+    /// SQL Server error 1222: a lock was not granted within <c>LOCK_TIMEOUT</c>.
+    /// </summary>
+    private const int LockRequestTimeout = 1222;
+
+    /// <summary>
+    /// How often the principal verification runs at most when it meets a lock conflict.
+    /// </summary>
+    internal const int MaximumVerificationAttempts = 8;
+
+    /// <summary>
+    /// A retry starts only when at least this much of the request's timeout is left for it.
+    /// </summary>
+    private static readonly TimeSpan MinimumVerificationAttemptTime = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Returns <c>verified</c>, or the first check that the principal fails. The named checks come
@@ -311,14 +332,78 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         return new SqlConnection(builder.ConnectionString);
     }
 
+    /// <summary>
+    /// Verifies the principal. The catalog reads take shared locks on catalog rows and metadata
+    /// locks on the securables they report, so a concurrent change of logins, users or grants can
+    /// block them or choose them as deadlock victim. The session therefore runs with
+    /// <c>DEADLOCK_PRIORITY LOW</c>, so the diagnostic request and never the other session's change
+    /// is the victim, and with the profile's lock timeout, so a blocked read fails instead of using
+    /// up the statement timeout. A verification that was the deadlock victim or timed out on a lock
+    /// runs again while the request's timeout leaves time for it, at most
+    /// <see cref="MaximumVerificationAttempts"/> times; after that its error propagates and the
+    /// request fails with that classification. A failed attempt never counts as verified.
+    /// </summary>
     public async Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
+        await using (var session = connection.CreateCommand())
+        {
+            session.CommandText = FormattableString.Invariant(
+                $"SET DEADLOCK_PRIORITY LOW; SET LOCK_TIMEOUT {limits.LockTimeoutMilliseconds};");
+            session.CommandTimeout = limits.TimeoutSeconds;
+            await session.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        var timeout = TimeSpan.FromSeconds(limits.TimeoutSeconds);
+        var elapsed = Stopwatch.StartNew();
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await ReadVerificationAsync(connection, timeout - elapsed.Elapsed, cancellationToken);
+            }
+            catch (SqlException exception) when (
+                IsLockConflict(exception) && attempt < MaximumVerificationAttempts)
+            {
+                var backoff = VerificationRetryBackoff(attempt);
+                if (elapsed.Elapsed + backoff + MinimumVerificationAttemptTime >= timeout)
+                {
+                    throw;
+                }
+
+                await Task.Delay(backoff, cancellationToken);
+            }
+        }
+    }
+
+    internal static bool IsLockConflict(SqlException exception)
+    {
+        return exception.Errors
+            .Cast<SqlError>()
+            .Any(error => error.Number is DeadlockVictim or LockRequestTimeout);
+    }
+
+    /// <summary>
+    /// A short, growing and randomized pause, so verifications that were victims of the same
+    /// deadlock do not meet again at once.
+    /// </summary>
+    internal static TimeSpan VerificationRetryBackoff(int attempt)
+    {
+        var ceiling = Math.Min(50 * (1 << Math.Min(attempt, 4)), 500);
+
+        return TimeSpan.FromMilliseconds(Random.Shared.Next(ceiling / 2, ceiling + 1));
+    }
+
+    private static async Task<DatabaseReadPrincipalVerification> ReadVerificationAsync(
+        DbConnection connection,
+        TimeSpan remaining,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
         command.CommandText = ReadOnlyVerificationSql;
-        command.CommandTimeout = limits.TimeoutSeconds;
+        command.CommandTimeout = Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds));
         var value = await command.ExecuteScalarAsync(cancellationToken);
 
         return value is string check
