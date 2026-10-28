@@ -60,7 +60,10 @@ export type NhAssistantPanelMode = 'drawer' | 'page';
  * listed beside the thread on wide screens, there is nothing to close, and invitation links and
  * clicked notifications stay with the drawer of the layout. Both share the conversations of the
  * assistant's scope, and the composer of either shows a draft from `NhAssistantStore.setDraft` or
- * `NhAssistantPanelService.open({ draft })` without sending it.
+ * `NhAssistantPanelService.open({ draft })` without sending it. What the person typed and did not send
+ * stays with its conversation in the store (`NhAssistantStore.unsentMessage()`): closing the drawer,
+ * leaving the page or opening another conversation keeps it, and the drawer and the page show the same
+ * text.
  */
 @Component({
   selector: 'nh-assistant-panel',

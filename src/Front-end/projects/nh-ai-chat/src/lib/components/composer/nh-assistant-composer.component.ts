@@ -21,7 +21,11 @@ import {
 } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
-import type { NhAssistantAttachment, NhAssistantComposerDraft } from '../../services/nh-assistant.store';
+import type {
+  NhAssistantAttachment,
+  NhAssistantComposerDraft,
+  NhAssistantUnsentMessage
+} from '../../services/nh-assistant.store';
 
 let nextId = 0;
 
@@ -31,7 +35,9 @@ let nextId = 0;
  * attach button chooses files for the next message; the host uploads them and passes them back as
  * `attachments`, which show their progress, or why they cannot be attached, at the control. Sending
  * waits while a file uploads. A prepared draft passed as `restore` shows in the input without being
- * sent, and never replaces what the person typed unless it says so.
+ * sent, and never replaces what the person typed unless it says so. With `unsent` the host keeps the
+ * text that is not sent yet, so it outlives the composer, as the panel does with
+ * `NhAssistantStore.unsentMessage()`.
  */
 @Component({
   selector: 'nh-assistant-composer',
@@ -68,6 +74,15 @@ export class NhAssistantComposerComponent {
    */
   readonly restore = input<string | NhAssistantComposerDraft | null>(null);
   /**
+   * The unsent message the host keeps for the open conversation, for example
+   * `NhAssistantStore.unsentMessage()`, with `unsentChange` passed back to
+   * `NhAssistantStore.keepUnsentMessage`. The input shows it whenever it changes: when the composer
+   * shows again after the drawer closed, and when another conversation opens; a prepared draft in it
+   * still gives way to the next one. `null` means nothing is kept and empties the input. Left unbound,
+   * the composer keeps its text itself, which ends with the composer.
+   */
+  readonly unsent = input<NhAssistantUnsentMessage | null | undefined>(undefined);
+  /**
    * What the person may attach, for example `NhAssistantStore.uploads()`; `null` hides the attach
    * button.
    */
@@ -82,6 +97,12 @@ export class NhAssistantComposerComponent {
    * prepared draft. The host then clears it, for example with `NhAssistantStore.consumeRestoredDraft`.
    */
   readonly restored = output<void>();
+  /**
+   * The text in the input changed: the person typed, sent the message, or the composer took a restored
+   * message or a draft. `null` once the input is empty, as after sending. Pass it to
+   * `NhAssistantStore.keepUnsentMessage` with `unsent` bound.
+   */
+  readonly unsentChange = output<NhAssistantUnsentMessage | null>();
   /** Files the person chose to attach, for example for `NhAssistantStore.attach`. */
   readonly attach = output<File[]>();
   /** The id of an attachment the person removed, for example for `NhAssistantStore.removeAttachment`. */
@@ -95,6 +116,9 @@ export class NhAssistantComposerComponent {
   private previousBusy = false;
   /** True while the input holds the person's own text: typed, changed or put back after a refusal. */
   private ownText = false;
+  /** The `unsent` and `restore` values the composer handled last, so each is handled once. */
+  private shownUnsent: NhAssistantUnsentMessage | null | undefined = undefined;
+  private takenRestore: string | NhAssistantComposerDraft | null = null;
 
   readonly inputId = `nh-assistant-composer-${nextId++}`;
   readonly hintId = `${this.inputId}-hint`;
@@ -130,11 +154,25 @@ export class NhAssistantComposerComponent {
   });
 
   constructor() {
+    // One effect for both, the kept message first: a draft that arrives together with another
+    // conversation's message, such as a draft for a new chat, is decided against the text it lands on.
     effect(() => {
-      const draft = this.restore();
-      if (draft !== null) {
-        untracked(() => this.takeRestore(draft));
-      }
+      const unsent = this.unsent();
+      const restore = this.restore();
+      untracked(() => {
+        if (unsent !== this.shownUnsent) {
+          this.shownUnsent = unsent;
+          if (unsent !== undefined) {
+            this.showUnsent(unsent);
+          }
+        }
+        if (restore !== this.takenRestore) {
+          this.takenRestore = restore;
+          if (restore !== null) {
+            this.takeRestore(restore);
+          }
+        }
+      });
     });
 
     effect(() => {
@@ -163,6 +201,7 @@ export class NhAssistantComposerComponent {
     const value = (event.target as HTMLTextAreaElement).value;
     this.text.set(value);
     this.ownText = value.trim().length > 0;
+    this.reportUnsent();
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -188,6 +227,8 @@ export class NhAssistantComposerComponent {
     const text = this.text().trim();
     this.text.set('');
     this.ownText = false;
+    // The host forgets the unsent message before it learns of the message, which may be refused and come back.
+    this.reportUnsent();
     this.send.emit(text);
   }
 
@@ -203,7 +244,28 @@ export class NhAssistantComposerComponent {
       this.text.set(draft.text);
       this.ownText = false;
     }
+    this.reportUnsent();
     this.restored.emit();
+  }
+
+  /** Shows the message the host kept, such as the one of the conversation that opened. */
+  private showUnsent(message: NhAssistantUnsentMessage | null): void {
+    const text = message?.text ?? '';
+    this.text.set(text);
+    this.ownText = message !== null && !message.prepared && text.trim().length > 0;
+  }
+
+  /** Tells the host what the input holds now, so it keeps the text beyond this composer. */
+  private reportUnsent(): void {
+    const text = this.text();
+    if (text.length === 0) {
+      this.unsentChange.emit(null);
+      return;
+    }
+
+    // A draft the person did not change stays prepared; blank space is no draft.
+    const prepared = !this.ownText && text.trim().length > 0;
+    this.unsentChange.emit({ text, prepared });
   }
 
   /** Hands the chosen files to the host and empties the input, so the same file can be chosen again. */

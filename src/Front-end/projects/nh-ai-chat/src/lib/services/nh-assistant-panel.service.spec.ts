@@ -209,6 +209,38 @@ describe('NhAssistantPanelService', () => {
       expect(store.pendingDraft()).toEqual({ text: 'Plan the next milestone.', replace: false });
     });
 
+    it('puts the draft for a new chat with another agent in its empty composer and leaves the conversation its unsent text', async () => {
+      service.open('c1');
+      await settle();
+      store.keepUnsentMessage({ text: 'My question about c1', prepared: false });
+
+      service.open({ agentId: 'projects', draft: 'Plan the next milestone.' });
+      await settle();
+
+      expect(store.activeConversation()).toBeNull();
+      expect(store.unsentMessage()).toBeNull();
+      expect(store.pendingDraft()).toEqual({ text: 'Plan the next milestone.', replace: false });
+      store.consumeRestoredDraft();
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toEqual({ text: 'My question about c1', prepared: false });
+    });
+
+    it('keeps the person\'s unsent text in the conversation it opens and drops the draft', async () => {
+      service.open('c1');
+      await settle();
+      store.keepUnsentMessage({ text: 'My question about c1', prepared: false });
+      service.close();
+
+      service.open({ conversationId: 'c1', draft: 'Continue here.' });
+      await settle();
+
+      expect(store.unsentMessage()).toEqual({ text: 'My question about c1', prepared: false });
+      expect(store.pendingDraft()).toBeNull();
+      service.open({ conversationId: 'c1', draft: 'Continue here.', replaceDraft: true });
+      await settle();
+      expect(store.pendingDraft()).toEqual({ text: 'Continue here.', replace: true });
+    });
+
     it('starts a new conversation also when the agent is already chosen', async () => {
       service.open('c1');
       await settle();

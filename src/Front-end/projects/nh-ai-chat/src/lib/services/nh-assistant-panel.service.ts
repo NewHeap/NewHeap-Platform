@@ -75,7 +75,8 @@ export class NhAssistantPanelService {
    * (`{ draft, replaceDraft }`) that the person reviews and sends. The target applies once the
    * assistant's status is loaded. A draft never sends and keeps what the person already typed unless
    * `replaceDraft` is set; it is dropped when the conversation does not open, when the person may not
-   * use the agent and when the drawer was closed in the meantime. A panel in a page (`mode="page"`)
+   * use the agent and when the drawer was closed in the meantime. A new chat with `agentId` leaves the
+   * open conversation's unsent message with that conversation. A panel in a page (`mode="page"`)
    * shares the store, so a host shows a draft there with `NhAssistantStore.setDraft`.
    */
   open(target?: string | NhAssistantPanelOpenOptions): void {
@@ -103,8 +104,10 @@ export class NhAssistantPanelService {
         if (!this.store.agents().some(agent => agent.id === agentId)) {
           return;
         }
-        this.store.selectAgent(agentId);
+        // The new chat first: the open conversation keeps its unsent message, which choosing another
+        // agent in the composer would take along, and the draft lands in the new chat's own composer.
         this.store.startNewConversation();
+        this.store.selectAgent(agentId);
       }
 
       if (draft !== undefined && this.openState()) {

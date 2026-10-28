@@ -281,3 +281,103 @@ describe('NhAssistantComposerComponent drafts', () => {
     expect(textarea.value).toBe('My refused question');
   });
 });
+
+/**
+ * The unsent message (FB41): with `unsent` bound, the host keeps what the input holds, so the text
+ * outlives the composer, and the composer shows what the host kept whenever it changes.
+ */
+describe('NhAssistantComposerComponent unsent message', () => {
+  let fixture: ComponentFixture<NhAssistantComposerComponent>;
+  let element: HTMLElement;
+  let events: string[];
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService({ fallbackLang: 'en' }),
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => null })
+      ]
+    });
+    await firstValueFrom(TestBed.inject(TranslateService).use('en'));
+    fixture = TestBed.createComponent(NhAssistantComposerComponent);
+    element = fixture.nativeElement;
+    events = [];
+    fixture.componentInstance.unsentChange.subscribe(message => events.push(message === null
+      ? 'unsent: none'
+      : `unsent: ${message.text}${message.prepared ? ' (prepared)' : ''}`));
+    fixture.componentInstance.send.subscribe(text => events.push(`send: ${text}`));
+    fixture.componentRef.setInput('unsent', null);
+    fixture.detectChanges();
+  });
+
+  function textarea(): HTMLTextAreaElement {
+    return element.querySelector('textarea')!;
+  }
+
+  function type(text: string): void {
+    textarea().value = text;
+    textarea().dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  it('shows the kept message, reports every change, and reports none before it sends', () => {
+    fixture.componentRef.setInput('unsent', { text: 'Half a question ', prepared: false });
+    fixture.detectChanges();
+    expect(textarea().value).toBe('Half a question ');
+
+    type('Half a question about Alpha');
+    textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    fixture.detectChanges();
+
+    // The host forgets the text before it learns of the message, which may come back refused.
+    expect(events).toEqual(['unsent: Half a question about Alpha', 'unsent: none', 'send: Half a question about Alpha']);
+    expect(textarea().value).toBe('');
+  });
+
+  it('shows another conversation\'s message, or an empty input, when the host keeps another one', () => {
+    fixture.componentRef.setInput('unsent', { text: 'About planning', prepared: false });
+    fixture.detectChanges();
+    fixture.componentRef.setInput('unsent', null);
+    fixture.detectChanges();
+    expect(textarea().value).toBe('');
+
+    fixture.componentRef.setInput('unsent', { text: 'About the budget', prepared: false });
+    fixture.detectChanges();
+    expect(textarea().value).toBe('About the budget');
+    // Showing what the host kept is no change to report.
+    expect(events).toEqual([]);
+  });
+
+  it('decides a draft against the kept message that arrives with it', () => {
+    // The person's own text stays; the draft is handled and dropped.
+    fixture.componentRef.setInput('unsent', { text: 'My own question', prepared: false });
+    fixture.componentRef.setInput('restore', { text: 'A brief', replace: false });
+    fixture.detectChanges();
+    expect(textarea().value).toBe('My own question');
+
+    // A kept draft the person did not change gives way to the next one, which the host then keeps.
+    fixture.componentRef.setInput('unsent', { text: 'A brief', prepared: true });
+    fixture.componentRef.setInput('restore', { text: 'The next brief', replace: false });
+    fixture.detectChanges();
+    expect(textarea().value).toBe('The next brief');
+    expect(events).toContain('unsent: The next brief (prepared)');
+
+    // A new chat's empty composer takes the draft.
+    fixture.componentRef.setInput('unsent', null);
+    fixture.componentRef.setInput('restore', { text: 'A brief for the new chat', replace: false });
+    fixture.detectChanges();
+    expect(textarea().value).toBe('A brief for the new chat');
+
+    // Changed by the person, the draft is their own text.
+    type('A brief for the new chat, shorter');
+    expect(events[events.length - 1]).toBe('unsent: A brief for the new chat, shorter');
+  });
+
+  it('reports a refused message it puts back as the person\'s own text', () => {
+    fixture.componentRef.setInput('restore', 'My refused question');
+    fixture.detectChanges();
+
+    expect(textarea().value).toBe('My refused question');
+    expect(events).toEqual(['unsent: My refused question']);
+  });
+});

@@ -161,7 +161,8 @@ describe('A prepared draft in the assistant panel (FB27)', () => {
       expect(textarea.value).toBe(brief);
 
       type(textarea, 'My own question');
-      expect(store.setDraft('Another brief')).toBeTrue();
+      // The store keeps what the person typed (FB41), so it refuses the draft itself.
+      expect(store.setDraft('Another brief')).toBeFalse();
       await settle(fixture);
       expect(textarea.value).toBe('My own question');
 
