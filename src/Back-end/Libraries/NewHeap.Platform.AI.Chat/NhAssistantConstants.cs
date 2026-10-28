@@ -1079,6 +1079,12 @@ public static class NhAssistantErrorCodes
     public const string PackageNotLinked = "assistant-package-not-linked";
 
     /// <summary>
+    /// This host never imported an agent package with this id, or the id is not a package id
+    /// (lowercase dash-case, at most 128 characters).
+    /// </summary>
+    public const string PackageNotFound = "assistant-package-not-found";
+
+    /// <summary>
     /// The skill has no candidate version to promote, discard or compare.
     /// </summary>
     public const string SkillCandidateNotFound = "assistant-skill-candidate-not-found";

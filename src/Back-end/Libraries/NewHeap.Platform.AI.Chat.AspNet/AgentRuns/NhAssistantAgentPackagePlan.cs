@@ -58,7 +58,15 @@ internal sealed class NhAssistantPackagePlan(NhAssistantAgentPackage package, st
 /// <param name="LiveAgentId">The live agent that takes the package version.</param>
 /// <param name="Reason">Stored with the versions of the parts it saves; <see langword="null"/> uses the
 /// import's.</param>
-internal sealed record NhAssistantPackagePromotion(string VariantId, int VariantVersion, string LiveAgentId, string? Reason);
+/// <param name="RelinkUncarried">The live agent's linked parts the variant does not carry stay linked to
+/// the package version, as <see cref="NhAssistantPackagePartOutcomes.KeptLinked"/> (FB33); otherwise
+/// they lose their link.</param>
+internal sealed record NhAssistantPackagePromotion(
+    string VariantId,
+    int VariantVersion,
+    string LiveAgentId,
+    string? Reason,
+    bool RelinkUncarried = false);
 
 /// <summary>
 /// One agent of a package as the import plans it.

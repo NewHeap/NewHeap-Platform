@@ -156,20 +156,65 @@ internal sealed partial class NhAssistantAgentPackageService
 
         // A part an earlier version linked that this version no longer contains stays, unlinked.
         var carried = PartsOf(source);
-        foreach (var link in agent.Links)
+        if (plan.Promotion is { RelinkUncarried: true } promotion && promotion.LiveAgentId == source.Id)
         {
-            var part = NhAssistantPackagePartKinds.PartOf(link.PartKind, link.PartKey);
-            if (!carried.Contains(part, StringComparer.Ordinal) && !(link.PartKind == NhAssistantPackagePartKinds.Agent && agentPart.Linked))
+            await PlanKeptLinksAsync(plan, source, agentPart, carried, allLinks, cancellationToken);
+        }
+        else
+        {
+            foreach (var link in agent.Links)
             {
-                plan.Parts.Add(new NhAssistantPlannedPart(source.Id, link.PartKind, link.PartKey)
+                var part = NhAssistantPackagePartKinds.PartOf(link.PartKind, link.PartKey);
+                if (!carried.Contains(part, StringComparer.Ordinal) && !(link.PartKind == NhAssistantPackagePartKinds.Agent && agentPart.Linked))
                 {
-                    Outcome = NhAssistantPackagePartOutcomes.LeftBehind,
-                    Link = link
-                });
+                    plan.Parts.Add(new NhAssistantPlannedPart(source.Id, link.PartKind, link.PartKey)
+                    {
+                        Outcome = NhAssistantPackagePartOutcomes.LeftBehind,
+                        Link = link
+                    });
+                }
             }
         }
 
         CheckLocksAndHashes(plan, agent, agentPart);
+    }
+
+    /// <summary>
+    /// The live agent's linked parts that a promoted variant does not carry, kept linked (FB33): every
+    /// link of the live agent, to the variant's package or to the one it belonged to before, whose part
+    /// the variant leaves out stays, with its locks and hash, and moves to the variant's package version.
+    /// Nothing of the part is written; whether it changed locally is reported as its link reports it.
+    /// </summary>
+    private async Task PlanKeptLinksAsync(
+        NhAssistantPackagePlan plan,
+        NhAssistantPackageAgent source,
+        NhAssistantPlannedPart agentPart,
+        IReadOnlyList<string> carried,
+        IReadOnlyList<AssistantAgentPackageLink> allLinks,
+        CancellationToken cancellationToken)
+    {
+        var uncarried = allLinks
+            .Where(link => link.AgentId == source.Id
+                           && !carried.Contains(NhAssistantPackagePartKinds.PartOf(link.PartKind, link.PartKey), StringComparer.Ordinal)
+                           && !(link.PartKind == NhAssistantPackagePartKinds.Agent && agentPart.Linked))
+            .ToArray();
+        if (uncarried.Length == 0)
+        {
+            return;
+        }
+
+        var current = await links.PartsOfAsync(source.Id, cancellationToken);
+        foreach (var link in uncarried)
+        {
+            var part = NhAssistantPackagePartKinds.PartOf(link.PartKind, link.PartKey);
+            plan.Parts.Add(new NhAssistantPlannedPart(source.Id, link.PartKind, link.PartKey)
+            {
+                Outcome = NhAssistantPackagePartOutcomes.KeptLinked,
+                Link = link,
+                LockedFields = NhAssistantAgentPackageStore.LockedFieldsOf(link),
+                ChangedLocally = current.GetValueOrDefault(part)?.ChangedLocally == true
+            });
+        }
     }
 
     private async Task PlanDefinitionAsync(

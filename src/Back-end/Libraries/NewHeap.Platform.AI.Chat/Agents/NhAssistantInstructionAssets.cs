@@ -111,6 +111,43 @@ internal sealed class NhAssistantInstructionAssets(
     }
 
     /// <summary>
+    /// Asks the source now for the asset <paramref name="id"/> in <paramref name="version"/>, as a save
+    /// does, and checks it like a reference without a hash, for a caller that learns the hash from the
+    /// asset: the verified asset, which is kept for later reads, or the problem that keeps it from being
+    /// instructions: <c>no-asset-source</c>, <c>asset-missing</c>, <c>asset-invalid</c> (also for a text
+    /// longer than <paramref name="maxLength"/>) or <c>asset-unavailable</c> when the source failed.
+    /// </summary>
+    public async Task<NhAssistantResolvedInstructions> CheckVersionAsync(
+        string id,
+        int version,
+        int maxLength,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        if (!Supported)
+        {
+            return NhAssistantResolvedInstructions.Of(NhAssistantRunConfigurationProblems.NoAssetSource);
+        }
+
+        var key = (id, version);
+        var entry = await AskAsync(key, cancellationToken);
+        if (entry.Problem == NhAssistantRunConfigurationProblems.AssetUnavailable)
+        {
+            return NhAssistantResolvedInstructions.Of(NhAssistantRunConfigurationProblems.AssetUnavailable);
+        }
+
+        _entries[key] = entry;
+        if (entry.Asset is not { } asset)
+        {
+            return NhAssistantResolvedInstructions.Of(entry.Problem ?? NhAssistantRunConfigurationProblems.AssetMissing);
+        }
+
+        return asset.Content.Length > maxLength
+            ? NhAssistantResolvedInstructions.Of(NhAssistantRunConfigurationProblems.AssetInvalid)
+            : new NhAssistantResolvedInstructions(asset, null);
+    }
+
+    /// <summary>
     /// Checks the reference a save names and adds its field errors: <c>instructionsAsset: not-allowed</c>
     /// without a source, <c>invalid</c> for a malformed reference or an asset that cannot be
     /// instructions, <c>not-found</c> for a missing asset and <c>instructionsAsset.hash: invalid</c> for
