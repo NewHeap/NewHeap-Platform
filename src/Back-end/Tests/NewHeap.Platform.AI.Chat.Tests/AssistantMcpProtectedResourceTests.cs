@@ -41,13 +41,14 @@ public sealed class AssistantMcpProtectedResourceTests(AssistantDatabaseFixture 
             }));
 
         // Discovery reads the protected resource metadata of the exposure and its authorization server.
-        // The assistant probes with GET, which a stateless exposure does not map (405), so it finds the
-        // metadata at the well-known address of the resource, as RFC 9728 lets every client.
+        // The assistant probes with an MCP initialize POST, as every client starts, so it also reads the
+        // scopes of the exposure's challenge, although a stateless exposure answers GET with 405.
         var discovered = await AdministerAsync(host, administration => administration.DiscoverAsync(mcp.Url, CancellationToken.None));
         Assert.True(discovered.Success);
         Assert.Equal(mcp.Url, discovered.Data!.Resource);
         Assert.Equal([authorization.Issuer], discovered.Data.AuthorizationServers);
         Assert.Equal(authorization.Issuer, discovered.Data.AuthorizationServer.Issuer);
+        Assert.Equal([ProtectedNewHeapMcpServer.Scope], discovered.Data.ChallengedScopes);
         Assert.Equal([ProtectedNewHeapMcpServer.Scope], discovered.Data.ResourceScopes);
 
         // The administrator confirms the authorization server; the assistant registers itself there.
