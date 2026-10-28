@@ -354,13 +354,16 @@ public sealed class AssistantApproval
     public string? RationalesJson { get; set; }
 
     /// <summary>
-    /// The UI culture of the person's turn that approved the proposal inline and handed it to the
-    /// application (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>), such as
-    /// <c>nl-NL</c>, at most <see cref="MaxDecisionCultureLength"/> characters. What the person's chat
-    /// reads about the close of the hand-off (the report, an uncertain outcome and a passed deadline)
-    /// is written in it when the application supports it as a UI culture, otherwise in the default
-    /// request culture. <see langword="null"/> for other approvals and those handed off before it was
-    /// recorded; an agent thread always writes in the default culture.
+    /// The UI culture the person decided the proposal in, such as <c>nl-NL</c>, at most
+    /// <see cref="MaxDecisionCultureLength"/> characters, when the application supports it as a UI culture:
+    /// the culture of the person's turn for an inline approval handed to the application
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>), and for a deferred decision the
+    /// request culture of the decision endpoints or the deciding person's culture of the decision service
+    /// (FB22). A hand-off to the application carries it (<see cref="NhAssistantProposalHandOff.DecisionCulture"/>).
+    /// What a person's chat reads about the close of the hand-off (the report, an uncertain outcome and a
+    /// passed deadline) is written in it when the application still supports it, otherwise in the default
+    /// request culture. <see langword="null"/> for approvals decided before it was recorded; an agent
+    /// thread always writes in the default culture.
     /// </summary>
     public string? DecisionCulture { get; set; }
 

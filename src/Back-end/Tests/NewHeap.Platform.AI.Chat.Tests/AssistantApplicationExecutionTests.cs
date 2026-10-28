@@ -217,6 +217,65 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
     }
 
     /// <summary>
+    /// FB22: a deferred decision records the UI culture the person decided in, which the hand-off and the
+    /// report's receipt carry: the deciding person's culture of the decision service and the request
+    /// culture of the decision endpoints, each as the supported UI culture of its language. A culture of a
+    /// language the application does not support is not recorded, and the decision stands. The thread's
+    /// posts keep the default culture.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_deferred_decision_records_the_culture_that_the_hand_off_and_the_receipt_carry(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, projectId, new AssistantTestClock(Start), englishAndDutch: true);
+        var (approval, thread) = await ProposeAsync(host, projectId);
+
+        // Through the application's channel, in the person's culture: nl-BE is the supported nl.
+        Assert.True((await ServiceDecideAsync(host, approval, culture: "nl-BE")).Success);
+        Assert.Equal("nl", (await FindApprovalAsync(host, approval.Id)).DecisionCulture);
+        await ExecuteAsync(host, approval.Id);
+
+        var handOff = Assert.Single(Executor(host).HandOffs);
+        Assert.Equal("nl", handOff.DecisionCulture);
+        var reported = await ReportAsync(
+            host,
+            NhAssistantExecutionReport.For(handOff, NhAssistantExecutionOutcome.Completed, "order-placed", "Order 4711 placed."));
+        Assert.Equal(
+            new NhAssistantExecutionReportReceipt(approval.Id, NhAssistantApprovalStatuses.Executed, Duplicate: false) { DecisionCulture = "nl" },
+            reported.Data);
+        var repeated = await ReportAsync(
+            host,
+            NhAssistantExecutionReport.For(handOff, NhAssistantExecutionOutcome.Completed, "order-placed", "Order 4711 placed."));
+        Assert.Equal((true, "nl"), (repeated.Data!.Duplicate, repeated.Data.DecisionCulture));
+        // The thread reads the report in the default culture all the same.
+        var message = Assert.Single(await ApplicationMessagesAsync(host, thread.ConversationId));
+        var part = NhAssistantContent.DeserializeParts(message.PartsJson).Single(item => item.Type == NhAssistantStoredPart.ApplicationType);
+        Assert.Equal("Execution of an approved proposal", part.Title);
+
+        // Through the decision endpoints, in the request's culture.
+        var web = await SeedAwaitingAsync(host, thread.ConversationId, NhAssistantApprovalStatuses.Pending, handedOff: false, proposal: approval);
+        var previous = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            Assert.True((await DecideAsync(host, web.Id, approve: true)).Success);
+        }
+        finally
+        {
+            (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = previous;
+        }
+        Assert.Equal("en", (await FindApprovalAsync(host, web.Id)).DecisionCulture);
+
+        // A culture of a language the application does not support is not recorded.
+        var french = await SeedAwaitingAsync(host, thread.ConversationId, NhAssistantApprovalStatuses.Pending, handedOff: false, proposal: approval);
+        var decided = await ServiceDecideAsync(host, french, culture: "fr-FR");
+        Assert.Equal(NhAssistantApprovalStatuses.Approved, decided.Data!.Status);
+        Assert.Null((await FindApprovalAsync(host, french.Id)).DecisionCulture);
+    }
+
+    /// <summary>
     /// A report is application code: its code and outcome are checked as programmer input, its summary
     /// as data of the application's execution, which is bounded.
     /// </summary>
@@ -644,11 +703,14 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
         return approval;
     }
 
-    private static async Task<TaskResult<NhAssistantProposalDecisionResult>> ServiceDecideAsync(AssistantTestHost host, AssistantApproval approval)
+    private static async Task<TaskResult<NhAssistantProposalDecisionResult>> ServiceDecideAsync(
+        AssistantTestHost host,
+        AssistantApproval approval,
+        string? culture = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantProposalDecisionService>().DecideAsync(
-            new NhAssistantDecidingPerson(Principal(Approver), Approver, null),
+            new NhAssistantDecidingPerson(Principal(Approver), Approver, null) { Culture = culture },
             approval.Id,
             approval.ProposalHash,
             NhAssistantProposalDecision.Approve,

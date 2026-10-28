@@ -76,6 +76,19 @@ public sealed record NhAssistantProposalHandOff(
     public bool Inline { get; init; }
 
     /// <summary>
+    /// The UI culture in which the person approved it, such as <c>nl-NL</c>, so the application can address
+    /// them in their language, for example in the confirmation it sends them: the request culture of the
+    /// decision endpoint, <c>NhAssistantDecidingPerson.Culture</c> of a decision through the application's
+    /// own channel, or the culture of the person's turn for an inline approval. It names a culture the
+    /// application supports as a UI culture (<c>RequestLocalizationOptions.SupportedUICultures</c>), the
+    /// culture itself or the supported one of its language; <see langword="null"/> for a culture of another
+    /// language and for a proposal approved before the culture was recorded. A resolution that hands the
+    /// proposal over again keeps the culture of the approval. The assistant's own posts into an agent thread
+    /// keep the application's default culture.
+    /// </summary>
+    public string? DecisionCulture { get; init; }
+
+    /// <summary>
     /// The proposal's id, as <see cref="NhAiProposal.ProposalId"/>.
     /// </summary>
     public Guid ProposalId => Proposal.ProposalId;
@@ -230,7 +243,15 @@ public sealed partial record NhAssistantExecutionReport(
 /// <see cref="NhAssistantApprovalStatuses.ExecutionFailed"/> or <see cref="NhAssistantApprovalStatuses.ExecutionUnknown"/>.</param>
 /// <param name="Duplicate">The proposal had already been closed by the same report; nothing changed and
 /// nothing was audited, notified or posted again.</param>
-public sealed record NhAssistantExecutionReportReceipt(Guid ApprovalId, string Status, bool Duplicate);
+public sealed record NhAssistantExecutionReportReceipt(Guid ApprovalId, string Status, bool Duplicate)
+{
+    /// <summary>
+    /// The UI culture in which the person approved the proposal, as <see cref="NhAssistantProposalHandOff.DecisionCulture"/>,
+    /// so the application can tell them the outcome in their language; <see langword="null"/> when none
+    /// was recorded.
+    /// </summary>
+    public string? DecisionCulture { get; init; }
+}
 
 /// <summary>
 /// The codes of the application's execution of proposals: the outcomes as the audit records them
