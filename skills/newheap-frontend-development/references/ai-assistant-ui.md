@@ -579,8 +579,12 @@ linked to an agent package shows its package and version (`ShadowVariant.package
 `packageVersion`), and its confirmation also offers "As the package's next version", which sends
 `asPackageVersion: true` instead of moving skills: all its parts replace the live agent's as an import
 does, with the package's locks, and the live agent is linked to that package version
-(`ShadowVariantPromotion.package` lists every part's outcome; SPM-344). The mock API plays the same
-rules with `handOffsAsData`, `shadowVariantsAsData`, `codeHandOffs` and its agent packages.
+(`ShadowVariantPromotion.package` lists every part's outcome; SPM-344). A host that calls
+`promoteShadowVariant` itself may send `uncarriedParts: 'relink'` (`ShadowVariantUncarriedParts`) with
+`asPackageVersion`: the live agent's linked parts the variant does not carry then stay linked to the
+package version with their locks, as parts with the outcome `kept-linked` (SPM-352); without it they
+lose their link. The mock API plays the same rules with `handOffsAsData`, `shadowVariantsAsData`,
+`codeHandOffs` and its agent packages.
 
 An agent in code that works in people's chats only (`chatOnly` of `AdminAgent`, `ChatOnly()` in code;
 SPM-343) shows a "Chat only" badge and a hint instead of what it works on, and its card offers no "Run
@@ -603,8 +607,12 @@ no package, and imports with `importAgentPackage`, all or nothing. Every part a 
 (`PackagePartLink`, and `AgentPackageLink` on the agent): the forms show its locked fields read-only
 with the package's lock, the lists offer "Unlink" with a reason (`unlinkAgentPackage`), removing a
 locked part and deleting a linked agent are disabled, and `NhAssistantAgentMetadataSlot.readOnly` is
-true for a locked value. The mock API plays the same rules and starts with the packages of
-`admin.agentPackages` imported.
+true for a locked value. To compare a shipped package with this host without an export, call
+`readAgentPackageParts(agentIds)` (`AgentPackageParts`: the agents as an export builds them, with
+`hashes` per part and without locks) and `getInstalledAgentPackage(packageId)` (`InstalledAgentPackage`
+with `PackageAgentLinks` per agent, each part's link with `hash` and `changedLocally`); neither audits,
+and a package the host never imported fails with `assistant-package-not-found` (SPM-353). The mock API
+plays the same rules and starts with the packages of `admin.agentPackages` imported.
 
 The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
 hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user

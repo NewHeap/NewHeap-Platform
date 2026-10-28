@@ -450,6 +450,13 @@ desk is linked to `sample-project-desks-next` while the intake desk stays in `sa
 The variant is gone with its links and one audit event records the promotion with the package.
 `AssistantAgentRunSamplesTests` runs the case.
 
+The next version carries no hand-off, so the kickoff desk's hand-off from the intake desk would lose its
+link on that promotion (SPM-352). Promoted with `asPackageVersion` and `uncarriedParts` `relink`, the
+hand-off stays as it is and stays linked, now to `sample-project-desks-next`, with the locks and hash of
+its link, and the promotion reports it as `kept-linked`; the desk's hand-offs show it in effect with that
+package, and `sample-project-desks` no longer holds the kickoff desk. `AssistantAgentRunSamplesTests`
+runs the case.
+
 A skill defined as data may take its instructions from the application's own text assets instead of
 text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
 `SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published
@@ -473,6 +480,19 @@ SPM-320 and which version each uses, and with `GetPackageAsync` and `ReadAsync` 
 A test host of the environment `Testing` reaches the milestones server on loopback only with
 `NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
 runs the case.
+
+Once the application publishes version 2 of the risk review's text, the operations code proposes it to
+every live data skill that still names version 1 (SPM-351). `ProposeRiskReviewVersionAsync` calls
+`INhAssistantInstructionAssetUsage.ProposeCandidatesAsync`: the planner's risk review gets a candidate in
+shadow through its own save, with the live version's other fields and version 2 with its hash, while the
+live version keeps version 1 until an administrator promotes or discards the candidate. The risk desk,
+an agent created in the administration, is listed for an administrator to save; proposed again, the
+candidate stays as it is. An administrator also compares a shipped package with the host over HTTP
+(SPM-353): `POST admin/agent-packages/read` answers the desk's parts with a hash per part as an export
+builds them and `GET admin/agent-packages/{packageId}` the installed package with the link of every part,
+so the description changed on this host shows as the part `agent`, changed locally, without an export
+or its audit; a package the host never installed is `404 assistant-package-not-found` and a colleague
+without the administration policy gets `403`. `AssistantOperationsSamplesTests` runs both cases.
 
 An agent editor that was opened before an MCP server was assigned no longer drops it when it saves
 (SPM-345). An administrator assigns the milestones server to a milestone desk with

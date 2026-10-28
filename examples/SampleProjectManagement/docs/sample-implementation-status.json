@@ -338,7 +338,10 @@
     "SPM-343",
     "SPM-344",
     "SPM-345",
-    "SPM-346"
+    "SPM-346",
+    "SPM-351",
+    "SPM-352",
+    "SPM-353"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3567,6 +3570,37 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpAdministrationEndpointTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
+    ],
+    "SPM-351": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs"
+    ],
+    "SPM-352": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Planning.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Writing.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPackageVersionPromotionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-hand-off.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-package-version-promotion.spec.ts"
+    ],
+    "SPM-353": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-package-read.spec.ts"
     ]
   }
 }

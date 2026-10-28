@@ -6038,6 +6038,61 @@
         "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-351",
+      "categoryId": "18",
+      "title": "The operations code proposes a new version of the risk review to the skills that name an older one, as candidates in shadow",
+      "surface": "`INhAssistantInstructionAssetUsage.ProposeCandidatesAsync(assetId, assetVersion, actorId, reason)` returning `NhAssistantInstructionAssetCandidatesDto` with `NhAssistantInstructionAssetCandidateDto` per live data skill and `NhAssistantInstructionAssetCandidateOutcomes` (`proposed`, `already-proposed`, `locked`, `refused`) and the agents created in the administration that name an older version (`NhAssistantInstructionAssetAgentUseDto`); the candidate saved through `INhAssistantAgentConfiguration.SaveSkillAsync` with apply `shadow`; the field errors `assetId: invalid`, `assetVersion: invalid`, `reason: too-long` and `instructionsAsset: invalid`, the codes `assistant-instructions-asset-not-found`, `assistant-instructions-asset-unavailable` and, for a locked skill, `assistant-package-locked` with `instructions: locked`; `AdminAgentSkillDefinitionChanged` with the result `candidate`",
+      "outcome": "SampleAssistantOperationsService.ProposeRiskReviewVersionAsync proposes version 2 of the risk review's text of SPM-320 once the application publishes it. The planner's risk review, live on version 1, gets a candidate in shadow through its own save: the live version's fields with version 2 and its hash and the reason \"Version 2 of the risk review\", while the live version keeps naming version 1 until an administrator compares the two and promotes or discards the candidate. The risk desk, an agent created in the administration on version 1, is listed only, for an administrator to save as its next version. Proposed again, the candidate stays as it is (`already-proposed`) and nothing is saved twice; the audit records the candidate as its save does. The library tests prove on SQL Server and PostgreSQL the candidate per live skill with the live version's other fields, a skill that already names the version left alone, a skill whose instructions an agent package locks reported `locked` while the others are proposed, the agents listed only, the refusals of a malformed id, version or reason, a missing asset version, an asset that cannot be instructions and a failing source, and that nothing is saved or audited then.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-352",
+      "categoryId": "18",
+      "title": "Promoted as the package's next version with relink, the kickoff desk's hand-off that the version does not carry stays linked",
+      "surface": "`NhAssistantShadowVariantPromotionRequest.UncarriedParts` with `NhAssistantUncarriedParts` (`Unlink`, the default, and `Relink`) of `INhAssistantAgentDefinitions.PromoteShadowVariantAsync` and `uncarriedParts` (`unlink`, `relink`) of `POST admin/agents/{id}/promote` (`NhAssistantShadowVariantPromotionInputDto`); the part outcome `NhAssistantPackagePartOutcomes.KeptLinked` (`kept-linked`) in `NhAssistantShadowVariantPromotionDto.Package` and `NhAssistantShadowVariantPromotedDto.Package`; the field errors `uncarriedParts: invalid` and `uncarriedParts: not-allowed`; `ShadowVariantPromotionRequest.uncarriedParts`, `ShadowVariantUncarriedParts` and the outcome `kept-linked` of `AgentPackagePartOutcome` in `@newheap/platform-ai-chat` and its mock API",
+      "outcome": "The kickoff desk of SPM-321 accepts the intake desk's hand-offs about projects and belongs to the desks' package with that hand-off linked. Its next version waits as the shadow variant of SPM-344, which carries the desk's parts without the hand-off (`SampleAgentPackagesComposition.NextKickoffVersion`). Promoted with `asPackageVersion` and `uncarriedParts` `relink`, the variant's parts apply to the live desk as in SPM-344, and the hand-off stays as it is and stays linked, now to the next package version, reported as `kept-linked`; the hand-offs of the desk show it in effect with that package, the next package version holds it and the earlier package no longer holds the desk. Without the option the hand-off loses its link, as before. The library tests prove on SQL Server and PostgreSQL that the parts the variant does not carry keep the locked fields, locked values and hash of their link, so a lock keeps holding and a part changed locally since its import is still reported so, that the earlier package no longer links the live agent, the refusal of `relink` without `asPackageVersion` and of an unknown value, and the endpoint; the Angular specs prove the request, the outcome and the mock API.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Planning.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Writing.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPackageVersionPromotionTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-hand-off.models.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-package-version-promotion.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-353",
+      "categoryId": "18",
+      "title": "An administrator compares a shipped package with the host over HTTP, reading the desk's parts and the installed package without an export",
+      "surface": "`POST admin/agent-packages/read` (`NhAssistantAgentPackageReadRequest`, answering `NhAssistantAgentPackageReadDto`) and `GET admin/agent-packages/{packageId}` (answering `NhAssistantInstalledAgentPackageDto`) over `INhAssistantAgentPackages.ReadAsync` and `GetPackageAsync`, behind the administration policy and without an audit; `NhAssistantAgentPackageRoutes.Read` and `NhAssistantAgentPackageRoutes.Package`; the code `assistant-package-not-found` (404); `NhAssistantAdminApiService.readAgentPackageParts` and `getInstalledAgentPackage` with `AgentPackageReadRequest`, `AgentPackageParts`, `InstalledAgentPackage` and `PackageAgentLinks` in `@newheap/platform-ai-chat` and its mock API",
+      "outcome": "The operator ships the risk desk of SPM-331 in a package of its own, and the deploy installs it on this host; an administrator then changes the desk's description here. Over HTTP the administrator reads the desk's parts with POST admin/agent-packages/read, as an export would build them with a hash per part, and the installed package with GET admin/agent-packages/{packageId}, with the link of every part: only the definition has another hash than the shipped package, its link says it changed locally and keeps the shipped hash, and nothing was exported or audited as an export. A package the host never installed answers 404 assistant-package-not-found, and a colleague without the administration policy is refused both reads with 403. The library tests prove on SQL Server and PostgreSQL the reads in the asked order without locks, their hashes against the links, the refused agent ids, unknown agents and packages, the administration policy and that nothing is audited; the Angular specs prove readAgentPackageParts and getInstalledAgentPackage against the mock API.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-package-read.spec.ts"
+      ]
     }
   ]
 }

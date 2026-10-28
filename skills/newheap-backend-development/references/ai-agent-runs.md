@@ -934,7 +934,21 @@ version with its agent, skill id, version, status (`live`, `candidate`, or `supe
 as history) and the asset version and hash it names, and every agent with its version and the asset
 version and hash, ordered ordinal; an id that is not lowercase dash-case of at most 128 characters fails
 with `assetId: invalid`. It only reads, so an application that publishes a new version finds what to
-save as each one's next version; nothing follows it by itself (SPM-331). The audit names the asset as
+save as each one's next version; nothing follows it by itself (SPM-331). To put a published version on
+trial, call `ProposeCandidatesAsync(assetId, assetVersion, actorId, reason)` (SPM-351): every live data
+skill that names an older version gets a candidate in shadow through its own save (apply `shadow` on its
+live version), with the live version's other fields, the new version and the hash the application's
+source gives, and the reason (by default `asset <id>@<version>`); an earlier candidate is discarded as
+every new version discards one. `NhAssistantInstructionAssetCandidatesDto` reports per skill
+(`NhAssistantInstructionAssetCandidateDto`) `proposed` with the candidate's version, `already-proposed`
+when its candidate names that version and hash already, `locked` (`assistant-package-locked` with the
+save's `instructions: locked`) when an agent package locks the skill's instructions and `refused` with
+the save's code and field errors; one skill never stops the others. Agents created in the administration
+that name an older version are listed only: an agent has no candidate, so an administrator saves it. It
+fails, saving nothing, with `assetId: invalid`, `assetVersion: invalid`, `reason: too-long`,
+`assistant-instructions-asset-not-found` without a source or that version,
+`assistant-instructions-asset-unavailable` when the source fails and `instructionsAsset: invalid` for an
+asset that cannot be instructions. The candidates are audited as their saves. The audit names the asset as
 `InstructionsVersion` (`<asset-id>@<version>`) with
 `InstructionsHash` on `AdminAgentSkillDefinitionChanged`, `AdminAgentCreated` and
 `AdminAgentUpdated`, and `AgentRunEnded` names the skill and agent versions that pin it; no text
@@ -1332,6 +1346,17 @@ import audits them, then one `AdminAgentShadowVariantPromoted` with
 (`NhAssistantShadowVariantPromotionDto.Package` reports every part's outcome). Without the option the
 promotion is unchanged and a package-linked variant stays `assistant-package-locked`.
 
+The live agent's linked parts that the variant does not carry, such as a hand-off or a trigger the
+next version leaves out, stay on the live agent unchanged and by default lose their link
+(`NhAssistantUncarriedParts.Unlink`). When they belong to the package version as well, promote with
+`UncarriedParts = NhAssistantUncarriedParts.Relink` (`uncarriedParts: "relink"` of `POST
+admin/agents/{id}/promote`, SPM-352): they stay linked, to the variant's package id and version, with the
+locked fields, locked values and hash of their link, so their locks keep holding and `ChangedLocally`
+still says whether they changed since their import; the promotion reports them as
+`NhAssistantPackagePartOutcomes.KeptLinked` (`kept-linked`) and writes nothing of them. An unknown value
+fails with `uncarriedParts: invalid`, `Relink` without `AsPackageVersion` with
+`uncarriedParts: not-allowed`. No migration: the link table holds the locks.
+
 Move agents and their configuration as data between hosts as one versioned agent package with
 `INhAssistantAgentPackages`, never as a series of saves an application calls one after the other. A
 package (`NhAssistantAgentPackage`, format `newheap.assistant.agent-package`, `formatVersion` 1)
@@ -1386,7 +1411,14 @@ at and by) with the current links of its parts per agent (`NhAssistantPackageAge
 for a package the host never imported or an id that is no package id. `ReadAsync(agentIds)` returns
 exactly those agents, 1 to 20, with their parts and `Hashes` built as `ExportAsync` builds them but
 without locks and without the `AdminAgentPackageExported` audit, to compare an installed agent with a
-shipped package or with its links; it refuses the agent ids an export refuses (SPM-331).
+shipped package or with its links; it refuses the agent ids an export refuses (SPM-331). An
+administration that compares over HTTP calls `POST admin/agent-packages/read` with `{ "agentIds": [...] }`
+(`NhAssistantAgentPackageReadRequest`, answering `NhAssistantAgentPackageReadDto` with `agents`) and
+`GET admin/agent-packages/{packageId}` (answering `NhAssistantInstalledAgentPackageDto`), behind the
+administration policy and without an audit (SPM-353; routes `NhAssistantAgentPackageRoutes.Read` and
+`Package`): the read answers the field error `agentIds` and `404 assistant-agent-not-found` as the service
+does, the package `404 assistant-package-not-found` for a package the host never imported, and a caller
+without the administration policy `403 assistant-forbidden`.
 
 The schema of the format, which tools that write packages follow:
 
@@ -1929,9 +1961,15 @@ instructions in full: call them for an administrator or process the application 
 - Locking whole parts to keep one field, or expecting a lock to stop an administrator for good: lock the
   fields that must stay, and know that an administrator may unlink a part.
 - Exporting agents only to compare them with a package, which audits an export, or reading the
-  installed version from the links, which an unlink removes: use `ReadAsync` and `GetPackageAsync`.
-- Saving the skills and agents that name a text asset automatically when the application publishes a
-  new version: list them with `INhAssistantInstructionAssetUsage` and let an administrator save each.
+  installed version from the links, which an unlink removes: use `ReadAsync` and `GetPackageAsync`, or
+  over HTTP `POST admin/agent-packages/read` and `GET admin/agent-packages/{packageId}`.
+- Saving the skills and agents that name a text asset live automatically when the application publishes
+  a new version, or saving a candidate per skill by hand: propose it with
+  `INhAssistantInstructionAssetUsage.ProposeCandidatesAsync`, which respects package locks, and let an
+  administrator compare and promote each candidate and save each listed agent.
+- Unlinking and relinking the live agent's parts by hand after a promotion as the package's version, or
+  copying them into the variant only to keep them linked: promote with
+  `UncarriedParts = NhAssistantUncarriedParts.Relink`.
 - Reading a package leniently or dropping what a host does not know; read it with
   `NhAssistantAgentPackageFormat.Read` and fix a refused package at its source.
 - Registering an agent's triggers twice to evaluate a variant; use `ShadowOf`. Promoting a variant
@@ -2410,7 +2448,13 @@ in code takes the overlay, that the format is read strictly, and that the endpoi
 not administer. Assert that `GetPackageAsync` returns the imported version, hash and links, shows a part
 changed on the host as changed locally and still returns the package after every agent was unlinked,
 and that `ReadAsync` equals the parts and hashes of an export of the same agents and writes no audit.
-SPM-321 and SPM-331 are the executable references.
+SPM-321 and SPM-331 are the executable references. Over HTTP assert that `POST admin/agent-packages/read`
+and `GET admin/agent-packages/{packageId}` answer the same, refuse people who do not administer and audit
+nothing (SPM-353). For a promotion with `UncarriedParts = Relink`, assert that the uncarried parts keep
+their locks and the hash of their link, are reported `kept-linked` and are held by the new package version
+(SPM-352). For `ProposeCandidatesAsync`, assert a candidate per live skill on an older version, a skill a
+package locks reported `locked` while the others are proposed, `already-proposed` on a repeat and that a
+refused call saves and audits nothing (SPM-351).
 For proposals on their way, on both providers, assert that `GET approvals/inbox` stays `pending` by
 default, that `awaiting-application` lists by report deadline only until the report falls due, flat and
 grouped, that `execution-unknown` lists by decision, that another status is `400`, that the initiator of
