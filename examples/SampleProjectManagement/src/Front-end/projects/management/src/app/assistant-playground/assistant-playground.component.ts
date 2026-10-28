@@ -24,12 +24,17 @@ import {
 } from './assistant-playground.scenario';
 import { SampleAssistantPageContext } from './sample-assistant.config';
 
+/** SPM-369: how much of the unsent message the lab's card quotes. */
+const unsentPreviewLength = 80;
+
 /**
  * Executable evidence for the assistant panel: a scripted mock API, the feature flag and
  * the access policy as switches, prompts for every scripted turn and the live store state.
  * Prompts start a new conversation while another one still runs, so several conversations
  * work at the same time, and a simulated colleague continues a shared conversation live. A prepared
- * status brief opens the assistant with the brief in the composer for the person to review (SPM-350).
+ * status brief opens the assistant with the brief in the composer for the person to review (SPM-350),
+ * and what the person typed and did not send waits in the composer when the drawer opens again
+ * (SPM-369).
  */
 @Component({
   selector: 'app-assistant-playground',
@@ -58,6 +63,24 @@ export class AssistantPlaygroundComponent {
     !this.colleagueBusy() && this.store.activeConversation()?.status === 'idle' && !this.store.streaming());
   /** SPM-350: whether the prepared brief replaces what the person already typed in the composer. */
   readonly replaceDraft = signal(false);
+  /**
+   * SPM-369: what the composer holds and has not sent in the open conversation, as the store keeps it
+   * in this tab's memory, shortened for the card. Closing the drawer keeps it; sending it and switching
+   * the access permission off, as signing out does, forget it.
+   */
+  readonly unsentPreview = computed(() => {
+    const unsent = this.store.unsentMessage();
+    if (!unsent) {
+      return null;
+    }
+
+    const text = unsent.text.trim();
+    return {
+      prepared: unsent.prepared,
+      count: unsent.text.length,
+      text: text.length > unsentPreviewLength ? `${text.slice(0, unsentPreviewLength)}…` : text
+    };
+  });
 
   constructor() {
     // Leaving the page closes the simulated project page, as a real page would on destroy.

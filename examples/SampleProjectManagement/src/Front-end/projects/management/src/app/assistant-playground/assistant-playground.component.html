@@ -120,6 +120,33 @@
       </p>
     </section>
 
+    <!-- SPM-369: what the person typed and did not send waits in the message box when the assistant opens again. -->
+    <section class="panel" aria-labelledby="assistant-unsent-title">
+      <h3 id="assistant-unsent-title">{{ 'project.assistant-unsent-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-unsent-description' | translate }}</p>
+      <div class="actions">
+        <button type="button" [disabled]="!store.enabled() || panel.isOpen()" (click)="panel.open()">
+          <i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-open-panel' | translate }}
+        </button>
+        <button type="button" [disabled]="!panel.isOpen()" (click)="panel.close()">
+          <i class="ph ph-x" aria-hidden="true"></i>{{ 'project.assistant-unsent-close' | translate }}
+        </button>
+      </div>
+      <p class="hint unsent-preview">
+        @if (!store.enabled()) {
+          {{ 'project.assistant-unsent-unavailable' | translate }}
+        } @else if (unsentPreview(); as unsent) {
+          @if (unsent.prepared) {
+            {{ 'project.assistant-unsent-kept-draft' | translate: { text: unsent.text } }}
+          } @else {
+            {{ 'project.assistant-unsent-kept' | translate: { count: unsent.count, text: unsent.text } }}
+          }
+        } @else {
+          {{ 'project.assistant-unsent-none' | translate }}
+        }
+      </p>
+    </section>
+
     <section class="panel" aria-labelledby="assistant-prompts-title">
       <h3 id="assistant-prompts-title">{{ 'project.assistant-prompts-title' | translate }}</h3>
       <p class="hint">{{ 'project.assistant-prompts-description' | translate }}</p>
@@ -170,6 +197,8 @@
         <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
         <div><dt>queuedMessages().length</dt><dd>{{ store.queuedMessages().length }}</dd></div>
         <div><dt>queuePaused()</dt><dd [attr.data-on]="store.queuePaused()">{{ store.queuePaused() }}</dd></div>
+        <div><dt>unsentMessage().text.length</dt><dd>{{ store.unsentMessage()?.text.length ?? '–' }}</dd></div>
+        <div><dt>unsentMessage().prepared</dt><dd [attr.data-on]="store.unsentMessage()?.prepared === true">{{ store.unsentMessage()?.prepared ?? '–' }}</dd></div>
         <div><dt>runningCount()</dt><dd>{{ store.runningCount() }}</dd></div>
         <div><dt>unreadCount()</dt><dd>{{ store.unreadCount() }}</dd></div>
         <div><dt>members().length</dt><dd>{{ store.members().length }}</dd></div>

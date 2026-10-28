@@ -346,7 +346,8 @@
     "SPM-351",
     "SPM-352",
     "SPM-353",
-    "SPM-355"
+    "SPM-355",
+    "SPM-369"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3674,6 +3675,19 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
+    ],
+    "SPM-369": [
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-unsent.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
     ]
   }
 }

@@ -164,3 +164,8 @@ h3 {
   display: block;
   margin-top: 14px;
 }
+
+// SPM-369: the kept message is the person's own text and may hold long words.
+.unsent-preview {
+  overflow-wrap: anywhere;
+}
