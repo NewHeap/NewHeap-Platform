@@ -3545,7 +3545,8 @@ internal sealed partial class NhAssistantTurnRunner(
                 RunId = agentTurn?.RunId,
                 // A run in a shadow thread is evaluated, as its proposals are: it reaches no live agent.
                 ShadowRun = agentTurn is not null && IsShadowRunTurn(agentTurn),
-                Channel = channel
+                Channel = channel,
+                ConversationSubject = agentTurn is null ? chatSubject?.Subject : null
             },
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,

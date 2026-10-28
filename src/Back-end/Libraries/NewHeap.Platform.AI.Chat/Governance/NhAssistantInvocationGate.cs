@@ -10,7 +10,8 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// context is then bound to the turn: the agent acts as a non-human actor on behalf of the
 /// accountable user, with the turn id as run id, the agent prompt identity, the turn deadline,
 /// the call's idempotency key and, for an approved retry, the proposal and approval ids. In every turn,
-/// also of an agent thread, it names the turn's conversation and the channel that started the turn.
+/// also of an agent thread, it names the turn's conversation and the channel that started the turn, and
+/// in a person's chat about a subject that subject (FB25).
 /// </summary>
 internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) : INhAiToolInvocationGate
 {
@@ -70,6 +71,7 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             CorrelationId = context.CorrelationId ?? turn.TurnId.ToString(),
             ConversationId = turn.ConversationId,
             Channel = turn.Channel,
+            ConversationSubject = turn.ConversationSubject,
             AgentVersion = turn.Agent.Version.ToString(CultureInfo.InvariantCulture),
             ModelProfileName = turn.ModelProfileName,
             PromptVersion = turn.PromptVersion,

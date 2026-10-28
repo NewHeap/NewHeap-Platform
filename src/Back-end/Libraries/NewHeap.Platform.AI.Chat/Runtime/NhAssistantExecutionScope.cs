@@ -103,6 +103,12 @@ internal sealed class NhAssistantTurnScope
     public string? Channel { get; set; }
 
     /// <summary>
+    /// The subject of a person's chat about one (FB25), which the turn's tool calls carry as
+    /// <see cref="NhAiInvocationContext.ConversationSubject"/>; <see langword="null"/> otherwise.
+    /// </summary>
+    public NhAiSubjectRef? ConversationSubject { get; init; }
+
+    /// <summary>
     /// Adds the content-free prompt identity of this turn to an audit event, and the channel that started
     /// the turn to an event that names none.
     /// </summary>
