@@ -262,10 +262,11 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         var projectId = Guid.NewGuid();
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "hearing" } })
-            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "Closed" } })
+            .RespondWithText("There is a note about the hearing.")
             .RespondWithText("The note moves the hearing to May.")
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "hearing" } })
-            .RespondWithText("Nothing about a case file here.");
+            .RespondWithText("Nothing about a case file here.")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "Closed" } });
         await using var app = await StartAsync(provider, model);
         var cases = app.Services.GetRequiredService<ChatSubjectCases>();
         var seen = app.Services.GetRequiredService<SeenChatSubjects>();
@@ -276,14 +277,12 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         var sent = await SendAsync(app, person, chat, "What is new in this case file?");
 
         Assert.True(sent.Success, CodeOf(sent));
-        Assert.Equal(NhAssistantTurnStatuses.WaitingForApproval, sent.Data!.Status);
-        // The tool and the guard of the proposal see the chat's subject; nothing makes it an agent turn.
+        Assert.Equal(NhAssistantTurnStatuses.Completed, sent.Data!.Status);
+        // The tool sees the chat's subject; nothing makes the turn an agent's turn.
         var toolContext = Assert.Single(app.Tools.Contexts);
         Assert.Equal(subject.Ref, toolContext.ConversationSubject);
+        Assert.Equal(chat, toolContext.ConversationId);
         Assert.Null(Assert.Single(app.Tools.Scopes));
-        var guarded = Assert.Single(seen.GuardSubjects);
-        Assert.Equal(subject.Ref, guarded.ConversationSubject);
-        Assert.Null(guarded.Subject);
         // The briefing names the subject and carries the provider's facts for a chat.
         var briefing = model.Requests[0].Messages
             .Where(message => message.Role == ChatRole.System)
@@ -293,17 +292,10 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         Assert.Contains($"(case-file {subject.Id})", briefing, StringComparison.Ordinal);
         Assert.Contains("Open since 2031-01-02.", briefing, StringComparison.Ordinal);
         Assert.Equal([NhAssistantBriefingPurposes.Chat], seen.BriefingPurposes.ToArray());
-        await using (var scope = app.Services.CreateAsyncScope())
-        {
-            var cancelled = await scope.ServiceProvider.GetRequiredService<INhAssistantConversations>().CancelAsync(person, chat);
-            Assert.True(cancelled.Success, CodeOf(cancelled));
-        }
 
-        // The file source stores an upload to a new chat about the subject and opens it for the person
-        // with the chat's subject.
-        var filesChat = (await CreateAsync(app, person, new NhAssistantNewConversation(CaseAgent) { Subject = subject.Ref })).Data!.Id;
+        // The file source stores an upload and opens it for the person with the chat's subject.
         await using var content = new MemoryStream(NotePdf);
-        var uploaded = await UploadAsync(app, person, filesChat, new NhAssistantConversationUpload("Note.pdf", NhAiMediaTypes.Pdf, content));
+        var uploaded = await UploadAsync(app, person, chat, new NhAssistantConversationUpload("Note.pdf", NhAiMediaTypes.Pdf, content));
         Assert.True(uploaded.Success, CodeOf(uploaded));
         var uploads = app.Services.GetRequiredService<TestUploads>();
         var stored = Assert.Single(uploads.Stored.Values);
@@ -312,7 +304,7 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         {
             var withFile = await scope.ServiceProvider.GetRequiredService<INhAssistantConversationTurns>().SendAsync(
                 person,
-                filesChat,
+                chat,
                 new NhAssistantConversationMessage("What does the note say?") { Files = [uploaded.Data!] },
                 new NhAssistantConversationTurnOptions(Channel));
             Assert.Equal((NhAssistantTurnStatuses.Completed, (string?)null), (withFile.Data!.Status, withFile.Data.ErrorCode));
@@ -327,6 +319,14 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         Assert.DoesNotContain(
             model.Requests[^1].Messages.Where(message => message.Role == ChatRole.System).Select(message => message.Text),
             text => text.Contains("<subject-briefing>", StringComparison.Ordinal));
+
+        // The guard of a proposal in the chat sees its subject, which is not where the proposal waits.
+        var proposed = await SendAsync(app, person, chat, "Close the project.");
+        Assert.Equal(NhAssistantTurnStatuses.WaitingForApproval, proposed.Data!.Status);
+        var guarded = Assert.Single(seen.GuardSubjects);
+        Assert.Equal(subject.Ref, guarded.ConversationSubject);
+        Assert.Equal(subject.Ref, guarded.Invocation!.ConversationSubject);
+        Assert.Null(guarded.Subject);
     }
 
     [Theory]
