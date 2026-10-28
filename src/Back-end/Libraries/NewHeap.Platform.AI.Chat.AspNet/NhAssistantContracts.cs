@@ -705,6 +705,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))]
 [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))]
 [JsonSerializable(typeof(NhAiFileReference))]
+[JsonSerializable(typeof(NhAssistantCompositionStatusDto))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
 
 public sealed record NhAssistantPreferencesDto(

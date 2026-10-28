@@ -109,6 +109,13 @@ internal static class NhAssistantAdminEndpoints
             .WithDescription("Returns active, paused, stopped, off or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapGet("agents/{id}/compositions", GetAgentCompositionsAsync)
+            .WithName("NhAssistantAdminGetAgentCompositions")
+            .WithSummary("Get whether an agent uses compositions and scripts")
+            .WithDescription("Returns per feature (compositions, scripts) and per channel (chat, run, consultation, hand-off) whether the agent is offered it now and why: on, not-installed (no tool of the feature is registered, for scripts the scripting package), agent-not-allowed (code does not allow the agent the feature) or off-by-application (the application's switch has it off). The switch is asked for the caller and the caller's tenant. An application shows it next to its own setting.")
+            .Produces<NhAssistantCompositionStatusDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapPost("agents/{id}/skills/{skillId}/state", SetSkillStateAsync)
             .WithName("NhAssistantAdminSetSkillState")
             .WithSummary("Pause, stop, switch off or resume one skill of an agent")
@@ -551,6 +558,27 @@ internal static class NhAssistantAdminEndpoints
         return state is null
             ? NhAssistantHttpErrors.Error(NhAssistantErrorCodes.AgentNotFound)
             : Json(state, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState);
+    }
+
+    private static async Task<IResult> GetAgentCompositionsAsync(string id, HttpContext httpContext)
+    {
+        var resolved = await httpContext.RequestServices
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext, httpContext.RequestAborted);
+        if (!resolved.Success)
+        {
+            return ContextUnavailable();
+        }
+
+        var status = await httpContext.RequestServices
+            .GetRequiredService<INhAssistantCompositionStatus>()
+            .GetAsync(
+                id,
+                new NhAssistantCompositionStatusRequest(resolved.Data.TenantId, resolved.Data.ActorId),
+                httpContext.RequestAborted);
+        return status is null
+            ? NhAssistantHttpErrors.Error(NhAssistantErrorCodes.AgentNotFound)
+            : Json(status, NhAssistantJsonSerializerContext.Default.NhAssistantCompositionStatusDto);
     }
 
     private static async Task<IResult> SetSkillStateAsync(string id, string skillId, HttpContext httpContext)
