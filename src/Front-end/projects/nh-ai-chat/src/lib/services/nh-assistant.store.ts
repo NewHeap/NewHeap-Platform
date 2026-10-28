@@ -847,9 +847,11 @@ export class NhAssistantStore {
    * (`GET agents?subjectType=&subjectId=`), keeps the chosen agent when it works on the subject or
    * chooses the default or first one, and leaves the open conversation, as `startNewConversation` does.
    * The next message creates the chat with the subject; the server checks the person's role on it then
-   * and on every later turn and read. Resolves `false`, keeping the previous subject and showing the
+   * and on every later turn and read. The subject is for that one chat: once it exists, the next new chat
+   * is about nothing in particular again. Resolves `false`, keeping the previous subject and showing the
    * error, when the server refuses the subject, for example with `assistant-subject-access-denied`, or
-   * when the assistant is not available. Call it again with `null` when the person leaves the page.
+   * when the assistant is not available. Call it with `null` when the person leaves the page before
+   * they sent anything.
    */
   async setChatSubject(subject: NhAssistantChatSubject | null): Promise<boolean> {
     const revision = ++this.subjectRevision;
@@ -1969,17 +1971,20 @@ export class NhAssistantStore {
    */
   private async rememberSubjectAgents(subject: ConversationSubjectRef): Promise<void> {
     try {
-      const agents = await firstValueFrom(this.api.agents(subject));
-      this.knownSubjectAgentsState.update(known => {
-        const next = new Map(known);
-        for (const agent of agents) {
-          next.set(agent.id, agent);
-        }
-        return next;
-      });
+      this.rememberAgents(await firstValueFrom(this.api.agents(subject)));
     } catch {
       // The conversation's own read reports what the server refused.
     }
+  }
+
+  private rememberAgents(agents: readonly AgentSummary[]): void {
+    this.knownSubjectAgentsState.update(known => {
+      const next = new Map(known);
+      for (const agent of agents) {
+        next.set(agent.id, agent);
+      }
+      return next;
+    });
   }
 
   /** Forgets everything about the previous account: turns, conversations, live updates and push. */
@@ -2031,6 +2036,14 @@ export class NhAssistantStore {
         : { agentId }));
       if (revision !== this.accountRevision) {
         return null;
+      }
+      if (subject && this.newChatSubjectState() === subject) {
+        // The subject was for this chat: the chat keeps it and its agents stay known, and the next new
+        // chat is about nothing in particular until the host sets a subject again.
+        this.rememberAgents(this.subjectAgentsState());
+        this.subjectRevision++;
+        this.newChatSubjectState.set(null);
+        this.subjectAgentsState.set([]);
       }
       this.upsertSession(conversation);
       // What the person still types in the new chat, for example while a file uploads, belongs to it now.

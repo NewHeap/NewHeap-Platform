@@ -93,13 +93,18 @@ describe('NhAssistantStore chats about a subject (FB25)', () => {
     expect(store.chatSubject()?.subjectId).toBe('p-1');
     expect(subjectLine()?.textContent).toContain('Project: Alpha migration');
 
-    // Without a subject again, the next chat is about nothing in particular.
-    expect(await store.setChatSubject(null)).toBeTrue();
+    // The subject was for that chat: the next new chat is about nothing in particular.
+    expect(store.newChatSubject()).toBeNull();
     store.startNewConversation();
     await settle(fixture);
-    expect(store.newChatSubject()).toBeNull();
     expect(store.chatSubject()).toBeNull();
     expect(subjectLine()).toBeNull();
+
+    // A host that leaves its page clears a subject nobody used.
+    await store.setChatSubject({ subjectType: 'project', subjectId: 'p-1' });
+    expect(await store.setChatSubject(null)).toBeTrue();
+    expect(store.newChatSubject()).toBeNull();
+    expect(store.chatAgents().map(agent => agent.id)).toEqual(['projects', 'catalog']);
   });
 
   it('keeps the previous subject and shows the refusal when the person may not use a chat about it', async () => {
