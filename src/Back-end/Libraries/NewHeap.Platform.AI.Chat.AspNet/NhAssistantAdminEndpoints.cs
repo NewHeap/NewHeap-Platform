@@ -157,6 +157,7 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantCompositionActivityEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantHandOffsAsDataEndpoints.MapAdmin(admin);
