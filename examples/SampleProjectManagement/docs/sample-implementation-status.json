@@ -346,7 +346,8 @@
     "SPM-351",
     "SPM-352",
     "SPM-353",
-    "SPM-355"
+    "SPM-355",
+    "SPM-366"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3674,6 +3675,21 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
+    ],
+    "SPM-366": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantConsultationChainSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainPayloadTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
     ]
   }
 }

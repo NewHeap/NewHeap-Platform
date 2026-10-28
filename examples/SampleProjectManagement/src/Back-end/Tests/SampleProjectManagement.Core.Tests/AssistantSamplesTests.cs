@@ -709,6 +709,12 @@ internal sealed class SampleTestAuthenticationHandler(
     /// </summary>
     public const string ImpersonatedByHeader = "X-Sample-Impersonated-By";
 
+    /// <summary>
+    /// The issuer of the caller's token, as its <c>iss</c> claim: another application's when it calls
+    /// the API for one of its people (SPM-366).
+    /// </summary>
+    public const string IssuerHeader = "X-Sample-Issuer";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var user = Request.Headers[UserHeader].ToString();
@@ -738,6 +744,10 @@ internal sealed class SampleTestAuthenticationHandler(
         if (Request.Headers[ImpersonatedByHeader].ToString() is { Length: > 0 } impersonatedBy)
         {
             claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, impersonatedBy));
+        }
+        if (Request.Headers[IssuerHeader].ToString() is { Length: > 0 } issuer)
+        {
+            claims.Add(new Claim("iss", issuer));
         }
         var identity = new ClaimsIdentity(claims, Scheme);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));

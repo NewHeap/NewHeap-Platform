@@ -147,9 +147,12 @@ public static class SampleIntakeReviewerComposition
                 // readers get an answer, participants may also propose. A participant decides what
                 // the reviewer proposes in their own chat, and it executes in their own request with
                 // their own rights, so no person's principal is rebuilt (AskerDecides). Consultations
-                // spend the same daily budget. MCP clients would need Exposure(... | Mcp).
+                // spend the same daily budget. SPM-366: MCP clients may consult the reviewer too, such
+                // as a partner application's assistant, whose consultation chain the API continues
+                // when it reviewed the partner (SampleConsultationChain).
                 .AllowConsultation(ProjectSubjects.Type, consultation => consultation
                     .Description("Knows the intake review of a project: the checks done, the last verdict and what is still missing.")
+                    .Exposure(NhAiToolExposure.Local | NhAiToolExposure.Agent | NhAiToolExposure.Mcp)
                     .Policy(SampleAssistantComposition.AccessPolicy)
                     .Instructions(ProjectAiAssets.ProjectIntakeReviewerConsultationInstructions)
                     // Asked about a project's intake, the reviewer may only request a review: its

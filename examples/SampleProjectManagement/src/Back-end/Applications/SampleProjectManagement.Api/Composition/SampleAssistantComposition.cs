@@ -236,6 +236,9 @@ public static class SampleAssistantComposition
             // A reviewed research MCP tool receives who acts for whom and a bounded snapshot of the
             // conversation as request metadata; other MCP servers never do.
             .AddSampleResearchContext(configuration)
+            // SPM-366: the API's name in consultation chains across applications and the reviewed
+            // partner whose chain a consultation over MCP continues.
+            .AddSampleConsultationChain(configuration)
             .WithLimits(limits =>
             {
                 limits.MaxToolCallsPerTurn = 4;
