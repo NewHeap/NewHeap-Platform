@@ -37,6 +37,7 @@
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common.SqlServer\NewHeap.Platform.AspNet.Common.SqlServer.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common.PostgreSql\NewHeap.Platform.AspNet.Common.PostgreSql.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Test\NewHeap.Platform.AI.Test.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Scripting\NewHeap.Platform.AI.Scripting.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.Tests.Relational\NewHeap.Platform.Tests.Relational.csproj" />
   </ItemGroup>
   <ItemGroup>

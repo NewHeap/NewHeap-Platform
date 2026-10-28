@@ -202,6 +202,9 @@ public static class NhAiScriptTool
             Approval = NhAiApprovalRequirement.NotRequired,
             CompositionFeature = NhAiCompositionFeature.Scripts,
             // Its calls may change data; an MCP client is told so even though the script itself does not.
+            // A run without a person may be granted the script tool; the grant lends its calls nothing,
+            // because every call is authorized on its own.
+            AllowAgentGrant = true,
             ReadOnlyHint = NhAiToolHint.False,
             IdempotentHint = NhAiToolHint.False,
             OpenWorldHint = NhAiToolHint.True,
@@ -256,6 +259,15 @@ internal sealed class NhAiScriptFunction : AIFunction
         get
         {
             var scope = _scope();
+            lock (_sync)
+            {
+                if (scope.Tools is null && _description is not null)
+                {
+                    // Read after its turn, the function keeps the description the model was given.
+                    return _description;
+                }
+            }
+
             var offers = (scope.Tools ?? [])
                 .Select(tool => new NhAiScriptToolOffer(string.IsNullOrWhiteSpace(tool.ExportName) ? tool.Id : tool.ExportName, tool))
                 .ToArray();
