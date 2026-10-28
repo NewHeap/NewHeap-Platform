@@ -72,7 +72,10 @@ person's rights. An agent is never offered its own consultation tool.
 
 The kill switch is `NewHeap:AI:Assistant:Enabled` (default `false`). When it is
 off, `GET status` reports `enabled: false` without agents and every other endpoint
-returns `404`. Every endpoint requires the access policy
+returns `404`. To stop agents from working while people keep chatting and the
+administration serves, set `NewHeap:AI:Assistant:AgentWork` to `false` instead
+(`nh-ai-agent-runs`, SPM-365): `GET status` then reports `agentWork: false`, a
+consultation tool answers `assistant-agent-work-off` and the turn goes on. Every endpoint requires the access policy
 (`NewHeap:AI:Assistant:AccessPolicy`, default `app.assistant.access`); an agent's
 `RequiredPolicy` is checked when the agent is listed, when a conversation is created
 and before every turn.

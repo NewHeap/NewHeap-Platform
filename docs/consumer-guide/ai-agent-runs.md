@@ -813,6 +813,26 @@ changes the agent's definition or version; editing and resetting never change th
 triggers, schedules, runs and execution queuing stop as well. A stopped, switched-off or
 code-disabled agent's triggers evaluate no lambda.
 
+Switch agent work off on a host with `NewHeap:AI:Assistant:AgentWork` (`NhAssistantOptions.AgentWork`,
+true by default, counting only while `Enabled` is on) when no agent should work there but the
+endpoints, the administration and people's chats should keep serving, such as during an incident or
+while a service the agents depend on is down (SPM-365); `Enabled` off takes every endpoint away. It is
+read for every piece of work, so a reloaded configuration applies to the next one. While it is off,
+events, schedules, webhooks, starts by hand (`canStart` is false), requests, replays, hand-offs and
+follow-ups start no run and read `rejected` with `assistant-agent-work-off` (409) before any of their
+lambdas runs, not audited per event as with the assistant disabled; a run queued before ends with that
+code without claiming its inputs, and a run that works finishes its turn but takes no further turn;
+consultations and the application's messages (`INhAssistantConversationMessages.PostAsync`, which
+includes a request's answer in the asking chat) are refused with it; approved proposals of agent
+threads are held as for a stopped agent, and the first maintenance pass once agent work is on queues
+their execution, as it queues a run that lost its operation. Resuming a paused agent or a paused skill
+of an active agent is refused with it too, because the events that waited would start no run; pausing,
+stopping, switching off and resuming a stopped or switched-off agent serve as usual. People keep
+chatting, in a chat and in an agent's thread, decide proposals, are reminded of them, and open
+proposals are still revalidated; the assistant's own report of an execution the application made is
+still posted. `GET status` reports `agentWork`, and `NhAssistantAgentState.AgentWork` and
+`NhAssistantAdminAgentDto.AgentWork` say it for every agent, whose `Active` is false meanwhile.
+
 Deploy an agent or a skill that should wait for an administrator with `StartsOff()` on
 `ConfigureAgent` or on `Skill(...)`, not with `Enabled(false)`: it is off the first time the
 application sees it, an administrator switches it on at runtime, and from then on its stored state
@@ -1945,6 +1965,10 @@ instructions in full: call them for an administrator or process the application 
 - Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
   `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
 - Stopping an agent for an import or a migration that should lose no events; pause it.
+- Setting `NewHeap:AI:Assistant:Enabled` to `false`, or stopping every agent, to keep agents from
+  working on a host while people should keep chatting and the administration should serve; set
+  `NewHeap:AI:Assistant:AgentWork` to `false` instead, and expect events meanwhile to be refused rather
+  than to wait.
 - Letting a skill read confidential data while its model calls stay `Internal`: any profile that
   permits `Internal` then takes them. Classify the skill or agent with `DataClassification(...)`.
 - Pausing an agent for weeks: every event of the period waits and runs at the resume. Switch it off
@@ -2250,7 +2274,10 @@ the initiator, a second approver and a participant and assert `canDecide` and
 decision once the proposal was decided. Fire a burst of events and
 assert one pending run, repeat a schedule tick and a webhook delivery and assert no
 second run, refuse a forged or stale signature, engage the kill switch and assert
-cancelled runs and rejected triggers, and assert that shadow work notifies nobody.
+cancelled runs and rejected triggers, and assert that shadow work notifies nobody. Switch
+`AgentWork` off at runtime and assert `assistant-agent-work-off` for an event, a schedule tick,
+a start, a hand-off, a consultation and an application message, a person's chat that completes,
+and an approved proposal that the maintenance job queues only once agent work is on.
 Patch the memory with a value outside the schema and assert that nothing changed,
 assert that the next run receives the memory, the files and the previous summary,
 that a viewer without the tool's policy sees a restricted result, and that deleting
@@ -2978,6 +3005,11 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-365 — An operator switches agent work off on the API host while people keep chatting and the administration serves
+  - [src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs)
 - SPM-366 — A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)

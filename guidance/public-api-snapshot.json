@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "9d42cd4b0452199cca097e2c4397d445f327a6a873b71101760716131ae2990b",
-    "declarationCount": 11970,
+    "hash": "77b9c0b5ea56bd5a38a016257b5a0665954dc4f6fbd08df8976081fbae2ccb71",
+    "declarationCount": 11975,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2916,6 +2916,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
         "declaration": "public NhAssistantConsultationRoutesState? ConsultationRoutes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "declaration": "public bool AgentWork { get; init; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
@@ -6979,7 +6983,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantStatusDto( bool Enabled, IReadOnlyList<NhAssistantAgentSummaryDto> Agents, NhAssistantLimitsDto Limits, bool CanAdminister, NhAssistantCollaborationDto? Collaboration = null);"
+        "declaration": "public sealed record NhAssistantStatusDto( bool Enabled, IReadOnlyList<NhAssistantAgentSummaryDto> Agents, NhAssistantLimitsDto Limits, bool CanAdminister, NhAssistantCollaborationDto? Collaboration = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool AgentWork { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7432,6 +7440,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public bool OffBeforeStop { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool AgentWork { get; init; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -13467,7 +13479,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationMessages.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync( Guid conversationId, NhAssistantApplicationMessage message, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync( Guid conversationId, NhAssistantApplicationMessage message, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
@@ -18615,6 +18627,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string AgentWorkOff = \"assistant-agent-work-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string SkillOff = \"assistant-skill-off\";"
       },
       {
@@ -20392,6 +20408,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public bool Enabled { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool AgentWork { get; set; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
@@ -51571,6 +51591,7 @@
       "NhAssistantDecisionChannels",
       "INhAssistantAgentControl",
       "NhAssistantAgentState",
+      "NhAssistantOptions.AgentWork",
       "NhAssistantAgentStateRequest",
       "NhAssistantAgentRunStates",
       "MaxStateReasonCharacters",

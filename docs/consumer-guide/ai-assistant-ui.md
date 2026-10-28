@@ -469,7 +469,11 @@ off or makes it work again, while "Resume" switches it on), puts them in shadow 
 lets the code decide again
 (`setAgentShadow`, `setSkillShadow`), and replaces the technical account of an agent that
 answers to one (`setServiceAccount`), each with an optional reason; a thread view marks a
-shadow thread, which only administrators reach.
+shadow thread, which only administrators reach. While agent work is off on the host
+(`agentWork: false` on `AdminAgent`, `AgentState` and `AssistantStatus`, SPM-365), the agent list
+shows a banner above the agents, whose statuses stay as they are, and resuming a paused agent or skill
+answers `assistant-agent-work-off`; test it with `agentWork` in the mock scenario or
+`NhAssistantMockBackend.setAgentWork`.
 
 Each agent on that page also opens its run configuration
 (`NhAssistantAgentRunConfigurationComponent`). Skills and triggers in code are read only;
@@ -1389,6 +1393,11 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs)
+- SPM-365 — An operator switches agent work off on the API host while people keep chatting and the administration serves
+  - [src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs)
 - SPM-369 — The assistant lab keeps a message the person typed and did not send when the drawer closes
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts)
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html)
