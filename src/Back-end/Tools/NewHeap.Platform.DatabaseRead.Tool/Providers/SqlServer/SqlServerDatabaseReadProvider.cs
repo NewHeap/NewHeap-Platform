@@ -63,7 +63,7 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     /// <c>IMPERSONATE ANY LOGIN</c> or <c>ALTER ANY ROLE</c>, is rejected by the server and
     /// database checks.
     /// </remarks>
-    private const string ReadOnlyVerificationSql =
+    private const string VerificationBeforeFunctionSelectSql =
         """
         SELECT CASE
             WHEN COALESCE(IS_SRVROLEMEMBER('sysadmin'), 0) = 1 THEN 'server-role-sysadmin'
@@ -128,6 +128,14 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
                         'OBJECT', 'EXECUTE') = 1
             ) THEN 'function-execute'
+        """;
+
+    /// <summary>
+    /// The strict function policy: SELECT on any user-defined function rejects the principal,
+    /// because the tool does not verify what a function depends on.
+    /// </summary>
+    private const string StrictFunctionSelectSql =
+        """
             WHEN EXISTS (
                 SELECT 1
                 FROM sys.objects AS candidate
@@ -137,6 +145,55 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
                         'OBJECT', 'SELECT') = 1
             ) THEN 'function-select'
+        """;
+
+    /// <summary>
+    /// The <c>inline-table-valued-select</c> policy at the place of <c>function-select</c>: SELECT on
+    /// a function that is not an inline table-valued function still rejects the principal, and an
+    /// inline one must be schema-bound and run without <c>EXECUTE AS</c>. SQL Server refuses
+    /// <c>EXECUTE AS</c> on an inline function; the check keeps that boundary should it ever
+    /// change. What such a function depends on is checked after all other checks, by
+    /// <see cref="InlineFunctionDependencySql"/>.
+    /// </summary>
+    private const string InlineTableValuedFunctionSelectSql =
+        """
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN ('FN', 'TF', 'FS', 'FT') AND
+                    candidate.is_ms_shipped = 0 AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'SELECT') = 1
+            ) THEN 'function-select'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                LEFT JOIN sys.sql_modules AS candidate_module
+                    ON candidate_module.object_id = candidate.object_id
+                WHERE candidate.type = 'IF' AND
+                    candidate.is_ms_shipped = 0 AND
+                    COALESCE(candidate_module.is_schema_bound, 0) = 0 AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'SELECT') = 1
+            ) THEN 'inline-function-not-schema-bound'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                INNER JOIN sys.sql_modules AS candidate_module
+                    ON candidate_module.object_id = candidate.object_id
+                WHERE candidate.type = 'IF' AND
+                    candidate.is_ms_shipped = 0 AND
+                    candidate_module.execute_as_principal_id IS NOT NULL AND
+                    HAS_PERMS_BY_NAME(
+                        QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                        'OBJECT', 'SELECT') = 1
+            ) THEN 'inline-function-execute-as'
+        """;
+
+    private const string VerificationAfterFunctionSelectSql =
+        """
             WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW SERVER STATE') = 1 THEN 'server-permission-view-server-state'
             WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY CONNECTION') = 1 THEN 'server-permission-alter-any-connection'
             WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'IMPERSONATE ANY LOGIN') = 1 THEN 'server-permission-impersonate-any-login'
@@ -315,6 +372,146 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             ELSE 'verified' END;
         """;
 
+    private const string StrictVerificationSql =
+        VerificationBeforeFunctionSelectSql + "\n" +
+        StrictFunctionSelectSql + "\n" +
+        VerificationAfterFunctionSelectSql;
+
+    private const string InlineTableValuedSelectVerificationSql =
+        VerificationBeforeFunctionSelectSql + "\n" +
+        InlineTableValuedFunctionSelectSql + "\n" +
+        VerificationAfterFunctionSelectSql;
+
+    /// <summary>
+    /// Under the <c>inline-table-valued-select</c> policy, after every other check passed: what the
+    /// inline table-valued functions that the principal may select depend on. The principal reads
+    /// a function's references through <c>sys.dm_sql_referenced_entities</c>, which reports them only
+    /// with <c>VIEW DEFINITION</c> on the function, so a function the principal cannot see into
+    /// rejects it. A function may depend only on tables and views of the same database, resolved
+    /// and not caller-dependent, and the principal must be able to select each referenced column, or
+    /// the whole object when the function names no column of it, such as for <c>COUNT(*)</c>. That
+    /// keeps an ownership chain through the function from showing anything the principal could not
+    /// select itself. The functions are collected first, so the reference function only runs for
+    /// functions the principal may select.
+    /// </summary>
+    private const string InlineFunctionDependencySql =
+        """
+        SET NOCOUNT ON;
+        DECLARE @functions TABLE (
+            object_id int NOT NULL PRIMARY KEY,
+            qualified_name nvarchar(600) NOT NULL);
+        DECLARE @dependencies TABLE (
+            function_id int NOT NULL,
+            referenced_class tinyint NULL,
+            referenced_server_name sysname NULL,
+            referenced_database_name sysname NULL,
+            referenced_id int NULL,
+            referenced_minor_id int NULL,
+            referenced_minor_name sysname NULL,
+            is_caller_dependent bit NULL,
+            is_ambiguous bit NULL,
+            is_all_columns_found bit NULL,
+            is_incomplete bit NULL);
+
+        INSERT INTO @functions (object_id, qualified_name)
+        SELECT candidate.object_id,
+               QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + N'.' + QUOTENAME(candidate.name)
+        FROM sys.objects AS candidate
+        WHERE candidate.type = 'IF' AND
+            candidate.is_ms_shipped = 0 AND
+            HAS_PERMS_BY_NAME(
+                QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
+                'OBJECT', 'SELECT') = 1;
+
+        INSERT INTO @dependencies (
+            function_id,
+            referenced_class,
+            referenced_server_name,
+            referenced_database_name,
+            referenced_id,
+            referenced_minor_id,
+            referenced_minor_name,
+            is_caller_dependent,
+            is_ambiguous,
+            is_all_columns_found,
+            is_incomplete)
+        SELECT candidate.object_id,
+               reference.referenced_class,
+               reference.referenced_server_name,
+               reference.referenced_database_name,
+               reference.referenced_id,
+               reference.referenced_minor_id,
+               reference.referenced_minor_name,
+               reference.is_caller_dependent,
+               reference.is_ambiguous,
+               reference.is_all_columns_found,
+               reference.is_incomplete
+        FROM @functions AS candidate
+        CROSS APPLY sys.dm_sql_referenced_entities(candidate.qualified_name, N'OBJECT') AS reference
+        WHERE HAS_PERMS_BY_NAME(candidate.qualified_name, 'OBJECT', 'VIEW DEFINITION') = 1;
+
+        SELECT CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM @functions AS candidate
+                WHERE COALESCE(HAS_PERMS_BY_NAME(candidate.qualified_name, 'OBJECT', 'VIEW DEFINITION'), 0) = 0
+            ) THEN 'inline-function-definition-not-visible'
+            WHEN EXISTS (
+                SELECT 1
+                FROM @dependencies AS dependency
+                LEFT JOIN sys.objects AS referenced
+                    ON referenced.object_id = dependency.referenced_id
+                WHERE COALESCE(dependency.referenced_class, 0) <> 1 OR
+                    dependency.referenced_server_name IS NOT NULL OR
+                    dependency.referenced_database_name IS NOT NULL OR
+                    COALESCE(dependency.is_caller_dependent, 1) = 1 OR
+                    COALESCE(dependency.is_ambiguous, 1) = 1 OR
+                    COALESCE(dependency.is_all_columns_found, 0) = 0 OR
+                    COALESCE(dependency.is_incomplete, 0) = 1 OR
+                    referenced.object_id IS NULL OR
+                    referenced.type NOT IN ('U', 'V') OR
+                    referenced.is_ms_shipped = 1
+            ) THEN 'inline-function-dependency-not-allowed'
+            WHEN EXISTS (
+                SELECT 1
+                FROM @dependencies AS dependency
+                INNER JOIN sys.objects AS referenced
+                    ON referenced.object_id = dependency.referenced_id
+                WHERE (
+                        COALESCE(dependency.referenced_minor_id, 0) = 0 AND
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM @dependencies AS column_dependency
+                            WHERE column_dependency.function_id = dependency.function_id AND
+                                column_dependency.referenced_id = dependency.referenced_id AND
+                                column_dependency.referenced_minor_id > 0
+                        ) AND
+                        COALESCE(HAS_PERMS_BY_NAME(
+                            QUOTENAME(OBJECT_SCHEMA_NAME(referenced.object_id)) + '.' + QUOTENAME(referenced.name),
+                            'OBJECT', 'SELECT'), 0) = 0
+                    ) OR (
+                        dependency.referenced_minor_id > 0 AND
+                        COALESCE(HAS_PERMS_BY_NAME(
+                            QUOTENAME(OBJECT_SCHEMA_NAME(referenced.object_id)) + '.' + QUOTENAME(referenced.name),
+                            'OBJECT', 'SELECT', dependency.referenced_minor_name, 'COLUMN'), 0) = 0
+                    )
+            ) THEN 'inline-function-dependency-not-selectable'
+            ELSE 'verified' END;
+        SET NOCOUNT OFF;
+        """;
+
+    private readonly SqlServerFunctionPolicy _functionPolicy;
+
+    public SqlServerDatabaseReadProvider()
+        : this(SqlServerFunctionPolicy.Strict)
+    {
+    }
+
+    public SqlServerDatabaseReadProvider(SqlServerFunctionPolicy functionPolicy)
+    {
+        _functionPolicy = functionPolicy;
+    }
+
     public string Name => "sql-server";
 
     public DbConnection CreateConnection(
@@ -396,19 +593,57 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         return TimeSpan.FromMilliseconds(Random.Shared.Next(ceiling / 2, ceiling + 1));
     }
 
-    private static async Task<DatabaseReadPrincipalVerification> ReadVerificationAsync(
+    /// <summary>
+    /// Runs the checks of the profile's function policy. Under <c>inline-table-valued-select</c>
+    /// the dependencies of the inline functions are read only when every other check passed, in a
+    /// second statement within the same attempt and timeout.
+    /// </summary>
+    private async Task<DatabaseReadPrincipalVerification> ReadVerificationAsync(
         DbConnection connection,
         TimeSpan remaining,
         CancellationToken cancellationToken)
     {
+        var elapsed = Stopwatch.StartNew();
+        var verification = await ReadCheckAsync(
+            connection,
+            _functionPolicy == SqlServerFunctionPolicy.InlineTableValuedSelect
+                ? InlineTableValuedSelectVerificationSql
+                : StrictVerificationSql,
+            remaining,
+            cancellationToken);
+        if (!verification.IsReadOnly || _functionPolicy != SqlServerFunctionPolicy.InlineTableValuedSelect)
+        {
+            return verification;
+        }
+
+        return await ReadCheckAsync(
+            connection,
+            InlineFunctionDependencySql,
+            remaining - elapsed.Elapsed,
+            cancellationToken);
+    }
+
+    private static async Task<DatabaseReadPrincipalVerification> ReadCheckAsync(
+        DbConnection connection,
+        string sql,
+        TimeSpan remaining,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
-        command.CommandText = ReadOnlyVerificationSql;
+        command.CommandText = sql;
         command.CommandTimeout = Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds));
         var value = await command.ExecuteScalarAsync(cancellationToken);
 
         return value is string check
             ? new DatabaseReadPrincipalVerification(check == "verified", check == "verified" ? null : check)
             : new DatabaseReadPrincipalVerification(false, "verification-result-invalid");
+    }
+
+    public Task<DbTransaction> BeginReadOnlyTransactionAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        return DatabaseReadTransactions.BeginReadCommittedAsync(connection, cancellationToken);
     }
 
     public async Task ConfigureReadOnlyTransactionAsync(

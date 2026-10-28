@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <PackageId>NewHeap.Platform.DatabaseRead.Tool</PackageId>
     <Title>NewHeap Platform Database Read Tool</Title>
-    <PackageDescription>Inspect selectable SQL Server and PostgreSQL schema and run bounded, read-only diagnostic queries through NewHeap configuration profiles, typed JSON input and strict JSON output.</PackageDescription>
-    <PackageTags>newheap platform dotnet tool database diagnostics sql-server postgresql json</PackageTags>
+    <PackageDescription>Inspect selectable SQL Server, PostgreSQL, MySQL and MariaDB schema and run bounded, read-only diagnostic queries through NewHeap configuration profiles, typed JSON input and strict JSON output.</PackageDescription>
+    <PackageTags>newheap platform dotnet tool database diagnostics sql-server postgresql mysql mariadb json</PackageTags>
     <Copyright>NewHeap B.V.</Copyright>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>newheap-db</ToolCommandName>
@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="MySqlConnector" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="Npgsql" />
   </ItemGroup>

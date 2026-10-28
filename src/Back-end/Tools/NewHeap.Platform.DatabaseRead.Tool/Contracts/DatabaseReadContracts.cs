@@ -76,6 +76,12 @@ internal sealed class DatabaseReadProfile
     public int? MaximumCellBytes { get; init; }
 
     public int? MaximumSqlBytes { get; init; }
+
+    /// <summary>
+    /// <c>strict</c> (the default) or <c>inline-table-valued-select</c>; only a <c>sql-server</c>
+    /// profile accepts it.
+    /// </summary>
+    public string? SqlServerFunctionPolicy { get; init; }
 }
 
 internal sealed record ResolvedDatabaseReadProfile(
@@ -84,7 +90,8 @@ internal sealed record ResolvedDatabaseReadProfile(
     string ConfigurationPath,
     string Environment,
     string ConnectionStringName,
-    DatabaseReadLimits MaximumLimits);
+    DatabaseReadLimits MaximumLimits,
+    SqlServerFunctionPolicy SqlServerFunctionPolicy = SqlServerFunctionPolicy.Strict);
 
 internal sealed record DatabaseReadLimits(
     int MaximumRows,
@@ -94,10 +101,35 @@ internal sealed record DatabaseReadLimits(
     int MaximumCellBytes,
     int MaximumSqlBytes);
 
+/// <summary>
+/// The database providers of the tool. MySQL and MariaDB share one provider implementation, but are
+/// separate profile values: the tool checks that the server is the flavor the profile names, because
+/// their statement limits, roles and privileges differ.
+/// </summary>
 internal enum DatabaseProviderKind
 {
     SqlServer,
-    PostgreSql
+    PostgreSql,
+    MySql,
+    MariaDb
+}
+
+/// <summary>
+/// Which user-defined functions a SQL Server principal may hold SELECT on.
+/// </summary>
+internal enum SqlServerFunctionPolicy
+{
+    /// <summary>
+    /// SELECT or EXECUTE on any user-defined function rejects the principal.
+    /// </summary>
+    Strict,
+
+    /// <summary>
+    /// SELECT on an inline table-valued function is accepted when the function is schema-bound, has
+    /// no <c>EXECUTE AS</c> and depends only on tables and views of the same database that the
+    /// principal may select directly; every other function permission still rejects it.
+    /// </summary>
+    InlineTableValuedSelect
 }
 
 internal enum DatabaseReadRequestKind

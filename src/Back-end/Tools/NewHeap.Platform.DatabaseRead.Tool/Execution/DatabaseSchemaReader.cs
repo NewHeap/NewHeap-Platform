@@ -1,5 +1,3 @@
-using System.Data;
-
 namespace NewHeap.Platform.DatabaseRead;
 
 internal static class DatabaseSchemaReader
@@ -33,8 +31,8 @@ internal static class DatabaseSchemaReader
                 verification.FailedCheck);
         }
 
-        await using var transaction = await connection.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted,
+        await using var transaction = await provider.BeginReadOnlyTransactionAsync(
+            connection,
             cancellationToken);
 
         try

@@ -61,7 +61,7 @@ public static class NewHeapDatabaseReadApplication
                 options.ProfilesPath,
                 cancellationToken);
             var validation = DatabaseReadRequestValidator.Validate(request, profile, options.Command);
-            provider = DatabaseReadProviderFactory.Create(profile.Provider);
+            provider = DatabaseReadProviderFactory.Create(profile);
 
             if (options.Command == DatabaseReadCommand.Validate)
             {

@@ -35,8 +35,8 @@ internal static class DatabaseReadQueryExecutor
                 verification.FailedCheck);
         }
 
-        await using var transaction = await connection.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted,
+        await using var transaction = await provider.BeginReadOnlyTransactionAsync(
+            connection,
             cancellationToken);
 
         try

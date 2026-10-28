@@ -42,6 +42,18 @@ internal static class SqlReadOnlyPolicy
         "QUERY_TO_XMLSCHEMA", "TS_REWRITE", "TS_STAT"
     };
 
+    /// <summary>
+    /// Functions refused on MySQL and MariaDB: they sleep or wait, take or release locks that other
+    /// sessions wait for, read server files or change a sequence. A backtick- or double-quoted
+    /// identifier with the same text is refused as well.
+    /// </summary>
+    private static readonly HashSet<string> MySqlForbiddenFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BENCHMARK", "GET_LOCK", "LOAD_FILE", "MASTER_GTID_WAIT", "MASTER_POS_WAIT", "NEXTVAL",
+        "RELEASE_ALL_LOCKS", "RELEASE_LOCK", "SETVAL", "SLEEP", "SOURCE_POS_WAIT",
+        "WAIT_FOR_EXECUTED_GTID_SET", "WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS"
+    };
+
     public static void Validate(string sql, DatabaseProviderKind provider)
     {
         var (tokens, quotedIdentifiers) = Tokenize(sql, provider);
@@ -57,8 +69,10 @@ internal static class SqlReadOnlyPolicy
             Reject("query-not-read-only", "The query does not contain a SELECT statement.");
         }
 
-        foreach (var token in tokens)
+        var mySqlFamily = IsMySqlFamily(provider);
+        for (var position = 0; position < tokens.Count; position++)
         {
+            var token = tokens[position];
             if (ForbiddenTokens.Contains(token))
             {
                 Reject("query-not-read-only", $"SQL token '{token}' is not allowed by the read-only policy.");
@@ -74,20 +88,59 @@ internal static class SqlReadOnlyPolicy
             {
                 Reject("function-not-allowed", $"PostgreSQL function '{token}' is not allowed.");
             }
+
+            if (mySqlFamily && MySqlForbiddenFunctions.Contains(token))
+            {
+                Reject("function-not-allowed", $"{ProviderName(provider)} function '{token}' is not allowed.");
+            }
+
+            // FOR SHARE and LOCK IN SHARE MODE take row locks that writers wait for; FOR UPDATE and
+            // LOCK are refused as tokens already.
+            if (mySqlFamily && token.Equals("SHARE", StringComparison.OrdinalIgnoreCase))
+            {
+                Reject("locking-read-not-allowed", $"{ProviderName(provider)} locking reads are not allowed.");
+            }
+
+            if (mySqlFamily &&
+                token.Equals("NEXT", StringComparison.OrdinalIgnoreCase) &&
+                position + 1 < tokens.Count &&
+                tokens[position + 1].Equals("VALUE", StringComparison.OrdinalIgnoreCase))
+            {
+                Reject("function-not-allowed", $"{ProviderName(provider)} NEXT VALUE FOR is not allowed.");
+            }
         }
 
+        var forbiddenFunctions = provider switch
+        {
+            DatabaseProviderKind.PostgreSql => PostgreSqlForbiddenFunctions,
+            DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb => MySqlForbiddenFunctions,
+            _ => null
+        };
         foreach (var identifier in quotedIdentifiers)
         {
-            if (PostgreSqlForbiddenFunctions.Contains(identifier))
+            if (forbiddenFunctions?.Contains(identifier) == true)
             {
-                Reject("function-not-allowed", $"PostgreSQL function '{identifier}' is not allowed.");
+                Reject("function-not-allowed", $"{ProviderName(provider)} function '{identifier}' is not allowed.");
             }
         }
     }
 
+    private static bool IsMySqlFamily(DatabaseProviderKind provider) =>
+        provider is DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb;
+
+    private static string ProviderName(DatabaseProviderKind provider) => provider switch
+    {
+        DatabaseProviderKind.SqlServer => "SQL Server",
+        DatabaseProviderKind.PostgreSql => "PostgreSQL",
+        DatabaseProviderKind.MySql => "MySQL",
+        _ => "MariaDB"
+    };
+
     /// <summary>
-    /// Splits the SQL into upper-cased words outside quoted text and, on PostgreSQL, the upper-cased
-    /// text of every double-quoted identifier, with doubled quotes unescaped.
+    /// Splits the SQL into upper-cased words outside quoted text and, on PostgreSQL, MySQL and
+    /// MariaDB, the upper-cased text of every quoted identifier, with doubled quotes unescaped.
+    /// MySQL and MariaDB read a double-quoted value as an identifier under <c>ANSI_QUOTES</c>, so its
+    /// text counts as one there too.
     /// </summary>
     private static (IReadOnlyList<string> Tokens, IReadOnlyList<string> QuotedIdentifiers) Tokenize(
         string sql,
@@ -120,6 +173,11 @@ internal static class SqlReadOnlyPolicy
                 Reject("comments-not-allowed", "SQL comments are not allowed.");
             }
 
+            if (current == '#' && IsMySqlFamily(provider))
+            {
+                Reject("comments-not-allowed", "SQL comments are not allowed.");
+            }
+
             if (current == ';')
             {
                 semicolonPositions.Add(index);
@@ -129,14 +187,34 @@ internal static class SqlReadOnlyPolicy
 
             if (current == '\'')
             {
+                if (IsMySqlFamily(provider))
+                {
+                    RejectMySqlBackslash(sql, index, '\'', provider);
+                }
+
                 index = SkipQuoted(sql, index, '\'', '\'');
+                continue;
+            }
+
+            if (current == '`' && IsMySqlFamily(provider))
+            {
+                var end = SkipQuoted(sql, index, '`', '`');
+                quotedIdentifiers.Add(sql[(index + 1)..(end - 1)]
+                    .Replace("``", "`", StringComparison.Ordinal)
+                    .ToUpperInvariant());
+                index = end;
                 continue;
             }
 
             if (current == '"')
             {
+                if (IsMySqlFamily(provider))
+                {
+                    RejectMySqlBackslash(sql, index, '"', provider);
+                }
+
                 var end = SkipQuoted(sql, index, '"', '"');
-                if (provider == DatabaseProviderKind.PostgreSql)
+                if (provider == DatabaseProviderKind.PostgreSql || IsMySqlFamily(provider))
                 {
                     quotedIdentifiers.Add(sql[(index + 1)..(end - 1)]
                         .Replace("\"\"", "\"", StringComparison.Ordinal)
@@ -208,6 +286,38 @@ internal static class SqlReadOnlyPolicy
         }
 
         return (tokens, quotedIdentifiers);
+    }
+
+    /// <summary>
+    /// MySQL and MariaDB end a quoted value where a backslash does not escape its quote, unless the
+    /// session's <c>sql_mode</c> has <c>NO_BACKSLASH_ESCAPES</c>, so a value with a backslash can end
+    /// elsewhere than where the policy reads it. Such a value is refused; it goes in a typed
+    /// parameter instead. A doubled quote ends where the policy reads it in every mode.
+    /// </summary>
+    private static void RejectMySqlBackslash(string sql, int start, char quote, DatabaseProviderKind provider)
+    {
+        for (var index = start + 1; index < sql.Length; index++)
+        {
+            if (sql[index] == '\\')
+            {
+                Reject(
+                    "backslash-escape-not-allowed",
+                    $"{ProviderName(provider)} string literals and quoted identifiers with a backslash are not allowed. Pass the value as a parameter.");
+            }
+
+            if (sql[index] != quote)
+            {
+                continue;
+            }
+
+            if (index + 1 < sql.Length && sql[index + 1] == quote)
+            {
+                index++;
+                continue;
+            }
+
+            return;
+        }
     }
 
     private static int SkipQuoted(string sql, int start, char opening, char closing)

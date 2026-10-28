@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 
 namespace NewHeap.Platform.DatabaseRead;
@@ -14,6 +15,16 @@ internal interface IDatabaseReadProvider
     Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Starts the transaction that the diagnostic runs in, at read committed. A provider that can
+    /// start a transaction read only does so here, because a transaction that has started can no
+    /// longer change that; the others make it read only in
+    /// <see cref="ConfigureReadOnlyTransactionAsync"/>.
+    /// </summary>
+    Task<DbTransaction> BeginReadOnlyTransactionAsync(
+        DbConnection connection,
         CancellationToken cancellationToken);
 
     Task ConfigureReadOnlyTransactionAsync(
@@ -36,14 +47,39 @@ internal interface IDatabaseReadProvider
 
 internal static class DatabaseReadProviderFactory
 {
+    public static IDatabaseReadProvider Create(ResolvedDatabaseReadProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return profile.Provider == DatabaseProviderKind.SqlServer
+            ? new SqlServerDatabaseReadProvider(profile.SqlServerFunctionPolicy)
+            : Create(profile.Provider);
+    }
+
     public static IDatabaseReadProvider Create(DatabaseProviderKind provider)
     {
         return provider switch
         {
             DatabaseProviderKind.SqlServer => new SqlServerDatabaseReadProvider(),
             DatabaseProviderKind.PostgreSql => new PostgreSqlDatabaseReadProvider(),
+            DatabaseProviderKind.MySql => new MySqlDatabaseReadProvider(DatabaseProviderKind.MySql),
+            DatabaseProviderKind.MariaDb => new MySqlDatabaseReadProvider(DatabaseProviderKind.MariaDb),
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null)
         };
+    }
+}
+
+internal static class DatabaseReadTransactions
+{
+    /// <summary>
+    /// The transaction of SQL Server and PostgreSQL, which their providers make read only, or keep
+    /// read only through the principal, after it started.
+    /// </summary>
+    public static async Task<DbTransaction> BeginReadCommittedAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        return await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
     }
 }
 

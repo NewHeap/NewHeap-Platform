@@ -96,6 +96,7 @@ internal static partial class DatabaseReadProfileLoader
         var connectionStringName = RequireSafeName(profile.ConnectionStringName, "connectionStringName");
         var configurationPath = ResolveConfigurationPath(catalogPath, profile.ConfigurationPath);
         var limits = ResolveProfileLimits(profile);
+        var functionPolicy = ParseSqlServerFunctionPolicy(profile.SqlServerFunctionPolicy, provider);
 
         return new ResolvedDatabaseReadProfile(
             matchingProfile.Key,
@@ -103,7 +104,8 @@ internal static partial class DatabaseReadProfileLoader
             configurationPath,
             environment,
             connectionStringName,
-            limits);
+            limits,
+            functionPolicy);
     }
 
     private static string FindCatalog()
@@ -131,9 +133,42 @@ internal static partial class DatabaseReadProfileLoader
         {
             "sql-server" => DatabaseProviderKind.SqlServer,
             "postgresql" => DatabaseProviderKind.PostgreSql,
+            "mysql" => DatabaseProviderKind.MySql,
+            "mariadb" => DatabaseProviderKind.MariaDb,
             _ => throw InvalidProfile(
                 "unsupported-provider",
-                "The profile provider must be 'sql-server' or 'postgresql'.")
+                "The profile provider must be 'sql-server', 'postgresql', 'mysql' or 'mariadb'.")
+        };
+    }
+
+    /// <summary>
+    /// The SQL Server function policy stays strict unless a <c>sql-server</c> profile opts in. Another
+    /// provider rejects the property instead of ignoring it, so a profile never suggests a policy that
+    /// its provider does not apply.
+    /// </summary>
+    private static SqlServerFunctionPolicy ParseSqlServerFunctionPolicy(
+        string? policy,
+        DatabaseProviderKind provider)
+    {
+        if (policy is null)
+        {
+            return SqlServerFunctionPolicy.Strict;
+        }
+
+        if (provider != DatabaseProviderKind.SqlServer)
+        {
+            throw InvalidProfile(
+                "invalid-profile-value",
+                "Profile property 'sqlServerFunctionPolicy' applies only to a 'sql-server' profile.");
+        }
+
+        return policy switch
+        {
+            "strict" => SqlServerFunctionPolicy.Strict,
+            "inline-table-valued-select" => SqlServerFunctionPolicy.InlineTableValuedSelect,
+            _ => throw InvalidProfile(
+                "invalid-profile-value",
+                "Profile property 'sqlServerFunctionPolicy' must be 'strict' or 'inline-table-valued-select'.")
         };
     }
 

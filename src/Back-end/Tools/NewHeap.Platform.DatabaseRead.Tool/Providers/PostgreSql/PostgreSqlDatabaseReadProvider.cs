@@ -202,6 +202,13 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             : new DatabaseReadPrincipalVerification(false, "verification-result-invalid");
     }
 
+    public Task<DbTransaction> BeginReadOnlyTransactionAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        return DatabaseReadTransactions.BeginReadCommittedAsync(connection, cancellationToken);
+    }
+
     public async Task ConfigureReadOnlyTransactionAsync(
         DbConnection connection,
         DbTransaction transaction,
