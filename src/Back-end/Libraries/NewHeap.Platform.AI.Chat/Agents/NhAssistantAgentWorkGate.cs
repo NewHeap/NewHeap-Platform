@@ -17,7 +17,7 @@ internal static class NhAssistantAgentWorkGate
     /// disabled, <see cref="NhAssistantErrorCodes.AgentWorkOff"/> while it is enabled with agent work
     /// off; <see langword="null"/> when agents work.
     /// </summary>
-    public static string? RefusalOf(NhAssistantOptions options)
+    internal static string? RefusalOf(NhAssistantOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled)
@@ -35,7 +35,7 @@ internal static class NhAssistantAgentWorkGate
     /// <summary>
     /// <see cref="RefusalOf(NhAssistantOptions)"/> with the options in effect now.
     /// </summary>
-    public static string? RefusalOf(IOptionsMonitor<NhAssistantOptions> options)
+    internal static string? RefusalOf(IOptionsMonitor<NhAssistantOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
         return RefusalOf(options.CurrentValue);
@@ -44,7 +44,7 @@ internal static class NhAssistantAgentWorkGate
     /// <summary>
     /// Whether agents work now: the assistant is enabled and agent work is on.
     /// </summary>
-    public static bool IsOn(NhAssistantOptions options)
+    internal static bool IsOn(NhAssistantOptions options)
     {
         return RefusalOf(options) is null;
     }
@@ -52,7 +52,7 @@ internal static class NhAssistantAgentWorkGate
     /// <summary>
     /// Whether agents work now, with the options in effect now.
     /// </summary>
-    public static bool IsOn(IOptionsMonitor<NhAssistantOptions> options)
+    internal static bool IsOn(IOptionsMonitor<NhAssistantOptions> options)
     {
         return RefusalOf(options) is null;
     }
@@ -62,7 +62,7 @@ internal static class NhAssistantAgentWorkGate
     /// assistant disabled or agent work off. Such a refusal of an event or a start is not audited per
     /// agent, as it would record every event the application publishes while it lasts.
     /// </summary>
-    public static bool IsHostRefusal(string? code)
+    internal static bool IsHostRefusal(string? code)
     {
         return code is NhAssistantErrorCodes.Disabled or NhAssistantErrorCodes.AgentWorkOff;
     }
