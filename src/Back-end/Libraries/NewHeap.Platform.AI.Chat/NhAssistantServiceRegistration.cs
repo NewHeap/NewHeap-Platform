@@ -129,6 +129,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<Runtime.NhAssistantRetrievalService>();
         services.TryAddScoped<Runtime.NhAssistantTurnFiles>();
         services.TryAddScoped<Runtime.NhAssistantUploads>();
+        // The uploads of a conversation go with it when the application registered a file retention.
+        services.TryAddScoped<NhAssistantFileRetentionCalls>();
         // Reading tools: the application's own, then MCP servers set up as readers, which the ASP.NET
         // integration supplies.
         services.TryAddScoped<Runtime.NhAssistantFileReaders>();

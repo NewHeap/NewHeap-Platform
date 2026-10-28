@@ -36,7 +36,8 @@ internal sealed class NhAssistantCollaboration(
     NhAssistantLivePublisher live,
     INhAssistantNotifier notifier,
     NhAssistantRegistrationState registration,
-    IEnumerable<INhAssistantBusinessAuditSink> auditSinks)
+    IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
+    NhAssistantFileRetentionCalls fileRetention)
 {
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
 
@@ -236,7 +237,8 @@ internal sealed class NhAssistantCollaboration(
     }
 
     /// <summary>
-    /// The owner deletes the conversation for everyone; a participant leaves it.
+    /// The owner deletes the conversation for everyone; a participant leaves it. Once the owner's
+    /// archive committed, the application's file retention forgets the conversation's uploads.
     /// </summary>
     public async Task<TaskResult> DeleteAsync(
         NhAssistantConversationAccess access,
@@ -260,6 +262,14 @@ internal sealed class NhAssistantCollaboration(
         {
             await live.PublishToAsync(actorId, new NhAssistantLiveConversationRemoved(conversationId), cancellationToken);
         }
+
+        // The archive committed: its uploads go with it, best effort, and a failure never undoes it (FB24).
+        await fileRetention.ForgetConversationAsync(
+            new NhAssistantForgottenConversation(conversationId, access.Conversation.AgentId, NhAssistantFileRetentionReasons.Archived)
+            {
+                TenantId = access.Conversation.TenantId
+            },
+            cancellationToken);
         return TaskResult.Succeeded();
     }
 

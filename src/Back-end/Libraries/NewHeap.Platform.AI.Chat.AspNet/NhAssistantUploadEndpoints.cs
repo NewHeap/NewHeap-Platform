@@ -10,10 +10,11 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// <summary>
 /// <c>POST {prefix}/conversations/{id}/files</c>: a person uploads one file to a conversation, as
 /// <c>multipart/form-data</c> with one file part named <c>file</c>. The endpoint runs under the
-/// assistant's access policy like every conversation endpoint and checks the conversation, the agent's
-/// policy and acceptance of files, the accepted media types and the agent's file limits before the
-/// application's file source stores the file. It returns the file's <see cref="NhAiFileReference"/>,
-/// which the message then carries in <c>files</c>.
+/// assistant's access policy like every conversation endpoint and checks the conversation, then
+/// <see cref="NhAssistantConversationUploads"/> checks the agent's policy and acceptance of files, the
+/// accepted media types and the agent's file limits before the application's file source stores the
+/// file, as <see cref="INhAssistantConversations.UploadAsync"/> does. It returns the file's
+/// <see cref="NhAiFileReference"/>, which the message then carries in <c>files</c>.
 /// </summary>
 internal static class NhAssistantUploadEndpoints
 {
@@ -38,7 +39,7 @@ internal static class NhAssistantUploadEndpoints
         group.MapPost("conversations/{id:guid}/files", UploadAsync)
             .WithName("NhAssistantUploadFile")
             .WithSummary("Upload a file to a conversation")
-            .WithDescription("Stores one file the caller attaches to a later message, through the application's file source, and returns its reference for the message's `files`. Send `multipart/form-data` with one file part named `file` and the header X-NH-Assistant-Upload: 1. The agent must accept files, the media type must be one the application accepts and match the content, and the file must fit the agent's MaxFileBytes. A file part without a media type or with a generic one (application/octet-stream, or a type devices send for some extensions, such as application/vnd.ms-excel for a .csv file) takes the type its file name's extension names, when the application accepts that type; a specific type the application does not accept is refused whatever the extension. The application's upload scanner, when it registered one, scans the file before it is stored; a file it refuses answers 422 assistant-file-scan-refused. An upload gets the application's default classification, Confidential unless it configured another.")
+            .WithDescription("Stores one file the caller attaches to a later message, through the application's file source, and returns its reference for the message's `files`. Send `multipart/form-data` with one file part named `file` and the header X-NH-Assistant-Upload: 1. The agent must accept files and its model profile, or a fallback, must permit the upload's classification in the execution region (409 assistant-files-not-accepted otherwise, as GET agents then offers no uploads), the media type must be one the application accepts and match the content, and the file must fit the agent's MaxFileBytes. A file part without a media type or with a generic one (application/octet-stream, or a type devices send for some extensions, such as application/vnd.ms-excel for a .csv file) takes the type its file name's extension names, when the application accepts that type; a specific type the application does not accept is refused whatever the extension. The application's upload scanner, when it registered one, scans the file before it is stored; a file it refuses answers 422 assistant-file-scan-refused. An upload gets the application's default classification, Confidential unless it configured another.")
             .Produces<NhAiFileReference>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
@@ -53,7 +54,7 @@ internal static class NhAssistantUploadEndpoints
     private static async Task<IResult> UploadAsync(
         Guid id,
         HttpContext httpContext,
-        NhAssistantUploads uploads)
+        NhAssistantConversationUploads uploads)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -61,41 +62,37 @@ internal static class NhAssistantUploadEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
         }
 
-        // Uploading belongs to starting a turn: the caller must satisfy the agent's policy now.
+        // The conversation first; the uploads service then checks the agent's policy, which everyone
+        // who uploads must satisfy, the role in an agent's thread and the agent's rules, as
+        // INhAssistantConversations.UploadAsync does.
         var resolved = await NhAssistantEndpointRouteBuilderExtensions.ResolveAccessAsync(
             httpContext,
             id,
             caller.Data,
-            NhAssistantAgentCheck.Everyone);
+            NhAssistantAgentCheck.None);
         if (resolved.Error is not null)
         {
             return resolved.Error;
         }
 
-        var conversation = resolved.Access!.Conversation;
-        var threadAccess = NhAssistantEndpointRouteBuilderExtensions.ThreadAccessOf(httpContext);
-        if (threadAccess is not null && threadAccess.Role < NhAiSubjectRole.Participant)
+        var prepared = await uploads.PrepareAsync(
+            httpContext.User,
+            resolved.Access!,
+            NhAssistantEndpointRouteBuilderExtensions.ThreadAccessOf(httpContext),
+            httpContext.RequestAborted);
+        if (!prepared.Success)
         {
-            return Error(NhAssistantErrorCodes.SubjectAccessDenied);
-        }
-        if (!uploads.Available)
-        {
-            return Error(NhAssistantErrorCodes.FilesUnavailable);
-        }
-
-        var rules = uploads.RulesOf(conversation.AgentId);
-        if (rules is null)
-        {
-            return Error(NhAssistantErrorCodes.FilesNotAccepted);
+            return NhAssistantEndpointRouteBuilderExtensions.FromFailure(prepared);
         }
 
+        var target = prepared.Data!;
         var request = httpContext.Request;
         if (string.IsNullOrWhiteSpace(request.Headers[UploadHeader]) || !IsMultipart(request))
         {
             return Error(NhAssistantErrorCodes.FileUploadInvalid);
         }
 
-        var maxRequestBytes = (long)rules.MaxFileBytes + MultipartOverheadBytes;
+        var maxRequestBytes = (long)target.Rules.MaxFileBytes + MultipartOverheadBytes;
         if (request.ContentLength > maxRequestBytes)
         {
             return Error(NhAssistantErrorCodes.FileTooLarge);
@@ -114,18 +111,9 @@ internal static class NhAssistantUploadEndpoints
             return Error(NhAssistantErrorCodes.FileUploadInvalid);
         }
 
-        var actor = new NhAssistantFileActor(caller.Data.ActorId, NhAiActorKind.Human, conversation.AgentId, conversation.Id)
-        {
-            AccountableOwnerId = threadAccess?.Thread.AccountableOwnerId ?? caller.Data.ActorId,
-            TenantId = conversation.TenantId,
-            Subject = threadAccess?.Subject,
-            Origin = NhAssistantFileOrigins.Attachment
-        };
         var stored = await uploads.StoreAsync(
-            conversation.Id,
+            target,
             new NhAssistantUploadInput(file.FileName, file.ContentType, file.Length, file.OpenReadStream),
-            rules,
-            actor,
             httpContext.RequestAborted);
         return stored.Success
             ? NhAssistantEndpointRouteBuilderExtensions.Json(stored.Data, NhAssistantJsonSerializerContext.Default.NhAiFileReference)

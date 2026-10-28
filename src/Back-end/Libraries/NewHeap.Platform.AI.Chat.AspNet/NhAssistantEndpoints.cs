@@ -60,7 +60,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapGet("agents", GetAgentsAsync)
             .WithName("NhAssistantGetAgents")
             .WithSummary("List assistant agents")
-            .WithDescription("Returns the agents whose required policy the caller satisfies.")
+            .WithDescription("Returns the agents whose required policy the caller satisfies, each with `uploads`: what people may attach to a message to it, or null when the application takes no uploads, the agent accepts no files or neither its model profile nor a fallback may receive the uploads' classification in the execution region.")
             .Produces<NhAssistantAgentSummaryDto[]>()
             .Produces(StatusCodes.Status404NotFound);
         enabled.MapGet("conversations", ListConversationsAsync)
@@ -194,7 +194,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Json(new NhAssistantStatusDto(false, [], limits, false), NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
         }
-        var agents = await access.GetVisibleAgentsAsync(httpContext.User, httpContext.RequestAborted);
+        var agents = await NhAssistantPersonLists.ListAgentsAsync(access, uploads, httpContext.User, httpContext.RequestAborted);
         var canAdminister = await access.CanAdministerAsync(httpContext.User);
         // Checks the registration without constructing the application's directory.
         var directory = httpContext.RequestServices.GetService<IServiceProviderIsService>()
@@ -207,7 +207,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return Json(
             new NhAssistantStatusDto(
                 true,
-                agents.Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads)).ToArray(),
+                agents,
                 limits,
                 canAdminister,
                 collaboration),
@@ -219,9 +219,9 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         NhAssistantAgentAccess access,
         NhAssistantUploads uploads)
     {
-        var agents = await access.GetVisibleAgentsAsync(httpContext.User, httpContext.RequestAborted);
+        var agents = await NhAssistantPersonLists.ListAgentsAsync(access, uploads, httpContext.User, httpContext.RequestAborted);
         return Json(
-            agents.Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads)).ToArray(),
+            agents.ToArray(),
             NhAssistantJsonSerializerContext.Default.NhAssistantAgentSummaryDtoArray);
     }
 
@@ -236,21 +236,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return ContextUnavailable();
         }
-        var pageNumber = page ?? 1;
-        var size = itemsPerPage ?? 20;
-        if (pageNumber < 1 || size is < 1 or > 100)
-        {
-            return Error(NhAssistantErrorCodes.MessageInvalid);
-        }
-        var (items, total) = await store.ListConversationsAsync(
-            caller.Data.ActorId,
-            caller.Data.TenantId,
-            pageNumber,
-            size,
+        var listed = await NhAssistantPersonLists.ListConversationsAsync(
+            store,
+            caller.Data,
+            page ?? 1,
+            itemsPerPage ?? NhAssistantPersonLists.DefaultItemsPerPage,
             httpContext.RequestAborted);
-        return Json(
-            new NhAssistantConversationListDto(items.Select(NhAssistantDtoMapper.ToSummary).ToArray(), total),
-            NhAssistantJsonSerializerContext.Default.NhAssistantConversationListDto);
+        return listed.Success
+            ? Json(listed.Data!, NhAssistantJsonSerializerContext.Default.NhAssistantConversationListDto)
+            : FromFailure(listed);
     }
 
     private static async Task<IResult> CreateConversationAsync(
