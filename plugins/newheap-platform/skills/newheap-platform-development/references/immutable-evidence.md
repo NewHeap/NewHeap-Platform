@@ -70,6 +70,10 @@ Source release: `newheap-platform-plugin-v1.13.90`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.90/docs/consumer-guide/ai-protected-actions.md)
 
+## Ai Scripting
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.90/docs/consumer-guide/ai-scripting.md)
+
 ## Authentication Overrides
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.90/docs/consumer-guide/authentication-overrides.md)

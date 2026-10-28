@@ -636,6 +636,17 @@ on to the API's own endpoints. The API's own clients keep calling `/mcp` with th
 without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the official MCP SDK
 client through the whole flow against a stand-in authorization server; the authorization server, the
 registration of clients and the consent stay the application's.
+A chained question costs one call when the model writes a script (SPM-373). The project assistant's
+agent context allows scripts, `AddNewHeapPlatformAIScripting` gives its scripts at most four calls and one
+change, and with `NewHeap:AI:Assistant:Scripts` on the assistant offers `run_script`, whose description
+lists the turn's tools as TypeScript-style signatures. Asked which projects cover the roadmap and the
+launch, the model searches both topics in one short program that runs on the server and returns only the
+distinct keys; each search runs as the person's own call would, and the model reads the value, not the
+search results. A call that does not match its signature stops the script with the exact signature and
+the field to correct, so the next script gets it right. A change inside a script gets the sample's
+approval exactly as the same call on its own (SPM-374): the status change stops the script, the person
+sees the usual approval card and nothing after the change runs until they decide.
+`AssistantScriptSamplesTests` runs both on the sample's host.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

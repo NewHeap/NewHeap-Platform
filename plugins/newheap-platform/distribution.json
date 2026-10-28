@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.90",
   "guidanceVersion": "1.13.90",
-  "skillContentHash": "fc9ba8b34088128f542c5b0e26e800e46fcb593bceabe164e64e4f9e2891ac21",
+  "skillContentHash": "c41da3b69ff7253477cb91b3bed789202ae78e23321bf7d09b6f62c5d47ea481",
   "skills": [
     "newheap-platform-development"
   ],
@@ -42,6 +42,7 @@
     "NewHeap.Platform.AI.Common": "24.0.0",
     "NewHeap.Platform.AI.Generators": "24.0.0",
     "NewHeap.Platform.AI.Mcp": "24.0.0",
+    "NewHeap.Platform.AI.Scripting": "24.0.0",
     "NewHeap.Platform.AI.Test": "24.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "24.0.0",

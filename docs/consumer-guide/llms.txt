@@ -16,6 +16,7 @@
 - ai-model-profiles: ./ai-model-profiles.md
 - ai-observability-evaluation: ./ai-observability-evaluation.md
 - ai-protected-actions: ./ai-protected-actions.md
+- ai-scripting: ./ai-scripting.md
 - authentication-overrides: ./authentication-overrides.md
 - authentication-passkeys: ./authentication-passkeys.md
 - authentication-session-lifecycle: ./authentication-session-lifecycle.md

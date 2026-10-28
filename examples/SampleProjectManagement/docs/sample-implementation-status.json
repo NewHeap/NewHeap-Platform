@@ -349,7 +349,9 @@
     "SPM-355",
     "SPM-366",
     "SPM-369",
-    "SPM-370"
+    "SPM-370",
+    "SPM-373",
+    "SPM-374"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3718,6 +3720,30 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpProtectedResourceHttpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
+    ],
+    "SPM-373": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptToolTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
+    ],
+    "SPM-374": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptStepHost.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
     ]
   }
 }

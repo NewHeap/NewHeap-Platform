@@ -47,6 +47,7 @@ Read these references only when the task adds or changes AI behavior through the
 - [durable runs](references/ai-durable-runs.md) when AI work outlives a request inside a background operation with checkpoints and approval waits;
 - [MCP tools](references/ai-mcp-tools.md) when exposing generated tools to MCP clients;
 - [MCP imports](references/ai-mcp-imports.md) when importing tools from external MCP servers;
+- [scripting](references/ai-scripting.md) when a model should chain the tools of its turn in one sandboxed script, in the assistant or over MCP;
 - [observability and evaluation](references/ai-observability-evaluation.md) for content-free AI telemetry, usage and evaluation gates before changing production defaults.
 
 The authenticated invocation context these features run under belongs to the authentication module.
