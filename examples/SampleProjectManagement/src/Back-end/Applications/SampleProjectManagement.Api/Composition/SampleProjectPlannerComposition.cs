@@ -47,6 +47,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// starts without a skill, and the model loads the task follow-up or the deadline risk skill with
 /// <c>use_skill</c>, without triage. The skill's instructions and tools then apply with the person's
 /// own rights, and the planner's message of the turn names the skill.
+/// SPM-361: other assistants may ask the planner to look at a project in a run of its own, never
+/// consult it for an answer now (<c>RequestsOnly()</c>): its rules and skills do the work, and a
+/// consultation's own turn has nothing to offer them. Only <c>assistant.request.sample-project-planner.project</c>
+/// is generated.
 /// </summary>
 public static class SampleProjectPlannerComposition
 {
@@ -143,7 +147,14 @@ public static class SampleProjectPlannerComposition
                     .Instructions(ProjectAiAssets.ProjectPlannerDeadlineRiskInstructions)
                     .Tools(ProjectAiTools.ChangeStatusToolId, SampleAiBridgeComposition.GatewayToolSetId + ".*")
                     .MaxTokensPerRun(30_000)
-                    .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 20, tokens: 100_000))))
+                    .Budget(NhAssistantAgentBudget.PerDay(toolCalls: 20, tokens: 100_000)))
+                // SPM-361: the project assistant asks the planner to work on a project for a participant,
+                // who becomes the run's initiator; nobody consults it. The settings of a consultation's
+                // own turn (limits, tools, history, instructions, proposals) would refuse startup here.
+                .AllowConsultation(ProjectSubjects.Type, consultation => consultation
+                    .Description("Plans a project's follow-up: what is left, which task comes next and whether the deadline holds.")
+                    .Policy(SampleAssistantComposition.AccessPolicy)
+                    .RequestsOnly()))
             .AddTrigger<ProjectTaskUpdatedEvent>(TaskTriggerId, trigger => trigger
                 .StartAgent(AgentId)
                 .Skill(TaskFollowUpSkill)

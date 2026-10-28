@@ -4842,6 +4842,151 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_360_a_requested_review_answers_once_in_the_chat_the_participant_asked_in()
+    {
+        // SPM-360: the intake reviewer's consultation answers requests in the asking conversation.
+        const string requestTool = "request_sample-project-intake-reviewer_project_v1";
+        var project = await host.CreateProjectAsync("ANSWERED", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var reviewer = new NhAiScriptedChatClient()
+            .RespondWithText("Checked the owner; the review board has not answered.")
+            .RespondWithText("Reviewed again: the owner is set and the budget still waits for approval.");
+        var assistant = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(requestTool, new { input = new { subjectId = projectText, message = "Review the intake again." } }, "call-request")
+            .RespondWithText("The intake reviewer answers here once it is done.");
+        var assistantInstructions = ProjectAiAssets.ProjectAgentInstructions.Content.Split('\n')[0].Trim();
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, projectText), reviewer)));
+        try
+        {
+            // Other tests may add a trigger of their own on a new project; this one follows the reviewer's.
+            var created = Assert.Single(
+                await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId),
+                receipt => receipt.TriggerId == SampleIntakeReviewerComposition.TriggerId);
+            var threadId = created.ConversationId!.Value;
+            await WaitForRunAsync(owner, threadId, NhAssistantRunStatuses.Completed);
+
+            // The participant asks the project assistant, which requests a review in a run of the
+            // reviewer's own; the answer comes back into this chat.
+            var chat = await host.CreateConversationAsync(participant);
+            await host.SendAsync(participant, chat, "Ask the reviewer to look at the intake again.");
+            var runs = await WaitForRunCountAsync(owner, threadId, 2);
+            var requested = Assert.Single(runs, run => run.TriggerId == NhAssistantTriggerIds.AgentRequest);
+            Assert.Equal(NhAssistantRunStatuses.Completed, requested.Status);
+            Assert.Equal(host.ParticipantId.ToString(), requested.InitiatorActorId);
+
+            var answer = await WaitForApplicationMessageAsync(participant, chat);
+            Assert.Contains("the budget still waits for approval", TextOf(answer), StringComparison.Ordinal);
+            Assert.False(string.IsNullOrWhiteSpace(answer.Application!.Title));
+            // The link opens where the portal shows the project's agent work, the subject type's OpenAt.
+            Assert.Equal(ProjectSubjects.LinkTemplate.Replace("{id}", projectText, StringComparison.Ordinal), answer.Application.Link!.Url);
+            // The answer is the model's: information for later turns, never the application's instruction.
+            Assert.False(answer.Application.Trusted);
+            Assert.Single((await ReadConversationAsync(participant, chat)).Messages, message => message.Role == "application");
+
+            // Only the participant's chat hears it: a colleague cannot open that chat.
+            using var foreign = await colleague.GetAsync($"/api/assistant/conversations/{chat}");
+            Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    [Fact]
+    public async Task SPM_361_the_planner_and_the_follow_up_take_requests_only_in_code_and_as_data()
+    {
+        // SPM-361: RequestsOnly() on the planner's consultation in code, requestsOnly as data on the
+        // follow-up, which works on the whole application.
+        const string plannerRequestToolId = "assistant.request.sample-project-planner.project";
+        const string followUp = SampleRuntimeAgentSeeder.FollowUpAgentId;
+        var followUpRequestToolId = NhAssistantConsultationTools.RequestToolId(followUp, NhAiSubjectRef.SystemType);
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+
+        // In code: only the request tool, which the project assistant selects.
+        var tools = await ToolIdsAsync(administrator);
+        Assert.Contains(plannerRequestToolId, tools);
+        Assert.DoesNotContain("assistant.consult.sample-project-planner.project", tools);
+        var planner = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>(
+            $"/api/assistant/admin/agents/{SampleProjectPlannerComposition.AgentId}/configuration",
+            Json))!;
+        var inCode = Assert.Single(planner.CodeConsultations);
+        Assert.Equal((true, string.Empty, plannerRequestToolId), (inCode.RequestsOnly, inCode.ConsultToolId, inCode.RequestToolId));
+        Assert.Contains(SampleAssistantComposition.AgentId, inCode.AskingAgents);
+        Assert.Empty(inCode.AllowedRoutes);
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.True((await SampleRuntimeAgentSeeder.SeedFollowUpAsync(scope.ServiceProvider, host.OperationsAccountId, host.OwnerId, CancellationToken.None)).Success);
+        }
+
+        // As data: a requests-only save refuses what only a consultation's own turn uses, before
+        // anything is stored.
+        var path = $"/api/assistant/admin/agents/{followUp}/consultations/{NhAiSubjectRef.SystemType}";
+        using (var refused = await administrator.PutAsJsonAsync(
+            path,
+            SampleAgentConfigurationService.FollowUpRequestsOnly() with
+            {
+                AllowRequests = false,
+                Instructions = "Answer in one sentence.",
+                Routes = [NhAssistantConsultationRoutes.AskerDecides],
+                ToolSelectors = [ProjectAiTools.ChangeStatusToolId]
+            },
+            Json))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            var errors = (await refused.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("errors");
+            Assert.Equal("required", errors.GetProperty("allowRequests")[0].GetString());
+            Assert.Equal("not-allowed", errors.GetProperty("routes")[0].GetString());
+            Assert.Equal("not-allowed", errors.GetProperty("instructions")[0].GetString());
+            Assert.Equal("not-allowed", errors.GetProperty("toolSelectors")[0].GetString());
+        }
+
+        try
+        {
+            using var saved = await administrator.PutAsJsonAsync(path, SampleAgentConfigurationService.FollowUpRequestsOnly(), Json);
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+            var consultation = (await saved.Content.ReadFromJsonAsync<NhAssistantDataConsultationDto>(Json))!;
+            Assert.Equal((true, true, string.Empty, followUpRequestToolId), (consultation.InEffect, consultation.RequestsOnly, consultation.ConsultToolId, consultation.RequestToolId));
+            var afterSave = await ToolIdsAsync(administrator);
+            Assert.Contains(followUpRequestToolId, afterSave);
+            Assert.DoesNotContain(NhAssistantConsultationTools.ConsultToolId(followUp, NhAiSubjectRef.SystemType), afterSave);
+        }
+        finally
+        {
+            using var removed = await administrator.DeleteAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// The first message the application posted into a person's chat, once it is there.
+    /// </summary>
+    private static async Task<NhAssistantMessageDto> WaitForApplicationMessageAsync(HttpClient client, Guid conversationId)
+    {
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started.AddSeconds(60);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var conversation = await ReadConversationAsync(client, conversationId);
+            if (conversation.Messages.FirstOrDefault(message => message.Role == "application") is { } posted)
+            {
+                return posted;
+            }
+
+            await NextPollAsync(null);
+        }
+
+        throw new TimeoutException($"Waited {Elapsed(started)} for an application message in conversation {conversationId}.");
+    }
+
+    [Fact]
     public async Task SPM_278_one_answer_of_the_project_assistant_consults_the_intake_reviewer_at_most_twice()
     {
         // SPM-278: MaxConsultationsPerTurn is 2 in SampleAssistantComposition; the third is refused first.
