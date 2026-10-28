@@ -319,6 +319,13 @@ internal static class NhAssistantHttpErrors
         // An impersonation session grants nothing in the person's name that outlives it.
         Add(statuses, StatusCodes.Status403Forbidden,
             NhAssistantErrorCodes.NotAllowedWhileImpersonating);
+        // The application's approval policy selector (FB19): a policy it did not register, and a selector
+        // that threw or did not answer in time, which refuse the proposal.
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantErrorCodes.ApprovalPolicyUnknown);
+        Add(statuses, StatusCodes.Status503ServiceUnavailable,
+            NhAssistantErrorCodes.ApprovalPolicySelectorFailed,
+            NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

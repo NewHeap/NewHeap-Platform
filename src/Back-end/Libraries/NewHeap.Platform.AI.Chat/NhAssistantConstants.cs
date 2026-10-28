@@ -1149,6 +1149,26 @@ public static class NhAssistantErrorCodes
     /// </summary>
     public const string BoardScopeInvalid = "assistant-board-scope-invalid";
     public const string ApprovalPolicyDenied = "assistant-approval-policy-denied";
+
+    /// <summary>
+    /// The approval policy is not registered: the application's approval policy selector chose an id that
+    /// <c>AddApprovalPolicy</c> did not register, so nothing was proposed, or the approver directory was
+    /// asked about one.
+    /// </summary>
+    public const string ApprovalPolicyUnknown = "assistant-approval-policy-unknown";
+
+    /// <summary>
+    /// The application's approval policy selector threw while it chose the policy of a proposal, so
+    /// nothing was proposed. The log names the selector's type and the exception's type.
+    /// </summary>
+    public const string ApprovalPolicySelectorFailed = "assistant-approval-policy-selector-failed";
+
+    /// <summary>
+    /// The application's approval policy selector did not answer within its time limit, so nothing was
+    /// proposed.
+    /// </summary>
+    public const string ApprovalPolicySelectorTimedOut = "assistant-approval-policy-selector-timed-out";
+
     public const string FourEyesRequired = "assistant-four-eyes-required";
     public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";
 
