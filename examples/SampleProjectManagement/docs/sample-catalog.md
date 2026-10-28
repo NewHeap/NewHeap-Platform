@@ -592,7 +592,9 @@ release guide's block with a mistake shows its source with the renderer's reason
 
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
-server protects its address, from its challenge and protected resource metadata; saving the server
+server protects its address, from its challenge and protected resource metadata. The challenge
+answers the MCP `initialize` POST a client starts with, so the stateless planning server, which
+answers `GET` with `405`, shows its scopes too; saving the server
 with `oauth.confirmAuthorization` pins that issuer, so the assistant asks only it for tokens, always
 for the server's own address, and suspends the server's connections when it later names another
 one until an administrator confirms again. With `oauth-client-credentials` the sample's own client

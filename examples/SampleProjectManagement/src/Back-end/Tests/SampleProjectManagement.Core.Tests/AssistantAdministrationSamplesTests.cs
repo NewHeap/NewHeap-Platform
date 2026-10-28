@@ -391,6 +391,14 @@ public sealed partial class AssistantSamplesTests
         using var admin = Host.CreateClient("spm-299-admin", admin: true);
         using var user = Host.CreateClient("spm-299-user");
 
+        // The planning server is stateless and answers GET with 405, so discovery reads its challenge
+        // from the MCP initialize POST that a client starts with.
+        using (var anonymous = new HttpClient())
+        using (var get = await anonymous.GetAsync(planning.Url, cancellation))
+        {
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, get.StatusCode);
+        }
+
         // The administrator reads which authorization server protects the address before trusting it.
         using var discovered = await admin.PostAsync(
             "/api/assistant/admin/mcp-servers/discover",
@@ -801,13 +809,22 @@ public sealed class SampleMcpServer : IAsyncDisposable
     /// SPM-299: a server that is a resource server of an OAuth authorization server. It publishes its
     /// protected resource metadata and requires an access token of <paramref name="authorization"/>
     /// for its own address, answering <c>401</c> with a challenge or <c>403 insufficient_scope</c>.
+    /// Like a stateless server whose authorization belongs to its mapped <c>POST</c> endpoint, it
+    /// answers <c>GET</c> with <c>405</c> before any challenge.
     /// </summary>
     public static async Task<SampleMcpServer> StartProtectedAsync(
         NhAiTestAuthorizationServer authorization,
         Action<NhAiTestProtectedResource>? configure = null)
     {
         SampleMcpServer? server = null;
-        server = await StartAsync((context, next) => server!.Resource!.InvokeAsync(context, next));
+        server = await StartAsync((context, next) =>
+        {
+            if (HttpMethods.IsGet(context.Request.Method) && context.Request.Path == "/mcp")
+            {
+                return next();
+            }
+            return server!.Resource!.InvokeAsync(context, next);
+        });
         server.Resource = new NhAiTestProtectedResource(authorization, server.Url, "/mcp");
         configure?.Invoke(server.Resource);
         return server;
