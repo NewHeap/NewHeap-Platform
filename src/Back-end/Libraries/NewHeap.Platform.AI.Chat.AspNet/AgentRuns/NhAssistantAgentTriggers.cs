@@ -267,6 +267,17 @@ internal sealed record NhAssistantTriggerFire(
     /// thread or a request through another assistant, creates nothing without it.
     /// </summary>
     public NhAssistantStartClearance? StartClearance { get; init; }
+
+    /// <summary>
+    /// The person's chat a request through another assistant was made in, where its run posts the
+    /// answer once it completes (FB29); its run keeps it. <see langword="null"/> for every other fire.
+    /// </summary>
+    public Guid? AskingConversationId { get; init; }
+
+    /// <summary>
+    /// The turn of <see cref="AskingConversationId"/> that made the request.
+    /// </summary>
+    public Guid? AskingTurnId { get; init; }
 }
 
 /// <summary>
@@ -1796,6 +1807,9 @@ internal sealed class NhAssistantAgentTriggers(
                 ?? (fire.SkillId is { } versionedSkill && options.Skills.TryGetValue(versionedSkill, out var versioned) ? versioned.DataVersion : null),
             SkillCandidate = fire.SkillCandidate,
             ReplayOfRunId = fire.ReplayOfRunId,
+            // A shadow run never answers in a person's chat (FB29).
+            AskingConversationId = shadow ? null : fire.AskingConversationId,
+            AskingTurnId = shadow ? null : fire.AskingTurnId,
             CreatedAt = DateTimeOffset.UtcNow,
             ConcurrencyStamp = Guid.NewGuid()
         };

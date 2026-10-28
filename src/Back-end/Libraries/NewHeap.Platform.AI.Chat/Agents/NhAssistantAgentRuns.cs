@@ -1144,7 +1144,8 @@ public sealed class NhAssistantAgentRunBuilder
     /// Lets other assistants consult the agent about subjects of <paramref name="subjectType"/>.
     /// This generates the governed tool <c>assistant.consult.{agentId}.{subjectType}</c>, and with
     /// <see cref="NhAssistantConsultationBuilder.AllowRequests"/> also
-    /// <c>assistant.request.{agentId}.{subjectType}</c>. An asking agent uses them only when its tool
+    /// <c>assistant.request.{agentId}.{subjectType}</c>; with
+    /// <see cref="NhAssistantConsultationBuilder.RequestsOnly"/> only the request tool. An asking agent uses them only when its tool
     /// selectors select them. A consultation runs with the asking person's rights, never with this
     /// agent's grants, and anything that would change data becomes a deferred proposal in the
     /// agent's subject thread.
@@ -1161,6 +1162,7 @@ public sealed class NhAssistantAgentRunBuilder
 
         var consultation = _options.AddConsultation(subjectType);
         configure?.Invoke(new NhAssistantConsultationBuilder(consultation));
+        consultation.ValidateRequests();
         return this;
     }
 
@@ -1179,6 +1181,7 @@ public sealed class NhAssistantAgentRunBuilder
         _options.MarkRunSetting(nameof(ConsultableAsData));
         var ceiling = new NhAssistantConsultationCeiling();
         configure?.Invoke(new NhAssistantConsultationCeilingBuilder(ceiling));
+        ceiling.Validate($"The ceiling of consultations as data of agent '{_options.AgentId}'");
         _options.ConsultationCeiling = ceiling;
         return this;
     }

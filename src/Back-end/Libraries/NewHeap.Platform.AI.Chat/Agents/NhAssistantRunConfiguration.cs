@@ -881,7 +881,9 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
             || row.TimeoutSeconds > NhAssistantConsultationBounds.MaxTimeout.TotalSeconds
             || row.MaxAnswerChars is < NhAssistantConsultationBounds.MinAnswerChars or > NhAssistantConsultationBounds.MaxAnswerChars
             || row.MaxHistoryMessages is < 0 or > NhAssistantConsultationBounds.MaxHistoryMessages
-            || (row.DataClassification is not null && !NhAssistantDataClassificationNames.TryParse(row.DataClassification, out _)))
+            || (row.DataClassification is not null && !NhAssistantDataClassificationNames.TryParse(row.DataClassification, out _))
+            // A consultation that only takes requests keeps them, and its turn has no proposal routes.
+            || (row.RequestsOnly && (!row.AllowRequests || routes.Count > 0)))
         {
             return NhAssistantDataConsultationCheck.Out(NhAssistantRunConfigurationProblems.Invalid);
         }
@@ -992,6 +994,10 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
             MaxAnswerChars = Math.Min(row.MaxAnswerChars, ceiling.MaxAnswerChars),
             MaxHistoryMessages = Math.Min(row.MaxHistoryMessages, ceiling.MaxHistoryMessages),
             AllowRequests = allowRequests,
+            // A consultation that only takes requests generates no consult tool, also while the ceiling
+            // allows no requests: it then offers nothing (requests-not-allowed).
+            RequestsOnly = row.RequestsOnly,
+            RequestAnswerRoute = allowRequests ? ceiling.RequestAnswerRoute : NhAssistantRequestAnswerRoute.AgentThread,
             Exposure = exposeToMcp
                 ? NhAiToolExposure.Local | NhAiToolExposure.Agent | NhAiToolExposure.Mcp
                 : NhAiToolExposure.Local | NhAiToolExposure.Agent,
@@ -1500,7 +1506,8 @@ internal sealed partial class NhAssistantRunConfigurations(
 
     private static bool IsReserved(INhAssistantReservedToolNames reserved, NhAssistantConsultationOptions options)
     {
-        return reserved.IsReserved(options.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, options.AgentId, options.SubjectType))
+        return (!options.RequestsOnly
+                && reserved.IsReserved(options.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, options.AgentId, options.SubjectType)))
                || (options.AllowRequests
                    && reserved.IsReserved(options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, options.AgentId, options.SubjectType)));
     }

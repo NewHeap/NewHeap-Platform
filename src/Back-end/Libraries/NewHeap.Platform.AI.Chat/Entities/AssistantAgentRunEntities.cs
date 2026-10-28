@@ -150,6 +150,19 @@ public sealed class AssistantRun
     public int HandOffDepth { get; set; }
 
     /// <summary>
+    /// The chat conversation a request through another assistant was made in, where the run posts its
+    /// answer once it completes, when the consultation answers requests there
+    /// (<see cref="NhAssistantRequestAnswerRoute.AskingConversation"/>); <see langword="null"/> for
+    /// every other run.
+    /// </summary>
+    public Guid? AskingConversationId { get; set; }
+
+    /// <summary>
+    /// The turn of <see cref="AskingConversationId"/> that made the request.
+    /// </summary>
+    public Guid? AskingTurnId { get; set; }
+
+    /// <summary>
     /// Whether the run read results with its agent's own grant that people without the tool's
     /// policy may not see. Such a run's summary never reaches another agent.
     /// </summary>

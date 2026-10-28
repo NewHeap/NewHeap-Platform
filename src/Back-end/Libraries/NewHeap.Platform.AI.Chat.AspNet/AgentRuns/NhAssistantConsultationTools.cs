@@ -153,9 +153,13 @@ internal sealed class NhAssistantConsultationCatalogView : INhAiAttestedToolCata
         foreach (var consultation in consultations)
         {
             var policies = policiesOf(consultation);
-            var consult = CreateConsultDescriptor(catalogId, consultation, policies);
-            descriptors.Add(consult);
-            tools.Add(consult.Id, new ConsultationTool(consultation, false, consult.ContractHash));
+            // A consultation that only takes requests generates no consult tool (FB30).
+            if (!consultation.RequestsOnly)
+            {
+                var consult = CreateConsultDescriptor(catalogId, consultation, policies);
+                descriptors.Add(consult);
+                tools.Add(consult.Id, new ConsultationTool(consultation, false, consult.ContractHash));
+            }
             if (consultation.AllowRequests)
             {
                 var request = CreateRequestDescriptor(catalogId, consultation, policies);
@@ -317,8 +321,14 @@ internal sealed class NhAssistantConsultationCatalogView : INhAiAttestedToolCata
             ("subjectId", StringSchema(NhAiSubjectRef.MaxIdLength, $"The id of the {consultation.SubjectType}, exactly as the application shows it.")),
             ("message", StringSchema(NhAssistantConsultationToolCatalog.MaxRequestChars, "What the agent should work on.")));
         var outputSchema = """{"type":"object","properties":{"outcome":{"type":"string"},"runId":{"type":["string","null"],"format":"uuid"},"threadId":{"type":["string","null"],"format":"uuid"}},"required":["outcome","runId","threadId"]}""";
-        var description = $"Ask the agent '{consultation.AgentId}' to work on one {consultation.SubjectType} in a run of its own. "
-            + "It answers later in its thread about the " + consultation.SubjectType + ", and the person is notified.";
+        // Only a consultation that takes requests only tells the asking model about the agent here; the
+        // request tool of one that is also consulted keeps its listing.
+        var description = (consultation.RequestsOnly && consultation.Description is not null ? consultation.Description + " " : string.Empty)
+            + $"Ask the agent '{consultation.AgentId}' to work on one {consultation.SubjectType} in a run of its own. "
+            + "It answers later in its thread about the " + consultation.SubjectType
+            + (consultation.RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation
+                ? ", once it is done also in the chat the request was made in."
+                : ", and the person is notified.");
         return CreateDescriptor(
             catalogId,
             consultation.RequestToolId,
@@ -660,7 +670,9 @@ internal sealed class NhAssistantConsultationToolHandler(
                 code == NhAssistantErrorCodes.SubjectAccessDenied ? NhAssistantErrorCodes.ConsultSubjectUnavailable : code);
         }
 
-        // A retried call of the same tool invocation starts no second run.
+        // A retried call of the same tool invocation starts no second run. A request asked in a
+        // person's chat keeps the chat and the turn, where the completed run answers too (FB29).
+        var asking = AskingTurnOf(options);
         var receipt = await triggers.FireAsync(
             new NhAssistantTriggerFire(
                 NhAssistantTriggerIds.AgentRequest,
@@ -673,7 +685,9 @@ internal sealed class NhAssistantConsultationToolHandler(
                 TimeSpan.Zero)
             {
                 Tenant = tenant,
-                StartClearance = clearance.Data
+                StartClearance = clearance.Data,
+                AskingConversationId = asking?.ConversationId,
+                AskingTurnId = asking?.TurnId
             },
             cancellationToken);
         var rejected = receipt.Outcome == NhAssistantTriggerOutcomes.Rejected;
@@ -694,6 +708,33 @@ internal sealed class NhAssistantConsultationToolHandler(
 
         return TaskResult<NhAssistantAgentRequestReceipt>.Succeeded(
             new NhAssistantAgentRequestReceipt(receipt.Outcome, receipt.RunId, receipt.ConversationId));
+    }
+
+    /// <summary>
+    /// The person's chat turn a request answers in when its run completes (FB29): only when the
+    /// consultation answers requests in the asking conversation, the call runs in a person's own chat
+    /// turn (never in an agent run, a consultation's turn, the execution of a proposal or a call outside
+    /// a turn, such as an MCP client's) and its answers are not restricted, so they may show in a chat.
+    /// <see langword="null"/> otherwise: the run then answers only in the agent's thread.
+    /// </summary>
+    private static NhAssistantTurnScope? AskingTurnOf(NhAssistantConsultationOptions options)
+    {
+        if (options.RequestAnswerRoute != NhAssistantRequestAnswerRoute.AskingConversation
+            || options.DataClassification == NhAiDataClassification.Restricted
+            || NhAiAgentInvocationScopes.Current is not null)
+        {
+            return null;
+        }
+
+        return NhAssistantExecutionScope.CurrentTurn is
+            {
+                RunId: null,
+                Consultation: null,
+                ShadowRun: false,
+                BudgetPurpose: NhAiBudgetPurposes.Chat
+            } turn
+            ? turn
+            : null;
     }
 
     /// <summary>

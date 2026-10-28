@@ -164,6 +164,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();
             services.TryAddScoped<NhAssistantRunCancellation>();
             services.TryAddScoped<NhAssistantRunEnding>();
+            // A completed request posts its answer where it was asked (FB29).
+            services.TryAddScoped<NhAssistantRequestAnswers>();
             services.TryAddScoped<NhAssistantServiceAccountBinding>();
             services.TryAddScoped<NhAssistantAgentControl>();
             services.TryAddScoped<INhAssistantAgentControl>(provider => provider.GetRequiredService<NhAssistantAgentControl>());

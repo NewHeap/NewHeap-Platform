@@ -426,6 +426,7 @@ public sealed class NhAssistantBuilder
     {
         var ceiling = new NhAssistantConsultationCeiling();
         configure?.Invoke(new NhAssistantConsultationCeilingBuilder(ceiling));
+        ceiling.Validate("UseConsultationsAsData");
         _state.ConsultationsAsData = ceiling;
         return this;
     }
