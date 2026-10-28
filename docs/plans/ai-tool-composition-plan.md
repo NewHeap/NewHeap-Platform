@@ -189,6 +189,13 @@ check must compile without Jint.
 The code ceiling still applies on top of the switch. An agent in code must allow scripts or compositions, and an MCP
 exposure must opt in, before the application's switch can turn them on.
 
+Agents created in the administration have no code of their own. On 2026-10-28 Lars decided that they get compositions
+and scripts within a ceiling in code, just as hand-offs, shadow variants and consultations as data do. For such an
+agent, the turn offers a marked tool only when all three of these allow it:
+1. The host allows it in code for agents as data.
+2. An administrator switches it on for that agent.
+3. The application's switch is on at run time.
+
 ### TC9. Learning which chains to keep (idea)
 
 Not for building yet. It follows the shadow-and-promote pattern of agents and skills:
