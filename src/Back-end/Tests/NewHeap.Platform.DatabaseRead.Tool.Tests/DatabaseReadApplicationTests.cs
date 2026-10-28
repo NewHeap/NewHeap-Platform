@@ -610,7 +610,7 @@ public sealed class DatabaseReadApplicationTests
     [InlineData("mariadb")]
     public async Task MySqlFamilyProfilesValidateWithoutOpeningTheDatabase(string provider)
     {
-        using var workspace = new DatabaseReadTestWorkspace(provider, "Server=unused.invalid;Database=unused");
+        using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
         using var input = DatabaseReadTestWorkspace.Request(
             "SELECT id FROM projects WHERE id = @id LIMIT 10",
             [new { name = "id", type = "uuid", value = Guid.NewGuid().ToString() }]);
@@ -632,7 +632,7 @@ public sealed class DatabaseReadApplicationTests
     [InlineData("mysql", "SELECT 1 # comment", "comments-not-allowed")]
     public async Task MySqlFamilyQueryPolicyRejectsBeforeConnecting(string provider, string sql, string expectedCode)
     {
-        using var workspace = new DatabaseReadTestWorkspace(provider, "Server=unused.invalid;Database=unused");
+        using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
         using var input = DatabaseReadTestWorkspace.Request(sql);
         using var output = new MemoryStream();
 
