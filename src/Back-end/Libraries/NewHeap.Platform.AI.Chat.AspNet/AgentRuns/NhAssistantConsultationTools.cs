@@ -569,8 +569,22 @@ internal sealed class NhAssistantConsultationToolHandler(
                 requestPrincipal is not null,
                 CultureInfo.CurrentUICulture.Name,
                 new NhAssistantConsultationViewer(services, registration, options, request.SubjectId.Trim(), asker, requestPrincipal),
-                AskerTenantOf(context)),
+                AskerTenantOf(context))
+            {
+                Inherited = InheritedChain()
+            },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The consultation chain of another application that the MCP caller of a call outside a turn sent,
+    /// when this application reviewed that caller (FB28); <see langword="null"/> for every other call.
+    /// </summary>
+    private NhAssistantInheritedChain? InheritedChain()
+    {
+        return NhAssistantExecutionScope.CurrentTurn is null
+            ? services.GetService<NhAssistantMcpChainReader>()?.Read()
+            : null;
     }
 
     public async Task<TaskResult<NhAssistantAgentRequestReceipt>> RequestAsync(
@@ -608,6 +622,13 @@ internal sealed class NhAssistantConsultationToolHandler(
         {
             return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable);
         }
+        // A consulted agent is never offered a request (MayOffer), and a reviewed caller of another
+        // application whose chain says it asks from a consultation is refused as one host would (FB28).
+        if (InheritedChain() is { ConsultationDepth: > 0 })
+        {
+            return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultDepthExceeded);
+        }
+
         // An agent in shadow takes no requests: its work stays with administrators. A run in shadow asks
         // for none either: shadow work never starts live work, as for a hand-off.
         if (NhAssistantExecutionScope.CurrentTurn is { ShadowRun: true }

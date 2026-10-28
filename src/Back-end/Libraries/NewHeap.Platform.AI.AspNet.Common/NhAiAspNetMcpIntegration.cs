@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -199,7 +200,12 @@ internal static class NhAiMcpRequestHandlers
         {
             return Error("ai-tool-not-authorized", "The requested AI tool is not available.");
         }
-        return await tool.InvokeAsync(request, cancellationToken);
+
+        // The tool reads the call's request metadata as data the caller sent, never as identity.
+        using (NhAiMcpInboundCall.Enter(request.Params?.Meta))
+        {
+            return await tool.InvokeAsync(request, cancellationToken);
+        }
     }
 
     private static IServiceProvider RequiredServices(IServiceProvider? services)
@@ -239,6 +245,46 @@ internal static class NhAiMcpRequestHandlers
 }
 
 internal sealed record NhAiMcpError(string Code, string Message);
+
+/// <summary>
+/// The request metadata (<c>_meta</c>) of the MCP tool call that the NewHeap export runs in this
+/// asynchronous flow, after the caller was authenticated and the tool was found. It is what the caller
+/// sent: never identity or authorization. A reader decides for itself whether it believes it, as the
+/// assistant does for the consultation chain of a reviewed caller.
+/// </summary>
+internal static class NhAiMcpInboundCall
+{
+    private static readonly AsyncLocal<JsonObject?> CurrentMeta = new();
+
+    /// <summary>
+    /// The metadata of the call in progress, or <see langword="null"/> outside an exported MCP tool call
+    /// or when the caller sent none.
+    /// </summary>
+    public static JsonObject? Meta => CurrentMeta.Value;
+
+    public static IDisposable Enter(JsonObject? meta)
+    {
+        var previous = CurrentMeta.Value;
+        CurrentMeta.Value = meta;
+        return new Scope(previous);
+    }
+
+    private sealed class Scope(JsonObject? previous) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            CurrentMeta.Value = previous;
+        }
+    }
+}
 
 internal sealed class NhAiMcpAuthorityStartupValidator(
     IServiceProvider hostServices,

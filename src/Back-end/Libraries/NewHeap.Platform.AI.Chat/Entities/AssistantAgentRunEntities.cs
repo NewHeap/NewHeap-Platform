@@ -264,8 +264,10 @@ public sealed class AssistantConsultation
     public string AskerActorId { get; set; } = string.Empty;
 
     /// <summary>
-    /// The agent whose turn consulted, or <see langword="null"/> for a direct call, such as from an
-    /// MCP client.
+    /// The agent of this application whose turn consulted, or <see langword="null"/> for a direct call,
+    /// such as from an MCP client. A call from a reviewed MCP caller of another application that sent its
+    /// consultation chain (<c>ContinueMcpChain</c>) is a direct call too: the agents that asked are that
+    /// application's, so this stays <see langword="null"/> and <see cref="Depth"/> counts the chain.
     /// </summary>
     public string? AskingAgentId { get; set; }
 
@@ -273,6 +275,11 @@ public sealed class AssistantConsultation
 
     public Guid? AskingTurnId { get; set; }
 
+    /// <summary>
+    /// How deep the consultation nests: 1 for one that no consultation asked for, such as a direct
+    /// call. For a reviewed MCP caller of another application that sent its chain it is one more than
+    /// the deeper of that chain's depth and this application's own.
+    /// </summary>
     public int Depth { get; set; }
 
     /// <summary>

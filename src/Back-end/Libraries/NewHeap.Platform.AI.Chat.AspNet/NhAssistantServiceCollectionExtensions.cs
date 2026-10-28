@@ -48,6 +48,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
             services.TryAddSingleton<NhAssistantMcpContextBindings>();
+            // The consultation chain across applications: the application's name and reviewed callers (FB28).
+            services.TryAddSingleton<NhAssistantMcpChains>();
+            services.TryAddScoped<NhAssistantMcpChainReader>();
             services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
             services.TryAddSingleton<NhAssistantMcpConnectionCache>();
             services.TryAddSingleton<NhAssistantMcpSecretSource>();
@@ -329,6 +332,9 @@ internal sealed class NhAssistantStartupValidator(
         }
         // The bounds of MCP requests fail here instead of at the first request.
         options.Value.Mcp.Validate();
+        // The consultation chain across applications names this application (FB28).
+        provider.GetRequiredService<NhAssistantMcpChains>().Validate(
+            provider.GetRequiredService<NhAssistantMcpContextBindings>().IncludeChain);
         // Loopback MCP servers are for development and test hosts, never for Production (LS29).
         var environment = scope.ServiceProvider.GetService<IHostEnvironment>();
         if (options.Value.Mcp.AllowLoopback && environment?.IsProduction() == true)

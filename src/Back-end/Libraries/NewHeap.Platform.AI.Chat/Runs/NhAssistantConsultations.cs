@@ -56,14 +56,36 @@ internal sealed record NhAssistantConsultationRequest(
     bool AskerInRequest,
     string Language,
     INhAssistantConsultationViewer Viewer,
-    NhAssistantTenantBinding? AskerTenant);
+    NhAssistantTenantBinding? AskerTenant)
+{
+    /// <summary>
+    /// The chain a reviewed MCP caller of another application sent with the call (FB28), which seeds
+    /// the consultation's chain and depth; <see langword="null"/> for every other call.
+    /// </summary>
+    public NhAssistantInheritedChain? Inherited { get; init; }
+}
+
+/// <summary>
+/// The consultation chain of another application that a reviewed MCP caller sent (FB28): the agents
+/// that asked, outermost first, and the consultation depth of the turn that called. An agent of this
+/// application is named by its own id, an agent of another application by an id that no agent of this
+/// application can have, so two applications with an agent of the same id never refuse each other.
+/// It is loop protection between cooperating applications, not authorization.
+/// </summary>
+/// <param name="Agents">The agents that asked, outermost first, the calling agent last.</param>
+/// <param name="ConsultationDepth">The consultation depth of the calling turn: 0 for a turn that is no
+/// consultation.</param>
+internal sealed record NhAssistantInheritedChain(IReadOnlyList<string> Agents, int ConsultationDepth);
 
 /// <summary>
 /// The consultation side of a consult turn: who asked through which agents, how deep the chain is
 /// and what the consulted agent may do.
 /// </summary>
-/// <param name="Chain">The agents that asked, outermost first, followed by the consulted agent.</param>
-/// <param name="AskingAgentId">The agent whose turn consulted, when an agent turn did.</param>
+/// <param name="Chain">The agents that asked, outermost first, followed by the consulted agent. The
+/// chain a reviewed MCP caller of another application sent comes first, with that application's
+/// agents qualified (FB28).</param>
+/// <param name="AskingAgentId">The agent of this application whose turn consulted, when an agent turn
+/// did.</param>
 internal sealed record NhAssistantConsultationScope(
     Guid ConsultationId,
     NhAssistantConsultationOptions Options,
@@ -245,8 +267,18 @@ internal sealed class NhAssistantConsultationService(
         var options = request.Options;
         var asking = NhAssistantExecutionScope.CurrentTurn;
         var askingAgentId = asking?.Agent.Id;
-        var askers = asking?.Consultation?.Chain ?? (askingAgentId is null ? [] : [askingAgentId]);
-        var depth = (asking?.Consultation?.Depth ?? 0) + 1;
+        IReadOnlyList<string> askers = asking?.Consultation?.Chain ?? (askingAgentId is null ? [] : [askingAgentId]);
+        var depth = asking?.Consultation?.Depth ?? 0;
+        if (request.Inherited is { } inherited)
+        {
+            // The chain of a reviewed caller of another application seeds this one: its agents count as
+            // askers and its depth counts, so the depth check and the chain apply to the whole path as in
+            // one host, and the limits only ever tighten (FB28).
+            askers = [.. inherited.Agents, .. askers];
+            depth = Math.Max(depth, inherited.ConsultationDepth);
+        }
+
+        depth++;
         var askingCall = NhAssistantExecutionScope.CurrentCall;
         var askingScope = NhAiAgentInvocationScopes.Current;
         // Only a person's own turn in their own request can wait for them to decide (CP9): not an MCP
