@@ -304,7 +304,10 @@
       "assistant-proposal-recently-rejected": "Not proposed again: people rejected it recently.",
       "assistant-proposal-placed": "Proposed at its object; waits for that object's approvers",
       "assistant-proposal-not-placed": "Not proposed: the object it concerns does not accept it.",
-      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies."
+      "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies.",
+      "assistant-approval-policy-unknown": "Not proposed: the application chose an approval policy that does not exist.",
+      "assistant-approval-policy-selector-failed": "Not proposed: the application could not choose who approves it.",
+      "assistant-approval-policy-selector-timed-out": "Not proposed: the application took too long to choose who approves it."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -430,6 +433,9 @@
       "assistant-board-not-found": "This board does not exist, or you may not see any of its agents.",
       "assistant-board-scope-invalid": "The division of the board is not valid.",
       "assistant-approval-policy-denied": "You may not decide this proposal.",
+      "assistant-approval-policy-unknown": "The approval policy does not exist in this application.",
+      "assistant-approval-policy-selector-failed": "The application could not choose who approves this proposal. Try again later.",
+      "assistant-approval-policy-selector-timed-out": "The application took too long to choose who approves this proposal. Try again later.",
       "assistant-four-eyes-required": "Someone other than the person who started this must decide it.",
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
       "assistant-proposal-stale": "This proposal no longer applies, for example because the work was already done. Nothing was changed.",

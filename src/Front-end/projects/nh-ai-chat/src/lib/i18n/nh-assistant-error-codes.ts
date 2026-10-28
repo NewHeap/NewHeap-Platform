@@ -118,6 +118,10 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-board-not-found',
   'assistant-board-scope-invalid',
   'assistant-approval-policy-denied',
+  // The application's approval policy selector (FB19)
+  'assistant-approval-policy-unknown',
+  'assistant-approval-policy-selector-failed',
+  'assistant-approval-policy-selector-timed-out',
   'assistant-four-eyes-required',
   'assistant-execution-not-uncertain',
   'assistant-proposal-stale',
