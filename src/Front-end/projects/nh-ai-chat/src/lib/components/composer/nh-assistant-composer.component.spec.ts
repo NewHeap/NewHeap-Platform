@@ -219,3 +219,65 @@ describe('NhAssistantComposerComponent attachments', () => {
     expect(document.activeElement).toBe(attachButton());
   });
 });
+
+/**
+ * Prepared drafts: a host's draft shows in the input without being sent and gives way to what the
+ * person typed, while the person's own refused message is put back as it was.
+ */
+describe('NhAssistantComposerComponent drafts', () => {
+  let fixture: ComponentFixture<NhAssistantComposerComponent>;
+  let element: HTMLElement;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTranslateService({ fallbackLang: 'en' }),
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => null })
+      ]
+    });
+    await firstValueFrom(TestBed.inject(TranslateService).use('en'));
+    fixture = TestBed.createComponent(NhAssistantComposerComponent);
+    element = fixture.nativeElement;
+    fixture.detectChanges();
+  });
+
+  it('shows a prepared draft without sending it and keeps what the person typed', () => {
+    const sent: string[] = [];
+    let handled = 0;
+    fixture.componentInstance.send.subscribe(text => sent.push(text));
+    fixture.componentInstance.restored.subscribe(() => handled++);
+    const textarea = element.querySelector('textarea')!;
+
+    fixture.componentRef.setInput('restore', { text: 'Write a status brief on Alpha.', replace: false });
+    fixture.detectChanges();
+    expect(textarea.value).toBe('Write a status brief on Alpha.');
+    // A draft the person did not change gives way to the next one.
+    fixture.componentRef.setInput('restore', { text: 'Write a status brief on Gamma.', replace: false });
+    fixture.detectChanges();
+    expect(textarea.value).toBe('Write a status brief on Gamma.');
+
+    textarea.value = 'My own question';
+    textarea.dispatchEvent(new Event('input'));
+    fixture.componentRef.setInput('restore', { text: 'Another brief', replace: false });
+    fixture.detectChanges();
+    expect(textarea.value).toBe('My own question');
+
+    fixture.componentRef.setInput('restore', { text: 'The brief that replaces it', replace: true });
+    fixture.detectChanges();
+    expect(textarea.value).toBe('The brief that replaces it');
+    // Every draft was handled, also the one that kept the person's text, and none was sent.
+    expect(handled).toBe(4);
+    expect(sent).toEqual([]);
+  });
+
+  it('keeps a message the server did not accept as the person\'s own text', () => {
+    const textarea = element.querySelector('textarea')!;
+
+    fixture.componentRef.setInput('restore', 'My refused question');
+    fixture.detectChanges();
+    fixture.componentRef.setInput('restore', { text: 'A prepared brief', replace: false });
+    fixture.detectChanges();
+
+    expect(textarea.value).toBe('My refused question');
+  });
+});

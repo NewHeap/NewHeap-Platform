@@ -103,6 +103,24 @@ export interface NhAssistantAttachment {
   error: NhAssistantError | null;
 }
 
+/**
+ * A prepared message for the composer, which the person reviews and sends themselves; nothing sends it.
+ * `NhAssistantStore.setDraft` makes one and `NhAssistantStore.pendingDraft()` hands it to the
+ * composer's `restore` input.
+ */
+export interface NhAssistantComposerDraft {
+  /** The text, trimmed and capped at the server's `maxMessageChars`. */
+  readonly text: string;
+  /** True when it replaces what the person typed; otherwise the composer keeps their text. */
+  readonly replace: boolean;
+}
+
+/** How `NhAssistantStore.setDraft` puts a draft in the composer. */
+export interface NhAssistantDraftOptions {
+  /** Replaces what the person already typed. `false` by default, which keeps their text. */
+  readonly replace?: boolean;
+}
+
 interface QueuedMessage extends NhAssistantQueuedMessage {
   clientContext?: ClientContext | null;
 }
@@ -255,7 +273,11 @@ export class NhAssistantStore {
   /** The conversation a message is being prepared for; `''` while a new conversation is created. */
   private readonly sendingState = signal<string | null>(null);
   private readonly draftErrorState = signal<NhAssistantError | null>(null);
-  private readonly restoredDraftState = signal<string | null>(null);
+  /**
+   * What the composer takes next: the text of a message the server did not accept (the person's own
+   * words) or a host's prepared draft.
+   */
+  private readonly restoredDraftState = signal<string | NhAssistantComposerDraft | null>(null);
   private readonly pageContextState = signal<ClientContext | null>(null);
   private readonly pageContextExcludedState = signal(false);
   private readonly restorePanelOpenState = signal(false);
@@ -338,7 +360,17 @@ export class NhAssistantStore {
    */
   readonly writingMessageId = computed(() => this.activeSession()?.writingMessageId ?? null);
   /** Text of a message the server did not accept, so the composer can offer it again. */
-  readonly restoredDraft = this.restoredDraftState.asReadonly();
+  readonly restoredDraft = computed(() => {
+    const draft = this.restoredDraftState();
+    return typeof draft === 'string' ? draft : null;
+  });
+  /**
+   * What the composer takes next: the text of a message the server did not accept, which replaces
+   * what the input holds, or a draft from `setDraft`, which keeps what the person typed unless it
+   * replaces it. The panel binds it to the composer's `restore` input and calls
+   * `consumeRestoredDraft` on its `restored` output; a custom layout does the same.
+   */
+  readonly pendingDraft = this.restoredDraftState.asReadonly();
   /** Page context that the next message would send, for the transparency chip. */
   readonly pageContext = this.pageContextState.asReadonly();
   /** True when the user left the page context out of the next message. */
@@ -1402,11 +1434,35 @@ export class NhAssistantStore {
     this.pageContextExcludedState.set(excluded);
   }
 
-  /** Returns and clears the draft of a message that was not accepted. */
+  /**
+   * Puts a prepared message in the composer without sending it, for example a brief that the person
+   * reviews and then sends. The text is trimmed and capped at the server's `maxMessageChars`. The
+   * composer keeps what the person already typed unless `replace` is set; a message the server did not
+   * accept, which waits for the composer, stays as well. The drawer and a panel in a page
+   * (`mode="page"`) share the draft: the composer that shows next takes it. Returns `false`, and
+   * changes nothing, while the assistant is not available (call it after `initialize()`), for empty
+   * text and when a refused message keeps its place.
+   */
+  setDraft(text: string, options: NhAssistantDraftOptions = {}): boolean {
+    const replace = options.replace === true;
+    const draft = capDraft(text.trim(), this.limits()?.maxMessageChars);
+    if (!this.enabled() || draft.length === 0) {
+      return false;
+    }
+    if (!replace && typeof this.restoredDraftState() === 'string') {
+      // The person's own message that the server did not accept still waits for the composer.
+      return false;
+    }
+
+    this.restoredDraftState.set({ text: draft, replace });
+    return true;
+  }
+
+  /** Returns and clears the text the composer took: a message that was not accepted, or a draft. */
   consumeRestoredDraft(): string | null {
     const draft = this.restoredDraftState();
     this.restoredDraftState.set(null);
-    return draft;
+    return typeof draft === 'string' || draft === null ? draft : draft.text;
   }
 
   /**
@@ -2139,6 +2195,23 @@ export class NhAssistantStore {
 
 function clientError(code: string): NhAssistantError {
   return { code, messageKey: nhAssistantErrorMessageKey(code) };
+}
+
+/**
+ * Cuts a draft to the longest message the server takes, without splitting a character that takes two
+ * UTF-16 code units, so the composer can send it as it is.
+ */
+function capDraft(text: string, maxChars: number | undefined): string {
+  if (maxChars === undefined || text.length <= maxChars) {
+    return text;
+  }
+
+  let end = Math.max(0, maxChars);
+  const last = end > 0 ? text.charCodeAt(end - 1) : 0;
+  if (last >= 0xd800 && last <= 0xdbff) {
+    end--;
+  }
+  return text.slice(0, end).trimEnd();
 }
 
 /**

@@ -461,6 +461,52 @@ describe('NhAssistantStore', () => {
     expect(store.restoredDraft()).toBeNull();
   });
 
+  it('keeps a refused message for the composer unless a draft replaces it', async () => {
+    const store = setup();
+    await store.initialize();
+    const sent = store.send('Hello');
+    await flush();
+    stream.next({ type: 'error', data: { code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' } });
+    stream.complete();
+    await sent;
+
+    expect(store.setDraft('A prepared brief')).toBeFalse();
+    expect(store.pendingDraft()).toBe('Hello');
+
+    expect(store.setDraft('A prepared brief', { replace: true })).toBeTrue();
+    expect(store.pendingDraft()).toEqual({ text: 'A prepared brief', replace: true });
+    // `restoredDraft` keeps naming only a refused message, so a custom composer bound to it never
+    // takes a draft as the person's own text.
+    expect(store.restoredDraft()).toBeNull();
+    expect(store.consumeRestoredDraft()).toBe('A prepared brief');
+    expect(store.pendingDraft()).toBeNull();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('puts no draft while the assistant is not available or for empty text', async () => {
+    const store = setup();
+
+    expect(store.setDraft('Too early')).toBeFalse();
+    await store.initialize();
+    expect(store.setDraft('   ')).toBeFalse();
+    expect(store.pendingDraft()).toBeNull();
+
+    access.next(false);
+    await flush();
+    expect(store.setDraft('No access')).toBeFalse();
+    expect(store.pendingDraft()).toBeNull();
+  });
+
+  it('caps a draft at the server limit without splitting a character', async () => {
+    const store = setup();
+    await store.initialize();
+
+    // The limit is 100 characters; the emoji takes the 100th and 101st UTF-16 code units.
+    expect(store.setDraft(`${'A'.repeat(99)}\u{1F680} launch`)).toBeTrue();
+
+    expect(store.pendingDraft()).toEqual({ text: 'A'.repeat(99), replace: false });
+  });
+
   it('rejects messages longer than the server limit', async () => {
     const store = setup();
     await store.initialize();

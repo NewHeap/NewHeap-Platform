@@ -14,11 +14,30 @@ import { NhAssistantStore } from './nh-assistant.store';
 export const NH_ASSISTANT_PANEL_WIDTH = '420px';
 export const NH_ASSISTANT_PANEL_MOBILE_QUERY = '(max-width: 599.98px)';
 
+/** What `NhAssistantPanelService.open` opens the drawer on; without any of them, what it showed last. */
+export interface NhAssistantPanelOpenOptions {
+  /** Opens this conversation, as `open(conversationId)` does. */
+  readonly conversationId?: string;
+  /**
+   * Starts a new conversation with this agent, as choosing it for a new chat does; ignored with
+   * `conversationId`. An agent the person may not use leaves the conversation as it is and puts no
+   * draft in the composer.
+   */
+  readonly agentId?: string;
+  /**
+   * Text the composer shows for the person to review and send; it is never sent by itself. Trimmed and
+   * capped at the server's `maxMessageChars`, as `NhAssistantStore.setDraft` does.
+   */
+  readonly draft?: string;
+  /** Replaces what the person already typed. By default the composer keeps their text and drops `draft`. */
+  readonly replaceDraft?: boolean;
+}
+
 /**
  * Opens and closes the assistant panel as a CDK overlay drawer on the right edge.
  * `nh-assistant-panel` registers its content once; any component can then open the panel,
- * optionally on a specific conversation. Escape closes the panel and focus returns to the
- * element that opened it.
+ * optionally on a specific conversation, in a new conversation with an agent, or with a prepared
+ * draft in the composer. Escape closes the panel and focus returns to the element that opened it.
  */
 @Injectable()
 export class NhAssistantPanelService {
@@ -50,18 +69,46 @@ export class NhAssistantPanelService {
     });
   }
 
-  open(conversationId?: string): void {
-    if (this.openState() && !conversationId) {
+  /**
+   * Opens the drawer: on a conversation (`open(conversationId)` or `{ conversationId }`), in a new
+   * conversation with an agent (`{ agentId }`), and with a prepared draft in the composer
+   * (`{ draft, replaceDraft }`) that the person reviews and sends. The target applies once the
+   * assistant's status is loaded. A draft never sends and keeps what the person already typed unless
+   * `replaceDraft` is set; it is dropped when the conversation does not open, when the person may not
+   * use the agent and when the drawer was closed in the meantime. A panel in a page (`mode="page"`)
+   * shares the store, so a host shows a draft there with `NhAssistantStore.setDraft`.
+   */
+  open(target?: string | NhAssistantPanelOpenOptions): void {
+    const options: NhAssistantPanelOpenOptions = typeof target === 'string' ? { conversationId: target } : target ?? {};
+    const conversationId = options.conversationId || undefined;
+    const agentId = conversationId ? undefined : options.agentId || undefined;
+    const draft = options.draft;
+    if (this.openState() && !conversationId && !agentId && draft === undefined) {
       return;
     }
 
     this.showPanel();
-    void this.store.initialize().then(() => this.store.reloadStatus()).then(() => {
+    void this.store.initialize().then(() => this.store.reloadStatus()).then(async () => {
       if (this.openState()) {
         this.store.setPanelOpen(true);
       }
+
       if (conversationId) {
-        void this.store.openConversation(conversationId);
+        await this.store.openConversation(conversationId);
+        if (this.store.activeConversation()?.id !== conversationId) {
+          // The conversation did not open; a draft for it never lands in another one.
+          return;
+        }
+      } else if (agentId) {
+        if (!this.store.agents().some(agent => agent.id === agentId)) {
+          return;
+        }
+        this.store.selectAgent(agentId);
+        this.store.startNewConversation();
+      }
+
+      if (draft !== undefined && this.openState()) {
+        this.store.setDraft(draft, { replace: options.replaceDraft === true });
       }
     });
   }

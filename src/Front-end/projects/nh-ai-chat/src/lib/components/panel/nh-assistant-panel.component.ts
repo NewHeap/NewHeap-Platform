@@ -59,7 +59,8 @@ export type NhAssistantPanelMode = 'drawer' | 'page';
  * for example on a "Chat" page of the application's menu for long sessions: the conversations stay
  * listed beside the thread on wide screens, there is nothing to close, and invitation links and
  * clicked notifications stay with the drawer of the layout. Both share the conversations of the
- * assistant's scope.
+ * assistant's scope, and the composer of either shows a draft from `NhAssistantStore.setDraft` or
+ * `NhAssistantPanelService.open({ draft })` without sending it.
  */
 @Component({
   selector: 'nh-assistant-panel',

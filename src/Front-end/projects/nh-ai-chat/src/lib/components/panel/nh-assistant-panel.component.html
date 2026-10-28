@@ -293,7 +293,7 @@
           [statusActor]="composerStatusActor()"
           [canStop]="canStop()"
           [maxLength]="store.limits()?.maxMessageChars ?? null"
-          [restore]="store.restoredDraft()"
+          [restore]="store.pendingDraft()"
           [uploads]="store.uploads()"
           [attachments]="store.attachments()"
           (restored)="store.consumeRestoredDraft()"
