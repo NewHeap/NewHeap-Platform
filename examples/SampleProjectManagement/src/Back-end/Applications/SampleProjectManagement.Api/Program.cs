@@ -422,6 +422,9 @@ builder.Services.AddScoped<SampleAssistantOperationsService>();
 // SPM-268: approvers answer the intake reviewer's proposals with a messaging reply, which decides
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();
+// SPM-364: a person asks on the project page for another project status; the API records it as the intake
+// reviewer's deferred proposal for that person, without a run, through INhAssistantProposals.
+builder.Services.AddScoped<SampleProjectStatusRequests>();
 // SPM-332: people continue a chat with the project assistant in a messaging app, whose turns run as
 // that person through the platform's INhAssistantConversationTurns. SPM-358: the messaging app also
 // lists the person's chats and agents and uploads their attachments through INhAssistantConversations.

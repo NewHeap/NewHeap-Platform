@@ -327,6 +327,12 @@ internal static class NhAssistantHttpErrors
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantErrorCodes.ApprovalPolicySelectorFailed,
             NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut);
+        // A proposal the application records for a person (FB21): a presentation it prepared that breaks
+        // a limit, and an idempotency key that already recorded another proposal.
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantErrorCodes.ProposalPresentationInvalid);
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantErrorCodes.ProposalIdempotencyConflict);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

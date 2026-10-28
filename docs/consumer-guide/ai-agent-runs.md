@@ -55,12 +55,12 @@ second person may approve, register an `INhAssistantApprovalPolicySelector` with
 policy first (trigger, skill, tool, agent, default); the selector then gets an
 `NhAssistantApprovalPolicySelection` with the agent, tool, subject, the arguments as the proposal
 records them, `ResolvedPolicyId`, `Source` (`NhAssistantApprovalPolicySource`: `Run`, `Request`,
-`Consultation`), skill, trigger, initiator, tenant, run and, for a step of a composition or script,
-`Origin`, and returns the id of a registered policy or `null` to keep the resolved one. It is asked
+`Consultation`, `Application`), skill, trigger, initiator, tenant, run and, for a step of a composition or
+script, `Origin`, and returns the id of a registered policy or `null` to keep the resolved one. It is asked
 for every proposal of the governed path: runs and rule runs, a person's messages in an agent's thread,
-consultations (also the proposal an asker leaves for the subject's approvers) and the steps of
-compositions and scripts in those turns; a person's own chat, which has no approval policy, does not
-ask it. The proposal keeps the choice in its policy copy (`PolicyId`, `PolicyJson`), so the decision,
+consultations (also the proposal an asker leaves for the subject's approvers), the steps of
+compositions and scripts in those turns and the proposals the application records for a person
+(`Application`); a person's own chat, which has no approval policy, does not ask it. The proposal keeps the choice in its policy copy (`PolicyId`, `PolicyJson`), so the decision,
 `GetDecisionFactsAsync`, reminders, expiry, escalation and the approver directory check the chosen
 policy, and a later change of the selector or of the people never changes a waiting proposal. The
 route still adapts the chosen policy: a person typing decides inline, a consultation's proposal at the
@@ -91,6 +91,39 @@ which admits people outside the members, and for the whole application, which li
 gives roles to people it does not list makes the list incomplete without the directory knowing. Pass the
 caller's tenant: another tenant's subject is `assistant-subject-not-found` and its proposal
 `assistant-approval-not-found`; an unknown policy is `assistant-approval-policy-unknown`.
+
+When the application's own code asks for a change on a person's behalf, for example a project page
+where a participant asks for another status that a second person must approve, record it with
+`INhAssistantProposals.ProposeForAsync(NhAssistantProposalRequest)` (SPM-364) instead of starting a
+rule-only run and waiting for its proposal. It is a server API without an endpoint; the application vouches
+for the person as for the decision service (`NhAssistantDecidingPerson` with the principal, actor id and
+tenant, which the context resolver must confirm, and `Culture`, the UI culture the proposal is made in),
+and names the agent, the tool, the arguments (the tool's input as an object), the subject, optionally a
+registered `PolicyId`, `Presentations` per culture it prepared itself and an `IdempotencyKey` such as the
+id of the person's form submission. The proposal takes the governed path of a run's proposal: the person
+may ask the agent to work on the subject (the participant role, the agent's policy and what it works on, as
+a start by hand; an agent in shadow takes none), the tool is one of the agent's selectors that changes
+something and the agent proposes with (propose autonomy, no composition, script or MCP tool), the tool's
+contract binds the arguments and the person's own rights authorize the call, never the agent's grants or
+the account it answers to (`ai-tool-input-invalid`, `ai-tool-agent-not-granted`), the named policy or
+the one code resolves for the agent and the tool, then the application's selector with `Source`
+`Application`, kept in the policy copy, the proposal guards at proposal time and their keys, an open
+duplicate, the policy's rejection cooldown and a newer proposal for the same objects that replaces a pending
+one. It is always deferred, whatever the policy's mode, and the person is its initiator, so four eyes keep
+that person out. `NhAssistantProposalResult` says what became of it: `Created`, or without a record
+`AlreadyOpen` and `RecentlyRejected` with the existing proposal and `NotNeeded` with the guard's reason and
+explanations; refusals fail the result and record nothing. It waits in the agent's thread at the subject,
+created when it is new, outside the thread's messages, its approvers are notified as for a run's proposals,
+and once approved it executes with the person's rights only: a person who lost the right meanwhile makes it
+`execution-failed`. Presentations must keep within `NhAssistantPresentationLimits` (at most `MaxCultures`
+valid cultures); one over a limit is refused with `assistant-proposal-presentation-invalid`, whose field
+errors name the culture and the rule (`presentations.nl-NL: summary-too-long`, `presentations:
+culture-invalid`), never dropped, and a tool classified `Confidential` or above is never presented; without
+them the application's presenters present it. The same key of the same person for the same agent names one
+proposal: a repeat, also after the decision and when two calls race, returns it with `Repeated` and audits
+nothing again, and the key with another subject, tool or arguments is
+`assistant-proposal-idempotency-conflict`. The content-free audit records `ApprovalRequested` and
+`AgentProposalRecordedForPerson` with the person, the subject, the policy and the key.
 
 When the application itself executes what a tool proposes, for example an order that a purchasing
 system's supplier confirms hours later, declare the tool with `ExecuteInApplication(toolId, reportWithin)`
@@ -1943,6 +1976,10 @@ instructions in full: call them for an administrator or process the application 
   resolved when the answer is not certain.
 - Exposing `INhAssistantApproverDirectory` through an endpoint of its own; it lists people, so an
   application shows only what its own authorization allows.
+- Starting a run with rules only to obtain a proposal for a person, or writing approvals yourself; record it
+  with `INhAssistantProposals.ProposeForAsync`, which checks the person's own rights and keeps four eyes.
+- Passing an actor id to `ProposeForAsync` that the application did not authenticate, or presentations
+  built from text the person typed without bounds; the approvers read them as the application's own.
 - Deciding rights, routes or approvals from agent metadata in NewHeap hooks; metadata is the
   application's data and never widens what an agent may do.
 - Putting secrets, prompts or people's data in agent metadata, or validator codes that repeat the value;
@@ -2371,7 +2408,16 @@ under four eyes, an agent, a decided proposal, a proposal decided in a conversat
 the whole application for an approver without the agent's view policy), that the audit records the
 channel and the idempotency key where the endpoint records `web`, that a repeated delivery returns
 the earlier decision once without a second execution or audit event, and that another answer
-afterwards is refused as not pending, on both providers. Pause an agent and assert that
+afterwards is refused as not pending, on both providers. Record a proposal for a person with
+`INhAssistantProposals.ProposeForAsync` and assert that it waits deferred in the agent's thread at the
+subject without a run, with the person as initiator under four eyes, the selector asked with `Source`
+`Application`, the prepared presentations per culture, the audit kind `AgentProposalRecordedForPerson`
+with the key, a repeat and two racing calls with the same key recording one proposal, a conflict for the key
+with other arguments, the refusals (another person's principal, someone outside the subject, a person
+without the tool's rights although the agent has a grant, arguments the contract refuses, a read or
+unselected tool, an unknown policy, a presentation over the limits) recording nothing, the guards,
+duplicates and cooldown, and an approved proposal failing once the person lost the right, on both
+providers. Pause an agent and assert that
 events wait once per dedupe key, start no run and skip schedule ticks, that a run queued before
 the pause ends without claiming its inputs, and that resuming starts one run per thread; stop it
 and assert cancelled runs, withdrawn proposals, dropped waiting events, refused triggers and held
@@ -3005,6 +3051,11 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-364 — A participant asks on the project page for another project status, recorded as the intake reviewer's proposal for that person
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequests.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.nl-NL.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectStatusRequestController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectStatusRequestController.cs)
 - SPM-365 — An operator switches agent work off on the API host while people keep chatting and the administration serves
   - [src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs)

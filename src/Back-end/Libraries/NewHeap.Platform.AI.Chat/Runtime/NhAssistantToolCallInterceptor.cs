@@ -2309,7 +2309,10 @@ internal sealed class NhAssistantToolCallInterceptor(
         UnexpectedToolException(logger, toolId, toolVersion, turnId, exceptionType, null);
     }
 
-    private static string EffectCode(NhAiToolEffect effect)
+    /// <summary>
+    /// The expected effect a proposal names for <paramref name="effect"/>.
+    /// </summary>
+    internal static string EffectCode(NhAiToolEffect effect)
     {
         return effect switch
         {

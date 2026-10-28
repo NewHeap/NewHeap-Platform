@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "77b9c0b5ea56bd5a38a016257b5a0665954dc4f6fbd08df8976081fbae2ccb71",
-    "declarationCount": 11975,
+    "hash": "c2c51a5b7fff6474b8fa0f49a149e9bd6ea5dddae54b7d6c3d3a74a9e1361bac",
+    "declarationCount": 12003,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5468,6 +5468,86 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalReads.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> ReadAsync( IReadOnlyList<Guid> approvalIds, string actorId, string? tenantId, ClaimsPrincipal user, Func<AssistantThread, Task<bool>> isHiddenThread, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public interface INhAssistantProposals {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public sealed record NhAssistantProposalRequest( NhAssistantDecidingPerson Person, string AgentId, string ToolId, object Arguments, NhAiSubjectRef Subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? PolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantApprovalPresentation>? Presentations { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public sealed record NhAssistantProposalResult( NhAssistantProposeOutcome Outcome, Guid? ApprovalId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public Guid? ConversationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? Status { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? ProposalHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? PolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public bool FourEyes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public DateTimeOffset? RejectedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public IReadOnlyList<Guid> Superseded { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public string? NotNeededReason { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public NhAiStaleKind? NotNeededKind { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> Explanations { get; init; } = NoExplanations;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public bool Repeated { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalResult>> ProposeForAsync( NhAssistantProposalRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalResult>> RunAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRequestAnswers.cs",
@@ -18883,6 +18963,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalPresentationInvalid = \"assistant-proposal-presentation-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalIdempotencyConflict = \"assistant-proposal-idempotency-conflict\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string WebhookSignatureInvalid = \"assistant-webhook-signature-invalid\";"
       },
       {
@@ -20920,6 +21008,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
         "declaration": "public const string TooLong = \"too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string CultureInvalid = \"culture-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string TooManyCultures = \"too-many-cultures\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public const string NotPresented = \"not-presented\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
@@ -22983,6 +23083,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task AddApprovalAsync( AssistantApproval approval, IReadOnlyCollection<AssistantApprovalKey> keys, AssistantToolInvocation waitingCall, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task<AssistantApproval?> FindApprovalAsync( Guid approvalId, CancellationToken cancellationToken) {"
       },
       {
@@ -23664,6 +23768,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantMcpConnectionNotices.cs",
         "declaration": "public async Task RecordAsync( Guid runId, AssistantThread thread, IReadOnlyList<NhAssistantMcpMissingConnection> missing, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantPersonProposals.cs",
+        "declaration": "public static bool IsPersonProposal(AssistantApproval approval) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantPersonProposals.cs",
+        "declaration": "public static Guid ApprovalIdOf(string? tenantId, string agentId, string actorId, string idempotencyKey) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
@@ -51904,7 +52016,11 @@
       "NhAssistantApproverCount",
       "NhAssistantRequestAnswerRoute",
       "RequestsOnly",
-      "AnswerRequests"
+      "AnswerRequests",
+      "INhAssistantProposals",
+      "ProposeForAsync",
+      "NhAssistantProposalRequest",
+      "NhAssistantProposalResult"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

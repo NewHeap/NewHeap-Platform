@@ -503,3 +503,21 @@ and keeps it queued until it is enabled.
 a tool call's result. The mock API takes `agentWork` in its scenario and `NhAssistantMockBackend.setAgentWork`,
 reports it on `GET status` and in the administration, and refuses to resume a paused agent or skill with
 `409 assistant-agent-work-off`, as the server does.
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: a deferred proposal for a person without a run
+
+`INhAssistantProposals.ProposeForAsync(NhAssistantProposalRequest)` records an agent's deferred proposal for a
+person, for the application's own code, without starting a run: the person as for the decision service
+(`NhAssistantDecidingPerson`), the agent, the tool, its arguments, the subject, an optional registered `PolicyId`,
+`Presentations` per culture that the application prepared and an `IdempotencyKey`. It takes the governed path of a
+run's proposal: the start rule for the person on the subject, the tool's contract, the person's own rights (never
+the agent's grants), the named or resolved policy and the application's selector with the new
+`NhAssistantApprovalPolicySource.Application`, the proposal guards and keys, an open duplicate and the rejection
+cooldown. It is always deferred, waits in the agent's thread at the subject with the person as initiator, so four
+eyes keep that person out, and executes with the person's rights only. `NhAssistantProposalResult` reports
+`Created`, `AlreadyOpen`, `RecentlyRejected` or `NotNeeded`, and `Repeated` for a key that recorded it before.
+A prepared presentation over `NhAssistantPresentationLimits` is refused with `assistant-proposal-presentation-invalid`
+(400; field errors with the new rules `culture-invalid`, `too-many-cultures` and `not-presented`), never dropped,
+and a key that recorded another proposal with `assistant-proposal-idempotency-conflict` (409). The content-free
+audit records the new kind `AgentProposalRecordedForPerson` next to `ApprovalRequested` (SPM-364). No migration;
+without the new call nothing changes.

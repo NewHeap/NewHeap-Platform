@@ -6340,6 +6340,26 @@
       ]
     },
     {
+      "id": "SPM-364",
+      "categoryId": "18",
+      "title": "A participant asks on the project page for another project status, recorded as the intake reviewer's proposal for that person",
+      "surface": "`INhAssistantProposals.ProposeForAsync` with `NhAssistantProposalRequest` (`Person` as `NhAssistantDecidingPerson` with `Culture`, `AgentId`, `ToolId`, `Arguments`, `Subject`, `PolicyId`, `Presentations` per culture and `IdempotencyKey`) and `NhAssistantProposalResult` (`Outcome` as `NhAssistantProposeOutcome`, `ApprovalId`, `ConversationId`, `Status`, `ProposalHash`, `PolicyId`, `FourEyes`, `ExpiresAt`, `RejectedAt`, `Superseded`, `NotNeededReason`, `NotNeededKind`, `Explanations`, `Repeated`); `NhAssistantApprovalPolicySource.Application`; the codes `assistant-proposal-presentation-invalid` and `assistant-proposal-idempotency-conflict` with `NhAssistantPresentationRules.CultureInvalid`, `TooManyCultures` and `NotPresented`; the audit kind `NhAssistantAuditEventKind.AgentProposalRecordedForPerson`; the sample's `POST projects/{projectId}/status-requests`",
+      "outcome": "A participant of a project asks on the project page to put it on hold, with a reason. The API does not start a run: `SampleProjectStatusRequests` records the request as the intake reviewer's deferred proposal for that person through `INhAssistantProposals.ProposeForAsync`, with the texts its approvers read in English and Dutch, which the application writes itself (who asks, the project, the new status and the reason), and the page's request id as the idempotency key. The platform checks what a run's proposal meets: the participant takes part in the project, the change-status tool's contract binds the input, the participant's own rights allow the change (never the reviewer's grant), the intake policy with four eyes, which the selector of SPM-356 keeps while other approvers may decide. The proposal waits in the reviewer's thread at the project without a run, with the participant as initiator and the grant source `delegated`; the page sending the request again gets the same proposal with `repeated` true, and someone outside the project is refused with `assistant-subject-access-denied`. The owner approves it and the status changes once, executed with the participant's rights. The library tests on SQL Server and PostgreSQL show the proposal kept deferred under the policy copy the selector chose (`Source` `Application`), the prepared presentations per culture, the audit kind `AgentProposalRecordedForPerson` with the key, a repeat after the decision and two racing calls with one key recording one proposal, a conflict for the key with other arguments, refusals that record nothing (another person's principal, someone outside the subject, a person without the tool's rights although the agent has a grant, arguments the contract refuses, a read or unselected tool, an unknown policy, a presentation over the limits or of an invalid culture), a guard that finds the work done, an open duplicate, a newer proposal that replaces a pending one and the rejection cooldown, and an approved proposal that fails once the person lost the right.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.resx",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.nl-NL.resx",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectStatusRequestController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Models/ProjectStatusRequestModels.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantProposalForPersonSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantPersonProposals.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalForPersonTests.cs"
+      ]
+    },
+    {
       "id": "SPM-365",
       "categoryId": "18",
       "title": "An operator switches agent work off on the API host while people keep chatting and the administration serves",

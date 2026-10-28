@@ -172,6 +172,22 @@ public static class NhAssistantPresentationRules
 
     /// <summary>The presentation as stored JSON is longer than <see cref="NhAssistantPresentationLimits.MaxSerializedLength"/>.</summary>
     public const string TooLong = "too-long";
+
+    /// <summary>
+    /// A presentation the application prepared names no valid culture, or two of them name the same one.
+    /// </summary>
+    public const string CultureInvalid = "culture-invalid";
+
+    /// <summary>
+    /// The application prepared presentations in more than <see cref="NhAssistantPresentationLimits.MaxCultures"/> cultures.
+    /// </summary>
+    public const string TooManyCultures = "too-many-cultures";
+
+    /// <summary>
+    /// The application prepared a presentation for a tool classified
+    /// <see cref="NhAiDataClassification.Confidential"/> or above, which is never presented.
+    /// </summary>
+    public const string NotPresented = "not-presented";
 }
 
 /// <summary>

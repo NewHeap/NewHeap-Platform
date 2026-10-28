@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="ToolName" xml:space="preserve"><value>Gevraagde statuswijziging</value></data>
+  <data name="Summary" xml:space="preserve"><value>{0} vraagt project {1} — {2} te wijzigen naar {3}.</value></data>
+  <data name="FieldRequestedBy" xml:space="preserve"><value>Gevraagd door</value></data>
+  <data name="FieldReason" xml:space="preserve"><value>Reden</value></data>
+</root>

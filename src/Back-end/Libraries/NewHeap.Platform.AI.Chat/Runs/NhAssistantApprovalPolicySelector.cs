@@ -16,9 +16,10 @@ namespace NewHeap.Platform.AI.Chat;
 /// Register one selector with <see cref="NhAssistantBuilder.UseApprovalPolicySelector{TSelector}()"/>; it is
 /// a scoped service. It is asked wherever a proposal is made through the governed path: the calls of an
 /// agent's runs and rule runs, a person's messages in an agent's thread, a consultation's calls (also when
-/// the person who asked leaves one for the subject's approvers), and the steps of compositions and scripts
-/// in those turns. A person's own chat with the assistant, whose proposals that person decides without an
-/// approval policy, does not ask it.
+/// the person who asked leaves one for the subject's approvers), the steps of compositions and scripts
+/// in those turns, and the proposals the application records for a person without a run
+/// (<see cref="NhAssistantApprovalPolicySource.Application"/>). A person's own chat with the assistant, whose
+/// proposals that person decides without an approval policy, does not ask it.
 /// </para>
 /// <para>
 /// The choice is kept in the proposal's policy copy, so the decision, its reminders, expiry, escalation and
@@ -71,7 +72,16 @@ public enum NhAssistantApprovalPolicySource
     /// A consultation: another agent asked the agent a question on behalf of a person, who is the
     /// initiator. Also the proposal the person who asked leaves for the subject's approvers.
     /// </summary>
-    Consultation = 2
+    Consultation = 2,
+
+    /// <summary>
+    /// The application's own code recorded the proposal for a person without a run
+    /// (<c>INhAssistantProposals.ProposeForAsync</c> of <c>NewHeap.Platform.AI.Chat.AspNet</c>); that person is
+    /// the initiator. Its proposal always waits deferred, whatever the policy's mode.
+    /// <see cref="NhAssistantApprovalPolicySelection.ResolvedPolicyId"/> is the policy the application named
+    /// for it, or else the one code resolves for the agent and the tool.
+    /// </summary>
+    Application = 3
 }
 
 /// <summary>

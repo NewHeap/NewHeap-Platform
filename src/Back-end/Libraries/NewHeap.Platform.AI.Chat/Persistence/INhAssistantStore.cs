@@ -215,6 +215,16 @@ internal interface INhAssistantStore
         IReadOnlyCollection<AssistantApprovalKey> keys,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Adds a proposal with the application objects it changes and the call that waits for it, in one
+    /// save, so neither exists without the other: a proposal whose id is taken already adds nothing.
+    /// </summary>
+    Task AddApprovalAsync(
+        AssistantApproval approval,
+        IReadOnlyCollection<AssistantApprovalKey> keys,
+        AssistantToolInvocation waitingCall,
+        CancellationToken cancellationToken);
+
     Task<AssistantApproval?> FindApprovalAsync(
         Guid approvalId,
         CancellationToken cancellationToken);
