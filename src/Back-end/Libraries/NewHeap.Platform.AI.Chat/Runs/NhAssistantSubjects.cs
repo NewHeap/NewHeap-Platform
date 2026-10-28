@@ -232,6 +232,42 @@ internal sealed class NhAssistantSubjectAccessService(
             && await platform.MayReadAgentThreadAsync(subject, agentId, actorId, cancellationToken);
     }
 
+    /// <summary>
+    /// The subject's members as its resolver lists them now, never the snapshot, without empty or overlong
+    /// actor ids; nothing for a type without a resolver. The approver directory reads its candidates here.
+    /// </summary>
+    public async IAsyncEnumerable<NhAiSubjectMember> ListMembersAsync(
+        NhAiSubjectRef subject,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (!_resolvers.TryGetValue(subject.Type, out var resolver))
+        {
+            yield break;
+        }
+
+        await foreach (var member in resolver.ListMembersAsync(subject, cancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(member.ActorId) || member.ActorId.Length > 256)
+            {
+                continue;
+            }
+
+            yield return member;
+        }
+    }
+
+    /// <summary>
+    /// Whether the resolver of <paramref name="subjectType"/> lists everyone with a role on its subjects.
+    /// The platform's own resolvers, such as the whole application's, list no members: who passes a policy
+    /// cannot be listed without the user store.
+    /// </summary>
+    public bool ListsMembers(string subjectType)
+    {
+        return _resolvers.TryGetValue(subjectType, out var resolver)
+            && resolver is not INhAssistantPlatformSubjectResolver;
+    }
+
     public async Task<TaskResult> RefreshAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default)
