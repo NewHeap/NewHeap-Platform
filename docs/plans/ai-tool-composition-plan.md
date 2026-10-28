@@ -93,6 +93,15 @@ Decided by Lars: no measurement before building.
 - **(a) Jint, in an opt-in package `NewHeap.Platform.AI.Scripting` (advice).** One tool, for example
   `run_script`, takes a short JavaScript program in which each available tool is an async function. The program runs
   on the server, and only its return value goes back to the model. Each agent and each MCP exposure opts in.
+  The tool is offered wherever an agent works:
+  - a person's chat;
+  - an agent run that a trigger or a schedule starts;
+  - a consultation or a hand-off;
+  - over MCP.
+
+  The script's `tools` are exactly the tools that agent is offered in that turn. A run's or consultation's own tool
+  ceiling therefore bounds its scripts too. Compositions (TC2) are tools like any other, and are offered wherever
+  their agent is.
   Jint 4.17.0 (BSD-2-Clause, actively maintained, pure .NET, built-in limits) and its parser Acornima (BSD-3-Clause)
   would be new dependencies, kept out of every other package.
 - **(b) A JSON step plan**: calls with references to earlier results, no code. It is the safest option, but
