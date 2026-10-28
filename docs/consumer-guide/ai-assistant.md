@@ -376,8 +376,11 @@ invalid run filter. Clients map the code, never the status, to a text.
   administrator to authorize the organization's account once, named by
   `organizationAccountLabel` because everyone using the server's agents then acts as it.
   Before saving, `POST admin/mcp-servers/discover` shows what the server's challenge and
-  protected resource metadata (RFC 9728) name; saving with `oauth.confirmAuthorization`
-  pins that issuer and the canonical resource, and a new server or address needs it.
+  protected resource metadata (RFC 9728) name. The challenge answers an MCP `initialize` `POST`
+  without a credential, the request a client starts with, so a stateless server's scopes are read
+  too; a `GET` follows only a `405`, and without a challenge the well-known addresses decide.
+  Saving with `oauth.confirmAuthorization` pins that issuer and the canonical resource, and a new
+  server or address needs it.
   Tokens are requested from the pinned issuer only, always with `resource`; PKCE `S256`
   is required and the `iss` of the redirect is checked (RFC 9207). A server that later
   names another authorization server suspends its connections (`issuer-changed`) until
