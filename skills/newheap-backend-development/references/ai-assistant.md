@@ -834,9 +834,10 @@ if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval
 - The audit records the channel (`NhAssistantAuditEvent.Channel`) on the turn's events, such as
   `ToolInvoked`, `ApprovalRequested` and `ApprovalApproved`; the endpoints' turns record none.
 
-`INhAssistantConversations` creates, reads and stops the person's chat for the same channels, with
-the checks and codes of `POST conversations`, `GET conversations/{id}` and `POST
-conversations/{id}/cancel`, which audit none of them:
+`INhAssistantConversations` creates, lists, reads and stops the person's chat, lists the agents the
+person may chat with and uploads a file to a chat for the same channels, with the checks and codes of
+`POST conversations`, `GET conversations`, `GET conversations/{id}`, `POST conversations/{id}/cancel`,
+`GET agents` and `POST conversations/{id}/files`, which audit none of them:
 
 ```csharp
 var created = await conversations.CreateAsync(
@@ -846,6 +847,23 @@ var created = await conversations.CreateAsync(
     cancellationToken);
 var chat = await conversations.GetAsync(person, created.Data!.Id, options, cancellationToken);
 await conversations.CancelAsync(person, created.Data!.Id, options, cancellationToken);
+var chats = await conversations.ListAsync(person, new NhAssistantConversationPage(Page: 1, ItemsPerPage: 10), options, cancellationToken);
+var agents = await conversations.ListAgentsAsync(person, options, cancellationToken);
+// The delivered attachment, readable again: the content check, the scanner and the file source read it.
+await using var content = attachment.OpenReadStream();
+var uploaded = await conversations.UploadAsync(
+    person,
+    created.Data!.Id,
+    new NhAssistantConversationUpload(attachment.FileName, attachment.ContentType, content),
+    options,
+    cancellationToken);
+// The person's next message carries the reference.
+await turns.SendAsync(
+    person,
+    created.Data!.Id,
+    new NhAssistantConversationMessage(text) { Files = [uploaded.Data!] },
+    new NhAssistantConversationTurnOptions("messaging-chat"),
+    cancellationToken);
 ```
 
 - `CreateAsync` starts an empty chat in the person's tenant with an agent offered in the chat:
@@ -855,6 +873,20 @@ await conversations.CancelAsync(person, created.Data!.Id, options, cancellationT
   pass the agent's policy. `CancelAsync` stops the running turn in this process, or rejects the
   waiting approval and cancels the waiting question; only the owner or the person who started the
   turn may (`assistant-turn-forbidden`), and the agent's policy is not checked.
+- `ListAsync` returns the endpoint's `NhAssistantConversationListDto`: the chats the person owns or
+  takes part in, most recently updated first, with the person's read state, never an agent's thread;
+  `NhAssistantConversationPage` takes a page from 1 and 1 to 100 chats (`assistant-message-invalid`
+  otherwise, 20 without one). `ListAgentsAsync` returns the agents of `GET agents` with their
+  `Uploads`. Both share their code with the endpoints, so a channel lists what the panel lists.
+- `UploadAsync` is the upload endpoint's call without the multipart request: after the chat, the
+  agent's policy for everyone who uploads (the owner too, since uploading belongs to starting a turn),
+  a file source, an agent that accepts files and whose profile chain may receive them, then the name,
+  the type against the content, the size, the scanner and the file source, each with the endpoint's
+  code. `NhAssistantConversationUpload.Content` must be readable and seekable: the call reads it from
+  its current position again for each step and leaves it open for the caller, who disposes it; a
+  stream that cannot seek throws `ArgumentException`. Buffer a network stream first, within the
+  agent's `MaxFileBytes`. The file's name is never logged. The returned `NhAiFileReference` goes into
+  `NhAssistantConversationMessage.Files` of the person's next message.
 - Each call resolves the person as the turns do (`assistant-context-unavailable`), checks the
   assistant's access policy with the person's resource (`assistant-agent-forbidden`) and serves chats
   only: an agent's thread answers `assistant-conversation-not-found`. It runs without the caller's
@@ -868,7 +900,9 @@ chat finds nothing. A link is a credential of the person: issue it only from the
 person's security stamp so that a password change or session revocation ends it, and let a chat
 started through it inherit its expiry instead of a fresh lifetime. SPM-341 starts a chat with another
 agent from the messaging app, reads the linked chat, answers its question card by the choice's number
-or text and stops its turn. SPM-342 names the
+or text and stops its turn. SPM-358 lists the person's chats, each with a link token of its own that
+expires with the presented link, and the agents with what the person may attach, and uploads the
+provider's attachment to the linked chat with the upload endpoint's codes and statuses. SPM-342 names the
 turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
 from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
 
@@ -1093,12 +1127,29 @@ services.AddNewHeapAssistant(assistant => assistant
 - Store the classification of an upload with the file and report it from `OpenAsync`; raise it when
   the application knows the content is more sensitive. Uploads that no message ends up carrying stay
   in the application's storage under its own retention.
+- Let uploads go with their conversation with `UseFileRetention<T>()`, where `T` implements
+  `INhAssistantFileRetention`. The assistant calls `ForgetConversationAsync` with a
+  `NhAssistantForgottenConversation` (the conversation, its agent and tenant, the subject of a thread
+  and the reason, `archived` or `subject-forgotten` of `NhAssistantFileRetentionReasons`) after the
+  owner's archive of a chat committed (`DELETE conversations/{id}`; a participant who leaves forgets
+  nothing) and after `INhAiSubjectRetention.ForgetSubjectAsync` deleted each agent's thread. It is best
+  effort: a failed result or an exception is logged as a warning with the conversation and the code or
+  exception type, never undoes the archive or the deletion and is not retried. Make it idempotent, so
+  that forgetting a conversation without uploads or one forgotten before succeeds and the
+  application's own retention can call it again for one it missed. The sample's
+  `ProjectMediaUploadRetention` (SPM-359) removes the conversation's upload folder from the media
+  library.
 - The endpoint lowers the request body limit of an upload to the agent's `MaxFileBytes` plus 16 KB,
   but never raises the server's own limit (Kestrel's `MaxRequestBodySize`, 30 MB by default); raise
   that one too when `MaxFileBytes` is larger.
 - `GET status` and `GET agents` give each agent `uploads` (`NhAssistantAgentUploadsDto`) with the
   accepted media types, the largest file and the most files of one message, or `null` when people can
-  attach nothing to it, so a client checks a file before it uploads it.
+  attach nothing to it, so a client checks a file before it uploads it. An agent offers uploads only
+  when its profile or a fallback permits, in the execution region, the classification a message with
+  an upload carries: the higher of the agent's own and `DefaultClassification`. Otherwise `uploads` is
+  `null` and an upload answers `409 assistant-files-not-accepted`, instead of an offered upload that
+  the turn then refuses with `assistant-classification-not-permitted`. The sample's quick answers agent
+  runs on a profile for internal data only and offers none (SPM-359).
 - The conversation shows a person's attachments as `file` parts (`NhAssistantFilePartDto`) with name,
   media type and size, also in the live `message.created` event; never the content, the application's
   id or a hash. Files a tool returned stay named in that call's result, which follows the viewer's
@@ -1328,8 +1379,12 @@ calls in a consultation store nothing and are not listed.
 - Reading the turn's person from `IHttpContextAccessor` in a tool, policy or turn context provider; a
   channel's turn and a turn that outlived its request have no request of the person. Inject
   `INhAiTurnPerson`.
-- Calling the endpoints to create, read, stop or answer a person's chat from a channel; use
-  `INhAssistantConversations` and `INhAssistantConversationTurns.AnswerAsync`.
+- Calling the endpoints to create, list, read, stop or answer a person's chat, list their agents or
+  upload a file from a channel; use `INhAssistantConversations` and
+  `INhAssistantConversationTurns.AnswerAsync`. Implementing or mocking `INhAssistantConversations`
+  outside the application's own tests: it grows with the endpoints.
+- Passing a forward-only stream to `UploadAsync`, or logging the name of an upload in a scanner, file
+  source or file retention.
 - Trusting remote MCP annotations such as `readOnlyHint`; they are hints for the
   administrator only. Mark a remote tool read-only only after reviewing it.
 - Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
@@ -1432,7 +1487,15 @@ person and not by the request around the call (SPM-332). Through `INhAssistantCo
 the channel in the audit, the answer's refusals in their order and its expiry on a test clock, and the
 refusals of another person, another tenant and an agent thread. Assert that a test turn context
 provider, a tool policy and a tool see `ConversationId`, `Channel` and `INhAiTurnPerson` in a turn of
-the endpoints and in a channel's turn (SPM-341, SPM-342). With a test clock, assert that a message
+the endpoints and in a channel's turn (SPM-341, SPM-342). Assert on both providers that
+`ListAsync`, `ListAgentsAsync` and `UploadAsync` give the endpoints' lists and refusals (size, type,
+content, name, agent, profile chain, scanner, file source, someone outside the chat, a participant
+without the agent's policy, the access policy, another person's principal), that the stream is read
+again from the caller's position and stays the caller's, and that no log names the file (SPM-358).
+Assert that an archive and subject retention call `ForgetConversationAsync` once per conversation, a
+participant who leaves none, and that a failing or throwing retention only warns while the
+conversation stays gone; and that `GET agents` offers uploads only where the profile chain permits the
+uploads' classification (SPM-359). With a test clock, assert that a message
 closes a question and an approval that passed their lifetime with the late answer's or decision's
 codes and audit and then starts its turn, and that a still valid one keeps the chat busy. With Web
 Push, assert that a question notifies its addressee only, and an approval the person whose turn it is.

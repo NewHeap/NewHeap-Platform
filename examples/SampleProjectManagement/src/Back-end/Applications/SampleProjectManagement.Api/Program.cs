@@ -362,6 +362,8 @@ builder.Services.AddSampleAgentLinksAsData();
 builder.Services.AddSampleAssistantFiles();
 // SPM-306: the document reader reads a project's documents when one is added; it opts in to files.
 builder.Services.AddSampleProjectDocumentReader();
+// SPM-359: the quick answers agent runs on a profile for internal data only, so it offers no uploads.
+builder.Services.AddSampleQuickAnswers();
 // SPM-372: the project overview chains three reads of the project assistant into one tool.
 builder.Services.AddSampleProjectOverview();
 if (builder.Environment.IsDevelopment())
@@ -419,7 +421,8 @@ builder.Services.AddScoped<SampleAssistantOperationsService>();
 // as that person through the platform's proposal decision service.
 builder.Services.AddScoped<SampleApprovalReplyChannel>();
 // SPM-332: people continue a chat with the project assistant in a messaging app, whose turns run as
-// that person through the platform's INhAssistantConversationTurns.
+// that person through the platform's INhAssistantConversationTurns. SPM-358: the messaging app also
+// lists the person's chats and agents and uploads their attachments through INhAssistantConversations.
 builder.Services.AddScoped<SampleAssistantMessagingChannel>();
 builder.Services.AddScoped<ObservabilitySampleService>();
 builder.Services.AddSingleton<NewHeap.Platform.AspNet.Common.Utilities.IStartupConfiguration, SampleStartupConfiguration>();

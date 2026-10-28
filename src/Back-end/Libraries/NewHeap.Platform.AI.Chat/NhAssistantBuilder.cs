@@ -975,6 +975,20 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets the uploads of a conversation go with it: the assistant calls
+    /// <see cref="INhAssistantFileRetention.ForgetConversationAsync"/> of <typeparamref name="TRetention"/>,
+    /// registered scoped, after the owner's archive of a chat committed and after subject retention
+    /// deleted an agent's thread. The call is best effort and only warns when it fails; without it
+    /// uploads stay under the application's own retention. A later call replaces the retention.
+    /// </summary>
+    public NhAssistantBuilder UseFileRetention<TRetention>()
+        where TRetention : class, INhAssistantFileRetention
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantFileRetention, TRetention>());
+        return this;
+    }
+
+    /// <summary>
     /// Lets a data skill version and an agent created in the administration take their instructions
     /// from the application's own text assets instead of text an administrator writes: they store the
     /// asset's id, version and content hash (<see cref="NhAssistantInstructionAssetReference"/>), and the

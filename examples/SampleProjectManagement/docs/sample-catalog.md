@@ -262,6 +262,17 @@ so the chat panel shows the attach control only for the project assistant and th
 `AssistantFileSamplesTests` runs both cases, and the safety evaluation of SPM-233 a turn with a
 malicious document, whose text stays untrusted data that changes no tools or approvals.
 
+Uploads go with their conversation (SPM-359). The sample registers `ProjectMediaUploadRetention` with
+`UseFileRetention`: once the owner archived a chat, or subject retention deleted an agent's thread, the
+assistant asks it to forget the conversation, and it removes the media items of the conversation's
+upload folder and their content. Forgetting a conversation again finds nothing and succeeds, and a
+retention that fails only leaves a warning: the archive stays. The quick answers agent runs on
+`project-assistant-internal`, a profile for a model that may receive internal data only, without a
+fallback. Uploads are confidential, so the agent list gives it no `uploads`, the panel and the
+messaging app offer it no attachments, and an upload to its chat answers `409
+assistant-files-not-accepted` instead of failing in the turn. `AssistantChannelFileSamplesTests` runs
+the case.
+
 Model calls carry a data classification (SPM-307): the skill's, then the agent's, then `Internal`,
 in runs and in people's plain chats alike. The document reader's `read-documents` skill classifies
 its calls with `DataClassification(Confidential)`, because what project documents say is
@@ -542,6 +553,16 @@ their links, and a chat started from the messaging app gets a link that expires 
 started from. In Development the sample also sets
 `NewHeap:AI:Assistant:KeepTurnsAfterDisconnect`, so closing the browser lets a person's turn finish and
 the chat shows its answer when it is opened again. `AssistantMessagingChannelSamplesTests` runs the case.
+
+The messaging app also offers what the portal's panel lists (SPM-358). `POST assistant-channel/chat-list`
+lists the person's chats through `INhAssistantConversations.ListAsync`, newest first, each with a link
+token of its own that expires with the presented link, so the person continues in the chat they pick.
+`POST assistant-channel/agents` lists the agents they may chat with through `ListAgentsAsync`, with what
+they may attach to each. `POST assistant-channel/files` uploads the provider's attachment to the linked
+chat through `UploadAsync`, with the checks, codes and statuses of the portal's upload endpoint: the
+platform reads the buffered file again for its content check, the sample's scanner and the media
+library, and answers with the reference that the person's next message carries in `files`. The file's
+name never reaches a log. `AssistantChannelFileSamplesTests` runs the case.
 
 People who chat with the planner reach its skills too (SPM-333). With `SkillsInChat` a chat turn starts
 without a skill, and the model loads the task follow-up skill with `use_skill` when the person asks

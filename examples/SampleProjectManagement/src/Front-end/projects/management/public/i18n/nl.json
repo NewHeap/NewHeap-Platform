@@ -589,6 +589,10 @@
         "name": "Chathulp",
         "description": "Werkt alleen in de chat: maakt vergadernotities en vraagt je om een keuze als dat nodig is."
       },
+      "sample-project-quick-answers": {
+        "name": "Snelle antwoorden",
+        "description": "Beantwoordt korte vragen over de projecten van je divisie; bijlagen neemt het niet aan."
+      },
       "sample-project-closer": {
         "name": "Projectafsluiter",
         "description": "Stelt volgens vaste regels voor een actief project te voltooien zodra alle taken zijn afgerond."

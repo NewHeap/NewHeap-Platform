@@ -180,14 +180,15 @@ internal static class NhAssistantDtoMapper
     }
 
     /// <summary>
-    /// The agent with what people may attach to a message to it, read from <paramref name="uploads"/>.
+    /// The agent with what people may attach to a message to it, read from <paramref name="uploads"/>:
+    /// nothing when its profile chain may not receive what an upload carries (FB24).
     /// </summary>
-    public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgentDefinition agent, NhAssistantUploads uploads)
+    public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgent agent, NhAssistantUploads uploads)
     {
-        var rules = uploads.RulesOf(agent.Id);
+        var rules = uploads.RulesOf(agent);
         if (rules is null)
         {
-            return ToDto(agent);
+            return ToDto(agent.Definition);
         }
 
         // The client derives a file's type with the same mappings as the server.
@@ -195,7 +196,7 @@ internal static class NhAssistantDtoMapper
             .OrderBy(mapping => mapping.Key, StringComparer.Ordinal)
             .Select(mapping => new NhAssistantUploadExtensionDto(mapping.Key, mapping.Value))
             .ToArray();
-        return ToDto(agent) with
+        return ToDto(agent.Definition) with
         {
             Uploads = new NhAssistantAgentUploadsDto(rules.AcceptedMediaTypes, rules.MaxFileBytes, rules.MaxFiles)
             {

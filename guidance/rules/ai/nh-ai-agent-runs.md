@@ -1539,7 +1539,8 @@ reach only people who satisfy the tool's policy; others see `restricted`. Call
 `INhAiSubjectRetention.ForgetSubjectAsync(subject, scopeKey)` after the application deleted a
 subject, with the scope key its resolver described (`NhAiSubjectInfo.ScopeKey`) read before the
 delete, so its threads, runs, memory and files go with it while an equal id of another tenant or
-division keeps its own. The overload without a scope key forgets the id in every scope; it is
+division keeps its own; with `UseFileRetention<T>()` the application's `INhAssistantFileRetention`
+then forgets the uploads of each deleted thread, best effort (see the assistant rule). The overload without a scope key forgets the id in every scope; it is
 obsolete and safe only for ids that are unique across tenants and divisions.
 
 Let other assistants consult an agent with `AllowConsultation(subjectType, ...)` on its

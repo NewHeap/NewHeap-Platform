@@ -15,8 +15,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// classification uploads get, the model reads PDFs and images itself and
 /// <see cref="OfficeDocumentReader"/> turns Word and Excel documents into text. Every upload passes
 /// <see cref="EicarUploadScanner"/> before it is stored, and a photo saved as <c>.jfif</c> uploads as
-/// JPEG through the sample's own extension mapping. Call it after <c>AddSampleAssistant</c> and the
-/// media library.
+/// JPEG through the sample's own extension mapping. SPM-359: <see cref="ProjectMediaUploadRetention"/>
+/// removes a conversation's uploads once the conversation is gone. Call it after <c>AddSampleAssistant</c>
+/// and the media library.
 /// </summary>
 public static class SampleAssistantFilesComposition
 {
@@ -36,6 +37,9 @@ public static class SampleAssistantFilesComposition
             // Without a file source turns take no files. The chat assistant accepts them at once; an
             // agent with run settings and its skills only after AcceptsFiles().
             .UseFileSource<ProjectMediaFileSource>()
+            // SPM-359: the uploads of a chat go with it once the owner archived it, and those of an
+            // agent's thread with the thread that subject retention deleted.
+            .UseFileRetention<ProjectMediaUploadRetention>()
             .ConfigureUploads(uploads =>
             {
                 uploads.AcceptMediaTypes(

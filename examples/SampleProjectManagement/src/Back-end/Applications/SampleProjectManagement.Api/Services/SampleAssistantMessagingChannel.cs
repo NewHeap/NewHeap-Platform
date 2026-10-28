@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -29,6 +30,14 @@ namespace SampleProjectManagement.Api.Services;
 /// question its turn asks and stops its turn from the messaging app, through the platform's
 /// <see cref="INhAssistantConversations"/> and <see cref="INhAssistantConversationTurns.AnswerAsync"/>,
 /// with the checks and codes of the endpoints the portal calls.
+/// </para>
+/// <para>
+/// SPM-358: the messaging app lists the person's chats, each with a link token of its own, and the
+/// agents the person may chat with and what they may attach, and uploads an attachment to the linked
+/// chat, which the person's next message carries, through <see cref="INhAssistantConversations"/>'s
+/// <c>ListAsync</c>, <c>ListAgentsAsync</c> and <c>UploadAsync</c>, with the checks and codes of the
+/// portal's endpoints. The upload reads the delivered file again for its content check, the
+/// application's scanner and the media library, and its name never reaches a log.
 /// </para>
 /// <para>
 /// A link is a credential of the person, so only the person's own session issues one: an impersonation
@@ -61,6 +70,11 @@ public sealed class SampleAssistantMessagingChannel(
     /// The refusal of a person who may no longer sign in, or who does not exist.
     /// </summary>
     public const string PersonUnavailableCode = "sample-assistant-channel-person-unavailable";
+
+    /// <summary>
+    /// SPM-358: the chats of one page of <see cref="ListChatsAsync"/>.
+    /// </summary>
+    public const int ChatsPerPage = 10;
 
     /// <summary>
     /// How long a link stays valid before the person links the chat again. A chat started through a link
@@ -125,7 +139,8 @@ public sealed class SampleAssistantMessagingChannel(
         var sent = await turns.SendAsync(
             person,
             link.ConversationId,
-            new NhAssistantConversationMessage(message.Text) { ClientMessageId = message.DeliveryId },
+            // SPM-358: the attachments the messaging app uploaded to the chat before.
+            new NhAssistantConversationMessage(message.Text) { ClientMessageId = message.DeliveryId, Files = message.Files },
             OptionsOf(link),
             cancellationToken);
         return sent.Success
@@ -286,6 +301,104 @@ public sealed class SampleAssistantMessagingChannel(
 
         var (link, _, person) = linked.Data;
         return await conversations.CancelAsync(person, link.ConversationId, ConversationOptionsOf(link), cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-358: the person's chats, most recently updated first, as the portal's list shows them, each
+    /// with a link token of its own that expires with the presented link, so the messaging app continues
+    /// in the chat the person picks. Agents' threads are not listed.
+    /// </summary>
+    public async Task<TaskResult<SampleAssistantChannelChatList>> ListChatsAsync(
+        string token,
+        int page,
+        CancellationToken cancellationToken)
+    {
+        var linked = await LinkedPersonAsync(token, cancellationToken);
+        if (!linked.Success)
+        {
+            return TaskResult<SampleAssistantChannelChatList>.Failed(linked);
+        }
+
+        var (link, expiresAt, person) = linked.Data;
+        var listed = await conversations.ListAsync(
+            person,
+            new NhAssistantConversationPage(page, ChatsPerPage),
+            ConversationOptionsOf(link),
+            cancellationToken);
+        if (!listed.Success)
+        {
+            return TaskResult<SampleAssistantChannelChatList>.Failed(listed);
+        }
+
+        var items = listed.Data!.Items
+            .Select(chat => new SampleAssistantChannelChatItem(
+                Protect(link with { ConversationId = chat.Id }, expiresAt).Token,
+                chat.Title,
+                chat.AgentId,
+                chat.Status,
+                chat.LastMessageSequence > chat.LastReadSequence))
+            .ToArray();
+        return TaskResult<SampleAssistantChannelChatList>.Succeeded(new SampleAssistantChannelChatList(items, listed.Data.Total));
+    }
+
+    /// <summary>
+    /// SPM-358: the agents the person may start a chat with from the messaging app, as the portal's
+    /// panel lists them, and what the person may attach to a message to each. SPM-359: an agent whose
+    /// profile chain may not receive the uploads' classification, such as the quick answers agent,
+    /// takes no attachments.
+    /// </summary>
+    public async Task<TaskResult<IReadOnlyList<SampleAssistantChannelAgent>>> ListAgentsAsync(
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var linked = await LinkedPersonAsync(token, cancellationToken);
+        if (!linked.Success)
+        {
+            return TaskResult<IReadOnlyList<SampleAssistantChannelAgent>>.Failed(linked);
+        }
+
+        var (link, _, person) = linked.Data;
+        var agents = await conversations.ListAgentsAsync(person, ConversationOptionsOf(link), cancellationToken);
+        if (!agents.Success)
+        {
+            return TaskResult<IReadOnlyList<SampleAssistantChannelAgent>>.Failed(agents);
+        }
+
+        IReadOnlyList<SampleAssistantChannelAgent> offered = agents.Data!
+            .Select(agent => new SampleAssistantChannelAgent(
+                agent.Id,
+                agent.DisplayNameKey,
+                agent.Uploads?.AcceptedMediaTypes ?? [],
+                agent.Uploads?.MaxFileBytes ?? 0))
+            .ToArray();
+        return TaskResult<IReadOnlyList<SampleAssistantChannelAgent>>.Succeeded(offered);
+    }
+
+    /// <summary>
+    /// SPM-358: uploads an attachment the messaging provider delivered to the linked chat, as the
+    /// portal's composer does, and answers with the reference the person's next message carries in
+    /// <see cref="SampleAssistantChannelMessage.Files"/>. The platform checks the chat, the agent's
+    /// policy and rules, the type against the content and the size, runs the sample's scanner and has
+    /// the media library store the file, with the codes of <c>POST /api/assistant/conversations/{id}/files</c>.
+    /// </summary>
+    public async Task<TaskResult<NhAiFileReference>> UploadAsync(
+        SampleAssistantChannelFile file,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        var linked = await LinkedPersonAsync(file.Token, cancellationToken);
+        if (!linked.Success)
+        {
+            return TaskResult<NhAiFileReference>.Failed(linked);
+        }
+
+        var (link, _, person) = linked.Data;
+        return await conversations.UploadAsync(
+            person,
+            link.ConversationId,
+            new NhAssistantConversationUpload(file.FileName, file.MediaType, file.Content),
+            ConversationOptionsOf(link),
+            cancellationToken);
     }
 
     /// <summary>
@@ -502,7 +615,45 @@ public sealed record SampleAssistantChannelLink(string Token, DateTimeOffset Exp
 /// <summary>
 /// A message the messaging provider delivered: its own id, the chat's link token and the text.
 /// </summary>
-public sealed record SampleAssistantChannelMessage(string DeliveryId, string Token, string Text);
+public sealed record SampleAssistantChannelMessage(string DeliveryId, string Token, string Text)
+{
+    /// <summary>
+    /// SPM-358: the attachments the messaging app uploaded to the chat with
+    /// <see cref="SampleAssistantMessagingChannel.UploadAsync"/>, as their references.
+    /// </summary>
+    public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
+}
+
+/// <summary>
+/// SPM-358: an attachment the messaging provider delivered for the linked chat: the chat's link token,
+/// the name and media type the person's device gave it and its content, a stream the upload reads more
+/// than once; the caller disposes it.
+/// </summary>
+public sealed record SampleAssistantChannelFile(string Token, string FileName, string? MediaType, Stream Content);
+
+/// <summary>
+/// SPM-358: one page of the person's chats and how many there are.
+/// </summary>
+public sealed record SampleAssistantChannelChatList(IReadOnlyList<SampleAssistantChannelChatItem> Items, int Total);
+
+/// <summary>
+/// SPM-358: a chat of the person in the list: the link token to continue in it, its title, agent and
+/// status, and whether it has messages the person did not read.
+/// </summary>
+public sealed record SampleAssistantChannelChatItem(string Token, string? Title, string AgentId, string Status, bool Unread);
+
+/// <summary>
+/// SPM-358: an agent the person may chat with, the key of its name, and the media types and the largest
+/// file the person may attach; no types when the agent takes no attachments (SPM-359).
+/// </summary>
+public sealed record SampleAssistantChannelAgent(
+    string AgentId,
+    string DisplayNameKey,
+    IReadOnlyList<string> AcceptedMediaTypes,
+    int MaxFileBytes)
+{
+    public bool AcceptsFiles => AcceptedMediaTypes.Count > 0;
+}
 
 /// <summary>
 /// An answer to an approval card: the chat's link token, the approval and the proposal hash the card

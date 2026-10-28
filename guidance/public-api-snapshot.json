@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "3d869ecdf28e8635f9bfb843f3c6f04037723f9ce462f9308a1301a9affcdaf1",
-    "declarationCount": 11906,
+    "hash": "61e8ed11c2f59ff99b52ca9a0530d22e2f617c3323d813c1751a0304c07081d0",
+    "declarationCount": 11942,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7666,8 +7666,40 @@
         "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> AnswerAsync( NhAssistantDecidingPerson person, Guid conversationId, Guid questionId, NhAssistantConversationAnswer answer, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantUploadTarget>> PrepareAsync( ClaimsPrincipal user, NhAssistantConversationAccess access, NhAssistantThreadAccess? thread, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public Task<TaskResult<NhAiFileReference>> StoreAsync( NhAssistantUploadTarget target, NhAssistantUploadInput input, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public const int DefaultItemsPerPage = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public const int MaxItemsPerPage = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public static async Task<TaskResult<NhAssistantConversationListDto>> ListConversationsAsync( INhAssistantStore store, NhAiInvocationContext caller, int page, int itemsPerPage, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public static async Task<IReadOnlyList<NhAssistantAgentSummaryDto>> ListAgentsAsync( NhAssistantAgentAccess access, NhAssistantUploads uploads, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
         "declaration": "public interface INhAssistantConversations {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public sealed record NhAssistantConversationPage(int Page = 1, int ItemsPerPage = 20);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public sealed record NhAssistantConversationUpload( string FileName, string? MediaType, Stream Content);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
@@ -7700,6 +7732,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
         "declaration": "public async Task<TaskResult> CancelAsync( NhAssistantDecidingPerson person, Guid conversationId, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationListDto>> ListAsync( NhAssistantDecidingPerson person, NhAssistantConversationPage? page = null, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync( NhAssistantDecidingPerson person, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public Task<TaskResult<NhAiFileReference>> UploadAsync( NhAssistantDecidingPerson person, Guid conversationId, NhAssistantConversationUpload upload, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
@@ -7979,7 +8023,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
-        "declaration": "public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgentDefinition agent, NhAssistantUploads uploads) {"
+        "declaration": "public static NhAssistantAgentSummaryDto ToDto(NhAssistantAgent agent, NhAssistantUploads uploads) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
@@ -8024,6 +8068,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync( System.Security.Claims.ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantAgent>> GetVisibleAsync( System.Security.Claims.ClaimsPrincipal user, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
@@ -17243,6 +17291,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseFileRetention<TRetention>() where TRetention : class, INhAssistantFileRetention {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder UseTextAssetSource<TSource>() where TSource : class, INhAiTextAssetSource {"
       },
       {
@@ -19476,6 +19528,38 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileReaders.cs",
         "declaration": "public bool Permits(NhAiDataClassification classification) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public interface INhAssistantFileRetention {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public sealed record NhAssistantForgottenConversation( Guid ConversationId, string AgentId, string Reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public string? TenantId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public NhAiSubjectRef? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public static class NhAssistantFileRetentionReasons {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public const string Archived = \"archived\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public const string SubjectForgotten = \"subject-forgotten\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+        "declaration": "public async Task ForgetConversationAsync( NhAssistantForgottenConversation conversation, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
@@ -25383,11 +25467,71 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public static NhAssistantUploadInput FromStream(string? fileName, string? mediaType, Stream content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public NhAssistantRereadableContent(Stream inner, long origin, long length) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override bool CanRead => true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override bool CanSeek => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override bool CanWrite => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override long Length => _length;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override long Position {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override int Read(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override int Read(Span<byte> buffer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override void Flush() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override long Seek(long offset, SeekOrigin origin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override void SetLength(long value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+        "declaration": "public override void Write(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
         "declaration": "public bool Available => registration.Uploads.AcceptedMediaTypes.Count > 0"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
-        "declaration": "public NhAssistantUploadRules? RulesOf(string agentId) {"
+        "declaration": "public NhAssistantUploadRules? RulesOf(NhAssistantAgent agent) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
@@ -51857,6 +52001,13 @@
       "NhAssistantNewConversation",
       "NhAssistantConversationOptions",
       "NhAssistantConversationAnswer",
+      "NhAssistantConversationPage",
+      "NhAssistantConversationUpload",
+      "INhAssistantFileRetention",
+      "NhAssistantForgottenConversation",
+      "NhAssistantFileRetentionReasons",
+      "UseFileRetention",
+      "ForgetConversationAsync",
       "INhAiTurnPerson",
       "IncludeChain",
       "UseMcpChainApplication",

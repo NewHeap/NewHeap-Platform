@@ -40,6 +40,12 @@ public static class SampleAssistantComposition
     /// such as the files people upload.
     /// </summary>
     public const string ConfidentialProfileName = "project-assistant-confidential";
+
+    /// <summary>
+    /// SPM-359: a profile for a model that may receive internal data only, without a fallback. An agent
+    /// on it offers no attachments, because uploads are confidential.
+    /// </summary>
+    public const string InternalProfileName = "project-assistant-internal";
     public const string ModelKey = "project-assistant-chat-model";
     public const string AccessPolicy = "app.active-division.project.view";
 
@@ -119,7 +125,11 @@ public static class SampleAssistantComposition
             // The sample sends confidential data to the same model. A real application points this
             // profile at a model that may receive it, such as one it runs in its own region.
             .AddChatProfile(ConfidentialProfileName, profile => ConfigureChatProfile(profile, model, mediaTypes, regions)
-                .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential)));
+                .PermitDataClassifications(NhAiDataClassification.Internal, NhAiDataClassification.Confidential))
+            // SPM-359: internal data only and no fallback, as for a model hosted outside the application's
+            // control. GET agents offers no uploads for an agent on it.
+            .AddChatProfile(InternalProfileName, profile => ConfigureChatProfile(profile, model, mediaTypes, regions)
+                .PermitDataClassifications(NhAiDataClassification.Internal)));
 
         services.AddNewHeapAssistant(assistant => assistant
             .UsePostgreSql(

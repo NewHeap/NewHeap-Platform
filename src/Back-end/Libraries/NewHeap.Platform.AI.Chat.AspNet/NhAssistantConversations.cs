@@ -10,16 +10,19 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet;
 
 /// <summary>
-/// Creates, reads and stops a person's chat for the application's own channels, such as a messaging
-/// app in which a person talks with the assistant; <see cref="INhAssistantConversationTurns"/> sends,
-/// decides and answers in it. It is a server API for the application's code; there is no endpoint for
-/// it. The application vouches for the person, as for <see cref="INhAssistantConversationTurns"/>: it
+/// Creates, lists, reads and stops a person's chat, lists the agents the person may chat with and
+/// uploads a file to a chat, for the application's own channels, such as a messaging app in which a
+/// person talks with the assistant; <see cref="INhAssistantConversationTurns"/> sends, decides and
+/// answers in it. It is a server API for the application's code; there is no endpoint for it. The
+/// application vouches for the person, as for <see cref="INhAssistantConversationTurns"/>: it
 /// authenticated them through its channel and passes their principal, actor id and tenant, as the
 /// assistant's context resolver gives them for the person's own requests.
 /// <para>
-/// Each call is the call of the endpoint (<c>POST conversations</c>, <c>GET conversations/{id}</c> and
-/// <c>POST conversations/{id}/cancel</c>) with the same checks, codes and audit, which records none of
-/// them. It runs without a request of the person and without the caller's request, in services of its
+/// Each call is the call of the endpoint (<c>POST conversations</c>, <c>GET conversations</c>,
+/// <c>GET conversations/{id}</c>, <c>POST conversations/{id}/cancel</c>, <c>GET agents</c> and
+/// <c>POST conversations/{id}/files</c>) with the same checks, codes and audit, which records none of
+/// them. The interface grows with the endpoints, so implement or mock it only in the application's own
+/// tests. It runs without a request of the person and without the caller's request, in services of its
 /// own. The assistant's access policy, which every endpoint requires, is checked with the person's
 /// resource and answers <c>assistant-agent-forbidden</c>. Only chats are served; an agent's thread
 /// answers <c>assistant-conversation-not-found</c>. Every call first fails with
@@ -82,7 +85,88 @@ public interface INhAssistantConversations
         Guid conversationId,
         NhAssistantConversationOptions? options = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the chats the person owns or takes part in, most recently updated first, with the person's
+    /// read state, as <c>GET conversations</c> returns them. Agents' threads are not listed; they live on
+    /// their subject's page.
+    /// <para>
+    /// Fails with <c>assistant-message-invalid</c> for a page below 1 or a page size outside 1 to 100,
+    /// and <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy.
+    /// </para>
+    /// </summary>
+    /// <param name="page">The page and its size; the first 20 chats without one.</param>
+    Task<TaskResult<NhAssistantConversationListDto>> ListAsync(
+        NhAssistantDecidingPerson person,
+        NhAssistantConversationPage? page = null,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the agents the person may chat with, as <c>GET agents</c> returns them: those offered in the
+    /// chat whose policy the person satisfies, each with what people may attach to a message to it
+    /// (<see cref="NhAssistantAgentSummaryDto.Uploads"/>), which is <see langword="null"/> when the
+    /// application takes no uploads, the agent accepts no files or its profile chain may not receive the
+    /// uploads' classification.
+    /// <para>
+    /// Fails with <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy.
+    /// </para>
+    /// </summary>
+    Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync(
+        NhAssistantDecidingPerson person,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads one file the person attaches to a later message in their chat, as
+    /// <c>POST conversations/{id}/files</c> does, and returns the reference that
+    /// <see cref="NhAssistantConversationMessage.Files"/> then carries. The application's upload scanner,
+    /// when it registered one, scans the file before the file source stores it with the uploads'
+    /// classification. The file's name is never logged.
+    /// <para>
+    /// Fails, in this order, with <c>assistant-conversation-not-found</c> as <see cref="GetAsync"/> does,
+    /// <c>assistant-agent-forbidden</c> without the access policy, <c>assistant-agent-not-found</c> or
+    /// <c>assistant-agent-forbidden</c> when the person may not use the agent now (the owner too, since
+    /// uploading belongs to starting a turn), <c>assistant-files-unavailable</c> without a file source,
+    /// <c>assistant-files-not-accepted</c> when the agent takes no files or its profile chain may not
+    /// receive them, <c>assistant-file-upload-invalid</c> for a file without a usable name or content,
+    /// <c>assistant-file-type-not-accepted</c>, <c>assistant-file-too-large</c>,
+    /// <c>assistant-file-scan-refused</c>, <c>assistant-file-upload-refused</c> and
+    /// <c>assistant-file-upload-failed</c>, with the endpoint's codes.
+    /// </para>
+    /// </summary>
+    /// <param name="upload">The file: its name, its media type and its content, which the call reads
+    /// more than once from its current position; the caller disposes it.</param>
+    /// <exception cref="ArgumentException">The content cannot be read or cannot seek.</exception>
+    Task<TaskResult<NhAiFileReference>> UploadAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantConversationUpload upload,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// A page of <see cref="INhAssistantConversations.ListAsync"/>, as <c>page</c> and <c>itemsPerPage</c>
+/// of <c>GET conversations</c>.
+/// </summary>
+/// <param name="Page">The page, from 1.</param>
+/// <param name="ItemsPerPage">The chats of a page, 1 to 100.</param>
+public sealed record NhAssistantConversationPage(int Page = 1, int ItemsPerPage = 20);
+
+/// <summary>
+/// A file that <see cref="INhAssistantConversations.UploadAsync"/> uploads to a chat.
+/// </summary>
+/// <param name="FileName">The name the person's device gave the file; a path before it is dropped.</param>
+/// <param name="MediaType">The media type the device gave it; <see langword="null"/> or a generic type
+/// takes the accepted type of the name's extension, as for the endpoint.</param>
+/// <param name="Content">The content from its current position to its end: a readable stream that can
+/// seek, because the call reads it again for the content check, the scanner and the file source. The
+/// caller keeps and disposes it.</param>
+public sealed record NhAssistantConversationUpload(
+    string FileName,
+    string? MediaType,
+    Stream Content);
 
 /// <summary>
 /// A chat that <see cref="INhAssistantConversations.CreateAsync"/> starts.
@@ -116,7 +200,8 @@ public sealed record NhAssistantConversationOptions
 }
 
 /// <summary>
-/// Creates, reads and stops a person's chat without the caller's request (FB5).
+/// Creates, reads and stops a person's chat without the caller's request (FB5), and lists their chats
+/// and agents and uploads to a chat with the endpoints' checks (FB23).
 /// </summary>
 internal sealed class NhAssistantConversations(
     IServiceScopeFactory scopeFactory,
@@ -256,6 +341,98 @@ internal sealed class NhAssistantConversations(
             },
             cancellationToken);
         return cancelled.Success ? TaskResult.Succeeded() : TaskResult.Failed(cancelled);
+    }
+
+    public Task<TaskResult<NhAssistantConversationListDto>> ListAsync(
+        NhAssistantDecidingPerson person,
+        NhAssistantConversationPage? page = null,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+        var requested = page ?? new NhAssistantConversationPage();
+
+        return RunAsync<NhAssistantConversationListDto>(
+            person,
+            options,
+            async (services, personInvocation, token) =>
+            {
+                if (!await NhAssistantPersonCalls.PassesAccessPolicyAsync(services, person, personInvocation))
+                {
+                    return TaskResult<NhAssistantConversationListDto>.Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant.");
+                }
+
+                return await NhAssistantPersonLists.ListConversationsAsync(
+                    services.GetRequiredService<INhAssistantStore>(),
+                    personInvocation.Context,
+                    requested.Page,
+                    requested.ItemsPerPage,
+                    token);
+            },
+            cancellationToken);
+    }
+
+    public Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync(
+        NhAssistantDecidingPerson person,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+
+        return RunAsync<IReadOnlyList<NhAssistantAgentSummaryDto>>(
+            person,
+            options,
+            async (services, personInvocation, token) =>
+            {
+                if (!await NhAssistantPersonCalls.PassesAccessPolicyAsync(services, person, personInvocation))
+                {
+                    return TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>.Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant.");
+                }
+
+                var agents = await NhAssistantPersonLists.ListAgentsAsync(
+                    services.GetRequiredService<NhAssistantAgentAccess>(),
+                    services.GetRequiredService<NhAssistantUploads>(),
+                    person.User,
+                    token);
+                return TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>.Succeeded(agents);
+            },
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NhAiFileReference>> UploadAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantConversationUpload upload,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+        ArgumentNullException.ThrowIfNull(upload);
+        // Programmer input: a stream the checks cannot read again is refused before anything runs.
+        var input = NhAssistantUploadInput.FromStream(upload.FileName, upload.MediaType, upload.Content);
+
+        return RunAsync<NhAiFileReference>(
+            person,
+            options,
+            async (services, personInvocation, token) =>
+            {
+                var chat = await FindChatAsync(services, person, personInvocation, conversationId, token);
+                if (!chat.Success)
+                {
+                    return TaskResult<NhAiFileReference>.Failed(chat);
+                }
+
+                // The checks of the upload endpoint, from the agent's policy to the file source.
+                var uploads = services.GetRequiredService<NhAssistantConversationUploads>();
+                var prepared = await uploads.PrepareAsync(person.User, chat.Data!, thread: null, token);
+                if (!prepared.Success)
+                {
+                    return TaskResult<NhAiFileReference>.Failed(prepared);
+                }
+
+                return await uploads.StoreAsync(prepared.Data!, input, token);
+            },
+            cancellationToken);
     }
 
     /// <summary>

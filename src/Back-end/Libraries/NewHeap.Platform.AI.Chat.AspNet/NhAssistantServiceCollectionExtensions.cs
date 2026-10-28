@@ -43,6 +43,8 @@ public static class NhAssistantServiceCollectionExtensions
             state.DataAgentRunsEnabled = true;
             services.AddOptions<NhAssistantOptions>().BindConfiguration(NhAssistantOptions.SectionName);
             services.TryAddScoped<NhAssistantAgentAccess>();
+            // A person's upload, with the same checks for the endpoint and the channel services (FB23).
+            services.TryAddScoped<NhAssistantConversationUploads>();
             services.AddDataProtection();
             services.AddNewHeapPlatformAIMcp();
             // The MCP exposure asks the application's composition switch for the MCP channel.
@@ -260,12 +262,24 @@ internal sealed class NhAssistantAgentAccess(
         System.Security.Claims.ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        var visible = new List<NhAssistantAgentDefinition>();
+        var visible = await GetVisibleAsync(user, cancellationToken);
+        return visible.Select(agent => agent.Definition).ToArray();
+    }
+
+    /// <summary>
+    /// The agents offered in the chat whose policy <paramref name="user"/> satisfies, as they are in
+    /// effect, so their classification and profile decide what people may attach (FB24).
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantAgent>> GetVisibleAsync(
+        System.Security.Claims.ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        var visible = new List<NhAssistantAgent>();
         foreach (var agent in await catalog.ListAsync(includeDisabled: false, cancellationToken))
         {
             if (agent.OfferedInChat && await CanUseAsync(user, agent.Definition))
             {
-                visible.Add(agent.Definition);
+                visible.Add(agent);
             }
         }
         return visible;

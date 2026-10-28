@@ -9,11 +9,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// Forgets a subject: its active runs are cancelled through their background operations, then
-/// its threads and everything in them are deleted, in the scope the application names.
+/// its threads and everything in them are deleted, in the scope the application names, and the
+/// application's file retention forgets the uploads of each deleted thread (FB24).
 /// </summary>
 internal sealed class NhAssistantSubjectRetention(
     NhAssistantRunStore runs,
     NhAssistantRunCancellation cancellation,
+    NhAssistantFileRetentionCalls fileRetention,
     ILogger<NhAssistantSubjectRetention> logger) : INhAiSubjectRetention
 {
     internal const string RetentionActorId = "system:subject-retention";
@@ -56,6 +58,15 @@ internal sealed class NhAssistantSubjectRetention(
             }
 
             await runs.DeleteThreadAsync(thread, cancellationToken);
+
+            // The thread is deleted: its uploads go with it, best effort, and a failure never brings it back.
+            await fileRetention.ForgetConversationAsync(
+                new NhAssistantForgottenConversation(thread.ConversationId, thread.AgentId, NhAssistantFileRetentionReasons.SubjectForgotten)
+                {
+                    TenantId = thread.TenantId,
+                    Subject = subject
+                },
+                cancellationToken);
         }
 
         if (threads.Count > 0)

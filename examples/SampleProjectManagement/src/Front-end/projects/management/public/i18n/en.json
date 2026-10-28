@@ -589,6 +589,10 @@
         "name": "Chat helper",
         "description": "Works in the chat only: takes meeting notes and asks you when it needs a choice."
       },
+      "sample-project-quick-answers": {
+        "name": "Quick answers",
+        "description": "Answers short questions about your division's projects; it takes no attachments."
+      },
       "sample-project-closer": {
         "name": "Project closer",
         "description": "Proposes by fixed rules to complete an active project once all its tasks are completed."

@@ -16,14 +16,120 @@ internal sealed record NhAssistantUploadRules(
     IReadOnlyDictionary<string, string> MappedExtensions);
 
 /// <summary>
-/// A file part of an upload request as the endpoint read it: the name and media type the person's
-/// device gave it, its length and a way to open its content, each time from its start.
+/// A file part of an upload request as the endpoint read it, or the file an application's channel
+/// uploads: the name and media type the person's device gave it, its length and a way to open its
+/// content, each time from its start.
 /// </summary>
 internal sealed record NhAssistantUploadInput(
     string? FileName,
     string? MediaType,
     long Length,
-    Func<Stream> OpenContent);
+    Func<Stream> OpenContent)
+{
+    /// <summary>
+    /// The upload of a readable, seekable <paramref name="content"/> from its current position to its
+    /// end. Every opening reads it again from that position; the caller keeps and disposes the stream.
+    /// </summary>
+    /// <exception cref="ArgumentException">The stream cannot be read or cannot seek.</exception>
+    public static NhAssistantUploadInput FromStream(string? fileName, string? mediaType, Stream content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (!content.CanRead || !content.CanSeek)
+        {
+            throw new ArgumentException("The content of an upload must be a readable stream that can seek, so it can be read again.", nameof(content));
+        }
+
+        var origin = content.Position;
+        var length = Math.Max(0, content.Length - origin);
+        return new NhAssistantUploadInput(fileName, mediaType, length, () => new NhAssistantRereadableContent(content, origin, length));
+    }
+}
+
+/// <summary>
+/// A read-only view of the caller's stream from <c>origin</c> for <c>length</c> bytes. Opening it moves
+/// the caller's stream back to the origin; disposing it leaves the caller's stream open, because the
+/// caller owns it and the upload reads it again for the scanner and the file source.
+/// </summary>
+internal sealed class NhAssistantRereadableContent : Stream
+{
+    private readonly Stream _inner;
+    private readonly long _length;
+    private long _read;
+
+    public NhAssistantRereadableContent(Stream inner, long origin, long length)
+    {
+        _inner = inner;
+        _length = length;
+        _inner.Position = origin;
+    }
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => _length;
+
+    public override long Position
+    {
+        get => _read;
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        return Read(buffer.AsSpan(offset, count));
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        var count = _inner.Read(buffer[..Allowed(buffer.Length)]);
+        _read += count;
+        return count;
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        var count = await _inner.ReadAsync(buffer[..Allowed(buffer.Length)], cancellationToken);
+        _read += count;
+        return count;
+    }
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// The bytes a read may take: what is left of the view, so a stream that grew after the upload was
+    /// measured gives no more than its measured length.
+    /// </summary>
+    private int Allowed(int requested)
+    {
+        var left = _length - _read;
+        return (int)Math.Min(requested, Math.Max(0, left));
+    }
+}
 
 /// <summary>
 /// Accepts a person's upload to a conversation (F-3): the media type must be accepted and match the
@@ -38,6 +144,7 @@ internal sealed class NhAssistantUploads(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
     NhAssistantTurnFiles turnFiles,
+    INhAiModelProfileRegistry profiles,
     ILogger<NhAssistantUploads> logger)
 {
     /// <summary>
@@ -53,18 +160,20 @@ internal sealed class NhAssistantUploads(
         && services.GetService<IServiceProviderIsService>()?.IsService(typeof(INhAssistantFileSource)) == true;
 
     /// <summary>
-    /// What people may upload to a conversation with <paramref name="agentId"/>, or
-    /// <see langword="null"/> when uploads are off or the agent takes no files (F11).
+    /// What people may upload to a conversation with <paramref name="agent"/>, or
+    /// <see langword="null"/> when uploads are off, the agent takes no files (F11) or its profile chain
+    /// may not receive what a message with an upload carries (FB24).
     /// </summary>
-    public NhAssistantUploadRules? RulesOf(string agentId)
+    public NhAssistantUploadRules? RulesOf(NhAssistantAgent agent)
     {
+        ArgumentNullException.ThrowIfNull(agent);
         if (!Available)
         {
             return null;
         }
 
-        var limits = turnFiles.LimitsOfAgent(agentId);
-        if (limits is null)
+        var limits = turnFiles.LimitsOfAgent(agent.Id);
+        if (limits is null || !MayReceiveUploads(agent))
         {
             return null;
         }
@@ -75,6 +184,22 @@ internal sealed class NhAssistantUploads(
             .Where(mapping => accepted.Contains(mapping.Value, StringComparer.Ordinal))
             .ToDictionary(mapping => mapping.Key, mapping => mapping.Value, StringComparer.Ordinal);
         return new NhAssistantUploadRules(accepted, limits.MaxFileBytes, limits.MaxFilesPerTurn, mapped);
+    }
+
+    /// <summary>
+    /// Whether a profile of the agent's chain may serve a person's message with an upload: a turn takes
+    /// the higher of the agent's own classification and the upload's
+    /// (<see cref="NhAssistantUploadOptions.DefaultClassification"/>), and the profile that serves it
+    /// must permit that classification in the execution region, as the turn resolves its profile. A
+    /// profile that is not registered serves nothing.
+    /// </summary>
+    internal bool MayReceiveUploads(NhAssistantAgent agent)
+    {
+        var configured = agent.DataClassification ?? NhAiDataClassification.Internal;
+        var upload = registration.Uploads.DefaultClassification;
+        var classification = upload > configured ? upload : configured;
+        return profiles.TryGet(agent.Definition.ProfileName, out var profile)
+            && NhAssistantRegionChecks.PermitsTogether(profiles, profile, classification, registration.ExecutionRegion);
     }
 
     /// <summary>
