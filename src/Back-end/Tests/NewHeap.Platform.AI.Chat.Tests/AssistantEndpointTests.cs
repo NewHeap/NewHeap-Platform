@@ -458,7 +458,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
 
         AssertNames(variants, "agentId", "allowsDataVariants", "maxDataVariants", "variants");
         AssertNames(variants.GetProperty("variants")[0], "agentId", "displayName", "source", "hasRunSettings", "inEffect", "problem", "version", "packageId", "packageVersion");
-        AssertNames(request, "expectedVersion", "moveSkills", "expectedVariantVersion", "reason", "asPackageVersion");
+        AssertNames(request, "expectedVersion", "moveSkills", "expectedVariantVersion", "reason", "asPackageVersion", "uncarriedParts");
         AssertNames(promoted, "agent", "variantId", "movedSkills");
         Assert.Equal(("project-planner", 3), (promoted.GetProperty("agent").GetProperty("id").GetString(), promoted.GetProperty("agent").GetProperty("version").GetInt32()));
     }
