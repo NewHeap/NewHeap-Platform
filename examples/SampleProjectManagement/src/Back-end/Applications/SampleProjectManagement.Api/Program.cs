@@ -337,6 +337,8 @@ builder.Services.AddSampleAiBridge();
 // rights; the built-in issuer creates the owner's short-lived token with the NewHeap authentication service.
 builder.Services.AddNewHeapPlatformAIDelegatedReads();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
+// SPM-371: the portal's own setting switches compositions and scripts per environment and agent.
+builder.Services.AddSampleAssistantCompositions();
 builder.Services.AddSampleIntakeReviewer();
 // SPM-314: the order desk executes the intake reviewer's approved equipment orders and reports how they went.
 builder.Services.AddSampleEquipmentOrders();
@@ -367,7 +369,8 @@ if (builder.Environment.IsDevelopment())
 // /mcp through the application's authorization server; its own clients keep their NewHeap token.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration));
+    // SPM-371: MCP clients may use the script tool where the portal's setting of the exposure has it on.
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts());
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.
