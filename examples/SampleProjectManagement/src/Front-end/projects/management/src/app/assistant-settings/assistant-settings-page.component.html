@@ -1,0 +1,54 @@
+<section class="settings-lab" id="assistant-settings" [class.busy]="saving() !== null">
+  <header>
+    <div>
+      <h2>{{ 'assistant-settings.title' | translate }}</h2>
+      <p>{{ 'assistant-settings.description' | translate }}</p>
+    </div>
+    <span class="role-badge"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i> SPM-371</span>
+  </header>
+
+  @if (errorKey(); as key) {
+    <div class="error" role="alert">
+      <span>{{ key | translate }}</span>
+      <button type="button" (click)="load()">{{ 'assistant-settings.retry' | translate }}</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <p class="state" role="status">{{ 'assistant-settings.loading' | translate }}</p>
+  } @else if (empty()) {
+    <p class="state">{{ 'assistant-settings.empty' | translate }}</p>
+  } @else {
+    <ul class="settings" [attr.aria-label]="'assistant-settings.title' | translate">
+      @for (row of rows(); track row.agentId) {
+        <li [attr.data-agent-setting]="row.agentId">
+          <div class="agent">
+            <strong>{{ isMcp(row) ? ('assistant-settings.mcp' | translate) : row.name }}</strong>
+            <small>{{ isMcp(row) ? ('assistant-settings.mcp-hint' | translate) : row.agentId }}</small>
+          </div>
+          @for (feature of features; track feature) {
+            <div class="feature" [attr.data-feature]="feature">
+              <label>
+                <input
+                  type="checkbox"
+                  [checked]="uses(row, feature)"
+                  [disabled]="saving() !== null"
+                  (change)="toggle(row, feature, $event)" />
+                {{ 'assistant-settings.features.' + feature | translate }}
+              </label>
+              @if (statusOf(row, feature); as status) {
+                <span class="effective" [class.on]="status.on" [attr.data-reason]="status.reason">
+                  {{ (status.on ? 'assistant-settings.on' : 'assistant-settings.off') | translate }}:
+                  {{ reasonKey(status) | translate }}
+                </span>
+              } @else if (isMcp(row)) {
+                <span class="effective">{{ 'assistant-settings.mcp-effect' | translate }}</span>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ul>
+    <p class="hint">{{ 'assistant-settings.ceiling-hint' | translate }}</p>
+  }
+</section>

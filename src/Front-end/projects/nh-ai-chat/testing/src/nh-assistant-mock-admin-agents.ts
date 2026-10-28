@@ -1,6 +1,11 @@
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentCompositionChannel,
+  AgentCompositionFeature,
+  AgentCompositionFeatureStatus,
+  AgentCompositionReason,
+  AgentCompositionStatus,
   AgentConsultationRoutesState,
   AgentReplay,
   AgentShadowState,
@@ -85,6 +90,8 @@ export interface NhAssistantMockAgentRules {
 const mockChatProfile = 'chat';
 
 const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 'simulate', 'execute'];
+const compositionFeatures: readonly AgentCompositionFeature[] = ['compositions', 'scripts'];
+const compositionChannels: readonly AgentCompositionChannel[] = ['chat', 'run', 'consultation', 'hand-off'];
 const dataClassifications: AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 /** The most MCP servers one agent is assigned to, as the server allows. */
 const maxServersPerAgent = 32;
@@ -201,7 +208,8 @@ export class NhAssistantMockAdminAgents {
    * Copies a data shadow variant's definition onto its live agent as the live agent's next version,
    * as a promotion does on the server before it deletes the variant: the live agent keeps its name,
    * MCP servers, state and shadow mode; an agent in code takes only the fields it can override, an
-   * agent created here also the variant's profile, classification, what it works on and its asset.
+   * agent created here also the variant's profile, classification, what it works on, its asset and its
+   * compositions and scripts.
    */
   promote(variantId: string, liveId: string): AdminAgent {
     const variant = this.agents.get(variantId);
@@ -226,7 +234,9 @@ export class NhAssistantMockAdminAgents {
           ...pickWorksOn(from),
           profile: from.profile,
           dataClassification: from.dataClassification ?? null,
-          instructionsAsset: from.instructionsAsset ?? null
+          instructionsAsset: from.instructionsAsset ?? null,
+          compositions: from.compositions === true,
+          scripts: from.scripts === true
         }
         : {})
     };
@@ -343,6 +353,9 @@ export class NhAssistantMockAdminAgents {
     }
     if (length === 4 && action === 'state') {
       return this.agentStateEndpoint(stored, method, body);
+    }
+    if (length === 4 && action === 'compositions' && method === 'GET') {
+      return { status: 200, body: this.compositionStatus(stored.agent) };
     }
     if (length === 4 && action === 'shadow' && method === 'POST') {
       return this.agentShadowEndpoint(stored, body);
@@ -888,7 +901,55 @@ export class NhAssistantMockAdminAgents {
     if (source === 'admin' && classification !== null && !dataClassifications.includes(classification as AssistantDataClassification)) {
       return failure('assistant-validation', { dataClassification: ['invalid'] });
     }
+    // An agent created here switches compositions and scripts on only within the application's
+    // ceiling; one it already uses stays accepted.
+    if (source === 'admin') {
+      const ceiling = this.scenario.admin?.compositionsAsData;
+      const previous = this.agents.get(input!.id)?.agent;
+      const errors: Record<string, string[]> = {};
+      for (const feature of compositionFeatures) {
+        if (input![feature] === true && previous?.[feature] !== true && ceiling?.[feature] !== true) {
+          errors[feature] = ['not-allowed'];
+        }
+      }
+      if (Object.keys(errors).length > 0) {
+        return failure('assistant-validation', errors);
+      }
+    }
     return null;
+  }
+
+  /**
+   * `GET admin/agents/{id}/compositions`: per feature and channel what the agent is offered and why,
+   * from the scenario's `compositions`, the ceiling for agents created here and the agent's own setting.
+   */
+  private compositionStatus(agent: AdminAgent): AgentCompositionStatus {
+    const admin = this.scenario.admin ?? {};
+    const installed = admin.compositions?.installed ?? [];
+    const switchedOn = admin.compositions?.on ?? {};
+    const features = compositionFeatures.map((feature): AgentCompositionFeatureStatus => {
+      let blocked: AgentCompositionReason | null = null;
+      if (!installed.includes(feature)) {
+        blocked = 'not-installed';
+      } else if (agent.source === 'code') {
+        blocked = agent[feature] === true ? null : 'agent-not-allowed';
+      } else if (admin.compositionsAsData?.[feature] !== true) {
+        blocked = 'not-allowed-for-data-agents';
+      } else if (agent[feature] !== true) {
+        blocked = 'off-for-agent';
+      }
+
+      const channels = compositionChannels.map(channel => {
+        if (blocked !== null) {
+          return { channel, on: false, reason: blocked };
+        }
+        const on = switchedOn[feature]?.includes(channel) === true;
+        return { channel, on, reason: on ? 'on' as const : 'off-by-application' as const };
+      });
+      const anyOn = channels.some(channel => channel.on);
+      return { feature, on: anyOn, reason: anyOn ? 'on' : blocked ?? 'off-by-application', channels };
+    });
+    return { agentId: agent.id, features };
   }
 
   private validAgent(input: AdminAgentInput | undefined): boolean {
@@ -920,7 +981,7 @@ export class NhAssistantMockAdminAgents {
   ): AdminAgent {
     // Only a new agent starts off, created that way here or with StartsOff() in code.
     // Metadata is not part of the definition; its values live with the mock's agent metadata.
-    const { isEnabled, startsOff, startsInShadow, profile, dataClassification, metadata, instructionsAsset, ...definition } = structuredClone(input);
+    const { isEnabled, startsOff, startsInShadow, profile, dataClassification, metadata, instructionsAsset, compositions, scripts, ...definition } = structuredClone(input);
     const createdOff = previous === undefined && startsOff === true;
     // Only a new agent created here starts in shadow, as an override that applies once it has run settings.
     const createdInShadow = previous === undefined && source === 'admin' && startsInShadow === true;
@@ -968,7 +1029,10 @@ export class NhAssistantMockAdminAgents {
       ...(source === 'code' && previous
         ? pickWorksOn(previous)
         : mockWorksOnFromInput(input) ?? (previous ? pickWorksOn(previous) : { ...mockUndeclaredWorksOn, worksOnDeclared: true })),
-      knownSubjectTypes: previous?.knownSubjectTypes ?? []
+      knownSubjectTypes: previous?.knownSubjectTypes ?? [],
+      // Code decides for its agents; an agent created here keeps its setting when the input omits it.
+      compositions: source === 'code' && previous ? previous.compositions === true : compositions ?? previous?.compositions ?? false,
+      scripts: source === 'code' && previous ? previous.scripts === true : scripts ?? previous?.scripts ?? false
     });
   }
 

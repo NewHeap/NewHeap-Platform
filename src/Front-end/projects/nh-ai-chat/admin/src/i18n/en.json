@@ -385,6 +385,15 @@
         "starts-in-shadow-hint": "Once it has run settings, its runs work in its shadow threads, where nobody is notified and nothing executes, until you put it live on its Rollout tab.",
         "access": {
           "title": "Who may run it and see its results"
+        },
+        "compositions": {
+          "title": "Compositions and scripts",
+          "hint": "Whether this agent may use them. The application decides on top whether they are on now; the agent page shows what the assistant actually does.",
+          "compositions": "Compositions",
+          "compositions-hint": "Known chains of tools that run as one tool.",
+          "scripts": "Scripts",
+          "scripts-hint": "A short script the agent writes that runs a chain of its tools on the server.",
+          "not-allowed": "The application does not allow this for agents created here."
         }
       },
       "effect": {
@@ -1907,9 +1916,38 @@
         "activity": {
           "label": "Show",
           "compositions": "Compositions"
+        },
+        "compositions": {
+          "title": "Compositions and scripts",
+          "description": "What the assistant offers this agent now. The application switches them; code and the agent set the limits.",
+          "loading": "Reading what the assistant offers…",
+          "error": "What the assistant offers could not be read.",
+          "retry": "Try again",
+          "on": "On",
+          "off": "Off",
+          "features": {
+            "compositions": "Compositions",
+            "scripts": "Scripts"
+          },
+          "channels": {
+            "chat": "Chat",
+            "run": "Runs",
+            "consultation": "Consultations",
+            "hand-off": "Hand-offs"
+          },
+          "channel-state": "{{channel}}: {{state}}",
+          "reasons": {
+            "on": "On: allowed and switched on by the application.",
+            "not-installed-compositions": "The application has no compositions.",
+            "not-installed-scripts": "The scripting package is not installed.",
+            "agent-not-allowed": "The agent's code does not allow it.",
+            "not-allowed-for-data-agents": "Not allowed for agents created in the administration.",
+            "off-for-agent": "Off for this agent.",
+            "off-by-application": "Off by the application."
+          }
         }
       },
-      "compositions": {
+      "composition-activity": {
         "title": "Compositions and scripts",
         "description": "What this agent's compositions and scripts ran: each call with its tool calls in order, the model rounds it saved and the size of the result the model received.",
         "period": "Period",

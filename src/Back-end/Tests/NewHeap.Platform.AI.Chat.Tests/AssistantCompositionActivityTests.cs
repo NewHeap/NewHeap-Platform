@@ -121,7 +121,7 @@ public sealed class AssistantCompositionActivityTests(AssistantDatabaseFixture d
         }
 
         using var admin = app.CreateClient(admin: true);
-        using var response = await admin.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions");
+        using var response = await admin.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions/activity");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
@@ -147,12 +147,12 @@ public sealed class AssistantCompositionActivityTests(AssistantDatabaseFixture d
         // Content-free: the stored result never reaches the administration.
         Assert.DoesNotContain("secret", body);
 
-        using var unknown = await admin.GetAsync("/api/assistant/admin/agents/unknown-agent/compositions");
+        using var unknown = await admin.GetAsync("/api/assistant/admin/agents/unknown-agent/compositions/activity");
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
-        using var invalid = await admin.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z");
+        using var invalid = await admin.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions/activity?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z");
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         using var member = app.CreateClient();
-        using var forbidden = await member.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions");
+        using var forbidden = await member.GetAsync($"/api/assistant/admin/agents/{AgentId}/compositions/activity");
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
 

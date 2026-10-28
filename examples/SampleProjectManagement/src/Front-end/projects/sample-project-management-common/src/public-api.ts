@@ -3,6 +3,8 @@ export * from './lib/project-status-options';
 export * from './lib/project-api.service';
 export * from './lib/project-member.models';
 export * from './lib/project-member-api.service';
+export * from './lib/assistant-composition-setting.models';
+export * from './lib/assistant-composition-setting-api.service';
 export * from './lib/project-media-api.service';
 export * from './lib/project-demo.data';
 export * from './lib/authorization-sample.models';

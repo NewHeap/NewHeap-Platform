@@ -470,6 +470,35 @@
       }
     </fieldset>
 
+    @if (choosesCompositions()) {
+      <!-- Within the application's ceiling (UseCompositionsAsData); the application's switch decides on top. -->
+      <fieldset class="subsection" data-agent-compositions>
+        <legend>{{ 'nh-assistant.admin.agent-editor.compositions.title' | translate }}</legend>
+        <p class="muted">{{ 'nh-assistant.admin.agent-editor.compositions.hint' | translate }}</p>
+        @for (feature of compositionFeatures; track feature) {
+          <label class="check described" [attr.data-composition-setting]="feature">
+            <input
+              type="checkbox"
+              [checked]="usesFeature(feature)"
+              [disabled]="!mayUseFeature(feature) || locked(feature)"
+              [attr.aria-invalid]="fieldError(feature) ? true : null"
+              [attr.aria-describedby]="id + '-' + feature + '-hint'"
+              (change)="setFeature(feature, checked($event))" />
+            <span>
+              <strong>{{ 'nh-assistant.admin.agent-editor.compositions.' + feature | translate }}<nh-assistant-package-locked-mark [lock]="lockOf(feature)" /></strong>
+              <span class="muted" [id]="id + '-' + feature + '-hint'">
+                @if (fieldError(feature); as key) {
+                  <span class="error-text">{{ key | translate }}</span>
+                } @else {
+                  {{ (mayUseFeature(feature) ? 'nh-assistant.admin.agent-editor.compositions.' + feature + '-hint' : 'nh-assistant.admin.agent-editor.compositions.not-allowed') | translate }}
+                }
+              </span>
+            </span>
+          </label>
+        }
+      </fieldset>
+    }
+
     @if (assignmentsFailed()) {
       <p class="message warning" role="status" data-agent-editor-mcp-failed><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.agent-editor.mcp-servers-failed' | translate }}</p>
     }

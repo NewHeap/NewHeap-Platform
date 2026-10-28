@@ -188,6 +188,9 @@
           }
         </section>
 
+        <!-- What the assistant offers of compositions and scripts now, and why (TC8). -->
+        <nh-assistant-agent-compositions [agentId]="current.id" [version]="current.version" />
+
         @if (hasRunConfiguration()) {
           <!-- The agent at a glance; each step opens the section of Build that changes it. -->
           <nh-assistant-agent-run-configuration

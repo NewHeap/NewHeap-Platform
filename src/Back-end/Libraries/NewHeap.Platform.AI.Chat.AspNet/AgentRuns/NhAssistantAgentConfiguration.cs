@@ -492,6 +492,27 @@ public sealed record NhAssistantRunCatalogDto(
     /// assets (<c>instructionsAsset</c>); <c>GET admin/instruction-assets</c> lists the ones it offers.
     /// </summary>
     public bool InstructionAssets { get; init; }
+
+    /// <summary>
+    /// The application's ceiling of compositions and scripts for agents created in the administration
+    /// (<c>UseCompositionsAsData</c>): which of the features an administrator may switch on for such an
+    /// agent; <see langword="null"/> while they never get them.
+    /// </summary>
+    public NhAssistantCompositionCeilingDto? CompositionCeiling { get; init; }
+}
+
+/// <summary>
+/// The features <c>UseCompositionsAsData</c> allows for agents created in the administration.
+/// </summary>
+public sealed record NhAssistantCompositionCeilingDto(bool Compositions, bool Scripts)
+{
+    /// <summary>
+    /// The ceiling as the run catalog shows it; <see langword="null"/> without one.
+    /// </summary>
+    public static NhAssistantCompositionCeilingDto? From(NhAssistantCompositionCeiling? ceiling)
+    {
+        return ceiling is null ? null : new NhAssistantCompositionCeilingDto(ceiling.AllowCompositions, ceiling.AllowScripts);
+    }
 }
 
 /// <summary>
@@ -948,6 +969,19 @@ public sealed record NhAssistantAgentRequest(
     /// <see langword="false"/> (default) starts it live, as before.
     /// </summary>
     public bool StartsInShadow { get; init; }
+
+    /// <summary>
+    /// The agent uses compositions, within <c>UseCompositionsAsData(c => c.AllowCompositions())</c>
+    /// (field error <c>compositions: not-allowed</c> otherwise). A turn offers them only when the
+    /// application's switch has them on too. <see langword="false"/> (default) starts without.
+    /// </summary>
+    public bool Compositions { get; init; }
+
+    /// <summary>
+    /// The agent uses the script tool, within <c>UseCompositionsAsData(c => c.AllowScripts())</c> (field
+    /// error <c>scripts: not-allowed</c> otherwise), as <see cref="Compositions"/> does for compositions.
+    /// </summary>
+    public bool Scripts { get; init; }
 
     /// <summary>
     /// The live agent the new agent is a data shadow variant of, within <c>UseShadowVariantsAsData</c>:
@@ -1701,7 +1735,8 @@ internal sealed class NhAssistantAgentConfiguration(
                 registration.Limits.MaxFileTokensPerTurn),
             ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData),
             AgentMetadata = services.GetRequiredService<INhAssistantAgentMetadata>().ListEntries(),
-            InstructionAssets = services.GetRequiredService<NhAssistantInstructionAssets>().Supported
+            InstructionAssets = services.GetRequiredService<NhAssistantInstructionAssets>().Supported,
+            CompositionCeiling = NhAssistantCompositionCeilingDto.From(registration.CompositionsAsData)
         };
     }
 
@@ -1824,7 +1859,9 @@ internal sealed class NhAssistantAgentConfiguration(
                 request.InstructionsAsset,
                 request.StartsInShadow)
             {
-                ShadowOf = request.ShadowOf
+                ShadowOf = request.ShadowOf,
+                Compositions = request.Compositions,
+                Scripts = request.Scripts
             },
             actorId,
             cancellationToken);

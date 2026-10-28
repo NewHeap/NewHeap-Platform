@@ -20,6 +20,13 @@ public sealed class AssistantCompositionSamplesTests(AssistantCompositionSampleH
     [Fact]
     public async Task SPM_372_the_project_overview_chains_three_reads_in_one_call_and_the_activity_shows_what_it_saved()
     {
+        // The portal's own setting switches compositions on for the project assistant (SPM-371).
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<SampleAssistantCompositionSettings>()
+                .SaveAsync(string.Empty, SampleAssistantComposition.AgentId, compositions: true, scripts: false, Guid.NewGuid(), TestContext.Current.CancellationToken);
+        }
+
         var projectId = host.Overview.ProjectId;
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_overview_v1", new { input = new { projectId } }, "call-overview")
@@ -53,7 +60,7 @@ public sealed class AssistantCompositionSamplesTests(AssistantCompositionSampleH
 
         // The activity shows the call with its three tool calls and the two rounds they saved.
         using var admin = host.CreateClient("spm-372-admin", admin: true, "app.project.manage");
-        var activity = await host.GetJsonAsync(admin, $"/api/assistant/admin/agents/{SampleAssistantComposition.AgentId}/compositions");
+        var activity = await host.GetJsonAsync(admin, $"/api/assistant/admin/agents/{SampleAssistantComposition.AgentId}/compositions/activity");
         var call = Assert.Single(activity.GetProperty("calls").EnumerateArray());
         Assert.Equal(SampleProjectOverviewComposition.CompositionId, call.GetProperty("toolId").GetString());
         Assert.Equal(
@@ -65,17 +72,12 @@ public sealed class AssistantCompositionSamplesTests(AssistantCompositionSampleH
 }
 
 /// <summary>
-/// The sample host with the project overview and compositions switched on in configuration, and the
-/// overview's reads answered from memory.
+/// The sample host with the portal's composition switch and the project overview, as Program.cs composes
+/// them after <c>AddSampleAssistant</c>, and the overview's reads answered from memory.
 /// </summary>
 public sealed class AssistantCompositionSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     public FakeProjectOverview Overview { get; } = new();
-
-    protected override void ConfigureSettings(IDictionary<string, string?> settings)
-    {
-        settings["NewHeap:AI:Assistant:Compositions"] = "true";
-    }
 
     protected override void ConfigureServices(IServiceCollection services)
     {
@@ -84,6 +86,7 @@ public sealed class AssistantCompositionSampleHost(SamplePostgreSqlServer postgr
 
     protected override void ConfigureAssistant(IServiceCollection services)
     {
+        services.AddSampleAssistantCompositions();
         services.AddSampleProjectOverview();
     }
 }

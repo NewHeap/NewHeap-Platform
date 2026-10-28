@@ -23,9 +23,10 @@ public sealed record SampleProjectOverviewInput(Guid ProjectId);
 /// read-only over MCP (TC7), where the API's exposure allows compositions.
 /// <para>
 /// A composition is offered where code allows compositions for the agent
-/// (<c>ConfigureAgentContext(...).AllowCompositions()</c>) and the application's switch has them on
-/// (<c>INhAssistantCompositionSwitch</c>; by default <c>NewHeap:AI:Assistant:Compositions</c>), and only
-/// with the tools its steps call. Call it after <c>AddSampleAssistant</c>.
+/// (<c>ConfigureAgentContext(...).AllowCompositions()</c>) and the application's switch has them on, in
+/// the sample the portal's own setting per environment and agent (SPM-371,
+/// <see cref="SampleAssistantCompositionSwitch"/>), and only with the tools its steps call. Call it after
+/// <c>AddSampleAssistant</c>.
 /// </para>
 /// </summary>
 public static class SampleProjectOverviewComposition

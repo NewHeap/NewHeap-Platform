@@ -21,6 +21,7 @@ import {
   AgentReplay,
   AgentReplayList,
   AgentReplayRequest,
+  AgentCompositionStatus,
   AgentSkillState,
   AgentState,
   ApplicationContext,
@@ -159,6 +160,16 @@ export class NhAssistantAdminApiService {
 
   getAgentState(agentId: string): Observable<AgentState> {
     return this.request<AgentState>('GET', `admin/agents/${encodeURIComponent(agentId)}/state`);
+  }
+
+  /**
+   * What the assistant does with compositions and the script tool for one agent now, per feature and
+   * channel, and why (`on`, `not-installed`, `agent-not-allowed`, `off-by-application`). The
+   * application's switch is asked for the caller, so an application's own settings screen shows the
+   * effect of its setting next to its checkbox. Requires the administration policy.
+   */
+  getAgentCompositionStatus(agentId: string): Observable<AgentCompositionStatus> {
+    return this.request<AgentCompositionStatus>('GET', `admin/agents/${encodeURIComponent(agentId)}/compositions`);
   }
 
   /**
@@ -370,7 +381,7 @@ export class NhAssistantAdminApiService {
    * per tool. Content-free.
    */
   getAgentCompositionActivity(agentId: string, filter: AgentCompositionActivityFilter = {}): Observable<AgentCompositionActivity> {
-    return this.request<AgentCompositionActivity>('GET', withQuery(`${agentPath(agentId)}/compositions`, filter));
+    return this.request<AgentCompositionActivity>('GET', withQuery(`${agentPath(agentId)}/compositions/activity`, filter));
   }
 
   /**

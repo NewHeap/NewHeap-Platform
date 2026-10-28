@@ -241,7 +241,7 @@ export class NhAssistantMockAdmin {
       case 'accounts':
         return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
       case 'agents':
-        if (id !== undefined && action === 'compositions' && segments.length === 4) {
+        if (id !== undefined && action === 'compositions' && child === 'activity' && segments.length === 5) {
           return mockCompositionActivity(method, id, query);
         }
         if (id !== undefined && action === 'feedback') {

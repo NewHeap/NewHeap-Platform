@@ -19,7 +19,7 @@ internal static class NhAssistantCompositionActivityEndpoints
 
     public static void MapAdmin(RouteGroupBuilder admin)
     {
-        admin.MapGet("agents/{id}/compositions", GetAsync)
+        admin.MapGet("agents/{id}/compositions/activity", GetAsync)
             .WithName("NhAssistantAdminGetAgentCompositionActivity")
             .WithSummary("Show what an agent's compositions and scripts ran")
             .WithDescription($"Returns the agent's composition and script calls started in the period, newest first and at most {NhAssistantCompositionActivity.MaxCalls}: per call the tool calls it ran in order with their status and code, the model rounds it saved (its tool calls minus one) and the size of the result returned to the model in characters; and per tool, over those calls, the calls, tool calls, rounds saved and result sizes. total counts every call of the period. The period defaults to the last 30 days and spans at most 366 days. Calls inside a consultation are not stored and not listed.")
@@ -90,7 +90,7 @@ internal static class NhAssistantCompositionActivityEndpoints
 }
 
 /// <summary>
-/// What an agent's compositions and scripts ran in a period (<c>GET admin/agents/{id}/compositions</c>).
+/// What an agent's compositions and scripts ran in a period (<c>GET admin/agents/{id}/compositions/activity</c>).
 /// </summary>
 /// <param name="Total">Every composition and script call of the period.</param>
 /// <param name="Truncated">The period held more calls than <paramref name="Calls"/> lists; <paramref name="Tools"/> covers the listed ones.</param>

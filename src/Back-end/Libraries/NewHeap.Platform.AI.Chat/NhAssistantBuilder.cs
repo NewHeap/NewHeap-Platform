@@ -480,6 +480,32 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets administrators switch compositions and the script tool on for agents created in the
+    /// administration, within this ceiling (<see cref="NhAssistantCompositionCeilingBuilder.AllowCompositions"/>,
+    /// <see cref="NhAssistantCompositionCeilingBuilder.AllowScripts"/>). Each such agent then carries its
+    /// own setting, saved and versioned with its definition: switching on a feature the ceiling does not
+    /// allow is refused with the field error <c>compositions: not-allowed</c> or
+    /// <c>scripts: not-allowed</c>. A turn offers a feature's tools only when this ceiling, the agent's
+    /// setting and the application's <see cref="INhAssistantCompositionSwitch"/> all allow it. Without this
+    /// call agents created in the administration never get them; agents in code use
+    /// <see cref="NhAssistantAgentContextBuilder.AllowCompositions"/> instead.
+    /// </summary>
+    public NhAssistantBuilder UseCompositionsAsData(Action<NhAssistantCompositionCeilingBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var ceiling = new NhAssistantCompositionCeiling();
+        configure(new NhAssistantCompositionCeilingBuilder(ceiling));
+        if (!ceiling.AllowCompositions && !ceiling.AllowScripts)
+        {
+            throw new InvalidOperationException(
+                "UseCompositionsAsData allows nothing; name the features with AllowCompositions or AllowScripts.");
+        }
+
+        _state.CompositionsAsData = ceiling;
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -1229,6 +1255,12 @@ internal sealed class NhAssistantRegistrationState
     /// shadow variants exist in code only.
     /// </summary>
     public NhAssistantShadowVariantCeiling? ShadowVariantsAsData { get; set; }
+
+    /// <summary>
+    /// The application's ceiling of compositions and scripts for agents created in the administration;
+    /// <see langword="null"/> while such agents never get them.
+    /// </summary>
+    public NhAssistantCompositionCeiling? CompositionsAsData { get; set; }
 
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 

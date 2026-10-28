@@ -123,6 +123,15 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.ProjectManagementBoardPageComponent)
       },
       {
+        // SPM-371: the portal's own setting of compositions and scripts, next to what the assistant does.
+        path: 'assistant-settings',
+        title: 'Assistant settings',
+        canActivate: [NhIsAllPermissionsGrantedGuard],
+        data: { allMatchPermissions: ['app.assistant.access', 'app.project.manage'] },
+        loadComponent: () => import('./assistant-settings/assistant-settings-page.component')
+          .then(module => module.AssistantSettingsPageComponent)
+      },
+      {
         path: 'project-members',
         title: 'Project members',
         canActivate: [NhIsOnePermissionGrantedGuard],

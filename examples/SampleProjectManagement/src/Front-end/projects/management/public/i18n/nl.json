@@ -702,5 +702,34 @@
     "documents": "Documenten",
     "contents": "Op deze pagina",
     "no-headings": "Dit document heeft geen kopjes."
+  },
+  "assistant-settings": {
+    "navigation": "Assistentinstellingen",
+    "title": "Assistentinstellingen",
+    "description": "Of de agents van de assistent in deze omgeving composities en scripts gebruiken. De assistent leest dit aan het begin van elke beurt, dus een wijziging geldt vanaf de volgende. Naast elk vinkje: wat de assistent nu werkelijk doet.",
+    "loading": "Laden…",
+    "empty": "De assistent heeft geen agents.",
+    "load-error": "De instellingen konden niet worden geladen.",
+    "save-error": "De instelling kon niet worden opgeslagen.",
+    "retry": "Opnieuw proberen",
+    "features": {
+      "compositions": "Composities",
+      "scripts": "Scripts"
+    },
+    "on": "Aan",
+    "off": "Uit",
+    "mcp": "MCP-clients",
+    "mcp-hint": "Applicaties die de tools van het portaal via MCP aanroepen",
+    "mcp-effect": "Geldt voor het volgende MCP-verzoek.",
+    "ceiling-hint": "De code bepaalt de grenzen: de projectassistent mag beide gebruiken, agents die in het beheer zijn gemaakt alleen scripts, en alleen als hun eigen definitie dat toestaat.",
+    "reasons": {
+      "on": "toegestaan en hier aangezet",
+      "not-installed-compositions": "de applicatie heeft nog geen composities",
+      "not-installed-scripts": "het scriptingpakket is niet geïnstalleerd",
+      "agent-not-allowed": "de code van de agent staat het niet toe",
+      "not-allowed-for-data-agents": "niet toegestaan voor agents die in het beheer zijn gemaakt",
+      "off-for-agent": "uit in de eigen definitie van de agent",
+      "off-by-application": "hier uitgezet"
+    }
   }
 }

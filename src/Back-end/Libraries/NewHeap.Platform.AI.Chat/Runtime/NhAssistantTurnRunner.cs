@@ -3276,7 +3276,7 @@ internal sealed partial class NhAssistantTurnRunner(
         return await state.Compositions.DecideAsync(
             feature,
             () => services.GetRequiredService<NhAssistantCompositionGate>().IsOfferedAsync(
-                state.EffectiveAgent.Id,
+                state.EffectiveAgent,
                 feature,
                 CompositionContextOf(state, feature),
                 cancellationToken));

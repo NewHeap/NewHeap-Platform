@@ -49,6 +49,17 @@ of those servers whose audience is the resource (RFC 8707), validated with the k
 metadata publishes. The authorization server, the registration of clients and the consent
 stay the host's; NewHeap is not an authorization server.
 
+Compositions and the script tool, tools whose descriptor names a
+`CompositionFeature`, are part of the exposure only when it opts in:
+`WithNewHeapPlatformAITools(exposure => exposure.AllowCompositions().AllowScripts())`. Even then each
+`tools/list` and `tools/call` asks the application's switch once per feature: the assistant's
+`INhAssistantCompositionSwitch` for the channel `Mcp`, with the caller as person and no agent, or,
+on a host without the assistant, `NewHeap:AI:Assistant:Compositions` and `:Scripts` as configuration
+has them now. While the switch has a feature off its tools are not listed and a call is refused with
+`assistant-composition-off` or `assistant-scripting-off` before it runs; a feature the exposure does
+not allow answers `ai-tool-not-authorized` like any tool it does not export. Individual tools never
+change (`nh-ai-assistant`, SPM-371).
+
 The token's person is the host's decision. Without `OnTokenValidated` the request signs in
 with the token's claims (`iss`, `sub`, `scope`, `client_id`), which
 `UseAuthenticatedClaimsWithoutTenant(issuer)` projects for a host without accounts of its
@@ -76,7 +87,8 @@ forwarded headers. Let the proxy forward `/.well-known/oauth-protected-resource`
 the public path, and the root when the origin serves this resource alone, to the app
 unchanged; `NhAiMcpProtectedResourceDefaults.MetadataAddressOf(resource)` names that address.
 A stateless exposure maps only `POST`, so a client that probes with `GET` finds the metadata
-at the well-known addresses, as RFC 9728 lets every client. The metadata document allows any
+at the well-known addresses, as RFC 9728 lets every client; the assistant's discovery probes
+with an MCP `initialize` `POST` and reads the challenge's scopes. The metadata document allows any
 origin; a browser-based client also needs the host's CORS policy to expose
 `WWW-Authenticate`.
 
@@ -279,7 +291,10 @@ never passed on, that a person without rights meets the tools' own refusals, and
 without the option serves no metadata and keeps its own challenge. Prove a round trip in
 which a client that follows the MCP authorization flow, such as the MCP SDK client or the
 assistant's own client, discovers the exposure, registers and signs in at
-`NhAiTestAuthorizationServer`. SPM-222, SPM-240 and SPM-370 are the executable references.
+`NhAiTestAuthorizationServer`. For an exposure with `AllowCompositions` or `AllowScripts`, assert
+that a marked tool is listed and runs while the switch is on, is left out and refused with its code
+while it is off, and that a feature the exposure does not allow is never listed. SPM-222, SPM-240,
+SPM-370 and SPM-371 are the executable references.
 
 ## Executable evidence
 
@@ -298,3 +313,8 @@ assistant's own client, discovers the exposure, registers and signs in at
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/McpSignInSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/McpSignInSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs)
+- SPM-371 — The portal switches compositions and scripts per environment and agent from its own setting, and shows next to it what the assistant actually does
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

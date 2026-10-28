@@ -462,6 +462,8 @@
       "assistant-consult-failed": "De agent kon niet antwoorden.",
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
       "assistant-consult-tool-not-selected": "Deze raadpleging biedt die tool niet aan, dus er is niets uitgevoerd.",
+      "assistant-composition-off": "Composities staan uit in deze applicatie, dus er is niets uitgevoerd. De afzonderlijke tools werken nog.",
+      "assistant-scripting-off": "Scripts staan uit in deze applicatie, dus er is niets uitgevoerd. De afzonderlijke tools werken nog.",
       "assistant-consult-proposal-refused": "Geen route bij het onderwerp neemt dit voorstel nog aan. Keur het hier goed of af.",
       "assistant-consult-asker-decides": "Degene die het vroeg, beslist over dit voorstel in de eigen chat.",
       "assistant-consult-route-not-allowed": "Geen van de raadplegingen van de agent staat deze route toe, dus die kan niet aan.",

@@ -54,6 +54,19 @@ internal sealed record NhAssistantAgentInput(
     /// unless the request names them.
     /// </summary>
     public bool KeepMcpServers { get; init; }
+
+    /// <summary>
+    /// For an agent created in the administration: whether it uses compositions, within
+    /// <c>UseCompositionsAsData</c>. <see langword="null"/> keeps the stored setting, and a new agent
+    /// starts without. Agents in code take it from their code.
+    /// </summary>
+    public bool? Compositions { get; init; }
+
+    /// <summary>
+    /// For an agent created in the administration: whether it uses the script tool, as
+    /// <see cref="Compositions"/> does for compositions.
+    /// </summary>
+    public bool? Scripts { get; init; }
 }
 
 /// <summary>
@@ -507,6 +520,14 @@ internal sealed class NhAssistantAgentAdministration(
                 .Require(validator.IsChoosableProfile(profileName), "profile", NhAssistantFieldErrors.NotFound)
                 .Require(validator.PermitsExecutionRegion(profileName), "profile", NhAssistantFieldErrors.RegionNotPermitted);
         }
+        // An agent created here uses compositions and scripts only within the application's ceiling. A
+        // setting it already has stays accepted, so an editor that sends the agent back unchanged after
+        // the ceiling changed is not refused.
+        if (adminAgent)
+        {
+            CheckComposition(input.Compositions, stored?.UsesCompositions == true, NhAiCompositionFeature.Compositions, "compositions", errors);
+            CheckComposition(input.Scripts, stored?.UsesScripts == true, NhAiCompositionFeature.Scripts, "scripts", errors);
+        }
         // An agent created here classifies its model calls by name, as a data skill does.
         if (input.DataClassification is { } classification && adminAgent)
         {
@@ -547,6 +568,23 @@ internal sealed class NhAssistantAgentAdministration(
         return (TaskResult.Succeeded(), values);
     }
 
+    /// <summary>
+    /// Refuses switching on a feature that <see cref="NhAssistantBuilder.UseCompositionsAsData"/> does not
+    /// allow for agents created in the administration.
+    /// </summary>
+    private void CheckComposition(
+        bool? requested,
+        bool stored,
+        NhAiCompositionFeature feature,
+        string field,
+        NhAssistantValidationErrors errors)
+    {
+        if (requested == true && !stored && state.CompositionsAsData?.Allows(feature) != true)
+        {
+            errors.Add(field, NhAssistantFieldErrors.NotAllowed);
+        }
+    }
+
     private static void ApplyInput(AssistantAgent row, NhAssistantAgentInput input, int assetVersion)
     {
         var instructions = input.Instructions.Replace("\r\n", "\n", StringComparison.Ordinal);
@@ -571,6 +609,14 @@ internal sealed class NhAssistantAgentAdministration(
         if (input.DataClassification is { } classification && row.Source == NhAssistantAgentSources.Admin)
         {
             row.DataClassification = classification;
+        }
+        if (input.Compositions is { } compositions && row.Source == NhAssistantAgentSources.Admin)
+        {
+            row.UsesCompositions = compositions;
+        }
+        if (input.Scripts is { } scripts && row.Source == NhAssistantAgentSources.Admin)
+        {
+            row.UsesScripts = scripts;
         }
         if (input.InstructionsAsset is { } reference && row.Source == NhAssistantAgentSources.Admin)
         {

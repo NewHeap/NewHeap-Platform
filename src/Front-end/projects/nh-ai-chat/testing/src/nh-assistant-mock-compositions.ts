@@ -2,7 +2,7 @@ import { AgentCompositionActivity } from '@newheap/platform-ai-chat';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
 /**
- * `GET admin/agents/{id}/compositions` of the mock API: one composition that chained three reads and
+ * `GET admin/agents/{id}/compositions/activity` of the mock API: one composition that chained three reads and
  * one that stopped at a change that waits for a decision, so the activity shows its tool calls in order,
  * the rounds they saved and the size of the result the model received.
  */

@@ -98,6 +98,7 @@ internal static class NhAssistantServiceRegistration
         // the ceiling in code.
         services.TryAddScoped<INhAssistantCompositionSwitch, NhAssistantConfigurationCompositionSwitch>();
         services.TryAddScoped<NhAssistantCompositionGate>();
+        services.TryAddScoped<INhAssistantCompositionStatus, NhAssistantCompositionStatus>();
 
         // Collaboration: sharing, read state, live updates and notifications. The ASP.NET package
         // replaces the transport, the notifier and the token protector.
