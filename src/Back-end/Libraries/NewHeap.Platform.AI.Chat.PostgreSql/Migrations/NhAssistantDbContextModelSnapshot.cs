@@ -1517,6 +1517,22 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("SubjectDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SubjectId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SubjectScopeKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("TenantId")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1531,6 +1547,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerActorId", "UpdatedAt");
+
+                    b.HasIndex("SubjectType", "SubjectId");
 
                     b.ToTable("AssistantConversation", "nhai");
                 });
