@@ -45,6 +45,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantAgentAccess>();
             services.AddDataProtection();
             services.AddNewHeapPlatformAIMcp();
+            // The MCP exposure asks the application's composition switch for the MCP channel.
+            services.Replace(ServiceDescriptor.Scoped<INhAiMcpCompositionGate, NhAssistantMcpCompositionGate>());
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
             services.TryAddSingleton<NhAssistantMcpContextBindings>();

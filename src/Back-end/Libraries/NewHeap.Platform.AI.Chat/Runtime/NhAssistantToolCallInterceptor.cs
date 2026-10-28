@@ -81,6 +81,12 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];
 
+    /// <summary>
+    /// Whether the turn offers compositions and the script tool, decided once per feature when the
+    /// turn first selects its tools.
+    /// </summary>
+    public NhAssistantTurnCompositions Compositions { get; } = new();
+
     public required Guid UserMessageId { get; init; }
 
     public required Guid AssistantMessageId { get; init; }
@@ -474,9 +480,16 @@ internal sealed class NhAssistantToolCallInterceptor(
             // Such tools are not offered; a model that names one anyway changes nothing.
             return Refusal(NhAssistantErrorCodes.ConsultReadOnly);
         }
+        if (descriptor.CompositionFeature != NhAiCompositionFeature.None
+            && state.Compositions.DecisionOf(descriptor.CompositionFeature) != true)
+        {
+            // The turn does not offer the feature: code does not allow it or the application's switch
+            // had it off when the turn began. Nothing runs, and individual tools stay available.
+            return Refusal(NhAiCompositionFeatures.OffCodeOf(descriptor.CompositionFeature));
+        }
         if (state.Scope.Consultation is { } selecting
             && FindMemory(context.Function) is null
-            && !selecting.Options.Selects(descriptor.Id))
+            && !NhAssistantTurnRunner.IsSelectedInConsultation(selecting, descriptor))
         {
             // A tool outside the consultation's selection is not offered either; nothing runs.
             return Refusal(NhAssistantErrorCodes.ConsultToolNotSelected);

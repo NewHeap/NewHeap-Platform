@@ -861,6 +861,14 @@ internal sealed partial class NhAssistantTurnRunner(
 
         if (governed is not null)
         {
+            var feature = governed.Value.Descriptor.CompositionFeature;
+            if (feature != NhAiCompositionFeature.None
+                && !await OffersCompositionFeatureAsync(state, feature, cancellationToken))
+            {
+                // The approved call arrives while the feature is off; nothing runs.
+                return new NhAssistantProposalExecutionResult(false, NhAiCompositionFeatures.OffCodeOf(feature));
+            }
+
             return await ExecuteStoredInvocationAsync(state, approval, invocation, governed.Value, cancellationToken);
         }
 
@@ -1613,7 +1621,7 @@ internal sealed partial class NhAssistantTurnRunner(
     {
         var agent = state.Scope.Agent;
         var context = CreateAgentInvocationContext(state, callerContext);
-        var selected = (await SelectToolsAsync(agent, context, null, cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        var selected = (await SelectToolsAsync(state, agent, context, null, cancellationToken)).ToHashSet(StringComparer.Ordinal);
         var tools = new Dictionary<string, AIFunction>(StringComparer.Ordinal);
         foreach (var catalog in _catalogs.Select(NhAiToolCatalogViews.Of))
         {
@@ -2242,6 +2250,19 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         var (aiFunction, descriptor) = function.Value;
+        if (descriptor.CompositionFeature != NhAiCompositionFeature.None
+            && !await OffersCompositionFeatureAsync(state, descriptor.CompositionFeature, cancellationToken))
+        {
+            // The approved call arrives in a turn that does not offer the feature; nothing runs.
+            var off = NhAiCompositionFeatures.OffCodeOf(descriptor.CompositionFeature);
+            invocation.Status = NhAssistantToolCallStatuses.Failed;
+            invocation.ResultCode = off;
+            invocation.CompletedAt = DateTimeOffset.UtcNow;
+            await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
+            await FinishWithErrorAsync(state, off, NhAssistantConversationStatuses.Idle);
+            return null;
+        }
+
         invocation.Status = NhAssistantToolCallStatuses.Running;
         await store.UpdateToolInvocationAsync(invocation, CancellationToken.None);
         // The paused message already references this tool call; its row carries the new status.
@@ -2917,7 +2938,7 @@ internal sealed partial class NhAssistantTurnRunner(
         // Agent Framework and Microsoft.Extensions.AI trace function arguments and results at trace
         // level. The assistant pipeline gets no logger factory so conversation content never reaches logs.
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
-        var selectors = await SelectToolsAsync(agent, context, state.Scope.Consultation, cancellationToken);
+        var selectors = await SelectToolsAsync(state, agent, context, state.Scope.Consultation, cancellationToken);
         var prompt = await WithApplicationMapAsync(state, state.Scope.Prompt!, context, selectors, cancellationToken);
         prompt = state.RetrievedContext is { } retrieved
             ? prompt with { RetrievedContext = retrieved.Block, RetrievedContextHash = retrieved.Hash }
@@ -3073,10 +3094,12 @@ internal sealed partial class NhAssistantTurnRunner(
 
     /// <summary>
     /// Discovers the agent-exposed tools the caller may see, intersects them with the agent's
-    /// selectors, and in a consultation with the consultation's own tool selection, and caps the
-    /// result. Only the count is logged.
+    /// selectors, and in a consultation with the consultation's own tool selection, leaves out the
+    /// compositions and the script tool that the turn does not offer, and caps the result. Only the
+    /// count is logged.
     /// </summary>
     private async Task<IReadOnlyList<string>> SelectToolsAsync(
+        NhAssistantTurnState state,
         NhAssistantAgentDefinition agent,
         NhAiInvocationContext context,
         NhAssistantConsultationScope? consultation,
@@ -3085,10 +3108,10 @@ internal sealed partial class NhAssistantTurnRunner(
         var discovered = await discovery.DiscoverAsync(
             new NhAiToolDiscoveryRequest(context, NhAiToolExposure.Agent),
             cancellationToken);
-        var selected = discovered
-            .Where(descriptor => agent.ToolSelectors.Any(selector => IsSelected(selector, descriptor.Id)))
+        var candidates = discovered
+            .Where(descriptor => IsSelectedForAgent(agent, descriptor))
             // A consultation's selection only narrows the agent's tools, consultation tools included.
-            .Where(descriptor => consultation is null || consultation.Options.Selects(descriptor.Id))
+            .Where(descriptor => consultation is null || IsSelectedInConsultation(consultation, descriptor))
             .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || OffersEffects(agent, consultation))
             .Where(descriptor => IsOfferedInConsultation(descriptor, consultation))
             // An agent never consults itself.
@@ -3096,6 +3119,23 @@ internal sealed partial class NhAssistantTurnRunner(
                 NhAssistantConsultationTools.TargetAgentOf(descriptor.Id),
                 agent.Id,
                 StringComparison.Ordinal))
+            .ToArray();
+        var offered = new List<NhAiToolDescriptor>(candidates.Length);
+        var withheld = false;
+        foreach (var descriptor in candidates)
+        {
+            if (descriptor.CompositionFeature != NhAiCompositionFeature.None
+                && !await OffersCompositionFeatureAsync(state, descriptor.CompositionFeature, cancellationToken))
+            {
+                // Code does not allow the feature or the application's switch has it off for this turn.
+                withheld = true;
+                continue;
+            }
+
+            offered.Add(descriptor);
+        }
+
+        var selected = offered
             .Select(descriptor => descriptor.Id)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -3105,6 +3145,11 @@ internal sealed partial class NhAssistantTurnRunner(
             // The adapter needs a non-empty allow-list; one that selects nothing offers no tools,
             // where falling back to the agent's selectors would offer more than the consultation may use.
             return selected.Length == 0 ? [NoToolsSelector] : selected.Take(registration.Limits.MaxToolsPerAgent).ToArray();
+        }
+        if (selected.Length == 0 && withheld)
+        {
+            // Falling back to the agent's selectors would offer the withheld compositions again.
+            return [NoToolsSelector];
         }
         var limit = registration.Limits.MaxToolsPerAgent;
         if (selected.Length > limit)
@@ -3154,6 +3199,87 @@ internal sealed partial class NhAssistantTurnRunner(
 
         return consultation.Options.MaxToolCalls > 0
                && (descriptor.Effect == NhAiToolEffect.ReadOnly || consultation.MayPropose);
+    }
+
+    /// <summary>
+    /// Whether the agent's selectors select the tool. The script tool needs no selector: code allowing
+    /// the agent scripts is its opt-in, and a script calls only the tools its turn offers.
+    /// </summary>
+    private static bool IsSelectedForAgent(NhAssistantAgentDefinition agent, NhAiToolDescriptor descriptor)
+    {
+        return descriptor.CompositionFeature == NhAiCompositionFeature.Scripts
+            || agent.ToolSelectors.Any(selector => IsSelected(selector, descriptor.Id));
+    }
+
+    /// <summary>
+    /// Whether a consultation's own selection selects the tool. The script tool is offered in every
+    /// consultation whose agent allows it, because its tools are the consultation's tools.
+    /// </summary>
+    internal static bool IsSelectedInConsultation(NhAssistantConsultationScope consultation, NhAiToolDescriptor descriptor)
+    {
+        return descriptor.CompositionFeature == NhAiCompositionFeature.Scripts
+            || consultation.Options.Selects(descriptor.Id);
+    }
+
+    /// <summary>
+    /// Whether the turn offers the tools of <paramref name="feature"/>, decided once per turn: code must
+    /// allow the agent the feature and the application's switch must have it on for the turn.
+    /// </summary>
+    internal async ValueTask<bool> OffersCompositionFeatureAsync(
+        NhAssistantTurnState state,
+        NhAiCompositionFeature feature,
+        CancellationToken cancellationToken)
+    {
+        return await state.Compositions.DecideAsync(
+            feature,
+            () => services.GetRequiredService<NhAssistantCompositionGate>().IsOfferedAsync(
+                state.EffectiveAgent.Id,
+                feature,
+                CompositionContextOf(state, feature),
+                cancellationToken));
+    }
+
+    /// <summary>
+    /// What the composition switch is asked for a turn: its channel, tenant, agent and person.
+    /// </summary>
+    internal static NhAssistantCompositionSwitchContext CompositionContextOf(NhAssistantTurnState state, NhAiCompositionFeature feature)
+    {
+        var channel = CompositionChannelOf(state);
+        string? person = channel switch
+        {
+            NhAssistantCompositionChannel.Run => state.AgentTurn?.InitiatorActorId,
+            NhAssistantCompositionChannel.HandOff => null,
+            NhAssistantCompositionChannel.Consultation when !string.IsNullOrEmpty(state.Scope.Consultation?.AskerActorId)
+                => state.Scope.Consultation.AskerActorId,
+            _ => state.Scope.OwnerActorId
+        };
+
+        return new NhAssistantCompositionSwitchContext(feature, channel)
+        {
+            TenantId = state.Scope.TenantId,
+            AgentId = state.EffectiveAgent.Id,
+            PersonActorId = person
+        };
+    }
+
+    /// <summary>
+    /// Where the turn works: a consultation, a run another agent handed work to, any other run, or a
+    /// person's chat, which includes a message a person types in an agent's thread.
+    /// </summary>
+    internal static NhAssistantCompositionChannel CompositionChannelOf(NhAssistantTurnState state)
+    {
+        if (state.Scope.Consultation is not null)
+        {
+            return NhAssistantCompositionChannel.Consultation;
+        }
+        if (state.AgentTurn is not { } agentTurn || agentTurn.IsRequestTurn)
+        {
+            return NhAssistantCompositionChannel.Chat;
+        }
+
+        return string.Equals(agentTurn.TriggerId, NhAssistantTriggerIds.HandOff, StringComparison.Ordinal)
+            ? NhAssistantCompositionChannel.HandOff
+            : NhAssistantCompositionChannel.Run;
     }
 
     private static bool IsSelected(string selector, string toolId)

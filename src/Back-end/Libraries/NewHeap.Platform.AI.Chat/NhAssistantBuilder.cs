@@ -94,6 +94,21 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Replaces the default composition switch, which reads <c>NewHeap:AI:Assistant:Compositions</c> and
+    /// <c>NewHeap:AI:Assistant:Scripts</c>, with the application's own: for example one that reads a
+    /// setting per environment and agent from the application's database, with a cache of its own. It is
+    /// a scoped service, asked once per feature at the start of each turn, run step and MCP request, and
+    /// only switches on what code allows (<see cref="NhAssistantAgentContextBuilder.AllowCompositions"/>,
+    /// <see cref="NhAssistantAgentContextBuilder.AllowScripts"/>).
+    /// </summary>
+    public NhAssistantBuilder UseCompositionSwitch<TSwitch>()
+        where TSwitch : class, INhAssistantCompositionSwitch
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantCompositionSwitch, TSwitch>());
+        return this;
+    }
+
+    /// <summary>
     /// Configures turn limits, approval lifetime and durable daily budgets.
     /// </summary>
     public NhAssistantBuilder WithLimits(Action<NhAssistantLimits> configure)

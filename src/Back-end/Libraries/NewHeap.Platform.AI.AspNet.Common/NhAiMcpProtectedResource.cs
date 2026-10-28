@@ -246,6 +246,49 @@ public sealed class NhAiMcpExposureBuilder
         _services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiMcpProtectedResourceStartupCheck>());
         return this;
     }
+
+    /// <summary>
+    /// Allows compositions (tools marked <see cref="NhAiCompositionFeature.Compositions"/>) in the MCP
+    /// exposure: the ceiling in code above the application's switch. While the switch has compositions
+    /// off for a request, they are not listed and a call is refused with
+    /// <see cref="NhAiCompositionFeatures.CompositionOffCode"/>. Without this ceiling they are not part
+    /// of the exposure. With the assistant installed the switch is its <c>INhAssistantCompositionSwitch</c>
+    /// for the MCP channel; without it, <c>NewHeap:AI:Assistant:Compositions</c>.
+    /// </summary>
+    public NhAiMcpExposureBuilder AllowCompositions(bool enabled = true)
+    {
+        CompositionCeiling().AllowCompositions = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Allows the script tool (marked <see cref="NhAiCompositionFeature.Scripts"/>) in the MCP exposure,
+    /// as <see cref="AllowCompositions"/> does for compositions; a call while scripts are off is refused
+    /// with <see cref="NhAiCompositionFeatures.ScriptingOffCode"/>. Without the assistant the switch is
+    /// <c>NewHeap:AI:Assistant:Scripts</c>.
+    /// </summary>
+    public NhAiMcpExposureBuilder AllowScripts(bool enabled = true)
+    {
+        CompositionCeiling().AllowScripts = enabled;
+        return this;
+    }
+
+    private NhAiMcpCompositionCeiling CompositionCeiling()
+    {
+        var existing = _services
+            .Where(descriptor => descriptor.ServiceType == typeof(NhAiMcpCompositionCeiling))
+            .Select(descriptor => descriptor.ImplementationInstance)
+            .OfType<NhAiMcpCompositionCeiling>()
+            .FirstOrDefault();
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var ceiling = new NhAiMcpCompositionCeiling();
+        _services.AddSingleton(ceiling);
+        return ceiling;
+    }
 }
 
 /// <summary>

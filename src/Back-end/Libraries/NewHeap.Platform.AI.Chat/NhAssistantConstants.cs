@@ -1281,6 +1281,19 @@ public static class NhAssistantErrorCodes
     public const string ConsultToolNotSelected = "assistant-consult-tool-not-selected";
 
     /// <summary>
+    /// A composition was called while the turn, run step or MCP request does not offer compositions:
+    /// code does not allow them or the application's <see cref="INhAssistantCompositionSwitch"/> has
+    /// them off. Nothing ran; individual tools stay available.
+    /// </summary>
+    public const string CompositionOff = NhAiCompositionFeatures.CompositionOffCode;
+
+    /// <summary>
+    /// The script tool was called while the turn, run step or MCP request does not offer scripts, as
+    /// for <see cref="CompositionOff"/>. Nothing ran.
+    /// </summary>
+    public const string ScriptingOff = NhAiCompositionFeatures.ScriptingOffCode;
+
+    /// <summary>
     /// No route of the consultation applies to a call of the consulted agent that changes something,
     /// so nothing was proposed; the result's <c>reason</c> is one of
     /// <see cref="NhAssistantConsultationRefusalReasons"/>. A request to leave a proposal for the

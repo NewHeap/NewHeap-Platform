@@ -90,6 +90,10 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantConversationReader>();
         services.TryAddScoped<INhAssistantConversationSnapshotProvider, NhAssistantConversationSnapshotProvider>();
         services.TryAddScoped<INhAssistantTitleGenerator, NhAssistantFirstLineTitleGenerator>();
+        // Compositions and the script tool: the application's switch (configuration by default) under
+        // the ceiling in code.
+        services.TryAddScoped<INhAssistantCompositionSwitch, NhAssistantConfigurationCompositionSwitch>();
+        services.TryAddScoped<NhAssistantCompositionGate>();
 
         // Collaboration: sharing, read state, live updates and notifications. The ASP.NET package
         // replaces the transport, the notifier and the token protector.

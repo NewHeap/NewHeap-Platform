@@ -1,9 +1,9 @@
 namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
-/// What every turn of one agent starts with beyond its instructions: the application map and
-/// retrieved context. It applies to people's turns, consultations and runs alike. See
-/// <see cref="NhAssistantBuilder.ConfigureAgentContext"/>.
+/// What every turn of one agent starts with beyond its instructions: the application map,
+/// retrieved context and whether compositions and the script tool may be offered. It applies to
+/// people's turns, consultations and runs alike. See <see cref="NhAssistantBuilder.ConfigureAgentContext"/>.
 /// </summary>
 public sealed class NhAssistantAgentContextOptions
 {
@@ -19,6 +19,32 @@ public sealed class NhAssistantAgentContextOptions
     /// that offer a tool that reads it.
     /// </summary>
     public bool UseApplicationMap { get; internal set; }
+
+    /// <summary>
+    /// Code allows the agent compositions (<see cref="NhAiCompositionFeature.Compositions"/>): the ceiling
+    /// above the application's <see cref="INhAssistantCompositionSwitch"/>, which can only switch them on
+    /// for an agent that allows them. False by default.
+    /// </summary>
+    public bool AllowCompositions { get; internal set; }
+
+    /// <summary>
+    /// Code allows the agent the script tool (<see cref="NhAiCompositionFeature.Scripts"/>), as
+    /// <see cref="AllowCompositions"/> does for compositions. False by default.
+    /// </summary>
+    public bool AllowScripts { get; internal set; }
+
+    /// <summary>
+    /// Whether code allows the agent <paramref name="feature"/>.
+    /// </summary>
+    public bool Allows(NhAiCompositionFeature feature)
+    {
+        return feature switch
+        {
+            NhAiCompositionFeature.Compositions => AllowCompositions,
+            NhAiCompositionFeature.Scripts => AllowScripts,
+            _ => false
+        };
+    }
 
     /// <summary>
     /// The context sources every turn retrieves from, or <see langword="null"/> without retrieval.
@@ -160,6 +186,31 @@ public sealed class NhAssistantAgentContextBuilder
         }
 
         _options.RetrievedContext = retrieval;
+        return this;
+    }
+
+    /// <summary>
+    /// Allows the agent compositions in code: tools marked <see cref="NhAiCompositionFeature.Compositions"/>
+    /// that its tool selectors select are offered in its turns, runs, consultations and hand-offs while
+    /// the application's <see cref="INhAssistantCompositionSwitch"/> has compositions on for that turn.
+    /// Without it no switch offers them to the agent.
+    /// </summary>
+    public NhAssistantAgentContextBuilder AllowCompositions(bool enabled = true)
+    {
+        _options.AllowCompositions = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Allows the agent the script tool in code: the tool marked <see cref="NhAiCompositionFeature.Scripts"/>
+    /// is offered wherever the agent works, without a tool selector of its own, while the application's
+    /// <see cref="INhAssistantCompositionSwitch"/> has scripts on for that turn. A script only calls the
+    /// tools its turn offers, so it never reaches beyond the agent's tools. Without it no switch offers the
+    /// script tool to the agent.
+    /// </summary>
+    public NhAssistantAgentContextBuilder AllowScripts(bool enabled = true)
+    {
+        _options.AllowScripts = enabled;
         return this;
     }
 }
