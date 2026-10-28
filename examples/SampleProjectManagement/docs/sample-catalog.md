@@ -56,7 +56,15 @@ nothing; a selector that chooses an unknown policy, throws or answers too late r
 its own code. The reply channel finds whom to ask through the same directory (SPM-357):
 `OfferToApproversAsync` lists the people who may decide under the proposal's policy copy
 (`INhAssistantApproverDirectory.ListForProposalAsync`), the project's members and the initiator checked as
-the decision checks them, and says whether the list is complete. Project
+the decision checks them, and says whether the list is complete. A participant may also ask on the
+project page for another status without any run (SPM-364): `POST projects/{projectId}/status-requests`
+lets `SampleProjectStatusRequests` record the request as the intake reviewer's deferred proposal for that
+person (`INhAssistantProposals.ProposeForAsync`), with the texts the approvers read in English and Dutch,
+written by the application, and the page's request id as the idempotency key. The platform checks what a
+run's proposal meets, with the participant's own rights instead of the reviewer's grant; the proposal
+waits in the reviewer's thread at the project under `project-intake`, a request sent twice finds the same
+proposal, someone outside the project is refused, and an approver other than the participant approves the
+change, which executes with the participant's rights. Project
 members and their roles decide who sees the project's agent thread, through
 `ProjectSubjectAccessResolver`; removing a member refreshes the thread's people, so the former
 member's participant row goes and no live update or notification of the thread reaches them
