@@ -187,6 +187,20 @@ public sealed record NhAssistantAgentDefinitionRequest(
     /// of <see cref="Instructions"/>; <see langword="null"/> makes or keeps them text.
     /// </summary>
     public NhAssistantInstructionAssetReference? InstructionsAsset { get; init; }
+
+    /// <summary>
+    /// For an agent created at runtime: whether it uses compositions, within
+    /// <c>UseCompositionsAsData</c> (field error <c>compositions: not-allowed</c> otherwise);
+    /// <see langword="null"/> keeps it.
+    /// </summary>
+    public bool? Compositions { get; init; }
+
+    /// <summary>
+    /// For an agent created at runtime: whether it uses the script tool, within
+    /// <c>UseCompositionsAsData</c> (field error <c>scripts: not-allowed</c> otherwise);
+    /// <see langword="null"/> keeps it.
+    /// </summary>
+    public bool? Scripts { get; init; }
 }
 
 /// <summary>
@@ -338,7 +352,9 @@ internal sealed class NhAssistantAgentDefinitions(
             request.InstructionsAsset)
         {
             // As at the endpoint, a request that names no servers keeps them.
-            KeepMcpServers = request.McpServerIds is null
+            KeepMcpServers = request.McpServerIds is null,
+            Compositions = request.Compositions,
+            Scripts = request.Scripts
         };
         return await InEffectAsync(await administration.UpdateAsync(input, expectedVersion, actorId, cancellationToken), cancellationToken);
     }
@@ -557,7 +573,7 @@ internal sealed class NhAssistantAgentDefinitions(
     /// when the variant's instructions are an asset that is not available. The live agent keeps its
     /// display name and MCP assignments; an agent in code takes the fields it can override, with the
     /// asset's verified text as its instructions; an agent created at runtime also the variant's
-    /// profile, classification, what it works on and its asset reference.
+    /// profile, classification, what it works on, its asset reference and its compositions and scripts.
     /// </summary>
     private static NhAssistantAgentInput? PromotionInput(NhAssistantAgent variant, NhAssistantAgent live)
     {
@@ -588,7 +604,11 @@ internal sealed class NhAssistantAgentDefinitions(
             Metadata: null,
             InstructionsAsset: asset)
         {
-            KeepMcpServers = true
+            KeepMcpServers = true,
+            // An agent created at runtime takes the variant's compositions and scripts as well; an agent in
+            // code keeps what its code allows.
+            Compositions = toRuntimeAgent ? variant.Compositions.Compositions : null,
+            Scripts = toRuntimeAgent ? variant.Compositions.Scripts : null
         };
     }
 

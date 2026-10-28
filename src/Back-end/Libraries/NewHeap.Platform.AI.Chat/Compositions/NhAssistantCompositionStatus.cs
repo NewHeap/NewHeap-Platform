@@ -39,7 +39,9 @@ public sealed record NhAssistantCompositionStatusDto(
 /// <param name="Feature"><c>compositions</c> or <c>scripts</c> (<see cref="NhAiCompositionFeatures.NameOf"/>).</param>
 /// <param name="On">Whether the feature is on in at least one channel.</param>
 /// <param name="Reason">One of <see cref="NhAssistantCompositionReasons"/>: <c>on</c> while the feature is on
-/// in a channel, otherwise why it is off everywhere.</param>
+/// in a channel, otherwise why it is off everywhere: <c>not-installed</c>, then for an agent in code
+/// <c>agent-not-allowed</c> and for an agent created in the administration
+/// <c>not-allowed-for-data-agents</c> or <c>off-for-agent</c>, then <c>off-by-application</c>.</param>
 /// <param name="Channels">Chat, run, consultation and hand-off, each with its own state.</param>
 public sealed record NhAssistantCompositionFeatureStatusDto(
     string Feature,
@@ -79,6 +81,18 @@ public static class NhAssistantCompositionReasons
 
     /// <summary>The application's switch has the feature off (<see cref="INhAssistantCompositionSwitch"/>).</summary>
     public const string OffByApplication = "off-by-application";
+
+    /// <summary>
+    /// The agent was created in the administration and the application's ceiling
+    /// (<see cref="NhAssistantBuilder.UseCompositionsAsData"/>) does not allow the feature for such agents.
+    /// </summary>
+    public const string NotAllowedForDataAgents = "not-allowed-for-data-agents";
+
+    /// <summary>
+    /// The agent was created in the administration, the application's ceiling allows the feature, and
+    /// an administrator has not switched it on for this agent.
+    /// </summary>
+    public const string OffForAgent = "off-for-agent";
 }
 
 /// <summary>
@@ -147,14 +161,14 @@ internal sealed class NhAssistantCompositionStatus(
         var features = new List<NhAssistantCompositionFeatureStatusDto>(NhAiCompositionFeatures.All.Count);
         foreach (var feature in NhAiCompositionFeatures.All)
         {
-            features.Add(await FeatureStatusAsync(agent.Id, feature, request, cancellationToken));
+            features.Add(await FeatureStatusAsync(agent, feature, request, cancellationToken));
         }
 
         return new NhAssistantCompositionStatusDto(agent.Id, features);
     }
 
     private async Task<NhAssistantCompositionFeatureStatusDto> FeatureStatusAsync(
-        string agentId,
+        NhAssistantAgent agent,
         NhAiCompositionFeature feature,
         NhAssistantCompositionStatusRequest request,
         CancellationToken cancellationToken)
@@ -165,9 +179,9 @@ internal sealed class NhAssistantCompositionStatus(
         {
             blocked = NhAssistantCompositionReasons.NotInstalled;
         }
-        else if (!gate.AllowsInCode(agentId, feature))
+        else
         {
-            blocked = NhAssistantCompositionReasons.AgentNotAllowed;
+            blocked = gate.ReasonOf(agent, feature);
         }
 
         var channels = new List<NhAssistantCompositionChannelStatusDto>(AgentChannels.Length);
@@ -183,7 +197,7 @@ internal sealed class NhAssistantCompositionStatus(
                 new NhAssistantCompositionSwitchContext(feature, channel)
                 {
                     TenantId = request.TenantId,
-                    AgentId = agentId,
+                    AgentId = agent.Id,
                     PersonActorId = request.PersonActorId
                 },
                 cancellationToken);

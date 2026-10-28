@@ -121,13 +121,39 @@ public sealed class AssistantCompositionChannelTests
         registration.GetOrAddAgentContext("allows-scripts").AllowScripts = true;
         var state = new TestCompositionSwitchState();
         var gate = new NhAssistantCompositionGate(new TestCompositionSwitch(state), registration, NullLogger<NhAssistantCompositionGate>.Instance);
+        var inCode = Agent("allows-scripts", NhAssistantAgentSources.Code);
 
-        Assert.True(await gate.IsOfferedAsync("allows-scripts", NhAiCompositionFeature.Scripts, Context(NhAiCompositionFeature.Scripts), CancellationToken.None));
-        Assert.False(await gate.IsOfferedAsync("allows-scripts", NhAiCompositionFeature.Compositions, Context(NhAiCompositionFeature.Compositions), CancellationToken.None));
-        Assert.False(await gate.IsOfferedAsync("in-the-administration", NhAiCompositionFeature.Scripts, Context(NhAiCompositionFeature.Scripts), CancellationToken.None));
+        Assert.True(await gate.IsOfferedAsync(inCode, NhAiCompositionFeature.Scripts, Context(NhAiCompositionFeature.Scripts), CancellationToken.None));
+        Assert.False(await gate.IsOfferedAsync(inCode, NhAiCompositionFeature.Compositions, Context(NhAiCompositionFeature.Compositions), CancellationToken.None));
+        Assert.Equal(NhAssistantCompositionReasons.AgentNotAllowed, gate.ReasonOf(inCode, NhAiCompositionFeature.Compositions));
+        // An agent in code never takes a setting of its own: only its code counts.
+        Assert.Equal(
+            NhAssistantCompositionReasons.AgentNotAllowed,
+            gate.ReasonOf(Agent("other-code-agent", NhAssistantAgentSources.Code, new NhAssistantAgentCompositionSettings(true, true)), NhAiCompositionFeature.Scripts));
 
         var asked = Assert.Single(state.Asked);
         Assert.Equal(NhAiCompositionFeature.Scripts, asked.Feature);
+    }
+
+    [Fact]
+    public void An_agent_created_in_the_administration_needs_the_applications_ceiling_and_its_own_setting()
+    {
+        var registration = new NhAssistantRegistrationState();
+        var gate = new NhAssistantCompositionGate(new TestCompositionSwitch(new TestCompositionSwitchState()), registration, NullLogger<NhAssistantCompositionGate>.Instance);
+        var on = Agent("data-agent", NhAssistantAgentSources.Admin, new NhAssistantAgentCompositionSettings(true, true));
+        var off = Agent("data-agent", NhAssistantAgentSources.Admin);
+
+        // Without UseCompositionsAsData its setting counts for nothing.
+        Assert.Equal(NhAssistantCompositionReasons.NotAllowedForDataAgents, gate.ReasonOf(on, NhAiCompositionFeature.Scripts));
+
+        var builder = new NhAssistantBuilder(new Microsoft.Extensions.DependencyInjection.ServiceCollection(), registration);
+        builder.UseCompositionsAsData(data => data.AllowScripts());
+
+        Assert.Null(gate.ReasonOf(on, NhAiCompositionFeature.Scripts));
+        Assert.True(gate.AllowsInCode(on, NhAiCompositionFeature.Scripts));
+        Assert.Equal(NhAssistantCompositionReasons.NotAllowedForDataAgents, gate.ReasonOf(on, NhAiCompositionFeature.Compositions));
+        Assert.Equal(NhAssistantCompositionReasons.OffForAgent, gate.ReasonOf(off, NhAiCompositionFeature.Scripts));
+        Assert.Throws<InvalidOperationException>(() => builder.UseCompositionsAsData(_ => { }));
     }
 
     [Fact]
@@ -140,7 +166,7 @@ public sealed class AssistantCompositionChannelTests
         using var factory = LoggerFactory.Create(logging => logging.AddProvider(logs));
         var gate = new NhAssistantCompositionGate(new TestCompositionSwitch(state), registration, factory.CreateLogger<NhAssistantCompositionGate>());
 
-        var on = await gate.IsOfferedAsync("project-assistant", NhAiCompositionFeature.Compositions, Context(NhAiCompositionFeature.Compositions), CancellationToken.None);
+        var on = await gate.IsOfferedAsync(Agent("project-assistant", NhAssistantAgentSources.Code), NhAiCompositionFeature.Compositions, Context(NhAiCompositionFeature.Compositions), CancellationToken.None);
 
         Assert.False(on);
         Assert.Contains(logs.Messages, message => message.Contains(nameof(InvalidOperationException), StringComparison.Ordinal));
@@ -172,6 +198,14 @@ public sealed class AssistantCompositionChannelTests
         Assert.Equal("scripts", NhAiCompositionFeatures.NameOf(NhAiCompositionFeature.Scripts));
         Assert.Throws<ArgumentOutOfRangeException>(() => NhAiCompositionFeatures.OffCodeOf(NhAiCompositionFeature.None));
         Assert.Equal(NhAiCompositionFeature.None, TestProjectToolCatalog.Search.CompositionFeature);
+    }
+
+    private static NhAssistantAgent Agent(string id, string source, NhAssistantAgentCompositionSettings? settings = null)
+    {
+        return new NhAssistantAgent(AssistantTestData.Agent(id), [], true, source, false, DateTimeOffset.UtcNow)
+        {
+            Compositions = settings ?? NhAssistantAgentCompositionSettings.None
+        };
     }
 
     private static NhAssistantCompositionSwitchContext Context(NhAiCompositionFeature feature)

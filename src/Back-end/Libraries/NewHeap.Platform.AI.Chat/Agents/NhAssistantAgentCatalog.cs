@@ -115,6 +115,13 @@ internal sealed record NhAssistantAgent(
     /// every other agent. A variant in code says it in its run configuration (<c>ShadowOf</c>).
     /// </summary>
     public string? ShadowOfAgentId { get; init; }
+
+    /// <summary>
+    /// What the agent's own definition allows of compositions and the script tool: what its code allows
+    /// for an agent in code, the stored setting for an agent created in the administration, which only
+    /// counts within <c>UseCompositionsAsData</c>.
+    /// </summary>
+    public NhAssistantAgentCompositionSettings Compositions { get; init; } = NhAssistantAgentCompositionSettings.None;
 }
 
 /// <summary>
@@ -279,8 +286,25 @@ internal sealed class NhAssistantAgentCatalog(
             DataClassification = ClassificationOf(row),
             InstructionsAsset = reference,
             InstructionsProblem = instructionsProblem,
-            ShadowOfAgentId = row.Source == NhAssistantAgentSources.Admin ? row.ShadowOfAgentId : null
+            ShadowOfAgentId = row.Source == NhAssistantAgentSources.Admin ? row.ShadowOfAgentId : null,
+            Compositions = CompositionsOf(row)
         };
+    }
+
+    /// <summary>
+    /// What the agent allows of compositions and scripts: its code's ceiling for an agent in code, the
+    /// stored setting for an agent created in the administration.
+    /// </summary>
+    private NhAssistantAgentCompositionSettings CompositionsOf(AssistantAgent row)
+    {
+        if (row.Source == NhAssistantAgentSources.Code)
+        {
+            return registration.AgentContexts.TryGetValue(row.Id, out var context)
+                ? new NhAssistantAgentCompositionSettings(context.AllowCompositions, context.AllowScripts)
+                : NhAssistantAgentCompositionSettings.None;
+        }
+
+        return new NhAssistantAgentCompositionSettings(row.UsesCompositions, row.UsesScripts);
     }
 
     /// <summary>

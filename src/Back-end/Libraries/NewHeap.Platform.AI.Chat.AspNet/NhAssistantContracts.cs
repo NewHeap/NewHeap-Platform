@@ -846,6 +846,22 @@ public sealed record NhAssistantAdminAgentInputDto(
     /// shadow.
     /// </summary>
     public string? ShadowOf { get; init; }
+
+    /// <summary>
+    /// For an agent created in the administration: whether it uses compositions, saved and versioned with
+    /// its definition. Switching it on needs <c>UseCompositionsAsData(c => c.AllowCompositions())</c>
+    /// (field error <c>compositions: not-allowed</c> otherwise). Omitted keeps it on update; a new agent
+    /// starts without. A turn offers compositions only when the application's switch has them on too.
+    /// Agents in code take it from their code.
+    /// </summary>
+    public bool? Compositions { get; init; }
+
+    /// <summary>
+    /// For an agent created in the administration: whether it uses the script tool, as
+    /// <see cref="Compositions"/> does for compositions (<c>AllowScripts()</c>, field error
+    /// <c>scripts: not-allowed</c>).
+    /// </summary>
+    public bool? Scripts { get; init; }
 }
 
 /// <summary>
@@ -1070,6 +1086,20 @@ public sealed record NhAssistantAdminAgentDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageLinkDto? Package { get; init; }
+
+    /// <summary>
+    /// Whether the agent's definition allows compositions: what its code allows for an agent in code
+    /// (<c>ConfigureAgentContext(...).AllowCompositions()</c>), the administrator's setting for an agent
+    /// created in the administration. What a turn offers also depends on the application's switch; see
+    /// <c>GET admin/agents/{id}/compositions</c>.
+    /// </summary>
+    public bool Compositions { get; init; }
+
+    /// <summary>
+    /// Whether the agent's definition allows the script tool, as <see cref="Compositions"/> does for
+    /// compositions.
+    /// </summary>
+    public bool Scripts { get; init; }
 }
 
 /// <summary>

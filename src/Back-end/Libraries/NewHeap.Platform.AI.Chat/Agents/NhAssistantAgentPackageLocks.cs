@@ -115,7 +115,9 @@ public static class NhAssistantPackageLockFields
         "offeredInChat",
         "worksOn",
         "profile",
-        "dataClassification"
+        "dataClassification",
+        "compositions",
+        "scripts"
     ];
 
     /// <summary>

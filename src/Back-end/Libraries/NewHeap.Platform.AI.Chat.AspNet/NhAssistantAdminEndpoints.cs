@@ -1178,7 +1178,9 @@ internal static class NhAssistantAdminEndpoints
             body.InstructionsAsset,
             body.StartsInShadow == true)
         {
-            ShadowOf = body.ShadowOf
+            ShadowOf = body.ShadowOf,
+            Compositions = body.Compositions,
+            Scripts = body.Scripts
         }, errors);
     }
 
@@ -1329,7 +1331,9 @@ internal static class NhAssistantAdminEndpoints
             ChatOnly = agent.ChatOnly,
             OffBeforeStop = state.OffBeforeStop,
             InstructionsAsset = agent.InstructionsAsset,
-            InstructionsProblem = agent.InstructionsProblem
+            InstructionsProblem = agent.InstructionsProblem,
+            Compositions = agent.Compositions.Compositions,
+            Scripts = agent.Compositions.Scripts
         };
     }
 

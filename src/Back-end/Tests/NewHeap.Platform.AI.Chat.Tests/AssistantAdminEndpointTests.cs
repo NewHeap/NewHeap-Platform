@@ -190,7 +190,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
             "offeredInChat", "profile", "dataClassification", "warnings", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication",
             "perDivision", "runPolicy", "viewPolicy", "worksOnDeclared", "chatOnly", "knownSubjectTypes", "groups", "codeGroups", "offBeforeStop",
-            "instructionsAsset", "instructionsProblem");
+            "instructionsAsset", "instructionsProblem", "compositions", "scripts");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("project-chat", code.GetProperty("profile").GetString());
         Assert.Equal(JsonValueKind.Null, code.GetProperty("dataClassification").ValueKind);

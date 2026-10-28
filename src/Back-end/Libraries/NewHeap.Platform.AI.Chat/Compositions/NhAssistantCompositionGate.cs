@@ -14,15 +14,36 @@ internal sealed class NhAssistantCompositionGate(
     ILogger<NhAssistantCompositionGate> logger)
 {
     /// <summary>
-    /// Whether code allows <paramref name="agentId"/> <paramref name="feature"/>
-    /// (<see cref="NhAssistantAgentContextBuilder.AllowCompositions"/>,
-    /// <see cref="NhAssistantAgentContextBuilder.AllowScripts"/>). Agents created in the administration
-    /// have no ceiling in code and are never allowed.
+    /// Whether code allows <paramref name="agent"/> <paramref name="feature"/>: for an agent in code its
+    /// own ceiling (<see cref="NhAssistantAgentContextBuilder.AllowCompositions"/>,
+    /// <see cref="NhAssistantAgentContextBuilder.AllowScripts"/>); for an agent created in the
+    /// administration the application's ceiling (<see cref="NhAssistantBuilder.UseCompositionsAsData"/>)
+    /// and the agent's own setting together.
     /// </summary>
-    public bool AllowsInCode(string agentId, NhAiCompositionFeature feature)
+    public bool AllowsInCode(NhAssistantAgent agent, NhAiCompositionFeature feature)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        return registration.AgentContexts.TryGetValue(agentId, out var options) && options.Allows(feature);
+        return ReasonOf(agent, feature) is null;
+    }
+
+    /// <summary>
+    /// Why the agent's code or definition does not allow <paramref name="feature"/>, as one of
+    /// <see cref="NhAssistantCompositionReasons"/>; <see langword="null"/> when they allow it.
+    /// </summary>
+    public string? ReasonOf(NhAssistantAgent agent, NhAiCompositionFeature feature)
+    {
+        ArgumentNullException.ThrowIfNull(agent);
+        if (agent.Source != NhAssistantAgentSources.Admin)
+        {
+            return registration.AgentContexts.TryGetValue(agent.Id, out var options) && options.Allows(feature)
+                ? null
+                : NhAssistantCompositionReasons.AgentNotAllowed;
+        }
+        if (registration.CompositionsAsData?.Allows(feature) != true)
+        {
+            return NhAssistantCompositionReasons.NotAllowedForDataAgents;
+        }
+
+        return agent.Compositions.Allows(feature) ? null : NhAssistantCompositionReasons.OffForAgent;
     }
 
     /// <summary>
@@ -59,16 +80,17 @@ internal sealed class NhAssistantCompositionGate(
     }
 
     /// <summary>
-    /// Whether the tools of <paramref name="feature"/> may be offered to <paramref name="agentId"/>:
-    /// code allows the feature and the switch has it on for <paramref name="context"/>.
+    /// Whether the tools of <paramref name="feature"/> may be offered to <paramref name="agent"/>:
+    /// code (and for an agent created in the administration its own setting) allows the feature and
+    /// the switch has it on for <paramref name="context"/>.
     /// </summary>
     public async ValueTask<bool> IsOfferedAsync(
-        string agentId,
+        NhAssistantAgent agent,
         NhAiCompositionFeature feature,
         NhAssistantCompositionSwitchContext context,
         CancellationToken cancellationToken)
     {
-        if (!AllowsInCode(agentId, feature))
+        if (!AllowsInCode(agent, feature))
         {
             return false;
         }
