@@ -309,3 +309,37 @@ its reason, and an agent created in the administration switches compositions and
 within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
 answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
 Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: lists and uploads for an application's channel
+
+`INhAssistantConversations` lists a person's chats (`ListAsync` with `NhAssistantConversationPage`), lists
+the agents the person may chat with and what they may attach to each (`ListAgentsAsync`) and uploads a file
+to a chat (`UploadAsync` with `NhAssistantConversationUpload`), for the application's own channels, with
+the checks and codes of `GET conversations`, `GET agents` and `POST conversations/{id}/files`: the
+endpoints and the service share one implementation of the participant role, the agent's policy, the
+agent's rules, the media type against the content, the size, the scanner and the file source. The upload
+takes a readable, seekable stream, reads it again for each step from where the caller left it, leaves it
+open for the caller and never logs the file's name; its `NhAiFileReference` goes into
+`NhAssistantConversationMessage.Files` of the person's next message (SPM-358).
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantConversations` has the new members `ListAsync`, `ListAgentsAsync` and `UploadAsync`. | A class that implements or mocks the interface implements the members, or delegates to the registered service. |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: uploads go with their conversation
+
+`UseFileRetention<T>()` registers the application's `INhAssistantFileRetention`. The assistant calls
+`ForgetConversationAsync` with `NhAssistantForgottenConversation` after the owner's archive of a chat
+committed and after `INhAiSubjectRetention.ForgetSubjectAsync` deleted each agent's thread
+(`NhAssistantFileRetentionReasons.Archived`, `SubjectForgotten`). The call is best effort: a failed result
+or an exception is logged as a warning with the conversation and its code or exception type, never undoes
+the archive or the deletion and is not retried; make it idempotent. Without it nothing changes.
+`GET agents` and `GET status` now offer uploads only for an agent whose model profile, or a fallback,
+permits in the execution region the classification a message with an upload carries (the higher of the
+agent's own and `NhAssistantUploadOptions.DefaultClassification`), and `POST conversations/{id}/files`
+refuses the others with `409 assistant-files-not-accepted`; before, the upload was offered and accepted and
+the turn refused the file with `assistant-classification-not-permitted` (SPM-359). No migration.
+
+| Breaking change | Required action |
+|---|---|
+| An agent whose profile chain does not permit the uploads' classification (`Confidential` by default) now has `uploads: null` in `GET agents` and `GET status`, the chat panel offers it no attach control and an upload to its conversations answers `409 assistant-files-not-accepted`. | Give the agent's profile a fallback that permits the classification (`WithFallbackProfiles`), or lower `DefaultClassification` in `ConfigureUploads` to what the profile permits; check that the profile also permits the execution region. |
