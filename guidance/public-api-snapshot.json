@@ -50410,6 +50410,7 @@
       "NhAssistantPanelOpenOptions",
       "NhAssistantComposerDraft",
       "NhAssistantDraftOptions",
+      "NhAssistantUnsentMessage",
       "readAgentPackageParts",
       "getInstalledAgentPackage",
       "AgentPackageReadRequest",

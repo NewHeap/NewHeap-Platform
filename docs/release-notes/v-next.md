@@ -10,6 +10,20 @@ capped at `maxMessageChars`, and it keeps what the person already typed unless `
 `pendingDraft()` (`NhAssistantComposerDraft`) feeds the composer's `restore` input, which now also takes
 a prepared draft. `restoredDraft()` keeps naming only a message the server refused.
 
+## @newheap/platform-ai-chat: the unsent message survives a closed drawer
+
+`NhAssistantStore` keeps what the composer holds and has not sent per conversation, in the tab's memory
+only: `unsentMessage()` (`NhAssistantUnsentMessage` with `text` and `prepared`) for the open
+conversation or the new chat, and `keepUnsentMessage(message)`. The composer takes it through its new
+`unsent` input and reports every change through `unsentChange`; `nh-assistant-panel` binds both, so a
+closed drawer, another conversation or a page left behind keep the text, and the drawer and
+`mode="page"` show the same one. Each conversation now shows its own unsent text instead of the text
+the composer held before. Sending forgets it, a refused message comes back as the person's own text of
+its conversation, a new chat's text moves into the conversation created for it, and choosing another
+agent in the composer takes it along; a deleted or left conversation, signing out and another person
+signing in forget it. `setDraft` keeps the person's own unsent text and returns `false` for it, and
+`open({ agentId, draft })` leaves the open conversation its own text.
+
 ## NewHeap.Platform.AspNet.Common: division lockouts in whole UTC days
 
 `NhUserManager.GetValidClaimsByUserIdAsync` decides whether a division membership is locked out by

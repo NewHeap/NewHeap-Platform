@@ -72,12 +72,30 @@ earlier draft, and never takes the place of a message the server refused. A conv
 not open, an agent the person may not use (check `store.agents()` to explain why) and a drawer
 closed before the assistant was ready leave the composer as it is. On a page of its own
 (`mode="page"`), call `NhAssistantStore.setDraft(text, { replace })` (`NhAssistantDraftOptions`)
-after `initialize()`, with `selectAgent` and `startNewConversation` first for another agent; it
-returns `false` while the assistant is not available. The drawer and the page share the store's
+after `initialize()`, with `startNewConversation` and then `selectAgent` for another agent; it
+returns `false` while the assistant is not available and when the person's own unsent text keeps its
+place. The drawer and the page share the store's
 draft, `pendingDraft()` (`NhAssistantComposerDraft`): a custom layout binds it to the composer's
 `restore` input and calls `consumeRestoredDraft` on its `restored` output, while `restoredDraft()`
 keeps naming only a refused message. SampleProjectManagement's assistant lab drafts a status brief
 about its open project page this way (SPM-350).
+
+What the person typed and did not send stays with its conversation. The store keeps it per
+conversation in the tab's memory only, never in browser storage: `NhAssistantStore.unsentMessage()`
+(`NhAssistantUnsentMessage`: the text as typed and whether it is a `prepared` draft the person did not
+change) for the open conversation, or for the new chat while none is open. Closing the drawer, leaving a
+page with the chat, opening the preferences or another conversation keep it, the drawer and
+`mode="page"` show the same text, and the composer shows it again when the conversation opens. A new
+chat's text moves into the conversation created for it, and choosing another agent in the composer takes
+it along to the new chat, unless that chat has text of its own. Sending forgets it; a message the server
+refuses comes back as the person's own text of its conversation, also when another conversation is open
+meanwhile; a deleted or left conversation, signing out and another person signing in forget it. A
+prepared draft treats it as typed text: it stays unless `replace`, an unchanged draft still gives way to
+the next one, and `open({ agentId, draft })` puts the draft in the new chat's empty composer while the
+old conversation keeps its own text. A host's own `NhAssistantStore.send(text)` leaves it alone. A custom
+layout binds the composer's `unsent` input to `unsentMessage()` and passes its `unsentChange` output to
+`keepUnsentMessage`, as the panel does; a composer without `unsent` keeps its text itself, which ends
+with the composer. The assistant lab shows the kept message in its "Unsent message" card (SPM-369).
 
 Select the assistant in the prompt bar below the message field. The panel shows the
 picker only when more than one assistant is available; a single assistant remains
@@ -85,7 +103,8 @@ automatically selected without showing a disabled selector. In custom layouts,
 project controls marked with `nhAssistantComposerControls` into `nh-assistant-composer`
 and use `[compact]="true"` on `nh-assistant-agent-picker`. The compact picker keeps
 capability information in its tooltip and accessible description. Selection preserves
-the draft and uses the chosen agent for the next new conversation.
+the draft, also when it starts a new chat from an open conversation, and uses the chosen agent for the
+next new conversation.
 
 Personal preferences need no host code: the panel header opens
 `nh-assistant-preferences`, which stores style, form of address, answer length and
@@ -904,6 +923,9 @@ an application that shows documents without it starts `NhAssistantTranslationMer
   card into a collapsed tool group.
 - Disabling the message editor while a turn runs, clearing a draft when blocked Enter
   is pressed, or stealing focus after the user moved to another control.
+- Keeping the composer's unsent text in `localStorage` or `sessionStorage`, or placing
+  `nh-assistant-composer` in a custom layout without `unsent` and `unsentChange`, so a closed
+  drawer drops what the person typed.
 - Showing `approval.summary`, raw scope ids or argument JSON as the primary approval
   explanation.
 - Replacing library translations wholesale in the host files; override single
@@ -1354,3 +1376,8 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs)
+- SPM-369 — The assistant lab keeps a message the person typed and did not send when the drawer closes
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html)
+  - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts)
+  - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts)
