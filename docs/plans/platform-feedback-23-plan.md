@@ -13,7 +13,9 @@ built.
 ## Status
 
 Decided by Lars on 2026-10-28: FB16 to FB40, every one as advised (option (a)). Train 26 is being built with lanes
-DC, PD, PK, ID and ML; trains 27 to 29 follow.
+DC, PD, PK, ID and ML; trains 27 to 29 follow. Later that day Lars added two items to train 26 before it is pushed:
+FB28, which the application had since worked out in detail, moves forward from train 28 (lane XC), and FB41, an
+unsent message that a closed drawer loses, was found in train 26's browser check (lane UT).
 
 ## Already delivered
 
@@ -64,6 +66,7 @@ Each as advised (option (a)).
 | FB38 | **A null-safe active-membership predicate** in `NhUserManager` on UTC day bounds. |
 | FB39 | **The document component stays in `@newheap/platform-ai-chat`** until an application without the assistant needs it. |
 | FB40 | **Four trains**, 26 to 29, with the lanes below. |
+| FB41 | **The composer keeps a person's unsent message** when the drawer closes, decided by Lars on 2026-10-28. |
 
 ## Rules for all of it
 
@@ -209,6 +212,38 @@ The chain and depth come from the in-process turn; an MCP call starts at depth z
   protection between cooperating applications, not authorization.
 - **(b) Leave it**: budgets, daily consultation limits and time limits bound a loop.
 
+The application then said what it needs, and option (a) holds all of it:
+
+- Each agent in the chain is qualified by its application, for example the issuer or resource the caller
+  authenticated with, because two applications may both have an agent with the same id, and that is not a loop.
+- A chain from a caller the receiving side did not review is dropped, not refused, so an ordinary MCP client
+  keeps working.
+- The inherited chain and depth seed the consultation scope. `MayOffer` and the depth check then apply as in
+  one host: a loop is refused with `assistant-consult-depth-exceeded`, and `MaxConsultationDepth` bounds the
+  whole path.
+- The agent's budget, `MaxConsultationsPerActorPerDay` and the call's deadline stay the bound for a caller that
+  sends nothing or a forged chain.
+- Proved with two hosts:
+  - A consults B, B consults A: refused, and no run starts;
+  - the same call from a caller that was not reviewed: the chain is ignored and the rules within one host still apply;
+  - a forged shallow depth: bounded by the daily limit;
+  - two applications with the same agent id: they do not refuse each other.
+
+#### FB41. A closed drawer loses the unsent message
+
+Train 26's browser check found that closing the assistant drawer dropped the text in its message box: the
+composer kept it in its own state, which ends with the drawer. A draft (FB27) then never sees what the person
+typed before.
+
+- **(a) The store keeps the unsent message per conversation (advice, decided by Lars)**:
+  - The message is kept in memory only, never in browser storage.
+  - It is restored when the drawer or the page opens that conversation again.
+  - It is cleared when the message is sent and when the person signs out.
+  - The drawer and `mode="page"` share it.
+  - A draft respects it as typed text.
+- **(b) Keep the composer alive while the drawer is closed**: this holds the text, but also keeps a hidden
+  component and its subscriptions running.
+
 #### FB29. A request that answers where it was asked
 
 - **(a) `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)` (advice)** on the consultation and its
@@ -313,13 +348,14 @@ Merge trains as Lars works: lanes in worktrees with focused tests, the full matr
 | 26 | PK: packages | FB32, FB33, FB34 | none | SPM-351–353 |
 | 26 | ID: identity | FB38 | none | SPM-354 |
 | 26 | ML: mail | FB37 | none | SPM-355 |
+| 26 | XC: chain across applications (moved from 28) | FB28 | none | SPM-366 |
+| 26 | UT: unsent text | FB41 | none | SPM-369 |
 | 27 | AP: approvals | FB19, FB20 | none | SPM-356–357 |
 | 27 | CH: chat channels | FB23, FB24 | none | SPM-358–359 |
 | 27 | RQ: requests | FB29, FB30, FB31 (guidance) | AI.Chat, both providers | SPM-360–362 |
 | 28 | SB: chat subject | FB25 | AI.Chat, both providers | SPM-363 |
 | 28 | PF: proposals for a person | FB21 | none | SPM-364 |
 | 28 | AW: agent work | FB17 | none | SPM-365 |
-| 28 | XC: chain across applications | FB28 | none | SPM-366 |
 | 29 | DB: database read | FB35, FB36 | none | SPM-367–368 |
 
 Train 26 holds the small, independent changes; 27 builds the approval and chat services that 28's proposals
@@ -393,3 +429,13 @@ Recorded by each lane under its own heading while it builds; ids are the lane's 
 | ML7 | Built by lane ML (2026-10-28): **a failed or cancelled QUIT after the server accepted the message does not fail the delivery** (debug log with the exception type only), because reporting it as failed would send the message again; for Lars to review. |
 | ML8 | Built by lane ML (2026-10-28): **three Mailpit servers (`axllent/mailpit:v1.31.6`), one container each per test process, started lazily**: STARTTLS offered but optional (so an untrusted certificate proves there is no plain-text retry), implicit TLS on its own SMTPS port, and plain text (so required STARTTLS proves it refuses a server without it). TLS is proven by the client's certificate callback, authentication by Mailpit's recorded user name and MailKit's `Authenticated` event, mid-connect cancellation by a loopback listener that never greets; for Lars to review. |
 | ML9 | Built by lane ML (2026-10-28): **new case SPM-355 for the security mode, and SPM-088 extended with the cancellation**, because SPM-084 is about the sender while the mode is a new settings, validation and transport surface, and SPM-088 already owns the e-mail dispatcher's failure states. The sample registers mail through `SampleMailComposition`, names `"SecurityMode": "None"` for its development server on localhost:1025, and its test shows a deployment override and the refused `StartTlsWhenAvailable`; for Lars to review. |
+
+### Lane XC
+
+| # | Choice |
+|---|---|
+
+### Lane UT
+
+| # | Choice |
+|---|---|
