@@ -54,8 +54,9 @@ serve in the region for its data classification fails at once with
 `assistant-model-region-denied`, failure class `policy`, which a run does not retry
 (SPM-323). Tool selectors are exact tool
 ids or prefixes ending in `.*`; only agents with `Execute` autonomy are offered
-mutating tools in their own turns, while a consultation with a proposal route also offers them as
-proposals to `Propose` and `Simulate` agents (`nh-ai-agent-runs`). An agent may list at most `NhAssistantLimits.MaxToolSelectorsPerAgent`
+mutating tools in their own turns, while a consultation with a proposal route and an agent's rules,
+whose effects are all proposals, also offer them as proposals to `Propose` and `Simulate` agents
+(`nh-ai-agent-runs`). An agent may list at most `NhAssistantLimits.MaxToolSelectorsPerAgent`
 selectors (128 by default) for code-defined and administrator-managed agents alike;
 the application decides that number through `WithLimits`. Code agents are checked at
 host start, administrator input on save. The selector list must also fit

@@ -338,3 +338,17 @@ which the activity already stores: no migration.
 request over exactly the governed tools that caller sees; the script tool uses it to list the caller's
 own tools. `NhAssistantToolStepTurn.Current(caller)` names the agent and the tools a step session would
 offer in the current turn, before the call. Without the package nothing changes.
+
+## NewHeap.Platform.AI.Chat: the tools a rule turn proposes with
+
+A rule turn selects its own tools: the agent's tools the run may discover, with the tools that change
+state from `Propose` autonomy on, because every effect of a rule turn is a proposal, and the
+compositions and script tool the turn offers. It no longer takes the model's allow-list, which offers
+those tools only with `Execute` and falls back to the agent's selectors when it selects nothing. The
+rules of a `Propose` or `Simulate` agent now propose with each of its tools that change state, also
+when it has read tools, compositions or the script tool; before, they could only through that fallback,
+which a withheld composition or script tool switches off. The model's tools do not change.
+
+| Breaking change | Required action |
+|---|---|
+| The rules of an `Observe` or `Explain` agent are refused (`assistant-proposal-refused`), also when its selectors name only tools that change state, which they proposed with before. | Give an agent whose rules propose `Propose` autonomy, which keeps its model from changing anything in its own turns and runs. |
