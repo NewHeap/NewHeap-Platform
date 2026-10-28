@@ -49,6 +49,49 @@ guards receive as `ProposedAt`, executions and audit events keep the system cloc
 A test lets a proposal expire by moving its clock past the lifetime instead of
 shortening it or waiting.
 
+When the policy of a proposal depends on the proposal itself, for example four eyes only while a
+second person may approve, register an `INhAssistantApprovalPolicySelector` with
+`UseApprovalPolicySelector<TSelector>()` (SPM-356) instead of weakening a policy. Code resolves the
+policy first (trigger, skill, tool, agent, default); the selector then gets an
+`NhAssistantApprovalPolicySelection` with the agent, tool, subject, the arguments as the proposal
+records them, `ResolvedPolicyId`, `Source` (`NhAssistantApprovalPolicySource`: `Run`, `Request`,
+`Consultation`), skill, trigger, initiator, tenant, run and, for a step of a composition or script,
+`Origin`, and returns the id of a registered policy or `null` to keep the resolved one. It is asked
+for every proposal of the governed path: runs and rule runs, a person's messages in an agent's thread,
+consultations (also the proposal an asker leaves for the subject's approvers) and the steps of
+compositions and scripts in those turns; a person's own chat, which has no approval policy, does not
+ask it. The proposal keeps the choice in its policy copy (`PolicyId`, `PolicyJson`), so the decision,
+`GetDecisionFactsAsync`, reminders, expiry, escalation and the approver directory check the chosen
+policy, and a later change of the selector or of the people never changes a waiting proposal. The
+route still adapts the chosen policy: a person typing decides inline, a consultation's proposal at the
+subject waits deferred, one that executes with the consulted agent's rights is four-eyes. A selector
+reads and changes nothing, and answers within its time limit
+(`NhAssistantApprovalPolicySelection.DefaultTimeLimit`, two seconds, at most `MaxTimeLimit`, thirty, with
+`UseApprovalPolicySelector<TSelector>(timeLimit)`, on the system clock). It fails closed: an id that is
+not registered refuses the proposal with `assistant-approval-policy-unknown`, a selector that throws with
+`assistant-approval-policy-selector-failed` and one past its time limit, also one that ignores its token,
+with `assistant-approval-policy-selector-timed-out`. Nothing is recorded; the call reads `not-executed`
+with that code, the model, rules or step read it, the content-free audit records `ToolInvoked` with it,
+and the log names only the selector's and the exception's type. Return `null` whenever the answer is not
+certain, so the stricter policy code resolved stays.
+
+Ask who may approve with `INhAssistantApproverDirectory` (SPM-357), a server API without an endpoint
+because it lists people. `ListAsync(policyId, subject, tenantId, excludeActorId, limit)` and `CountAsync`
+answer for a registered policy or a default (`trigger-default`, `chat-default`) at a subject, without the
+excluded person, such as the initiator a selector asks about; `ListForProposalAsync(approvalId, tenantId,
+limit)` answers for a proposal under its own policy copy, with its initiator first, without the initiator
+under four eyes, without anyone the tool's approve policies refuse and, for a consultation the asker
+decides, only the asker. The candidates are the subject's members as its resolver lists them now and the
+initiator; each is checked as a decision checks them: roles and named roles through the resolver, a
+policy rule against the principal `INhAiPrincipalFactory` rebuilds, the agent's view policy of the whole
+application, never an agent. `NhAssistantApproverList(Approvers, Complete)` (`NhAssistantApprover` with
+`Role`, `DisplayName` and `Initiator`; `NhAssistantApproverCount(Count, Complete)` for a count) says
+`Complete: false` at the limit while candidates remain, beyond `MaxCandidates` members, for a policy rule,
+which admits people outside the members, and for the whole application, which lists none. A resolver that
+gives roles to people it does not list makes the list incomplete without the directory knowing. Pass the
+caller's tenant: another tenant's subject is `assistant-subject-not-found` and its proposal
+`assistant-approval-not-found`; an unknown policy is `assistant-approval-policy-unknown`.
+
 When the application itself executes what a tool proposes, for example an order that a purchasing
 system's supplier confirms hours later, declare the tool with `ExecuteInApplication(toolId, reportWithin)`
 and register the application's `INhAssistantProposalExecutor` with `UseProposalExecutor<TExecutor>()`;
@@ -1836,6 +1879,11 @@ someone else in the meantime. Both are server APIs that authorize nothing and th
 instructions in full: call them for an administrator or process the application authorized. SPM-329.
 
 ## Avoid
+- An approval policy selector that writes, calls a remote service without a deadline or chooses a weaker
+  policy when the approver directory answers `Complete: false`; return `null` and keep the policy code
+  resolved when the answer is not certain.
+- Exposing `INhAssistantApproverDirectory` through an endpoint of its own; it lists people, so an
+  application shows only what its own authorization allows.
 - Deciding rights, routes or approvals from agent metadata in NewHeap hooks; metadata is the
   application's data and never widens what an agent may do.
 - Putting secrets, prompts or people's data in agent metadata, or validator codes that repeat the value;
@@ -2531,6 +2579,20 @@ values stored before the entry declared them. For a promotion, assert the fields
 one created at runtime take, moved skills, the variant's removal, the refusals before anything changes
 and the endpoint's refusal of people who do not administer. SPM-329, SPM-330 and SPM-313 are the
 executable references.
+For an approval policy selector, on both providers, assert that the chosen policy is the proposal's
+`PolicyId` and `PolicyJson`, that the decision refuses the initiator under a chosen four-eyes policy and
+a participant under any, and that a later choice of the selector changes no waiting proposal; that
+`null` and the resolved id keep the resolved policy; that an unknown id, a selector that throws and one
+past its time limit, also one that ignores its token, record nothing, end the call `not-executed` with
+their code in the result and the audit and log the selector's type only; and that the selector is asked
+for a run, a rule run (whose proposal reads the code), a person's message in an agent's thread, a
+composition's step with its `Origin` and a consultation, also when the asker leaves its proposal for the
+subject's approvers. For the approver directory, assert the members a policy admits in the resolver's
+order, the excluded person, agents, named roles, policy rules (`Complete: false`), the limit, the
+defaults, an unknown policy and subject, another tenant's subject and the whole application; for a
+proposal, on both providers, the policy copy with four eyes, the initiator first, a placed proposal, a
+consultation the asker decides, the tool's approve policies and another tenant, and that the people it
+lists are exactly those the decision's check accepts. SPM-356 and SPM-357 are the executable references.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 

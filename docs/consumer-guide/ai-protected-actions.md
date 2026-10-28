@@ -118,6 +118,14 @@ accountable owner and the proposal, so reviewers can tell elevated calls from
 calls within a person's own rights. The contract hash of a tool changes when it
 opts in, so existing approvals for that tool expire.
 
+Who approves a proposal of the assistant is a named approval policy that code resolves. When it depends
+on the proposal itself, such as four eyes only while a second person may approve, choose among registered
+policies with an `INhAssistantApprovalPolicySelector` (`UseApprovalPolicySelector`, SPM-356) and count the
+people a policy admits with `INhAssistantApproverDirectory` (SPM-357); never relax the policy at the
+decision. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
+selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. See
+`nh-ai-agent-runs` for the selection and the directory.
+
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
 budget, and revocation evidence. Always reserve a declared budget through
@@ -217,6 +225,11 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
+- SPM-356 — The intake review needs four eyes only while a second approver may decide, and the decision checks the policy the proposal keeps
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs)
 - SPM-372 — The project overview chains three governed reads into one tool, and the agent's activity shows what each call ran and saved
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
