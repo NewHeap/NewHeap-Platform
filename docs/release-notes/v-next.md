@@ -203,3 +203,14 @@ request, so the token is never passed on. The authorization server, the registra
 the consent stay the host's. Without the option nothing changes.
 `NhAiTestAuthorizationServer.IssueAccessToken(subject, resource, scope, issuedAt, lifetime)` issues a
 token as of a given time, for example an expired one.
+
+## NewHeap.Platform.AI.Chat.AspNet: discovery reads the challenge of a stateless MCP server
+
+OAuth discovery of an MCP server (`POST admin/mcp-servers/discover`, and saving a server with
+`oauth.confirmAuthorization`) now probes the endpoint with an MCP `initialize` `POST` without a
+credential, the request an MCP client starts with, instead of a `GET`. A stateless Streamable HTTP
+server, which answers `GET` with `405`, now shows the scopes and the metadata address of its challenge
+(`challengedScopes`) rather than only the scopes of its metadata. A `GET` follows only when the `POST`
+answers `405`, as an HTTP+SSE endpoint does; without a challenge the well-known metadata addresses
+decide, as before. The probe reads only the status and the headers, and a session that a server
+without authorization opens for it is ended with `DELETE`. No public API changes.

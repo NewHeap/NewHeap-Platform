@@ -155,6 +155,8 @@ internal static class NhAssistantMcpScopes
 /// Discovery for OAuth MCP servers (2026-07-28 authorization): the protected resource metadata from
 /// the challenge or the well-known URIs, its <c>resource</c> checked against the server's canonical
 /// URI, then the authorization server metadata in the specified order with the issuer checked. The
+/// challenge answers an MCP <c>initialize</c> POST without a credential, as a client's first request,
+/// or a GET after that POST answered <c>405</c> (<see cref="NhAssistantMcpOAuthHttp.ProbeAsync"/>). The
 /// metadata of an issuer is cached for ten minutes.
 /// </summary>
 internal sealed class NhAssistantMcpDiscovery(NhAssistantMcpOAuthHttp http)

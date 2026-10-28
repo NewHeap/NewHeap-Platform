@@ -489,6 +489,113 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
     }
 
     [Fact]
+    public async Task The_discovery_probe_is_an_initialize_post_without_a_credential_and_a_get_follows_only_a_405()
+    {
+        await using var host = await CreateHostAsync(AssistantTestProvider.PostgreSql);
+
+        // The endpoint answers as a stateless Streamable HTTP server, an HTTP+SSE endpoint, an endpoint
+        // that takes neither method or a server without authorization; the metadata is always served.
+        var behavior = "stateless";
+        var probes = new System.Collections.Concurrent.ConcurrentQueue<(string Method, string? RpcMethod, string Session)>();
+        var credentials = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        await using var server = await RawServer.StartAsync(async context =>
+        {
+            var origin = context.Request.Scheme + "://" + context.Request.Host;
+            var metadata = origin + "/.well-known/oauth-protected-resource/mcp";
+            switch (context.Request.Path.Value)
+            {
+                case "/.well-known/oauth-protected-resource/mcp":
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        resource = origin + "/mcp",
+                        authorization_servers = new[] { origin },
+                        scopes_supported = new[] { "mcp:read" }
+                    });
+                    return;
+                case "/.well-known/oauth-authorization-server":
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        issuer = origin,
+                        authorization_endpoint = origin + "/authorize",
+                        token_endpoint = origin + "/token",
+                        code_challenge_methods_supported = new[] { "S256" }
+                    });
+                    return;
+                case "/mcp":
+                    break;
+                default:
+                    context.Response.StatusCode = 404;
+                    return;
+            }
+
+            string? rpcMethod = null;
+            if (HttpMethods.IsPost(context.Request.Method))
+            {
+                using var request = await System.Text.Json.JsonDocument.ParseAsync(context.Request.Body);
+                rpcMethod = request.RootElement.GetProperty("method").GetString();
+            }
+            probes.Enqueue((context.Request.Method, rpcMethod, context.Request.Headers["Mcp-Session-Id"].ToString()));
+            credentials.Enqueue(context.Request.Headers.Authorization.ToString() + context.Request.Headers.Cookie.ToString());
+
+            var post = HttpMethods.IsPost(context.Request.Method);
+            switch (behavior)
+            {
+                case "stateless" when post:
+                case "sse" when !post:
+                    context.Response.StatusCode = 401;
+                    context.Response.Headers.WWWAuthenticate = $"Bearer resource_metadata=\"{metadata}\", scope=\"{behavior}:read\"";
+                    return;
+                case "open" when post:
+                    context.Response.Headers["Mcp-Session-Id"] = "probe-session-1";
+                    await context.Response.WriteAsJsonAsync(new { jsonrpc = "2.0", id = 1, result = new { protocolVersion = "2025-11-25" } });
+                    return;
+                case "open":
+                    context.Response.StatusCode = 204;
+                    return;
+                default:
+                    context.Response.StatusCode = 405;
+                    return;
+            }
+        });
+        var url = server.Origin + "/mcp";
+
+        // A stateless server answers GET with 405, but its challenge answers the initialize POST.
+        var stateless = await DiscoverAsync(host, url);
+        Assert.True(stateless.Success);
+        Assert.Equal(["stateless:read"], stateless.Data!.ChallengedScopes);
+        Assert.Equal([("POST", "initialize")], probes.Select(probe => (probe.Method, probe.RpcMethod)));
+
+        // An HTTP+SSE endpoint answers the POST with 405 and challenges the GET that follows.
+        probes.Clear();
+        behavior = "sse";
+        var sse = await DiscoverAsync(host, url);
+        Assert.True(sse.Success);
+        Assert.Equal(["sse:read"], sse.Data!.ChallengedScopes);
+        Assert.Equal(["POST", "GET"], probes.Select(probe => probe.Method));
+
+        // With 405 on both methods there is no challenge: the well-known metadata decides, as before.
+        probes.Clear();
+        behavior = "neither";
+        var neither = await DiscoverAsync(host, url);
+        Assert.True(neither.Success);
+        Assert.Empty(neither.Data!.ChallengedScopes);
+        Assert.Equal(["mcp:read"], neither.Data.ResourceScopes);
+        Assert.Equal(["POST", "GET"], probes.Select(probe => probe.Method));
+
+        // A server without authorization initializes a session: the probe ends it and reads the metadata.
+        probes.Clear();
+        behavior = "open";
+        var open = await DiscoverAsync(host, url);
+        Assert.True(open.Success);
+        Assert.Empty(open.Data!.ChallengedScopes);
+        Assert.Equal([("POST", ""), ("DELETE", "probe-session-1")], probes.Select(probe => (probe.Method, probe.Session)));
+
+        // No probe request carried a credential.
+        Assert.Equal(7, credentials.Count);
+        Assert.All(credentials, credential => Assert.Equal(string.Empty, credential));
+    }
+
+    [Fact]
     public async Task Without_a_client_id_the_host_identifies_itself_by_its_metadata_document_before_registering()
     {
         await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.SupportsClientIdMetadataDocuments = true);

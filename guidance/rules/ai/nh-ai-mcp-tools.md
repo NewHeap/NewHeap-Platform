@@ -74,7 +74,8 @@ forwarded headers. Let the proxy forward `/.well-known/oauth-protected-resource`
 the public path, and the root when the origin serves this resource alone, to the app
 unchanged; `NhAiMcpProtectedResourceDefaults.MetadataAddressOf(resource)` names that address.
 A stateless exposure maps only `POST`, so a client that probes with `GET` finds the metadata
-at the well-known addresses, as RFC 9728 lets every client. The metadata document allows any
+at the well-known addresses, as RFC 9728 lets every client; the assistant's discovery probes
+with an MCP `initialize` `POST` and reads the challenge's scopes. The metadata document allows any
 origin; a browser-based client also needs the host's CORS policy to expose
 `WWW-Authenticate`.
 
