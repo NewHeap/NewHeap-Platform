@@ -24,7 +24,15 @@ public sealed class NhProxyLiteralRedirectTests
         Id = Guid.NewGuid(), Name = "Literal redirect", Match = new NhProxyRedirectMatch { Path = path }, Target = target
     };
 
-    private static NhProxyRuntime Runtime() => new(new NhProxyConfigurationValidator(Options.Create(new NhProxyOptions())));
+    // In production the resolver budget is wall-clock time. Here it reads a manual clock that only the deadline tests
+    // advance: on the system clock, a request descheduled for 50 ms under parallel load returned 503 without a Location
+    // instead of the redirect under test. Regex rules still receive the full budget as their engine timeout.
+    private static NhProxyRuntime Runtime(ManualTimeProvider? clock = null, NhProxyLimits? limits = null)
+    {
+        var options = Options.Create(new NhProxyOptions { Limits = limits ?? new NhProxyLimits() });
+
+        return new NhProxyRuntime(new NhProxyConfigurationValidator(options), options, null, clock ?? new ManualTimeProvider());
+    }
 
     private static async Task<HttpContext> Request(NhProxyRuntime runtime, string path, string method = "GET", string host = "proxy.example:8080", string query = "")
     {
@@ -341,8 +349,7 @@ public sealed class NhProxyLiteralRedirectTests
 
         // Each method read advances the resolver clock by exactly its cost, so timer resolution cannot move the deadline.
         var clock = new ManualTimeProvider();
-        var options = Options.Create(new NhProxyOptions());
-        var runtime = new NhProxyRuntime(new NhProxyConfigurationValidator(options), options, null, clock);
+        var runtime = Runtime(clock);
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Rules = Enumerable.Range(0, ruleCount).Select(_ => Rule() with
@@ -401,7 +408,8 @@ public sealed class NhProxyLiteralRedirectTests
     [Fact]
     public async Task Expired_filter_work_returns_timeout_before_redirecting()
     {
-        var runtime = Runtime();
+        var clock = new ManualTimeProvider();
+        var runtime = Runtime(clock);
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Rules = [Rule() with
@@ -410,7 +418,7 @@ public sealed class NhProxyLiteralRedirectTests
             }]
         })).Success);
         var context = new DefaultHttpContext();
-        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60) { Path = "/aaa" });
+        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60, clock) { Path = "/aaa" });
 
         Assert.False(runtime.TryRedirect(context, out var failure));
 
@@ -423,17 +431,14 @@ public sealed class NhProxyLiteralRedirectTests
     [InlineData(500, 302)]
     public async Task Configured_resolution_timeout_controls_the_whole_resolver(int timeoutMilliseconds, int expectedStatus)
     {
-        var options = Options.Create(new NhProxyOptions
-        {
-            Limits = new NhProxyLimits { RedirectResolutionTimeoutMilliseconds = timeoutMilliseconds }
-        });
-        var runtime = new NhProxyRuntime(new NhProxyConfigurationValidator(options), options);
+        var clock = new ManualTimeProvider();
+        var runtime = Runtime(clock, new NhProxyLimits { RedirectResolutionTimeoutMilliseconds = timeoutMilliseconds });
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Rules = [Rule() with { Match = new NhProxyRedirectMatch { Path = "/old", Methods = ["GET"] } }]
         })).Success);
         var context = new DefaultHttpContext();
-        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60) { Path = "/old" });
+        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60, clock) { Path = "/old" });
         var middleware = new NhProxyRedirectMiddleware(_ => throw new InvalidOperationException("Must not reach the backend."), runtime);
 
         await middleware.InvokeAsync(context);
@@ -463,7 +468,8 @@ public sealed class NhProxyLiteralRedirectTests
         Assert.Equal(50, variants.Count);
     }
 
-    private sealed class SlowMethodRequestFeature(int delayMilliseconds, ManualTimeProvider? clock = null) : HttpRequestFeature, IHttpRequestFeature
+    // Each method read costs exactly delayMilliseconds on the resolver clock, without sleeping.
+    private sealed class SlowMethodRequestFeature(int delayMilliseconds, ManualTimeProvider clock) : HttpRequestFeature, IHttpRequestFeature
     {
         public int MethodReads { get; private set; }
 
@@ -472,14 +478,7 @@ public sealed class NhProxyLiteralRedirectTests
             get
             {
                 MethodReads++;
-                if (clock is null)
-                {
-                    Thread.Sleep(delayMilliseconds);
-                }
-                else
-                {
-                    clock.Advance(TimeSpan.FromMilliseconds(delayMilliseconds));
-                }
+                clock.Advance(TimeSpan.FromMilliseconds(delayMilliseconds));
 
                 return "GET";
             }

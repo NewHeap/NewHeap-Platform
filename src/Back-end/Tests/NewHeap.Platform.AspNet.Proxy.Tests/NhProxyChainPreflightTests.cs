@@ -127,7 +127,13 @@ public sealed class NhProxyChainPreflightTests
     private static WebApplication CreateApplication(IProxyConfigFilter? filter = null)
     {
         var builder = WebApplication.CreateBuilder();
-        builder.Services.Configure<NhProxyOptions>(options => options.Limits.MaximumChainDepth = 1);
+        builder.Services.Configure<NhProxyOptions>(options =>
+        {
+            options.Limits.MaximumChainDepth = 1;
+            // No test here is about the wall-clock resolver budget. With the 50 ms default, a request descheduled
+            // under parallel load would turn the chain outcome into a resolution timeout.
+            options.Limits.RedirectResolutionTimeoutMilliseconds = (int)TimeSpan.FromMinutes(1).TotalMilliseconds;
+        });
         builder.Services.AddSingleton<INhProxyConfigurationValidator, NhProxyConfigurationValidator>();
         builder.Services.AddSingleton<NhProxyRuntime>();
         builder.Services.AddReverseProxy().LoadFromMemory([], []);
