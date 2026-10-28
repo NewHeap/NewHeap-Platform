@@ -47,6 +47,8 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
 
         Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
         Assert.Contains(events, evt => evt.Name == "tool.started" && evt.Data.GetProperty("toolId").GetString() == "assistant.use-skill");
+        // The switch is recorded as a successful call, not as a failed tool call.
+        Assert.Equal("succeeded", events.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
         // No triage: the planner's model answers twice, the second time in the skill.
         Assert.Equal(2, model.Requests.Count);
         Assert.Contains("use_skill", ToolNames(model.Requests[0]));

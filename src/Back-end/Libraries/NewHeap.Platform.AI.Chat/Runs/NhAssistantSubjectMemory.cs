@@ -451,7 +451,8 @@ internal sealed record NhAssistantMemorySnapshot(string? Json, int SchemaVersion
 /// <summary>
 /// A memory function of an agent turn. It changes only the agent's own thread state, so the
 /// interceptor records and streams it like a tool call but runs it outside the governed tool
-/// pipeline.
+/// pipeline. Its result is a <see cref="JsonElement"/> object: the interceptor records the call as
+/// succeeded only when that object's <c>success</c> is <see langword="true"/>.
 /// </summary>
 internal sealed class NhAssistantMemoryFunction(
     NhAiToolDescriptor descriptor,

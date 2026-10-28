@@ -42,6 +42,10 @@ public sealed class AssistantChatSkillTests(AssistantDatabaseFixture database) :
 
         Assert.Equal((NhAssistantTurnStatuses.Completed, (string?)null), Outcome(inSkill));
         Assert.Equal((NhAssistantTurnStatuses.Completed, (string?)null), Outcome(withoutSkills));
+
+        // The switch itself is a successful call, not a failed tool call.
+        var switched = inSkill.Single<Runtime.NhAssistantToolCompletedEvent>();
+        Assert.Equal((NhAssistantToolCallStatuses.Succeeded, (string?)null), (switched.Status, switched.ResultCode));
         var first = models.Default.Requests[0];
         Assert.Contains("use_skill", ToolNames(first));
         Assert.Contains(SearchFunction, ToolNames(first));

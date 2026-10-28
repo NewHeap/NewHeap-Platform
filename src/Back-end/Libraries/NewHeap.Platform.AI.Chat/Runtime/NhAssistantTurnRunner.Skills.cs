@@ -288,14 +288,14 @@ internal sealed partial class NhAssistantTurnRunner
             : null;
     }
 
-    private static Dictionary<string, object?> SkillResult(bool success, string? code, string message)
+    private static JsonElement SkillResult(bool success, string? code, string message)
     {
-        return new Dictionary<string, object?>
+        return JsonSerializer.SerializeToElement(new Dictionary<string, object?>
         {
             ["success"] = success,
             ["code"] = code,
             ["message"] = message
-        };
+        });
     }
 
     /// <summary>
