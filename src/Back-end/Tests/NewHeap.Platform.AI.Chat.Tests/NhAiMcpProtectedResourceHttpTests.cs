@@ -105,13 +105,19 @@ public sealed class NhAiMcpProtectedResourceHttpTests(NhAiMcpProtectedResourceHt
             {
                 RedirectUri = new Uri(RedirectUri),
                 DynamicClientRegistration = new DynamicClientRegistrationOptions { ClientName = "Any MCP client" },
-                // The person approves at the authorization server; the redirect carries the code.
-                AuthorizationRedirectDelegate = async (authorizationUri, _, cancellationToken) =>
+                // The person approves at the authorization server; the redirect carries the code, the
+                // state and the issuer, which the client checks (RFC 9207).
+                AuthorizationCallbackHandler = async (context, cancellationToken) =>
                 {
-                    using var response = await browser.GetAsync(authorizationUri, cancellationToken);
+                    using var response = await browser.GetAsync(context.AuthorizationUri, cancellationToken);
                     Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
                     var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(response.Headers.Location!.Query);
-                    return query["code"].ToString();
+                    return new AuthorizationResult
+                    {
+                        Code = query["code"].ToString(),
+                        State = query["state"].ToString(),
+                        Iss = query["iss"].ToString()
+                    };
                 }
             }
         }));
