@@ -110,6 +110,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-agent-paused',
     'assistant-skill-stopped',
     'assistant-skill-paused',
+    'assistant-agent-work-off',
     'assistant-agent-does-not-work-on',
     'assistant-moved-to-shadow',
     'assistant-shadow-variant',

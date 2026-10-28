@@ -307,7 +307,8 @@
       "assistant-proposal-not-needed": "Not proposed: the work is already done or no longer applies.",
       "assistant-approval-policy-unknown": "Not proposed: the application chose an approval policy that does not exist.",
       "assistant-approval-policy-selector-failed": "Not proposed: the application could not choose who approves it.",
-      "assistant-approval-policy-selector-timed-out": "Not proposed: the application took too long to choose who approves it."
+      "assistant-approval-policy-selector-timed-out": "Not proposed: the application took too long to choose who approves it.",
+      "assistant-agent-work-off": "Not done: agents are not working right now."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -410,6 +411,7 @@
       "assistant-skill-stopped": "This skill of the agent has been stopped.",
       "assistant-skill-paused": "This skill of the agent is paused; its events wait until it resumes.",
       "assistant-agent-off": "This agent is switched off; it takes no work from other agents until it is switched on.",
+      "assistant-agent-work-off": "Agents are not working right now. You can keep chatting; their work continues once it is switched on again.",
       "assistant-skill-off": "This skill of the agent is switched off.",
       "assistant-skill-not-found": "The agent has no such skill.",
       "assistant-skill-not-available": "That skill is not available now.",

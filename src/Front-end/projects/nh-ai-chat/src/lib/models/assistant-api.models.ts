@@ -19,6 +19,12 @@ export interface AssistantStatus {
   canAdminister: boolean;
   /** Sharing, live update and notification features; missing on servers without them. */
   collaboration?: AssistantCollaboration | null;
+  /**
+   * Whether agents work on this host (`NewHeap:AI:Assistant:AgentWork`): `false` while agent work is
+   * off, when people still chat but no agent works on its own, takes work or is consulted, and while the
+   * assistant is disabled. Missing on older servers, where agents work while the assistant is enabled.
+   */
+  agentWork?: boolean;
 }
 
 export interface AssistantCollaboration {

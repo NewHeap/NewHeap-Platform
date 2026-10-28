@@ -307,7 +307,8 @@
       "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing.",
       "assistant-approval-policy-unknown": "Niet voorgesteld: de applicatie koos een goedkeuringsbeleid dat niet bestaat.",
       "assistant-approval-policy-selector-failed": "Niet voorgesteld: de applicatie kon niet kiezen wie het goedkeurt.",
-      "assistant-approval-policy-selector-timed-out": "Niet voorgesteld: de applicatie deed te lang over de keuze wie het goedkeurt."
+      "assistant-approval-policy-selector-timed-out": "Niet voorgesteld: de applicatie deed te lang over de keuze wie het goedkeurt.",
+      "assistant-agent-work-off": "Niet gedaan: agents werken op dit moment niet."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -410,6 +411,7 @@
       "assistant-skill-stopped": "Deze vaardigheid van de agent is gestopt.",
       "assistant-skill-paused": "Deze vaardigheid van de agent is gepauzeerd; haar gebeurtenissen wachten tot ze hervat wordt.",
       "assistant-agent-off": "Deze agent staat uit; hij neemt geen werk van andere agents aan tot hij aangezet wordt.",
+      "assistant-agent-work-off": "Agents werken op dit moment niet. Je kunt blijven chatten; hun werk gaat verder zodra het weer wordt aangezet.",
       "assistant-skill-off": "Deze vaardigheid van de agent staat uit.",
       "assistant-skill-not-found": "De agent heeft deze vaardigheid niet.",
       "assistant-skill-not-available": "Die vaardigheid is nu niet beschikbaar.",

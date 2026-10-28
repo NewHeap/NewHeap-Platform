@@ -289,6 +289,13 @@ export interface AdminAgent extends AdminAgentInput {
    * it back off, while resuming switches it on. `false` otherwise; missing on older servers.
    */
   offBeforeStop?: boolean;
+  /**
+   * Whether agents work on this host, the same for every agent: `false` while agent work is off
+   * (`NewHeap:AI:Assistant:AgentWork`), when no agent works whatever its `runState`, while people keep
+   * chatting and the administration serves; resuming a paused agent answers
+   * `assistant-agent-work-off` then. Missing on older servers.
+   */
+  agentWork?: boolean;
   /** The agent's skills with their states and today's usage; missing or empty without skills. */
   skills?: AgentSkillState[];
   /** The live agent this agent is a shadow variant of; missing or null for an agent that is no variant. */
@@ -477,7 +484,7 @@ export interface AgentCompositionStatus {
 export interface AgentState {
   agentId: string;
   runState: AgentRunState;
-  /** Whether the agent works now: active, enabled in code and the assistant enabled. */
+  /** Whether the agent works now: active, enabled in code, the assistant enabled and agent work on. */
   active: boolean;
   changedAt: string | null;
   changedBy: string | null;
@@ -503,6 +510,12 @@ export interface AgentState {
    * in code and none defined as data in effect. Missing on older servers.
    */
   consultationRoutes?: AgentConsultationRoutesState | null;
+  /**
+   * Whether agents work on this host, the same for every agent: `false` while agent work is off
+   * (`NewHeap:AI:Assistant:AgentWork`), when no agent works whatever its `runState` and `active` is
+   * `false`. Missing on older servers.
+   */
+  agentWork?: boolean;
 }
 
 /**

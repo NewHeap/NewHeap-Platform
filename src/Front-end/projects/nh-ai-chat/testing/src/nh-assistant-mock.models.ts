@@ -714,6 +714,13 @@ export interface NhAssistantMockAgentGroup {
 export interface NhAssistantMockScenario {
   /** Default `true`. */
   enabled?: boolean;
+  /**
+   * Whether agents work on the host (`NewHeap:AI:Assistant:AgentWork`). Default `true`. With `false`,
+   * `GET status` and the administration report `agentWork: false`, no agent is `active` and resuming a
+   * paused agent or skill answers `409 assistant-agent-work-off`, while people keep chatting.
+   * `NhAssistantMockBackend.setAgentWork` switches it.
+   */
+  agentWork?: boolean;
   limits?: Partial<AssistantStatus['limits']>;
   agents: AgentSummary[];
   /** Conversations that exist before the first request. */

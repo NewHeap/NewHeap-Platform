@@ -1,4 +1,14 @@
 <div class="stack" data-agent-list>
+  @if (agentWorkOff()) {
+    <!-- The host's agent work is off (NewHeap:AI:Assistant:AgentWork): every agent, whatever its status. -->
+    <div class="message warning" role="status" data-agent-work-off>
+      <nh-assistant-icon name="warning" />
+      <span class="grow">
+        <strong>{{ 'nh-assistant.admin.agents.list.agent-work-off.title' | translate }}</strong>
+        {{ 'nh-assistant.admin.agents.list.agent-work-off.text' | translate }}
+      </span>
+    </div>
+  }
   <div class="toolbar">
     <div class="field search">
       <label class="visually-hidden" [for]="id + '-search'">{{ 'nh-assistant.admin.agents.list.search-label' | translate }}</label>
