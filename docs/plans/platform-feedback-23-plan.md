@@ -15,7 +15,9 @@ built.
 Decided by Lars on 2026-10-28: FB16 to FB40, every one as advised (option (a)). Train 26 is being built with lanes
 DC, PD, PK, ID and ML; trains 27 to 29 follow. Later that day Lars added two items to train 26 before it is pushed:
 FB28, which the application had since worked out in detail, moves forward from train 28 (lane XC), and FB41, an
-unsent message that a closed drawer loses, was found in train 26's browser check (lane UT).
+unsent message that a closed drawer loses, was found in train 26's browser check (lane UT). FB42, signing external
+MCP clients in, came back onto the application's open list after this plan was written; Lars took it into train 26
+as advised (lane MS).
 
 ## Already delivered
 
@@ -67,6 +69,7 @@ Each as advised (option (a)).
 | FB39 | **The document component stays in `@newheap/platform-ai-chat`** until an application without the assistant needs it. |
 | FB40 | **Four trains**, 26 to 29, with the lanes below. |
 | FB41 | **The composer keeps a person's unsent message** when the drawer closes, decided by Lars on 2026-10-28. |
+| FB42 | **The MCP exposure serves its protected-resource metadata and challenge and checks the audience**, so any MCP client that follows the MCP authorization flow signs in through the host's authorization server, decided by Lars on 2026-10-28. |
 
 ## Rules for all of it
 
@@ -244,6 +247,32 @@ typed before.
 - **(b) Keep the composer alive while the drawer is closed**: this holds the text, but also keeps a hidden
   component and its subscriptions running.
 
+#### FB42. Signing external MCP clients in
+
+`WithNewHeapPlatformAITools` exposes tools over MCP, but leaves OAuth to the host. An MCP client that follows
+the MCP authorization flow (Claude, ChatGPT, Codex or any other) cannot find the host's authorization server
+from the endpoint. So the application serves these itself:
+
+- the protected-resource metadata (RFC 9728);
+- the `WWW-Authenticate` challenge with `resource_metadata`;
+- the audience check of a resource indicator (RFC 8707).
+
+NewHeap has only the client half: `NhAssistantMcpDiscovery` reads another server's challenge and metadata, and
+`NhAiTestAuthorizationServer` fakes an authorization server for tests.
+
+- **(a) The server half on the MCP exposure (advice, decided by Lars).** The option takes a configured public
+  resource URL, the authorization servers and the scopes. With it, the MCP exposure:
+  - serves the metadata, at the path-specific well-known address and at the root;
+  - answers a request without a valid token with `401` and the challenge, and with `error="invalid_token"` when a
+    token was sent;
+  - accepts only tokens whose audience is that resource.
+
+  The authorization server, client registration and consent stay the host's. Nothing is specific to one client.
+  It builds on what the MCP SDK offers, where that fits.
+- **(b) An authorization server in NewHeap too**: a much larger security surface, which every host already has
+  in its own identity provider.
+- **(c) Leave it to the application**: every consumer that exposes tools writes the same server half again.
+
 #### FB29. A request that answers where it was asked
 
 - **(a) `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)` (advice)** on the consultation and its
@@ -350,6 +379,7 @@ Merge trains as Lars works: lanes in worktrees with focused tests, the full matr
 | 26 | ML: mail | FB37 | none | SPM-355 |
 | 26 | XC: chain across applications (moved from 28) | FB28 | none | SPM-366 |
 | 26 | UT: unsent text | FB41 | none | SPM-369 |
+| 26 | MS: MCP sign-in | FB42 | none | SPM-370 |
 | 27 | AP: approvals | FB19, FB20 | none | SPM-356–357 |
 | 27 | CH: chat channels | FB23, FB24 | none | SPM-358–359 |
 | 27 | RQ: requests | FB29, FB30, FB31 (guidance) | AI.Chat, both providers | SPM-360–362 |
@@ -429,6 +459,11 @@ Recorded by each lane under its own heading while it builds; ids are the lane's 
 | ML7 | Built by lane ML (2026-10-28): **a failed or cancelled QUIT after the server accepted the message does not fail the delivery** (debug log with the exception type only), because reporting it as failed would send the message again; for Lars to review. |
 | ML8 | Built by lane ML (2026-10-28): **three Mailpit servers (`axllent/mailpit:v1.31.6`), one container each per test process, started lazily**: STARTTLS offered but optional (so an untrusted certificate proves there is no plain-text retry), implicit TLS on its own SMTPS port, and plain text (so required STARTTLS proves it refuses a server without it). TLS is proven by the client's certificate callback, authentication by Mailpit's recorded user name and MailKit's `Authenticated` event, mid-connect cancellation by a loopback listener that never greets; for Lars to review. |
 | ML9 | Built by lane ML (2026-10-28): **new case SPM-355 for the security mode, and SPM-088 extended with the cancellation**, because SPM-084 is about the sender while the mode is a new settings, validation and transport surface, and SPM-088 already owns the e-mail dispatcher's failure states. The sample registers mail through `SampleMailComposition`, names `"SecurityMode": "None"` for its development server on localhost:1025, and its test shows a deployment override and the refused `StartTlsWhenAvailable`; for Lars to review. |
+
+### Lane MS
+
+| # | Choice |
+|---|---|
 
 ### Lane XC
 
