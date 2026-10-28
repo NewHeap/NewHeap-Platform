@@ -703,6 +703,40 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Declares a composition: a known chain of registered governed tools that the model, and an MCP
+    /// client when the composition is exposed there, calls as one tool (TC2). Its steps call their tools
+    /// by id, in order, through the shared invoker with the caller's rights; later steps take values from
+    /// earlier results, and <see cref="NhAssistantCompositionBuilder{TInput}.Returns"/> declares what returns
+    /// to the model. Its effect is the strongest effect of its steps, so a composition that only reads
+    /// runs at once and is read-only over MCP. Every step gets exactly the decision the same call gets on
+    /// its own (<see cref="INhAssistantToolSteps"/>); a failing step stops the chain and returns what
+    /// succeeded with that step's code. A composition is a tool like any other, marked
+    /// <see cref="NhAiCompositionFeature.Compositions"/>: an agent's tool selectors select it where code
+    /// allows compositions (<see cref="NhAssistantAgentContextBuilder.AllowCompositions"/>) and the
+    /// application's switch has them on, and a turn offers it only with the tools its steps call.
+    /// </summary>
+    /// <param name="compositionId">The composition's tool id, such as <c>projects.overview</c>.</param>
+    /// <param name="configure">Declares the composition's steps and result.</param>
+    /// <typeparam name="TInput">The input the model passes.</typeparam>
+    public NhAssistantBuilder AddComposition<TInput>(
+        string compositionId,
+        Action<NhAssistantCompositionBuilder<TInput>> configure)
+        where TInput : class
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        if (!NhAssistantAgentDefinition.IsValidSelector(compositionId) || compositionId.Contains('*', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("A composition is named by an exact tool id, without a selector.", nameof(compositionId));
+        }
+
+        var builder = new NhAssistantCompositionBuilder<TInput>(compositionId);
+        configure(builder);
+        _state.AddComposition(builder.Build());
+        Services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAssistantCompositionToolCatalog>());
+        return this;
+    }
+
+    /// <summary>
     /// Declares that the application executes the approved deferred proposals of tool
     /// <paramref name="toolId"/> itself, outside the tool's function, and reports their outcome within
     /// <paramref name="reportWithin"/>. Once such a proposal is approved, by any path, the assistant hands
@@ -1057,6 +1091,20 @@ internal sealed class NhAssistantRegistrationState
     private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
     private readonly List<NhAssistantFileReaderDefinition> _fileReaders = [];
     private readonly Dictionary<string, NhAssistantApplicationExecution> _applicationExecutions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantCompositionDefinition> _compositions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The compositions the application declared with <see cref="NhAssistantBuilder.AddComposition{TInput}"/>.
+    /// </summary>
+    public IReadOnlyCollection<NhAssistantCompositionDefinition> Compositions => _compositions.Values;
+
+    public void AddComposition(NhAssistantCompositionDefinition composition)
+    {
+        if (!_compositions.TryAdd(composition.Id, composition))
+        {
+            throw new InvalidOperationException($"The composition '{composition.Id}' is registered more than once.");
+        }
+    }
 
     public string? AccessPolicy { get; set; }
 

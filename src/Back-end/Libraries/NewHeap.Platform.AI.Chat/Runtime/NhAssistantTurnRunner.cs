@@ -3176,6 +3176,8 @@ internal sealed partial class NhAssistantTurnRunner(
             offered.Add(descriptor);
         }
 
+        // A composition is offered only with the tools its steps call: without them it could only fail.
+        offered = NhAssistantCompositionToolCatalog.WithStepsOffered(offered, _catalogs);
         var selected = offered
             .Select(descriptor => descriptor.Id)
             .Distinct(StringComparer.Ordinal)
