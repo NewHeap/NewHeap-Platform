@@ -187,6 +187,12 @@ public abstract partial class NhUserManager<
     protected readonly INhDbLogService _dbLogService;
     private readonly IServiceProvider _services;
 
+    /// <summary>
+    /// The application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock),
+    /// which decides the UTC day that division lockouts count in.
+    /// </summary>
+    private readonly TimeProvider _clock;
+
     /// <summary>Where the Identity user store keeps the recovery codes in the user-token table.</summary>
     private const string IdentityRecoveryCodeLoginProvider = "[AspNetUserStore]";
 
@@ -227,6 +233,7 @@ public abstract partial class NhUserManager<
         _validationService = validationService;
         _dbLogService = nhDbLogService;
         _services = services;
+        _clock = services?.GetService<TimeProvider>() ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -349,20 +356,26 @@ public abstract partial class NhUserManager<
             var divisionAccessAll = claims.Any(x =>
                 x.Type == NhPlatformClaimTypes.Permission &&
                 x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll);
-            var currentDate = DateTimeOffset.UtcNow.Date;
             IQueryable<TDivision> divisionsQuery = _userRepository.GetDbSet<TDivision>().AsNoTracking();
+
+            // The current UTC day of the application's clock, as two instants.
+            var todayStart = new DateTimeOffset(_clock.GetUtcNow().UtcDateTime.Date, TimeSpan.Zero);
+            var tomorrowStart = todayStart.AddDays(1);
 
             // Only the user's own memberships count, and only while they are not locked out. As
             // IsBlockedAsync does for account lockout, a membership is locked out once its lockout
             // has started and until it has ended; without an end date it stays locked out, and
             // without a start date it is not locked out. Lockout dates count in whole UTC days,
-            // from the start day through the end day.
+            // from the start day through the end day: a membership is active when its lockout has
+            // no start, starts tomorrow or later, or ended before today. The predicate compares
+            // instants, so every provider translates it alike, whatever offset a row was stored
+            // with, and it never reads the value of an empty date.
             IQueryable<TDivisionUser> activeMemberships = _userRepository.GetDbSet<TDivisionUser>()
                 .AsNoTracking()
                 .Where(c => c.UserId == user.Id
-                    && !(c.LockOutStartDateTime != null
-                        && c.LockOutStartDateTime.Value.Date <= currentDate
-                        && (c.LockOutEndDateTime == null || c.LockOutEndDateTime.Value.Date >= currentDate)));
+                    && (c.LockOutStartDateTime == null
+                        || c.LockOutStartDateTime >= tomorrowStart
+                        || c.LockOutEndDateTime < todayStart));
 
             if (!divisionAccessAll)
             {

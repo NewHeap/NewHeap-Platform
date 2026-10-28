@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Tests.Relational;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Xunit;
 
@@ -14,10 +16,107 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 /// providers: with and without an end date, next to co-members who were never locked out or whose
 /// lockout ended, and through the division policy that reloads the claims per request. A lockout
 /// that starts later, one that has ended and an end date without a start leave the membership
-/// active, and the member gets the division back once the lockout ends.
+/// active, and the member gets the division back once the lockout ends. Lockouts count in whole
+/// UTC days of the application's clock, also for rows stored with another offset, and a user
+/// without an active division or memberships signs in with application claims only.
 /// </summary>
 public sealed class DivisionLockoutProviderTests
 {
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task LockoutsCountInWholeUtcDaysOfTheApplicationClockOnEachRelationalProvider(RelationalTestProvider provider)
+    {
+        // 10:00 UTC on the clock, so "today" is 18 March from midnight to midnight UTC.
+        var now = new DateTimeOffset(2026, 3, 18, 10, 0, 0, TimeSpan.Zero);
+        var todayStart = new DateTimeOffset(2026, 3, 18, 0, 0, 0, TimeSpan.Zero);
+        var tomorrowStart = todayStart.AddDays(1);
+        await using var host = await DivisionProviderTestHost.CreateAsync(provider, new DivisionTestClock(now));
+        var division = await host.AddDivisionAsync("Day edge division");
+        var roleName = $"member-{host.Label}";
+        var memberRole = await host.AddDivisionRoleAsync(roleName, "general.view");
+
+        // The start day counts whole: a lockout that starts later today applies from the morning on.
+        var startsToday = await host.AddUserAsync("starts-today");
+        await host.AddMembershipAsync(startsToday, division, [memberRole], todayStart.AddHours(23), tomorrowStart.AddDays(5));
+        var startsTomorrow = await host.AddUserAsync("starts-tomorrow");
+        await host.AddMembershipAsync(startsTomorrow, division, [memberRole], tomorrowStart, tomorrowStart.AddDays(5));
+
+        // The end day counts whole too: a lockout that ended at midnight still applies today.
+        var endsToday = await host.AddUserAsync("ends-today");
+        await host.AddMembershipAsync(endsToday, division, [memberRole], todayStart.AddDays(-5), todayStart);
+        var endedYesterday = await host.AddUserAsync("ended-yesterday");
+        await host.AddMembershipAsync(endedYesterday, division, [memberRole], todayStart.AddDays(-5), todayStart.AddMilliseconds(-1));
+
+        // Rows stored with another offset follow the UTC day of their instant. SQL Server keeps the
+        // offset, PostgreSQL stores the instant in UTC. 01:30 at +02:00 on 18 March ended on
+        // 17 March UTC; 00:30 at +02:00 on 19 March starts on 18 March UTC.
+        var endedYesterdayElsewhere = await host.AddUserAsync("ended-yesterday-elsewhere");
+        await host.AddMembershipAsync(
+            endedYesterdayElsewhere,
+            division,
+            [memberRole],
+            Stored(provider, new DateTimeOffset(2026, 3, 10, 9, 0, 0, TimeSpan.FromHours(2))),
+            Stored(provider, new DateTimeOffset(2026, 3, 18, 1, 30, 0, TimeSpan.FromHours(2))));
+        var startsTodayElsewhere = await host.AddUserAsync("starts-today-elsewhere");
+        await host.AddMembershipAsync(
+            startsTodayElsewhere,
+            division,
+            [memberRole],
+            Stored(provider, new DateTimeOffset(2026, 3, 19, 0, 30, 0, TimeSpan.FromHours(2))),
+            Stored(provider, new DateTimeOffset(2026, 3, 25, 0, 0, 0, TimeSpan.FromHours(2))));
+
+        // Confirmed, without an active division and without a membership of any division.
+        var withoutDivision = await host.AddSignInUserAsync("without-division");
+
+        await using (var scope = host.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<INhUserManager>();
+
+            foreach (var lockedOut in new[] { startsToday, endsToday, startsTodayElsewhere })
+            {
+                Assert.Empty(ClaimsFor(await users.GetValidClaimsByUserIdAsync(lockedOut, withDivision: true), division));
+                Assert.False(await AuthorizeAsync(scope, lockedOut, division));
+            }
+
+            foreach (var active in new[] { startsTomorrow, endedYesterday, endedYesterdayElsewhere })
+            {
+                Assert.Equal(
+                    [$"{division}_general.view", $"{division}_{roleName}"],
+                    ClaimsFor(await users.GetValidClaimsByUserIdAsync(active, withDivision: true), division));
+                Assert.True(await AuthorizeAsync(scope, active, division));
+            }
+
+            var claims = await users.GetValidClaimsByUserIdAsync(withoutDivision, withDivision: true);
+            Assert.Contains(claims, claim => claim.Type == ClaimTypes.NameIdentifier && claim.Value == withoutDivision.ToString());
+            Assert.DoesNotContain(claims, claim => claim.Type == NhPlatformClaimTypes.DivisionMember);
+            Assert.DoesNotContain(claims, claim => claim.Type == NhPlatformClaimTypes.DivisionRole);
+            Assert.False(await AuthorizeAsync(scope, withoutDivision, division));
+        }
+
+        // The password sign-in of an application with divisions issues a session with application
+        // claims only.
+        Assert.Null(await host.ReadAsync(context => context.Set<NhUser>()
+            .Where(user => user.Id == withoutDivision)
+            .Select(user => user.ActiveDivisionId)
+            .SingleAsync()));
+        var signIn = await host.SignInAsync(withoutDivision);
+        Assert.True(signIn.Success);
+        var tokenClaims = new JwtSecurityTokenHandler().ReadJwtToken(signIn.Data!.Token).Claims.ToList();
+        Assert.Contains(tokenClaims, claim => claim.Type == JwtRegisteredClaimNames.NameId && claim.Value == withoutDivision.ToString());
+        Assert.DoesNotContain(tokenClaims, claim => claim.Type == NhPlatformClaimTypes.DivisionMember);
+        Assert.NotNull(signIn.Data.RefreshToken);
+    }
+
+    /// <summary>
+    /// The value as the provider can store it: PostgreSQL's <c>timestamptz</c> takes only UTC
+    /// values, SQL Server's <c>datetimeoffset</c> keeps the offset.
+    /// </summary>
+    private static DateTimeOffset Stored(RelationalTestProvider provider, DateTimeOffset value)
+    {
+        return provider == RelationalTestProvider.PostgreSql ? value.ToUniversalTime() : value;
+    }
+
     [Theory]
     [InlineData(RelationalTestProvider.SqlServer)]
     [InlineData(RelationalTestProvider.PostgreSql)]
