@@ -23,9 +23,14 @@ namespace SampleProjectManagement.Api.Services;
 /// (<see cref="NhAssistantProposalDecisionFacts.SubjectChanged"/>), so the message can say so; the
 /// intake reviewer's policy requires an unchanged project, so a "yes" to a changed one is refused with
 /// <c>assistant-proposal-stale</c> and closes the proposal.
+/// SPM-357: <see cref="OfferToApproversAsync"/> finds whom to ask through the approver directory
+/// (<see cref="INhAssistantApproverDirectory.ListForProposalAsync"/>), under the proposal's own policy copy,
+/// also one the approval policy selector chose (SPM-356), and says whether the people it asks are everyone
+/// who may decide.
 /// </summary>
 public sealed class SampleApprovalReplyChannel(
     INhAssistantProposalDecisionService decisions,
+    INhAssistantApproverDirectory approvers,
     INhUserManager users,
     INhAuthenticationService authentication,
     IDataProtectionProvider dataProtection)
@@ -101,6 +106,46 @@ public sealed class SampleApprovalReplyChannel(
             JsonSerializer.Serialize(new ReplyToken(approvalId, userId, facts.Data.ProposalHash, messageCulture.Name), Json),
             facts.Data.ExpiresAt);
         return TaskResult<SampleApprovalReplyOffer>.Succeeded(new SampleApprovalReplyOffer(token, facts.Data.ExpiresAt, facts.Data.SubjectChanged));
+    }
+
+    /// <summary>
+    /// SPM-357: the reply tokens for the messages that ask everyone who may decide the proposal now, in
+    /// <paramref name="messageCulture"/>. The approver directory lists them under the proposal's policy
+    /// copy (four eyes leave out the person who started the work), and each person still gets an offer only
+    /// when the platform's own facts say they may decide. <see cref="SampleApprovalReplyOffers.Complete"/>
+    /// is <see langword="false"/> when the directory could not list everyone, for example because a policy
+    /// rule admits people outside the project; the approval inbox and the agent notifications reach them.
+    /// Fails with the platform's code for a proposal that is unknown.
+    /// </summary>
+    public async Task<TaskResult<SampleApprovalReplyOffers>> OfferToApproversAsync(
+        Guid approvalId,
+        CultureInfo messageCulture,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(messageCulture);
+        // A host with tenants passes the tenant it works for; the sample has none.
+        var listed = await approvers.ListForProposalAsync(approvalId, tenantId: null, cancellationToken: cancellationToken);
+        if (!listed.Success)
+        {
+            return TaskResult<SampleApprovalReplyOffers>.Failed(listed);
+        }
+
+        var offers = new List<SampleApproverOffer>();
+        foreach (var approver in listed.Data!.Approvers)
+        {
+            if (!Guid.TryParse(approver.ActorId, out var userId))
+            {
+                continue;
+            }
+
+            var offer = await OfferAsync(approvalId, userId, messageCulture, cancellationToken);
+            if (offer.Success)
+            {
+                offers.Add(new SampleApproverOffer(userId, approver.DisplayName, offer.Data!));
+            }
+        }
+
+        return TaskResult<SampleApprovalReplyOffers>.Succeeded(new SampleApprovalReplyOffers(offers, listed.Data.Complete));
     }
 
     /// <summary>
@@ -193,6 +238,17 @@ public sealed class SampleApprovalReplyChannel(
 /// whether the project changed since the proposal (<see langword="null"/> when the platform cannot tell).
 /// </summary>
 public sealed record SampleApprovalReplyOffer(string Token, DateTimeOffset ExpiresAt, bool? SubjectChanged = null);
+
+/// <summary>
+/// SPM-357: the reply tokens for everyone the channel asks to decide a proposal, and whether they are
+/// everyone who may decide it.
+/// </summary>
+public sealed record SampleApprovalReplyOffers(IReadOnlyList<SampleApproverOffer> Offers, bool Complete);
+
+/// <summary>
+/// The message for one approver: who, by the name the project lists them with, and their reply token.
+/// </summary>
+public sealed record SampleApproverOffer(Guid UserId, string? DisplayName, SampleApprovalReplyOffer Offer);
 
 /// <summary>
 /// A reply the messaging provider delivered: its own id, the reply token of the message the person
