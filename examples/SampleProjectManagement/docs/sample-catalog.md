@@ -540,6 +540,13 @@ page the lab has open or else about all active projects. Nothing is sent until t
 text they already typed stays unless "Replace what I typed" is on, and the brief is capped at the
 message limit. A chat on a page of its own takes a draft from `NhAssistantStore.setDraft` the same way.
 
+What the person types and does not send stays with its conversation (SPM-369). The lab's "Unsent
+message" card shows what `NhAssistantStore.unsentMessage()` keeps for the open conversation: close the
+drawer with a question in the message box and it is there when the drawer opens again, while another
+conversation shows its own text. The store keeps it in this tab's memory only, the drawer and the chat
+on a page of its own show the same text, sending forgets it and switching the access permission off, as
+signing out does, forgets every unsent message. A prepared brief treats the kept text as typed text.
+
 The chat helper works in people's chats only (SPM-343). `SampleChatHelperComposition` configures it with
 `ChatOnly()`: it keeps its meeting notes skill, offered with `use_skill`, structured questions and a
 limit on the consultations of the intake reviewer it starts in one turn, but it works on no subject. No

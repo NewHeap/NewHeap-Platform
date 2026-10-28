@@ -507,6 +507,153 @@ describe('NhAssistantStore', () => {
     expect(store.pendingDraft()).toEqual({ text: 'A'.repeat(99), replace: false });
   });
 
+  /** FB41: what the composer holds and has not sent stays with its conversation, in this tab's memory. */
+  describe('the unsent message', () => {
+    function browserStorage(): string {
+      const values: string[] = [];
+      for (const storage of [localStorage, sessionStorage]) {
+        for (let index = 0; index < storage.length; index++) {
+          values.push(storage.getItem(storage.key(index)!) ?? '');
+        }
+      }
+      return values.join('\n');
+    }
+
+    beforeEach(() => {
+      api.getConversation.and.callFake(id => of({ ...conversation(), id }));
+      api.deleteConversation.and.returnValue(of(undefined));
+    });
+
+    it('keeps it per conversation in memory only and shows it again when the conversation opens', async () => {
+      const store = setup(() => `store-unsent-${crypto.randomUUID()}`);
+      await store.initialize();
+      await store.openConversation('c1');
+      store.keepUnsentMessage({ text: 'Half a question about Alpha ', prepared: false });
+
+      await store.openConversation('c2');
+      expect(store.unsentMessage()).toBeNull();
+      store.keepUnsentMessage({ text: 'Budget?', prepared: false });
+      store.startNewConversation();
+      expect(store.unsentMessage()).toBeNull();
+
+      await store.openConversation('c1');
+      // Kept as the composer held it, the trailing space included.
+      expect(store.unsentMessage()).toEqual({ text: 'Half a question about Alpha ', prepared: false });
+      await store.openConversation('c2');
+      expect(store.unsentMessage()).toEqual({ text: 'Budget?', prepared: false });
+      store.keepUnsentMessage({ text: '', prepared: false });
+      expect(store.unsentMessage()).toBeNull();
+
+      expect(browserStorage()).not.toContain('Half a question');
+      expect(browserStorage()).not.toContain('Budget?');
+    });
+
+    it('takes the new chat\'s text into the conversation created for it, also when a host sends', async () => {
+      const store = setup();
+      await store.initialize();
+      store.keepUnsentMessage({ text: 'Still typing', prepared: false });
+
+      // A host's quick action sends its own text; what the person typed stays theirs.
+      const sent = store.send('Plan the kickoff');
+      await flush();
+
+      expect(store.activeConversation()?.id).toBe('c1');
+      expect(store.unsentMessage()).toEqual({ text: 'Still typing', prepared: false });
+      store.startNewConversation();
+      expect(store.unsentMessage()).toBeNull();
+      stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+      stream.complete();
+      expect(await sent).toBeTrue();
+    });
+
+    it('keeps a refused message as the person\'s own text of its conversation, also after they opened another one', async () => {
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('c1');
+      const sent = store.send('Hello');
+      await flush();
+
+      await store.openConversation('c2');
+      stream.next({ type: 'error', data: { code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' } });
+      stream.complete();
+      expect(await sent).toBeFalse();
+
+      // Nothing lands in the composer of the conversation the person looks at now.
+      expect(store.pendingDraft()).toBeNull();
+      expect(store.unsentMessage()).toBeNull();
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toEqual({ text: 'Hello', prepared: false });
+      expect(store.setDraft('A prepared brief')).toBeFalse();
+    });
+
+    it('lets a draft in only where the person\'s own text does not keep its place', async () => {
+      const store = setup();
+      await store.initialize();
+      store.keepUnsentMessage({ text: 'My own question', prepared: false });
+
+      expect(store.setDraft('A brief')).toBeFalse();
+      expect(store.pendingDraft()).toBeNull();
+      expect(store.setDraft('A brief', { replace: true })).toBeTrue();
+      expect(store.consumeRestoredDraft()).toBe('A brief');
+
+      // The composer reports the draft it took; a draft the person did not change gives way.
+      store.keepUnsentMessage({ text: 'A brief', prepared: true });
+      expect(store.setDraft('The next brief')).toBeTrue();
+      expect(store.pendingDraft()).toEqual({ text: 'The next brief', replace: false });
+      store.consumeRestoredDraft();
+      store.keepUnsentMessage({ text: '   ', prepared: false });
+      expect(store.setDraft('Over blank space')).toBeTrue();
+    });
+
+    it('goes along to a new chat when the person chooses another agent, never over the new chat\'s own text', async () => {
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('c1');
+      store.keepUnsentMessage({ text: 'Ask the other agent', prepared: false });
+
+      store.selectAgent('general');
+      expect(store.activeConversation()).toBeNull();
+      expect(store.unsentMessage()).toEqual({ text: 'Ask the other agent', prepared: false });
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toBeNull();
+
+      store.keepUnsentMessage({ text: 'Stays with c1', prepared: false });
+      store.selectAgent('general');
+      expect(store.unsentMessage()).toEqual({ text: 'Ask the other agent', prepared: false });
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toEqual({ text: 'Stays with c1', prepared: false });
+    });
+
+    it('forgets it with a deleted conversation, on sign-out and when another person signs in', async () => {
+      let scope = `store-unsent-account-${crypto.randomUUID()}`;
+      const store = setup(() => scope);
+      await store.initialize();
+      await store.openConversation('c1');
+      store.keepUnsentMessage({ text: 'Goes with c1', prepared: false });
+      await store.deleteConversation('c1');
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toBeNull();
+
+      store.keepUnsentMessage({ text: 'The first person\'s text', prepared: false });
+      store.startNewConversation();
+      store.keepUnsentMessage({ text: 'The first person\'s new chat', prepared: false });
+      scope += '-other';
+      await store.reloadStatus();
+      expect(store.unsentMessage()).toBeNull();
+      await store.openConversation('c1');
+      expect(store.unsentMessage()).toBeNull();
+
+      store.keepUnsentMessage({ text: 'Before signing out', prepared: false });
+      access.next(false);
+      expect(store.unsentMessage()).toBeNull();
+      access.next(true);
+      await flush();
+      await store.openConversation('c1');
+      expect(store.enabled()).toBeTrue();
+      expect(store.unsentMessage()).toBeNull();
+    });
+  });
+
   it('rejects messages longer than the server limit', async () => {
     const store = setup();
     await store.initialize();

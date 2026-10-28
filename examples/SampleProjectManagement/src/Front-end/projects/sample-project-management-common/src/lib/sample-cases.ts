@@ -6140,5 +6140,26 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
     ]
+  },
+  {
+    "id": "SPM-369",
+    "title": "The assistant lab keeps a message the person typed and did not send when the drawer closes",
+    "category": "AI tools and generated catalogs",
+    "surface": "@newheap/platform-ai-chat: NhAssistantStore.unsentMessage() with NhAssistantUnsentMessage (text, prepared) and NhAssistantStore.keepUnsentMessage(message), kept per conversation in memory and forgotten on send, on a deleted or left conversation, on sign-out and for another person; the unsent input and the unsentChange output of nh-assistant-composer, which nh-assistant-panel binds in the drawer and in mode=\"page\"; NhAssistantStore.setDraft, which keeps the person's own unsent text unless replace, and selectAgent, which takes the unsent message along to a new chat with another agent",
+    "outcome": "In the assistant lab, a question typed in the assistant and not sent waits in the message box when the drawer opens again, and the \"Unsent message\" card shows what the store keeps for the open conversation: the text the person typed, or a prepared brief they did not change. Each conversation keeps its own text, a new chat's text moves into the conversation created for it, and the drawer and the chat on a page of its own show the same text. Sending the message forgets it; a message the server refused comes back as the person's own text; switching the access permission off, as signing out does, forgets every unsent message, and nothing is written to browser storage. A prepared brief (SPM-350) respects the kept text as typed text unless \"Replace what I typed\" is on, an unchanged brief still gives way to the next one, and a brief that opens a new chat lands in its empty message box while the old conversation keeps its own text. The library specs prove the drawer closed and opened again, switching conversations and back, the drawer and the page sharing the text, sending, the refusal, sign-out and another person, and the drafts.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-unsent.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+    ]
   }
 ] as const;

@@ -121,6 +121,22 @@ export interface NhAssistantDraftOptions {
   readonly replace?: boolean;
 }
 
+/**
+ * What the composer holds and has not sent for one conversation: what the person typed, a message the
+ * server refused, or a prepared draft. `NhAssistantStore.unsentMessage()` keeps it in this tab's memory
+ * only, so it survives a closed drawer and shows in the drawer and a page alike.
+ */
+export interface NhAssistantUnsentMessage {
+  /** The text as the composer holds it, not trimmed. */
+  readonly text: string;
+  /**
+   * True for a prepared draft the person did not change, which the next draft replaces. False for the
+   * person's own text: typed, changed or a refused message put back, which only a replacing draft
+   * replaces.
+   */
+  readonly prepared: boolean;
+}
+
 interface QueuedMessage extends NhAssistantQueuedMessage {
   clientContext?: ClientContext | null;
 }
@@ -297,6 +313,11 @@ export class NhAssistantStore {
   private readonly feedbackApprovalsState = signal<ReadonlySet<string>>(new Set());
   /** The attachments of the next message per conversation; `''` for a new conversation. */
   private readonly attachmentsState = signal<ReadonlyMap<string, readonly NhAssistantAttachment[]>>(new Map());
+  /**
+   * The composer's unsent message per conversation; `''` for a new conversation until one is created.
+   * Memory only: never written to browser storage.
+   */
+  private readonly unsentState = signal<ReadonlyMap<string, NhAssistantUnsentMessage>>(new Map());
   private destroyed = false;
   private readonly uploadSubscriptions = new Map<string, Subscription>();
   /** The conversation an attachment of a new conversation creates, once for every file chosen meanwhile. */
@@ -371,6 +392,18 @@ export class NhAssistantStore {
    * `consumeRestoredDraft` on its `restored` output; a custom layout does the same.
    */
   readonly pendingDraft = this.restoredDraftState.asReadonly();
+  /**
+   * The unsent message of the open conversation, or of the new conversation while none is open: what
+   * the composer held when the drawer closed, the page left or another conversation opened. Kept per
+   * conversation in this tab's memory only, never in browser storage, and forgotten when the composer
+   * sends it, when the conversation is deleted or left, and when the person signs out or another person
+   * signs in; a message the server refuses comes back as the person's own text, and a host's own
+   * `send` leaves it alone. The panel binds it to the composer's `unsent` input and passes
+   * `unsentChange` to `keepUnsentMessage`, so the drawer and a panel in a page (`mode="page"`) share it;
+   * a custom layout does the same.
+   */
+  readonly unsentMessage = computed<NhAssistantUnsentMessage | null>(() =>
+    this.unsentState().get(this.activeIdState() ?? newConversationKey) ?? null);
   /** Page context that the next message would send, for the transparency chip. */
   readonly pageContext = this.pageContextState.asReadonly();
   /** True when the user left the page context out of the next message. */
@@ -735,7 +768,12 @@ export class NhAssistantStore {
     }
   }
 
-  /** Chooses the agent for the next new conversation. Switching away from the open conversation's agent starts a new one. */
+  /**
+   * Chooses the agent for the next new conversation. Switching away from the open conversation's agent
+   * starts a new one, and the unsent message goes along, as the agent picker sits in the composer; the
+   * new conversation's own unsent text, when it has any, stays instead and the open conversation keeps
+   * its message.
+   */
   selectAgent(agentId: string): void {
     if (!this.agents().some(agent => agent.id === agentId)) {
       return;
@@ -746,6 +784,7 @@ export class NhAssistantStore {
     const active = this.activeConversation();
     if (active && active.agentId !== agentId) {
       this.startNewConversation();
+      this.carryUnsentMessage(active.id);
     }
   }
 
@@ -945,6 +984,9 @@ export class NhAssistantStore {
         if (accountRevision === this.accountRevision) {
           this.sendingState.set(null);
           this.restoredDraftState.set(text);
+          if (!queued) {
+            this.keepRefusedMessage(newConversationKey, text);
+          }
         }
         return false;
       }
@@ -1013,6 +1055,10 @@ export class NhAssistantStore {
             this.removeMessage(conversationId, clientMessageId, previousStatus);
             if (!queued && this.activeIdState() === conversationId) {
               this.restoredDraftState.set(text);
+            }
+            if (!queued) {
+              // The refused message is the person's own text again, also in a conversation they left meanwhile.
+              this.keepRefusedMessage(conversationId, text);
             }
             this.patchSession(conversationId, session => ({ ...session, error: event.data }));
             resolve(false);
@@ -1414,7 +1460,7 @@ export class NhAssistantStore {
     }
   }
 
-  /** Persists only drawer visibility, never the page context or a message draft. */
+  /** Persists only drawer visibility, never the page context, a message draft or an unsent message. */
   setPanelOpen(open: boolean): void {
     this.restorePanelOpenState.set(open);
     this.uiState.update({ panelOpen: open });
@@ -1437,11 +1483,12 @@ export class NhAssistantStore {
   /**
    * Puts a prepared message in the composer without sending it, for example a brief that the person
    * reviews and then sends. The text is trimmed and capped at the server's `maxMessageChars`. The
-   * composer keeps what the person already typed unless `replace` is set; a message the server did not
-   * accept, which waits for the composer, stays as well. The drawer and a panel in a page
-   * (`mode="page"`) share the draft: the composer that shows next takes it. Returns `false`, and
-   * changes nothing, while the assistant is not available (call it after `initialize()`), for empty
-   * text and when a refused message keeps its place.
+   * composer keeps what the person already typed unless `replace` is set: the open conversation's
+   * `unsentMessage()` when it is their own text, and a message the server did not accept, which waits
+   * for the composer, as well. An unsent prepared draft the person did not change gives way. The drawer
+   * and a panel in a page (`mode="page"`) share the draft: the composer that shows next takes it.
+   * Returns `false`, and changes nothing, while the assistant is not available (call it after
+   * `initialize()`), for empty text and when the person's own text keeps its place.
    */
   setDraft(text: string, options: NhAssistantDraftOptions = {}): boolean {
     const replace = options.replace === true;
@@ -1453,9 +1500,22 @@ export class NhAssistantStore {
       // The person's own message that the server did not accept still waits for the composer.
       return false;
     }
+    if (!replace && isOwnText(this.unsentMessage())) {
+      // What the person typed in this conversation stays, also while no composer shows it.
+      return false;
+    }
 
     this.restoredDraftState.set({ text: draft, replace });
     return true;
+  }
+
+  /**
+   * Keeps what the composer holds as the unsent message of the open conversation, or of the new
+   * conversation while none is open; `null` or empty text forgets it, as after sending. The panel calls
+   * it with the composer's `unsentChange`; the text stays as it is, untrimmed, in this tab's memory only.
+   */
+  keepUnsentMessage(message: NhAssistantUnsentMessage | null): void {
+    this.setUnsentMessage(this.activeIdState() ?? newConversationKey, message);
   }
 
   /** Returns and clears the text the composer took: a message that was not accepted, or a draft. */
@@ -1601,6 +1661,53 @@ export class NhAssistantStore {
     const moving = this.attachmentsOf(from);
     this.patchAttachments(from, () => []);
     this.patchAttachments(to, attachments => [...attachments, ...moving]);
+  }
+
+  /** Keeps or, for `null` and empty text, forgets the unsent message of one conversation. */
+  private setUnsentMessage(key: string, message: NhAssistantUnsentMessage | null): void {
+    const text = message?.text ?? '';
+    const prepared = message?.prepared === true;
+    this.unsentState.update(all => {
+      const current = all.get(key);
+      if (text.length === 0) {
+        if (!current) {
+          return all;
+        }
+        const next = new Map(all);
+        next.delete(key);
+        return next;
+      }
+      if (current?.text === text && current.prepared === prepared) {
+        return all;
+      }
+      const next = new Map(all);
+      next.set(key, { text, prepared });
+      return next;
+    });
+  }
+
+  /** A message the server did not accept becomes the person's own unsent text of its conversation again. */
+  private keepRefusedMessage(key: string, text: string): void {
+    this.setUnsentMessage(key, { text, prepared: false });
+  }
+
+  /**
+   * Moves an unsent message to another conversation: the new conversation's text into the conversation
+   * created for it, or the open conversation's text into a new chat with another agent. The target's own
+   * text is never overwritten; a prepared draft there gives way.
+   */
+  private moveUnsentMessage(from: string, to: string): void {
+    const moving = this.unsentState().get(from);
+    if (!moving || from === to || isOwnText(this.unsentState().get(to) ?? null)) {
+      return;
+    }
+    this.setUnsentMessage(from, null);
+    this.setUnsentMessage(to, moving);
+  }
+
+  /** The agent picker sits in the composer: a new chat with another agent takes the unsent message along. */
+  private carryUnsentMessage(from: string): void {
+    this.moveUnsentMessage(from, newConversationKey);
   }
 
   /**
@@ -1782,6 +1889,7 @@ export class NhAssistantStore {
     this.steeringState.set(null);
     this.submittingState.set(false);
     this.feedbackApprovalsState.set(new Set());
+    this.unsentState.set(new Map());
     this.dropAttachments();
     this.attachmentConversation = null;
     this.clearAgentWorkTimers();
@@ -1802,6 +1910,8 @@ export class NhAssistantStore {
         return null;
       }
       this.upsertSession(conversation);
+      // What the person still types in the new chat, for example while a file uploads, belongs to it now.
+      this.moveUnsentMessage(newConversationKey, conversation.id);
       this.setActive(conversation.id);
       this.conversationsState.update(items => [toSummary(conversation), ...items.filter(item => item.id !== conversation.id)]);
       this.conversationsTotalState.update(total => total + 1);
@@ -2137,6 +2247,7 @@ export class NhAssistantStore {
   /** Removes a deleted, left or inaccessible conversation everywhere. */
   private forget(conversationId: string): void {
     this.dropAttachments(conversationId);
+    this.setUnsentMessage(conversationId, null);
     this.queuedState.update(items => items.filter(item => item.conversationId !== conversationId));
     this.pausedQueuesState.update(paused => new Set([...paused].filter(id => id !== conversationId)));
     this.streams.get(conversationId)?.unsubscribe();
@@ -2195,6 +2306,11 @@ export class NhAssistantStore {
 
 function clientError(code: string): NhAssistantError {
   return { code, messageKey: nhAssistantErrorMessageKey(code) };
+}
+
+/** True for unsent text the person wrote or got back after a refusal, which only a replacing draft replaces. */
+function isOwnText(message: NhAssistantUnsentMessage | null): boolean {
+  return message !== null && !message.prepared && message.text.trim().length > 0;
 }
 
 /**
