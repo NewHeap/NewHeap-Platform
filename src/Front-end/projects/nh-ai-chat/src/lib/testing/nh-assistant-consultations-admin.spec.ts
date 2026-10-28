@@ -412,6 +412,43 @@ describe('Consultations defined as data in the mock API', () => {
     expect((await configuration('starter')).dataConsultations![0]).toEqual(jasmine.objectContaining({ off: true }));
   });
 
+  it('takes requests only as the server does: the request tool alone, without the settings of the turn of a consultation', async () => {
+    TestBed.resetTestingModule();
+    const script = scenario();
+    script.admin!.consultationsAsData = { ...script.admin!.consultationsAsData, answerRequestsInAskingConversation: true };
+    await configure(script);
+    const save = (body: object) => call('PUT', 'admin/agents/starter/consultations/project', {
+      description: 'Starts a draft project on request.',
+      allowRequests: true,
+      requestsOnly: true,
+      expectedVersion: 1,
+      ...body
+    });
+
+    const refused = await save({ allowRequests: false, routes: ['asker-decides'], maxHistoryMessages: 5, instructions: 'Be brief.' });
+    expect([refused.status, refused.body.code, refused.body.errors]).toEqual([400, 'assistant-validation', {
+      instructions: ['not-allowed'],
+      routes: ['not-allowed'],
+      allowRequests: ['required'],
+      limits: ['not-allowed']
+    }]);
+
+    const saved = await save({});
+    expect(saved.status).toBe(200);
+    expect(saved.body).toEqual(jasmine.objectContaining({
+      requestsOnly: true,
+      answerRequestsInAskingConversation: true,
+      consultToolId: '',
+      requestToolId: 'assistant.request.starter.project',
+      // The project assistant selects the consult tool only, so nobody asks it for requests yet.
+      askingAgents: []
+    }));
+    const tools = ((await call('GET', 'admin/tools')).body as ToolCatalogEntry[]).map(tool => tool.id);
+    expect(tools).toContain('assistant.request.starter.project');
+    expect(tools).not.toContain('assistant.consult.starter.project');
+    expect(((await call('GET', 'admin/run-catalog')).body as RunCatalog).consultationCeiling?.answerRequestsInAskingConversation).toBeTrue();
+  });
+
   it('removes a consultation; its tool and its routes go with it', async () => {
     const removed = await call('DELETE', 'admin/agents/starter/consultations/project?expectedVersion=1');
 
