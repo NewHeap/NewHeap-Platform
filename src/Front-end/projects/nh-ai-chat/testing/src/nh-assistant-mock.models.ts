@@ -1,4 +1,7 @@
 import {
+  AgentCompositionChannel,
+  AgentCompositionFeature,
+  CompositionCeiling,
   AdminAgentInput,
   AgentPackage,
   AgentConsultationStatus,
@@ -227,6 +230,17 @@ export interface NhAssistantMockAgentMetadataEntry {
  * A preconfigured agent. Code agents default to the scenario's chat agents. `startsOff` starts it
  * off, as `StartsOff()` in code does for an agent in code.
  */
+/**
+ * The compositions and scripts of the mock application: which features have tools and in which channels
+ * the application's switch has each on.
+ */
+export interface NhAssistantMockCompositions {
+  /** The features whose tools are registered: `scripts` when the scripting package is installed. Default none. */
+  installed?: AgentCompositionFeature[];
+  /** The channels in which the application's switch has each feature on. Default none: off, as configuration is. */
+  on?: Partial<Record<AgentCompositionFeature, AgentCompositionChannel[]>>;
+}
+
 export interface NhAssistantMockAdminAgent extends AdminAgentInput {
   source: 'code' | 'admin';
   /**
@@ -462,6 +476,18 @@ export interface NhAssistantMockAdminScenario {
    * `UseShadowVariantsAsData` in code. Without it shadow variants exist in code only.
    */
   shadowVariantsAsData?: NhAssistantMockShadowVariantCeiling;
+  /**
+   * Lets administrators switch compositions and scripts on for agents created in the administration
+   * within this ceiling, as `UseCompositionsAsData` in code; the run catalog reports it as
+   * `compositionCeiling`. Without it such agents never get them (`compositions: not-allowed`).
+   */
+  compositionsAsData?: CompositionCeiling;
+  /**
+   * What the assistant does with compositions and the script tool, for
+   * `GET admin/agents/{id}/compositions`. Agents in code allow them with `compositions` and `scripts`
+   * in their scenario. Default: no tool of either feature is registered.
+   */
+  compositions?: NhAssistantMockCompositions;
   /**
    * The data classifications each model profile and its fallbacks permit together, by profile name.
    * An agent or skill whose classification its profile does not permit is saved with the warning
