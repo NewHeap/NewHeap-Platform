@@ -65,10 +65,20 @@ public static class NhAiMcpProtectedResourceDefaults
     /// <c>https://gateway.example.org/.well-known/oauth-protected-resource/planning/mcp</c> for
     /// <c>https://gateway.example.org/planning/mcp</c>.
     /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="resource"/> is no valid resource URL.</exception>
     public static string MetadataAddressOf(string resource)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resource);
-        var canonical = NhAiMcpProtectedResource.Canonical(resource, nameof(resource));
+        string canonical;
+        try
+        {
+            canonical = NhAiMcpProtectedResource.Canonical(resource, nameof(NhAiMcpProtectedResourceOptions.Resource));
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new ArgumentException(exception.Message, nameof(resource), exception);
+        }
+
         var uri = new Uri(canonical, UriKind.Absolute);
         return uri.GetLeftPart(UriPartial.Authority) + MetadataPath + uri.AbsolutePath.TrimEnd('/');
     }
