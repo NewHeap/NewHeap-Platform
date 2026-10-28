@@ -4172,6 +4172,60 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_348_the_order_desk_confirms_an_order_to_its_approver_in_the_language_they_approved_it_in()
+    {
+        // SPM-348: the hand-off and the report's receipt carry the UI culture the approver decided in.
+        var project = await host.CreateProjectAsync("CULTURE", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var desk = host.Services.GetRequiredService<SampleEquipmentOrderDesk>();
+
+        // The colleague answers a Dutch message about the first order with a messaging reply.
+        var chairs = await StartIntakeReviewerAsync(participant, project, $"Please order 4 chairs for project {project:D}.");
+        var proposal = await WaitForProposalAsync(colleague, chairs, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        TaskResult<SampleApprovalReplyOffer> offer;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            offer = await scope.ServiceProvider.GetRequiredService<SampleApprovalReplyChannel>()
+                .OfferAsync(proposal.ApprovalId, host.ColleagueId, CultureInfo.GetCultureInfo("nl-NL"), CancellationToken.None);
+        }
+        Assert.True(offer.Success);
+        using (var approved = await ReplyAsync(messaging, "delivery-348", offer.Data!.Token, "yes"))
+        {
+            Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        }
+
+        // The hand-off tells the order desk that language, and so does the receipt of its report: the desk
+        // confirms the placed order to the colleague in Dutch.
+        var order = await WaitForOrderAsync(desk, item => item.HandOff?.ApprovalId == proposal.ApprovalId, "the chairs");
+        Assert.Equal("nl-NL", order.HandOff!.DecisionCulture);
+        var reported = await desk.ConfirmAsync(order.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed");
+        Assert.Equal((NhAssistantApprovalStatuses.Executed, "nl-NL"), (reported.Data!.Status, reported.Data.DecisionCulture));
+        var dutch = Assert.Single(desk.Confirmations, item => item.OrderNumber == order.OrderNumber);
+        Assert.Equal((host.ColleagueId.ToString(), "nl-NL"), (dutch.ApproverActorId, dutch.Culture));
+        Assert.Equal($"Je goedgekeurde bestelling {order.OrderNumber} van 4 chairs is geplaatst bij de leverancier.", dutch.Text);
+        // A confirmation the supplier sends twice confirms nothing again.
+        Assert.True((await desk.ConfirmAsync(order.OrderNumber, NhAssistantExecutionOutcome.Completed, "order-placed")).Data!.Duplicate);
+        Assert.Single(desk.Confirmations, item => item.OrderNumber == order.OrderNumber);
+
+        // The portal's decision endpoint records the culture of its request: the colleague approves the
+        // second order in English, and reads that the supplier turned it down in English.
+        var headsets = await StartIntakeReviewerAsync(participant, project, $"Please order 2 headsets for project {project:D}.");
+        var second = await WaitForProposalAsync(colleague, headsets, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, second, "approve")).StatusCode);
+        var headsetOrder = await WaitForOrderAsync(desk, item => item.HandOff?.ApprovalId == second.ApprovalId, "the headsets");
+        Assert.Equal("en-US", headsetOrder.HandOff!.DecisionCulture);
+        Assert.True((await desk.ConfirmAsync(headsetOrder.OrderNumber, NhAssistantExecutionOutcome.Failed, "supplier-out-of-stock")).Success);
+        var english = Assert.Single(desk.Confirmations, item => item.OrderNumber == headsetOrder.OrderNumber);
+        Assert.Equal(
+            ("en-US", $"Your approved order {headsetOrder.OrderNumber} is not placed: the supplier answered supplier-out-of-stock."),
+            (english.Culture, english.Text));
+    }
+
+    [Fact]
     public async Task SPM_327_the_approval_digest_counts_what_waits_per_status_and_the_inbox_lists_each_status()
     {
         // SPM-327: the digest counts with INhAssistantProposalCounts, the inbox lists the same per status.

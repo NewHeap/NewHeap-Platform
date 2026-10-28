@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
@@ -52,16 +53,33 @@ public sealed class SampleApprovalReplyChannel(
     private readonly ITimeLimitedDataProtector _tokens = dataProtection.CreateProtector(Purpose).ToTimeLimitedDataProtector();
 
     /// <summary>
-    /// The reply token for the message that asks <paramref name="userId"/> to decide the proposal,
-    /// valid until the proposal expires. Fails with the platform's code when the person may not
-    /// decide it, such as <c>assistant-four-eyes-required</c> for the person who created the
-    /// project; nobody is asked who cannot answer.
+    /// The reply token for the message that asks <paramref name="userId"/> to decide the proposal, written
+    /// in the UI culture the application works in now, as <see cref="OfferAsync(Guid, Guid, CultureInfo, CancellationToken)"/>.
     /// </summary>
-    public async Task<TaskResult<SampleApprovalReplyOffer>> OfferAsync(
+    public Task<TaskResult<SampleApprovalReplyOffer>> OfferAsync(
         Guid approvalId,
         Guid userId,
         CancellationToken cancellationToken)
     {
+        return OfferAsync(approvalId, userId, CultureInfo.CurrentUICulture, cancellationToken);
+    }
+
+    /// <summary>
+    /// The reply token for the message that asks <paramref name="userId"/> to decide the proposal,
+    /// valid until the proposal expires. Fails with the platform's code when the person may not
+    /// decide it, such as <c>assistant-four-eyes-required</c> for the person who created the
+    /// project; nobody is asked who cannot answer.
+    /// SPM-348: the token remembers <paramref name="messageCulture"/>, the language the message asks the
+    /// person in, and the reply decides in it (<see cref="NhAssistantDecidingPerson.Culture"/>), so the
+    /// order desk later addresses the approver in that language.
+    /// </summary>
+    public async Task<TaskResult<SampleApprovalReplyOffer>> OfferAsync(
+        Guid approvalId,
+        Guid userId,
+        CultureInfo messageCulture,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(messageCulture);
         if (await PersonAsync(userId, cancellationToken) is not { } person)
         {
             return TaskResult<SampleApprovalReplyOffer>.Failed(PersonUnavailableCode, "The person may not sign in.");
@@ -80,7 +98,7 @@ public sealed class SampleApprovalReplyChannel(
         }
 
         var token = _tokens.Protect(
-            JsonSerializer.Serialize(new ReplyToken(approvalId, userId, facts.Data.ProposalHash), Json),
+            JsonSerializer.Serialize(new ReplyToken(approvalId, userId, facts.Data.ProposalHash, messageCulture.Name), Json),
             facts.Data.ExpiresAt);
         return TaskResult<SampleApprovalReplyOffer>.Succeeded(new SampleApprovalReplyOffer(token, facts.Data.ExpiresAt, facts.Data.SubjectChanged));
     }
@@ -106,8 +124,10 @@ public sealed class SampleApprovalReplyChannel(
             return TaskResult<NhAssistantProposalDecisionResult>.Failed(PersonUnavailableCode, "The person may not sign in.");
         }
 
+        // SPM-348: the person answers in the language of the message; the platform records it with the
+        // decision when the application supports it, and a hand-off to the order desk carries it.
         return await decisions.DecideAsync(
-            person,
+            person with { Culture = token.Culture },
             token.ApprovalId,
             token.ProposalHash,
             decision,
@@ -161,7 +181,11 @@ public sealed class SampleApprovalReplyChannel(
         };
     }
 
-    private sealed record ReplyToken(Guid ApprovalId, Guid UserId, string ProposalHash);
+    /// <summary>
+    /// What a reply token names: the proposal, the person, the hash they saw and the culture of the
+    /// message that asked them, which a token issued before SPM-348 does not name.
+    /// </summary>
+    private sealed record ReplyToken(Guid ApprovalId, Guid UserId, string ProposalHash, string? Culture = null);
 }
 
 /// <summary>

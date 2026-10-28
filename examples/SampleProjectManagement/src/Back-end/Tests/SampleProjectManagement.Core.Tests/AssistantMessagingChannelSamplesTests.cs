@@ -11,6 +11,7 @@ using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Api.Models;
 using SampleProjectManagement.Api.Services;
+using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
@@ -24,7 +25,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// without a request of the person, and with the channel in the audit. SPM-341: the person also starts,
 /// reads and stops a chat and answers its question card through <c>INhAssistantConversations</c> and
 /// <c>AnswerAsync</c>. SPM-342: the turn's situation names the person and the channel, and the status
-/// change names the conversation and the channel of the turn that made it.
+/// change names the conversation and the channel of the turn that made it. SPM-349: a proposal guard
+/// reads the channel of the call that proposes and keeps the messaging app from proposing to archive a
+/// project before any card.
 /// </summary>
 public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChannelSampleHost host)
     : IClassFixture<AssistantMessagingChannelSampleHost>
@@ -212,6 +215,40 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         // The status change names the chat and the channel of the turn that made it.
         var cause = host.Projects.ChangeCauses.Single(change => change.ProjectId == projectId).Cause!;
         Assert.Equal((conversationId, SampleAssistantMessagingChannel.Channel), (cause.ConversationId, cause.Channel));
+    }
+
+    [Fact]
+    public async Task SPM_349_the_messaging_app_does_not_propose_to_archive_a_project_and_reads_why_before_any_card()
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = (int)ProjectStatus.Archived } })
+            .RespondWithText("Archive the project in the portal, where you choose what to keep.")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = (int)ProjectStatus.Archived } })
+            .RespondWithText("Approve the archiving first.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(owner);
+        var token = await LinkAsync(owner, conversationId);
+
+        // The proposal guard knows the call came from the messaging app: nothing is proposed, so no card.
+        var answer = await AnswerOfAsync(await SendAsync(messaging, "delivery-349", token, "Archive the launch project."));
+
+        Assert.Equal(("completed", null), (answer.Status, answer.Approval));
+        var result = JsonSerializer.Serialize(Assert.Single(model.FunctionResults).Result);
+        Assert.Contains(NhAssistantErrorCodes.ProposalNotNeeded, result, StringComparison.Ordinal);
+        Assert.Contains(ProjectArchiveChannelProposalGuard.ArchiveInPortalCode, result, StringComparison.Ordinal);
+        Assert.Contains("Archive the project in the portal, where you choose what to keep.", result, StringComparison.Ordinal);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == projectId);
+
+        // The same chat in the portal proposes it, and the card waits for the person.
+        var events = await host.SendAsync(owner, conversationId, "Archive the launch project.");
+
+        var card = Assert.Single(events, evt => evt.Name == "approval.required").Data;
+        Assert.Equal(ProjectAiTools.ChangeStatusToolId, card.GetProperty("toolId").GetString());
+        Assert.Equal("waiting-for-approval", events[^1].Data.GetProperty("status").GetString());
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == projectId);
     }
 
     [Fact]
