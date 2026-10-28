@@ -89,7 +89,7 @@ internal sealed class NhAssistantToolPresentationResolver(
             {
                 continue;
             }
-            if (BrokenRuleOf(result) is not { } rule)
+            if (NhAssistantPresentationLimits.FindBrokenRule(result) is not { } rule)
             {
                 return result;
             }
@@ -264,69 +264,13 @@ internal sealed class NhAssistantToolPresentationResolver(
         }
     }
 
+    /// <summary>
+    /// Whether a stored presentation still keeps within the limits, by the public check
+    /// (<see cref="NhAssistantPresentationLimits.FindBrokenRule"/>) that presenters are tested with.
+    /// </summary>
     private static bool IsValid(NhAssistantApprovalPresentation? presentation)
     {
-        return presentation is not null && BrokenRuleOf(presentation) is null;
-    }
-
-    /// <summary>
-    /// The first rule of <see cref="NhAssistantPresentationLimits"/> that <paramref name="presentation"/>
-    /// breaks, as a <see cref="NhAssistantPresentationRules"/> name, or <see langword="null"/> when it keeps
-    /// within all of them.
-    /// </summary>
-    internal static string? BrokenRuleOf(NhAssistantApprovalPresentation presentation)
-    {
-        if (string.IsNullOrWhiteSpace(presentation.ToolDisplayName))
-        {
-            return NhAssistantPresentationRules.DisplayNameMissing;
-        }
-        if (presentation.ToolDisplayName.Length > MaxDisplayNameLength)
-        {
-            return NhAssistantPresentationRules.DisplayNameTooLong;
-        }
-        if (string.IsNullOrWhiteSpace(presentation.Summary))
-        {
-            return NhAssistantPresentationRules.SummaryMissing;
-        }
-        if (presentation.Summary.Length > MaxSummaryLength)
-        {
-            return NhAssistantPresentationRules.SummaryTooLong;
-        }
-        if (presentation.Fields is null)
-        {
-            return NhAssistantPresentationRules.FieldsMissing;
-        }
-        if (presentation.Fields.Count > MaxFieldCount)
-        {
-            return NhAssistantPresentationRules.TooManyFields;
-        }
-        foreach (var field in presentation.Fields)
-        {
-            if (field is null || string.IsNullOrWhiteSpace(field.Label))
-            {
-                return NhAssistantPresentationRules.FieldLabelMissing;
-            }
-            if (field.Label.Length > MaxFieldLabelLength)
-            {
-                return NhAssistantPresentationRules.FieldLabelTooLong;
-            }
-            if (string.IsNullOrWhiteSpace(field.Value))
-            {
-                return NhAssistantPresentationRules.FieldValueMissing;
-            }
-            if (field.Value.Length > MaxFieldValueLength)
-            {
-                return NhAssistantPresentationRules.FieldValueTooLong;
-            }
-        }
-        if (presentation.Notice?.Length > MaxNoticeLength)
-        {
-            return NhAssistantPresentationRules.NoticeTooLong;
-        }
-
-        return JsonSerializer.Serialize(presentation, NhAssistantContent.JsonOptions).Length > MaxSerializedLength
-            ? NhAssistantPresentationRules.TooLong
-            : null;
+        return presentation is not null && NhAssistantPresentationLimits.FindBrokenRule(presentation) is null;
     }
 
     /// <summary>

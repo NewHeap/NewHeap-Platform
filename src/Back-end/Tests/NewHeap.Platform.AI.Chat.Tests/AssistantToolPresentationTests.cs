@@ -193,8 +193,39 @@ public sealed class AssistantToolPresentationTests
             }
         };
 
-        Assert.Null(NhAssistantToolPresentationResolver.BrokenRuleOf(valid));
-        Assert.Equal(rule, NhAssistantToolPresentationResolver.BrokenRuleOf(broken));
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(valid));
+        Assert.Equal(rule, NhAssistantPresentationLimits.FindBrokenRule(broken));
+    }
+
+    [Fact]
+    public async Task The_public_check_finds_the_rule_by_which_the_resolver_drops_a_presentation()
+    {
+        // FB18: a presenter's unit test calls the same check the resolver drops a presentation by.
+        var field = new NhAssistantPresentationField("Project", "Alpha");
+        var kept = new NhAssistantApprovalPresentation(
+            "Status",
+            new string('x', NhAssistantPresentationLimits.MaxSummaryLength),
+            Enumerable.Repeat(field, NhAssistantPresentationLimits.MaxFields).ToArray());
+        var dropped = kept with { Fields = Enumerable.Repeat(field, NhAssistantPresentationLimits.MaxFields + 1).ToArray() };
+
+        var keptResult = await Resolver(new FixedPresenter("Status", kept)).ResolveApprovalAsync(
+            TestProjectToolCatalog.ChangeStatus,
+            new ProjectStatusInput(Guid.NewGuid(), "Active"),
+            Context(),
+            CultureInfo.InvariantCulture,
+            CancellationToken.None);
+        var droppedResult = await Resolver(new FixedPresenter("Status", dropped)).ResolveApprovalAsync(
+            TestProjectToolCatalog.ChangeStatus,
+            new ProjectStatusInput(Guid.NewGuid(), "Active"),
+            Context(),
+            CultureInfo.InvariantCulture,
+            CancellationToken.None);
+
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(kept));
+        Assert.Same(kept, keptResult);
+        Assert.Equal(NhAssistantPresentationRules.TooManyFields, NhAssistantPresentationLimits.FindBrokenRule(dropped));
+        Assert.Null(droppedResult);
+        Assert.Throws<ArgumentNullException>(() => NhAssistantPresentationLimits.FindBrokenRule(null!));
     }
 
     [Fact]
