@@ -80,7 +80,7 @@ public sealed class NhProxyLiteralRedirectSqliteTests
                 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { ContentRootPath = directory.FullName });
                 builder.WebHost.UseUrls("http://127.0.0.1:0");
                 builder.Services.Configure<HostOptions>(options => options.ServicesStartConcurrently = true);
-                builder.Services.AddNewHeapProxy(configureStorage: options => options.DatabasePath = "App_Data/proxy.db");
+                builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = "App_Data/proxy.db");
                 await using var app = builder.Build();
                 app.UseNewHeapProxy();
                 app.MapGet("/old", () => "must not run");

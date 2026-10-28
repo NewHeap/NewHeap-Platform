@@ -26,6 +26,7 @@ public sealed class NhProxyAdministrationTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "administrator";
                 options.Administrator.Password = "test-only-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -98,6 +99,7 @@ public sealed class NhProxyAdministrationTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "administrator";
                 options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "test-only-password");
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -237,6 +239,7 @@ public sealed class NhProxyAdministrationTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 if (scenario != "missing-account")
                 {
                     options.Administrator.UserName = "administrator";
@@ -308,6 +311,7 @@ public sealed class NhProxyAdministrationTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "administrator";
                 options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "test-only-password");
                 options.Administrator.LoginAttemptLimit = attemptLimit;
@@ -433,6 +437,7 @@ public sealed class NhProxyAdministrationTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "administrator";
                 options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "test-only-password");
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));

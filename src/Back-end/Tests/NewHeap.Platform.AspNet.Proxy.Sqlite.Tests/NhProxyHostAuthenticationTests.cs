@@ -204,6 +204,7 @@ public sealed class NhProxyHostAuthenticationTests
 
     private static void Configure(NhProxyOptions options, bool panel, bool api)
     {
+        options.UseGenerousRedirectBudget();
         if (!panel || !api)
         {
             options.Administrator.UserName = "administrator";

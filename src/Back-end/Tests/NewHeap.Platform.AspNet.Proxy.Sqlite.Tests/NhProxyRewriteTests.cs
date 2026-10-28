@@ -30,7 +30,7 @@ public sealed class NhProxyRewriteTests
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             var requests = 0;
             string? forwardedBody = null;
@@ -137,6 +137,8 @@ public sealed class NhProxyRewriteTests
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["NewHeapProxy:Limits:MaximumChainDepth"] = maximumDepth.ToString(),
+                // See NhProxyTestOptions.UseGenerousRedirectBudget.
+                ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = NhProxyTestOptions.GenerousRedirectBudgetMilliseconds.ToString(),
                 ["NewHeapProxy:Sqlite:DatabasePath"] = Path.Combine(directory.FullName, "proxy.db")
             });
             builder.Services.AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"));
@@ -228,7 +230,7 @@ public sealed class NhProxyRewriteTests
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddSingleton<IProxyConfigFilter>(filter);
-            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.UseNewHeapProxy();
             await app.StartAsync();
@@ -300,7 +302,7 @@ public sealed class NhProxyRewriteTests
             {
                 var builder = WebApplication.CreateBuilder();
                 builder.WebHost.UseUrls("http://127.0.0.1:0");
-                builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = path);
+                builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = path);
                 await using var proxy = builder.Build();
                 proxy.UseNewHeapProxy();
                 await proxy.StartAsync();
@@ -362,7 +364,7 @@ public sealed class NhProxyRewriteTests
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var proxy = builder.Build();
             proxy.UseNewHeapProxy();
             await proxy.StartAsync();
@@ -453,7 +455,7 @@ public sealed class NhProxyRewriteTests
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.UseNewHeapProxy();
             await app.StartAsync();
