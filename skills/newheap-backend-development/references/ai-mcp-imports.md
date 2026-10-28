@@ -75,6 +75,13 @@ the tool contract that approvals bind to, and a failed binding stops the call
 with an audited result code. Metadata is provenance, not authorization: the
 remote server keeps its own credentials and scope checks.
 
+The assistant's own binder is one such binder: `AddMcpContextBinding` registers it for a server id
+and remote name, and a code-owned import opts in with `InvocationBinderId =
+NhAssistantMcpContext.BinderId`. A consultation turn offers no administrator-connected MCP tools,
+so this is how a consulted agent consults another application's agent; with `IncludeChain` the call
+also carries the consultation chain that the other application continues (SPM-366, see the
+assistant rule).
+
 Imported tools accept no agent grants by default. Set `AllowAgentGrant` on the
 import policy only when the server's credential belongs to the organization, not
 to a person, and an agent may use it without one; a code grant of the agent
