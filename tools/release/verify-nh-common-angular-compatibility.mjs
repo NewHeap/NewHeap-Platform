@@ -10,7 +10,9 @@ const dist = resolve(workspace, 'dist/nh-common');
 const angularCli = resolve(workspace, 'node_modules/@angular/cli/bin/ng.js');
 const npmCli = process.env.npm_execpath;
 
-if (!npmCli) throw new Error('Run this compatibility check through npm.');
+if (!npmCli) {
+  throw new Error('Run this compatibility check through npm.');
+}
 
 const matrix = [
   {
@@ -32,8 +34,13 @@ const matrix = [
     datatable: '24.0.1'
   },
   {
-    angular: '22.2.3', tooling: '22.2.3', typescript: '6.0.2',
-    translate: '18.0.0', zone: '0.16.0', cookie: '22.0.0', datatable: '25.1.0'
+    angular: '22.2.3',
+    tooling: '22.2.3',
+    typescript: '6.0.2',
+    translate: '18.0.0',
+    zone: '0.16.0',
+    cookie: '22.0.0',
+    datatable: '25.1.0'
   }
 ];
 

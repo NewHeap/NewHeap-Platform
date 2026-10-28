@@ -30,7 +30,9 @@ const angularFrameworkPackages = [
 
 /** Whether an exact version satisfies a caret, tilde or exact peer range. */
 function satisfies(version, range) {
-  if (range.includes('||')) return range.split('||').some(part => satisfies(version, part));
+  if (range.includes('||')) {
+    return range.split('||').some(part => satisfies(version, part));
+  }
   const [major, minor, patch] = version.split('.').map(Number);
   const match = /^([\^~]?)(\d+)\.(\d+)\.(\d+)$/.exec(range.trim());
   assert.ok(match, `The test supports caret, tilde and exact ranges, not ${range}.`);
