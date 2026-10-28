@@ -29,7 +29,8 @@ internal sealed class NhAssistantConversationMessages(
     NhAssistantTenancy tenancy,
     IOptionsMonitor<NhAssistantOptions> options,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
-    ILogger<NhAssistantConversationMessages> logger) : INhAssistantConversationMessages
+    ILogger<NhAssistantConversationMessages> logger,
+    NhAssistantChatSubjects chatSubjects) : INhAssistantConversationMessages
 {
     /// <summary>
     /// The client message id under which a message with an idempotency key is stored.
@@ -137,7 +138,8 @@ internal sealed class NhAssistantConversationMessages(
     /// <summary>
     /// Whether <paramref name="person"/> may read the conversation now, which a message
     /// <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> them needs. A chat they own or take
-    /// part in within their tenant. An agent thread by the live read rule, never by a stored participant
+    /// part in within their tenant, and for a chat about a subject only with a live role on it (FB25). An
+    /// agent thread by the live read rule, never by a stored participant
     /// row, which can outlive the role that created it: no shadow thread or thread of a shadow variant,
     /// only a thread the person's tenant reaches, and only with a live role on the thread's subject or
     /// an invitation to the thread. Nothing here records the person as a participant.
@@ -150,7 +152,8 @@ internal sealed class NhAssistantConversationMessages(
     {
         if (!string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal))
         {
-            return await store.FindAccessAsync(conversation.Id, person.ActorId, person.TenantId, cancellationToken) is not null;
+            return await store.FindAccessAsync(conversation.Id, person.ActorId, person.TenantId, cancellationToken) is not null
+                && (await chatSubjects.CheckAsync(conversation, person.ActorId, person.TenantId, cancellationToken)).Success;
         }
         if (thread is null || IsShadow(thread) || !tenancy.Reaches(thread, person.TenantId))
         {

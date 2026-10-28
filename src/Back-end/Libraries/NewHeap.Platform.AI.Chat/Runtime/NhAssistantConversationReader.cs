@@ -14,7 +14,8 @@ internal sealed class NhAssistantConversationReader(
     INhAssistantStore store,
     TimeProvider? timeProvider = null,
     NhAssistantRunStore? runs = null,
-    Runs.NhAssistantConsultationProposals? consultationProposals = null)
+    Runs.NhAssistantConsultationProposals? consultationProposals = null,
+    Runs.NhAssistantSubjectAccessService? subjects = null)
 {
     public const int MaxMessages = 200;
 
@@ -207,7 +208,8 @@ internal sealed class NhAssistantConversationReader(
             ActiveActorId = access.ActiveActorId,
             Members = members,
             ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null,
-            PendingQuestion = pendingQuestion
+            PendingQuestion = pendingQuestion,
+            Subject = NhAssistantChatSubjectView.Of(conversation, subjects)
         };
     }
 

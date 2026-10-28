@@ -89,7 +89,38 @@ public sealed record NhAssistantConversationSummaryDto(
     int ParticipantCount = 0,
     int LastMessageSequence = 0,
     int LastReadSequence = 0,
-    string? ActiveActorId = null);
+    string? ActiveActorId = null)
+{
+    /// <summary>
+    /// The subject the chat is about (FB25); left out for a chat without one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantConversationSubjectDto? Subject { get; init; }
+}
+
+/// <summary>
+/// The subject a person's chat is about (FB25), as <c>POST conversations</c> named it with
+/// <c>subjectType</c> and <c>subjectId</c>. Everyone who reads, joins or continues the chat needs a role on
+/// it now; the chat is the person's, not the agent's thread about the subject.
+/// </summary>
+/// <param name="SubjectDisplayName">The subject's name as its resolver described it when the chat was
+/// created.</param>
+public sealed record NhAssistantConversationSubjectDto(
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName)
+{
+    /// <summary>
+    /// The name of the subject type in the caller's language, when the application named the type;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>
+    /// Where the application shows the subject; <see langword="null"/> without a link template.
+    /// </summary>
+    public string? SubjectLink { get; init; }
+}
 
 public sealed record NhAssistantConversationListDto(
     IReadOnlyList<NhAssistantConversationSummaryDto> Items,
@@ -143,6 +174,13 @@ public sealed record NhAssistantConversationDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantMessagePartDto? PendingQuestion { get; init; }
+
+    /// <summary>
+    /// The subject a person's chat is about (FB25); left out for a chat without one and for an agent
+    /// thread, whose subject <see cref="Thread"/> names.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantConversationSubjectDto? Subject { get; init; }
 }
 
 /// <summary>
@@ -554,7 +592,20 @@ public sealed record NhAssistantApprovalConsultationDto(
 
 public sealed record NhAssistantCreateConversationRequest(
     string? AgentId,
-    string? Title);
+    string? Title)
+{
+    /// <summary>
+    /// The type of the subject the chat is about (FB25), with <see cref="SubjectId"/>; both or neither.
+    /// The subject's resolver must describe it in the caller's tenant and give the caller a role on it,
+    /// and the agent must work on it.
+    /// </summary>
+    public string? SubjectType { get; init; }
+
+    /// <summary>
+    /// The id of the subject of <see cref="SubjectType"/>.
+    /// </summary>
+    public string? SubjectId { get; init; }
+}
 
 /// <param name="ClientContext">
 /// Optional page context (<see cref="NhAssistantClientContextDto"/>). It is read leniently: a value of

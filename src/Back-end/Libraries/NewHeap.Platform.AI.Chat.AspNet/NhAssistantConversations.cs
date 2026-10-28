@@ -4,6 +4,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
@@ -35,16 +36,22 @@ public interface INhAssistantConversations
 {
     /// <summary>
     /// Starts an empty chat of <paramref name="person"/> with an agent, in the person's tenant, and returns
-    /// it as <c>GET conversations/{id}</c> shows it.
+    /// it as <c>GET conversations/{id}</c> shows it. With <see cref="NhAssistantNewConversation.Subject"/>
+    /// the chat is about that subject (FB25), as <c>POST conversations</c> with <c>subjectType</c> and
+    /// <c>subjectId</c>: every later turn, read and invitation checks the person's role on it again.
     /// <para>
     /// Fails with <c>assistant-title-invalid</c> for a title longer than 200 characters,
     /// <c>assistant-agent-not-found</c> for an unknown agent, one that is off or one kept out of the chat,
-    /// and <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy or the
-    /// agent's policy.
+    /// <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy or the
+    /// agent's policy, <c>assistant-subject-required</c> for an agent offered only for chats about a
+    /// subject and a chat without one, <c>assistant-subject-invalid</c> for a subject of the platform,
+    /// <c>assistant-subject-type-unknown</c>, <c>assistant-subject-not-found</c> when its resolver does not
+    /// describe it in the person's tenant, <c>assistant-subject-access-denied</c> when it gives the person
+    /// no role on it, and <c>assistant-agent-does-not-work-on</c> when the agent does not work on it.
     /// </para>
     /// </summary>
     /// <param name="person">The person the application authenticated.</param>
-    /// <param name="conversation">The agent and the title.</param>
+    /// <param name="conversation">The agent, the title and the subject.</param>
     /// <param name="options">The language and the person's active division; English without one.</param>
     Task<TaskResult<NhAssistantConversationDto>> CreateAsync(
         NhAssistantDecidingPerson person,
@@ -58,9 +65,11 @@ public interface INhAssistantConversations
     /// <para>
     /// Fails with <c>assistant-conversation-not-found</c> for a chat the person does not take part in, of
     /// another tenant, or an agent's thread, and <c>assistant-agent-forbidden</c> when the person fails
-    /// the assistant's access policy. A participant must also satisfy the agent's policy
-    /// (<c>assistant-agent-not-found</c> when the agent is gone); the owner reads their chat whatever
-    /// became of its agent.
+    /// the assistant's access policy. A chat about a subject answers <c>assistant-subject-not-found</c> or
+    /// <c>assistant-subject-access-denied</c>, also to its owner, once the subject's resolver no longer
+    /// describes it in the person's tenant or gives the person a role on it. A participant must also
+    /// satisfy the agent's policy (<c>assistant-agent-not-found</c> when the agent is gone); the owner
+    /// reads their chat whatever became of its agent.
     /// </para>
     /// </summary>
     Task<TaskResult<NhAssistantConversationDto>> GetAsync(
@@ -77,7 +86,8 @@ public interface INhAssistantConversations
     /// Fails with <c>assistant-conversation-not-found</c> as <see cref="GetAsync"/> does,
     /// <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy, and
     /// <c>assistant-turn-forbidden</c> when the person neither owns the chat nor started its turn. The
-    /// agent's policy is not checked, so a person whose permission was revoked can still stop a turn.
+    /// agent's policy and the role on a chat's subject are not checked, so a person whose permission was
+    /// revoked can still stop a turn.
     /// </para>
     /// </summary>
     Task<TaskResult> CancelAsync(
@@ -88,8 +98,9 @@ public interface INhAssistantConversations
 
     /// <summary>
     /// Lists the chats the person owns or takes part in, most recently updated first, with the person's
-    /// read state, as <c>GET conversations</c> returns them. Agents' threads are not listed; they live on
-    /// their subject's page.
+    /// read state and the subject of a chat about one, as <c>GET conversations</c> returns them. Agents'
+    /// threads are not listed; they live on their subject's page. The list asks no subject's resolver;
+    /// opening a chat about a subject does.
     /// <para>
     /// Fails with <c>assistant-message-invalid</c> for a page below 1 or a page size outside 1 to 100,
     /// and <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy.
@@ -104,7 +115,8 @@ public interface INhAssistantConversations
 
     /// <summary>
     /// Lists the agents the person may chat with, as <c>GET agents</c> returns them: those offered in the
-    /// chat whose policy the person satisfies, each with what people may attach to a message to it
+    /// chat whose policy the person satisfies, except those offered only for chats about a subject
+    /// (<c>RequireChatSubject()</c>), each with what people may attach to a message to it
     /// (<see cref="NhAssistantAgentSummaryDto.Uploads"/>), which is <see langword="null"/> when the
     /// application takes no uploads, the agent accepts no files or its profile chain may not receive the
     /// uploads' classification.
@@ -118,6 +130,24 @@ public interface INhAssistantConversations
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lists the agents for a chat of the person about <paramref name="subject"/> (FB25), as
+    /// <c>GET agents?subjectType=&amp;subjectId=</c> returns them: those offered in the chat whose policy the
+    /// person satisfies and that work on the subject, those offered only for chats about a subject
+    /// included.
+    /// <para>
+    /// Fails with <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy,
+    /// <c>assistant-subject-invalid</c> for a subject of the platform, <c>assistant-subject-type-unknown</c>,
+    /// <c>assistant-subject-not-found</c> when its resolver does not describe it in the person's tenant and
+    /// <c>assistant-subject-access-denied</c> when it gives the person no role on it.
+    /// </para>
+    /// </summary>
+    Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync(
+        NhAssistantDecidingPerson person,
+        NhAiSubjectRef subject,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Uploads one file the person attaches to a later message in their chat, as
     /// <c>POST conversations/{id}/files</c> does, and returns the reference that
     /// <see cref="NhAssistantConversationMessage.Files"/> then carries. The application's upload scanner,
@@ -125,7 +155,9 @@ public interface INhAssistantConversations
     /// classification. The file's name is never logged.
     /// <para>
     /// Fails, in this order, with <c>assistant-conversation-not-found</c> as <see cref="GetAsync"/> does,
-    /// <c>assistant-agent-forbidden</c> without the access policy, <c>assistant-agent-not-found</c> or
+    /// <c>assistant-agent-forbidden</c> without the access policy, <c>assistant-subject-not-found</c> or
+    /// <c>assistant-subject-access-denied</c> for a chat about a subject the person may no longer use,
+    /// <c>assistant-agent-not-found</c> or
     /// <c>assistant-agent-forbidden</c> when the person may not use the agent now (the owner too, since
     /// uploading belongs to starting a turn), <c>assistant-files-unavailable</c> without a file source,
     /// <c>assistant-files-not-accepted</c> when the agent takes no files or its profile chain may not
@@ -178,6 +210,93 @@ public sealed record NhAssistantNewConversation(string AgentId)
     /// The chat's title, at most 200 characters; <see langword="null"/> lets the first message name it.
     /// </summary>
     public string? Title { get; init; }
+
+    /// <summary>
+    /// The subject the chat is about (FB25), such as the project a person asks about from its page;
+    /// <see langword="null"/> for a chat without one. Its resolver must describe it in the person's tenant
+    /// and give the person a role on it, and the agent must work on it. The chat offers it to tools
+    /// (<see cref="NhAiInvocationContext.ConversationSubject"/>), the file source, proposal guards and the
+    /// briefing, and stays the person's chat, apart from the agent's thread about the subject.
+    /// </summary>
+    public NhAiSubjectRef? Subject { get; init; }
+}
+
+/// <summary>
+/// A new chat of a person, shared by <c>POST conversations</c> and
+/// <see cref="INhAssistantConversations.CreateAsync"/>: the checks of its subject (FB25) and the row.
+/// </summary>
+internal static class NhAssistantNewChats
+{
+    public const int MaxTitleLength = 200;
+
+    /// <summary>
+    /// The subject of a new chat with <paramref name="agent"/> as its resolver describes it:
+    /// <c>assistant-subject-required</c> without one for an agent offered only for chats about a subject,
+    /// <see langword="null"/> without one otherwise, and the refusals of
+    /// <see cref="NhAssistantChatSubjects.CheckNewAsync"/> with one.
+    /// </summary>
+    public static async Task<TaskResult<NhAiSubjectInfo?>> CheckSubjectAsync(
+        IServiceProvider services,
+        NhAssistantAgent agent,
+        NhAiSubjectRef? subject,
+        NhAiInvocationContext caller,
+        CancellationToken cancellationToken)
+    {
+        if (subject is null)
+        {
+            return agent.RequiresChatSubject
+                ? TaskResult<NhAiSubjectInfo?>.Failed(NhAssistantErrorCodes.SubjectRequired, "The agent is offered only for chats about a subject.")
+                : TaskResult<NhAiSubjectInfo?>.Succeeded(null);
+        }
+        if (NhAiSubjectRef.IsReservedType(subject.Type))
+        {
+            return TaskResult<NhAiSubjectInfo?>.Failed(NhAssistantErrorCodes.SubjectInvalid, "The chat's subject is not valid.");
+        }
+
+        var checkedSubject = await services.GetRequiredService<NhAssistantChatSubjects>()
+            .CheckNewAsync(subject, agent, caller.ActorId, caller.TenantId, cancellationToken);
+        return checkedSubject.Success
+            ? TaskResult<NhAiSubjectInfo?>.Succeeded(checkedSubject.Data)
+            : TaskResult<NhAiSubjectInfo?>.Failed(checkedSubject);
+    }
+
+    /// <summary>
+    /// The row of the new chat of <paramref name="caller"/>, about <paramref name="subject"/> when it has
+    /// one, with the subject's name and scope as its resolver described them.
+    /// </summary>
+    public static AssistantConversation Create(
+        NhAiInvocationContext caller,
+        string ownerName,
+        NhAssistantAgentDefinition agent,
+        string? title,
+        NhAiSubjectInfo? subject)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var displayName = subject?.DisplayName?.Trim();
+        if (displayName is { Length: > NhAiSubjectParent.MaxDisplayNameLength })
+        {
+            displayName = displayName[..NhAiSubjectParent.MaxDisplayNameLength].TrimEnd();
+        }
+
+        return new AssistantConversation
+        {
+            Id = Guid.NewGuid(),
+            OwnerActorId = caller.ActorId,
+            OwnerDisplayName = ownerName.Length == 0 ? null : ownerName,
+            TenantId = caller.TenantId,
+            AgentId = agent.Id,
+            AgentVersion = agent.Version,
+            Title = string.IsNullOrWhiteSpace(title) ? null : title,
+            SubjectType = subject?.Subject.Type,
+            SubjectId = subject?.Subject.Id,
+            SubjectDisplayName = string.IsNullOrEmpty(displayName) ? null : displayName,
+            SubjectScopeKey = subject?.ScopeKey,
+            Status = NhAssistantConversationStatuses.Idle,
+            CreatedAt = now,
+            UpdatedAt = now,
+            ConcurrencyStamp = Guid.NewGuid()
+        };
+    }
 }
 
 /// <summary>
@@ -207,7 +326,7 @@ internal sealed class NhAssistantConversations(
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<NhAssistantOptions> options) : INhAssistantConversations
 {
-    private const int MaxTitleLength = 200;
+    private const int MaxTitleLength = NhAssistantNewChats.MaxTitleLength;
 
     public Task<TaskResult<NhAssistantConversationDto>> CreateAsync(
         NhAssistantDecidingPerson person,
@@ -246,23 +365,15 @@ internal sealed class NhAssistantConversations(
                 }
 
                 var caller = personInvocation.Context;
+                var subject = await NhAssistantNewChats.CheckSubjectAsync(services, effective, conversation.Subject, caller, token);
+                if (!subject.Success)
+                {
+                    return TaskResult<NhAssistantConversationDto>.Failed(subject);
+                }
+
                 var ownerName = NhAssistantParticipantNames.Normalize(
                     await services.GetRequiredService<INhAssistantDisplayNameResolver>().GetDisplayNameAsync(person.User, caller, token));
-                var now = DateTimeOffset.UtcNow;
-                var created = new AssistantConversation
-                {
-                    Id = Guid.NewGuid(),
-                    OwnerActorId = caller.ActorId,
-                    OwnerDisplayName = ownerName.Length == 0 ? null : ownerName,
-                    TenantId = caller.TenantId,
-                    AgentId = agent.Id,
-                    AgentVersion = agent.Version,
-                    Title = string.IsNullOrWhiteSpace(title) ? null : title,
-                    Status = NhAssistantConversationStatuses.Idle,
-                    CreatedAt = now,
-                    UpdatedAt = now,
-                    ConcurrencyStamp = Guid.NewGuid()
-                };
+                var created = NhAssistantNewChats.Create(caller, ownerName, agent, title, subject.Data);
                 await services.GetRequiredService<INhAssistantStore>().AddConversationAsync(created, token);
                 var view = await services.GetRequiredService<NhAssistantConversationReader>().CreateViewAsync(created, token);
                 return TaskResult<NhAssistantConversationDto>.Succeeded(NhAssistantDtoMapper.ToDto(view, caller.ActorId));
@@ -329,7 +440,7 @@ internal sealed class NhAssistantConversations(
             options,
             async (services, personInvocation, token) =>
             {
-                var chat = await FindChatAsync(services, person, personInvocation, conversationId, token);
+                var chat = await FindChatAsync(services, person, personInvocation, conversationId, token, subjectCheck: false);
                 if (!chat.Success)
                 {
                     return TaskResult<bool>.Failed(chat);
@@ -364,6 +475,7 @@ internal sealed class NhAssistantConversations(
 
                 return await NhAssistantPersonLists.ListConversationsAsync(
                     services.GetRequiredService<INhAssistantStore>(),
+                    services.GetRequiredService<NhAssistantSubjectAccessService>(),
                     personInvocation.Context,
                     requested.Page,
                     requested.ItemsPerPage,
@@ -378,7 +490,29 @@ internal sealed class NhAssistantConversations(
         CancellationToken cancellationToken = default)
     {
         NhAssistantPersonCalls.ValidatePerson(person);
+        return ListAgentsForAsync(person, null, options, cancellationToken);
+    }
 
+    public Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync(
+        NhAssistantDecidingPerson person,
+        NhAiSubjectRef subject,
+        NhAssistantConversationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+        ArgumentNullException.ThrowIfNull(subject);
+        return ListAgentsForAsync(person, subject, options, cancellationToken);
+    }
+
+    /// <summary>
+    /// The agents of <c>GET agents</c>, for a chat without a subject or about <paramref name="subject"/>.
+    /// </summary>
+    private Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsForAsync(
+        NhAssistantDecidingPerson person,
+        NhAiSubjectRef? subject,
+        NhAssistantConversationOptions? options,
+        CancellationToken cancellationToken)
+    {
         return RunAsync<IReadOnlyList<NhAssistantAgentSummaryDto>>(
             person,
             options,
@@ -389,11 +523,26 @@ internal sealed class NhAssistantConversations(
                     return TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>.Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant.");
                 }
 
+                if (subject is not null)
+                {
+                    var checkedSubject = await NhAssistantPersonLists.CheckAgentsSubjectAsync(
+                        services.GetRequiredService<NhAssistantSubjectAccessService>(),
+                        services.GetRequiredService<NhAssistantChatSubjects>(),
+                        personInvocation.Context,
+                        subject,
+                        token);
+                    if (!checkedSubject.Success)
+                    {
+                        return TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>.Failed(checkedSubject);
+                    }
+                }
+
                 var agents = await NhAssistantPersonLists.ListAgentsAsync(
                     services.GetRequiredService<NhAssistantAgentAccess>(),
                     services.GetRequiredService<NhAssistantUploads>(),
                     person.User,
-                    token);
+                    token,
+                    subject);
                 return TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>.Succeeded(agents);
             },
             cancellationToken);
@@ -436,14 +585,17 @@ internal sealed class NhAssistantConversations(
     }
 
     /// <summary>
-    /// The person's chat, after the assistant's access policy, which every endpoint requires.
+    /// The person's chat, after the assistant's access policy, which every endpoint requires, and, unless
+    /// <paramref name="subjectCheck"/> is <see langword="false"/>, the person's live role on the subject
+    /// of a chat about one (FB25), as the endpoints check it.
     /// </summary>
     private static async Task<TaskResult<NhAssistantConversationAccess>> FindChatAsync(
         IServiceProvider services,
         NhAssistantDecidingPerson person,
         NhAiPersonInvocation personInvocation,
         Guid conversationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool subjectCheck = true)
     {
         var chat = await NhAssistantPersonCalls.FindChatAsync(services, personInvocation.Context, conversationId, cancellationToken);
         if (!chat.Success)
@@ -451,9 +603,21 @@ internal sealed class NhAssistantConversations(
             return chat;
         }
 
-        return await NhAssistantPersonCalls.PassesAccessPolicyAsync(services, person, personInvocation)
+        if (!await NhAssistantPersonCalls.PassesAccessPolicyAsync(services, person, personInvocation))
+        {
+            return TaskResult<NhAssistantConversationAccess>.Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant.");
+        }
+        if (!subjectCheck)
+        {
+            return chat;
+        }
+
+        var caller = personInvocation.Context;
+        var checkedSubject = await services.GetRequiredService<NhAssistantChatSubjects>()
+            .CheckAsync(chat.Data!.Conversation, caller.ActorId, caller.TenantId, cancellationToken);
+        return checkedSubject.Success
             ? chat
-            : TaskResult<NhAssistantConversationAccess>.Failed(NhAssistantErrorCodes.AgentForbidden, "The person may not use the assistant.");
+            : TaskResult<NhAssistantConversationAccess>.Failed(checkedSubject);
     }
 
     /// <summary>

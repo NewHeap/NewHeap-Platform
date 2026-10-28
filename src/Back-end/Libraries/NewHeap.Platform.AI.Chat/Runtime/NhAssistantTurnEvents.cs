@@ -1,4 +1,5 @@
 using NewHeap.Platform.AI.Chat.Collaboration;
+using NewHeap.Platform.AI.Chat.Entities;
 
 namespace NewHeap.Platform.AI.Chat.Runtime;
 
@@ -123,6 +124,45 @@ internal sealed record NhAssistantConversationView(
     /// conversation does not wait for a question.
     /// </summary>
     public NhAssistantQuestionView? PendingQuestion { get; init; }
+
+    /// <summary>
+    /// The subject a person's chat is about (FB25), with how people see it; <see langword="null"/> for a
+    /// chat without one and for an agent thread.
+    /// </summary>
+    public NhAssistantChatSubjectView? Subject { get; init; }
+}
+
+/// <summary>
+/// The subject of a person's chat as people see it: the name its resolver gave when the chat was
+/// created, and the type's name in the request's language and the link to the subject, when the
+/// application registered them.
+/// </summary>
+internal sealed record NhAssistantChatSubjectView(
+    NhAiSubjectRef Subject,
+    string? DisplayName,
+    string? TypeName,
+    string? Link)
+{
+    /// <summary>
+    /// The subject of <paramref name="conversation"/> as people see it, or <see langword="null"/> for a
+    /// chat without one.
+    /// </summary>
+    public static NhAssistantChatSubjectView? Of(
+        AssistantConversation conversation,
+        Runs.NhAssistantSubjectAccessService? subjects)
+    {
+        if (NhAssistantChatSubjects.SubjectOf(conversation) is not { } subject)
+        {
+            return null;
+        }
+
+        var type = subjects?.FindType(subject.Type);
+        return new NhAssistantChatSubjectView(
+            subject,
+            conversation.SubjectDisplayName,
+            type is { IsNamed: true } ? type.NameIn(System.Globalization.CultureInfo.CurrentUICulture) : null,
+            type?.LinkFor(subject.Id));
+    }
 }
 
 /// <summary>

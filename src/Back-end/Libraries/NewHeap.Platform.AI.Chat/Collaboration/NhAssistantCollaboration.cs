@@ -28,7 +28,8 @@ internal interface INhAssistantShareTokenProtector
 
 /// <summary>
 /// Sharing, membership and read state of conversations. Every operation checks ownership or
-/// membership itself, records a content-free audit event and announces the change live.
+/// membership itself, records a content-free audit event and announces the change live. Whoever joins
+/// or is invited to a chat about a subject needs a live role on it (FB25).
 /// </summary>
 internal sealed class NhAssistantCollaboration(
     INhAssistantStore store,
@@ -37,7 +38,8 @@ internal sealed class NhAssistantCollaboration(
     INhAssistantNotifier notifier,
     NhAssistantRegistrationState registration,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
-    NhAssistantFileRetentionCalls fileRetention)
+    NhAssistantFileRetentionCalls fileRetention,
+    NhAssistantChatSubjects chatSubjects)
 {
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
 
@@ -98,8 +100,11 @@ internal sealed class NhAssistantCollaboration(
         var existing = await store.FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, cancellationToken);
         if (existing is not null)
         {
-            // Opening a link to a conversation one already belongs to just opens it.
-            return TaskResult<NhAssistantConversationAccess>.Succeeded(existing);
+            // Opening a link to a conversation one already belongs to just opens it, as a read does.
+            var reading = await chatSubjects.CheckAsync(existing.Conversation, caller.ActorId, caller.TenantId, cancellationToken);
+            return reading.Success
+                ? TaskResult<NhAssistantConversationAccess>.Succeeded(existing)
+                : TaskResult<NhAssistantConversationAccess>.Failed(reading);
         }
 
         var conversation = await FindShareableAsync(conversationId, caller, token, cancellationToken);
@@ -108,6 +113,13 @@ internal sealed class NhAssistantCollaboration(
             return Failed<NhAssistantConversationAccess>(
                 NhAssistantErrorCodes.ShareLinkInvalid,
                 "The invitation link is no longer valid.");
+        }
+
+        // The link is valid; joining a chat about a subject needs a role on it now (FB25).
+        var joining = await chatSubjects.CheckAsync(conversation, caller.ActorId, caller.TenantId, cancellationToken);
+        if (!joining.Success)
+        {
+            return TaskResult<NhAssistantConversationAccess>.Failed(joining);
         }
 
         var latest = (await store.GetConversationStateAsync(conversationId, cancellationToken))?.LastMessageSequence ?? 0;
@@ -165,6 +177,13 @@ internal sealed class NhAssistantCollaboration(
         if (string.Equals(invitee.ActorId, access.ActorId, StringComparison.Ordinal))
         {
             return TaskResult.Succeeded();
+        }
+
+        // A chat about a subject takes only people with a role on it now, in the chat's tenant (FB25).
+        var invited = await chatSubjects.CheckAsync(access.Conversation, invitee.ActorId, access.Conversation.TenantId, cancellationToken);
+        if (!invited.Success)
+        {
+            return TaskResult.Failed(invited);
         }
 
         var added = await store.TryAddParticipantAsync(

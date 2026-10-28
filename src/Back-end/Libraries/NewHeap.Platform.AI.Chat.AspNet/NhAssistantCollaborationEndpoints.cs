@@ -140,7 +140,7 @@ internal static class NhAssistantCollaborationEndpoints
         HttpContext httpContext,
         NhAssistantCollaboration collaboration)
     {
-        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None);
+        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None, subjectCheck: false);
         if (resolved.Error is not null)
         {
             return resolved.Error;
@@ -238,9 +238,27 @@ internal static class NhAssistantCollaborationEndpoints
         var entries = await directory.SearchAsync(
             new NhAssistantDirectorySearch(caller.Data, text, MaxDirectoryResults),
             httpContext.RequestAborted);
-        var candidates = entries
+        var eligible = entries
             .Where(entry => !string.IsNullOrWhiteSpace(entry.ActorId) && !members.Contains(entry.ActorId))
             .Take(MaxDirectoryResults)
+            .ToList();
+        var conversation = resolved.Access.Conversation;
+        if (NhAssistantChatSubjects.SubjectOf(conversation) is not null)
+        {
+            // A chat about a subject offers only the people who may join it now (FB25).
+            var chatSubjects = httpContext.RequestServices.GetRequiredService<NhAssistantChatSubjects>();
+            var mayJoin = new List<NhAssistantDirectoryEntry>(eligible.Count);
+            foreach (var entry in eligible)
+            {
+                if ((await chatSubjects.CheckAsync(conversation, entry.ActorId, conversation.TenantId, httpContext.RequestAborted)).Success)
+                {
+                    mayJoin.Add(entry);
+                }
+            }
+            eligible = mayJoin;
+        }
+
+        var candidates = eligible
             .Select(entry => new NhAssistantDirectoryEntryDto(
                 entry.ActorId,
                 NhAssistantParticipantNames.Normalize(entry.DisplayName),
@@ -303,7 +321,7 @@ internal static class NhAssistantCollaborationEndpoints
         HttpContext httpContext,
         NhAssistantCollaboration collaboration)
     {
-        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None);
+        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None, subjectCheck: false);
         if (resolved.Error is not null)
         {
             return resolved.Error;

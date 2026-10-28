@@ -60,8 +60,10 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapGet("agents", GetAgentsAsync)
             .WithName("NhAssistantGetAgents")
             .WithSummary("List assistant agents")
-            .WithDescription("Returns the agents whose required policy the caller satisfies, each with `uploads`: what people may attach to a message to it, or null when the application takes no uploads, the agent accepts no files or neither its model profile nor a fallback may receive the uploads' classification in the execution region.")
+            .WithDescription("Returns the agents whose required policy the caller satisfies, each with `uploads`: what people may attach to a message to it, or null when the application takes no uploads, the agent accepts no files or neither its model profile nor a fallback may receive the uploads' classification in the execution region. Without a subject it leaves out the agents offered only for chats about a subject (RequireChatSubject). With `subjectType` and `subjectId` it returns the agents for a chat about that subject: those that work on it, when its resolver describes it in the caller's tenant and gives the caller a role on it; 400 assistant-subject-invalid for one without the other, a platform type or an invalid id, 404 assistant-subject-type-unknown, 404 assistant-subject-not-found and 403 assistant-subject-access-denied otherwise.")
             .Produces<NhAssistantAgentSummaryDto[]>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         enabled.MapGet("conversations", ListConversationsAsync)
             .WithName("NhAssistantListConversations")
@@ -73,11 +75,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapPost("conversations", CreateConversationAsync)
             .WithName("NhAssistantCreateConversation")
             .WithSummary("Create a conversation")
-            .WithDescription("Starts an empty conversation with an agent the caller may use.")
+            .WithDescription("Starts an empty conversation with an agent the caller may use. `subjectType` and `subjectId` make it a chat about that subject: its resolver must describe it in the caller's tenant and give the caller a role on it (404 assistant-subject-not-found, 403 assistant-subject-access-denied, 404 assistant-subject-type-unknown), the agent must work on it (409 assistant-agent-does-not-work-on), and every later turn, read and invitation checks it again. An agent offered only for chats about a subject answers 400 assistant-subject-required without one; 400 assistant-subject-invalid for one without the other, a platform type or an invalid id.")
             .Produces<NhAssistantConversationDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapGet("conversations/{id:guid}", GetConversationAsync)
             .WithName("NhAssistantGetConversation")
             .WithSummary("Get a conversation")
@@ -217,9 +220,42 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private static async Task<IResult> GetAgentsAsync(
         HttpContext httpContext,
         NhAssistantAgentAccess access,
-        NhAssistantUploads uploads)
+        NhAssistantUploads uploads,
+        string? subjectType,
+        string? subjectId)
     {
-        var agents = await NhAssistantPersonLists.ListAgentsAsync(access, uploads, httpContext.User, httpContext.RequestAborted);
+        var requested = NhAssistantChatSubjects.Parse(subjectType, subjectId);
+        if (!requested.Success)
+        {
+            return FromFailure(requested);
+        }
+
+        NhAiSubjectRef? subject = null;
+        if (requested.Data is { } named)
+        {
+            // The agents of a chat about a subject (FB25): only for someone who may use such a chat now.
+            var caller = await ResolveCallerAsync(httpContext);
+            if (!caller.Success)
+            {
+                return ContextUnavailable();
+            }
+
+            var services = httpContext.RequestServices;
+            var checkedSubject = await NhAssistantPersonLists.CheckAgentsSubjectAsync(
+                services.GetRequiredService<NhAssistantSubjectAccessService>(),
+                services.GetRequiredService<NhAssistantChatSubjects>(),
+                caller.Data,
+                named,
+                httpContext.RequestAborted);
+            if (!checkedSubject.Success)
+            {
+                return FromFailure(checkedSubject);
+            }
+
+            subject = checkedSubject.Data;
+        }
+
+        var agents = await NhAssistantPersonLists.ListAgentsAsync(access, uploads, httpContext.User, httpContext.RequestAborted, subject);
         return Json(
             agents.ToArray(),
             NhAssistantJsonSerializerContext.Default.NhAssistantAgentSummaryDtoArray);
@@ -228,6 +264,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private static async Task<IResult> ListConversationsAsync(
         HttpContext httpContext,
         INhAssistantStore store,
+        NhAssistantSubjectAccessService subjects,
         int? page,
         int? itemsPerPage)
     {
@@ -238,6 +275,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
         var listed = await NhAssistantPersonLists.ListConversationsAsync(
             store,
+            subjects,
             caller.Data,
             page ?? 1,
             itemsPerPage ?? NhAssistantPersonLists.DefaultItemsPerPage,
@@ -266,9 +304,14 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return Error(NhAssistantErrorCodes.AgentNotFound);
         }
         var title = request.Title?.Trim();
-        if (title is { Length: > 200 })
+        if (title is { Length: > NhAssistantNewChats.MaxTitleLength })
         {
             return Error(NhAssistantErrorCodes.TitleInvalid);
+        }
+        var requestedSubject = NhAssistantChatSubjects.Parse(request.SubjectType, request.SubjectId);
+        if (!requestedSubject.Success)
+        {
+            return FromFailure(requestedSubject);
         }
         var effective = await registry.FindAsync(request.AgentId, includeDisabled: false, httpContext.RequestAborted);
         // An agent kept out of the chat reads as unknown here; its runs and subject threads go on.
@@ -281,24 +324,20 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Error(NhAssistantErrorCodes.AgentForbidden);
         }
+        var subject = await NhAssistantNewChats.CheckSubjectAsync(
+            httpContext.RequestServices,
+            effective,
+            requestedSubject.Data,
+            caller.Data,
+            httpContext.RequestAborted);
+        if (!subject.Success)
+        {
+            return FromFailure(subject);
+        }
 
         var ownerName = NhAssistantParticipantNames.Normalize(
             await displayNames.GetDisplayNameAsync(httpContext.User, caller.Data, httpContext.RequestAborted));
-        var now = DateTimeOffset.UtcNow;
-        var conversation = new AssistantConversation
-        {
-            Id = Guid.NewGuid(),
-            OwnerActorId = caller.Data.ActorId,
-            OwnerDisplayName = ownerName.Length == 0 ? null : ownerName,
-            TenantId = caller.Data.TenantId,
-            AgentId = agent.Id,
-            AgentVersion = agent.Version,
-            Title = string.IsNullOrWhiteSpace(title) ? null : title,
-            Status = NhAssistantConversationStatuses.Idle,
-            CreatedAt = now,
-            UpdatedAt = now,
-            ConcurrencyStamp = Guid.NewGuid()
-        };
+        var conversation = NhAssistantNewChats.Create(caller.Data, ownerName, agent, title, subject.Data);
         await store.AddConversationAsync(conversation, httpContext.RequestAborted);
         var view = await reader.CreateViewAsync(conversation, httpContext.RequestAborted);
         var location = $"{httpContext.Request.PathBase}{httpContext.Request.Path.Value?.TrimEnd('/')}/{conversation.Id}";
@@ -329,7 +368,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         HttpContext httpContext,
         NhAssistantCollaboration collaboration)
     {
-        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None);
+        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None, subjectCheck: false);
         if (resolved.Error is not null)
         {
             return resolved.Error;
@@ -725,7 +764,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         HttpContext httpContext,
         INhAssistantTurnRunner runner)
     {
-        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None);
+        var resolved = await ResolveAccessAsync(httpContext, id, agentCheck: NhAssistantAgentCheck.None, subjectCheck: false);
         if (resolved.Error is not null)
         {
             return resolved.Error;
@@ -777,13 +816,17 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     /// <summary>
     /// Resolves the caller's access to a conversation and checks the agent's policy as
     /// <paramref name="agentCheck"/> asks: a participant must satisfy it to read, so revoked
-    /// permissions take effect immediately, while everyone is checked again before a turn starts.
+    /// permissions take effect immediately, while everyone is checked again before a turn starts. A
+    /// chat about a subject (FB25) also needs the caller's live role on it, the owner's too, unless
+    /// <paramref name="subjectCheck"/> is <see langword="false"/>: deleting, leaving, cancelling and
+    /// removing people stay possible after access was revoked.
     /// </summary>
     internal static async Task<(NhAssistantConversationAccess? Access, IResult? Error)> ResolveAccessAsync(
         HttpContext httpContext,
         Guid conversationId,
         NhAiInvocationContext? caller = null,
-        NhAssistantAgentCheck agentCheck = NhAssistantAgentCheck.Participants)
+        NhAssistantAgentCheck agentCheck = NhAssistantAgentCheck.Participants,
+        bool subjectCheck = true)
     {
         if (caller is null)
         {
@@ -832,6 +875,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         if (access is null)
         {
             return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
+        }
+        if (thread is null && subjectCheck)
+        {
+            var checkedSubject = await services.GetRequiredService<NhAssistantChatSubjects>()
+                .CheckAsync(access.Conversation, caller.ActorId, caller.TenantId, httpContext.RequestAborted);
+            if (!checkedSubject.Success)
+            {
+                return (null, FromFailure(checkedSubject));
+            }
         }
         if (agentCheck == NhAssistantAgentCheck.None
             || (agentCheck == NhAssistantAgentCheck.Participants && access.IsOwner))

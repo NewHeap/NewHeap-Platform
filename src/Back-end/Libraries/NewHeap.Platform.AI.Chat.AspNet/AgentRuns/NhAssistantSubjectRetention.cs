@@ -10,7 +10,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <summary>
 /// Forgets a subject: its active runs are cancelled through their background operations, then
 /// its threads and everything in them are deleted, in the scope the application names, and the
-/// application's file retention forgets the uploads of each deleted thread (FB24).
+/// application's file retention forgets the uploads of each deleted thread (FB24). People's chats about
+/// the subject (FB25) are deleted in the same scope too, with their uploads, because they hold what the
+/// model said about it and no longer open once the subject is gone.
 /// </summary>
 internal sealed class NhAssistantSubjectRetention(
     NhAssistantRunStore runs,
@@ -27,7 +29,8 @@ internal sealed class NhAssistantSubjectRetention(
     {
         ArgumentNullException.ThrowIfNull(subject);
         var threads = await runs.FindThreadsBySubjectAsync(subject, cancellationToken);
-        return await ForgetAsync(subject, threads, cancellationToken);
+        var chats = await runs.FindChatsAboutSubjectAsync(null, subject, cancellationToken);
+        return await ForgetAsync(subject, threads, chats, cancellationToken);
     }
 
     public async Task<TaskResult<int>> ForgetSubjectAsync(
@@ -39,14 +42,16 @@ internal sealed class NhAssistantSubjectRetention(
         ArgumentException.ThrowIfNullOrWhiteSpace(scopeKey);
 
         // Only the forgotten subject's own scope: an equal id of another tenant or division is
-        // another subject, whose threads and runs stay.
+        // another subject, whose threads, runs and chats stay.
         var threads = await runs.FindThreadsForSubjectAsync(scopeKey, subject, cancellationToken);
-        return await ForgetAsync(subject, threads, cancellationToken);
+        var chats = await runs.FindChatsAboutSubjectAsync(scopeKey, subject, cancellationToken);
+        return await ForgetAsync(subject, threads, chats, cancellationToken);
     }
 
     private async Task<TaskResult<int>> ForgetAsync(
         NhAiSubjectRef subject,
         IReadOnlyList<AssistantThread> threads,
+        IReadOnlyList<AssistantConversation> chats,
         CancellationToken cancellationToken)
     {
         foreach (var thread in threads)
@@ -69,11 +74,24 @@ internal sealed class NhAssistantSubjectRetention(
                 cancellationToken);
         }
 
-        if (threads.Count > 0)
+        foreach (var chat in chats)
+        {
+            await runs.DeleteChatAsync(chat.Id, cancellationToken);
+            await fileRetention.ForgetConversationAsync(
+                new NhAssistantForgottenConversation(chat.Id, chat.AgentId, NhAssistantFileRetentionReasons.SubjectForgotten)
+                {
+                    TenantId = chat.TenantId,
+                    Subject = subject
+                },
+                cancellationToken);
+        }
+
+        if (threads.Count > 0 || chats.Count > 0)
         {
             logger.LogInformation(
-                "Deleted {ThreadCount} agent threads of a forgotten subject of type {SubjectType}.",
+                "Deleted {ThreadCount} agent threads and {ChatCount} chats of a forgotten subject of type {SubjectType}.",
                 threads.Count,
+                chats.Count,
                 subject.Type);
         }
 
