@@ -129,11 +129,17 @@ public sealed class NhAssistantDbContext : DbContext
             conversation.Property(item => item.TenantId).HasMaxLength(256);
             conversation.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
             conversation.Property(item => item.Title).HasMaxLength(200);
+            conversation.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            conversation.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength);
+            conversation.Property(item => item.SubjectDisplayName).HasMaxLength(200);
+            conversation.Property(item => item.SubjectScopeKey).HasMaxLength(128);
             conversation.Property(item => item.Status).HasMaxLength(32).IsRequired();
             conversation.Property(item => item.ActiveActorId).HasMaxLength(256);
             conversation.Property(item => item.ProtectedShareToken).HasMaxLength(1_000);
             conversation.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             conversation.HasIndex(item => new { item.OwnerActorId, item.UpdatedAt });
+            // The chats about one subject, which subject retention forgets with its threads (FB25).
+            conversation.HasIndex(item => new { item.SubjectType, item.SubjectId });
             conversation.HasMany(item => item.Messages)
                 .WithOne(item => item.Conversation)
                 .HasForeignKey(item => item.ConversationId)

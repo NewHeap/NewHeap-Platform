@@ -36,6 +36,30 @@ public sealed class AssistantConversation
     public string? Title { get; set; }
 
     /// <summary>
+    /// The type of the subject a person's chat is about (FB25), with <see cref="SubjectId"/>;
+    /// <see langword="null"/> for a chat without a subject and for an agent's thread, whose subject is
+    /// on <see cref="AssistantThread"/>. The subject's resolver decides on every turn, read and invitation
+    /// whether a person may use the chat; it never becomes the agent's thread about the subject.
+    /// </summary>
+    public string? SubjectType { get; set; }
+
+    /// <summary>
+    /// The id of the subject of <see cref="SubjectType"/>.
+    /// </summary>
+    public string? SubjectId { get; set; }
+
+    /// <summary>
+    /// The subject's name as its resolver described it when the chat was created.
+    /// </summary>
+    public string? SubjectDisplayName { get; set; }
+
+    /// <summary>
+    /// The scope key of the subject as its resolver described it when the chat was created, so subject
+    /// retention forgets the chats about the subject in its own scope only.
+    /// </summary>
+    public string? SubjectScopeKey { get; set; }
+
+    /// <summary>
     /// One of the values in <see cref="NhAssistantConversationStatuses"/>.
     /// </summary>
     public string Status { get; set; } = NhAssistantConversationStatuses.Idle;
