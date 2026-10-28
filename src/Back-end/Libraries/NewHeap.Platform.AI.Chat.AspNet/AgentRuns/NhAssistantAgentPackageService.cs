@@ -426,7 +426,10 @@ internal sealed partial class NhAssistantAgentPackageService(
             }
             foreach (var consultation in agent.Consultations ?? [])
             {
-                var toolId = NhAssistantConsultationTools.ConsultToolId(agent.Id, consultation.SubjectType);
+                // Askers of a consultation that takes requests only select its request tool.
+                var toolId = consultation.RequestsOnly == true
+                    ? NhAssistantConsultationTools.RequestToolId(agent.Id, consultation.SubjectType)
+                    : NhAssistantConsultationTools.ConsultToolId(agent.Id, consultation.SubjectType);
                 foreach (var asker in all.Where(candidate => !inside.Contains(candidate.Id)
                                                              && candidate.Definition.ToolSelectors.Any(selector => NhAssistantRegistrationState.Covers(selector, toolId))))
                 {

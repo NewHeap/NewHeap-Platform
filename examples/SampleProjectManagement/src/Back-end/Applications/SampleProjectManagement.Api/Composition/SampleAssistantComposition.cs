@@ -215,6 +215,8 @@ public static class SampleAssistantComposition
                     SampleAiBridgeComposition.GatewayToolSetId + ".*",
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
+                    // SPM-361: the planner takes requests only; it has no consult tool to select.
+                    NhAssistantConsultationTools.RequestToolId(SampleProjectPlannerComposition.AgentId, ProjectSubjects.Type),
                     // SPM-278: the project closer, whose proposals run with its own rights.
                     NhAssistantConsultationTools.ConsultToolId(SampleProjectCloserComposition.AgentId, ProjectSubjects.Type),
                     // SPM-311: the project starter, an agent created in the administration. The

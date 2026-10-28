@@ -601,6 +601,13 @@ public sealed record NhAssistantConsultationCeilingDto(
     /// </summary>
     public bool StartsOff { get; init; }
 
+    /// <summary>
+    /// The request runs of consultations under this ceiling also post their answer into the chat the
+    /// request was made in (<c>AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)</c> in
+    /// code).
+    /// </summary>
+    public bool AnswerRequestsInAskingConversation { get; init; }
+
     internal static NhAssistantConsultationCeilingDto? From(NhAssistantConsultationCeiling? ceiling)
     {
         return ceiling is null
@@ -614,7 +621,8 @@ public sealed record NhAssistantConsultationCeilingDto(
                 ceiling.MaxAnswerChars,
                 ceiling.MaxHistoryMessages)
             {
-                StartsOff = ceiling.StartsOff
+                StartsOff = ceiling.StartsOff,
+                AnswerRequestsInAskingConversation = ceiling.RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation
             };
     }
 }
@@ -633,7 +641,8 @@ public sealed record NhAssistantCodeConsultationDto(
     IReadOnlyList<string> Exposure)
 {
     /// <summary>
-    /// The id of the generated consult tool, which asking agents select.
+    /// The id of the generated consult tool, which asking agents select; empty for a consultation that
+    /// takes requests only.
     /// </summary>
     public string ConsultToolId { get; init; } = string.Empty;
 
@@ -643,7 +652,19 @@ public sealed record NhAssistantCodeConsultationDto(
     public string? RequestToolId { get; init; }
 
     /// <summary>
-    /// The agents whose tool selectors select the consult tool now, ordered by id.
+    /// Only the request tool is generated (<c>RequestsOnly()</c>).
+    /// </summary>
+    public bool RequestsOnly { get; init; }
+
+    /// <summary>
+    /// A completed request run also posts its answer into the chat the request was made in
+    /// (<c>AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)</c>).
+    /// </summary>
+    public bool AnswerRequestsInAskingConversation { get; init; }
+
+    /// <summary>
+    /// The agents whose tool selectors select the consult tool now, or the request tool of a
+    /// consultation that takes requests only, ordered by id.
     /// </summary>
     public IReadOnlyList<string> AskingAgents { get; init; } = [];
 
@@ -721,7 +742,8 @@ public sealed record NhAssistantDataConsultationDto(
     public IReadOnlyList<string>? ToolSelectorsInEffect { get; init; }
 
     /// <summary>
-    /// The id of the generated consult tool, which asking agents select.
+    /// The id of the generated consult tool, which asking agents select; empty for a consultation that
+    /// takes requests only.
     /// </summary>
     public string ConsultToolId { get; init; } = string.Empty;
 
@@ -731,8 +753,19 @@ public sealed record NhAssistantDataConsultationDto(
     public string? RequestToolId { get; init; }
 
     /// <summary>
-    /// The agents whose tool selectors select the consult tool now, ordered by id: the second key of
-    /// the consultation (AC5).
+    /// The consultation takes requests only: it generates the request tool and no consult tool.
+    /// </summary>
+    public bool RequestsOnly { get; init; }
+
+    /// <summary>
+    /// Its request runs also post their answer into the chat the request was made in, as the ceiling
+    /// says, while requests are in effect.
+    /// </summary>
+    public bool AnswerRequestsInAskingConversation { get; init; }
+
+    /// <summary>
+    /// The agents whose tool selectors select the consult tool now, or the request tool of a
+    /// consultation that takes requests only, ordered by id: the second key of the consultation (AC5).
     /// </summary>
     public IReadOnlyList<string> AskingAgents { get; init; } = [];
 
@@ -808,6 +841,15 @@ public sealed record NhAssistantDataConsultationRequest(
     /// offers every tool of the agent.
     /// </summary>
     public IReadOnlyList<string>? ToolSelectors { get; init; }
+
+    /// <summary>
+    /// The consultation takes requests only: it generates the request tool and never the consult tool.
+    /// Needs <c>allowRequests</c> (field error <c>allowRequests: required</c>); the settings of a
+    /// consultation's own turn do not apply, so <c>instructions</c>, <c>minimumRole</c>, <c>routes</c>,
+    /// <c>proposalRole</c>, <c>proposalPolicy</c>, <c>toolSelectors</c> and the limits are left out
+    /// (field error <c>{field}: not-allowed</c>, <c>limits: not-allowed</c> for the limits and history).
+    /// </summary>
+    public bool RequestsOnly { get; init; }
 
     /// <summary>
     /// For a new consultation only: it starts off, so it is not offered until an administrator switches
@@ -2011,9 +2053,11 @@ internal sealed class NhAssistantAgentConfiguration(
             consultation.AllowRequests,
             exposure)
         {
-            ConsultToolId = consultation.ConsultToolId,
+            ConsultToolId = consultation.RequestsOnly ? string.Empty : consultation.ConsultToolId,
             RequestToolId = consultation.AllowRequests ? consultation.RequestToolId : null,
-            AskingAgents = AskersOf(consultation.AgentId, consultation.ConsultToolId, askers),
+            RequestsOnly = consultation.RequestsOnly,
+            AnswerRequestsInAskingConversation = consultation.RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation,
+            AskingAgents = AskersOf(consultation.AgentId, consultation.SelectedToolId, askers),
             ToolSelectors = consultation.ToolSelectors
         };
     }
@@ -3147,8 +3191,8 @@ internal sealed class NhAssistantAgentConfiguration(
             return TaskResult<NhAssistantDataConsultationDto>.Failed(ConsultationFieldErrors(check.Problems));
         }
         if (services.GetService<INhAssistantReservedToolNames>() is { } reserved
-            && (reserved.IsReserved(check.Options!.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, agentId, subjectType))
-                || (row!.AllowRequests && reserved.IsReserved(check.Options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, agentId, subjectType)))))
+            && ((!row!.RequestsOnly && reserved.IsReserved(check.Options!.ConsultToolId, NhAssistantConsultationTools.ExportNameOf(false, agentId, subjectType)))
+                || (row.AllowRequests && reserved.IsReserved(check.Options.RequestToolId, NhAssistantConsultationTools.ExportNameOf(true, agentId, subjectType)))))
         {
             return TaskResult<NhAssistantDataConsultationDto>.Failed(NhAssistantValidationErrors.Failed("subjectType", NhAssistantFieldErrors.Invalid));
         }
@@ -3256,6 +3300,23 @@ internal sealed class NhAssistantAgentConfiguration(
             .Require(dataClassification is null || NhAssistantDataClassificationNames.TryParse(dataClassification, out _), "dataClassification", NhAssistantFieldErrors.Invalid)
             // Only a new consultation starts off; one that exists keeps whether it is on.
             .Require(!request.StartsOff || request.ExpectedVersion is null, "startsOff", NhAssistantFieldErrors.Invalid);
+        if (request.RequestsOnly)
+        {
+            // A consultation that takes requests only has no turn of its own (FB30), so the settings of
+            // that turn are left out, as RequestsOnly() refuses them in code.
+            errors
+                .Require(request.AllowRequests, "allowRequests", NhAssistantFieldErrors.Required)
+                .Require(instructions is null, "instructions", NhAssistantFieldErrors.NotAllowed)
+                .Require(Blank(request.MinimumRole) is null, "minimumRole", NhAssistantFieldErrors.NotAllowed)
+                .Require(routes.Length == 0, "routes", NhAssistantFieldErrors.NotAllowed)
+                .Require(Blank(request.ProposalRole) is null, "proposalRole", NhAssistantFieldErrors.NotAllowed)
+                .Require(Blank(request.ProposalPolicy) is null, "proposalPolicy", NhAssistantFieldErrors.NotAllowed)
+                .Require(toolSelectors is null, "toolSelectors", NhAssistantFieldErrors.NotAllowed)
+                .Require(
+                    request.MaxToolCalls is null && request.TimeoutSeconds is null && request.MaxAnswerChars is null && request.MaxHistoryMessages is null,
+                    "limits",
+                    NhAssistantFieldErrors.NotAllowed);
+        }
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -3280,6 +3341,7 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxAnswerChars = maxAnswerChars,
             MaxHistoryMessages = maxHistoryMessages,
             AllowRequests = request.AllowRequests,
+            RequestsOnly = request.RequestsOnly,
             ExposeToMcp = request.ExposeToMcp,
             DataClassification = dataClassification,
             // A new consultation starts off when its administrator or the application's ceiling says
@@ -3476,9 +3538,15 @@ internal sealed class NhAssistantAgentConfiguration(
             ? runOptions.Consultations.FirstOrDefault(consultation => consultation.IsData
                 && string.Equals(consultation.SubjectType, item.SubjectType, StringComparison.Ordinal))
             : null;
-        var consultToolId = NhAiSubjectRef.IsValidType(item.SubjectType)
+        var consultToolId = NhAiSubjectRef.IsValidType(item.SubjectType) && !item.RequestsOnly
             ? NhAssistantConsultationTools.ConsultToolId(item.AgentId, item.SubjectType)
             : string.Empty;
+        // Asking agents select the request tool of a consultation that takes requests only.
+        var selectedToolId = !NhAiSubjectRef.IsValidType(item.SubjectType)
+            ? string.Empty
+            : item.RequestsOnly
+                ? NhAssistantConsultationTools.RequestToolId(item.AgentId, item.SubjectType)
+                : consultToolId;
         // A stored selection that no longer reads keeps the consultation out of effect as invalid.
         var toolSelectors = NhAssistantDataConsultationToolSelectors.TryRead(item.ToolSelectorsJson, out var stored) ? stored : null;
         return new NhAssistantDataConsultationDto(
@@ -3512,7 +3580,9 @@ internal sealed class NhAssistantAgentConfiguration(
             ToolSelectorsInEffect = inEffect is null ? [] : inEffect.ToolSelectors,
             ConsultToolId = consultToolId,
             RequestToolId = inEffect is { AllowRequests: true } ? inEffect.RequestToolId : null,
-            AskingAgents = consultToolId.Length == 0 ? [] : AskersOf(item.AgentId, consultToolId, askers),
+            RequestsOnly = item.RequestsOnly,
+            AnswerRequestsInAskingConversation = inEffect is { AllowRequests: true, RequestAnswerRoute: NhAssistantRequestAnswerRoute.AskingConversation },
+            AskingAgents = selectedToolId.Length == 0 ? [] : AskersOf(item.AgentId, selectedToolId, askers),
             CreatedAt = item.CreatedAt,
             CreatedBy = item.CreatedBy,
             Off = item.Off

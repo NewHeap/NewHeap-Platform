@@ -1338,6 +1338,12 @@ export interface ConsultationCeiling {
    * (`StartOff()` in code); missing on older servers.
    */
   startsOff?: boolean;
+  /**
+   * The request runs of consultations under this ceiling also post their answer into the chat the request
+   * was made in (`AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)` in code); missing on
+   * older servers.
+   */
+  answerRequestsInAskingConversation?: boolean;
 }
 
 /**
@@ -1951,11 +1957,21 @@ export interface CodeConsultation {
   allowedRoutes: NhAssistantConsultationRoute[];
   allowRequests: boolean;
   exposure: ConsultationExposure[];
-  /** The id of the generated consult tool, which asking agents select. */
+  /** The id of the generated consult tool, which asking agents select; empty for a consultation that takes requests only. */
   consultToolId: string;
   /** The id of the generated request tool; `null` without requests. */
   requestToolId: string | null;
-  /** The agents whose tool selectors select the consult tool now, by id. */
+  /** Only the request tool is generated (`RequestsOnly()` in code); missing on older servers. */
+  requestsOnly?: boolean;
+  /**
+   * A completed request run also posts its answer into the chat the request was made in; missing on older
+   * servers.
+   */
+  answerRequestsInAskingConversation?: boolean;
+  /**
+   * The agents whose tool selectors select the consult tool now, or the request tool of a consultation that
+   * takes requests only, by id.
+   */
   askingAgents: string[];
   /**
    * The tools the consulted agent is offered, from `Tools(...)` in code; `null` offers every tool of the
@@ -2020,11 +2036,21 @@ export interface DataConsultation {
    * `tools-not-allowed`, or while the consultation is out of effect. Missing on older servers.
    */
   toolSelectorsInEffect?: string[] | null;
-  /** The id of the generated consult tool, which asking agents select. */
+  /** The id of the generated consult tool, which asking agents select; empty for a consultation that takes requests only. */
   consultToolId: string;
   /** The id of the generated request tool while requests are in effect. */
   requestToolId: string | null;
-  /** The agents whose tool selectors select the consult tool now, by id: the consultation's second key. */
+  /** The consultation takes requests only: no consult tool is generated. Missing on older servers. */
+  requestsOnly?: boolean;
+  /**
+   * Its request runs also post their answer into the chat the request was made in, as the ceiling says,
+   * while requests are in effect. Missing on older servers.
+   */
+  answerRequestsInAskingConversation?: boolean;
+  /**
+   * The agents whose tool selectors select the consult tool now, or the request tool of a consultation that
+   * takes requests only, by id: the consultation's second key.
+   */
   askingAgents: string[];
   createdAt: string;
   createdBy: string;
@@ -2089,6 +2115,13 @@ export interface DataConsultationRequest {
   maxHistoryMessages?: number | null;
   /** Also generates the request tool; only when the ceiling allows requests. */
   allowRequests?: boolean;
+  /**
+   * Generates only the request tool, never the consult tool; needs `allowRequests`
+   * (`allowRequests: required`). The settings of a consultation's own turn are left out: `instructions`,
+   * `minimumRole`, `routes`, `proposalRole`, `proposalPolicy`, `toolSelectors` and the limits fail with
+   * `{field}: not-allowed` (`limits: not-allowed` for the limits and history).
+   */
+  requestsOnly?: boolean;
   /** MCP clients may see its tools; only when the ceiling allows MCP. */
   exposeToMcp?: boolean;
   /** `null` uses the agent's. */

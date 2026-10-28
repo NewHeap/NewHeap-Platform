@@ -29,6 +29,14 @@ public sealed class NhAssistantConsultationCeiling
     public bool AllowRequests { get; internal set; }
 
     /// <summary>
+    /// Where the request runs of consultations defined as data post their answer:
+    /// <see cref="NhAssistantRequestAnswerRoute.AgentThread"/> by default, or also the asking chat
+    /// (<see cref="NhAssistantRequestAnswerRoute.AskingConversation"/>). It applies to every
+    /// consultation under the ceiling that takes requests.
+    /// </summary>
+    public NhAssistantRequestAnswerRoute RequestAnswerRoute { get; internal set; } = NhAssistantRequestAnswerRoute.AgentThread;
+
+    /// <summary>
     /// MCP clients may see the tools of a consultation defined as data that asks for it.
     /// </summary>
     public bool AllowMcp { get; internal set; }
@@ -74,8 +82,21 @@ public sealed class NhAssistantConsultationCeiling
     }
 
     /// <summary>
+    /// Checks what the builder methods cannot check alone: an answer route needs requests.
+    /// </summary>
+    internal void Validate(string owner)
+    {
+        if (RequestAnswerRoute != NhAssistantRequestAnswerRoute.AgentThread && !AllowRequests)
+        {
+            throw new InvalidOperationException(
+                $"{owner} answers requests in the asking conversation (AnswerRequests) but allows no requests. Add AllowRequests().");
+        }
+    }
+
+    /// <summary>
     /// What both ceilings allow: the routes of both, requests and MCP only when both allow them, and
-    /// the lower of each limit. New consultations start off when either ceiling says so.
+    /// the lower of each limit. New consultations start off when either ceiling says so, and requests
+    /// answer in the asking conversation only when both ceilings say so.
     /// </summary>
     internal NhAssistantConsultationCeiling Intersect(NhAssistantConsultationCeiling other)
     {
@@ -83,6 +104,10 @@ public sealed class NhAssistantConsultationCeiling
         var ceiling = new NhAssistantConsultationCeiling
         {
             AllowRequests = AllowRequests && other.AllowRequests,
+            RequestAnswerRoute = RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation
+                                 && other.RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation
+                ? NhAssistantRequestAnswerRoute.AskingConversation
+                : NhAssistantRequestAnswerRoute.AgentThread,
             AllowMcp = AllowMcp && other.AllowMcp,
             MaxToolCalls = Math.Min(MaxToolCalls, other.MaxToolCalls),
             MaxTimeout = MaxTimeout < other.MaxTimeout ? MaxTimeout : other.MaxTimeout,
@@ -107,6 +132,11 @@ public sealed class NhAssistantConsultationCeiling
         if (AllowRequests && !outer.AllowRequests)
         {
             return "requests";
+        }
+        if (RequestAnswerRoute == NhAssistantRequestAnswerRoute.AskingConversation
+            && outer.RequestAnswerRoute != NhAssistantRequestAnswerRoute.AskingConversation)
+        {
+            return "request answers in the asking conversation";
         }
         if (AllowMcp && !outer.AllowMcp)
         {
@@ -168,6 +198,26 @@ public sealed class NhAssistantConsultationCeilingBuilder
     public NhAssistantConsultationCeilingBuilder AllowRequests(bool enabled = true)
     {
         _ceiling.AllowRequests = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Where the request runs of consultations defined as data post their answer, as
+    /// <see cref="NhAssistantConsultationBuilder.AnswerRequests"/> does in code: with
+    /// <see cref="NhAssistantRequestAnswerRoute.AskingConversation"/> also in the chat the request came
+    /// from. It applies to every consultation under this ceiling that takes requests; an agent's own
+    /// ceiling (<c>ConsultableAsData</c>) answers there only when the application's does too. Needs
+    /// <see cref="AllowRequests"/>; startup fails otherwise. Requests answer only in the agent's thread
+    /// by default.
+    /// </summary>
+    public NhAssistantConsultationCeilingBuilder AnswerRequests(NhAssistantRequestAnswerRoute route)
+    {
+        if (!Enum.IsDefined(route))
+        {
+            throw new ArgumentOutOfRangeException(nameof(route));
+        }
+
+        _ceiling.RequestAnswerRoute = route;
         return this;
     }
 

@@ -349,6 +349,23 @@ public sealed class SampleAgentConfigurationService(
     }
 
     /// <summary>
+    /// SPM-361: a consultation defined as data that takes requests only: other assistants ask the
+    /// project follow-up to count the open projects of the whole application now, in a run of its own,
+    /// and never consult it for an answer. It names no setting of a consultation's own turn (routes,
+    /// instructions, limits, tools, roles), which a requests-only save refuses.
+    /// </summary>
+    public static NhAssistantDataConsultationRequest FollowUpRequestsOnly()
+    {
+        return new NhAssistantDataConsultationRequest(
+            "Counts the open projects of the whole application and proposes which ones can be completed, in a run of its own.",
+            AllowRequests: true,
+            Reason: "Let assistants ask the follow-up to run now")
+        {
+            RequestsOnly = true
+        };
+    }
+
+    /// <summary>
     /// SPM-311: what the starter's consultation says and allows.
     /// </summary>
     public static NhAssistantDataConsultationRequest StarterConsultation()

@@ -4,7 +4,7 @@ title: "Expose generated AI tools through MCP"
 area: backend
 reference: ai-mcp-tools
 summary: "Adapt an explicitly MCP-exposed generated NewHeap catalog through the official SDK without duplicating domain code or bypassing discovery and invocation authorization."
-sample-cases: ["SPM-222", "SPM-240", "SPM-370", "SPM-371"]
+sample-cases: ["SPM-222", "SPM-240", "SPM-362", "SPM-370", "SPM-371"]
 public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions", "INhAiChangingToolCatalog", "NhAiToolCatalogViews", "NhAiMcpExposureBuilder", "NhAiMcpProtectedResourceOptions", "NhAiMcpProtectedResourceDefaults", "NhAiMcpProtectedResourceTokenValidatedContext"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
@@ -199,7 +199,9 @@ MCP-exposed descriptor fails at startup and on every list or call. A catalog
 without MCP exposure, such as a run-scoped imported MCP catalog that only serves
 agents, is skipped by the export path and may share the host. Catalogs may be
 registered as scoped services; startup validation resolves them in a scope of its
-own.
+own. An imported MCP tool is never exported again; to offer what a remote tool knows,
+export a code-owned `[NhAiTool]` that calls that one reviewed remote tool on the
+application's own credential (`nh-ai-mcp-imports`, SPM-362).
 
 A runtime catalog whose descriptors change while the application runs, such as the
 tools of consultations that administrators define as data, implements

@@ -200,7 +200,16 @@ public sealed record NhAssistantPackageConsultation(
     bool AllowRequests = false,
     bool ExposeToMcp = false,
     string? DataClassification = null,
-    bool? StartsOff = null);
+    bool? StartsOff = null)
+{
+    /// <summary>
+    /// The consultation takes requests only (<see cref="NhAssistantDataConsultationRequest.RequestsOnly"/>):
+    /// written only when it does, without the settings of a consultation's own turn, so a package of a
+    /// consultation that is also consulted keeps its hash. A host before this field refuses such a
+    /// package as an unknown property instead of importing a consultation that answers too.
+    /// </summary>
+    public bool? RequestsOnly { get; init; }
+}
 
 /// <summary>
 /// A hand-off defined as data that the agent accepts, mapped to <see cref="NhAssistantDataHandOffRequest"/>

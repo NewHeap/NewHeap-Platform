@@ -358,6 +358,11 @@ public sealed class AssistantAgentConsultationDefinition
     public bool AllowRequests { get; set; }
 
     /// <summary>
+    /// Generates only the request tool, never the consult tool; needs <see cref="AllowRequests"/>.
+    /// </summary>
+    public bool RequestsOnly { get; set; }
+
+    /// <summary>
     /// MCP clients may see the consultation's tools, when the ceiling allows MCP.
     /// </summary>
     public bool ExposeToMcp { get; set; }

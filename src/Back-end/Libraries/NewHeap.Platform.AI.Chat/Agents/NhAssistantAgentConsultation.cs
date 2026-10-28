@@ -154,6 +154,34 @@ public sealed class NhAssistantConsultationOptions
     public bool AllowRequests { get; internal set; }
 
     /// <summary>
+    /// Generates only the request tool (<c>assistant.request.*</c>): other assistants ask the agent to
+    /// work on a subject in a run of its own and never consult it for an answer now. The settings of a
+    /// consultation's own turn (role, proposals, limits, tools, history and instructions) do not apply.
+    /// </summary>
+    public bool RequestsOnly { get; internal set; }
+
+    /// <summary>
+    /// Where a completed request run also posts its answer: by default only in the agent's thread about
+    /// the subject, with a notification for the person who asked
+    /// (<see cref="NhAssistantRequestAnswerRoute.AgentThread"/>); with
+    /// <see cref="NhAssistantRequestAnswerRoute.AskingConversation"/> also in the chat the request came
+    /// from.
+    /// </summary>
+    public NhAssistantRequestAnswerRoute RequestAnswerRoute { get; internal set; } = NhAssistantRequestAnswerRoute.AgentThread;
+
+    /// <summary>
+    /// The settings in code that only a consultation's own turn uses, by the name of their builder
+    /// method, so <see cref="NhAssistantConsultationBuilder.RequestsOnly"/> can refuse them.
+    /// </summary>
+    internal HashSet<string> ConsultSettings { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The tool asking agents select and the administration counts them by: the request tool of a
+    /// consultation that only takes requests, otherwise the consult tool.
+    /// </summary>
+    internal string SelectedToolId => RequestsOnly ? RequestToolId : ConsultToolId;
+
+    /// <summary>
     /// Where the generated tools are offered. The default is chats and agents; MCP clients see the
     /// tools only when <see cref="NhAiToolExposure.Mcp"/> is added.
     /// </summary>
@@ -197,6 +225,52 @@ public sealed class NhAssistantConsultationOptions
             }
         }
     }
+
+    /// <summary>
+    /// Checks what the builder methods cannot check alone, once the registration configured the
+    /// consultation: a consultation that only takes requests names no setting of a consultation's own
+    /// turn and keeps its requests, and an answer route needs requests. Startup fails otherwise.
+    /// </summary>
+    internal void ValidateRequests()
+    {
+        var owner = $"The consultation of agent '{AgentId}' about '{SubjectType}'";
+        if (RequestsOnly && !AllowRequests)
+        {
+            throw new InvalidOperationException(
+                $"{owner} takes requests only (RequestsOnly) but switches requests off with AllowRequests(false). Remove one of them.");
+        }
+        if (RequestsOnly && ConsultSettings.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"{owner} takes requests only (RequestsOnly), but configures {string.Join(", ", ConsultSettings.Order(StringComparer.Ordinal))}, which only a consultation's own turn uses. Remove them, or let the agent be consulted too.");
+        }
+        if (RequestAnswerRoute != NhAssistantRequestAnswerRoute.AgentThread && !AllowRequests)
+        {
+            throw new InvalidOperationException(
+                $"{owner} answers requests in the asking conversation (AnswerRequests) but takes no requests. Add AllowRequests() or RequestsOnly().");
+        }
+    }
+}
+
+/// <summary>
+/// Where a completed run that another assistant requested for a person posts its answer; see
+/// <see cref="NhAssistantConsultationBuilder.AnswerRequests"/>.
+/// </summary>
+public enum NhAssistantRequestAnswerRoute
+{
+    /// <summary>
+    /// The answer stays in the agent's thread about the subject and the person who asked is notified
+    /// (<see cref="NhAssistantAgentNotificationKind.RequestAnswered"/>). The default.
+    /// </summary>
+    AgentThread = 0,
+
+    /// <summary>
+    /// Also posts the answer once as an application message into the chat conversation the request was
+    /// made from, readable by the person who asked, with a link to where the application shows the
+    /// subject. Requests of MCP clients and of agent runs have no asking conversation; a shadow run, a
+    /// run that read results people may not see and a restricted consultation post nothing.
+    /// </summary>
+    AskingConversation = 1
 }
 
 /// <summary>
@@ -252,6 +326,7 @@ public sealed class NhAssistantConsultationBuilder
         }
 
         _options.MinimumRole = role;
+        _options.ConsultSettings.Add(nameof(MinimumRole));
         return this;
     }
 
@@ -272,6 +347,7 @@ public sealed class NhAssistantConsultationBuilder
         _options.AtSubjectRights = allowed ? NhAssistantConsultationRights.Asker : null;
         _options.ProposalPolicyId = null;
         _options.ProposalRole = minimumRole;
+        _options.ConsultSettings.Add(nameof(Proposals));
         return this;
     }
 
@@ -290,6 +366,7 @@ public sealed class NhAssistantConsultationBuilder
         _options.ProposalPolicyId = null;
         _options.ProposalRole = NhAiSubjectRole.Participant;
         configure(new NhAssistantConsultationProposalBuilder(_options));
+        _options.ConsultSettings.Add(nameof(Proposals));
         if (!_options.AllowProposals)
         {
             throw new InvalidOperationException(
@@ -321,6 +398,7 @@ public sealed class NhAssistantConsultationBuilder
         _options.MaxToolCalls = maxToolCalls;
         _options.Timeout = timeout ?? _options.Timeout;
         _options.MaxAnswerChars = maxAnswerChars;
+        _options.ConsultSettings.Add(nameof(Limits));
         return this;
     }
 
@@ -341,6 +419,7 @@ public sealed class NhAssistantConsultationBuilder
         }
 
         _options.ToolSelectors = toolSelectors.Distinct(StringComparer.Ordinal).ToArray();
+        _options.ConsultSettings.Add(nameof(Tools));
         return this;
     }
 
@@ -355,6 +434,7 @@ public sealed class NhAssistantConsultationBuilder
         }
 
         _options.MaxHistoryMessages = messages;
+        _options.ConsultSettings.Add(nameof(History));
         return this;
     }
 
@@ -366,6 +446,49 @@ public sealed class NhAssistantConsultationBuilder
     public NhAssistantConsultationBuilder AllowRequests(bool enabled = true)
     {
         _options.AllowRequests = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Generates only the request tool: other assistants ask the agent to work on a subject in a run of
+    /// its own, with the asking person as initiator, and never consult it for an answer now. The person
+    /// needs <see cref="NhAiSubjectRole.Participant"/>, as for <see cref="AllowRequests"/>; the
+    /// <see cref="Description"/> tells the asking model what the agent does. The settings of a
+    /// consultation's own turn (<see cref="MinimumRole"/>, <c>Proposals</c>, <see cref="Limits"/>,
+    /// <see cref="Tools"/>, <see cref="History"/> and <see cref="Instructions"/>) do not apply to a
+    /// request, so startup fails when the registration names one of them, as it does for
+    /// <c>AllowRequests(false)</c>.
+    /// </summary>
+    public NhAssistantConsultationBuilder RequestsOnly()
+    {
+        _options.RequestsOnly = true;
+        _options.AllowRequests = true;
+        // A request's run proposes under the agent's own policies; no consultation proposal routes.
+        _options.AskerDecides = false;
+        _options.AtSubjectRights = null;
+        _options.ProposalPolicyId = null;
+        return this;
+    }
+
+    /// <summary>
+    /// Where a completed request run posts its answer. With
+    /// <see cref="NhAssistantRequestAnswerRoute.AskingConversation"/> the answer of a request made in a
+    /// person's chat is also posted once into that chat, as an application message readable by the
+    /// person who asked, with a link to where the application shows the subject
+    /// (<see cref="NhAssistantSubjectTypeBuilder.OpenAt"/>). It applies to requests made in a chat turn:
+    /// an MCP client's request and an agent run's request have no asking conversation, and a shadow run,
+    /// a run that read results people without the tool's policy may not see and a consultation
+    /// classified <see cref="NhAiDataClassification.Restricted"/> post nothing. The person is notified as
+    /// before. Needs <see cref="AllowRequests"/> or <see cref="RequestsOnly"/>; startup fails otherwise.
+    /// </summary>
+    public NhAssistantConsultationBuilder AnswerRequests(NhAssistantRequestAnswerRoute route)
+    {
+        if (!Enum.IsDefined(route))
+        {
+            throw new ArgumentOutOfRangeException(nameof(route));
+        }
+
+        _options.RequestAnswerRoute = route;
         return this;
     }
 
@@ -387,6 +510,7 @@ public sealed class NhAssistantConsultationBuilder
     public NhAssistantConsultationBuilder Instructions(NhAiTextAsset instructions)
     {
         _options.Instructions = instructions ?? throw new ArgumentNullException(nameof(instructions));
+        _options.ConsultSettings.Add(nameof(Instructions));
         return this;
     }
 

@@ -57,7 +57,7 @@ export const NH_ASSISTANT_PACKAGE_LOCK_FIELDS: Readonly<Record<AgentPackagePartK
   trigger: ['skill', 'source', 'event', 'filters', 'cron', 'timeZone', 'subjectSet', 'message', 'conflict', 'debounceSeconds'],
   consultation: [
     'description', 'instructions', 'minimumRole', 'askerPolicy', 'routes', 'proposalRole', 'proposalPolicy', 'toolSelectors', 'limits',
-    'allowRequests', 'exposeToMcp', 'dataClassification'
+    'allowRequests', 'requestsOnly', 'exposeToMcp', 'dataClassification'
   ],
   handOff: ['sources', 'description', 'notifySource', 'maxPerSubjectPerDay'],
   metadata: ['value']
@@ -222,6 +222,11 @@ export interface PackageConsultation {
   maxAnswerChars?: number | null;
   maxHistoryMessages?: number | null;
   allowRequests?: boolean;
+  /**
+   * The consultation takes requests only; written only when it does, without the settings of a consultation's
+   * own turn.
+   */
+  requestsOnly?: boolean | null;
   exposeToMcp?: boolean;
   dataClassification?: AssistantDataClassification | null;
   /** For a new consultation: it starts off. */

@@ -11,8 +11,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// The one path that ends an agent run. The run's status compare-and-set records the end once,
 /// together with the run's summary, so a reader that sees the run ended also reads its summary; only
 /// the call that wins it stores that summary, writes the run's <c>AgentRunEnded</c> event and work
-/// update, tells the agents that handed it work how it ended and notifies the people who wait for
-/// it. The run's own background operation ends its run here, and so does the maintenance job for a
+/// update, tells the agents that handed it work how it ended, notifies the people who wait for it and
+/// posts a requested run's answer into the chat it was asked in. The run's own background operation ends its run here, and so does the maintenance job for a
 /// run whose operation ended without it (<see cref="EndAfterOperationEndedAsync"/>). The job also
 /// closes here the approved inline proposals that an ended run never executed
 /// (<see cref="CloseInlineProposalsOfEndedRunAsync"/>).
@@ -25,6 +25,7 @@ internal sealed class NhAssistantRunEnding(
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantHandOffService handOffs,
     NhAssistantLivePublisher live,
+    NhAssistantRequestAnswers requestAnswers,
     ILogger<NhAssistantRunEnding> logger,
     TimeProvider? timeProvider = null)
 {
@@ -98,6 +99,8 @@ internal sealed class NhAssistantRunEnding(
                     run.InitiatorActorId,
                     run.Shadow,
                     CancellationToken.None);
+                // And reads the answer where they asked, when the consultation answers there (FB29).
+                await requestAnswers.PostAsync(run, thread, CancellationToken.None);
             }
         }
 

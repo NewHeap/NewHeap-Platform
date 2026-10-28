@@ -301,6 +301,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("RequestsOnly")
+                        .HasColumnType("bit");
+
                     b.Property<string>("RoutesJson")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2574,6 +2577,12 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<int>("AgentVersion")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("AskingConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AskingTurnId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Attempt")
                         .HasColumnType("int");

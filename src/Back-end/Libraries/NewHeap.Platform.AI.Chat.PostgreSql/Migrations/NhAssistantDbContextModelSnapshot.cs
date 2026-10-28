@@ -301,6 +301,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<bool>("RequestsOnly")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("RoutesJson")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2574,6 +2577,12 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<int>("AgentVersion")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("AskingConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AskingTurnId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Attempt")
                         .HasColumnType("integer");

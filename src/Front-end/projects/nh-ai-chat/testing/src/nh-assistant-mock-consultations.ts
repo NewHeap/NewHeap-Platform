@@ -53,6 +53,8 @@ interface StoredConsultation {
   maxAnswerChars: number;
   maxHistoryMessages: number;
   allowRequests: boolean;
+  /** Generates only the request tool. */
+  requestsOnly: boolean;
   exposeToMcp: boolean;
   dataClassification: DataConsultation['dataClassification'];
   /** Switched off: not offered until an administrator switches it on. */
@@ -162,7 +164,11 @@ export class NhAssistantMockConsultations {
       maxTimeoutSeconds: Math.min(application.maxTimeoutSeconds, narrowed.maxTimeoutSeconds),
       maxAnswerChars: Math.min(application.maxAnswerChars, narrowed.maxAnswerChars),
       maxHistoryMessages: Math.min(application.maxHistoryMessages, narrowed.maxHistoryMessages),
-      ...(application.startsOff === true || narrowed.startsOff === true ? { startsOff: true } : {})
+      ...(application.startsOff === true || narrowed.startsOff === true ? { startsOff: true } : {}),
+      // Requests answer in the asking chat only when both ceilings say so.
+      ...(application.answerRequestsInAskingConversation === true && narrowed.answerRequestsInAskingConversation === true
+        ? { answerRequestsInAskingConversation: true }
+        : {})
     };
   }
 
@@ -232,7 +238,9 @@ export class NhAssistantMockConsultations {
       if (!check?.inEffect) {
         continue;
       }
-      tools.push({ id: consultToolOf(stored.agentId, stored.subjectType), source: 'local', effect: 'read-only', description: stored.description, subjectType: null });
+      if (!stored.requestsOnly) {
+        tools.push({ id: consultToolOf(stored.agentId, stored.subjectType), source: 'local', effect: 'read-only', description: stored.description, subjectType: null });
+      }
       if (check.allowRequests) {
         tools.push({ id: requestToolOf(stored.agentId, stored.subjectType), source: 'local', effect: 'idempotent-mutation', description: stored.description, subjectType: null });
       }
@@ -333,6 +341,33 @@ export class NhAssistantMockConsultations {
     if (request.startsOff === true && request.expectedVersion != null) {
       add('startsOff', 'invalid');
     }
+    // Requests only keeps its requests and leaves out what only a consultation's own turn uses.
+    if (request.requestsOnly === true) {
+      if (request.allowRequests !== true) {
+        add('allowRequests', 'required');
+      }
+      if (instructions !== null) {
+        add('instructions', 'not-allowed');
+      }
+      if (text(request.minimumRole) !== null) {
+        add('minimumRole', 'not-allowed');
+      }
+      if (routes.length > 0) {
+        add('routes', 'not-allowed');
+      }
+      if (text(request.proposalRole) !== null) {
+        add('proposalRole', 'not-allowed');
+      }
+      if (text(request.proposalPolicy) !== null) {
+        add('proposalPolicy', 'not-allowed');
+      }
+      if (toolSelectors !== null) {
+        add('toolSelectors', 'not-allowed');
+      }
+      if (request.maxToolCalls != null || request.timeoutSeconds != null || request.maxAnswerChars != null || request.maxHistoryMessages != null) {
+        add('limits', 'not-allowed');
+      }
+    }
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -353,6 +388,7 @@ export class NhAssistantMockConsultations {
       toolSelectors,
       ...limits,
       allowRequests: request.allowRequests === true,
+      requestsOnly: request.requestsOnly === true,
       exposeToMcp: request.exposeToMcp === true,
       dataClassification: classification as DataConsultation['dataClassification'],
       off: existing ? existing.off : request.startsOff === true || ceiling.startsOff === true,
@@ -524,7 +560,10 @@ export class NhAssistantMockConsultations {
 
   private toConsultation(agent: AdminAgent, row: StoredConsultation): DataConsultation {
     const check = this.check(agent, row);
-    const consultToolId = consultToolOf(agent.id, row.subjectType);
+    const consultToolId = row.requestsOnly ? '' : consultToolOf(agent.id, row.subjectType);
+    // Asking agents select the request tool of a consultation that takes requests only.
+    const selectedToolId = row.requestsOnly ? requestToolOf(agent.id, row.subjectType) : consultToolId;
+    const ceiling = this.ceilingOf(agent);
     const { agentId, ...stored } = row;
     return {
       ...stored,
@@ -538,7 +577,8 @@ export class NhAssistantMockConsultations {
       routesInEffect: check.routes,
       consultToolId,
       requestToolId: check.allowRequests ? requestToolOf(agent.id, row.subjectType) : null,
-      askingAgents: this.askersOf(agent.id, consultToolId)
+      answerRequestsInAskingConversation: check.allowRequests && ceiling?.answerRequestsInAskingConversation === true,
+      askingAgents: this.askersOf(agent.id, selectedToolId)
     };
   }
 
@@ -576,7 +616,8 @@ function ceilingOf(ceiling: NhAssistantMockConsultationCeiling): ConsultationCei
     maxConsultations,
     maxInstructionsLength: maxInstructions,
     // Reported only when the application lets new consultations start off, as older servers omit it.
-    ...(ceiling.startsOff === true ? { startsOff: true } : {})
+    ...(ceiling.startsOff === true ? { startsOff: true } : {}),
+    ...(ceiling.answerRequestsInAskingConversation === true ? { answerRequestsInAskingConversation: true } : {})
   };
 }
 

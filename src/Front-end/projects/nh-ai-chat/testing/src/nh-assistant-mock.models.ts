@@ -376,6 +376,8 @@ export interface NhAssistantMockConsultationCeiling {
   maxHistoryMessages?: number;
   /** Every new consultation defined as data starts off until an administrator switches it on (`StartOff()`). */
   startsOff?: boolean;
+  /** Request runs also post their answer into the chat the request was made in (`AnswerRequests(...)`). */
+  answerRequestsInAskingConversation?: boolean;
 }
 
 /** A consultation defined as data an agent of the scenario starts with. */

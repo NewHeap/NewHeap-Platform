@@ -6281,6 +6281,65 @@
       ]
     },
     {
+      "id": "SPM-360",
+      "categoryId": "18",
+      "title": "A review a participant requests through the project assistant answers once in the chat they asked in",
+      "surface": "`NhAssistantConsultationBuilder.AnswerRequests` with `NhAssistantRequestAnswerRoute` (`AgentThread`, `AskingConversation`), `NhAssistantConsultationCeilingBuilder.AnswerRequests` for consultations defined as data, `AssistantRun.AskingConversationId` and `AskingTurnId` (migration `RequestAnswersAndRequestsOnly` on SQL Server and PostgreSQL), the application message the completed run posts through `INhAssistantConversationMessages` with `NhAssistantApplicationMessageAccess.ReadableBy` the person who asked, a link from `NhAssistantSubjectTypeBuilder.OpenAt` and the idempotency key `request-answer:{runId}`, and `answerRequestsInAskingConversation` in the administration",
+      "outcome": "The intake reviewer's consultation answers requests in the asking conversation. A project participant asks the project assistant to have the reviewer look at the intake again; the request starts a run of the reviewer with the participant as initiator, and the run keeps the participant's chat and turn. When the run completes, its answer appears once in that chat as an application message readable by the participant, with a link to where the portal shows the project's agent work and a title in the person's culture; the answer is model output, never the application's instruction, and the participant is notified as before. A colleague cannot open the chat. The library tests prove on SQL Server and PostgreSQL that the answer is posted once (a later end loses and a repeated post finds the earlier message by the run's key), that nothing is posted when the person who asked may no longer open the chat, that without the opt-in, for a request outside a chat turn such as an MCP client's, for a shadow run, a run that read restricted results and a consultation classified restricted the run answers only in the agent's thread, and that the migration applies on both providers. Hosts must apply the migration.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRequestAnswers.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunEnding.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028221639_RequestAnswersAndRequestsOnly.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028221658_RequestAnswersAndRequestsOnly.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRequestAnswerTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-361",
+      "categoryId": "18",
+      "title": "The project planner and the project follow-up take requests only, in code and as data, and are never consulted for an answer",
+      "surface": "`NhAssistantConsultationBuilder.RequestsOnly`, which generates only `assistant.request.{agentId}.{subjectType}` and refuses startup with `MinimumRole`, `Proposals`, `Limits`, `Tools`, `History`, `Instructions` or `AllowRequests(false)`; `NhAssistantDataConsultationRequest.RequestsOnly` and the `requestsOnly` column of `AssistantAgentConsultationDefinition` (field errors `allowRequests: required` and `{field}: not-allowed`), `requestsOnly` of `NhAssistantCodeConsultationDto` and `NhAssistantDataConsultationDto` with an empty `consultToolId`, and `requestsOnly` of an agent package's consultation part",
+      "outcome": "The planner's consultation in code takes requests only: the API generates its request tool, which the project assistant selects, and no consult tool, and the administration shows the consultation as requests only, with the project assistant as its asker and no proposal routes. The project follow-up, created in the administration, gets a consultation about the whole application as data that takes requests only (`SampleAgentConfigurationService.FollowUpRequestsOnly`): its request tool appears without a deploy and no consult tool does. A requests-only save that also names what only a consultation's own turn uses, or switches requests off, is refused with its field errors before anything is stored. The library tests prove on SQL Server and PostgreSQL that only the request tool is generated in code and as data, with the consultation's description for the asking model, that a package carries the flag without the turn's settings and imports again, that only such a consultation names the field in a package's fields and locks, and that startup refuses each setting of a consultation's own turn.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRequestAnswerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataConsultationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-362",
+      "categoryId": "18",
+      "title": "The API offers a remote planning service's MCP tool through a tool of its own instead of passing the imported tool on",
+      "surface": "A code-owned `[NhAiTool]` (`ProjectPlanningMilestoneTools`, `projects.next-milestone`, exposed to `Local`, `Agent` and `Mcp`) in a generated catalog that calls one reviewed tool of a remote MCP server with the official MCP client, the application's own address and credential (`SampleProjectManagement:PlanningService`) and fixed arguments; the boundary of `INhAiMcpClientToolImporter`, whose imported tools are never exported over MCP again",
+      "outcome": "An MCP tool that the assistant imports is never exported again, so a partner that may call the API's MCP endpoint never reaches the planning service on the API's credential through it. The API offers what the planning service's `next_milestone` knows through `projects.next-milestone`, which it owns and reviews like its other tools: its own contract, effect, view policy, read capability and exposure, a project of the authorized division only, whose key is the one argument it sends, and an answer of at most 500 characters. The test starts a planning service over Streamable HTTP and shows that the tool answers with the service's milestone on the application's own key, that a project outside the division never reaches the service, and that without its configuration the tool fails closed with `planning-not-configured`; there is no development default. Importing the same remote tool with `INhAiMcpClientToolImporter` serves chats and agents, but an import policy that asks for the MCP exposure is refused, so the imported tool never reaches the export.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPlanningMilestoneTools.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePlanningMilestonesComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs"
+      ]
+    },
+    {
       "id": "SPM-366",
       "categoryId": "18",
       "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",

@@ -165,8 +165,11 @@ public static class SampleIntakeReviewerComposition
                         .AskerDecides()
                         .Policy(ConsultationPolicyId))
                     // Participants may also ask the reviewer to review the project again in a run
-                    // of its own; they are notified when it ends.
-                    .AllowRequests()))
+                    // of its own; they are notified when it ends. SPM-360: the review's answer also
+                    // comes back into the chat the participant asked in, once, readable by them, with
+                    // a link to where the portal shows the project's agent work.
+                    .AllowRequests()
+                    .AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)))
             .AddTrigger<ProjectCreatedEvent>(TriggerId, trigger => trigger
                 .StartAgent(AgentId)
                 .Subject(ProjectSubjects.Type, evt => ProjectSubjects.IdOf(evt.ProjectId))

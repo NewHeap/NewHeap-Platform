@@ -521,6 +521,78 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
         Assert.Empty(host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().Descriptors);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_consultation_as_data_takes_requests_only_and_answers_requests_where_the_ceiling_says(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), new NhAiScriptedChatClient(), answerRequests: true);
+        await CreateStarterAsync(host, withRunSettings: true);
+        var requestsOnly = Read() with { AllowRequests = true, RequestsOnly = true };
+
+        // Requests only keeps its requests and leaves out what only a consultation's own turn uses (FB30).
+        Assert.Equal("allowRequests", Field(await SaveAsync(host, StarterId, requestsOnly with { AllowRequests = false }), NhAssistantFieldErrors.Required));
+        Assert.Equal("routes", Field(await SaveAsync(host, StarterId, requestsOnly with { Routes = [NhAssistantConsultationRoutes.AskerDecides] }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("instructions", Field(await SaveAsync(host, StarterId, requestsOnly with { Instructions = "Answer briefly." }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("minimumRole", Field(await SaveAsync(host, StarterId, requestsOnly with { MinimumRole = NhAssistantSubjectRoleNames.Participant }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("proposalPolicy", Field(await SaveAsync(host, StarterId, requestsOnly with { ProposalPolicy = "initiator-only" }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("limits", Field(await SaveAsync(host, StarterId, requestsOnly with { MaxHistoryMessages = 5 }), NhAssistantFieldErrors.NotAllowed));
+        Assert.Equal("toolSelectors", Field(await SaveAsync(host, StarterId, requestsOnly with { ToolSelectors = ["projects.*"] }), NhAssistantFieldErrors.NotAllowed));
+
+        var saved = await SaveAsync(host, StarterId, requestsOnly);
+        Assert.True(saved.Success, Code(saved));
+        var dto = saved.Data!;
+        Assert.Equal((true, true, true, string.Empty, RequestToolId), (dto.InEffect, dto.RequestsOnly, dto.AnswerRequestsInAskingConversation, dto.ConsultToolId, dto.RequestToolId));
+        Assert.Empty(dto.RoutesInEffect);
+        // The asking agent selects consult tools only, so nobody asks this consultation yet.
+        Assert.Empty(dto.AskingAgents);
+        Assert.Equal(
+            [RequestToolId],
+            host.Services.GetRequiredService<NhAssistantDataConsultationToolCatalog>().Descriptors.Select(descriptor => descriptor.Id));
+        var options = Assert.Single(State(host).AgentRuns[StarterId].Consultations);
+        Assert.Equal((true, true, NhAssistantRequestAnswerRoute.AskingConversation), (options.RequestsOnly, options.AllowRequests, options.RequestAnswerRoute));
+        Assert.Empty(options.AllowedRoutes);
+
+        // A package carries the flag without the settings of a consultation's own turn, and its import
+        // saves the same consultation again; only a consultation that takes requests only names it.
+        await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            var row = await context.Set<AssistantAgentConsultationDefinition>().SingleAsync(item => item.AgentId == StarterId);
+            Assert.True(row.RequestsOnly);
+            var part = NhAssistantAgentPackageParts.ConsultationOf(row);
+            Assert.Equal((true, true), (part.RequestsOnly, part.AllowRequests));
+            Assert.Equal((null, null, null, null, null), (part.Instructions, part.MinimumRole, part.ProposalRole, part.MaxToolCalls, part.MaxHistoryMessages));
+            Assert.Null(part.Routes);
+            Assert.Equal("true", NhAssistantPackageFields.Of(row)["requestsOnly"]);
+            row.RequestsOnly = false;
+            Assert.False(NhAssistantPackageFields.Of(row).ContainsKey("requestsOnly"));
+            Assert.Null(NhAssistantAgentPackageParts.ConsultationOf(row).RequestsOnly);
+            Assert.Contains("requestsOnly", NhAssistantPackageLockFields.Consultation);
+
+            var imported = await SaveAsync(host, StarterId, NhAssistantAgentPackageParts.RequestOf(part, 1, "Import"));
+            Assert.True(imported.Success, Code(imported));
+            Assert.Equal((2, true), (imported.Data!.Version, imported.Data.RequestsOnly));
+        }
+    }
+
+    [Fact]
+    public void Requests_answer_in_the_asking_conversation_only_when_both_ceilings_say_so()
+    {
+        var application = Ceiling(data => data.AllowRequests().AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation));
+        var agent = new NhAssistantConsultationCeiling();
+        new NhAssistantConsultationCeilingBuilder(agent).AllowRequests().AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation);
+        Assert.Equal(NhAssistantRequestAnswerRoute.AskingConversation, application.Intersect(agent).RequestAnswerRoute);
+        Assert.Null(agent.OutsideOf(application));
+
+        var threadOnly = Ceiling(data => data.AllowRequests());
+        Assert.Equal(NhAssistantRequestAnswerRoute.AgentThread, threadOnly.Intersect(agent).RequestAnswerRoute);
+        Assert.Equal("request answers in the asking conversation", agent.OutsideOf(threadOnly));
+
+        // An answer route needs requests, so startup fails without them.
+        Assert.Contains("allows no requests", Assert.Throws<InvalidOperationException>(() => Ceiling(data => data
+            .AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation))).Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_ceiling_of_an_agent_in_code_stays_within_the_applications_and_needs_rights_of_its_own_for_its_rights()
     {
@@ -572,7 +644,8 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
         NhAiScriptedChatClient asker,
         NhAssistantTiming? timing = null,
         bool allowMcp = true,
-        bool startOff = false)
+        bool startOff = false,
+        bool answerRequests = false)
     {
         // The agent created in the administration works with the application's chat profile, so the
         // host's model is the consulted agent's; the asking agent has a model of its own.
@@ -617,6 +690,10 @@ public sealed class AssistantDataConsultationTests(AssistantDatabaseFixture data
                     if (startOff)
                     {
                         data.StartOff();
+                    }
+                    if (answerRequests)
+                    {
+                        data.AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation);
                     }
                 })
                 .AddAgent(AssistantTestData.Agent(AskingAgentId) with
