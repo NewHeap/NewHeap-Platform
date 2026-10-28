@@ -112,6 +112,22 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
     }
 
     [Fact]
+    public async Task A_host_whose_binding_sends_the_chain_without_the_applications_name_does_not_start()
+    {
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            AssistantTestProvider.PostgreSql,
+            new NhAiScriptedChatClient(),
+            assistantBuilder: assistant => assistant.AddMcpContextBinding(
+                new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask") { IncludeChain = true }));
+
+        var validator = host.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<NhAssistantStartupValidator>().Single();
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => validator.StartAsync(CancellationToken.None));
+
+        Assert.Contains("UseMcpChainApplication", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_server_whose_url_differs_from_the_reviewed_binding_receives_no_context()
     {
         var model = new NhAiScriptedChatClient()

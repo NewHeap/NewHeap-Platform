@@ -141,10 +141,11 @@ internal sealed class NhAssistantMcpChains
                 "IncludeChain and ContinueMcpChain need the application's name in consultation chains. Call UseMcpChainApplication.");
         }
 
-        foreach (var caller in _callers.Where(caller => string.Equals(caller.ApplicationId, ApplicationId, StringComparison.Ordinal)))
+        var ownName = _callers.FirstOrDefault(caller => string.Equals(caller.ApplicationId, ApplicationId, StringComparison.Ordinal));
+        if (ownName is not null)
         {
             throw new InvalidOperationException(
-                $"The reviewed MCP caller of issuer '{caller.Issuer}' takes the application's own name '{caller.ApplicationId}' in consultation chains.");
+                $"The reviewed MCP caller of issuer '{ownName.Issuer}' takes the application's own name '{ownName.ApplicationId}' in consultation chains.");
         }
     }
 
