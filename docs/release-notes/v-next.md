@@ -14,9 +14,3 @@ callers of another tenant log nothing. Hosts without tenants see no change in be
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantDecidingPerson(User, ActorId, TenantId)` requires `TenantId`; the default `null` is gone. | Pass the tenant the person signs in with, as the context resolver gives it; pass `null` explicitly only in a host without tenants or for its operators. |
-
-## @newheap/platform-common
-
-| Breaking change | Required action |
-|---|---|
-| Collection and mutate bases now expose `NhToastrService` instead of `ngx-toastr` and support Angular 20.3.28+, 21 and 22. | Install `@newheap/nh-toastr`, replace `ToastrModule.forRoot` with `provideNhToastr(...)`, render one `NhToastrContainerComponent` in the shell, migrate direct service injections and unsupported custom options, and remove the old dependency and stylesheet. |
