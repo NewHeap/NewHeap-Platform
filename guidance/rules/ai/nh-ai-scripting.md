@@ -1,0 +1,91 @@
+---
+id: nh-ai-scripting
+title: "Let a model chain the tools of its turn with one sandboxed script"
+area: backend
+reference: ai-scripting
+summary: "Offer the opt-in script tool where an agent or MCP exposure allows scripts, keep its limits tight and let every call it makes get the decision the same call gets on its own."
+sample-cases: ["SPM-373", "SPM-374"]
+public-symbols: ["AddNewHeapPlatformAIScripting", "NhAiScriptingBuilder", "NhAiScriptingOptions", "NhAiScriptLimits", "NhAiScriptTool", "NhAiScriptRunner", "NhAiScriptSignatures", "NhAiScriptFieldError", "NhAiScriptResult", "NhAiScriptCallRecord", "NhAiScriptStop", "NhAiScriptCodes", "NhAiScriptCallOutcomes", "NhAiScriptStatuses", "INhAiScriptHost", "NhAiScriptToolOffer", "NhAiScriptToolCall", "NhAiScriptCallOutcome", "NhAiScriptCallOutcomeKind", "NhAiScriptRunInput", "INhAiMcpToolContributor", "NhAiMcpToolContribution", "NhAiMcpExportedTool", "AddNewHeapPlatformAIMcpToolContributor", "NhAssistantToolStepTurn"]
+skills: ["newheap-backend-development"]
+providers: ["provider-neutral"]
+risk: high
+---
+## Preferred approach
+
+Install `NewHeap.Platform.AI.Scripting` and call `services.AddNewHeapPlatformAIScripting(...)` once the
+assistant is registered: the script tool runs every call through the assistant's step runtime
+(`INhAssistantToolSteps`), also for an MCP client. The package adds one governed tool, `run_script`
+(`NhAiScriptTool.ToolId` `scripts.run`), marked `NhAiCompositionFeature.Scripts`. The model writes a
+short JavaScript program, the body of an async function, in which each tool it is offered in that turn
+is `tools.<function name>(input)`; the program runs on the server and only the value it returns goes
+back to the model. Use it for chains whose later calls depend on earlier results, so the model does not
+read every intermediate result.
+
+Opt in where an agent works, never globally. `ConfigureAgentContext(agentId, context =>
+context.AllowScripts())` is the agent's ceiling in code and `WithNewHeapPlatformAITools(mcp =>
+mcp.AllowScripts())` the MCP exposure's; above both, the application's composition switch decides per
+turn, run and MCP request (`NewHeap:AI:Assistant:Scripts` by default, or the application's own
+`UseCompositionSwitch<T>()`). The tool is then offered in a person's chat, an agent run that a trigger
+or schedule starts, a consultation, a hand-off and over MCP. It needs no tool selector, and its tools
+are exactly the tools the agent is offered in that turn: a consultation's or run's own tool ceiling bounds
+its scripts too. Over MCP the tool is added per request through `INhAiMcpToolContributor` and lists the
+caller's own MCP tools; a script never reaches a tool the caller is not offered. An application
+discovery policy (`INhAiToolDiscoveryPolicy`) must let `scripts.run` through where its tools are
+discovered; a headless run without a person needs a grant of `scripts.run`, which lends its calls
+nothing, because each call is authorized on its own.
+
+Set the limits per agent with `ConfigureAgent(agentId, limits => ...)`, for MCP with `ConfigureMcp` and
+for every other agent with `ConfigureDefaults`. `NhAiScriptLimits` caps statements, wall-clock time
+with the tool calls included, allocated memory, recursion, tool calls (at most 64, the step runtime's
+ceiling), calls that change data (`MaxMutationsPerScript`) and the size of the returned value. Keep
+`MaxMutationsPerScript` at 0, the default, unless the agent's scripts must change data: a read-only
+script is not offered such tools at all. A destructive tool runs in a script only after
+`AllowDestructive(toolId)`. Every script gets a fresh Jint engine in strict mode without .NET access,
+modules, `require`, `eval`, `Function` or timers.
+
+Every call inside a script gets exactly the decision the same call gets on its own: the application's
+effect, approval requirement, approval policy, guards and budget. With `NhAiApprovalMode.Deferred` the
+call returns the "proposal recorded" result and the script goes on, so later calls never depend on that
+outcome; with `Inline` the script stops at that call with `ai-script-waiting-for-approval`, returns what
+it did so far and the pending proposal, and the turn waits as it does for the call on its own. There is
+no transaction across calls: the result lists, in order, every call with its outcome
+(`NhAiScriptCallOutcomes`), what was proposed and where the script stopped (`stoppedAt`). The script's
+text is the call's argument, which the turn's tool invocation stores; each call is a step row of the
+script call with its origin (`NhAiToolCallOrigin` with the script's SHA-256) on its invocation context,
+audit record and proposal guard context, so a guard can treat a script's call differently. The agent's
+Activity in the administration (`GET admin/agents/{id}/compositions/activity`) lists each script call
+content-free with its calls in order, the rounds it saved and the size of its result, as it does for a
+composition.
+
+The description lists the tools as TypeScript-style declarations generated from their JSON schemas
+(`NhAiScriptSignatures`), within `MaxDescriptionLength`: beyond it, tools are listed with their argument
+names and then by name. A call that does not match its signature stops the script with
+`ai-script-call-invalid`, the exact signature and the field error, so the model corrects the script in
+one step. Every other stop has a precise code in `NhAiScriptCodes`: a syntax error with its line and
+column, a limit, an unknown tool, a refused tool or a call the turn refused.
+
+`NhAiScriptRunner` runs a script against any `INhAiScriptHost`, which a test uses to prove an engine
+case without a database; production hosts are the assistant's step sessions.
+
+## Avoid
+
+- Allowing scripts for every agent or exposure instead of the agents that need chains.
+- Raising `MaxMutationsPerScript` to let a script loop over changes that people should decide one by one.
+- Treating a proposal a script recorded as done, or reading a later result as if it depended on it.
+- Opting a destructive tool in to scripts without a guard that knows the script's origin.
+- Exposing .NET objects, modules or a host function to the engine besides the tools of the turn.
+- Running a script outside the step runtime, which would bypass the per-call decisions and the activity.
+- Expecting a script to reach a tool its agent or MCP caller is not offered.
+
+## Verification
+
+Run engine tests on a host of your own: a chained program returns only its value and lists its calls in
+order; an infinite loop, a deep recursion, memory also after a call, the call after the tool-call limit
+and the mutation after the mutation limit stop with their codes; `typeof System`, `require`, `import`,
+`eval` and `Function` reach nothing; an unknown tool and a refused tool are never called; a misspelled
+field returns the exact signature and the field; a deferred proposal lets the script go on and an inline
+one stops it with what it did. On SQL Server and PostgreSQL, run a script in a person's chat and in a
+triggered run: its calls are step rows of the script call with the script's hash, and with scripts
+switched off the tool is not offered. Over MCP, list the tool only where the exposure allows scripts and
+the switch has them on, and prove that a call while they are off is refused with
+`assistant-scripting-off`. SPM-373 and SPM-374 are the executable reference.

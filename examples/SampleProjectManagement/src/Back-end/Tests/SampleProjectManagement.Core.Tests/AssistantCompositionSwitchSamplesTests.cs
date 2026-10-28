@@ -94,15 +94,17 @@ public sealed class AssistantCompositionSwitchSamplesTests(AssistantCompositionS
             Assert.Equal("not-allowed", body.RootElement.GetProperty("errors").GetProperty("compositions")[0].GetString());
         }
 
-        // What the assistant actually does, next to the portal's checkbox. Neither feature has a tool in
-        // this sample yet, so the state says so for both, whatever the setting.
+        // What the assistant actually does, next to the portal's checkbox. The sample registers the script
+        // tool (SPM-373) and the project overview (SPM-372): compositions are outside the ceiling for
+        // agents created in the administration, and the desk's own definition uses the script tool, which
+        // the portal's setting of the desk has off.
         var state = await host.GetJsonAsync(admin, $"/api/assistant/admin/agents/{SampleRuntimeAgentSeeder.ScriptingDeskAgentId}/compositions");
         Assert.Equal(SampleRuntimeAgentSeeder.ScriptingDeskAgentId, state.GetProperty("agentId").GetString());
-        Assert.All(state.GetProperty("features").EnumerateArray(), feature =>
-        {
-            Assert.False(feature.GetProperty("on").GetBoolean());
-            Assert.Equal(NhAssistantCompositionReasons.NotInstalled, feature.GetProperty("reason").GetString());
-        });
+        var features = state.GetProperty("features").EnumerateArray().ToDictionary(
+            feature => feature.GetProperty("feature").GetString()!,
+            feature => (On: feature.GetProperty("on").GetBoolean(), Reason: feature.GetProperty("reason").GetString()!));
+        Assert.Equal((false, NhAssistantCompositionReasons.NotAllowedForDataAgents), features["compositions"]);
+        Assert.Equal((false, NhAssistantCompositionReasons.OffByApplication), features["scripts"]);
 
         // Only the assistant's administrators read it.
         using var forbidden = await member.GetAsync($"/api/assistant/admin/agents/{ProjectAssistant}/compositions", cancellation);
@@ -123,13 +125,14 @@ public sealed class AssistantCompositionSwitchSamplesTests(AssistantCompositionS
 }
 
 /// <summary>
-/// The sample assistant with the portal's own composition switch, as Program.cs composes it after
-/// <c>AddSampleAssistant</c>.
+/// The sample assistant with the portal's own composition switch and the project overview, as Program.cs
+/// composes them after <c>AddSampleAssistant</c>, which registers the script tool.
 /// </summary>
 public sealed class AssistantCompositionSwitchSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
     protected override void ConfigureAssistant(IServiceCollection services)
     {
         services.AddSampleAssistantCompositions();
+        services.AddSampleProjectOverview();
     }
 }

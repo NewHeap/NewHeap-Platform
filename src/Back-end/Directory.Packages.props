@@ -24,6 +24,10 @@
     <PackageVersion Include="Hangfire.Console" Version="1.4.3" />
     <PackageVersion Include="Hangfire.InMemory" Version="1.0.0" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <!-- Jint and its parser Acornima are dependencies of NewHeap.Platform.AI.Scripting only. Acornima is
+         pinned to the version Jint 4.17.0 is built against, because that package reads its parse errors. -->
+    <PackageVersion Include="Acornima" Version="1.7.0" />
+    <PackageVersion Include="Jint" Version="4.17.0" />
     <PackageVersion Include="KeyedSemaphores" Version="6.1.0" />
     <PackageVersion Include="MailKit" Version="4.18.2" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />

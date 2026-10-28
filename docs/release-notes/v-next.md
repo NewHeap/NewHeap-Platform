@@ -309,3 +309,32 @@ its reason, and an agent created in the administration switches compositions and
 within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
 answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
 Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
+## NewHeap.Platform.AI.Scripting (new package): the script tool
+
+The new package `NewHeap.Platform.AI.Scripting` adds the script tool `run_script` (SPM-373, SPM-374):
+the model writes a short JavaScript program in which each tool it is offered in that turn is an async
+function of `tools`, the program runs on the server and only its return value goes back to the model.
+`services.AddNewHeapPlatformAIScripting(scripting => ...)` registers it; it is offered only where code
+allows scripts (`ConfigureAgentContext(agentId, context => context.AllowScripts())`,
+`WithNewHeapPlatformAITools(mcp => mcp.AllowScripts())`) and the application's composition switch has
+them on. Every call runs as a step of the call's step session (`INhAssistantToolSteps`) and gets exactly
+the decision the same call gets on its own: a deferred proposal returns the "proposal recorded" result
+and the script goes on, an inline approval stops the script with `ai-script-waiting-for-approval` and
+the turn waits. Each script gets a fresh Jint engine in strict mode without .NET access, modules,
+`require`, `eval` or timers, within `NhAiScriptLimits`: statements, time, memory, recursion, tool calls
+(at most 64), `MaxMutationsPerScript` (0, the default, makes scripts read-only) and result size, per
+agent (`ConfigureAgent`), for MCP (`ConfigureMcp`) or by default (`ConfigureDefaults`); a destructive tool
+runs in a script only after `AllowDestructive(toolId)`. The description lists the tools as
+TypeScript-style signatures generated from their JSON schemas, and a call that does not match stops with
+`ai-script-call-invalid`, the exact signature and the field error. The result lists every call in order
+with its outcome; the stop codes are in `NhAiScriptCodes`. It depends on Jint 4.17.0 (BSD-2-Clause) and
+Acornima 1.7.0 (BSD-3-Clause), which no other package references. The script is the call's argument,
+which the activity already stores: no migration.
+
+## NewHeap.Platform.AI.Mcp and NewHeap.Platform.AI.Chat: what the script tool builds on
+
+`INhAiMcpToolContributor` (`AddNewHeapPlatformAIMcpToolContributor<T>`) adds tools to the MCP export of a
+request over exactly the governed tools that caller sees; the script tool uses it to list the caller's
+own tools. `NhAssistantToolStepTurn.Current(caller)` names the agent and the tools a step session would
+offer in the current turn, before the call. Without the package nothing changes.

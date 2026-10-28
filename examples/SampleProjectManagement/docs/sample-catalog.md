@@ -649,8 +649,9 @@ assistant allows both features in code, agents created in the administration may
 (`UseCompositionsAsData`), as the scripting desk of the development seed does in its own definition, and
 the MCP exposure allows the script tool and compositions, whose setting the page lists under MCP clients.
 Next to each checkbox the page shows what the assistant actually does and why, from
-`GET admin/agents/{id}/compositions`; the sample registers no script tool of its own, so the state reads
-that the scripting package is not installed until it is. `AssistantCompositionSwitchSamplesTests` saves a
+`GET admin/agents/{id}/compositions`: for the scripting desk, compositions are not allowed for agents
+created in the administration, and the script tool its definition uses is off by the application until
+the portal's setting of the desk has it on. `AssistantCompositionSwitchSamplesTests` saves a
 setting and asks the switch per environment and agent, and reads the effective state and the refusal of
 compositions for an agent created in the administration over the assistant API.
 
@@ -668,6 +669,20 @@ in the administration shows each call with the tool calls it ran in order, the r
 size of the result the model received (`GET admin/agents/{id}/compositions/activity`).
 `AssistantCompositionSamplesTests` switches compositions on in the portal's setting, runs the chat turn
 and reads the activity.
+
+A chained question costs one call when the model writes a script (SPM-373). The project assistant's
+agent context allows scripts, `AddNewHeapPlatformAIScripting` gives its scripts at most four calls and one
+change, and where the portal's setting (SPM-371) has scripts on the assistant offers `run_script`, whose
+description lists the turn's tools as TypeScript-style signatures. Asked which projects cover the roadmap
+and the launch, the model searches both topics in one short program that runs on the server and returns
+only the distinct keys; each search runs as the person's own call would, and the model reads the value,
+not the search results. A call that does not match its signature stops the script with the exact
+signature and the field to correct, so the next script gets it right. A change inside a script gets the
+sample's approval exactly as the same call on its own (SPM-374): the status change stops the script, the
+person sees the usual approval card and nothing after the change runs until they decide. The agent's
+Activity lists a script call with its calls as it does a composition's.
+`AssistantScriptSamplesTests` switches scripts on in the portal's setting and runs both on the sample's
+host.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

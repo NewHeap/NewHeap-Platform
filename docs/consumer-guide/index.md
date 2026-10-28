@@ -32,6 +32,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [ai-model-profiles](./ai-model-profiles.md) — 1 rule
 - [ai-observability-evaluation](./ai-observability-evaluation.md) — 1 rule
 - [ai-protected-actions](./ai-protected-actions.md) — 1 rule
+- [ai-scripting](./ai-scripting.md) — 1 rule
 - [authentication-overrides](./authentication-overrides.md) — 1 rule
 - [authentication-passkeys](./authentication-passkeys.md) — 1 rule
 - [authentication-session-lifecycle](./authentication-session-lifecycle.md) — 3 rules
@@ -66,4 +67,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 51 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 52 validated rules.

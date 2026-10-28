@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "b281dea4a5533ca0021e5a50e2bd55c5733bfe36a9a04759d7493e9646772a26",
-    "declarationCount": 11703,
+    "hash": "a70fa8f8b9b392a3c338c5256e5688dbbd1a5052859e4fefd3e74e78e96c832f",
+    "declarationCount": 11868,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -20638,6 +20638,14 @@
         "declaration": "public interface INhAssistantToolPresenter {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolStepTurn.cs",
+        "declaration": "public sealed record NhAssistantToolStepTurn(string AgentId, IReadOnlyList<NhAiToolDescriptor> Tools) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolStepTurn.cs",
+        "declaration": "public static NhAssistantToolStepTurn? Current(NhAiToolDescriptor caller) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
         "declaration": "public interface INhAssistantToolSteps {"
       },
@@ -24111,6 +24119,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public IReadOnlyList<NhAiToolDescriptor> OfferedTools { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public string? SkillId { get; set; }"
       },
       {
@@ -24904,6 +24916,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
         "declaration": "public static bool MayBeStep(NhAiToolDescriptor descriptor, NhAiToolDescriptor caller) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
+        "declaration": "public static IEnumerable<NhAiToolDescriptor> StepToolsOf( IEnumerable<NhAiToolDescriptor> offered, NhAiToolDescriptor caller) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
@@ -29331,6 +29347,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public interface INhAiMcpToolContributor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public sealed record NhAiMcpToolContribution( IServiceProvider Services, NhAiInvocationContext Context, IReadOnlyList<NhAiMcpExportedTool> Tools);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public sealed record NhAiMcpExportedTool( NhAiToolDescriptor Descriptor, AIFunction Function);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public static class NhAiMcpServiceCollectionExtensions {"
       },
       {
@@ -29339,7 +29367,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIMcpToolContributor<TContributor>( this IServiceCollection services) where TContributor : class, INhAiMcpToolContributor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public async ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync( IServiceProvider services, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override Tool ProtocolTool => inner.ProtocolTool;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override IReadOnlyList<object> Metadata => inner.Metadata;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
@@ -29412,6 +29456,622 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public static class NhAiScriptCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string SyntaxError = \"ai-script-syntax-error\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string RuntimeError = \"ai-script-runtime-error\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string TooLong = \"ai-script-too-long\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Timeout = \"ai-script-timeout\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string StatementLimit = \"ai-script-statement-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string MemoryLimit = \"ai-script-memory-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string RecursionLimit = \"ai-script-recursion-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string ToolCallLimit = \"ai-script-tool-call-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string MutationLimit = \"ai-script-mutation-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string ResultTooLarge = \"ai-script-result-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string UnknownTool = \"ai-script-unknown-tool\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string ToolRefused = \"ai-script-tool-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string CallInvalid = \"ai-script-call-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string CallRefused = \"ai-script-call-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string WaitingForApproval = \"ai-script-waiting-for-approval\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Stalled = \"ai-script-stalled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string NotSupported = \"ai-script-not-supported\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string NotAvailable = \"ai-script-not-available\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public static class NhAiScriptCallOutcomes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Done = \"done\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Failed = \"failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Proposed = \"proposed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string NotNeeded = \"not-needed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string WaitingForApproval = \"waiting-for-approval\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Refused = \"refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Invalid = \"invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public static class NhAiScriptStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Completed = \"completed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
+        "declaration": "public const string Stopped = \"stopped\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public interface INhAiScriptHost {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public sealed record NhAiScriptToolOffer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public NhAiScriptToolOffer(string name, NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public string Name { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public NhAiToolDescriptor Descriptor { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public bool IsMutation => Descriptor.Effect != NhAiToolEffect.ReadOnly;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public sealed record NhAiScriptToolCall( NhAiScriptToolOffer Tool, JsonElement Arguments, string ScriptHash, int Sequence);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public enum NhAiScriptCallOutcomeKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public sealed record NhAiScriptCallOutcome( NhAiScriptCallOutcomeKind Kind, JsonElement Result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public Guid? ProposalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public static NhAiScriptCallOutcome Completed(JsonElement result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public static NhAiScriptCallOutcome Proposed(JsonElement result, Guid? proposalId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public static NhAiScriptCallOutcome AwaitingApproval(JsonElement result, Guid? proposalId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public static NhAiScriptCallOutcome Refused(JsonElement result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
+        "declaration": "public static NhAiScriptCallOutcome NotNeeded(JsonElement result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public sealed class NhAiScriptLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public const int HardMaxScriptLength = 10_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public const int HardMaxToolCalls = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxScriptLength { get; set; } = 8_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxStatements { get; set; } = 100_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public long MaxMemoryBytes { get; set; } = 16 * 1024 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxRecursionDepth { get; set; } = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxToolCalls { get; set; } = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxMutationsPerScript { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxResultBytes { get; set; } = 16 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public int MaxDescriptionLength { get; set; } = 16_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public NhAiScriptLimits Clone() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptLimits.cs",
+        "declaration": "public void Validate() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+        "declaration": "public ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync( NhAiMcpToolContribution contribution, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+        "declaration": "public NhAiScriptMcpServerTool(AIFunction function, NhAiScriptLimits limits) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+        "declaration": "public override Tool ProtocolTool => _protocolTool;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+        "declaration": "public override IReadOnlyList<object> Metadata => _metadata;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptMcpTool.cs",
+        "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public sealed record NhAiScriptCallRecord( int Sequence, string Tool, string ToolId, string Outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public string? Code { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public Guid? ProposalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public bool Mutation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public sealed record NhAiScriptStop(string Code, string Message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int? Sequence { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public string? Tool { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int? Line { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int? Column { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public string? Signature { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public NhAiScriptFieldError? FieldError { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public string? CallCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public Guid? ProposalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public sealed record NhAiScriptResult {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public required string Status { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public required string ScriptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public JsonElement? Value { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int ValueBytes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptCallRecord> Calls { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public IReadOnlyList<string> Logs { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public NhAiScriptStop? Stop { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public bool Completed => string.Equals(Status, NhAiScriptStatuses.Completed, StringComparison.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int Done => Calls.Count(call => call.Outcome == NhAiScriptCallOutcomes.Done);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int Proposed => Calls.Count(call => call.Outcome == NhAiScriptCallOutcomes.Proposed);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public int RoundsSaved => Math.Max(0, Calls.Count - 1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public JsonElement ToToolResult() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
+        "declaration": "public string Describe() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public sealed class NhAiScriptRunner {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public NhAiScriptRunner(NhAiScriptingOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public static string HashOf(string script) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptToolOffer> CallableTools(INhAiScriptHost host, NhAiScriptLimits limits) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptToolOffer> CallableTools(IReadOnlyList<NhAiScriptToolOffer> offers, NhAiScriptLimits limits) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public async Task<NhAiScriptResult> RunAsync( string script, INhAiScriptHost host, NhAiScriptLimits limits, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public NhAiScriptStop Stop { get; } = stop;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public string Code { get; } = code;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public override void Check() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public override void Reset() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public void BeginSegment() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public void EndSegment() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public override void Check() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public override void Reset() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public ScriptRun(NhAiScriptRunner runner, INhAiScriptHost host, NhAiScriptLimits limits, string hash, string script) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public async Task<NhAiScriptResult> ExecuteAsync(Prepared<Script> prepared, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public sealed record NhAiScriptFieldError(string Field, string Error);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public static class NhAiScriptSignatures {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public static string Declare(NhAiScriptToolOffer tool) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public static string Signature(NhAiScriptToolOffer tool) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public static string DeclareCompact(NhAiScriptToolOffer tool) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public static NhAiScriptFieldError? Validate(NhAiScriptToolOffer tool, JsonElement arguments) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public string Write(JsonElement schema, int depth, bool describe) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+        "declaration": "public NhAiScriptFieldError? Validate(JsonElement schema, JsonElement value, string path, int depth) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptStepHost.cs",
+        "declaration": "public NhAiScriptStepHost(NhAssistantToolStepSession session) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptStepHost.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptToolOffer> Tools { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptStepHost.cs",
+        "declaration": "public async ValueTask<NhAiScriptCallOutcome> CallAsync( NhAiScriptToolCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public sealed record NhAiScriptRunInput(string Script);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public static class NhAiScriptTool {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public const string ToolId = \"scripts.run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public const string FunctionName = \"run_script\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public const string CatalogId = \"scripts\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public const string ScriptArgumentName = \"script\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public static NhAiToolDescriptor Descriptor { get; } = CreateDescriptor(NhAiToolExposure.Agent);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public static NhAiToolDescriptor McpDescriptor { get; } = CreateDescriptor(NhAiToolExposure.Mcp);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public static JsonElement CreateInputSchema(NhAiScriptLimits limits) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public static string Describe(IReadOnlyList<NhAiScriptToolOffer> tools, NhAiScriptLimits limits) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public NhAiScriptFunction(IServiceProvider services, NhAiToolDescriptor descriptor, Func<NhAiScriptScope> scope) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public override string Name => _descriptor.ExportName;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public override string Description {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public override JsonElement JsonSchema => NhAiScriptTool.CreateInputSchema(_scope().Limits);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "public override JsonSerializerOptions JsonSerializerOptions => ResultOptions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptTool.cs",
+        "declaration": "protected override async ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public sealed class NhAiScriptingOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptLimits Defaults { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptLimits Mcp { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public IReadOnlyCollection<string> AgentsWithLimits => _agents.Keys;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptLimits LimitsOf(string? agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public bool AllowsDestructive(string toolId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public sealed class NhAiScriptingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder ConfigureDefaults(Action<NhAiScriptLimits> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder ConfigureAgent(string agentId, Action<NhAiScriptLimits> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder ConfigureMcp(Action<NhAiScriptLimits> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder AllowDestructive(params string[] toolIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public static class NhAiScriptingServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIScripting( this IServiceCollection services, Action<NhAiScriptingBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptToolCatalog() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiToolCatalogManifest Manifest { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public string AttestationHash { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiBridgeContractAssertions.cs",
@@ -51240,6 +51900,33 @@
       "NhAiGrantSource",
       "NhAiToolCallOrigin",
       "NhAiToolCallOriginKind"
+    ],
+    "nh-ai-scripting": [
+      "AddNewHeapPlatformAIScripting",
+      "NhAiScriptingBuilder",
+      "NhAiScriptingOptions",
+      "NhAiScriptLimits",
+      "NhAiScriptTool",
+      "NhAiScriptRunner",
+      "NhAiScriptSignatures",
+      "NhAiScriptFieldError",
+      "NhAiScriptResult",
+      "NhAiScriptCallRecord",
+      "NhAiScriptStop",
+      "NhAiScriptCodes",
+      "NhAiScriptCallOutcomes",
+      "NhAiScriptStatuses",
+      "INhAiScriptHost",
+      "NhAiScriptToolOffer",
+      "NhAiScriptToolCall",
+      "NhAiScriptCallOutcome",
+      "NhAiScriptCallOutcomeKind",
+      "NhAiScriptRunInput",
+      "INhAiMcpToolContributor",
+      "NhAiMcpToolContribution",
+      "NhAiMcpExportedTool",
+      "AddNewHeapPlatformAIMcpToolContributor",
+      "NhAssistantToolStepTurn"
     ],
     "nh-auth-microsoft-oauth": [
       "AddMicrosoftOAuth",

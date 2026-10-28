@@ -21,7 +21,10 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
                 ProjectAiTools.DivisionScopeKey,
                 out var divisionValue)
             && Guid.TryParse(divisionValue, out _);
+        // SPM-373: the script tool runs only the project tools this turn offers, each authorized on its
+        // own, so the division scope that every project tool needs is enough to discover it.
         var isProjectTool = descriptor.Id.StartsWith("projects.", StringComparison.Ordinal)
+            || descriptor.CompositionFeature == NhAiCompositionFeature.Scripts
             || ConsultationToolPrefixes.Any(prefix => descriptor.Id.StartsWith(prefix, StringComparison.Ordinal));
         return ValueTask.FromResult(
             isProjectTool

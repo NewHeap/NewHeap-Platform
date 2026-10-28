@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Scripting</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Scripting</Title>
+    <PackageDescription>The opt-in script tool for NewHeap AI agents and MCP exposures: a short JavaScript program calls the tools offered in that turn on the server, sandboxed by Jint with hard limits, and only its result returns to the model.</PackageDescription>
+    <PackageTags>newheap platform ai agents tools scripting javascript jint sandbox mcp</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Jint and its parser Acornima are dependencies of this package only. -->
+    <PackageReference Include="Acornima" />
+    <PackageReference Include="Jint" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.Mcp\NewHeap.Platform.AI.Mcp.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.Chat\NewHeap.Platform.AI.Chat.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Scripting.Tests" />
+  </ItemGroup>
+</Project>

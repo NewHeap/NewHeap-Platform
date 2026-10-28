@@ -17,6 +17,39 @@ public interface INhAiMcpToolAdapter
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Adds tools to the MCP export of one request after the governed tools the caller may see, such as
+/// the script tool of <c>NewHeap.Platform.AI.Scripting</c>. A contributor receives exactly the governed
+/// tools the export lists for that caller and works only through them, so a contributed tool can never
+/// reach a tool the caller is not offered. Its tools run with the budget purpose of an MCP call. Register
+/// it with <see cref="NhAiMcpServiceCollectionExtensions.AddNewHeapPlatformAIMcpToolContributor{TContributor}"/>;
+/// a contributed tool that takes the name of another tool of the export fails the listing.
+/// </summary>
+public interface INhAiMcpToolContributor
+{
+    ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync(
+        NhAiMcpToolContribution contribution,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What an <see cref="INhAiMcpToolContributor"/> works with: the request's services, the authorized
+/// invocation context of the caller and the governed tools the export lists for that caller, in the
+/// export's order.
+/// </summary>
+public sealed record NhAiMcpToolContribution(
+    IServiceProvider Services,
+    NhAiInvocationContext Context,
+    IReadOnlyList<NhAiMcpExportedTool> Tools);
+
+/// <summary>
+/// One governed tool of the MCP export: its descriptor and the governed function that runs it through
+/// the shared invoker.
+/// </summary>
+public sealed record NhAiMcpExportedTool(
+    NhAiToolDescriptor Descriptor,
+    AIFunction Function);
+
 public static class NhAiMcpServiceCollectionExtensions
 {
     public static IServiceCollection AddNewHeapPlatformAIMcp(
@@ -30,11 +63,26 @@ public static class NhAiMcpServiceCollectionExtensions
         services.TryAddSingleton<INhAiMcpClientToolImporter, NhAiMcpClientToolImporter>();
         return services;
     }
+
+    /// <summary>
+    /// Registers a contributor of tools to the MCP export (<see cref="INhAiMcpToolContributor"/>) as a
+    /// scoped service; registering the same contributor twice adds it once.
+    /// </summary>
+    public static IServiceCollection AddNewHeapPlatformAIMcpToolContributor<TContributor>(
+        this IServiceCollection services)
+        where TContributor : class, INhAiMcpToolContributor
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.AddNewHeapPlatformAIMcp();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiMcpToolContributor, TContributor>());
+        return services;
+    }
 }
 
 internal sealed class NhAiMcpToolAdapter(
     IEnumerable<INhAiToolCatalog> catalogs,
-    INhAiToolDiscoveryService discoveryService) : INhAiMcpToolAdapter
+    INhAiToolDiscoveryService discoveryService,
+    IEnumerable<INhAiMcpToolContributor> contributors) : INhAiMcpToolAdapter
 {
     public async ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync(
         IServiceProvider services,
@@ -50,6 +98,7 @@ internal sealed class NhAiMcpToolAdapter(
             .Select(descriptor => (descriptor.Id, descriptor.Version, descriptor.ContractHash))
             .ToHashSet();
         var result = new List<McpServerTool>(visible.Count);
+        var exported = new List<NhAiMcpExportedTool>(visible.Count);
         var exportNames = new HashSet<string>(StringComparer.Ordinal);
 
         // Static catalogs first: a tool that exists since startup keeps its export name.
@@ -128,6 +177,7 @@ internal sealed class NhAiMcpToolAdapter(
                 }
 
                 var hints = NhAiToolAnnotationHints.Resolve(descriptor);
+                exported.Add(new NhAiMcpExportedTool(descriptor, functions[index]));
                 if (descriptor.ExportSchema == NhAiToolExportSchema.Flat)
                 {
                     result.Add(new NhAiFlatSchemaMcpServerTool(functions[index], descriptor, hints));
@@ -150,7 +200,57 @@ internal sealed class NhAiMcpToolAdapter(
             }
         }
 
+        await AddContributedToolsAsync(services, context, exported, exportNames, result, cancellationToken);
         return result;
+    }
+
+    /// <summary>
+    /// Adds the tools of every contributor after the governed tools, each given only the governed tools
+    /// this caller sees.
+    /// </summary>
+    private async ValueTask AddContributedToolsAsync(
+        IServiceProvider services,
+        NhAiInvocationContext context,
+        IReadOnlyList<NhAiMcpExportedTool> exported,
+        HashSet<string> exportNames,
+        List<McpServerTool> result,
+        CancellationToken cancellationToken)
+    {
+        var contribution = new NhAiMcpToolContribution(services, context, exported);
+        foreach (var contributor in contributors)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var contributed = await contributor.CreateToolsAsync(contribution, cancellationToken);
+            foreach (var tool in contributed)
+            {
+                if (!exportNames.Add(tool.ProtocolTool.Name))
+                {
+                    throw new InvalidOperationException(
+                        $"The MCP tool contributor '{contributor.GetType().Name}' contributed '{tool.ProtocolTool.Name}', a name another tool of the export has.");
+                }
+
+                result.Add(new NhAiContributedMcpServerTool(tool));
+            }
+        }
+    }
+}
+
+/// <summary>
+/// A tool an <see cref="INhAiMcpToolContributor"/> added to the export. The governed calls it makes
+/// reserve their budget as MCP calls, as the export's own tools do.
+/// </summary>
+internal sealed class NhAiContributedMcpServerTool(McpServerTool inner) : McpServerTool
+{
+    public override Tool ProtocolTool => inner.ProtocolTool;
+
+    public override IReadOnlyList<object> Metadata => inner.Metadata;
+
+    public override async ValueTask<CallToolResult> InvokeAsync(
+        RequestContext<CallToolRequestParams> request,
+        CancellationToken cancellationToken = default)
+    {
+        using var purpose = NhAiBudgetPurposeScope.Begin(NhAiBudgetPurposes.Mcp);
+        return await inner.InvokeAsync(request, cancellationToken);
     }
 }
 
