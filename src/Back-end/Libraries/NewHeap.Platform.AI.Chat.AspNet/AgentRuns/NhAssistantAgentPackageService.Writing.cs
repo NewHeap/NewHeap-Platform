@@ -311,9 +311,13 @@ internal sealed partial class NhAssistantAgentPackageService
     {
         var now = DateTimeOffset.UtcNow;
         var info = plan.Package.Package;
+        // A part a promotion keeps linked takes the package version with the locks of its link (FB33).
         var links = plan.Parts
             .Where(part => part.Linked && part.Hash is not null && part.Fields is not null)
             .Select(part => LinkOf(part, info, actorId, now))
+            .Concat(plan.Parts
+                .Where(part => part.Outcome == NhAssistantPackagePartOutcomes.KeptLinked && part.Link is not null)
+                .Select(part => KeptLinkOf(part.Link!, info, actorId, now)))
             .ToArray();
         var unlinked = plan.Parts
             .Where(part => part.Outcome == NhAssistantPackagePartOutcomes.LeftBehind && part.Link is not null)
@@ -369,10 +373,15 @@ internal sealed partial class NhAssistantAgentPackageService
         CancellationToken cancellationToken)
     {
         var installed = plan.Installed!;
-        // The live agent's links to the package it belonged to before end with the promotion.
+        // The live agent's links to the package it belonged to before end with the promotion, except
+        // those of the parts it keeps linked, which move to the package version (FB33).
+        var kept = plan.Parts
+            .Where(part => part.Outcome == NhAssistantPackagePartOutcomes.KeptLinked)
+            .Select(part => (part.AgentId, part.Kind, part.Key))
+            .ToHashSet();
         foreach (var link in await packages.ListLinksAsync(promotion.LiveAgentId, cancellationToken))
         {
-            if (link.PackageId != installed.Id)
+            if (link.PackageId != installed.Id && !kept.Contains((link.AgentId, link.PartKind, link.PartKey)))
             {
                 unlinked.Add((link.AgentId, link.PartKind, link.PartKey));
             }
@@ -644,6 +653,32 @@ internal sealed partial class NhAssistantAgentPackageService
             Hash = part.Hash!,
             LockedFieldsJson = lockedFields.Count == 0 ? null : JsonSerializer.Serialize(lockedFields),
             LockedValuesJson = lockedValues is null ? null : JsonSerializer.Serialize(lockedValues),
+            LinkedAt = now,
+            LinkedBy = actorId
+        };
+    }
+
+    /// <summary>
+    /// The link of a part a promotion keeps linked (FB33): the package version the live agent takes,
+    /// with the locked fields, locked values and hash of the link the part had, so its locks keep
+    /// holding and whether it changed locally since its import stays known.
+    /// </summary>
+    private static AssistantAgentPackageLink KeptLinkOf(
+        AssistantAgentPackageLink link,
+        NhAssistantAgentPackageInfo info,
+        string actorId,
+        DateTimeOffset now)
+    {
+        return new AssistantAgentPackageLink
+        {
+            AgentId = link.AgentId,
+            PartKind = link.PartKind,
+            PartKey = link.PartKey,
+            PackageId = info.Id,
+            PackageVersion = info.Version,
+            Hash = link.Hash,
+            LockedFieldsJson = link.LockedFieldsJson,
+            LockedValuesJson = link.LockedValuesJson,
             LinkedAt = now,
             LinkedBy = actorId
         };

@@ -867,6 +867,15 @@ public sealed record NhAssistantShadowVariantPromotionInputDto(
     /// through the update path.
     /// </summary>
     public bool? AsPackageVersion { get; init; }
+
+    /// <summary>
+    /// With <see cref="AsPackageVersion"/>: <c>unlink</c> (default when omitted) leaves the live agent's
+    /// linked parts that the variant does not carry as local parts; <c>relink</c> keeps them linked to
+    /// the variant's package version with their locks, reported as <c>kept-linked</c> (FB33). Another
+    /// value answers <c>400 uncarriedParts: invalid</c>, <c>relink</c> without
+    /// <see cref="AsPackageVersion"/> <c>400 uncarriedParts: not-allowed</c>.
+    /// </summary>
+    public string? UncarriedParts { get; init; }
 }
 
 /// <summary>

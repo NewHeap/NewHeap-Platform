@@ -3766,6 +3766,103 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task SPM_352_promoted_with_relink_the_kickoff_desks_hand_off_stays_linked_to_the_next_package_version()
+    {
+        // SPM-352
+        const string desk = SampleAgentPackagesComposition.IntakeDeskId;
+        const string kickoff = SampleAgentPackagesComposition.KickoffDeskId;
+        const string trial = SampleAgentPackagesComposition.KickoffTrialId;
+        const string review = SampleAgentPackagesComposition.KickoffReviewSkillId;
+        var handOffPart = NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.HandOff, ProjectSubjects.Type);
+        var actor = host.OwnerId.ToString("D");
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The two desks of SPM-321, connected by a hand-off about projects, belong to their package.
+            await CreateRuntimeAgentAsync(administrator, desk, "Intake desk", "Hand every draft project to the kickoff desk.", ["assistant.handoff.*"]);
+            await CreateRuntimeAgentAsync(administrator, kickoff, "Kickoff desk", "Explain why you proposed to start the project.", [ProjectAiTools.ChangeStatusToolId]);
+            await SaveRuntimeRunSettingsAsync(desk, ruleHandler: null);
+            await SaveRuntimeRunSettingsAsync(kickoff, SampleProjectStarterComposition.KickoffRules);
+            using (var connected = await administrator.PutAsJsonAsync(
+                       $"/api/assistant/admin/agents/{kickoff}/hand-offs/{ProjectSubjects.Type}",
+                       new NhAssistantDataHandOffRequest([desk], "Starts draft projects that are ready to start."),
+                       Json))
+            {
+                Assert.Equal(HttpStatusCode.OK, connected.StatusCode);
+            }
+            Assert.True((await ConfigureAsync(configuration => configuration.SaveSkillAsync(
+                kickoff,
+                review,
+                new NhAssistantDataSkillRequest("Reviews a project before it starts.", "Check that the plan is complete before you propose to start.", [ProjectAiTools.ChangeStatusToolId]),
+                actor))).Success);
+            // SPM-321 and SPM-344 may have imported the packages on this host before: a package never goes back.
+            var installed = await InstalledVersionAsync(SampleAgentPackagesComposition.PackageId);
+            var installedNext = await InstalledVersionAsync(SampleAgentPackagesComposition.NextVersionPackageId);
+            using var export = await administrator.PostAsJsonAsync(
+                "/api/assistant/admin/agent-packages/export",
+                new NhAssistantAgentPackageExportRequest([desk, kickoff], SampleAgentPackagesComposition.ExportOptions(installed + 1)),
+                Json);
+            Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+            var package = NhAssistantAgentPackageFormat.Read(await export.Content.ReadAsStringAsync()).Data!;
+            await ImportPackageAsync(administrator, package, new NhAssistantAgentPackageImportOptions(Relink: [new(desk), new(kickoff)]));
+
+            // The next version of the kickoff desk carries the desk's parts without its hand-off.
+            var current = package.Agents.Single(agent => agent.Id == kickoff);
+            Assert.NotNull(current.HandOffs);
+            var next = SampleAgentPackagesComposition.NextKickoffVersion(
+                current with { Definition = current.Definition! with { Instructions = "Explain the plan and the budget before you propose to start the project." } },
+                Math.Max(2, installedNext + 1));
+            await ImportPackageAsync(
+                administrator,
+                next,
+                new NhAssistantAgentPackageImportOptions(new Dictionary<string, string> { [trial] = host.OperationsAccountId.ToString("D") }));
+            var live = (await administrator.GetFromJsonAsync<NhAssistantAdminAgentDto[]>("/api/assistant/admin/agents", Json))!.Single(item => item.Id == kickoff);
+            var waiting = (await administrator.GetFromJsonAsync<NhAssistantShadowVariantsDto>($"/api/assistant/admin/agents/{kickoff}/shadow-variants", Json))!
+                .Variants.Single(variant => variant.AgentId == trial);
+
+            // Promoted as the package's next version with relink, the hand-off the version does not
+            // carry stays as it is and stays linked, now to the next package version.
+            using var promotion = await administrator.PostAsJsonAsync(
+                $"/api/assistant/admin/agents/{trial}/promote",
+                new { expectedVersion = live.Version, expectedVariantVersion = waiting.Version, asPackageVersion = true, uncarriedParts = "relink" },
+                Json);
+            Assert.True(promotion.StatusCode == HttpStatusCode.OK, await promotion.Content.ReadAsStringAsync());
+            var promoted = (await promotion.Content.ReadFromJsonAsync<NhAssistantShadowVariantPromotedDto>(Json))!;
+            var kept = Assert.Single(promoted.Package!.Parts, part => part.Outcome == NhAssistantPackagePartOutcomes.KeptLinked);
+            Assert.Equal((kickoff, handOffPart, false), (kept.AgentId, kept.Part, kept.ChangedLocally));
+            Assert.Equal(SampleAgentPackagesComposition.NextVersionPackageId, promoted.Agent.Package!.PackageId);
+            Assert.Contains(promoted.Agent.Package.Parts, part => part.Part == handOffPart);
+            var handOffs = (await administrator.GetFromJsonAsync<NhAssistantAgentHandOffsDto>($"/api/assistant/admin/agents/{kickoff}/hand-offs", Json))!;
+            var handOff = Assert.Single(handOffs.DataHandOffs);
+            Assert.Equal([desk], handOff.Sources);
+            Assert.True(handOff.InEffect);
+            Assert.Equal((SampleAgentPackagesComposition.NextVersionPackageId, next.Package.Version), (handOff.Package!.PackageId, handOff.Package.PackageVersion));
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+                var nextVersion = (await packages.GetPackageAsync(SampleAgentPackagesComposition.NextVersionPackageId))!;
+                Assert.Contains(handOffPart, Assert.Single(nextVersion.Agents).Parts.Select(part => part.Part));
+                Assert.DoesNotContain((await packages.GetPackageAsync(SampleAgentPackagesComposition.PackageId))!.Agents, agent => agent.AgentId == kickoff);
+            }
+        }
+        finally
+        {
+            // Unlinked first: an agent that belongs to a package cannot be deleted.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+                await packages.UnlinkAsync(desk, null, actor);
+                await packages.UnlinkAsync(kickoff, null, actor);
+                await packages.UnlinkAsync(trial, null, actor);
+            }
+
+            await RemoveRuntimeAgentAsync(administrator, trial);
+            await RemoveRuntimeAgentAsync(administrator, desk);
+            await RemoveRuntimeAgentAsync(administrator, kickoff);
+        }
+    }
+
     /// <summary>
     /// SPM-344: the version of a package the host imported, or 0 for one it never imported.
     /// </summary>

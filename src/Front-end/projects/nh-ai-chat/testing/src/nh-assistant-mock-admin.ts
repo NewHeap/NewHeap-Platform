@@ -304,6 +304,14 @@ export class NhAssistantMockAdmin {
     if (typeof request.reason === 'string' && request.reason.length > 500) {
       return failure('assistant-validation', { reason: ['too-long'] });
     }
+    // Only a promotion as the package's version leaves linked parts behind that a link could keep.
+    const uncarriedParts: unknown = request.uncarriedParts;
+    if (uncarriedParts !== undefined && uncarriedParts !== null && uncarriedParts !== 'unlink' && uncarriedParts !== 'relink') {
+      return failure('assistant-validation', { uncarriedParts: ['invalid'] });
+    }
+    if (uncarriedParts === 'relink') {
+      return failure('assistant-validation', { uncarriedParts: ['not-allowed'] });
+    }
     const live = this.agents.find(variant.shadowOf);
     if (!live) {
       return failure('assistant-agent-not-found');

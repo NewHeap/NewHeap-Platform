@@ -21,13 +21,15 @@ internal sealed partial class NhAssistantAgentPackageService
     /// <c>assistant-package-refused</c> with the field error <c>parts: invalid</c> and
     /// <c>parts.{part}.{field}</c> per refused part when the import would refuse one; nothing changes
     /// then. The parts' own change events are audited as an import audits them; the caller audits the
-    /// promotion.
+    /// promotion. With <see cref="NhAssistantUncarriedParts.Relink"/> the live agent's linked parts the
+    /// variant does not carry stay linked to the package version (FB33), as <c>kept-linked</c>.
     /// </summary>
     internal async Task<TaskResult<NhAssistantAgentPackageImportDto>> PromoteVariantAsync(
         NhAssistantAgent variant,
         NhAssistantAgent live,
         string actorId,
         string? reason,
+        NhAssistantUncarriedParts uncarriedParts,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(variant);
@@ -74,7 +76,12 @@ internal sealed partial class NhAssistantAgentPackageService
             options,
             actorId,
             cancellationToken,
-            new NhAssistantPackagePromotion(variant.Id, variantRow.Version, live.Id, reason));
+            new NhAssistantPackagePromotion(
+                variant.Id,
+                variantRow.Version,
+                live.Id,
+                reason,
+                RelinkUncarried: uncarriedParts == NhAssistantUncarriedParts.Relink));
         if (planned.Failure is { } failure)
         {
             return TaskResult<NhAssistantAgentPackageImportDto>.Failed(failure);

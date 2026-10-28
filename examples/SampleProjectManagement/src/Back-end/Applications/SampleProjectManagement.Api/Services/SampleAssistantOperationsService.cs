@@ -1,3 +1,4 @@
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -13,7 +14,8 @@ namespace SampleProjectManagement.Api.Services;
 /// audit of the administration apply. It connects the milestones MCP server to the status advisor,
 /// finds which skills and agents use the risk review's text, and compares a shipped agent package with
 /// the host without exporting it. SPM-346: it also prepares the milestones server before the host can
-/// reach it, with the lookup's reviewed settings, which the first sync keeps.
+/// reach it, with the lookup's reviewed settings, which the first sync keeps. SPM-351: it proposes a new
+/// version of the risk review's text to the skills that name an older one, as candidates in shadow.
 /// </summary>
 public sealed class SampleAssistantOperationsService(
     INhAssistantMcpServers mcpServers,
@@ -156,6 +158,29 @@ public sealed class SampleAssistantOperationsService(
     public Task<TaskResult<NhAssistantInstructionAssetUsageDto>> ListRiskReviewUsageAsync(CancellationToken cancellationToken)
     {
         return assetUsage.ListAsync(SampleInstructionAssetComposition.RiskReviewAsset, cancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-351: once the application publishes <paramref name="version"/> of the risk review's text, the
+    /// operations code proposes it to every live data skill that still names an older version. Each skill
+    /// gets a candidate in shadow through its own save, with the live version's other fields, which an
+    /// administrator compares with the live version and promotes or discards; nothing takes effect by
+    /// itself. A skill whose instructions an agent package locks is reported <c>locked</c> and keeps its
+    /// version. Agents created in the administration that name an older version are only listed: an
+    /// administrator saves each as its next version.
+    /// </summary>
+    public Task<TaskResult<NhAssistantInstructionAssetCandidatesDto>> ProposeRiskReviewVersionAsync(
+        NhAiTextAsset version,
+        Guid operatorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(version);
+        return assetUsage.ProposeCandidatesAsync(
+            SampleInstructionAssetComposition.RiskReviewAsset,
+            version.Manifest.Version,
+            operatorId.ToString("D"),
+            $"Version {version.Manifest.Version} of the risk review",
+            cancellationToken);
     }
 
     /// <summary>

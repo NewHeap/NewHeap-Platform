@@ -17,6 +17,13 @@ namespace SampleProjectManagement.Api.Composition;
 /// <c>asPackageVersion</c>): its instructions, run settings and review skill apply to the live desk
 /// with the package's locks, the live desk keeps its name and is linked to that package version, and
 /// the variant is deleted with its links, in one transaction and one audit event.
+/// SPM-352: the next version carries no hand-off, so the live desk's hand-off from the intake desk
+/// loses its link on such a promotion; promoted with <c>uncarriedParts</c> <c>relink</c>
+/// (<c>NhAssistantUncarriedParts.Relink</c>), the hand-off stays as it is and stays linked, to the next
+/// package version, with the locks of its link, reported as <c>kept-linked</c>.
+/// SPM-353: an administrator compares a shipped package with the host over HTTP with
+/// <c>POST admin/agent-packages/read</c> and <c>GET admin/agent-packages/{packageId}</c>, which export
+/// and audit nothing.
 /// </summary>
 public static class SampleAgentPackagesComposition
 {

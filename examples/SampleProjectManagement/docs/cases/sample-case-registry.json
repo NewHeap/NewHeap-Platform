@@ -1885,20 +1885,6 @@
       ]
     },
     {
-      "id": "SPM-215",
-      "categoryId": "8",
-      "title": "Deferred lazy dropdown",
-      "surface": "dropdown settings and explicit sample configuration",
-      "outcome": "An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request.",
-      "implementation": "implemented",
-      "evidence": [
-        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
-        "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
-      ]
-    },
-    {
       "id": "SPM-126",
       "categoryId": "9",
       "title": "Collection base",
@@ -2525,19 +2511,6 @@
       ]
     },
     {
-      "id": "SPM-309",
-      "categoryId": "12",
-      "title": "Fast relational test infrastructure",
-      "surface": "`SamplePostgreSqlServer`, `CreateMigratedDatabaseAsync`, `SampleTestClock`",
-      "outcome": "The consumer tests share one PostgreSQL container per run, every host gets a database of its own copied from a template that is migrated once, parallel test classes never see each other's rows, and a test moves the host's registered clock past a deadline instead of waiting for it.",
-      "implementation": "implemented",
-      "evidence": [
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SamplePostgreSqlServer.cs",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/FastTestInfrastructureSamplesTests.cs"
-      ]
-    },
-    {
       "id": "SPM-177",
       "categoryId": "13",
       "title": "Media composition root",
@@ -3093,6 +3066,20 @@
       ]
     },
     {
+      "id": "SPM-215",
+      "categoryId": "8",
+      "title": "Deferred lazy dropdown",
+      "surface": "dropdown settings and explicit sample configuration",
+      "outcome": "An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+        "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+      ]
+    },
+    {
       "id": "SPM-216",
       "categoryId": "17",
       "title": "Shared .NET build and package policy",
@@ -3132,34 +3119,6 @@
         "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
         "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
         "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
-      ]
-    },
-    {
-      "id": "SPM-237",
-      "categoryId": "4",
-      "title": "Read-only database diagnostics",
-      "surface": "`newheap-db` direct schema and JSON query contracts plus consumer-owned governed schema, indexes and query MCP tools",
-      "outcome": "Developers and agents take the repository-declared database fast path without inspecting application code, settings, secrets or package internals to rediscover routing or JSON fields: one bounded tracked-file search finds a nested catalog, its directory becomes the diagnostic working directory, and its only profile automatically selects the provider, configuration path, connection-string name, ceilings and default environment. Local `validate` opens no connection and advertises the `outbound-network` capability required by `schema` and `query`; Codex starts those execution commands with a narrow reusable `newheap-db` network permission instead of first probing its restricted sandbox. When the user explicitly requests another runtime environment, `--environment` applies it consistently to schema and query without requiring a duplicate profile solely for Production or Staging; the governed connection-string name and read-only-principal verification remain unchanged. `newheap-db` resolves that name through the selected environment's normal configuration and secrets flow without exposing the connection string. A direct `schema --search ... --describe-if-single` invocation needs no JSON schema request and returns a unique match plus its exact columns, indexes and relationships through one connection and read-only transaction; zero or multiple matches remain bounded summaries. `schema` and `query` validate internally, so interactive diagnostics do not spend a separate call on `validate`. The executable sample prompt uses Production from a Development-default profile, counts projects and returns the latest by `CreationDateTime` with exactly one schema invocation and one query invocation. Checked-in schema and query requests remain repeatable CI and dry-run contracts. Permission-filtered exact descriptions expose named outgoing and incoming relationships with ordered column pairs and validation status, while at most one focused index lookup may inform an immediately useful predicate or ordering. Structured MCP input and the direct CLI `--request-file` option keep serialized JSON out of Windows process arguments. The executable sample MCP fixes profile, capability, a sixteen-call budget and ceilings server-side, requires an explicit requested row count, rejects excessive requests before execution, and fails without partial data when actual results exceed the accepted limit, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only safe provider classifications, codes, stages and retry hints. Principal rejection on SQL Server and PostgreSQL also returns an optional first rejected verificationCheck such as function-select or predefined-role-membership; PostgreSQL verification denies by default across the principal and every role it can use, so a predefined role other than pg_read_all_data, an administrative pg_catalog function, a function in a pg-prefixed user schema, a column or view write and sequence usage are rejected while a SELECT-only principal passes; SQL Server verification also rejects VIEW SERVER STATE, ALTER ANY CONNECTION, impersonation, ALTER ANY SCHEMA, sequence UPDATE, schema and object ALTER or TAKE OWNERSHIP and column UPDATE by name and then denies every other permission beyond connecting, SELECT and metadata visibility, while db_datareader still passes. The PostgreSQL query policy refuses its forbidden functions also as quoted, schema-qualified or case-varied identifiers and functions that run SQL text such as query_to_xml, and refuses Unicode-escaped identifiers and escape strings before a connection opens, while standard_conforming_strings stays on in the diagnostic transaction. The guidance keeps the platform's credential-bearing tables (refresh tokens, AspNetUserTokens, NotificationDeliveries) and the AspNetUsers password-hash and security-stamp columns outside the SELECT allowlist and replaces database-wide read grants with per-table grants on such a database. The MCP preserves allowlisted checks without exposing principal or object names, tolerates older responses without the field, and leaves the permission policy unchanged. Unknown connection failures become transient `connection-failed` outcomes without weakening `authentication-failed` or `database-not-found`, and no server name, credential or provider exception text reaches the response. An unresolved NewHeap secret returns `connection-string-unresolved` with the process-local secrets-path remediation, while malformed resolved provider configuration returns `connection-configuration-invalid`; neither exposes its value or produces schema or query evidence. A checked-in exact local path may be applied to the `newheap-db` child process for one schema retry without permanently changing Production settings. Every other non-success governed schema response ends the diagnostic attempt, so agents do not infer deployed identifiers, relationships, enum values or business semantics from source code or a repository index and do not issue a data query. A server certificate the host does not trust returns the non-transient `tls-certificate-untrusted` with the `certificate-authority-trust-required` retry hint instead of a transient `connection-failed`, proved through real TLS handshakes on both providers, and the sample MCP maps it to a trust remedy without the provider message. A schema search may omit the schema, the search term or both on SQL Server and PostgreSQL.",
-      "implementation": "implemented",
-      "evidence": [
-        "src/Back-end/.newheap/database-read.json",
-        "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
-        "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
-        "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
-        "src/Back-end/Tooling/DatabaseRead/README.md",
-        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
-        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadPrincipalVerificationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadVerificationLockConflictTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadQueryPolicyTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
       ]
     },
     {
@@ -3445,6 +3404,34 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-237",
+      "categoryId": "4",
+      "title": "Read-only database diagnostics",
+      "surface": "`newheap-db` direct schema and JSON query contracts plus consumer-owned governed schema, indexes and query MCP tools",
+      "outcome": "Developers and agents take the repository-declared database fast path without inspecting application code, settings, secrets or package internals to rediscover routing or JSON fields: one bounded tracked-file search finds a nested catalog, its directory becomes the diagnostic working directory, and its only profile automatically selects the provider, configuration path, connection-string name, ceilings and default environment. Local `validate` opens no connection and advertises the `outbound-network` capability required by `schema` and `query`; Codex starts those execution commands with a narrow reusable `newheap-db` network permission instead of first probing its restricted sandbox. When the user explicitly requests another runtime environment, `--environment` applies it consistently to schema and query without requiring a duplicate profile solely for Production or Staging; the governed connection-string name and read-only-principal verification remain unchanged. `newheap-db` resolves that name through the selected environment's normal configuration and secrets flow without exposing the connection string. A direct `schema --search ... --describe-if-single` invocation needs no JSON schema request and returns a unique match plus its exact columns, indexes and relationships through one connection and read-only transaction; zero or multiple matches remain bounded summaries. `schema` and `query` validate internally, so interactive diagnostics do not spend a separate call on `validate`. The executable sample prompt uses Production from a Development-default profile, counts projects and returns the latest by `CreationDateTime` with exactly one schema invocation and one query invocation. Checked-in schema and query requests remain repeatable CI and dry-run contracts. Permission-filtered exact descriptions expose named outgoing and incoming relationships with ordered column pairs and validation status, while at most one focused index lookup may inform an immediately useful predicate or ordering. Structured MCP input and the direct CLI `--request-file` option keep serialized JSON out of Windows process arguments. The executable sample MCP fixes profile, capability, a sixteen-call budget and ceilings server-side, requires an explicit requested row count, rejects excessive requests before execution, and fails without partial data when actual results exceed the accepted limit, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only safe provider classifications, codes, stages and retry hints. Principal rejection on SQL Server and PostgreSQL also returns an optional first rejected verificationCheck such as function-select or predefined-role-membership; PostgreSQL verification denies by default across the principal and every role it can use, so a predefined role other than pg_read_all_data, an administrative pg_catalog function, a function in a pg-prefixed user schema, a column or view write and sequence usage are rejected while a SELECT-only principal passes; SQL Server verification also rejects VIEW SERVER STATE, ALTER ANY CONNECTION, impersonation, ALTER ANY SCHEMA, sequence UPDATE, schema and object ALTER or TAKE OWNERSHIP and column UPDATE by name and then denies every other permission beyond connecting, SELECT and metadata visibility, while db_datareader still passes. The PostgreSQL query policy refuses its forbidden functions also as quoted, schema-qualified or case-varied identifiers and functions that run SQL text such as query_to_xml, and refuses Unicode-escaped identifiers and escape strings before a connection opens, while standard_conforming_strings stays on in the diagnostic transaction. The guidance keeps the platform's credential-bearing tables (refresh tokens, AspNetUserTokens, NotificationDeliveries) and the AspNetUsers password-hash and security-stamp columns outside the SELECT allowlist and replaces database-wide read grants with per-table grants on such a database. The MCP preserves allowlisted checks without exposing principal or object names, tolerates older responses without the field, and leaves the permission policy unchanged. Unknown connection failures become transient `connection-failed` outcomes without weakening `authentication-failed` or `database-not-found`, and no server name, credential or provider exception text reaches the response. An unresolved NewHeap secret returns `connection-string-unresolved` with the process-local secrets-path remediation, while malformed resolved provider configuration returns `connection-configuration-invalid`; neither exposes its value or produces schema or query evidence. A checked-in exact local path may be applied to the `newheap-db` child process for one schema retry without permanently changing Production settings. Every other non-success governed schema response ends the diagnostic attempt, so agents do not infer deployed identifiers, relationships, enum values or business semantics from source code or a repository index and do not issue a data query. A server certificate the host does not trust returns the non-transient `tls-certificate-untrusted` with the `certificate-authority-trust-required` retry hint instead of a transient `connection-failed`, proved through real TLS handshakes on both providers, and the sample MCP maps it to a trust remedy without the provider message. A schema search may omit the schema, the search term or both on SQL Server and PostgreSQL.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/.newheap/database-read.json",
+        "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
+        "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
+        "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
+        "src/Back-end/Tooling/DatabaseRead/README.md",
+        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
+        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadPrincipalVerificationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadVerificationLockConflictTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadQueryPolicyTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
       ]
     },
     {
@@ -5253,6 +5240,19 @@
       ]
     },
     {
+      "id": "SPM-309",
+      "categoryId": "12",
+      "title": "Fast relational test infrastructure",
+      "surface": "`SamplePostgreSqlServer`, `CreateMigratedDatabaseAsync`, `SampleTestClock`",
+      "outcome": "The consumer tests share one PostgreSQL container per run, every host gets a database of its own copied from a template that is migrated once, parallel test classes never see each other's rows, and a test moves the host's registered clock past a deadline instead of waiting for it.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SamplePostgreSqlServer.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/FastTestInfrastructureSamplesTests.cs"
+      ]
+    },
+    {
       "id": "SPM-310",
       "categoryId": "18",
       "title": "The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, and marks what came since the last visit",
@@ -6125,6 +6125,61 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-351",
+      "categoryId": "18",
+      "title": "The operations code proposes a new version of the risk review to the skills that name an older one, as candidates in shadow",
+      "surface": "`INhAssistantInstructionAssetUsage.ProposeCandidatesAsync(assetId, assetVersion, actorId, reason)` returning `NhAssistantInstructionAssetCandidatesDto` with `NhAssistantInstructionAssetCandidateDto` per live data skill and `NhAssistantInstructionAssetCandidateOutcomes` (`proposed`, `already-proposed`, `locked`, `refused`) and the agents created in the administration that name an older version (`NhAssistantInstructionAssetAgentUseDto`); the candidate saved through `INhAssistantAgentConfiguration.SaveSkillAsync` with apply `shadow`; the field errors `assetId: invalid`, `assetVersion: invalid`, `reason: too-long` and `instructionsAsset: invalid`, the codes `assistant-instructions-asset-not-found`, `assistant-instructions-asset-unavailable` and, for a locked skill, `assistant-package-locked` with `instructions: locked`; `AdminAgentSkillDefinitionChanged` with the result `candidate`",
+      "outcome": "SampleAssistantOperationsService.ProposeRiskReviewVersionAsync proposes version 2 of the risk review's text of SPM-320 once the application publishes it. The planner's risk review, live on version 1, gets a candidate in shadow through its own save: the live version's fields with version 2 and its hash and the reason \"Version 2 of the risk review\", while the live version keeps naming version 1 until an administrator compares the two and promotes or discards the candidate. The risk desk, an agent created in the administration on version 1, is listed only, for an administrator to save as its next version. Proposed again, the candidate stays as it is (`already-proposed`) and nothing is saved twice; the audit records the candidate as its save does. The library tests prove on SQL Server and PostgreSQL the candidate per live skill with the live version's other fields, a skill that already names the version left alone, a skill whose instructions an agent package locks reported `locked` while the others are proposed, the agents listed only, the refusals of a malformed id, version or reason, a missing asset version, an asset that cannot be instructions and a failing source, and that nothing is saved or audited then.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-352",
+      "categoryId": "18",
+      "title": "Promoted as the package's next version with relink, the kickoff desk's hand-off that the version does not carry stays linked",
+      "surface": "`NhAssistantShadowVariantPromotionRequest.UncarriedParts` with `NhAssistantUncarriedParts` (`Unlink`, the default, and `Relink`) of `INhAssistantAgentDefinitions.PromoteShadowVariantAsync` and `uncarriedParts` (`unlink`, `relink`) of `POST admin/agents/{id}/promote` (`NhAssistantShadowVariantPromotionInputDto`); the part outcome `NhAssistantPackagePartOutcomes.KeptLinked` (`kept-linked`) in `NhAssistantShadowVariantPromotionDto.Package` and `NhAssistantShadowVariantPromotedDto.Package`; the field errors `uncarriedParts: invalid` and `uncarriedParts: not-allowed`; `ShadowVariantPromotionRequest.uncarriedParts`, `ShadowVariantUncarriedParts` and the outcome `kept-linked` of `AgentPackagePartOutcome` in `@newheap/platform-ai-chat` and its mock API",
+      "outcome": "The kickoff desk of SPM-321 accepts the intake desk's hand-offs about projects and belongs to the desks' package with that hand-off linked. Its next version waits as the shadow variant of SPM-344, which carries the desk's parts without the hand-off (`SampleAgentPackagesComposition.NextKickoffVersion`). Promoted with `asPackageVersion` and `uncarriedParts` `relink`, the variant's parts apply to the live desk as in SPM-344, and the hand-off stays as it is and stays linked, now to the next package version, reported as `kept-linked`; the hand-offs of the desk show it in effect with that package, the next package version holds it and the earlier package no longer holds the desk. Without the option the hand-off loses its link, as before. The library tests prove on SQL Server and PostgreSQL that the parts the variant does not carry keep the locked fields, locked values and hash of their link, so a lock keeps holding and a part changed locally since its import is still reported so, that the earlier package no longer links the live agent, the refusal of `relink` without `asPackageVersion` and of an unknown value, and the endpoint; the Angular specs prove the request, the outcome and the mock API.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Planning.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Writing.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPackageVersionPromotionTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-hand-off.models.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-package-version-promotion.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-353",
+      "categoryId": "18",
+      "title": "An administrator compares a shipped package with the host over HTTP, reading the desk's parts and the installed package without an export",
+      "surface": "`POST admin/agent-packages/read` (`NhAssistantAgentPackageReadRequest`, answering `NhAssistantAgentPackageReadDto`) and `GET admin/agent-packages/{packageId}` (answering `NhAssistantInstalledAgentPackageDto`) over `INhAssistantAgentPackages.ReadAsync` and `GetPackageAsync`, behind the administration policy and without an audit; `NhAssistantAgentPackageRoutes.Read` and `NhAssistantAgentPackageRoutes.Package`; the code `assistant-package-not-found` (404); `NhAssistantAdminApiService.readAgentPackageParts` and `getInstalledAgentPackage` with `AgentPackageReadRequest`, `AgentPackageParts`, `InstalledAgentPackage` and `PackageAgentLinks` in `@newheap/platform-ai-chat` and its mock API",
+      "outcome": "The operator ships the risk desk of SPM-331 in a package of its own, and the deploy installs it on this host; an administrator then changes the desk's description here. Over HTTP the administrator reads the desk's parts with POST admin/agent-packages/read, as an export would build them with a hash per part, and the installed package with GET admin/agent-packages/{packageId}, with the link of every part: only the definition has another hash than the shipped package, its link says it changed locally and keeps the shipped hash, and nothing was exported or audited as an export. A package the host never installed answers 404 assistant-package-not-found, and a colleague without the administration policy is refused both reads with 403. The library tests prove on SQL Server and PostgreSQL the reads in the asked order without locks, their hashes against the links, the refused agent ids, unknown agents and packages, the administration policy and that nothing is audited; the Angular specs prove readAgentPackageParts and getInstalledAgentPackage against the mock API.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-package-read.spec.ts"
       ]
     },
     {

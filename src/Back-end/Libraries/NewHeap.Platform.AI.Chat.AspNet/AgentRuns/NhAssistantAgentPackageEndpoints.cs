@@ -8,7 +8,8 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
-/// The agent package endpoints for administrators (PK12): export, preview, import and unlink.
+/// The agent package endpoints for administrators (PK12): export, preview, import and unlink, and the
+/// reads of agents' parts and of an installed package without an export or audit (FB34).
 /// </summary>
 internal static class NhAssistantAgentPackageEndpoints
 {
@@ -53,6 +54,48 @@ internal static class NhAssistantAgentPackageEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost(Relative(NhAssistantAgentPackageRoutes.Read), ReadPartsAsync)
+            .WithName("NhAssistantAdminReadAgentPackageParts")
+            .WithSummary("Read agents' parts as a package holds them, without exporting")
+            .WithDescription("Answers exactly the agents in agentIds (1 to 20), in the same order, as an export would put them in a package: every part (definition, run settings, skills, triggers, consultations, hand-offs, metadata and groups) and its SHA-256 per part key in hashes, built the same way, without locks, which only an export's options set. Compare them with a shipped package's parts and hashes, or with the hashes of the parts' links in GET admin/agent-packages/{packageId}, to see which parts a host has otherwise. Agents of different packages may be read together. Nothing is exported, audited or changed. A missing, empty or malformed agentIds answers 400 with the field error agentIds (required, too-long above 20, invalid for a malformed id or an id named twice), an unknown agent 404 assistant-agent-not-found, a caller without the administration policy 403 assistant-forbidden.")
+            .Produces<NhAssistantAgentPackageReadDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapGet(Relative(NhAssistantAgentPackageRoutes.Package), GetPackageAsync)
+            .WithName("NhAssistantAdminGetAgentPackage")
+            .WithSummary("Get a package this host imported")
+            .WithDescription("Answers the package this host imported as packageId: its version, format version and hash, the agents that belong to it, when and by whom it was imported, and the current link of every part still linked to it per agent, each with its locked fields, its hash at import and whether it changed locally since. The package stays known after its agents were unlinked. Reads only; nothing is audited. A package the host never imported, or an id that is not a package id (lowercase dash-case, at most 128 characters), answers 404 assistant-package-not-found, a caller without the administration policy 403 assistant-forbidden.")
+            .Produces<NhAssistantInstalledAgentPackageDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+    }
+
+    private static async Task<IResult> ReadPartsAsync(HttpContext httpContext, INhAssistantAgentPackages packages)
+    {
+        var body = await NhAssistantAdminEndpoints.ReadAsync(httpContext, NhAssistantAgentPackageJsonSerializerContext.Default.NhAssistantAgentPackageReadRequest);
+        if (body is null)
+        {
+            return NhAssistantAdminEndpoints.Validation();
+        }
+
+        // The builders of an export, without its locks and without its audit (FB34).
+        var result = await packages.ReadAsync(body.AgentIds ?? [], httpContext.RequestAborted);
+        return result.Success
+            ? NhAssistantAdminEndpoints.Json(
+                new NhAssistantAgentPackageReadDto(result.Data!),
+                NhAssistantAgentPackageJsonSerializerContext.Default.NhAssistantAgentPackageReadDto)
+            : NhAssistantAdminEndpoints.Failure(result);
+    }
+
+    private static async Task<IResult> GetPackageAsync(string packageId, HttpContext httpContext, INhAssistantAgentPackages packages)
+    {
+        var package = await packages.GetPackageAsync(packageId, httpContext.RequestAborted);
+        return package is null
+            ? NhAssistantHttpErrors.Error(NhAssistantErrorCodes.PackageNotFound)
+            : NhAssistantAdminEndpoints.Json(package, NhAssistantAgentPackageJsonSerializerContext.Default.NhAssistantInstalledAgentPackageDto);
     }
 
     private static async Task<IResult> ExportAsync(HttpContext httpContext, INhAssistantAgentPackages packages)

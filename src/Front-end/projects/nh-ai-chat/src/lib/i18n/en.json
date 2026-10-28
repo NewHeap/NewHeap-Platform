@@ -525,6 +525,7 @@
       "assistant-package-too-large": "An agent package is at most 1 MB and holds at most 20 agents.",
       "assistant-package-refused": "The check refused parts of the package, so nothing was imported. Check the package again to see which.",
       "assistant-package-not-linked": "This agent, or this part of it, is not linked to an agent package.",
+      "assistant-package-not-found": "This host never imported an agent package with this id.",
       "assistant-question-invalid": "The assistant could not ask this question; it continues without it.",
       "assistant-question-not-found": "This question was not found.",
       "assistant-question-not-pending": "This question no longer waits for an answer.",

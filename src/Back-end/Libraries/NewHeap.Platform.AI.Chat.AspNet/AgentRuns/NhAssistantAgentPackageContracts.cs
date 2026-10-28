@@ -334,6 +334,13 @@ public static class NhAssistantPackagePartOutcomes
 
     /// <summary>The check refused the part; nothing of the package is imported.</summary>
     public const string Refused = "refused";
+
+    /// <summary>
+    /// A part of the live agent that a promoted shadow variant does not carry stays as it is and stays
+    /// linked, to the variant's package version, with the locks and the hash of its link
+    /// (<see cref="NhAssistantUncarriedParts.Relink"/>, FB33). Only a promotion reports it.
+    /// </summary>
+    public const string KeptLinked = "kept-linked";
 }
 
 /// <summary>
@@ -458,6 +465,22 @@ public sealed record NhAssistantAgentPackageImportRequest(
     NhAssistantAgentPackageImportOptions? Options = null);
 
 /// <summary>
+/// The body of <c>POST admin/agent-packages/read</c> (FB34).
+/// </summary>
+/// <param name="AgentIds">The agents to read, 1 to 20, each once; agents of different packages may be
+/// read together.</param>
+public sealed record NhAssistantAgentPackageReadRequest(IReadOnlyList<string>? AgentIds);
+
+/// <summary>
+/// The answer of <c>POST admin/agent-packages/read</c> (FB34): the agents as
+/// <see cref="INhAssistantAgentPackages.ReadAsync"/> reads them.
+/// </summary>
+/// <param name="Agents">Exactly the agents asked for, in the same order, each with every part as an
+/// export puts it in a package and its SHA-256 per part in <see cref="NhAssistantPackageAgent.Hashes"/>,
+/// without locks.</param>
+public sealed record NhAssistantAgentPackageReadDto(IReadOnlyList<NhAssistantPackageAgent> Agents);
+
+/// <summary>
 /// The body of <c>POST admin/agents/{id}/package/unlink</c>.
 /// </summary>
 /// <param name="Part">The part key to unlink; <see langword="null"/> unlinks the whole agent.</param>
@@ -483,6 +506,17 @@ public static class NhAssistantAgentPackageRoutes
     public const string Unlink = "admin/agents/{id}/package/unlink";
 
     /// <summary>
+    /// Reads agents' parts and hashes as an export builds them, without exporting or auditing (FB34).
+    /// </summary>
+    public const string Read = "admin/agent-packages/read";
+
+    /// <summary>
+    /// A package this host imported, with the current link of every part still linked to it, without
+    /// an audit (FB34).
+    /// </summary>
+    public const string Package = "admin/agent-packages/{packageId}";
+
+    /// <summary>
     /// The response header of the export download that lists the references to agents outside the
     /// selection (<see cref="NhAssistantAgentPackageExportDto.Warnings"/>) as a JSON array. A browser on
     /// another origin reads it only when the host's CORS policy exposes it, for example with
@@ -506,4 +540,7 @@ public static class NhAssistantAgentPackageRoutes
 [JsonSerializable(typeof(NhAssistantAgentPackageUnlinkDto))]
 [JsonSerializable(typeof(NhAssistantAgentPackageWarningDto[]))]
 [JsonSerializable(typeof(NhAssistantAgentPackageLinkDto))]
+[JsonSerializable(typeof(NhAssistantAgentPackageReadRequest))]
+[JsonSerializable(typeof(NhAssistantAgentPackageReadDto))]
+[JsonSerializable(typeof(NhAssistantInstalledAgentPackageDto))]
 public sealed partial class NhAssistantAgentPackageJsonSerializerContext : JsonSerializerContext;

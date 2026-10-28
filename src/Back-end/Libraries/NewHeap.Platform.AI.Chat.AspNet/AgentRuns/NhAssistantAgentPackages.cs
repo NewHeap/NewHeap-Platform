@@ -6,8 +6,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// Agent packages (S7-2): agents with their configuration as data, exported as one versioned package,
 /// previewed and imported on another host through the same validators as saving, with parts the
 /// package locks against local changes until an administrator unlinks them. The endpoints under
-/// <c>admin/agent-packages</c> and <c>admin/agents/{id}/package/unlink</c> use it, behind the
-/// administration policy; applications call it as well, for example to ship packages with a deploy.
+/// <c>admin/agent-packages</c> (export, preview, import, read and the installed package) and
+/// <c>admin/agents/{id}/package/unlink</c> use it, behind the administration policy; applications call
+/// it as well, for example to ship packages with a deploy.
 /// </summary>
 public interface INhAssistantAgentPackages
 {
@@ -79,7 +80,9 @@ public interface INhAssistantAgentPackages
     /// linked to it, per agent, each with whether it changed locally. The package stays known after its
     /// agents were unlinked, when <see cref="GetLinkAsync"/> returns nothing. <see langword="null"/> for a
     /// package the host never imported or an id that is not a package id (lowercase dash-case, at most
-    /// 128 characters). Reads only; nothing is audited.
+    /// 128 characters). Reads only; nothing is audited. <c>GET admin/agent-packages/{packageId}</c>
+    /// answers it for administrators (FB34), with <c>404 assistant-package-not-found</c> for
+    /// <see langword="null"/>.
     /// </summary>
     Task<NhAssistantInstalledAgentPackageDto?> GetPackageAsync(string packageId, CancellationToken cancellationToken = default);
 
@@ -91,7 +94,8 @@ public interface INhAssistantAgentPackages
     /// parts' links, without exporting: nothing is audited and nothing changes. Fails with the field
     /// error <c>agentIds</c> as an export does (<c>required</c>, <c>too-long</c>, <c>invalid</c> for an id
     /// that is malformed or named twice) and with <c>assistant-agent-not-found</c>; agents of different
-    /// packages may be read together.
+    /// packages may be read together. <c>POST admin/agent-packages/read</c> answers it for
+    /// administrators (FB34).
     /// </summary>
     Task<TaskResult<IReadOnlyList<NhAssistantPackageAgent>>> ReadAsync(
         IReadOnlyList<string> agentIds,

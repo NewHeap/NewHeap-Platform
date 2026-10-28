@@ -88,6 +88,16 @@ public interface INhAssistantAgentDefinitions
     /// result <c>promoted-as-package-version</c> and the package's id, version and hash, after the
     /// change events of the parts it wrote.
     /// </para>
+    /// <para>
+    /// The live agent's linked parts that the variant does not carry stay on the live agent unchanged
+    /// and, by default, lose their link. With
+    /// <see cref="NhAssistantShadowVariantPromotionRequest.UncarriedParts"/>
+    /// <see cref="NhAssistantUncarriedParts.Relink"/> (FB33) they stay linked to the variant's package
+    /// version with the locks and the hash of their link, reported as <c>kept-linked</c>; an unknown
+    /// value fails with <c>uncarriedParts: invalid</c>, and any value but the default without
+    /// <see cref="NhAssistantShadowVariantPromotionRequest.AsPackageVersion"/> with
+    /// <c>uncarriedParts: not-allowed</c>.
+    /// </para>
     /// </summary>
     Task<TaskResult<NhAssistantShadowVariantPromotionDto>> PromoteShadowVariantAsync(
         string variantId,
@@ -203,6 +213,41 @@ public sealed record NhAssistantShadowVariantPromotionRequest(
     /// promotion goes through the update path.
     /// </summary>
     public bool AsPackageVersion { get; init; }
+
+    /// <summary>
+    /// With <see cref="AsPackageVersion"/>: what happens to the parts of the live agent that are linked
+    /// to a package but that the variant does not carry (FB33).
+    /// <see cref="NhAssistantUncarriedParts.Unlink"/>, the default, leaves them on the live agent as
+    /// local parts; <see cref="NhAssistantUncarriedParts.Relink"/> keeps them linked, to the variant's
+    /// package version, with the locks and the hash of their link, and reports them as
+    /// <c>kept-linked</c>. Without <see cref="AsPackageVersion"/> only the default is allowed
+    /// (<c>uncarriedParts: not-allowed</c>); a value outside the enum fails with
+    /// <c>uncarriedParts: invalid</c>.
+    /// </summary>
+    public NhAssistantUncarriedParts UncarriedParts { get; init; }
+}
+
+/// <summary>
+/// What a promotion of a shadow variant as its package's version does with the parts of the live agent
+/// that are linked to a package but that the variant does not carry
+/// (<see cref="NhAssistantShadowVariantPromotionRequest.UncarriedParts"/>), such as a trigger the live
+/// agent kept from an earlier version. The parts themselves never change.
+/// </summary>
+public enum NhAssistantUncarriedParts
+{
+    /// <summary>
+    /// They stay on the live agent without a link: local parts that no package locks, which a later
+    /// version of the package leaves as they are.
+    /// </summary>
+    Unlink = 0,
+
+    /// <summary>
+    /// They stay linked, to the variant's package id and version, with the locked fields, locked values
+    /// and hash of their link, so their locks keep holding and whether they changed locally since their
+    /// import stays known; the promotion reports them as
+    /// <see cref="NhAssistantPackagePartOutcomes.KeptLinked"/>.
+    /// </summary>
+    Relink = 1
 }
 
 /// <summary>
@@ -328,6 +373,15 @@ internal sealed class NhAssistantAgentDefinitions(
         {
             return Refused(NhAssistantValidationErrors.Failed("reason", NhAssistantFieldErrors.TooLong));
         }
+        if (!Enum.IsDefined(request.UncarriedParts))
+        {
+            return Refused(NhAssistantValidationErrors.Failed("uncarriedParts", NhAssistantFieldErrors.Invalid));
+        }
+        // Only a package version leaves parts of the live agent behind that a link could keep.
+        if (!request.AsPackageVersion && request.UncarriedParts != NhAssistantUncarriedParts.Unlink)
+        {
+            return Refused(NhAssistantValidationErrors.Failed("uncarriedParts", NhAssistantFieldErrors.NotAllowed));
+        }
 
         if (request.AsPackageVersion)
         {
@@ -418,7 +472,7 @@ internal sealed class NhAssistantAgentDefinitions(
         }
 
         var promoted = await services.GetRequiredService<NhAssistantAgentPackageService>()
-            .PromoteVariantAsync(variant!, live!, actorId, request.Reason, cancellationToken);
+            .PromoteVariantAsync(variant!, live!, actorId, request.Reason, request.UncarriedParts, cancellationToken);
         if (!promoted.Success)
         {
             return Refused(promoted);

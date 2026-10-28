@@ -123,7 +123,6 @@
     "SPM-123",
     "SPM-124",
     "SPM-125",
-    "SPM-215",
     "SPM-126",
     "SPM-127",
     "SPM-128",
@@ -174,7 +173,6 @@
     "SPM-174",
     "SPM-175",
     "SPM-176",
-    "SPM-309",
     "SPM-177",
     "SPM-178",
     "SPM-179",
@@ -213,10 +211,10 @@
     "SPM-212",
     "SPM-213",
     "SPM-214",
+    "SPM-215",
     "SPM-216",
     "SPM-217",
     "SPM-218",
-    "SPM-237",
     "SPM-219",
     "SPM-220",
     "SPM-221",
@@ -235,6 +233,7 @@
     "SPM-234",
     "SPM-235",
     "SPM-236",
+    "SPM-237",
     "SPM-238",
     "SPM-239",
     "SPM-240",
@@ -306,6 +305,7 @@
     "SPM-306",
     "SPM-307",
     "SPM-308",
+    "SPM-309",
     "SPM-310",
     "SPM-311",
     "SPM-312",
@@ -343,6 +343,9 @@
     "SPM-348",
     "SPM-349",
     "SPM-350",
+    "SPM-351",
+    "SPM-352",
+    "SPM-353",
     "SPM-355"
   ],
   "gaps": {
@@ -1156,12 +1159,6 @@
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
     ],
-    "SPM-215": [
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
-    ],
     "SPM-126": [
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
@@ -1377,11 +1374,6 @@
     ],
     "SPM-176": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
-    ],
-    "SPM-309": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SamplePostgreSqlServer.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/FastTestInfrastructureSamplesTests.cs"
     ],
     "SPM-177": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -1634,6 +1626,12 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/authorization-sample-api.service.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
     ],
+    "SPM-215": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+    ],
     "SPM-216": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs"
@@ -1651,26 +1649,6 @@
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
       "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
-    ],
-    "SPM-237": [
-      "src/Back-end/.newheap/database-read.json",
-      "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
-      "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
-      "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
-      "src/Back-end/Tooling/DatabaseRead/README.md",
-      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
-      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadPrincipalVerificationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadVerificationLockConflictTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadQueryPolicyTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
     ],
     "SPM-219": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -1812,6 +1790,26 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+    ],
+    "SPM-237": [
+      "src/Back-end/.newheap/database-read.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
+      "src/Back-end/Tooling/DatabaseRead/README.md",
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadPrincipalVerificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadVerificationLockConflictTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadFailureClassificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadQueryPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
     ],
     "SPM-238": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",
@@ -3050,6 +3048,11 @@
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-trigger-filters.spec.ts"
     ],
+    "SPM-309": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SamplePostgreSqlServer.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleTestClock.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/FastTestInfrastructureSamplesTests.cs"
+    ],
     "SPM-310": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
@@ -3628,6 +3631,37 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+    ],
+    "SPM-351": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleInstructionAssetComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionAssets.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs"
+    ],
+    "SPM-352": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Planning.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Writing.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPackageVersionPromotionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-hand-off.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-package-version-promotion.spec.ts"
+    ],
+    "SPM-353": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-agent-packages.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-package-read.spec.ts"
     ],
     "SPM-355": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMailComposition.cs",

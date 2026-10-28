@@ -182,6 +182,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-package-refused',
   'assistant-package-locked',
   'assistant-package-not-linked',
+  'assistant-package-not-found',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

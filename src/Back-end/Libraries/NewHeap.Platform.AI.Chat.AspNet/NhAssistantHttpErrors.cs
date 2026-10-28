@@ -302,7 +302,8 @@ internal static class NhAssistantHttpErrors
         Add(statuses, StatusCodes.Status503ServiceUnavailable,
             NhAssistantAdminErrorCodes.InstructionsAssetUnavailable);
         // Agent packages (S7-2): a format this host does not read, a package that is too large, a
-        // package whose check refused a part, a locked part and an agent or part without a link.
+        // package whose check refused a part, a locked part, an agent or part without a link and a
+        // package the host never imported.
         Add(statuses, StatusCodes.Status400BadRequest,
             NhAssistantErrorCodes.PackageFormatUnsupported);
         Add(statuses, StatusCodes.Status413PayloadTooLarge,
@@ -311,7 +312,8 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.PackageRefused,
             NhAssistantErrorCodes.PackageLocked);
         Add(statuses, StatusCodes.Status404NotFound,
-            NhAssistantErrorCodes.PackageNotLinked);
+            NhAssistantErrorCodes.PackageNotLinked,
+            NhAssistantErrorCodes.PackageNotFound);
         // An impersonation session grants nothing in the person's name that outlives it.
         Add(statuses, StatusCodes.Status403Forbidden,
             NhAssistantErrorCodes.NotAllowedWhileImpersonating);

@@ -19,8 +19,10 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// A variant promoted as the package's next version (FB11 of the platform feedback plan on 21.0.0):
 /// with <c>AsPackageVersion</c> a shadow variant whose every part is linked to one agent package
 /// applies its parts to the live agent with the import's rules, relinks the live agent to that
-/// package version and is deleted with its links, in one transaction with one audit event. Proved on
-/// both relational providers; the promotion without the option stays as it was.
+/// package version and is deleted with its links, in one transaction with one audit event. With
+/// <c>UncarriedParts = Relink</c> (FB33 of the plan on 23.0.0) the live agent's linked parts the variant
+/// does not carry stay linked to that version with their locks. Proved on both relational providers;
+/// the promotion without the option stays as it was.
 /// </summary>
 public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -119,6 +121,88 @@ public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixtu
             promoted.Data.Package.Parts.Single(part => part.Part == "trigger:" + TrialTrigger).Outcome);
     }
 
+    /// <summary>
+    /// FB33: with <c>UncarriedParts = Relink</c> the live agent's linked parts that the variant does not
+    /// carry stay as they are and stay linked, to the variant's package version, with the locks and the
+    /// hash of their link, reported as <c>kept-linked</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task With_relink_the_parts_the_variant_does_not_carry_stay_linked_to_its_package_version_with_their_locks(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        // The earlier version locks the event of the trigger that the next version no longer carries.
+        await ImportAsync(
+            host,
+            AssistantAgentPackageTests.Desks(locked: true, kickoff: agent => agent with
+            {
+                Locks = new Dictionary<string, IReadOnlyList<string>>(agent.Locks!) { ["trigger:kickoff-on-change"] = ["event"] }
+            }),
+            AssistantAgentPackageTests.Options());
+        await ImportAsync(host, NextDesksPackage(), TrialOptions());
+        var earlier = (await PackagesAsync(host, packages => packages.GetLinkAsync(Kickoff)))!;
+        // The hand-off, which no package locks, changed here after its import.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var changed = await scope.ServiceProvider.GetRequiredService<INhAssistantDataHandOffs>().SaveAsync(
+                Kickoff,
+                "project",
+                new NhAssistantDataHandOffRequest([Intake], "Starts ready projects.", ExpectedVersion: 1),
+                Admin);
+            Assert.True(changed.Success, string.Join(", ", changed.AllErrorMessages));
+        }
+        var live = (await DirectoryAsync(host, directory => directory.GetAsync(Kickoff)))!;
+
+        var promoted = await PromoteAsync(host, Trial, new NhAssistantShadowVariantPromotionRequest(live.Version, ExpectedVariantVersion: 1)
+        {
+            AsPackageVersion = true,
+            UncarriedParts = NhAssistantUncarriedParts.Relink
+        });
+
+        Assert.True(promoted.Success, string.Join(", ", promoted.AllErrorMessages));
+        Assert.Equal(
+            ["handOff:project changed-locally ", "trigger:kickoff-on-change unchanged event"],
+            promoted.Data!.Package!.Parts
+                .Where(part => part.Outcome == NhAssistantPackagePartOutcomes.KeptLinked)
+                .Select(part => part.Part + (part.ChangedLocally ? " changed-locally " : " unchanged ") + string.Join(",", part.LockedFields))
+                .Order(StringComparer.Ordinal)
+                .ToArray());
+        Assert.DoesNotContain(promoted.Data.Package.Parts, part => part.Outcome == NhAssistantPackagePartOutcomes.LeftBehind);
+        Assert.Equal(["kickoff"], promoted.Data.MovedSkills);
+
+        // They stay as they are, linked to the variant's package version with the hash of their link.
+        var link = (await PackagesAsync(host, packages => packages.GetLinkAsync(Kickoff)))!;
+        Assert.Equal((NextDesks, 2), (link.PackageId, link.PackageVersion));
+        Assert.Equal(
+            ["agent", "handOff:project", "metadata:cost-center", "runSettings", "skill:kickoff", "trigger:kickoff-on-change", "trigger:" + TrialTrigger],
+            link.Parts.Select(part => part.Part).Order(StringComparer.Ordinal).ToArray());
+        var trigger = link.Parts.Single(part => part.Part == "trigger:kickoff-on-change");
+        var earlierTrigger = earlier.Parts.Single(part => part.Part == "trigger:kickoff-on-change");
+        Assert.Equal((NextDesks, 2, earlierTrigger.Hash, false, Admin), (trigger.PackageId, trigger.PackageVersion, trigger.Hash, trigger.ChangedLocally, trigger.LinkedBy));
+        Assert.Equal(["event"], trigger.LockedFields);
+        var handOff = link.Parts.Single(part => part.Part == "handOff:project");
+        Assert.Equal((earlier.Parts.Single(part => part.Part == "handOff:project").Hash, true), (handOff.Hash, handOff.ChangedLocally));
+        var configuration = (await ConfigurationAsync(host, service => service.GetAsync(Kickoff)))!;
+        var kept = Assert.Single(configuration.DataTriggers, item => item.TriggerId == "kickoff-on-change");
+        Assert.Equal((1, "project.changed", NextDesks), (kept.Version, kept.Event, kept.Package!.PackageId));
+
+        // The package version holds them; the earlier package no longer links the live agent.
+        var next = (await PackagesAsync(host, packages => packages.GetPackageAsync(NextDesks)))!;
+        Assert.Contains("trigger:kickoff-on-change", Assert.Single(next.Agents).Parts.Select(part => part.Part));
+        var desks = (await PackagesAsync(host, packages => packages.GetPackageAsync(Desks)))!;
+        Assert.Equal([Intake], desks.AgentIds);
+        Assert.DoesNotContain(desks.Agents, agent => agent.AgentId == Kickoff);
+
+        // The lock of the kept part keeps holding.
+        var locked = await ConfigurationAsync(host, service => service.SaveTriggerAsync(
+            Kickoff,
+            "kickoff-on-change",
+            new NhAssistantDataTriggerRequest("event", "kickoff", "project.closed", ExpectedVersion: 1),
+            Admin));
+        Assert.Equal(["event:locked"], Fields(locked));
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -135,6 +219,11 @@ public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixtu
         // The skills are parts of the package version; they cannot move on their own as well.
         Assert.Equal(["moveSkills:not-allowed"], Fields(await PromoteAsync(host, Trial, asVersion with { MoveSkills = true })));
         Assert.Equal(NhAssistantAdminErrorCodes.VersionConflict, Code(await PromoteAsync(host, Trial, asVersion with { ExpectedVariantVersion = 4 })));
+        // Only a package version leaves parts behind that a link could keep (FB33).
+        Assert.Equal(
+            ["uncarriedParts:not-allowed"],
+            Fields(await PromoteAsync(host, Trial, new NhAssistantShadowVariantPromotionRequest(live.Version) { UncarriedParts = NhAssistantUncarriedParts.Relink })));
+        Assert.Equal(["uncarriedParts:invalid"], Fields(await PromoteAsync(host, Trial, asVersion with { UncarriedParts = (NhAssistantUncarriedParts)7 })));
 
         // A part an administrator unlinked is no longer the package's version.
         Assert.True((await PackagesAsync(host, packages => packages.UnlinkAsync(Trial, "trigger:" + TrialTrigger, Admin))).Success);
@@ -226,8 +315,17 @@ public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixtu
         {
             Assert.Equal("not-allowed", (await ReadJsonAsync(both, HttpStatusCode.BadRequest)).GetProperty("errors").GetProperty("moveSkills")[0].GetString());
         }
+        // FB33: uncarriedParts is unlink or relink, and relink only for a package version.
+        using (var unknown = await admin.PostAsJsonAsync(path, new { expectedVersion = version, asPackageVersion = true, uncarriedParts = "keep" }))
+        {
+            Assert.Equal("invalid", (await ReadJsonAsync(unknown, HttpStatusCode.BadRequest)).GetProperty("errors").GetProperty("uncarriedParts")[0].GetString());
+        }
+        using (var notAllowed = await admin.PostAsJsonAsync(path, new { expectedVersion = version, uncarriedParts = "relink" }))
+        {
+            Assert.Equal("not-allowed", (await ReadJsonAsync(notAllowed, HttpStatusCode.BadRequest)).GetProperty("errors").GetProperty("uncarriedParts")[0].GetString());
+        }
 
-        var promoted = await ReadJsonAsync(await admin.PostAsJsonAsync(path, new { expectedVersion = version, expectedVariantVersion = 1, asPackageVersion = true }));
+        var promoted = await ReadJsonAsync(await admin.PostAsJsonAsync(path, new { expectedVersion = version, expectedVariantVersion = 1, asPackageVersion = true, uncarriedParts = "relink" }));
 
         Assert.Equal((Kickoff, version + 1), (promoted.GetProperty("agent").GetProperty("id").GetString(), promoted.GetProperty("agent").GetProperty("version").GetInt32()));
         Assert.Equal(NextDesks, promoted.GetProperty("agent").GetProperty("package").GetProperty("packageId").GetString());
@@ -235,6 +333,12 @@ public sealed class AssistantPackageVersionPromotionTests(AssistantDatabaseFixtu
         Assert.Equal((NextDesks, 2), (package.GetProperty("packageId").GetString(), package.GetProperty("packageVersion").GetInt32()));
         Assert.Contains(package.GetProperty("parts").EnumerateArray(), part => part.GetProperty("part").GetString() == "skill:kickoff"
             && part.GetProperty("outcome").GetString() == NhAssistantPackagePartOutcomes.Changed);
+        // The trigger of the earlier version stays linked to the package version.
+        Assert.Contains(package.GetProperty("parts").EnumerateArray(), part => part.GetProperty("part").GetString() == "trigger:kickoff-on-change"
+            && part.GetProperty("outcome").GetString() == NhAssistantPackagePartOutcomes.KeptLinked);
+        Assert.Contains(
+            promoted.GetProperty("agent").GetProperty("package").GetProperty("parts").EnumerateArray(),
+            part => part.GetProperty("part").GetString() == "trigger:kickoff-on-change");
     }
 
     // ----- Host and helpers -----

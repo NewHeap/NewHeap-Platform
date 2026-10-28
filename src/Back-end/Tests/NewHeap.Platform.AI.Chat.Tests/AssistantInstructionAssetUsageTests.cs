@@ -23,6 +23,8 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
     private const string Follower = "project-follower";
     private const string Admin = "admin-1";
     private const string Asset = "follow-up-instructions";
+    private const string Summary = "summary";
+    private const string Current = "current-follow-up";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -88,6 +90,122 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
         Assert.Equal(audited, host.Business.Events.Count);
     }
 
+    /// <summary>
+    /// FB32: a new version of the asset becomes a candidate in shadow of every live data skill that names
+    /// an older one, through the skill's own save, with the locks of agent packages and an outcome per
+    /// skill; agents created in the administration are listed only.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_new_asset_version_becomes_a_candidate_of_every_live_skill_that_names_an_older_one(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var assets = host.Services.GetRequiredService<TestTextAssets>();
+        var first = assets.Put(Asset, 1, "Name the task that comes next and why.");
+        Assert.True((await SaveSkillAsync(host, FollowUp, Request(Reference(first)) with { MaxTokensPerRun = 4_000 })).Success);
+        Assert.True((await SaveSkillAsync(host, Summary, Request(Reference(first)))).Success);
+        Assert.True((await SaveSkillAsync(host, "inline", new NhAssistantDataSkillRequest("Writes its own text.", "Say what changed."))).Success);
+        Assert.True((await CreateAgentAsync(host, Input(Follower, Reference(first)))).Success);
+        // An agent package the agent's skills were imported from locks the summary's instructions.
+        await LockSummaryInstructionsAsync(host);
+        var second = assets.Put(Asset, 2, "Name the two tasks that come next and why.");
+        // A skill that names the new version already is current; an agent on it is current too.
+        Assert.True((await SaveSkillAsync(host, Current, Request(Reference(second)))).Success);
+        Assert.True((await CreateAgentAsync(host, Input("project-follower-next", Reference(second)))).Success);
+        var audited = host.Business.Events.Count;
+
+        var proposed = await ProposeAsync(host, Asset, 2, "Version 2 names two tasks");
+
+        Assert.True(proposed.Success, string.Join(", ", proposed.AllErrorMessages));
+        Assert.Equal((Asset, 2, second.Manifest.ContentHash), (proposed.Data!.AssetId, proposed.Data.AssetVersion, proposed.Data.Hash));
+        Assert.Equal(
+            [
+                (FollowUp, 1, 1, NhAssistantInstructionAssetCandidateOutcomes.Proposed, (int?)2, (string?)null),
+                (Summary, 1, 1, NhAssistantInstructionAssetCandidateOutcomes.Locked, null, NhAssistantErrorCodes.PackageLocked)
+            ],
+            proposed.Data.Skills.Select(skill => (skill.SkillId, skill.LiveVersion, skill.LiveAssetVersion, skill.Outcome, skill.CandidateVersion, skill.Code)).ToArray());
+        Assert.Equal(["locked"], proposed.Data.Skills.Single(skill => skill.SkillId == Summary).Errors!["instructions"]);
+        // The agent is listed only: an administrator saves it as its next version.
+        var agent = Assert.Single(proposed.Data.Agents);
+        Assert.Equal((Follower, 1), (agent.AgentId, agent.AssetVersion));
+
+        // The candidate runs next to the live version, which keeps naming version 1; its other fields
+        // are the live version's.
+        var configuration = (await ConfigurationAsync(host, service => service.GetAsync(AgentId)))!;
+        var followUp = configuration.DataSkills.Single(skill => skill.SkillId == FollowUp);
+        Assert.Equal((1, 1), (followUp.Version, followUp.InstructionsAsset!.Version));
+        var candidate = followUp.Candidate!;
+        Assert.Equal(
+            (2, 2, second.Manifest.ContentHash, (long?)4_000, "Version 2 names two tasks"),
+            (candidate.Version, candidate.InstructionsAsset!.Version, candidate.InstructionsAsset.Hash, candidate.MaxTokensPerRun, candidate.Reason));
+        var summary = configuration.DataSkills.Single(skill => skill.SkillId == Summary);
+        Assert.Null(summary.Candidate);
+        Assert.Null(configuration.DataSkills.Single(skill => skill.SkillId == Current).Candidate);
+        var audit = Assert.Single(host.Business.Events.Skip(audited));
+        Assert.Equal(
+            (NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged, FollowUp, 2, "candidate", Asset + "@2"),
+            (audit.Kind, audit.SkillId, audit.AgentVersion, audit.ResultCode, audit.InstructionsVersion));
+
+        // Proposed again, the candidate that names the version stays; nothing is saved twice.
+        var again = await ProposeAsync(host, Asset, 2);
+        Assert.Equal(
+            [(FollowUp, NhAssistantInstructionAssetCandidateOutcomes.AlreadyProposed, (int?)2), (Summary, NhAssistantInstructionAssetCandidateOutcomes.Locked, null)],
+            again.Data!.Skills.Select(skill => (skill.SkillId, skill.Outcome, skill.CandidateVersion)).ToArray());
+        Assert.Equal(audited + 1, host.Business.Events.Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_of_an_asset_version_that_cannot_be_instructions_is_refused_and_saves_nothing(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var assets = host.Services.GetRequiredService<TestTextAssets>();
+        var first = assets.Put(Asset, 1, "Name the task that comes next and why.");
+        Assert.True((await SaveSkillAsync(host, FollowUp, Request(Reference(first)))).Success);
+        assets.Put(Asset, 2, "Name what an outsider asks for.", NhAiContextTrust.UntrustedRetrieved);
+        var audited = host.Business.Events.Count;
+
+        Assert.Equal(["assetId:invalid"], Fields(await ProposeAsync(host, "Follow-Up-Instructions", 2)));
+        Assert.Equal(["assetVersion:invalid"], Fields(await ProposeAsync(host, Asset, 0)));
+        Assert.Equal(["reason:too-long"], Fields(await ProposeAsync(host, Asset, 2, new string('r', 501))));
+        Assert.Equal(NhAssistantAdminErrorCodes.InstructionsAssetNotFound, Code(await ProposeAsync(host, Asset, 3)));
+        // Version 2 is no trusted instructions of the application.
+        Assert.Equal(["instructionsAsset:invalid"], Fields(await ProposeAsync(host, Asset, 2)));
+        assets.Fail = true;
+        Assert.Equal(NhAssistantAdminErrorCodes.InstructionsAssetUnavailable, Code(await ProposeAsync(host, Asset, 2)));
+        assets.Fail = false;
+
+        Assert.Null((await ConfigurationAsync(host, service => service.GetAsync(AgentId)))!.DataSkills.Single().Candidate);
+        Assert.Equal(audited, host.Business.Events.Count);
+    }
+
+    /// <summary>
+    /// FB32: exports the agent's data skills as a package that locks the summary's instructions and
+    /// imports it back, so the host's skills are linked to it.
+    /// </summary>
+    private static async Task LockSummaryInstructionsAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+        var exported = await packages.ExportAsync(
+            [AgentId],
+            new NhAssistantAgentPackageExportOptions(
+                "project-assistant-skills",
+                Locks: new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<string>>>
+                {
+                    [AgentId] = new Dictionary<string, IReadOnlyList<string>> { ["skill:" + Summary] = ["instructions"] }
+                }),
+            Admin);
+        Assert.True(exported.Success, string.Join(", ", exported.AllErrorMessages));
+        var imported = await packages.ImportAsync(
+            exported.Data!.Package,
+            new NhAssistantAgentPackageImportOptions(Relink: [new NhAssistantPackagePartReference(AgentId)]),
+            Admin);
+        Assert.True(imported.Success, string.Join(", ", imported.AllErrorMessages));
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
     {
         return await AssistantTestHost.CreateAsync(
@@ -148,6 +266,22 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantInstructionAssetUsage>().ListAsync(assetId);
+    }
+
+    private static async Task<TaskResult<NhAssistantInstructionAssetCandidatesDto>> ProposeAsync(
+        AssistantTestHost host,
+        string assetId,
+        int assetVersion,
+        string? reason = null)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantInstructionAssetUsage>().ProposeCandidatesAsync(assetId, assetVersion, Admin, reason);
+    }
+
+    private static async Task<T> ConfigurationAsync<T>(AssistantTestHost host, Func<INhAssistantAgentConfiguration, Task<T>> action)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>());
     }
 
     private static string? Code(TaskResult result)
