@@ -337,6 +337,8 @@ builder.Services.AddSampleAiBridge();
 // rights; the built-in issuer creates the owner's short-lived token with the NewHeap authentication service.
 builder.Services.AddNewHeapPlatformAIDelegatedReads();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
+// SPM-371: the portal's own setting switches compositions and scripts per environment and agent.
+builder.Services.AddSampleAssistantCompositions();
 builder.Services.AddSampleIntakeReviewer();
 // SPM-314: the order desk executes the intake reviewer's approved equipment orders and reports how they went.
 builder.Services.AddSampleEquipmentOrders();
@@ -358,6 +360,8 @@ builder.Services.AddSampleAgentLinksAsData();
 builder.Services.AddSampleAssistantFiles();
 // SPM-306: the document reader reads a project's documents when one is added; it opts in to files.
 builder.Services.AddSampleProjectDocumentReader();
+// SPM-372: the project overview chains three reads of the project assistant into one tool.
+builder.Services.AddSampleProjectOverview();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
@@ -367,7 +371,9 @@ if (builder.Environment.IsDevelopment())
 // /mcp through the application's authorization server; its own clients keep their NewHeap token.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration));
+    // SPM-371: MCP clients may use the script tool where the portal's setting of the exposure has it on.
+    // SPM-372: compositions such as the project overview are part of the exposure as well; the switch decides.
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts().AllowCompositions());
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.

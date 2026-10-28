@@ -462,6 +462,8 @@
       "assistant-consult-failed": "The agent could not answer.",
       "assistant-consult-read-only": "A consultation cannot change anything.",
       "assistant-consult-tool-not-selected": "This consultation does not offer that tool, so nothing ran.",
+      "assistant-composition-off": "Compositions are off in this application, so nothing ran. The individual tools still work.",
+      "assistant-scripting-off": "Scripts are off in this application, so nothing ran. The individual tools still work.",
       "assistant-consult-proposal-refused": "No route at the subject takes this proposal any more. Approve or reject it here.",
       "assistant-consult-asker-decides": "The person who asked decides this proposal in their own chat.",
       "assistant-consult-route-not-allowed": "None of the agent's consultations allows this route, so it cannot be switched on.",
@@ -532,7 +534,14 @@
       "assistant-question-forbidden": "This question is addressed to someone else.",
       "assistant-question-expired": "Nobody answered this question in time. Send your message again to continue.",
       "assistant-question-cancelled": "The question was withdrawn when the task was stopped.",
-      "assistant-question-answer-invalid": "Choose one of the answers of the question."
+      "assistant-question-answer-invalid": "Choose one of the answers of the question.",
+      "assistant-step-tool-unavailable": "A step named a tool that is not available here.",
+      "assistant-step-limit-reached": "The call ran as many steps as it may.",
+      "assistant-step-mutation-limit-reached": "The call ran as many changing steps as it may.",
+      "assistant-step-chain-stopped": "Not run: an earlier step stopped the call.",
+      "assistant-step-arguments-invalid": "The arguments of a step were not valid.",
+      "assistant-step-host-unavailable": "Steps cannot run here.",
+      "assistant-composition-step-result-unavailable": "A step needed the result of an earlier step that had none."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

@@ -517,9 +517,11 @@ internal sealed class NhAssistantToolCallInterceptor(
     }
 
     /// <summary>
-    /// The governed tools offered to the agent in this turn, as registered with <see cref="UseOfferedTools"/>.
+    /// The governed tools offered to the agent in this turn, as registered with <see cref="UseOfferedTools"/>:
+    /// the turn scope's list, which <see cref="NhAssistantToolStepTurn"/> reads before a call, so a step
+    /// session and the description of the tool that opens it see the same tools.
     /// </summary>
-    internal IReadOnlyList<NhAiToolDescriptor> OfferedTools => _offeredTools.Values.ToArray();
+    internal IReadOnlyList<NhAiToolDescriptor> OfferedTools => state.Scope.OfferedTools;
 
     /// <summary>
     /// The function of an MCP server's tool offered in this turn, by its function name.

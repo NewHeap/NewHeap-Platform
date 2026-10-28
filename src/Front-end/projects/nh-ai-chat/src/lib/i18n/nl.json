@@ -462,6 +462,8 @@
       "assistant-consult-failed": "De agent kon niet antwoorden.",
       "assistant-consult-read-only": "Een raadpleging kan niets wijzigen.",
       "assistant-consult-tool-not-selected": "Deze raadpleging biedt die tool niet aan, dus er is niets uitgevoerd.",
+      "assistant-composition-off": "Composities staan uit in deze applicatie, dus er is niets uitgevoerd. De afzonderlijke tools werken nog.",
+      "assistant-scripting-off": "Scripts staan uit in deze applicatie, dus er is niets uitgevoerd. De afzonderlijke tools werken nog.",
       "assistant-consult-proposal-refused": "Geen route bij het onderwerp neemt dit voorstel nog aan. Keur het hier goed of af.",
       "assistant-consult-asker-decides": "Degene die het vroeg, beslist over dit voorstel in de eigen chat.",
       "assistant-consult-route-not-allowed": "Geen van de raadplegingen van de agent staat deze route toe, dus die kan niet aan.",
@@ -532,7 +534,14 @@
       "assistant-question-forbidden": "Deze vraag is aan iemand anders gesteld.",
       "assistant-question-expired": "Niemand heeft deze vraag op tijd beantwoord. Stuur je bericht opnieuw om verder te gaan.",
       "assistant-question-cancelled": "De vraag is ingetrokken toen de taak werd gestopt.",
-      "assistant-question-answer-invalid": "Kies een van de antwoorden van de vraag."
+      "assistant-question-answer-invalid": "Kies een van de antwoorden van de vraag.",
+      "assistant-step-tool-unavailable": "Een stap noemde een tool die hier niet beschikbaar is.",
+      "assistant-step-limit-reached": "De aanroep heeft zoveel stappen uitgevoerd als mag.",
+      "assistant-step-mutation-limit-reached": "De aanroep heeft zoveel wijzigende stappen uitgevoerd als mag.",
+      "assistant-step-chain-stopped": "Niet uitgevoerd: een eerdere stap heeft de aanroep gestopt.",
+      "assistant-step-arguments-invalid": "De argumenten van een stap waren niet geldig.",
+      "assistant-step-host-unavailable": "Stappen kunnen hier niet worden uitgevoerd.",
+      "assistant-composition-step-result-unavailable": "Een stap had het resultaat nodig van een eerdere stap die er geen had."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

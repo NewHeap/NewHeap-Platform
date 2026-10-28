@@ -221,8 +221,9 @@ public static class SampleAssistantComposition
             // authorization and division scope. The descriptions are internal: retrieved items raise
             // the classification of the turn's model calls, so every profile that may serve the turn,
             // a skill's or a fallback, permits what the source returns.
-            // SPM-373: the project assistant may answer a chained question with one script, which the
-            // application's composition switch turns on (NewHeap:AI:Assistant:Scripts by default).
+            // SPM-373: the project assistant may answer a chained question with one script where the
+            // portal's own setting of the environment and agent has scripts on (SPM-371,
+            // SampleAssistantCompositionsComposition).
             .ConfigureAgentContext(AgentId, context => context
                 .UseApplicationMap()
                 .UseRetrievedContext(retrieval => retrieval

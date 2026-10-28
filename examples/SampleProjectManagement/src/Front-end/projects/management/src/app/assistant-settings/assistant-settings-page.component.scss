@@ -1,0 +1,25 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.settings-lab');
+@include pg.buttons('.settings-lab');
+@include pg.controls('.settings-lab');
+@include pg.badge('.role-badge');
+
+.settings-lab.busy { opacity: .85; }
+p { margin: 0; color: var(--muted); }
+.state { margin-top: 18px; }
+.hint { margin-top: 14px; font-size: 12px; }
+.error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding: 10px; border: 1px solid var(--danger); border-radius: var(--radius-control); color: var(--danger); background: var(--danger-soft); }
+.settings { display: grid; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.settings li { display: grid; grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(200px, 1fr)); align-items: start; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
+.agent { display: grid; gap: 2px; min-width: 0; }
+.agent small { overflow-wrap: anywhere; color: var(--muted); font: 11px/1.4 var(--font-mono); }
+.feature { display: grid; gap: 4px; min-width: 0; }
+.feature label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.effective { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.effective.on { color: var(--success); }
+
+@media (max-width: 760px) {
+  .settings li { grid-template-columns: 1fr; }
+}

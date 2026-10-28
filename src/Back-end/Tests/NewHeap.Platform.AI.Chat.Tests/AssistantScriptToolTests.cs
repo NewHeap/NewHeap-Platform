@@ -94,6 +94,22 @@ public sealed class AssistantScriptToolTests(AssistantDatabaseFixture database) 
         var scriptAudit = Assert.Single(host.Audit.Records, record => record.ToolId == NhAiScriptTool.ToolId);
         Assert.Equal(NhAiOutcomeKind.Succeeded, scriptAudit.Outcome);
         Assert.Equal(parent.Id, scriptAudit.InvocationId);
+
+        // The agent's activity (TC1) lists the script call with its calls in order and the round it saved.
+        await using var scope = host.Services.CreateAsyncScope();
+        var activity = await scope.ServiceProvider.GetRequiredService<NhAssistantCompositionActivity>()
+            .GetAsync(Agent, DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(1), CancellationToken.None);
+        var call = Assert.Single(activity.Calls);
+        Assert.Equal(parent.Id, call.InvocationId);
+        Assert.Equal(NhAiScriptTool.ToolId, call.ToolId);
+        Assert.Equal(NhAiCompositionFeature.Scripts, call.Feature);
+        Assert.Equal(NhAssistantToolCallStatuses.Succeeded, call.Status);
+        Assert.Equal([TestProjectToolCatalog.Search.Id, TestProjectToolCatalog.Search.Id], call.Steps.Select(step => step.ToolId).ToArray());
+        Assert.Equal([0, 1], call.Steps.Select(step => step.Index).ToArray());
+        Assert.Equal(1, call.RoundsSaved);
+        Assert.Equal(parent.ResultJson!.Length, call.ResultCharacters);
+        var usage = Assert.Single(activity.Tools);
+        Assert.Equal((NhAiScriptTool.ToolId, 1, 2, 1), (usage.ToolId, usage.Calls, usage.ToolCalls, usage.RoundsSaved));
     }
 
     [Theory]

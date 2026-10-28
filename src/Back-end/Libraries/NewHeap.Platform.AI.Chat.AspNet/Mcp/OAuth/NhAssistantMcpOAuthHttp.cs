@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -44,12 +45,38 @@ internal sealed record NhAssistantMcpOAuthResponse(HttpStatusCode Status, JsonEl
 /// HTTP for OAuth URLs that remote documents name (D9): every URL passes the host guard with https
 /// required, private networks blocked unless allowed and the resolved addresses checked again when
 /// the socket connects; no redirects, the connect timeout and at most 64 KiB per response. A larger
-/// body is dropped with a warning: the endpoint answered, so it is not reported unreachable. Bodies,
-/// tokens and secrets never reach a log.
+/// body is dropped with a warning: the endpoint answered, so it is not reported unreachable. The probe
+/// of the MCP endpoint keeps the status and headers only. Bodies, tokens and secrets never reach a log.
 /// </summary>
 internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
 {
     public const int MaxResponseBytes = 64 * 1024;
+
+    /// <summary>
+    /// The protocol revision the probe's <c>initialize</c> names: the latest one with the
+    /// <c>initialize</c> handshake, which servers of every revision answer without waiting.
+    /// </summary>
+    private const string ProbeProtocolVersion = "2025-11-25";
+
+    private const string SessionIdHeader = "Mcp-Session-Id";
+
+    /// <summary>The JSON-RPC <c>initialize</c> request of the probe.</summary>
+    private static readonly string InitializeRequest = new JsonObject
+    {
+        ["jsonrpc"] = "2.0",
+        ["id"] = 1,
+        ["method"] = "initialize",
+        ["params"] = new JsonObject
+        {
+            ["protocolVersion"] = ProbeProtocolVersion,
+            ["capabilities"] = new JsonObject(),
+            ["clientInfo"] = new JsonObject
+            {
+                ["name"] = "newheap-assistant",
+                ["version"] = typeof(NhAssistantMcpOAuthHttp).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"
+            }
+        }
+    }.ToJsonString();
 
     private readonly NhAssistantMcpHostGuard _guard;
     private readonly IOptionsMonitor<NhAssistantOptions> _options;
@@ -137,8 +164,12 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
     }
 
     /// <summary>
-    /// Requests the MCP endpoint without a credential, to read its <c>WWW-Authenticate</c> challenge.
-    /// The MCP endpoint was typed by an administrator, so it follows the MCP endpoint rules.
+    /// Requests the MCP endpoint without a credential, to read its <c>WWW-Authenticate</c> challenge:
+    /// first an MCP <c>initialize</c> POST, the request with which an MCP client starts over Streamable
+    /// HTTP, and only after a <c>405</c> a GET, which an endpoint of the deprecated HTTP+SSE transport
+    /// answers. Only the status and the headers are read, never the body. A session that a server
+    /// without authorization opened for the probe is ended with DELETE. The MCP endpoint was typed by an
+    /// administrator, so it follows the MCP endpoint rules.
     /// </summary>
     public async Task<TaskResult<NhAssistantMcpOAuthResponse>> ProbeAsync(Uri endpoint, CancellationToken cancellationToken)
     {
@@ -146,16 +177,58 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
         {
             return TaskResult<NhAssistantMcpOAuthResponse>.Failed(blocked, "The MCP server address is not allowed.");
         }
-        return await SendCheckedAsync(
+
+        var initialize = await SendCheckedAsync(
             _mcpClient,
             () =>
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(InitializeRequest, Encoding.UTF8, "application/json")
+                };
                 request.Headers.Accept.ParseAdd("application/json");
                 request.Headers.Accept.ParseAdd("text/event-stream");
                 return request;
             },
+            readBody: false,
             cancellationToken);
+        if (!initialize.Success)
+        {
+            return initialize;
+        }
+
+        var answer = initialize.Data!;
+        if (answer.Status == HttpStatusCode.MethodNotAllowed)
+        {
+            return await SendCheckedAsync(
+                _mcpClient,
+                () =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                    request.Headers.Accept.ParseAdd("application/json");
+                    request.Headers.Accept.ParseAdd("text/event-stream");
+                    return request;
+                },
+                readBody: false,
+                cancellationToken);
+        }
+
+        if ((int)answer.Status is >= 200 and < 300 && SessionOf(answer.Headers) is { } session)
+        {
+            // A server without authorization initialized a session the assistant does not use; end it
+            // as a client that no longer needs a session should. Its answer does not change the probe.
+            await SendCheckedAsync(
+                _mcpClient,
+                () =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Delete, endpoint);
+                    request.Headers.TryAddWithoutValidation(SessionIdHeader, session);
+                    return request;
+                },
+                readBody: false,
+                cancellationToken);
+        }
+        return initialize;
     }
 
     public void Dispose()
@@ -173,12 +246,17 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
         {
             return TaskResult<NhAssistantMcpOAuthResponse>.Failed(blocked, "The OAuth address is not allowed.");
         }
-        return await SendCheckedAsync(_client, create, cancellationToken);
+        return await SendCheckedAsync(_client, create, readBody: true, cancellationToken);
     }
 
+    /// <summary>
+    /// Sends a request within the connect timeout. Without <paramref name="readBody"/> only the status
+    /// and the headers are kept and the body, for example an event stream that stays open, is never read.
+    /// </summary>
     private async Task<TaskResult<NhAssistantMcpOAuthResponse>> SendCheckedAsync(
         HttpClient client,
         Func<HttpRequestMessage> create,
+        bool readBody,
         CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -187,6 +265,10 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
         {
             using var request = create();
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!readBody)
+            {
+                return TaskResult<NhAssistantMcpOAuthResponse>.Succeeded(new NhAssistantMcpOAuthResponse(response.StatusCode, null, response.Headers));
+            }
             var body = await ReadBoundedAsync(response.Content, timeout.Token);
             if (body is null)
             {
@@ -217,6 +299,22 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
                 code == NhAssistantAdminErrorCodes.McpHostBlocked ? code : NhAssistantAdminErrorCodes.McpUnreachable,
                 "The OAuth endpoint could not be reached.");
         }
+    }
+
+    /// <summary>
+    /// The session id an answer carries, when it is visible ASCII as Streamable HTTP requires;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    private static string? SessionOf(HttpResponseHeaders headers)
+    {
+        if (!headers.TryGetValues(SessionIdHeader, out var values))
+        {
+            return null;
+        }
+        var session = values.FirstOrDefault();
+        return session is { Length: > 0 } && session.All(character => character >= 0x21 && character <= 0x7E)
+            ? session
+            : null;
     }
 
     /// <summary>

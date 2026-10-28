@@ -204,6 +204,112 @@ the consent stay the host's. Without the option nothing changes.
 `NhAiTestAuthorizationServer.IssueAccessToken(subject, resource, scope, issuedAt, lifetime)` issues a
 token as of a given time, for example an expired one.
 
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: compositions and their step runtime
+
+`NhAssistantBuilder.AddComposition<TInput>(id, composition => ...)` declares a known chain of registered
+governed tools as one tool (TC2): `Step(name, toolId, arguments)` calls a tool by id, a later step reads
+earlier results through `NhAssistantCompositionContext<TInput>.Result`, and `Returns` declares what reaches
+the model. The composition's descriptor is marked `NhAiCompositionFeature.Compositions`; its effect is the
+strongest of its steps and its classification the highest, so one that only reads runs at once and, with
+`ExposeOverMcp`, is read-only over an MCP exposure that allows compositions (TC7). A turn offers it where
+code allows the agent compositions and the application's switch has them on, and only with every tool
+its steps call. Every step runs through the shared invoker with the caller's context and gets the
+decision the same call gets on its own (TC5): a `Deferred` proposal lets the chain continue, an `Inline`
+approval stops it and the turn waits, after which the model reads its own call, where the chain
+stopped, and the decided step; a shadow run proposes every change; a failing or refused step stops the
+chain and returns what succeeded with that step's code. Compositions never call another composition,
+the script tool, a consultation or a destructive tool.
+
+The step runtime is public: `INhAssistantToolSteps.BeginAsync(NhAssistantToolStepRequest)` opens an
+`NhAssistantToolStepSession` from inside a composition or script call, with `MaxSteps`,
+`MaxMutationSteps`, `Hash` and a `Tools` filter; `RunAsync` runs one step and returns an
+`NhAssistantToolStep` with its `NhAssistantToolStepStatus`, and `CompleteAsync` audits the call and returns
+its `NhAssistantToolStepActivity`. Refusals use `NhAssistantToolStepCodes`. In a turn each step is a tool
+invocation of the turn whose call id names the call that ran it, without a message part of its own; the
+first step uses the call's count of the turn's tool calls and every further step counts as a call.
+`NhAiToolCallOrigin` (`NhAiToolCallOriginKind`, the composition's or script tool's id, the script's hash,
+the parent invocation and the step index) is on `NhAiInvocationContext.Origin`, `NhAiAuditRecord.Origin`
+and, at the proposal stage, `NhAiProposalGuardContext.Origin`; it takes no part in a proposal hash or
+approval evidence.
+
+`GET admin/agents/{id}/compositions/activity` (`NhAssistantCompositionActivityDto`) shows, content-free, each
+composition and script call of an agent with the tool calls it ran in order, the model rounds it saved
+and the size of the result returned to the model, and the use per tool (TC1). It reads the stored tool
+invocations; no table or column is added.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAiInvocationContext`, `NhAiAuditRecord` and `NhAiProposalGuardContext` record equality now also compares `Origin`, which the step runtime fills for a step of a composition or script. | Compare the members you need instead of whole records in a cache key or a test; read `Origin` to treat a step differently, never to relax a rule. |
+
+## @newheap/platform-ai-chat: the composition activity of an agent
+
+The agent page's Activity in `@newheap/platform-ai-chat/admin` offers Compositions next to Runs and
+Feedback (`nh-assistant-agent-composition-activity`): per tool the calls, tool calls, rounds saved and
+result sizes, and per call its tool calls in order with how each ended, in English and Dutch.
+`NhAssistantAdminApiService.getAgentCompositionActivity(agentId, filter)` reads it
+(`AgentCompositionActivity`). The step codes `assistant-step-*` and
+`assistant-composition-step-result-unavailable` are translated, and the mock API answers the activity.
+An agent that does not run on its own now shows the Activity's choice of Feedback and Compositions too.
+
+| Breaking change | Required action |
+|---|---|
+| The Activity of an agent that works in the chat only shows its segments (Feedback, Compositions) where it showed none. | A host test that expected no `[data-activity]` button for such an agent expects `feedback` and `compositions`. |
+
+## NewHeap.Platform.AI.Chat.AspNet: discovery reads the challenge of a stateless MCP server
+
+OAuth discovery of an MCP server (`POST admin/mcp-servers/discover`, and saving a server with
+`oauth.confirmAuthorization`) now probes the endpoint with an MCP `initialize` `POST` without a
+credential, the request an MCP client starts with, instead of a `GET`. A stateless Streamable HTTP
+server, which answers `GET` with `405`, now shows the scopes and the metadata address of its challenge
+(`challengedScopes`) rather than only the scopes of its metadata. A `GET` follows only when the `POST`
+answers `405`, as an HTTP+SSE endpoint does; without a challenge the well-known metadata addresses
+decide, as before. The probe reads only the status and the headers, and a session that a server
+without authorization opens for it is ended with `DELETE`. No public API changes.
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.AspNet.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: a switch of compositions and scripts the application owns
+
+A governed tool says it is a composition or the script tool with `NhAiToolDescriptor.CompositionFeature`
+(`NhAiCompositionFeature.Compositions` or `Scripts`; `None` for every other tool, which nothing here
+changes). Such a tool is offered only where code allows its feature and the application's switch has it
+on, decided once per feature at the start of each turn, run step and MCP request:
+
+- `INhAssistantCompositionSwitch` answers with `NhAssistantCompositionSwitchContext`: the feature, the
+  channel (`NhAssistantCompositionChannel`: `Chat`, `Run`, `Consultation`, `HandOff`, `Mcp`), the tenant,
+  the agent and the person. The default reads `NewHeap:AI:Assistant:Compositions` and
+  `NewHeap:AI:Assistant:Scripts` (`NhAssistantOptions`), both off; `UseCompositionSwitch<TSwitch>()`
+  replaces it with the application's own, for example a setting in its own database.
+- The ceiling in code: `ConfigureAgentContext(agentId, c => c.AllowCompositions().AllowScripts())` for an
+  agent in code, `UseCompositionsAsData(c => c.AllowCompositions().AllowScripts())` for agents created in
+  the administration, and `WithNewHeapPlatformAITools(mcp => mcp.AllowCompositions().AllowScripts())` for
+  the MCP exposure.
+- Within `UseCompositionsAsData` an agent created in the administration has its own `compositions` and
+  `scripts`, on the agent input and DTO, `INhAssistantAgentConfiguration.CreateAgentAsync`,
+  `INhAssistantAgentDefinitions.UpdateAsync` and agent packages (written only when on, lockable as
+  `compositions` and `scripts`), and taken over by a promoted shadow variant. Outside the ceiling a save
+  answers `compositions: not-allowed` or `scripts: not-allowed`. The run catalog reports the ceiling as
+  `compositionCeiling`. The migration `AgentCompositions` adds `UsesCompositions` and `UsesScripts` to
+  `AssistantAgent`; hosts with `RunMigrations` apply it at start, others with their deployment step.
+- While a feature is off its tools are not offered or listed over MCP, and a call that still arrives is
+  refused with `assistant-composition-off` or `assistant-scripting-off` (`NhAiCompositionFeatures`,
+  `NhAssistantErrorCodes.CompositionOff`, `ScriptingOff`); the MCP exposure leaves out a feature it does
+  not allow (`ai-tool-not-authorized`).
+- `INhAssistantCompositionStatus` and `GET admin/agents/{id}/compositions` (administration policy) return
+  per feature and channel what the assistant does for an agent and why (`NhAssistantCompositionReasons`:
+  `on`, `not-installed`, `agent-not-allowed`, `not-allowed-for-data-agents`, `off-for-agent`,
+  `off-by-application`).
+
+Without these calls nothing changes: no composition or script tool exists yet, and both features are off.
+
+## @newheap/platform-ai-chat: what the assistant does with compositions and scripts
+
+`NhAssistantAdminApiService.getAgentCompositionStatus(agentId)` reads `GET admin/agents/{id}/compositions`
+(`AgentCompositionStatus`), so an application's own settings screen shows what the assistant does next to
+its checkbox. The overview of an agent's page in the administration shows it per feature and channel with
+its reason, and an agent created in the administration switches compositions and scripts on in its tools
+within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
+answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
+Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
 ## NewHeap.Platform.AI.Scripting (new package): the script tool
 
 The new package `NewHeap.Platform.AI.Scripting` adds the script tool `run_script` (SPM-373, SPM-374):

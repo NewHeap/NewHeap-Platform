@@ -45,6 +45,13 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     /// </summary>
     public const string FollowUpSkill = ProjectFollowUpRouting.CompletionSkill;
 
+    /// <summary>
+    /// SPM-371: the scripting desk, an agent created as data that may use the script tool within the
+    /// application's ceiling (<c>UseCompositionsAsData</c>). Whether it is offered the tool in a turn is
+    /// the portal's own setting.
+    /// </summary>
+    public const string ScriptingDeskAgentId = "scripting-desk";
+
     private const string Reason = "Development sample of an agent that works on its own";
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -84,6 +91,14 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                     "The project follow-up was not created: {Codes}",
                     string.Join(", ", followUp.GetResultItems().Select(item => item.Name)));
             }
+
+            var scriptingDesk = await SeedScriptingDeskAsync(scope.ServiceProvider, administrator.Id, cancellationToken);
+            if (!scriptingDesk.Success)
+            {
+                logger.LogWarning(
+                    "The scripting desk was not created: {Codes}",
+                    string.Join(", ", scriptingDesk.GetResultItems().Select(item => item.Name)));
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -93,6 +108,40 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// SPM-371: creates the scripting desk unless it exists, as an administrator does in the agent
+    /// editor: a chat agent over the project search that uses the script tool, which the application's
+    /// ceiling allows for agents created in the administration. The portal's setting decides per
+    /// environment whether a turn offers it.
+    /// </summary>
+    public static async Task<TaskResult> SeedScriptingDeskAsync(
+        IServiceProvider services,
+        Guid administratorId,
+        CancellationToken cancellationToken)
+    {
+        var configuration = services.GetRequiredService<INhAssistantAgentConfiguration>();
+        if (await configuration.GetAsync(ScriptingDeskAgentId, cancellationToken) is not null)
+        {
+            return TaskResult.Succeeded();
+        }
+
+        var created = await configuration.CreateAgentAsync(
+            new NhAssistantAgentRequest(
+                ScriptingDeskAgentId,
+                "Scripting desk",
+                "Answers questions about many projects at once with a short script over the project tools.",
+                "Answer questions about the projects of the active division. When a question needs the same "
+                + "tool for many projects, prefer one short script over many single calls.",
+                ["projects.search"],
+                NhAiAutonomyLevel.Explain)
+            {
+                Scripts = true
+            },
+            administratorId.ToString("D"),
+            cancellationToken);
+        return created.Success ? TaskResult.Succeeded() : TaskResult.Failed(created);
+    }
 
     /// <summary>
     /// SPM-298: creates the project starter unless it exists, as an administrator does: the agent,

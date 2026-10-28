@@ -1,0 +1,45 @@
+<section class="build-section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-overview-compositions>
+  <header>
+    <div>
+      <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-page.compositions.title' | translate }}</h4>
+      <p class="muted">{{ 'nh-assistant.admin.agent-page.compositions.description' | translate }}</p>
+    </div>
+  </header>
+
+  @if (error(); as failure) {
+    <div class="stack" data-compositions-error>
+      <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      <div class="card-actions">
+        <button class="secondary" type="button" (click)="reload()">{{ 'nh-assistant.admin.agent-page.compositions.retry' | translate }}</button>
+      </div>
+    </div>
+  } @else if (status(); as current) {
+    <dl class="facts" data-compositions-status>
+      @for (feature of current.features; track feature.feature) {
+        <dt>{{ 'nh-assistant.admin.agent-page.compositions.features.' + feature.feature | translate }}</dt>
+        <dd [attr.data-composition-feature]="feature.feature" [attr.data-on]="feature.on" [attr.data-reason]="feature.reason">
+          <div class="stack">
+            <span>
+              <span class="pill" [class.success]="feature.on">{{ (feature.on ? 'nh-assistant.admin.agent-page.compositions.on' : 'nh-assistant.admin.agent-page.compositions.off') | translate }}</span>
+              <span class="muted">{{ reasonKey(feature) | translate }}</span>
+            </span>
+            @if (showsChannels(feature)) {
+              <ul class="chips" [attr.aria-label]="'nh-assistant.admin.agent-page.compositions.features.' + feature.feature | translate">
+                @for (channel of feature.channels; track channel.channel) {
+                  <li class="tag" [attr.data-channel]="channel.channel" [attr.data-on]="channel.on">
+                    {{ 'nh-assistant.admin.agent-page.compositions.channel-state' | translate: {
+                      channel: ('nh-assistant.admin.agent-page.compositions.channels.' + channel.channel | translate),
+                      state: ((channel.on ? 'nh-assistant.admin.agent-page.compositions.on' : 'nh-assistant.admin.agent-page.compositions.off') | translate)
+                    } }}
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </dd>
+      }
+    </dl>
+  } @else if (loading()) {
+    <p class="muted" role="status" data-compositions-loading>{{ 'nh-assistant.admin.agent-page.compositions.loading' | translate }}</p>
+  }
+</section>

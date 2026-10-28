@@ -52,9 +52,12 @@ outcome; with `Inline` the script stops at that call with `ai-script-waiting-for
 it did so far and the pending proposal, and the turn waits as it does for the call on its own. There is
 no transaction across calls: the result lists, in order, every call with its outcome
 (`NhAiScriptCallOutcomes`), what was proposed and where the script stopped (`stoppedAt`). The script's
-text is the call's argument, so the activity shows it; each call is a step row of the script call with
-its origin (`NhAiToolCallOrigin` with the script's SHA-256) on its invocation context, audit record and
-proposal guard context, so a guard can treat a script's call differently.
+text is the call's argument, which the turn's tool invocation stores; each call is a step row of the
+script call with its origin (`NhAiToolCallOrigin` with the script's SHA-256) on its invocation context,
+audit record and proposal guard context, so a guard can treat a script's call differently. The agent's
+Activity in the administration (`GET admin/agents/{id}/compositions/activity`) lists each script call
+content-free with its calls in order, the rounds it saved and the size of its result, as it does for a
+composition.
 
 The description lists the tools as TypeScript-style declarations generated from their JSON schemas
 (`NhAiScriptSignatures`), within `MaxDescriptionLength`: beyond it, tools are listed with their argument
@@ -95,7 +98,7 @@ the switch has them on, and prove that a call while they are off is refused with
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs)
 - SPM-374 — A status change inside a script waits for the person's approval exactly as the same call on its own does
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)

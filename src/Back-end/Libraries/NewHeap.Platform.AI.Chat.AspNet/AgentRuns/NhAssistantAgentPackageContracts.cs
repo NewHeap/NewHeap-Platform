@@ -96,7 +96,21 @@ public sealed record NhAssistantPackageAgentDefinition(
     string? DataClassification = null,
     bool? StartsOff = null,
     bool? StartsInShadow = null,
-    string? ShadowOf = null);
+    string? ShadowOf = null)
+{
+    /// <summary>
+    /// For an agent created in the administration: it uses compositions, within the importing host's
+    /// <c>UseCompositionsAsData</c> (field error <c>compositions: not-allowed</c> otherwise). Written only
+    /// when on; left out is off.
+    /// </summary>
+    public bool? Compositions { get; init; }
+
+    /// <summary>
+    /// For an agent created in the administration: it uses the script tool, as <see cref="Compositions"/>
+    /// does for compositions (<c>scripts: not-allowed</c>).
+    /// </summary>
+    public bool? Scripts { get; init; }
+}
 
 /// <summary>
 /// The run settings of an agent created in the administration, mapped to

@@ -9,6 +9,8 @@ import {
   AgentRunConfiguration,
   AgentRunSettings,
   AgentRunSettingsRequest,
+  AgentCompositionActivity,
+  AgentCompositionActivityFilter,
   AgentEvaluation,
   AgentEvaluationFilter,
   AgentFeedbackExportFilter,
@@ -19,6 +21,7 @@ import {
   AgentReplay,
   AgentReplayList,
   AgentReplayRequest,
+  AgentCompositionStatus,
   AgentSkillState,
   AgentState,
   ApplicationContext,
@@ -157,6 +160,16 @@ export class NhAssistantAdminApiService {
 
   getAgentState(agentId: string): Observable<AgentState> {
     return this.request<AgentState>('GET', `admin/agents/${encodeURIComponent(agentId)}/state`);
+  }
+
+  /**
+   * What the assistant does with compositions and the script tool for one agent now, per feature and
+   * channel, and why (`on`, `not-installed`, `agent-not-allowed`, `off-by-application`). The
+   * application's switch is asked for the caller, so an application's own settings screen shows the
+   * effect of its setting next to its checkbox. Requires the administration policy.
+   */
+  getAgentCompositionStatus(agentId: string): Observable<AgentCompositionStatus> {
+    return this.request<AgentCompositionStatus>('GET', `admin/agents/${encodeURIComponent(agentId)}/compositions`);
   }
 
   /**
@@ -360,6 +373,15 @@ export class NhAssistantAdminApiService {
    */
   unassignMcpServer(serverId: string, agentId: string): Observable<McpServer> {
     return this.request<McpServer>('DELETE', `${mcpServerPath(serverId)}/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /**
+   * What the agent's compositions and scripts ran in the period: each call with its tool calls in
+   * order, the model rounds it saved and the size of the result returned to the model, and the use
+   * per tool. Content-free.
+   */
+  getAgentCompositionActivity(agentId: string, filter: AgentCompositionActivityFilter = {}): Observable<AgentCompositionActivity> {
+    return this.request<AgentCompositionActivity>('GET', withQuery(`${agentPath(agentId)}/compositions/activity`, filter));
   }
 
   /**

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "6eddfab644c7b11507d3d6951ef59cc780e9cbea2ab6f12b3496c9f204b855a8",
-    "declarationCount": 11761,
+    "hash": "a70fa8f8b9b392a3c338c5256e5688dbbd1a5052859e4fefd3e74e78e96c832f",
+    "declarationCount": 11868,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2287,6 +2287,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public NhAssistantCompositionCeilingDto? CompositionCeiling { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public sealed record NhAssistantCompositionCeilingDto(bool Compositions, bool Scripts) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public static NhAssistantCompositionCeilingDto? From(NhAssistantCompositionCeiling? ceiling) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantInstructionAssetListDto( bool Supported, IReadOnlyList<NhAssistantInstructionAssetDto> Assets);"
       },
       {
@@ -2456,6 +2468,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool StartsInShadow { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool Scripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -3059,6 +3079,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public bool? Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
+        "declaration": "public bool? Scripts { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
         "declaration": "public sealed record NhAssistantShadowVariantPromotionRequest( int ExpectedVersion, bool MoveSkills = false, int? ExpectedVariantVersion = null, string? Reason = null)"
       },
       {
@@ -3355,7 +3383,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
-        "declaration": "public sealed record NhAssistantPackageAgentDefinition( string? DisplayName = null, string? Description = null, string? Instructions = null, NhAssistantInstructionAssetReference? InstructionsAsset = null, IReadOnlyList<string>? ToolSelectors = null, string? RequiredPolicy = null, string? Autonomy = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, string? Profile = null, string? DataClassification = null, bool? StartsOff = null, bool? StartsInShadow = null, string? ShadowOf = null);"
+        "declaration": "public sealed record NhAssistantPackageAgentDefinition( string? DisplayName = null, string? Description = null, string? Instructions = null, NhAssistantInstructionAssetReference? InstructionsAsset = null, IReadOnlyList<string>? ToolSelectors = null, string? RequiredPolicy = null, string? Autonomy = null, bool? OfferedInChat = null, IReadOnlyList<string>? WorksOnSubjectTypes = null, bool? WorksOnAllSubjects = null, bool? WorksOnApplication = null, bool? PerDivision = null, string? RunPolicy = null, string? ViewPolicy = null, string? Profile = null, string? DataClassification = null, bool? StartsOff = null, bool? StartsInShadow = null, string? ShadowOf = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public bool? Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public bool? Scripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -4780,6 +4816,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBoardEndpoints.cs",
         "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+        "declaration": "public sealed record NhAssistantCompositionActivityDto( string AgentId, DateTimeOffset From, DateTimeOffset To, int Total, bool Truncated, IReadOnlyList<NhAssistantCompositionToolUsageDto> Tools, IReadOnlyList<NhAssistantCompositionCallDto> Calls);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+        "declaration": "public sealed record NhAssistantCompositionToolUsageDto( string ToolId, string Kind, int Calls, int ToolCalls, int RoundsSaved, int AverageResultCharacters, int MaxResultCharacters);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+        "declaration": "public sealed record NhAssistantCompositionCallDto( Guid InvocationId, Guid ConversationId, string ToolId, string Kind, string Status, string? ResultCode, DateTimeOffset StartedAt, IReadOnlyList<NhAssistantCompositionStepDto> Steps, int RoundsSaved, int ResultCharacters);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+        "declaration": "public sealed record NhAssistantCompositionStepDto(int Index, string ToolId, string Status, string? ResultCode);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
@@ -7135,7 +7191,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] [JsonSerializable(typeof(NhAssistantCompositionStatusDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7176,6 +7232,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public string? ShadowOf { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool? Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool? Scripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7292,6 +7356,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentPackageLinkDto? Package { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool Scripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -8930,6 +9002,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028210436_AgentCompositions.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028210436_AgentCompositions.cs",
+        "declaration": "public partial class AgentCompositions : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028210436_AgentCompositions.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028210436_AgentCompositions.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -9798,6 +9886,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028210427_AgentCompositions.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028210427_AgentCompositions.cs",
+        "declaration": "public partial class AgentCompositions : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028210427_AgentCompositions.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028210427_AgentCompositions.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -9840,6 +9944,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
         "declaration": "public bool KeepMcpServers { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "declaration": "public bool? Compositions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "declaration": "public bool? Scripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
@@ -9964,6 +10076,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public string? ShadowOfAgentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public NhAssistantAgentCompositionSettings Compositions { get; init; } = NhAssistantAgentCompositionSettings.None;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
@@ -13250,8 +13366,104 @@
         "declaration": "public string Mark(string actorId, string text) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionActivity.cs",
+        "declaration": "public const int MaxCalls = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionActivity.cs",
+        "declaration": "public async Task<NhAssistantChainActivity> GetAsync( string agentId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public sealed class NhAssistantCompositionBuilder<TInput> where TInput : class {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public string Id { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> Describe(string description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> Version(int version) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> ExportAs(string functionName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> ExposeOverMcp() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> Step( string name, string toolId, Func<NhAssistantCompositionContext<TInput>, object?> arguments) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> Returns(Func<NhAssistantCompositionContext<TInput>, object?> result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantCompositionBuilder<TInput> MaxResultBytes(int bytes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public static class NhAssistantCompositionLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public const int MaxDescriptionLength = 1_024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public static class NhAssistantCompositionCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public const string StepResultUnavailable = \"assistant-composition-step-result-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public sealed class NhAssistantCompositionContext<TInput> : NhAssistantCompositionContext where TInput : class {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public TInput Input { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public abstract class NhAssistantCompositionContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public JsonElement Result(string step) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public bool TryGetResult(string step, out JsonElement data) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public NhAssistantToolStep? StepOf(string step) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public string Step { get; } = step;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+        "declaration": "public static string DefaultExportName(string id, int version) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
-        "declaration": "public bool AllowsInCode(string agentId, NhAiCompositionFeature feature) {"
+        "declaration": "public bool AllowsInCode(NhAssistantAgent agent, NhAiCompositionFeature feature) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
+        "declaration": "public string? ReasonOf(NhAssistantAgent agent, NhAiCompositionFeature feature) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
@@ -13259,7 +13471,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
-        "declaration": "public async ValueTask<bool> IsOfferedAsync( string agentId, NhAiCompositionFeature feature, NhAssistantCompositionSwitchContext context, CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<bool> IsOfferedAsync( NhAssistantAgent agent, NhAiCompositionFeature feature, NhAssistantCompositionSwitchContext context, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
@@ -13268,6 +13480,86 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
         "declaration": "public async ValueTask<bool> DecideAsync(NhAiCompositionFeature feature, Func<ValueTask<bool>> decide) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public interface INhAssistantCompositionStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public sealed record NhAssistantCompositionStatusRequest(string? TenantId, string? PersonActorId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public sealed record NhAssistantCompositionStatusDto( string AgentId, IReadOnlyList<NhAssistantCompositionFeatureStatusDto> Features);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public sealed record NhAssistantCompositionFeatureStatusDto( string Feature, bool On, string Reason, IReadOnlyList<NhAssistantCompositionChannelStatusDto> Channels);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public sealed record NhAssistantCompositionChannelStatusDto( string Channel, bool On, string Reason);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public static class NhAssistantCompositionReasons {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string On = \"on\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string NotInstalled = \"not-installed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string AgentNotAllowed = \"agent-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string OffByApplication = \"off-by-application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string NotAllowedForDataAgents = \"not-allowed-for-data-agents\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string OffForAgent = \"off-for-agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public static class NhAssistantCompositionChannels {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string Chat = \"chat\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string Run = \"run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string HandOff = \"hand-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public const string Mcp = \"mcp\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public static string NameOf(NhAssistantCompositionChannel channel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "declaration": "public async Task<NhAssistantCompositionStatusDto?> GetAsync( string agentId, NhAssistantCompositionStatusRequest request, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
@@ -13296,6 +13588,110 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
         "declaration": "public ValueTask<bool> IsOnAsync( NhAssistantCompositionSwitchContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public const string CatalogId = \"assistant-compositions\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public IReadOnlyList<NhAiToolDescriptor> Descriptors => _model.Value.Descriptors;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public NhAiToolCatalogManifest Manifest => _model.Value.Manifest;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public string AttestationHash => _model.Value.Manifest.SchemaHash;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public IReadOnlySet<string> StepToolIdsOf(string compositionId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public static List<NhAiToolDescriptor> WithStepsOffered( IReadOnlyList<NhAiToolDescriptor> offered, IEnumerable<INhAiToolCatalog> catalogs) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public NhAssistantCompositionFunction(NhAssistantCompositionToolCatalog.Composition composition, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public override string Name => _composition.Descriptor.ExportName;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public override string Description => _composition.Descriptor.Description;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public override JsonElement JsonSchema => _schema;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "public override JsonSerializerOptions JsonSerializerOptions => JsonOptions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+        "declaration": "protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public sealed class NhAssistantCompositionCeiling {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public bool AllowCompositions { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public bool AllowScripts { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public bool Allows(NhAiCompositionFeature feature) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public sealed class NhAssistantCompositionCeilingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public NhAssistantCompositionCeilingBuilder AllowCompositions(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public NhAssistantCompositionCeilingBuilder AllowScripts(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public sealed record NhAssistantAgentCompositionSettings(bool Compositions, bool Scripts) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public static NhAssistantAgentCompositionSettings None { get; } = new(false, false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "declaration": "public bool Allows(NhAiCompositionFeature feature) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
@@ -13436,6 +13832,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
         "declaration": "public string? ShadowOfAgentId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public bool UsesCompositions { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public bool UsesScripts { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
@@ -16679,6 +17083,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseCompositionsAsData(Action<NhAssistantCompositionCeilingBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -16728,6 +17136,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddProposalGuard<TGuard>( IReadOnlyCollection<string> toolSelectors, NhAiProposalGuardStages stages) where TGuard : class, INhAiProposalGuard {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder AddComposition<TInput>( string compositionId, Action<NhAssistantCompositionBuilder<TInput>> configure) where TInput : class {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -16800,6 +17212,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantSystemSubjectBuilder Members<TMembers>() where TMembers : class, INhAssistantSystemMembers {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public IReadOnlyCollection<NhAssistantCompositionDefinition> Compositions => _compositions.Values;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public void AddComposition(NhAssistantCompositionDefinition composition) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -16904,6 +17324,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantShadowVariantCeiling? ShadowVariantsAsData { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantCompositionCeiling? CompositionsAsData { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -24492,6 +24916,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
         "declaration": "public static bool MayBeStep(NhAiToolDescriptor descriptor, NhAiToolDescriptor caller) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
+        "declaration": "public static IEnumerable<NhAiToolDescriptor> StepToolsOf( IEnumerable<NhAiToolDescriptor> offered, NhAiToolDescriptor caller) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
@@ -51277,7 +51705,47 @@
       "BinderId",
       "MaxChainAgents",
       "MaxApplicationIdLength",
-      "IsApplicationId"
+      "IsApplicationId",
+      "INhAssistantCompositionSwitch",
+      "NhAssistantCompositionSwitchContext",
+      "NhAssistantCompositionChannel",
+      "UseCompositionSwitch",
+      "AllowCompositions",
+      "AllowScripts",
+      "UseCompositionsAsData",
+      "NhAssistantCompositionCeiling",
+      "NhAssistantCompositionCeilingBuilder",
+      "NhAssistantAgentCompositionSettings",
+      "INhAssistantCompositionStatus",
+      "NhAssistantCompositionStatusRequest",
+      "NhAssistantCompositionStatusDto",
+      "NhAssistantCompositionFeatureStatusDto",
+      "NhAssistantCompositionChannelStatusDto",
+      "NhAssistantCompositionReasons",
+      "NhAssistantCompositionChannels",
+      "NhAssistantCompositionCeilingDto",
+      "NhAiCompositionFeature",
+      "NhAiCompositionFeatures",
+      "AddComposition",
+      "NhAssistantCompositionBuilder",
+      "NhAssistantCompositionContext",
+      "NhAssistantCompositionLimits",
+      "NhAssistantCompositionCodes",
+      "INhAssistantToolSteps",
+      "NhAssistantToolStepRequest",
+      "NhAssistantToolStepSession",
+      "NhAssistantToolStep",
+      "NhAssistantToolStepStatus",
+      "NhAssistantToolStepCodes",
+      "NhAssistantToolStepLimits",
+      "NhAssistantToolStepActivity",
+      "NhAssistantCompositionActivityDto",
+      "NhAssistantCompositionToolUsageDto",
+      "NhAssistantCompositionCallDto",
+      "NhAssistantCompositionStepDto",
+      "getAgentCompositionActivity",
+      "AgentCompositionActivity",
+      "NhAssistantAgentCompositionActivityComponent"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -51429,7 +51897,9 @@
       "NhAiToolFailureCodes",
       "NhAiVerificationResult",
       "AllowAgentGrant",
-      "NhAiGrantSource"
+      "NhAiGrantSource",
+      "NhAiToolCallOrigin",
+      "NhAiToolCallOriginKind"
     ],
     "nh-ai-scripting": [
       "AddNewHeapPlatformAIScripting",
@@ -51972,7 +52442,16 @@
       "AgentPackageParts",
       "InstalledAgentPackage",
       "PackageAgentLinks",
-      "ShadowVariantUncarriedParts"
+      "ShadowVariantUncarriedParts",
+      "getAgentCompositionStatus",
+      "AgentCompositionStatus",
+      "AgentCompositionFeatureStatus",
+      "AgentCompositionChannelStatus",
+      "AgentCompositionFeature",
+      "AgentCompositionChannel",
+      "AgentCompositionReason",
+      "CompositionCeiling",
+      "NhAssistantMockCompositions"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

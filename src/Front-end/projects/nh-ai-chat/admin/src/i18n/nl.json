@@ -385,6 +385,15 @@
         "starts-in-shadow-hint": "Zodra de agent run-instellingen heeft, werken zijn runs in zijn schaduwthreads, waar niemand een melding krijgt en niets wordt uitgevoerd, tot je hem live zet op zijn tab Uitrol.",
         "access": {
           "title": "Wie hem mag uitvoeren en zijn resultaten ziet"
+        },
+        "compositions": {
+          "title": "Composities en scripts",
+          "hint": "Of deze agent ze mag gebruiken. De applicatie beslist daarbovenop of ze nu aanstaan; de agentpagina laat zien wat de assistent werkelijk doet.",
+          "compositions": "Composities",
+          "compositions-hint": "Bekende reeksen tools die als één tool draaien.",
+          "scripts": "Scripts",
+          "scripts-hint": "Een kort script dat de agent schrijft en dat een reeks van zijn tools op de server uitvoert.",
+          "not-allowed": "De applicatie staat dit niet toe voor agents die hier zijn gemaakt."
         }
       },
       "effect": {
@@ -1905,8 +1914,71 @@
           }
         },
         "activity": {
-          "label": "Tonen"
+          "label": "Tonen",
+          "compositions": "Composities"
+        },
+        "compositions": {
+          "title": "Composities en scripts",
+          "description": "Wat de assistent deze agent nu aanbiedt. De applicatie zet ze aan of uit; de code en de agent bepalen de grenzen.",
+          "loading": "Lezen wat de assistent aanbiedt…",
+          "error": "Wat de assistent aanbiedt kon niet worden gelezen.",
+          "retry": "Opnieuw proberen",
+          "on": "Aan",
+          "off": "Uit",
+          "features": {
+            "compositions": "Composities",
+            "scripts": "Scripts"
+          },
+          "channels": {
+            "chat": "Chat",
+            "run": "Runs",
+            "consultation": "Raadplegingen",
+            "hand-off": "Overdrachten"
+          },
+          "channel-state": "{{channel}}: {{state}}",
+          "reasons": {
+            "on": "Aan: toegestaan en door de applicatie aangezet.",
+            "not-installed-compositions": "De applicatie heeft geen composities.",
+            "not-installed-scripts": "Het scriptingpakket is niet geïnstalleerd.",
+            "agent-not-allowed": "De code van de agent staat het niet toe.",
+            "not-allowed-for-data-agents": "Niet toegestaan voor agents die in het beheer zijn gemaakt.",
+            "off-for-agent": "Uit voor deze agent.",
+            "off-by-application": "Uitgezet door de applicatie."
+          }
         }
+      },
+      "composition-activity": {
+        "title": "Composities en scripts",
+        "description": "Wat de composities en scripts van deze agent uitvoerden: elke aanroep met zijn toolaanroepen op volgorde, de modelrondes die dat bespaarde en de grootte van het resultaat dat het model kreeg.",
+        "period": "Periode",
+        "periods": {
+          "last-7-days": "Afgelopen 7 dagen",
+          "last-30-days": "Afgelopen 30 dagen",
+          "last-90-days": "Afgelopen 90 dagen"
+        },
+        "refresh": "Vernieuwen",
+        "empty": "Geen aanroepen van composities of scripts in deze periode.",
+        "usage-title": "Gebruik per tool",
+        "calls-title": "Laatste aanroepen",
+        "truncated": "De periode bevat {{total}} aanroepen; het gebruik per tool betreft de laatste {{shown}}.",
+        "columns": {
+          "tool": "Tool",
+          "kind": "Soort",
+          "calls": "Aanroepen",
+          "tool-calls": "Toolaanroepen",
+          "rounds-saved": "Bespaarde rondes",
+          "average-result": "Gemiddeld resultaat",
+          "max-result": "Grootste resultaat"
+        },
+        "kinds": {
+          "composition": "Compositie",
+          "script": "Script"
+        },
+        "characters": "{{count}} tekens",
+        "steps": "Toolaanroepen op volgorde",
+        "no-steps": "Er is geen toolaanroep uitgevoerd.",
+        "rounds-saved": "{{count}} modelrondes bespaard",
+        "result-size": "{{count}} tekens teruggegeven aan het model"
       }
     }
   }

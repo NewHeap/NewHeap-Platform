@@ -147,7 +147,8 @@ export class NhAssistantMockRunConfiguration {
       // The platform's default file limits, unless the scenario's application chose its own.
       fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits,
       consultationCeiling: this.consultations.applicationCeiling,
-      instructionAssets: instructionAssets.supported
+      instructionAssets: instructionAssets.supported,
+      compositionCeiling: scenario.compositionsAsData ?? null
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
       ...trigger,

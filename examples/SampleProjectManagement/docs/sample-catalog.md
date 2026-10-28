@@ -592,7 +592,9 @@ release guide's block with a mistake shows its source with the renderer's reason
 
 An administrator connects MCP servers that OAuth protects for the whole organization (SPM-299).
 Before trusting a planning server, `POST admin/mcp-servers/discover` reads which authorization
-server protects its address, from its challenge and protected resource metadata; saving the server
+server protects its address, from its challenge and protected resource metadata. The challenge
+answers the MCP `initialize` POST a client starts with, so the stateless planning server, which
+answers `GET` with `405`, shows its scopes too; saving the server
 with `oauth.confirmAuthorization` pins that issuer, so the assistant asks only it for tokens, always
 for the server's own address, and suspends the server's connections when it later names another
 one until an administrator confirms again. With `oauth-client-credentials` the sample's own client
@@ -636,17 +638,51 @@ on to the API's own endpoints. The API's own clients keep calling `/mcp` with th
 without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the official MCP SDK
 client through the whole flow against a stand-in authorization server; the authorization server, the
 registration of clients and the consent stay the application's.
+
+Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
+assistant settings page stores it per environment and agent in the portal's table
+`AssistantCompositionSetting`, and `SampleAssistantCompositionSwitch`, registered with
+`UseCompositionSwitch`, answers the assistant from that table through a short cache at the start of every
+turn, run step and MCP request: a person switches the script tool on for the project assistant and the
+next turn follows, without a restart or a configuration change. Code keeps the ceiling. The project
+assistant allows both features in code, agents created in the administration may only get the script tool
+(`UseCompositionsAsData`), as the scripting desk of the development seed does in its own definition, and
+the MCP exposure allows the script tool and compositions, whose setting the page lists under MCP clients.
+Next to each checkbox the page shows what the assistant actually does and why, from
+`GET admin/agents/{id}/compositions`: for the scripting desk, compositions are not allowed for agents
+created in the administration, and the script tool its definition uses is off by the application until
+the portal's setting of the desk has it on. `AssistantCompositionSwitchSamplesTests` saves a
+setting and asks the switch per environment and agent, and reads the effective state and the refusal of
+compositions for an agent created in the administration over the assistant API.
+
+A known chain of tools can run as one tool (SPM-372). `SampleProjectOverviewComposition` declares the
+project overview, `projects.overview`, with `AddComposition`: it reads the project (`projects.get`),
+then its open tasks (`projects.list-open-tasks`) and its members (`projects.list-members`) with the
+project's id from the first result, and returns only the overview with the owner's name. The project
+assistant calls it once instead of three times, so the model saves two rounds and never reads the
+intermediate results. Every step is a governed call of its own tool with the person's rights and
+active division, audited under the composition's call; a step that waits for an approval or fails
+would stop the chain and return what succeeded. The overview only reads, so it runs at once and is
+read-only over MCP, where the API's exposure allows compositions. It is offered where the project
+assistant's ceiling allows compositions and the portal's setting has them on, and the agent's Activity
+in the administration shows each call with the tool calls it ran in order, the rounds it saved and the
+size of the result the model received (`GET admin/agents/{id}/compositions/activity`).
+`AssistantCompositionSamplesTests` switches compositions on in the portal's setting, runs the chat turn
+and reads the activity.
+
 A chained question costs one call when the model writes a script (SPM-373). The project assistant's
 agent context allows scripts, `AddNewHeapPlatformAIScripting` gives its scripts at most four calls and one
-change, and with `NewHeap:AI:Assistant:Scripts` on the assistant offers `run_script`, whose description
-lists the turn's tools as TypeScript-style signatures. Asked which projects cover the roadmap and the
-launch, the model searches both topics in one short program that runs on the server and returns only the
-distinct keys; each search runs as the person's own call would, and the model reads the value, not the
-search results. A call that does not match its signature stops the script with the exact signature and
-the field to correct, so the next script gets it right. A change inside a script gets the sample's
-approval exactly as the same call on its own (SPM-374): the status change stops the script, the person
-sees the usual approval card and nothing after the change runs until they decide.
-`AssistantScriptSamplesTests` runs both on the sample's host.
+change, and where the portal's setting (SPM-371) has scripts on the assistant offers `run_script`, whose
+description lists the turn's tools as TypeScript-style signatures. Asked which projects cover the roadmap
+and the launch, the model searches both topics in one short program that runs on the server and returns
+only the distinct keys; each search runs as the person's own call would, and the model reads the value,
+not the search results. A call that does not match its signature stops the script with the exact
+signature and the field to correct, so the next script gets it right. A change inside a script gets the
+sample's approval exactly as the same call on its own (SPM-374): the status change stops the script, the
+person sees the usual approval card and nothing after the change runs until they decide. The agent's
+Activity lists a script call with its calls as it does a composition's.
+`AssistantScriptSamplesTests` switches scripts on in the portal's setting and runs both on the sample's
+host.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

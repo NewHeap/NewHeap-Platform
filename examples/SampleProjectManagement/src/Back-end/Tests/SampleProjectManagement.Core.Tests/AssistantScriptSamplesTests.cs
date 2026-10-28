@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
+using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
@@ -11,7 +13,7 @@ namespace SampleProjectManagement.Core.Tests;
 /// Executable evidence for SPM-373 and SPM-374: the project assistant answers a chained question with
 /// one script that runs the turn's tools on the server and returns only what the answer needs, and a
 /// status change inside a script gets the sample's approval exactly as the same call on its own does.
-/// The sample switches scripts on with <c>NewHeap:AI:Assistant:Scripts</c>.
+/// The portal's own setting of the environment and agent switches scripts on (SPM-371).
 /// </summary>
 public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) : IClassFixture<AssistantScriptSampleHost>
 {
@@ -28,6 +30,7 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
             .RespondWithText("Your roadmap and launch work is in PRJ-1.");
+        await SwitchScriptsOnAsync();
         host.Model.Use(model);
         var searchesBefore = host.Projects.SearchedDivisions.Count;
         using var client = host.CreateClient("spm-373-user");
@@ -66,6 +69,7 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
             .RespondWithText("The roadmap project is active now.");
+        await SwitchScriptsOnAsync();
         host.Model.Use(model);
         using var client = host.CreateClient("spm-374-user");
         var conversationId = await host.CreateConversationAsync(client);
@@ -92,16 +96,27 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
             ["done", "waiting-for-approval"],
             stopped.GetProperty("data").GetProperty("calls").EnumerateArray().Select(call => call.GetProperty("outcome").GetString()!).ToArray());
     }
+
+    /// <summary>
+    /// The portal's own setting switches scripts on for the project assistant in this environment
+    /// (SPM-371); compositions stay off.
+    /// </summary>
+    private async Task SwitchScriptsOnAsync()
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<SampleAssistantCompositionSettings>()
+            .SaveAsync(string.Empty, SampleAssistantComposition.AgentId, compositions: false, scripts: true, Guid.NewGuid(), TestContext.Current.CancellationToken);
+    }
 }
 
 /// <summary>
-/// The assistant sample with scripts switched on through the default switch of the assistant.
+/// The assistant sample with the portal's composition switch, as Program.cs composes it after
+/// <c>AddSampleAssistant</c>, which registers the script tool.
 /// </summary>
 public sealed class AssistantScriptSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
-    protected override void ConfigureSettings(IDictionary<string, string?> settings)
+    protected override void ConfigureAssistant(IServiceCollection services)
     {
-        base.ConfigureSettings(settings);
-        settings["NewHeap:AI:Assistant:Scripts"] = "true";
+        services.AddSampleAssistantCompositions();
     }
 }

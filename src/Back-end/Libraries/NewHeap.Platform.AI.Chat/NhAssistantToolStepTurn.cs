@@ -28,11 +28,8 @@ public sealed record NhAssistantToolStepTurn(string AgentId, IReadOnlyList<NhAiT
             return null;
         }
 
-        var tools = turn.OfferedTools
-            .Where(descriptor => NhAssistantToolChains.MayBeStep(descriptor, caller))
-            .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
-            .ThenBy(descriptor => descriptor.Version)
-            .ToArray();
+        // The same list and order a step session opened in the call starts from.
+        var tools = NhAssistantToolChains.StepToolsOf(turn.OfferedTools, caller).ToArray();
         return new NhAssistantToolStepTurn(turn.Agent.Id, tools);
     }
 }

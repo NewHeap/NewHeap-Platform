@@ -190,6 +190,16 @@ export interface AdminAgentInput {
    * `instructionsAsset.hash: invalid`). Omitted or `null` keeps or makes the instructions text.
    */
   instructionsAsset?: InstructionAssetReference | null;
+  /**
+   * For an agent created in the administration: whether it uses compositions, saved and versioned with
+   * its definition, within the application's ceiling (`RunCatalog.compositionCeiling`; field error
+   * `compositions: not-allowed` otherwise). Omitted keeps it on update; a new agent starts without. A turn
+   * offers them only when the application's switch has them on too. On an agent in code: what its code
+   * allows, read-only. Missing on older servers.
+   */
+  compositions?: boolean;
+  /** For an agent created in the administration: whether it uses the script tool, as `compositions`. */
+  scripts?: boolean;
 }
 
 /**
@@ -409,6 +419,58 @@ export interface AgentSkillState {
   startedRuns: number;
   /** Whether the skill's work goes to the agent's shadow threads. */
   shadow?: AgentShadowState;
+}
+
+/** A composition feature, as `GET admin/agents/{id}/compositions` names it. */
+export type AgentCompositionFeature = 'compositions' | 'scripts';
+
+/** Where an agent works, as the effective state of its compositions and scripts names it. */
+export type AgentCompositionChannel = 'chat' | 'run' | 'consultation' | 'hand-off';
+
+/**
+ * Why a composition feature is on or off for an agent:
+ * - `on`: code allows it and the application's switch has it on;
+ * - `not-installed`: no tool of the feature is registered; for scripts the scripting package is not
+ *   installed, for compositions the application declares none;
+ * - `agent-not-allowed`: the code of an agent in code does not allow the feature;
+ * - `not-allowed-for-data-agents`: the application's ceiling for agents created in the
+ *   administration (`UseCompositionsAsData`) does not allow it;
+ * - `off-for-agent`: an agent created in the administration within the ceiling, whose own setting is off;
+ * - `off-by-application`: the application's switch has it off.
+ */
+export type AgentCompositionReason =
+  | 'on'
+  | 'not-installed'
+  | 'agent-not-allowed'
+  | 'not-allowed-for-data-agents'
+  | 'off-for-agent'
+  | 'off-by-application';
+
+/** The state of one feature in one channel. */
+export interface AgentCompositionChannelStatus {
+  channel: AgentCompositionChannel;
+  on: boolean;
+  reason: AgentCompositionReason;
+}
+
+/** The state of one feature for an agent: on when it is on in at least one channel. */
+export interface AgentCompositionFeatureStatus {
+  feature: AgentCompositionFeature;
+  on: boolean;
+  /** `on` while the feature is on in a channel, otherwise why it is off everywhere. */
+  reason: AgentCompositionReason;
+  channels: AgentCompositionChannelStatus[];
+}
+
+/**
+ * Response of `GET admin/agents/{id}/compositions`: what the assistant actually does with compositions
+ * and the script tool for one agent now, as code and the application's switch decide it for the
+ * reading person. An application shows it next to its own setting.
+ */
+export interface AgentCompositionStatus {
+  agentId: string;
+  /** Compositions, then scripts. */
+  features: AgentCompositionFeatureStatus[];
 }
 
 /** Response of `GET` and `POST admin/agents/{id}/state`. */
@@ -994,6 +1056,68 @@ export interface AgentInvalidationCount {
   count: number;
 }
 
+/** Whether a call chained tools as a declared composition or as a script the model wrote. */
+export type AgentCompositionKind = 'composition' | 'script';
+
+/** One tool call a composition or script ran, as the activity shows it: content-free. */
+export interface AgentCompositionStep {
+  /** The step's position in its call, from 0. */
+  index: number;
+  toolId: string;
+  /** The tool call status, such as `succeeded`, `failed`, `awaiting-approval` or `not-executed`. */
+  status: string;
+  resultCode: string | null;
+}
+
+/** One composition or script call: the tool calls it ran in order and what that saved. */
+export interface AgentCompositionCall {
+  invocationId: string;
+  conversationId: string;
+  toolId: string;
+  kind: AgentCompositionKind;
+  status: string;
+  /** The code a failed call ended with, such as that of the step that stopped it. */
+  resultCode: string | null;
+  startedAt: string;
+  steps: AgentCompositionStep[];
+  /** The model rounds the call saved: its tool calls minus one, at least 0. */
+  roundsSaved: number;
+  /** The size of the result returned to the model, in characters of JSON. */
+  resultCharacters: number;
+}
+
+/** The use of one composition or the script tool over the listed calls. */
+export interface AgentCompositionUsage {
+  toolId: string;
+  kind: AgentCompositionKind;
+  calls: number;
+  toolCalls: number;
+  roundsSaved: number;
+  averageResultCharacters: number;
+  maxResultCharacters: number;
+}
+
+/** Response of `GET admin/agents/{id}/compositions/activity`: what the agent's compositions and scripts ran. */
+export interface AgentCompositionActivity {
+  agentId: string;
+  from: string;
+  /** Exclusive end of the period. */
+  to: string;
+  /** Every composition and script call of the period. */
+  total: number;
+  /** The period held more calls than `calls` lists; `tools` covers the listed ones. */
+  truncated: boolean;
+  tools: AgentCompositionUsage[];
+  /** The newest calls of the period, at most 500. */
+  calls: AgentCompositionCall[];
+}
+
+/** The period of `getAgentCompositionActivity`; the last 30 days by default. */
+export interface AgentCompositionActivityFilter {
+  from?: string;
+  to?: string;
+}
+
 /** Response of `GET admin/agents/{id}/feedback/summary`. */
 export interface AgentFeedbackSummary {
   agentId: string;
@@ -1108,6 +1232,18 @@ export interface RunCatalog {
    * their instructions from its assets; missing on older servers.
    */
   instructionAssets?: boolean;
+  /**
+   * The application's ceiling of compositions and scripts for agents created in the administration
+   * (`UseCompositionsAsData`): which features an administrator may switch on for such an agent; `null`
+   * or missing while they never get them.
+   */
+  compositionCeiling?: CompositionCeiling | null;
+}
+
+/** The features `UseCompositionsAsData` allows for agents created in the administration. */
+export interface CompositionCeiling {
+  compositions: boolean;
+  scripts: boolean;
 }
 
 /** An entry of agent metadata registered in code with `AddAgentMetadata`. */

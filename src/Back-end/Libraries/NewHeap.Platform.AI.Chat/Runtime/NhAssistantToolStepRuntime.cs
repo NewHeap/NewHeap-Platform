@@ -217,6 +217,23 @@ internal static class NhAssistantToolChains
                && !IsChain(descriptor)
                && !NhAssistantConsultationTools.IsConsultationTool(descriptor.Id);
     }
+
+    /// <summary>
+    /// The tools of <paramref name="offered"/> a step of <paramref name="caller"/> may call, in the stable
+    /// order of a step session (<see cref="NhAssistantToolStepSession.Tools"/>) and of
+    /// <see cref="NhAssistantToolStepTurn.Tools"/>.
+    /// </summary>
+    public static IEnumerable<NhAiToolDescriptor> StepToolsOf(
+        IEnumerable<NhAiToolDescriptor> offered,
+        NhAiToolDescriptor caller)
+    {
+        ArgumentNullException.ThrowIfNull(offered);
+        ArgumentNullException.ThrowIfNull(caller);
+        return offered
+            .Where(descriptor => MayBeStep(descriptor, caller))
+            .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
+            .ThenBy(descriptor => descriptor.Version);
+    }
 }
 
 /// <summary>
@@ -308,11 +325,8 @@ internal sealed class NhAssistantToolSteps(
             host = new DirectHost(this, context, parentInvocationId);
         }
 
-        var tools = offered
-            .Where(descriptor => NhAssistantToolChains.MayBeStep(descriptor, caller))
+        var tools = NhAssistantToolChains.StepToolsOf(offered, caller)
             .Where(descriptor => request.Tools?.Invoke(descriptor) ?? true)
-            .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
-            .ThenBy(descriptor => descriptor.Version)
             .ToArray();
         var session = new NhAssistantToolStepSession(request, origin, tools, host);
         if (call is not null)
