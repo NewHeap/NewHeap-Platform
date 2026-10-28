@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "bb0cc45463e328c7b3806dc23f74f830fcc8e62deb449511edfc591003e394de",
-    "declarationCount": 11350,
+    "hash": "4f4bbcaece7ad4d0d0bab7caf448c0a3c3e8d0f6c4a1d9edfc341cc1956ae532",
+    "declarationCount": 11354,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -41943,6 +41943,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
+        "declaration": "public NhSmtpSecurityMode? SecurityMode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
         "declaration": "public string User { get; set; } = null!;"
       },
       {
@@ -41964,6 +41968,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
         "declaration": "public List<string> RestrictedEmailWhitelist { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
+        "declaration": "public NhSmtpSecurityMode ResolveSecurityMode() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MicrosoftAuthSettings.cs",
@@ -42156,6 +42164,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhApiClientOptions.cs",
         "declaration": "public TimeSpan RefreshBeforeExpiration { get; set; } = TimeSpan.FromMinutes(3);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhMailServiceSettingsValidator.cs",
+        "declaration": "public ValidateOptionsResult Validate(string? name, MailServiceSettings options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhSmtpSecurityMode.cs",
+        "declaration": "public enum NhSmtpSecurityMode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeapPlatformCommonConfigurator.cs",
@@ -50341,9 +50357,11 @@
       "NhBackgroundOperationStore",
       "NhBackgroundOperationsOptions",
       "NhDefaultBackgroundOperationNotificationPolicy",
+      "MailServiceSettings",
       "NhHangfireUtil",
       "NhMailService",
       "NhNotificationSettings",
+      "NhSmtpSecurityMode",
       "NhUserNotificationService",
       "NhUserNotificationSeverity",
       "TaskResult",
