@@ -26,6 +26,9 @@ public static class NhAiAspNetMcpBuilderExtensions
         // Catalogs that change at runtime and may reach MCP clients announce every change of the tool
         // list to the connected sessions.
         builder.Services.TryAddSingleton<NhAiMcpToolListChanges>();
+        // Compositions and the script tool follow the application's switch per request; the assistant
+        // replaces this configuration default with its own switch.
+        builder.Services.TryAddScoped<INhAiMcpCompositionGate, NhAiMcpConfigurationCompositionGate>();
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IPostConfigureOptions<McpServerOptions>,
             NhAiMcpToolListChangeOptions>());
@@ -183,9 +186,21 @@ internal static class NhAiMcpRequestHandlers
         var tools = await services
             .GetRequiredService<INhAiMcpToolAdapter>()
             .CreateToolsAsync(services, resolved.Data, cancellationToken);
+        // Compositions and the script tool are listed only where the exposure allows them and the
+        // application's switch has them on for this request.
+        var compositions = new NhAiMcpCompositionRequest(services, resolved.Data);
+        var listed = new List<Tool>(tools.Count);
+        foreach (var tool in tools)
+        {
+            if (await compositions.AvailabilityOfAsync(tool, cancellationToken) == NhAiMcpCompositionAvailability.Available)
+            {
+                listed.Add(tool.ProtocolTool);
+            }
+        }
+
         return new ListToolsResult
         {
-            Tools = tools.Select(tool => tool.ProtocolTool).ToList()
+            Tools = listed
         };
     }
 
@@ -216,6 +231,20 @@ internal static class NhAiMcpRequestHandlers
         if (tool is null)
         {
             return Error("ai-tool-not-authorized", "The requested AI tool is not available.");
+        }
+
+        var availability = await new NhAiMcpCompositionRequest(services, resolved.Data)
+            .AvailabilityOfAsync(tool, cancellationToken);
+        if (availability == NhAiMcpCompositionAvailability.NotExposed)
+        {
+            return Error("ai-tool-not-authorized", "The requested AI tool is not available.");
+        }
+        if (availability == NhAiMcpCompositionAvailability.Off)
+        {
+            var feature = tool.Metadata.OfType<NhAiToolDescriptor>().First().CompositionFeature;
+            return feature == NhAiCompositionFeature.Scripts
+                ? Error(NhAiCompositionFeatures.ScriptingOffCode, "Scripts are off in this application.")
+                : Error(NhAiCompositionFeatures.CompositionOffCode, "Compositions are off in this application.");
         }
 
         // The tool reads the call's request metadata as data the caller sent, never as identity.

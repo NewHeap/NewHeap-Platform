@@ -53,7 +53,13 @@ internal static class NhAssistantAgentPackageParts
             ViewPolicy: worksOn.ViewPolicy,
             Profile: row.ProfileName,
             DataClassification: row.DataClassification,
-            ShadowOf: row.ShadowOfAgentId);
+            ShadowOf: row.ShadowOfAgentId)
+        {
+            // Written only when on, so the hash of an agent without them is the one it had before they
+            // existed and no linked agent reads as changed locally.
+            Compositions = row.UsesCompositions ? true : null,
+            Scripts = row.UsesScripts ? true : null
+        };
     }
 
     public static NhAssistantPackageRunSettings RunSettingsOf(AssistantAgentRunConfiguration row)
@@ -200,7 +206,10 @@ internal static class NhAssistantAgentPackageParts
             definition.InstructionsAsset,
             definition.StartsInShadow == true)
         {
-            ShadowOf = definition.ShadowOf
+            ShadowOf = definition.ShadowOf,
+            // A package carries the features only when they are on: left out is off.
+            Compositions = definition.Compositions == true,
+            Scripts = definition.Scripts == true
         };
     }
 

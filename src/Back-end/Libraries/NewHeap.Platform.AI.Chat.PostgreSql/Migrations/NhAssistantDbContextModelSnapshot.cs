@@ -188,6 +188,12 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<bool>("UsesCompositions")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("UsesScripts")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("integer");

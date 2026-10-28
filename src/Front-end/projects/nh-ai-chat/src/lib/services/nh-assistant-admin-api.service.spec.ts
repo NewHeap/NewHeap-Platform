@@ -53,6 +53,7 @@ describe('NhAssistantAdminApiService', () => {
       [() => firstValueFrom(admin.updateAgent('agent 1', { ...agent, expectedVersion: 2 })), 'PUT', 'admin/agents/agent%201'],
       [() => firstValueFrom(admin.resetAgent('agent-1')), 'POST', 'admin/agents/agent-1/reset'],
       [() => firstValueFrom(admin.getAgentState('agent 1')), 'GET', 'admin/agents/agent%201/state'],
+      [() => firstValueFrom(admin.getAgentCompositionStatus('agent 1')), 'GET', 'admin/agents/agent%201/compositions'],
       [() => firstValueFrom(admin.setAgentState('agent-1', { state: 'paused', reason: 'Import' })), 'POST', 'admin/agents/agent-1/state'],
       [() => firstValueFrom(admin.setSkillState('agent-1', 'deadline-risk', { state: 'stopped' })), 'POST', 'admin/agents/agent-1/skills/deadline-risk/state'],
       [() => firstValueFrom(admin.setAgentShadow('agent 1', { mode: 'shadow', reason: 'Evaluate' })), 'POST', 'admin/agents/agent%201/shadow'],

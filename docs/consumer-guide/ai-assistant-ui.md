@@ -866,6 +866,20 @@ renderer's reason; without a renderer the blocks stay code. The texts come with 
 an application that shows documents without it starts `NhAssistantTranslationMerger` or translates the
 `nh-assistant.document.*` keys itself.
 
+The overview of an agent's page in the administration shows whether the assistant uses compositions and
+the script tool for the agent now, per feature and channel, and why: on, not installed, not allowed by
+the agent's code or for agents created in the administration, off for the agent, or off by the
+application (`nh-ai-assistant`). An agent created in the administration switches them on in its tools,
+within the run catalog's `compositionCeiling`; a feature outside it shows disabled with its reason.
+An application that offers the features as a setting of its own shows the same effective state next to
+its checkbox with `NhAssistantAdminApiService.getAgentCompositionStatus(agentId)`
+(`AgentCompositionStatus`, reasons `AgentCompositionReason`), which needs the administration policy,
+and reads it again after a save. The mock API answers it from the scenario's `admin.compositions`
+(`installed` and the channels `on` per feature, `NhAssistantMockCompositions`) and
+`admin.compositionsAsData`, and refuses a setting outside that ceiling with `compositions: not-allowed`
+or `scripts: not-allowed`, as the server does. The sample's assistant settings page does it with its
+own table (SPM-371).
+
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.
@@ -1380,3 +1394,8 @@ shows its source with the reason (SPM-336).
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html)
   - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts)
   - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts)
+- SPM-371 — The portal switches compositions and scripts per environment and agent from its own setting, and shows next to it what the assistant actually does
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)

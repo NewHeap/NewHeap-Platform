@@ -4,7 +4,7 @@ title: "Expose generated AI tools through MCP"
 area: backend
 reference: ai-mcp-tools
 summary: "Adapt an explicitly MCP-exposed generated NewHeap catalog through the official SDK without duplicating domain code or bypassing discovery and invocation authorization."
-sample-cases: ["SPM-222", "SPM-240", "SPM-370"]
+sample-cases: ["SPM-222", "SPM-240", "SPM-370", "SPM-371"]
 public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions", "INhAiChangingToolCatalog", "NhAiToolCatalogViews", "NhAiMcpExposureBuilder", "NhAiMcpProtectedResourceOptions", "NhAiMcpProtectedResourceDefaults", "NhAiMcpProtectedResourceTokenValidatedContext"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
@@ -46,6 +46,17 @@ resource's path) and at the root. It answers an MCP request without a valid toke
 of those servers whose audience is the resource (RFC 8707), validated with the keys their
 metadata publishes. The authorization server, the registration of clients and the consent
 stay the host's; NewHeap is not an authorization server.
+
+Compositions and the script tool, tools whose descriptor names a
+`CompositionFeature`, are part of the exposure only when it opts in:
+`WithNewHeapPlatformAITools(exposure => exposure.AllowCompositions().AllowScripts())`. Even then each
+`tools/list` and `tools/call` asks the application's switch once per feature: the assistant's
+`INhAssistantCompositionSwitch` for the channel `Mcp`, with the caller as person and no agent, or,
+on a host without the assistant, `NewHeap:AI:Assistant:Compositions` and `:Scripts` as configuration
+has them now. While the switch has a feature off its tools are not listed and a call is refused with
+`assistant-composition-off` or `assistant-scripting-off` before it runs; a feature the exposure does
+not allow answers `ai-tool-not-authorized` like any tool it does not export. Individual tools never
+change (`nh-ai-assistant`, SPM-371).
 
 The token's person is the host's decision. Without `OnTokenValidated` the request signs in
 with the token's claims (`iss`, `sub`, `scope`, `client_id`), which
@@ -278,4 +289,7 @@ never passed on, that a person without rights meets the tools' own refusals, and
 without the option serves no metadata and keeps its own challenge. Prove a round trip in
 which a client that follows the MCP authorization flow, such as the MCP SDK client or the
 assistant's own client, discovers the exposure, registers and signs in at
-`NhAiTestAuthorizationServer`. SPM-222, SPM-240 and SPM-370 are the executable references.
+`NhAiTestAuthorizationServer`. For an exposure with `AllowCompositions` or `AllowScripts`, assert
+that a marked tool is listed and runs while the switch is on, is left out and refused with its code
+while it is off, and that a feature the exposure does not allow is never listed. SPM-222, SPM-240,
+SPM-370 and SPM-371 are the executable references.

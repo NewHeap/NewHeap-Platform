@@ -702,5 +702,34 @@
     "documents": "Documents",
     "contents": "On this page",
     "no-headings": "This document has no headings."
+  },
+  "assistant-settings": {
+    "navigation": "Assistant settings",
+    "title": "Assistant settings",
+    "description": "Whether the assistant's agents use compositions and scripts in this environment. The assistant reads this at the start of every turn, so a change applies from the next one. Next to each checkbox: what the assistant actually does now.",
+    "loading": "Loading…",
+    "empty": "The assistant has no agents.",
+    "load-error": "The settings could not be loaded.",
+    "save-error": "The setting could not be saved.",
+    "retry": "Try again",
+    "features": {
+      "compositions": "Compositions",
+      "scripts": "Scripts"
+    },
+    "on": "On",
+    "off": "Off",
+    "mcp": "MCP clients",
+    "mcp-hint": "Applications that call the portal's tools over MCP",
+    "mcp-effect": "Applies to the next MCP request.",
+    "ceiling-hint": "Code sets the limits: the project assistant may use both, agents created in the administration only scripts, and only when their own definition allows it.",
+    "reasons": {
+      "on": "allowed and switched on here",
+      "not-installed-compositions": "the application has no compositions yet",
+      "not-installed-scripts": "the scripting package is not installed",
+      "agent-not-allowed": "the agent's code does not allow it",
+      "not-allowed-for-data-agents": "not allowed for agents created in the administration",
+      "off-for-agent": "off in the agent's own definition",
+      "off-by-application": "switched off here"
+    }
   }
 }

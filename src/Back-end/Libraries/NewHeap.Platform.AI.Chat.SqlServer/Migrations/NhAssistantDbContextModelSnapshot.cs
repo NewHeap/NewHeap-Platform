@@ -188,6 +188,12 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<bool>("UsesCompositions")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("UsesScripts")
+                        .HasColumnType("bit");
+
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("int");

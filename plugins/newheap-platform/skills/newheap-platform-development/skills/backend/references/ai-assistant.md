@@ -1184,6 +1184,52 @@ person still needs the consultation's policy and a role on the subject, and the 
 daily `Budget`, `MaxConsultationsPerActorPerDay` and the call's deadline bound a caller that sends
 no chain or a forged one: a forged shallow chain costs budget, never correctness.
 
+## Compositions and scripts: a switch the application owns
+
+A composition runs a known chain of governed tools as one tool, and the script tool runs a short
+program the model writes over the tools of its turn. Both mark their descriptor with
+`NhAiToolDescriptor.CompositionFeature` (`NhAiCompositionFeature.Compositions` or `Scripts`); every
+other tool keeps `None` and nothing below ever affects it. A marked tool is offered only where three
+things allow it, decided once per feature at the start of each turn, run step and MCP request:
+
+1. **Code** sets the ceiling. An agent in code opts in with
+   `ConfigureAgentContext(agentId, c => c.AllowCompositions().AllowScripts())`. Agents created in the
+   administration get them only within `UseCompositionsAsData(c => c.AllowCompositions().AllowScripts())`,
+   and then each such agent carries its own `compositions` and `scripts` setting, saved and versioned
+   with its definition, carried in agent packages only when on and taken over by a promoted shadow
+   variant; switching on what the ceiling does not allow answers `compositions: not-allowed` or
+   `scripts: not-allowed` (`NhAssistantFieldErrors.NotAllowed`), while a setting the agent already has
+   stays accepted. An MCP exposure opts in with `WithNewHeapPlatformAITools(mcp => mcp.AllowCompositions().AllowScripts())`.
+2. **The application's switch** decides at run time: `INhAssistantCompositionSwitch.IsOnAsync` with
+   `NhAssistantCompositionSwitchContext` (the feature, the channel `Chat`, `Run`, `Consultation`,
+   `HandOff` or `Mcp`, the tenant, the agent, `null` for MCP, and the person: the person who chats,
+   a run's initiator, the person who asked a consultation, the MCP caller). The default reads
+   `NewHeap:AI:Assistant:Compositions` and `NewHeap:AI:Assistant:Scripts`, both off. An application
+   that offers the features as a setting of its own registers `UseCompositionSwitch<TSwitch>()`, a
+   scoped service that reads its own table with a cache of its own, because it is asked every turn.
+   The switch is asked only where code allows the feature and a tool of it is registered; one that
+   throws counts as off and only the exception type is logged.
+3. **The tool** must be registered in a catalog (`Agent` exposure for agents, `Mcp` for the export).
+   Compositions are selected by the agent's tool selectors like any tool; the script tool needs no
+   selector, also not in a consultation's own selection, because the ceiling is its opt-in and a script
+   only calls the tools its turn offers. Effect and autonomy rules still apply to both.
+
+A value that changes during a turn applies from the next one, so a running script never flips halfway.
+While a feature is off its tools are not offered to the model and not listed over MCP, and a call that
+still arrives, such as an approved proposal of a composition or an MCP call from an earlier list, is
+refused with `assistant-composition-off` or `assistant-scripting-off` before anything runs; a marked
+tool the MCP exposure does not allow is not part of it (`ai-tool-not-authorized`).
+
+`INhAssistantCompositionStatus.GetAsync` and `GET admin/agents/{id}/compositions` (administration
+policy) return what the assistant actually does for one agent, per feature and per channel, and why
+(`NhAssistantCompositionReasons`): `on`, `not-installed` (no tool of the feature; for scripts the
+scripting package), `agent-not-allowed` (an agent in code), `not-allowed-for-data-agents` or
+`off-for-agent` (an agent created in the administration) and `off-by-application`. The switch is asked
+for the reading person and tenant. Show it next to the application's own checkbox, as the
+administration's agent page does. The run catalog reports `compositionCeiling`. The sample stores its
+setting per environment and agent in its own table and switches the project assistant and the scripting
+desk, an agent created as data (SPM-371).
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
@@ -1196,6 +1242,10 @@ no chain or a forged one: a forged shallow chain costs budget, never correctness
   with `IncludeChain` or a reviewed caller without `UseMcpChainApplication` fails startup too.
 - Registering or replacing `INhAiToolDiscoveryPolicy` for the assistant; discovery
   stays owned by the application or the API bridge.
+- Offering a composition or the script tool as an extra function outside a tool catalog, or reading
+  the application's setting yourself in a tool: only marked catalog tools follow the switch, the
+  ceiling and the refusal codes. Do not read a database without a cache in
+  `INhAssistantCompositionSwitch`; it is asked every turn.
 - Adding agent-specific copies of tools to bypass approval, or approving on behalf
   of the user from code.
 - Letting an impersonation session record a personal grant of the impersonated person, such as
@@ -1435,6 +1485,16 @@ from the earlier schema up and back down.
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another
 division, and that audit and logs carry its hash but not its content (SPM-291).
+
+For compositions and scripts, register a small marked test catalog and assert on SQL Server and
+PostgreSQL that neither feature is offered by default, that configuration and the application's
+`INhAssistantCompositionSwitch` switch them on only for an agent whose code allows them, that the
+switch is asked once per feature and turn with the right channel, tenant, agent and person and that a
+change applies from the next turn, that an approved call of a marked tool after the switch went off is
+refused with `assistant-composition-off`, that `GET admin/agents/{id}/compositions` names every reason
+and answers only administrators, and that an agent created in the administration saves `scripts` only
+within `UseCompositionsAsData`, exports and imports it in a package and is offered the tool only when
+the ceiling, its setting and the switch all allow it (SPM-371).
 
 ## Optional source evidence
 

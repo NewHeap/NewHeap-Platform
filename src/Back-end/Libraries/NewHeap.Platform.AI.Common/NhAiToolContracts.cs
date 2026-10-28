@@ -312,6 +312,15 @@ public sealed record NhAiToolDescriptor(
     public NhAiToolSubject? Subject { get; init; }
 
     /// <summary>
+    /// Whether the tool is a composition or the script tool (<see cref="NhAiCompositionFeature"/>), so the
+    /// application's switch and the code ceiling of the agent or the MCP exposure decide whether it is
+    /// offered; <see cref="NhAiCompositionFeature.None"/>, the default, for every individual tool. The
+    /// composition builder and the scripting package set it; generated catalogs never do. A hand-built
+    /// or attested catalog that sets it includes it in its contract hash.
+    /// </summary>
+    public NhAiCompositionFeature CompositionFeature { get; init; } = NhAiCompositionFeature.None;
+
+    /// <summary>
     /// The policies an approver must satisfy: <see cref="ApprovalPolicy"/> when declared,
     /// otherwise the tool's authorization policies.
     /// </summary>

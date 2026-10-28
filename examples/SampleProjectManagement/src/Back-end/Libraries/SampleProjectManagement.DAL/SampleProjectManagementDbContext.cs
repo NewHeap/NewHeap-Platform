@@ -33,6 +33,9 @@ public class SampleProjectManagementDbContext : NhIdentityDbContext<
 
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
+    /// <summary>SPM-371: whether the assistant's agents use compositions and scripts, per environment and agent.</summary>
+    public DbSet<AssistantCompositionSetting> AssistantCompositionSettings => Set<AssistantCompositionSetting>();
+
     // Two-factor passkeys need the Identity passkey table. The migration adds only
     // AspNetUserPasskeys and leaves the existing Identity columns unchanged.
     protected override bool IncludeIdentityPasskeys => true;
@@ -85,6 +88,12 @@ public class SampleProjectManagementDbContext : NhIdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AssistantCompositionSetting>(entity =>
+        {
+            // One setting per environment and agent.
+            entity.HasIndex(x => new { x.Environment, x.AgentId }).IsUnique();
         });
     }
 }

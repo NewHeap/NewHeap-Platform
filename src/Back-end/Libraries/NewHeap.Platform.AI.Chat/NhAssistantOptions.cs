@@ -77,6 +77,23 @@ public sealed class NhAssistantOptions
     /// instead.
     /// </summary>
     public string? HubPath { get; set; } = DefaultHubPath;
+
+    /// <summary>
+    /// Whether compositions are on (<c>NewHeap:AI:Assistant:Compositions</c>), false by default. The
+    /// default <see cref="INhAssistantCompositionSwitch"/> reads it once per turn, run step and MCP
+    /// request, so a reloaded configuration applies from the next one; an application that registers its
+    /// own switch with <c>UseCompositionSwitch</c> decides from its own data instead. Code still has to
+    /// allow compositions for an agent (<c>ConfigureAgentContext(...).AllowCompositions()</c>) or an MCP
+    /// exposure (<c>AllowCompositions()</c>).
+    /// </summary>
+    public bool Compositions { get; set; }
+
+    /// <summary>
+    /// Whether the script tool is on (<c>NewHeap:AI:Assistant:Scripts</c>), false by default; read as
+    /// <see cref="Compositions"/> is. Code still has to allow scripts for an agent or an MCP exposure, and
+    /// the scripting package has to be installed.
+    /// </summary>
+    public bool Scripts { get; set; }
 }
 
 /// <summary>

@@ -45,6 +45,8 @@ internal static class NhAssistantPackageFields
         });
         fields["profile"] = Text(row.ProfileName);
         fields["dataClassification"] = Text(row.DataClassification);
+        fields["compositions"] = Flag(row.UsesCompositions);
+        fields["scripts"] = Flag(row.UsesScripts);
         return fields;
     }
 

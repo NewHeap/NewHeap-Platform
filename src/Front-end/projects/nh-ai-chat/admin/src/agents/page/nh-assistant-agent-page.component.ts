@@ -57,6 +57,7 @@ import { AgentFlowEntry } from '../run-config/agent-flow';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
 import { agentDefinitionLockOf, agentPackageOf, isPackageLocked } from '../agent-packages/package-parts';
 import { NhAssistantAgentAccountControlComponent } from './nh-assistant-agent-account-control.component';
+import { NhAssistantAgentCompositionsComponent } from './nh-assistant-agent-compositions.component';
 import { NhAssistantAgentRolloutComponent, RolloutReview } from './nh-assistant-agent-rollout.component';
 import { NhAssistantAgentStateControlComponent } from './nh-assistant-agent-state-control.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
@@ -101,6 +102,7 @@ let nextId = 0;
     NhAssistantPackageLockComponent,
     NhAssistantRunNowDialogComponent,
     NhAssistantAgentAccountControlComponent,
+    NhAssistantAgentCompositionsComponent,
     NhAssistantAgentRolloutComponent,
     NhAssistantAgentStateControlComponent,
     NhAssistantAgentMetadataComponent

@@ -153,6 +153,19 @@ public sealed class AssistantAgent
     public string? ShadowOfAgentId { get; set; }
 
     /// <summary>
+    /// Whether an administrator switched compositions on for an agent created in the administration,
+    /// within <c>UseCompositionsAsData</c>; saved and versioned with its definition. Agents in code take it
+    /// from <c>ConfigureAgentContext(...).AllowCompositions()</c> instead.
+    /// </summary>
+    public bool UsesCompositions { get; set; }
+
+    /// <summary>
+    /// Whether an administrator switched the script tool on for an agent created in the administration,
+    /// as <see cref="UsesCompositions"/> does for compositions.
+    /// </summary>
+    public bool UsesScripts { get; set; }
+
+    /// <summary>
     /// The technical account an administrator set at runtime for an agent that answers to one;
     /// <see langword="null"/> uses the account in code.
     /// </summary>

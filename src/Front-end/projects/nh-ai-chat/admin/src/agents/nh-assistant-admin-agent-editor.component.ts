@@ -18,6 +18,7 @@ import {
   AdminAgentGroups,
   AdminAgentInput,
   AssistantAutonomy,
+  AgentCompositionFeature,
   AssistantDataClassification,
   InstructionAssetReference,
   McpServer,
@@ -181,6 +182,10 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly profile = signal('');
   /** The classification of the model calls of an agent created here; `internal` when it has none. */
   readonly dataClassification = signal<AssistantDataClassification>('internal');
+  /** Whether an agent created here uses compositions and the script tool, within the application's ceiling. */
+  readonly compositions = signal(false);
+  readonly scripts = signal(false);
+  readonly compositionFeatures: readonly AgentCompositionFeature[] = ['compositions', 'scripts'];
   readonly requiredPolicy = signal('');
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
@@ -290,6 +295,17 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly editsWorksOn = computed(() => this.choosesUse() && !this.catalogUnavailable());
   /** An agent created here chooses its profile from those the run catalog offers. */
   readonly choosesProfile = computed(() => this.choosesUse() && !this.catalogUnavailable());
+  /**
+   * An agent created here chooses compositions and scripts when the application allows them for such
+   * agents (`UseCompositionsAsData`), or keeps showing one it already uses.
+   */
+  readonly choosesCompositions = computed(() => {
+    const agent = this.agent();
+    return this.choosesUse()
+      && !this.catalogUnavailable()
+      && (this.catalog()?.compositionCeiling != null || agent?.compositions === true || agent?.scripts === true);
+  });
+
   /** The profiles the run catalog offers, and the agent's own when the catalog no longer lists it. */
   readonly profileChoices = computed(() => {
     const listed = this.catalog()?.profiles ?? [];
@@ -407,6 +423,24 @@ export class NhAssistantAdminAgentEditorComponent {
     this.fieldsVersion.set(agentVersion);
   }
 
+  /** Whether the agent uses a composition feature, as the form has it now. */
+  usesFeature(feature: AgentCompositionFeature): boolean {
+    return feature === 'compositions' ? this.compositions() : this.scripts();
+  }
+
+  /**
+   * Whether the application's ceiling lets an administrator switch the feature on; one the agent
+   * already uses can always be switched off.
+   */
+  mayUseFeature(feature: AgentCompositionFeature): boolean {
+    const ceiling = this.catalog()?.compositionCeiling;
+    return ceiling?.[feature] === true || this.usesFeature(feature);
+  }
+
+  setFeature(feature: AgentCompositionFeature, on: boolean): void {
+    (feature === 'compositions' ? this.compositions : this.scripts).set(on);
+  }
+
   /** Whether the editor shows a part of the agent. */
   shows(section: NhAssistantAgentEditorSection): boolean {
     const sections = this.sections();
@@ -445,7 +479,10 @@ export class NhAssistantAdminAgentEditorComponent {
       // Sent only when it changes, so an agent without a classification keeps none.
       ...(this.choosesUse() && this.dataClassification() !== (this.editing()?.dataClassification ?? 'internal')
         ? { dataClassification: this.dataClassification() }
-        : {})
+        : {}),
+      // Sent only when they change, so a save of another field never meets the ceiling.
+      ...(this.choosesCompositions() && this.compositions() !== (this.editing()?.compositions ?? false) ? { compositions: this.compositions() } : {}),
+      ...(this.choosesCompositions() && this.scripts() !== (this.editing()?.scripts ?? false) ? { scripts: this.scripts() } : {})
     };
     const startsWork = this.agent() === null && this.use() !== 'chat';
 
@@ -553,6 +590,8 @@ export class NhAssistantAdminAgentEditorComponent {
     this.startsInShadow.set(false);
     this.profile.set(agent?.source === 'admin' ? agent.profile ?? '' : '');
     this.dataClassification.set(agent?.source === 'admin' ? agent.dataClassification ?? 'internal' : 'internal');
+    this.compositions.set(agent?.source === 'admin' ? agent.compositions === true : false);
+    this.scripts.set(agent?.source === 'admin' ? agent.scripts === true : false);
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);
