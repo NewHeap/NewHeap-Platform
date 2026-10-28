@@ -623,6 +623,23 @@ internal sealed class NhAssistantStore(
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task AddApprovalAsync(
+        AssistantApproval approval,
+        IReadOnlyCollection<AssistantApprovalKey> keys,
+        AssistantToolInvocation waitingCall,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(waitingCall);
+        await using var context = contextFactory.CreateDbContext();
+        context.Approvals.Add(approval);
+        context.ApprovalKeys.AddRange(keys);
+        context.ToolInvocations.Add(waitingCall);
+        // One save is one transaction on both providers: the proposal and its call exist together.
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<AssistantApproval?> FindApprovalAsync(
         Guid approvalId,
         CancellationToken cancellationToken)

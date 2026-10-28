@@ -146,6 +146,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
             // Who may approve under a policy or a proposal's policy copy, for the application's code (FB20).
             services.TryAddScoped<INhAssistantApproverDirectory, NhAssistantApproverDirectory>();
+            // A deferred proposal the application records for a person without a run (FB21).
+            services.TryAddScoped<INhAssistantProposals, NhAssistantProposals>();
             // A person's turns in their chat for the application's own channels, without their request (LS19).
             services.TryAddScoped<INhAssistantConversationTurns, NhAssistantConversationTurns>();
             // Creating, reading and stopping a person's chat for the same channels (FB5).

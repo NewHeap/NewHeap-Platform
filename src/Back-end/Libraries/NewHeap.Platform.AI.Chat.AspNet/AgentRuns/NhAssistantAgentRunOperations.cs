@@ -1053,8 +1053,10 @@ internal sealed class NhAssistantProposalExecution(
                 ? context.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : null,
             // A consultation's proposal executes with its asker's rights, never the agent's grants, unless
-            // its route executes with the agent's own rights: then never with the asker's.
-            DelegatedOnly = approval.ConsultationId is not null && !AgentRights(approval),
+            // its route executes with the agent's own rights: then never with the asker's. A proposal the
+            // application recorded for a person executes with that person's rights only (FB21).
+            DelegatedOnly = (approval.ConsultationId is not null && !AgentRights(approval))
+                || NhAssistantPersonProposals.IsPersonProposal(approval),
             AgentRightsOnly = AgentRights(approval)
         };
 

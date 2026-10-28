@@ -1234,6 +1234,22 @@ public static class NhAssistantErrorCodes
     /// result carries the guard's reason and explanation.
     /// </summary>
     public const string ProposalNotNeeded = "assistant-proposal-not-needed";
+
+    /// <summary>
+    /// A presentation the application prepared for a proposal it records for a person
+    /// (<c>INhAssistantProposals.ProposeForAsync</c>) breaks a limit of
+    /// <see cref="NhAssistantPresentationLimits"/>, names no valid culture or is given for a tool that is
+    /// never presented. The field errors name the culture and the broken rule
+    /// (<see cref="NhAssistantPresentationRules"/>); nothing was recorded.
+    /// </summary>
+    public const string ProposalPresentationInvalid = "assistant-proposal-presentation-invalid";
+
+    /// <summary>
+    /// The idempotency key of a proposal the application records for a person
+    /// (<c>INhAssistantProposals.ProposeForAsync</c>) already recorded another proposal: of another agent,
+    /// subject, tool, arguments or person. Nothing new was recorded.
+    /// </summary>
+    public const string ProposalIdempotencyConflict = "assistant-proposal-idempotency-conflict";
     public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
     public const string MemoryNotConfigured = "assistant-memory-not-configured";
     public const string MemoryInvalid = "assistant-memory-invalid";

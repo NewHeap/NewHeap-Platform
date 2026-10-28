@@ -3405,7 +3405,10 @@ internal sealed partial class NhAssistantTurnRunner(
             : NhAssistantCompositionChannel.Run;
     }
 
-    private static bool IsSelected(string selector, string toolId)
+    /// <summary>
+    /// Whether one of an agent's tool selectors, an id or a prefix ending in <c>.*</c>, selects the tool.
+    /// </summary>
+    internal static bool IsSelected(string selector, string toolId)
     {
         return string.Equals(selector, toolId, StringComparison.Ordinal)
             || (selector.EndsWith(".*", StringComparison.Ordinal)

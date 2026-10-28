@@ -456,7 +456,21 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>enabled</c>, when the turns of its agents offer
     /// it from now on, or <c>disabled</c>.
     /// </summary>
-    AdminMcpToolSeenAfterReview = 114
+    AdminMcpToolSeenAfterReview = 114,
+
+    /// <summary>
+    /// The application recorded a deferred proposal of an agent for a person without a run
+    /// (<c>INhAssistantProposals.ProposeForAsync</c>), next to the proposal's
+    /// <see cref="ApprovalRequested"/>. <see cref="NhAssistantAuditEvent.ActorId"/> and
+    /// <see cref="NhAssistantAuditEvent.InitiatorActorId"/> are the person,
+    /// <see cref="NhAssistantAuditEvent.ConversationId"/> the agent's thread at the subject that
+    /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.SubjectId"/>
+    /// name, <see cref="NhAssistantAuditEvent.ApprovalPolicyId"/> the policy the proposal waits under and
+    /// <see cref="NhAssistantAuditEvent.IdempotencyKey"/> the application's key;
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>assistant-proposal-recorded</c>. Never the
+    /// arguments or the presentations. A repeat with the same key records nothing.
+    /// </summary>
+    AgentProposalRecordedForPerson = 120
 }
 
 /// <summary>
