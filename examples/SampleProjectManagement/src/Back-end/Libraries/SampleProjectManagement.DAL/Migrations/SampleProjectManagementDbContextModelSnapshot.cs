@@ -1296,6 +1296,45 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.ToTable("AspNetRoles", (string)null);
                 });
 
+            modelBuilder.Entity("SampleProjectManagement.DAL.Entities.AssistantCompositionSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("Compositions")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Scripts")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Environment", "AgentId")
+                        .IsUnique();
+
+                    b.ToTable("AssistantCompositionSettings");
+                });
+
             modelBuilder.Entity("SampleProjectManagement.DAL.Entities.Project", b =>
                 {
                     b.Property<Guid>("Id")
