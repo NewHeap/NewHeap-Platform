@@ -166,6 +166,33 @@ jobs:
         if: inputs.source_branch != ''
         run: node tools/guidance/verify-change-impact.mjs --base "${{ inputs.base_sha }}" --release
 
+  database-read-mysql-family:
+    # The database read tool's MySQL and MariaDB cases, one job per flavor; each job starts only the
+    # container of its flavor, because the cases are theories over DatabaseReadMySqlFlavor.
+    if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-common'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [MySql, MariaDb]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+      - name: Test the database read tool on ${{ matrix.flavor }}
+        timeout-minutes: 15
+        run: >-
+          dotnet test src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/NewHeap.Platform.DatabaseRead.Tool.Tests.csproj
+          --configuration Release --filter "DisplayName~flavor: ${{ matrix.flavor }}"
+          -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
+
   complete-release:
     if: inputs.source_branch != ''
     needs: validate

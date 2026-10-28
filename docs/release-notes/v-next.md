@@ -309,3 +309,33 @@ its reason, and an agent created in the administration switches compositions and
 within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
 answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
 Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
+## NewHeap.Platform.DatabaseRead.Tool: MySQL and MariaDB
+
+A profile's `provider` may be `mysql` or `mariadb` (MySqlConnector). The tool checks that the server is
+that flavor, MySQL 8.0 or later or MariaDB 10.11 or later, and otherwise stops with
+`provider-flavor-mismatch` or `provider-version-not-supported` (exit code 3). The principal is verified deny
+by default from `SHOW GRANTS` with every role it can use active, mandatory roles on MySQL and the grants to
+`PUBLIC` on MariaDB included: only `USAGE` on `*.*` and SELECT on schemas, tables and columns outside `mysql`,
+`sys` and `performance_schema` pass, and `verificationCheck` names the first of `global-privilege`,
+`dynamic-privilege`, `proxy-privilege`, `grant-option`, `role-admin-option`, `system-schema-select`,
+`schema-privilege-not-allowlisted`, `table-privilege-not-allowlisted`, `column-privilege-not-allowlisted`,
+`routine-privilege`, `definer-view` and `grant-not-recognized`. The transaction starts with
+`START TRANSACTION READ ONLY` and the flavor's statement limit (`max_execution_time` or
+`max_statement_time`) and lock limits; the query policy also refuses `#` comments, backslashes in quoted
+values (`backslash-escape-not-allowed`), `FOR SHARE` (`locking-read-not-allowed`) and the functions that
+sleep, lock, read files or move sequences. Schema evidence comes from `information_schema`; relationships
+report `isValidated` false. Existing SQL Server and PostgreSQL profiles are unchanged (SPM-367). The NewHeap
+EF libraries still support SQL Server and PostgreSQL only.
+
+## NewHeap.Platform.DatabaseRead.Tool: inline table-valued functions on SQL Server
+
+A `sql-server` profile may set `"sqlServerFunctionPolicy": "inline-table-valued-select"`; the default `strict`
+is unchanged and another provider rejects the property with `invalid-profile-value`. The principal may then
+hold SELECT on an inline table-valued function that is schema-bound, has no `EXECUTE AS` and depends only on
+tables and views of the same database that it may select directly; grant it `VIEW DEFINITION` on the function
+too, so the tool can read the function's dependencies. Other functions keep `function-select`, and an inline
+function that does not qualify is rejected with `inline-function-not-schema-bound`,
+`inline-function-execute-as`, `inline-function-definition-not-visible`,
+`inline-function-dependency-not-allowed` or `inline-function-dependency-not-selectable` (SPM-368). PostgreSQL
+keeps its strict function policy.
