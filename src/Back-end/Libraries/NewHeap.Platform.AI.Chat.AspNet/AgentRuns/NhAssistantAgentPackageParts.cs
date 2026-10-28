@@ -132,6 +132,22 @@ internal static class NhAssistantAgentPackageParts
     public static NhAssistantPackageConsultation ConsultationOf(AssistantAgentConsultationDefinition row)
     {
         ArgumentNullException.ThrowIfNull(row);
+        if (row.RequestsOnly)
+        {
+            // A consultation that takes requests only carries no setting of a consultation's own
+            // turn, which its import would refuse (FB30).
+            return new NhAssistantPackageConsultation(
+                row.SubjectType,
+                row.Description,
+                AskerPolicy: row.AskerPolicy,
+                AllowRequests: row.AllowRequests,
+                ExposeToMcp: row.ExposeToMcp,
+                DataClassification: row.DataClassification)
+            {
+                RequestsOnly = true
+            };
+        }
+
         NhAssistantDataConsultationToolSelectors.TryRead(row.ToolSelectorsJson, out var selectors);
         return new NhAssistantPackageConsultation(
             row.SubjectType,
@@ -356,6 +372,7 @@ internal static class NhAssistantAgentPackageParts
             reason)
         {
             ToolSelectors = part.ToolSelectors,
+            RequestsOnly = part.RequestsOnly == true,
             StartsOff = expectedVersion is null && part.StartsOff == true
         };
     }

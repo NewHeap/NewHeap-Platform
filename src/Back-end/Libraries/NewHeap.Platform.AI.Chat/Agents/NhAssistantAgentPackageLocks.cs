@@ -184,6 +184,7 @@ public static class NhAssistantPackageLockFields
         "toolSelectors",
         "limits",
         "allowRequests",
+        "requestsOnly",
         "exposeToMcp",
         "dataClassification"
     ];

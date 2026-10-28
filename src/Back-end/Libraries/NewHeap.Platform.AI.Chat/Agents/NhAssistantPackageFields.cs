@@ -123,7 +123,7 @@ internal static class NhAssistantPackageFields
     public static IReadOnlyDictionary<string, string> Of(AssistantAgentConsultationDefinition row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return new Dictionary<string, string>(StringComparer.Ordinal)
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["description"] = Text(row.Description),
             ["instructions"] = Instructions(null, 0, row.InstructionsHash),
@@ -144,6 +144,14 @@ internal static class NhAssistantPackageFields
             ["exposeToMcp"] = Flag(row.ExposeToMcp),
             ["dataClassification"] = Text(row.DataClassification)
         };
+        // Only a consultation that takes requests only names the field, so the fields of every other
+        // consultation, and the links that compare them, stay as they were (FB30).
+        if (row.RequestsOnly)
+        {
+            fields["requestsOnly"] = Flag(true);
+        }
+
+        return fields;
     }
 
     /// <summary>
