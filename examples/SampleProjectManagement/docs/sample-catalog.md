@@ -513,6 +513,13 @@ they answer; the person whose turn asked answers through `POST conversations/{id
 and the turn continues with the answer. The management playground shows the question card with one
 button per choice on the mock API. `AssistantChatSkillQuestionSamplesTests` runs both cases.
 
+The assistant lab also opens the assistant with a prepared message (SPM-350). "Draft a status brief"
+calls `NhAssistantPanelService.open({ agentId, draft, replaceDraft })`: a new chat with the project
+assistant opens with a status brief in the message box, in the person's language, about the project
+page the lab has open or else about all active projects. Nothing is sent until the person sends it;
+text they already typed stays unless "Replace what I typed" is on, and the brief is capped at the
+message limit. A chat on a page of its own takes a draft from `NhAssistantStore.setDraft` the same way.
+
 The chat helper works in people's chats only (SPM-343). `SampleChatHelperComposition` configures it with
 `ChatOnly()`: it keeps its meeting notes skill, offered with `use_skill`, structured questions and a
 limit on the consultations of the intake reviewer it starts in one turn, but it works on no subject. No

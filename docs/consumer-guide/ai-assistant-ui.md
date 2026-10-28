@@ -61,6 +61,24 @@ panel through `NhAssistantPanelService.open(conversationId?)`. The launcher stay
 hidden while the server reports the assistant disabled or the policy denies the
 user; do not add a second feature flag in the host.
 
+A host that prepares a message for the person, such as a status brief about the page they have
+open, opens the drawer with it: `NhAssistantPanelService.open({ agentId, draft, replaceDraft })`
+(`NhAssistantPanelOpenOptions`, next to `conversationId`; the string form stays). `agentId` starts a
+new conversation with that agent, as choosing it for a new chat does, `conversationId` opens one, and
+the composer shows `draft` for the person to review, change and send. Nothing sends it. The draft is
+trimmed and capped at the server's `maxMessageChars` without splitting a character, keeps what the
+person already typed unless `replaceDraft` is set, gives way when the person did not change an
+earlier draft, and never takes the place of a message the server refused. A conversation that does
+not open, an agent the person may not use (check `store.agents()` to explain why) and a drawer
+closed before the assistant was ready leave the composer as it is. On a page of its own
+(`mode="page"`), call `NhAssistantStore.setDraft(text, { replace })` (`NhAssistantDraftOptions`)
+after `initialize()`, with `selectAgent` and `startNewConversation` first for another agent; it
+returns `false` while the assistant is not available. The drawer and the page share the store's
+draft, `pendingDraft()` (`NhAssistantComposerDraft`): a custom layout binds it to the composer's
+`restore` input and calls `consumeRestoredDraft` on its `restored` output, while `restoredDraft()`
+keeps naming only a refused message. SampleProjectManagement's assistant lab drafts a status brief
+about its open project page this way (SPM-350).
+
 Select the assistant in the prompt bar below the message field. The panel shows the
 picker only when more than one assistant is available; a single assistant remains
 automatically selected without showing a disabled selector. In custom layouts,
@@ -1313,3 +1331,8 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpAssignmentSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs)
+- SPM-350 — The assistant lab opens the assistant with a prepared status brief that the person reviews and sends
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html)
+  - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
+  - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts)

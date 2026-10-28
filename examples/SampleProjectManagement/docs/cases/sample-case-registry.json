@@ -6038,6 +6038,27 @@
         "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-350",
+      "categoryId": "18",
+      "title": "The assistant lab opens the assistant with a prepared status brief that the person reviews and sends",
+      "surface": "`@newheap/platform-ai-chat`: `NhAssistantPanelService.open(target?: string | NhAssistantPanelOpenOptions)` with `NhAssistantPanelOpenOptions` (`conversationId`, `agentId`, `draft`, `replaceDraft`); `NhAssistantStore.setDraft(text, options?)` with `NhAssistantDraftOptions` (`replace`), `NhAssistantStore.pendingDraft` with `NhAssistantComposerDraft` and `consumeRestoredDraft`; the `restore` input of `nh-assistant-composer`, which takes the person's own text as a string or a prepared `NhAssistantComposerDraft`, and its `restored` output; the same draft in the drawer and in `nh-assistant-panel mode=\"page\"`",
+      "outcome": "In the assistant lab, \"Draft a status brief\" opens the assistant in a new chat with the project assistant and puts a status brief in the message box, in the person's language: about the project whose page the lab has open, otherwise about all active projects. Nothing is sent: the person reviews the brief, changes it and sends it, and the scripted turn answers with a brief. Text the person already typed stays and the brief is dropped, unless \"Replace what I typed\" is on (`replaceDraft`); a brief the person did not change gives way to the next one, and a message the server refused stays the person's own. The brief is trimmed and capped at the server's `maxMessageChars` without splitting a character, so it can be sent as it is. A conversation that does not open, an agent the person may not use and a drawer closed before the assistant was ready leave the composer as it is. The library specs prove the same for the drawer and for the chat on a page of its own, whose composers share the store's draft.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+      ]
     }
   ]
 }

@@ -99,6 +99,28 @@ function describePageContext(context: ClientContext | null): string {
     : `You are on \`${context.route}\`${context.title ? ` (${context.title})` : ''}.`;
 }
 
+/**
+ * SPM-350: the mock's answer to the prepared status brief, sent once the person reviewed it, about the
+ * project page the panel sent as context or else the active projects.
+ */
+function describeStatusBrief(context: ClientContext | null): string {
+  const project = context?.entities?.[0];
+  const subject = project ? `**${context?.title ?? project.id}** (\`${project.id}\`)` : 'the active projects';
+  return [
+    `## Status brief on ${subject}`,
+    '',
+    '**Progress.** The work runs to plan; the last milestone was delivered on time.',
+    '',
+    '**Risks.** The cut-over window is tight and depends on one specialist.',
+    '',
+    '**Next steps.**',
+    '',
+    '1. Confirm the cut-over window with the operations team.',
+    '2. Name a second specialist as back-up.',
+    '3. Report again to the steering group in two weeks.'
+  ].join('\n');
+}
+
 /** The signed-in user of the playground's simulated organization. */
 export const PLAYGROUND_CURRENT_USER: NhAssistantMockPerson = { actorId: 'playground-user', displayName: 'Robin Jansen' };
 
@@ -690,6 +712,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           }
         },
         { text: 'Your calendar shows the next milestone of **Alpha migration** on Friday.' }
+      ]
+    },
+    {
+      // SPM-350: the prepared status brief, in English or Dutch, once the person sent it.
+      match: /status ?brief/i,
+      steps: [
+        {
+          tool: {
+            toolId: 'sample-api.project.list',
+            displayName: 'List projects',
+            argumentsPreview: '{"filter":[{"key":"status","operator":"eq","value":"active"}],"page":1,"itemsPerPage":20}',
+            resultPreview: '{"items":[{"key":"PRJ-ALPHA","status":"active"},{"key":"PRJ-GAMMA","status":"active"}],"total":2}'
+          }
+        },
+        { text: describeStatusBrief }
       ]
     },
     {

@@ -50268,7 +50268,10 @@
       "NhAssistantAdminAgentEditorComponent",
       "NhAssistantAgentEditorSection",
       "NhAssistantRunConfigurationSection",
-      "NhAssistantPanelMode"
+      "NhAssistantPanelMode",
+      "NhAssistantPanelOpenOptions",
+      "NhAssistantComposerDraft",
+      "NhAssistantDraftOptions"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
