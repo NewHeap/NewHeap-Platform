@@ -5977,5 +5977,69 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-tools.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mcp-assignments.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-347",
+    "title": "A unit test of the tool presenter checks its presentation against the limits the assistant drops it by",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantPresentationLimits.FindBrokenRule(NhAssistantApprovalPresentation), which returns the first broken NhAssistantPresentationRules name or null and is the check INhAssistantToolPresenter results are dropped by; NhAssistantApprovalPresentationContext, NhAssistantApprovalPresentation and NhAssistantPresentationField",
+    "outcome": "The sample's unit test builds SampleAssistantToolPresenter without a host or database, with a fake IProjectAiReadService that returns a project with the longest key and name the sample stores (read from the entity's StringLength attributes), and presents the status change in English and in Dutch with that culture current, as the assistant runs a presenter in every culture it presents in. NhAssistantPresentationLimits.FindBrokenRule finds no broken rule, so production keeps the presentation instead of logging a warning and showing approvers the generic summary. A presentation that grew past eight fields is named too-many-fields by the same check, the rule the production warning would name. The library's own resolver drops presentations by this public check, and its tests cover every rule.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolPresenterSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/Project.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-348",
+    "title": "The order desk confirms an approved order to its approver in the language they approved it in",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantProposalHandOff.DecisionCulture and NhAssistantExecutionReportReceipt.DecisionCulture; NhAssistantDecidingPerson.Culture for INhAssistantProposalDecisionService.DecideAsync; the request culture recorded by POST approvals/{id}/decisions and POST approvals/decisions; AssistantApproval.DecisionCulture, recorded only as a supported UI culture of RequestLocalizationOptions.SupportedUICultures (the exact name or the supported culture of its language), with the existing ApprovalCulture migrations for SQL Server and PostgreSQL",
+    "outcome": "The sample's messaging reply channel writes the message that asks an approver to decide in a culture of its choice and puts that culture in the reply token; the reply then decides through the decision service as that person with NhAssistantDecidingPerson.Culture. A project approver answers a Dutch message about the intake reviewer's order of four chairs with yes: the hand-off to the order desk carries nl-NL as DecisionCulture, the receipt of the desk's report carries it as well, and the desk confirms the placed order to the approver in Dutch, once, also when the supplier confirms twice. The same approver approves a second order in the portal, whose decision endpoint records the request's culture: the hand-off carries en-US and the approver reads in English that the supplier turned it down. The summary in the project's thread and the platform's own posts there keep the application's default culture. The library's provider theories decide through the service and the endpoint path on SQL Server and PostgreSQL, record the supported culture of a language (nl-BE as nl), record nothing for an unsupported language while the decision stands, and hand the culture of a person's inline approval to the application too.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.nl-NL.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationExecutionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineApplicationExecutionTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-349",
+    "title": "The messaging app's chat does not propose to archive a project and reads why before any card",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAiProposalGuardContext.Invocation, ConversationId, TurnId and Channel, set when a call proposes (NhAiProposalGuardStages.Proposal and INhAiProposalGuard.GetKeysAsync of the new proposal) and null at revalidation, decision and execution, never part of the proposal hash; AddProposalGuard<TGuard>(toolSelectors, NhAiProposalGuardStages.Proposal); NhAiPreconditionResult.NotApplicable and the tool result assistant-proposal-not-needed",
+    "outcome": "ProjectArchiveChannelProposalGuard is registered for projects.change-status at the proposal stage only. When a turn of the sample's messaging channel proposes the status Archived, the guard reads the channel of the call that proposes and answers not applicable with project-archive-in-portal and a localized explanation: nothing is proposed, no card reaches the messaging app, the model reads the reason and the explanation and points the person to the portal, and the project keeps its status. The same chat in the portal proposes the same change, and its card waits for the person. The guard decides only at the proposal stage, because the later stages name no call. The library's provider theory on SQL Server and PostgreSQL shows that the proposal stage names the invocation, conversation, turn and channel, that the decision's guard reads the stored proposal without them, and that the stored proposal does not carry the channel.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultationProposals.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationTurnTests.cs"
+    ]
   }
 ] as const;

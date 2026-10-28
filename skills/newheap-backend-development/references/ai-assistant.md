@@ -124,7 +124,11 @@ of 512, 4,000 characters of stored JSON and two seconds per call (`PresenterTime
 presentation that breaks one is dropped as a whole, so an approver never decides without
 fields they were not shown, and a warning names the presenter's type, the tool, the
 culture and the broken rule (`NhAssistantPresentationRules`), never the text: fix the
-presenter it names. A proposal is presented in every supported UI culture of the request
+presenter it names. A presenter builds its output at run time, so no startup check can see it;
+unit-test it instead with `NhAssistantPresentationLimits.FindBrokenRule(presentation)`, the check
+the assistant drops a presentation by, which returns the first broken rule or `null`: present with
+the longest texts the application stores, in every supported culture with that culture current,
+and assert `null` (SPM-347). A proposal is presented in every supported UI culture of the request
 localization, which NewHeap hosts fill from
 `NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`, at most eight
 (`MaxCultures`), so each approver reads their own language (SPM-246).
@@ -1252,6 +1256,9 @@ property, and assert the first succeeds and the second returns `ai-tool-input-in
 before a corrected retry succeeds. Assert that no prompt, argument, result or answer text reaches the audit,
 usage and business sinks or logs, that approval is bound to the proposal hash and
 owner, and that the SSE event and JSON property names match the contract.
+Unit-test each tool presenter without a host: present with the longest texts the application
+stores, in every supported culture with that culture current, and assert that
+`NhAssistantPresentationLimits.FindBrokenRule` returns `null` (SPM-347).
 With `KeepTurnsAfterDisconnect`, disconnect a client while the model waits and assert that the turn
 completes and is stored, that its tool call after the disconnect authorizes the captured principal,
 that the turn is cancelled without the option and that `POST cancel` still stops it. Through
