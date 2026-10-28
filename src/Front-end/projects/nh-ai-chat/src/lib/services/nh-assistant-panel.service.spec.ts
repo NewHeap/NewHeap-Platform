@@ -4,6 +4,7 @@ import { Component, TemplateRef, ViewContainerRef, inject, viewChild } from '@an
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AgentThreadLookup } from '../models/assistant-agent-run.models';
+import { AssistantStatus, Conversation } from '../models/assistant-api.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService } from './nh-assistant-api.service';
@@ -39,6 +40,30 @@ const lookup: AgentThreadLookup = {
   role: 'participant'
 };
 
+const status: AssistantStatus = {
+  enabled: true,
+  agents: [
+    { id: 'general', version: 1, displayNameKey: 'agents.general', descriptionKey: 'agents.general', canMutate: false },
+    { id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects', canMutate: true }
+  ],
+  limits: { maxMessageChars: 40, maxToolCallsPerTurn: 1 },
+  canAdminister: false
+};
+
+function conversation(id: string, agentId = 'general'): Conversation {
+  return {
+    id,
+    agentId,
+    agentVersion: 1,
+    title: null,
+    status: 'idle',
+    createdAt: '2026-10-28T09:00:00Z',
+    updatedAt: '2026-10-28T09:00:00Z',
+    messages: [],
+    pendingApproval: null
+  };
+}
+
 /** Lets the panel's detached status reload and conversation opening finish. */
 async function settle(): Promise<void> {
   for (let round = 0; round < 5; round++) {
@@ -50,10 +75,16 @@ describe('NhAssistantPanelService', () => {
   let service: NhAssistantPanelService;
   let overlayElement: HTMLElement;
   let agentRuns: jasmine.SpyObj<NhAssistantAgentRunApiService>;
+  let api: jasmine.SpyObj<NhAssistantApiService>;
 
   beforeEach(() => {
-    const api = jasmine.createSpyObj<NhAssistantApiService>('NhAssistantApiService', ['status', 'getConversation']);
-    api.status.and.returnValue(of({ enabled: true, agents: [], limits: { maxMessageChars: 10, maxToolCallsPerTurn: 1 }, canAdminister: false }));
+    api = jasmine.createSpyObj<NhAssistantApiService>('NhAssistantApiService', [
+      'status', 'getConversation', 'createConversation', 'sendMessage'
+    ]);
+    api.status.and.returnValue(of(status));
+    api.getConversation.and.callFake(id => id === 'missing'
+      ? throwError(() => new NhAssistantApiError(404, 'assistant-conversation-not-found', 'nh-assistant.errors.assistant-conversation-not-found'))
+      : of(conversation(id)));
 
     agentRuns = jasmine.createSpyObj<NhAssistantAgentRunApiService>('NhAssistantAgentRunApiService', ['openThread']);
 
@@ -128,5 +159,100 @@ describe('NhAssistantPanelService', () => {
     await expectAsync(service.openSubject('intake', { type: 'project', id: 'p-1' }))
       .toBeRejectedWith(jasmine.objectContaining({ code: 'assistant-subject-access-denied' }));
     expect(service.isOpen()).toBeFalse();
+  });
+
+  describe('with a draft', () => {
+    let store: NhAssistantStore;
+
+    beforeEach(() => {
+      store = TestBed.inject(NhAssistantStore);
+    });
+
+    it('opens the drawer with the draft for the composer and never sends it', async () => {
+      service.open({ draft: '  Write a status brief on Alpha.  ' });
+      await settle();
+
+      expect(service.isOpen()).toBeTrue();
+      expect(store.pendingDraft()).toEqual({ text: 'Write a status brief on Alpha.', replace: false });
+      expect(api.createConversation).not.toHaveBeenCalled();
+      expect(api.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('takes a draft while the drawer is already open and passes replaceDraft on', async () => {
+      service.open();
+      await settle();
+
+      service.open({ draft: 'Replace what I typed', replaceDraft: true });
+      await settle();
+
+      expect(store.pendingDraft()).toEqual({ text: 'Replace what I typed', replace: true });
+    });
+
+    it('caps the draft at the longest message the server takes', async () => {
+      service.open({ draft: `${'A'.repeat(39)} and more` });
+      await settle();
+
+      // Cut at 40 characters; the space the cut leaves at the end goes as well.
+      expect(store.pendingDraft()).toEqual({ text: 'A'.repeat(39), replace: false });
+    });
+
+    it('starts a new conversation with the agent, as a new chat with it', async () => {
+      service.open('c1');
+      await settle();
+      expect(store.activeConversation()?.id).toBe('c1');
+
+      service.open({ agentId: 'projects', draft: 'Plan the next milestone.' });
+      await settle();
+
+      expect(store.selectedAgentId()).toBe('projects');
+      expect(store.activeConversation()).toBeNull();
+      expect(store.pendingDraft()).toEqual({ text: 'Plan the next milestone.', replace: false });
+    });
+
+    it('starts a new conversation also when the agent is already chosen', async () => {
+      service.open('c1');
+      await settle();
+
+      service.open({ agentId: 'general' });
+      await settle();
+
+      expect(store.selectedAgentId()).toBe('general');
+      expect(store.activeConversation()).toBeNull();
+      expect(store.pendingDraft()).toBeNull();
+    });
+
+    it('leaves the conversation and puts no draft for an agent the person may not use', async () => {
+      service.open('c1');
+      await settle();
+
+      service.open({ agentId: 'payroll', draft: 'Raise every salary.' });
+      await settle();
+
+      expect(store.activeConversation()?.id).toBe('c1');
+      expect(store.selectedAgentId()).toBe('general');
+      expect(store.pendingDraft()).toBeNull();
+    });
+
+    it('opens a conversation with the draft, and drops the draft when the conversation does not open', async () => {
+      service.open({ conversationId: 'c2', draft: 'Continue here.' });
+      await settle();
+      expect(store.activeConversation()?.id).toBe('c2');
+      expect(store.pendingDraft()).toEqual({ text: 'Continue here.', replace: false });
+      store.consumeRestoredDraft();
+
+      service.open({ conversationId: 'missing', draft: 'Not for c2.' });
+      await settle();
+
+      expect(store.activeConversation()?.id).toBe('c2');
+      expect(store.pendingDraft()).toBeNull();
+    });
+
+    it('drops the draft when the drawer closed before the assistant was ready', async () => {
+      service.open({ draft: 'Too late' });
+      service.close();
+      await settle();
+
+      expect(store.pendingDraft()).toBeNull();
+    });
   });
 });

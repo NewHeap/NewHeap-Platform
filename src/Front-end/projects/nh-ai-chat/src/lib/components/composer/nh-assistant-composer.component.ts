@@ -21,7 +21,7 @@ import {
 } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
-import type { NhAssistantAttachment } from '../../services/nh-assistant.store';
+import type { NhAssistantAttachment, NhAssistantComposerDraft } from '../../services/nh-assistant.store';
 
 let nextId = 0;
 
@@ -30,7 +30,8 @@ let nextId = 0;
  * Drafting remains available while the assistant runs or waits for approval. With `uploads`, an
  * attach button chooses files for the next message; the host uploads them and passes them back as
  * `attachments`, which show their progress, or why they cannot be attached, at the control. Sending
- * waits while a file uploads.
+ * waits while a file uploads. A prepared draft passed as `restore` shows in the input without being
+ * sent, and never replaces what the person typed unless it says so.
  */
 @Component({
   selector: 'nh-assistant-composer',
@@ -59,8 +60,13 @@ export class NhAssistantComposerComponent {
   /** False when the user may not stop the running turn, such as another participant's turn. */
   readonly canStop = input(true);
   readonly maxLength = input<number | null>(null);
-  /** Text to put back into the input, for example a message the server did not accept. */
-  readonly restore = input<string | null>(null);
+  /**
+   * Text to put in the input. A string is the person's own text, such as a message the server did not
+   * accept, and replaces what the input holds. An `NhAssistantComposerDraft`, such as
+   * `NhAssistantStore.pendingDraft()`, is a prepared draft: it keeps what the person typed unless its
+   * `replace` is set, and replaces a prepared draft the person did not change.
+   */
+  readonly restore = input<string | NhAssistantComposerDraft | null>(null);
   /**
    * What the person may attach, for example `NhAssistantStore.uploads()`; `null` hides the attach
    * button.
@@ -71,6 +77,10 @@ export class NhAssistantComposerComponent {
 
   readonly send = output<string>();
   readonly cancel = output<void>();
+  /**
+   * The composer handled `restore`: it shows the text, or kept what the person typed instead of a
+   * prepared draft. The host then clears it, for example with `NhAssistantStore.consumeRestoredDraft`.
+   */
   readonly restored = output<void>();
   /** Files the person chose to attach, for example for `NhAssistantStore.attach`. */
   readonly attach = output<File[]>();
@@ -83,6 +93,8 @@ export class NhAssistantComposerComponent {
   private readonly attachButton = viewChild<ElementRef<HTMLButtonElement>>('attachButton');
   private ownedFocus = false;
   private previousBusy = false;
+  /** True while the input holds the person's own text: typed, changed or put back after a refusal. */
+  private ownText = false;
 
   readonly inputId = `nh-assistant-composer-${nextId++}`;
   readonly hintId = `${this.inputId}-hint`;
@@ -121,10 +133,7 @@ export class NhAssistantComposerComponent {
     effect(() => {
       const draft = this.restore();
       if (draft !== null) {
-        untracked(() => {
-          this.text.set(draft);
-          this.restored.emit();
-        });
+        untracked(() => this.takeRestore(draft));
       }
     });
 
@@ -151,7 +160,9 @@ export class NhAssistantComposerComponent {
   }
 
   onInput(event: Event): void {
-    this.text.set((event.target as HTMLTextAreaElement).value);
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.text.set(value);
+    this.ownText = value.trim().length > 0;
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -176,7 +187,23 @@ export class NhAssistantComposerComponent {
 
     const text = this.text().trim();
     this.text.set('');
+    this.ownText = false;
     this.send.emit(text);
+  }
+
+  /**
+   * Shows the person's own text as it is, and a prepared draft unless the person typed something it
+   * does not replace; either way the host learns that the composer handled it.
+   */
+  private takeRestore(draft: string | NhAssistantComposerDraft): void {
+    if (typeof draft === 'string') {
+      this.text.set(draft);
+      this.ownText = draft.trim().length > 0;
+    } else if (draft.replace || !this.ownText) {
+      this.text.set(draft.text);
+      this.ownText = false;
+    }
+    this.restored.emit();
   }
 
   /** Hands the chosen files to the host and empties the input, so the same file can be chosen again. */

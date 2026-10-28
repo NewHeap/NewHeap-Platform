@@ -91,6 +91,35 @@
       </p>
     </section>
 
+    <!-- SPM-350: the assistant opens with a prepared brief in the composer; the person reviews and sends it. -->
+    <section class="panel" aria-labelledby="assistant-draft-title">
+      <h3 id="assistant-draft-title">{{ 'project.assistant-draft-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-draft-description' | translate }}</p>
+
+      <label class="switch">
+        <input type="checkbox" [checked]="replaceDraft()" (change)="onReplaceDraftToggle($event)" />
+        <span>
+          <strong>{{ 'project.assistant-draft-replace' | translate }}</strong>
+          <small><code>replaceDraft</code></small>
+        </span>
+      </label>
+
+      <div class="actions">
+        <button type="button" [disabled]="!store.enabled()" (click)="draftStatusBrief()">
+          <i class="ph ph-note-pencil" aria-hidden="true"></i>{{ 'project.assistant-draft-open' | translate }}
+        </button>
+      </div>
+      <p class="hint" role="status">
+        @if (!store.enabled()) {
+          {{ 'project.assistant-draft-unavailable' | translate }}
+        } @else if (pageContext.value(); as page) {
+          {{ 'project.assistant-draft-about-page' | translate: { page: page.title ?? page.route } }}
+        } @else {
+          {{ 'project.assistant-draft-about-portfolio' | translate }}
+        }
+      </p>
+    </section>
+
     <section class="panel" aria-labelledby="assistant-prompts-title">
       <h3 id="assistant-prompts-title">{{ 'project.assistant-prompts-title' | translate }}</h3>
       <p class="hint">{{ 'project.assistant-prompts-description' | translate }}</p>

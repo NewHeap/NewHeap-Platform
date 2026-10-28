@@ -10,7 +10,7 @@ import {
 import { NhAssistantMockBackend } from '@newheap/platform-ai-chat/testing';
 import { RouterLink } from '@angular/router';
 import { NhAssistantAgentBoardComponent } from '@newheap/platform-ai-chat/agent-runs';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AssistantPlaygroundAccess } from './assistant-playground-access';
 import {
   ASSISTANT_PLAYGROUND_ADMIN_ROUTE,
@@ -19,7 +19,8 @@ import {
   PLAYGROUND_COLLEAGUE,
   PLAYGROUND_COLLEAGUE_MESSAGE,
   PLAYGROUND_PROJECT_PAGES,
-  PLAYGROUND_MCP_SERVER_ID
+  PLAYGROUND_MCP_SERVER_ID,
+  PROJECT_ASSISTANT_ID
 } from './assistant-playground.scenario';
 import { SampleAssistantPageContext } from './sample-assistant.config';
 
@@ -27,7 +28,8 @@ import { SampleAssistantPageContext } from './sample-assistant.config';
  * Executable evidence for the assistant panel: a scripted mock API, the feature flag and
  * the access policy as switches, prompts for every scripted turn and the live store state.
  * Prompts start a new conversation while another one still runs, so several conversations
- * work at the same time, and a simulated colleague continues a shared conversation live.
+ * work at the same time, and a simulated colleague continues a shared conversation live. A prepared
+ * status brief opens the assistant with the brief in the composer for the person to review (SPM-350).
  */
 @Component({
   selector: 'app-assistant-playground',
@@ -39,6 +41,7 @@ import { SampleAssistantPageContext } from './sample-assistant.config';
 export class AssistantPlaygroundComponent {
   private readonly backend = inject(NhAssistantMockBackend);
   private readonly access = inject(AssistantPlaygroundAccess);
+  private readonly translate = inject(TranslateService);
 
   readonly store = inject(NhAssistantStore);
   readonly panel = inject(NhAssistantPanelService);
@@ -53,6 +56,8 @@ export class AssistantPlaygroundComponent {
   readonly colleagueBusy = signal(false);
   readonly canSimulateColleague = computed(() =>
     !this.colleagueBusy() && this.store.activeConversation()?.status === 'idle' && !this.store.streaming());
+  /** SPM-350: whether the prepared brief replaces what the person already typed in the composer. */
+  readonly replaceDraft = signal(false);
 
   constructor() {
     // Leaving the page closes the simulated project page, as a real page would on destroy.
@@ -109,6 +114,25 @@ export class AssistantPlaygroundComponent {
       await this.store.submit('What am I looking at?');
       await this.store.submit('Which projects are active?');
     }
+  }
+
+  /**
+   * SPM-350: opens the assistant in a new chat with the project assistant and a prepared status brief
+   * in the composer, about the open project page or else the whole portfolio, in the person's
+   * language. Nothing is sent: the person reviews the brief, changes it and sends it. A brief keeps
+   * what the person already typed unless "Replace what I typed" is on.
+   */
+  draftStatusBrief(): void {
+    const page = this.pageContext.value();
+    const project = page?.entities?.[0];
+    const draft = project
+      ? this.translate.instant('project.assistant-draft-project-brief', { name: page?.title ?? project.id, key: project.id })
+      : this.translate.instant('project.assistant-draft-portfolio-brief');
+    this.panel.open({ agentId: PROJECT_ASSISTANT_ID, draft, replaceDraft: this.replaceDraft() });
+  }
+
+  onReplaceDraftToggle(event: Event): void {
+    this.replaceDraft.set((event.target as HTMLInputElement).checked);
   }
 
   /** The colleague joins the open conversation and asks the assistant something; it arrives live. */
