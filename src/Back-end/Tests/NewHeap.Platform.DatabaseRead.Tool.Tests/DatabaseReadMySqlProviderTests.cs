@@ -91,6 +91,10 @@ public sealed class DatabaseReadMySqlProviderTests
             GRANT SELECT ON `{database}`.diagnostic_tasks TO `{reader}`@`%`;
             GRANT SELECT (id, name) ON `{database}`.column_limited_projects TO `{reader}`@`%`;
             """);
+        var emptyDatabase = new MySqlConnectionStringBuilder(await server.CreateDatabaseAsync("empty")).Database;
+        await DatabaseReadMySqlTestServer.ExecuteAsync(
+            admin.ConnectionString,
+            $"GRANT SELECT ON `{emptyDatabase}`.* TO `{reader}`@`%`;");
         var readerConnectionString = DatabaseReadMySqlTestServer.AccountConnectionString(
             admin.ConnectionString,
             reader,
@@ -134,10 +138,18 @@ public sealed class DatabaseReadMySqlProviderTests
                 "SELECT missing_column FROM diagnostic_projects LIMIT 1",
                 "column-not-found",
                 "1054");
+            // Without a privilege on the whole schema, the server does not tell a missing table from
+            // a table the principal may not read; with one, it reports the missing table.
             await AssertClassifiedFailureAsync(
                 server.ProviderName,
                 readerConnectionString,
                 "SELECT id FROM missing_projects LIMIT 1",
+                "permission-denied",
+                "1142");
+            await AssertClassifiedFailureAsync(
+                server.ProviderName,
+                readerConnectionString,
+                $"SELECT id FROM `{emptyDatabase}`.missing_projects LIMIT 1",
                 "object-not-found",
                 "1146");
             await AssertClassifiedFailureAsync(

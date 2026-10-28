@@ -86,8 +86,12 @@ public sealed class DatabaseReadSqlServerFunctionPolicyTests
                 ViewDefinition: false),
             new("a function that is not schema-bound", "dbo.ReadItemsLoosely", "inline-function-not-schema-bound"),
             new("a multi-statement function", "dbo.ReadItemsInSteps", "function-select"),
-            new("a function that calls a scalar function", "dbo.ReadDoubled", "inline-function-dependency-not-allowed"),
-            new("a function that reads another function", "dbo.ReadNested", "inline-function-dependency-not-allowed"),
+            new("a function that calls a scalar function", "dbo.ReadDoubled", "inline-function-dependency-not-allowed",
+                Visible: "dbo.Doubled"),
+            new("a function that reads another function", "dbo.ReadNested", "inline-function-dependency-not-allowed",
+                Visible: "dbo.ReadItem"),
+            new("a function that calls a function the principal cannot see", "dbo.ReadDoubled",
+                "inline-function-dependency-not-selectable"),
             new("a function that reads a column the principal may not select", "dbo.ReadSecrets",
                 "inline-function-dependency-not-selectable"),
             new("a function that counts a table the principal may select only by column", "dbo.CountItems",
@@ -107,10 +111,20 @@ public sealed class DatabaseReadSqlServerFunctionPolicyTests
             foreach (var scenario in scenarios)
             {
                 var permissions = scenario.ViewDefinition ? "SELECT, VIEW DEFINITION" : "SELECT";
-                await ExecuteAsync(admin.ConnectionString, $"GRANT {permissions} ON {scenario.Function} TO [{reader}];");
+                var visible = scenario.Visible is null
+                    ? string.Empty
+                    : $" GRANT VIEW DEFINITION ON {scenario.Visible} TO [{reader}];";
+                var invisible = scenario.Visible is null
+                    ? string.Empty
+                    : $" REVOKE VIEW DEFINITION ON {scenario.Visible} FROM [{reader}];";
+                await ExecuteAsync(
+                    admin.ConnectionString,
+                    $"GRANT {permissions} ON {scenario.Function} TO [{reader}];{visible}");
                 var inline = await VerifyAsync(inlinePolicy, readerConnectionString);
                 var strict = await VerifyAsync(strictPolicy, readerConnectionString);
-                await ExecuteAsync(admin.ConnectionString, $"REVOKE {permissions} ON {scenario.Function} FROM [{reader}];");
+                await ExecuteAsync(
+                    admin.ConnectionString,
+                    $"REVOKE {permissions} ON {scenario.Function} FROM [{reader}];{invisible}");
 
                 var expected = scenario.ExpectedCheck is null
                     ? new DatabaseReadPrincipalVerification(true)
@@ -255,9 +269,12 @@ public sealed class DatabaseReadSqlServerFunctionPolicyTests
         }
     }
 
+    /// <param name="Visible">An object the principal also gets <c>VIEW DEFINITION</c> on, so the
+    /// verification can see what kind of object the function depends on.</param>
     private sealed record FunctionScenario(
         string Name,
         string Function,
         string? ExpectedCheck,
-        bool ViewDefinition = true);
+        bool ViewDefinition = true,
+        string? Visible = null);
 }

@@ -145,6 +145,23 @@ internal sealed partial class DatabaseReadMySqlTestServer
                 .Build();
             _container = mySql;
             await mySql.StartAsync();
+
+            // The image grants PROXY only to root@localhost, which connects through the server's
+            // socket; the tests grant PROXY as the root that connects from the host, root@%.
+            var proxy = await mySql.ExecAsync(
+            [
+                "mysql",
+                "--protocol=SOCKET",
+                "-uroot",
+                $"-p{RootCredential}",
+                "-e",
+                "GRANT PROXY ON ''@'' TO 'root'@'%' WITH GRANT OPTION;"
+            ]);
+            if (proxy.ExitCode != 0)
+            {
+                throw new InvalidOperationException("The MySQL test server could not grant PROXY to root: " + proxy.Stderr);
+            }
+
             return WithoutDatabase(mySql.GetConnectionString());
         }
 

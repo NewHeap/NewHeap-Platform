@@ -389,7 +389,8 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     /// with <c>VIEW DEFINITION</c> on the function, so a function the principal cannot see into
     /// rejects it. A function may depend only on tables and views of the same database, resolved
     /// and not caller-dependent, and the principal must be able to select each referenced column, or
-    /// the whole object when the function names no column of it, such as for <c>COUNT(*)</c>. That
+    /// the whole object when the function names no column of it, such as for <c>COUNT(*)</c>; a
+    /// referenced object that the principal cannot even see counts as one it may not select. That
     /// keeps an ownership chain through the function from showing anything the principal could not
     /// select itself. The functions are collected first, so the reference function only runs for
     /// functions the principal may select.
@@ -468,11 +469,17 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                     COALESCE(dependency.is_ambiguous, 1) = 1 OR
                     COALESCE(dependency.is_all_columns_found, 0) = 0 OR
                     COALESCE(dependency.is_incomplete, 0) = 1 OR
-                    referenced.object_id IS NULL OR
+                    dependency.referenced_id IS NULL OR
                     referenced.type NOT IN ('U', 'V') OR
                     referenced.is_ms_shipped = 1
             ) THEN 'inline-function-dependency-not-allowed'
             WHEN EXISTS (
+                SELECT 1
+                FROM @dependencies AS dependency
+                LEFT JOIN sys.objects AS referenced
+                    ON referenced.object_id = dependency.referenced_id
+                WHERE referenced.object_id IS NULL
+                UNION ALL
                 SELECT 1
                 FROM @dependencies AS dependency
                 INNER JOIN sys.objects AS referenced
