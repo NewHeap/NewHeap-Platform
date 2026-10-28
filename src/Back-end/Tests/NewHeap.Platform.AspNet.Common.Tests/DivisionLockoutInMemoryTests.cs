@@ -9,18 +9,22 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 /// <summary>
 /// The division claims on EF Core InMemory, which applications use in their unit tests. This is
-/// non-relational evidence: it proves that the code path runs and that the lockout predicate means
-/// the same in memory, not how SQL Server or PostgreSQL translate it, which
-/// <see cref="DivisionLockoutProviderTests"/> proves. A confirmed user without an active division
-/// and without memberships signs in next to members with and without lockouts; the predicate read
-/// <c>LockOutStartDateTime.Value</c>, which threw "Nullable object must have a value" on InMemory.
+/// non-relational evidence: it proves that the claims and token path of the sign-in runs in memory
+/// and that the lockout days mean the same there, not how SQL Server or PostgreSQL translate the
+/// predicate, which <see cref="DivisionLockoutProviderTests"/> proves. A confirmed user without an
+/// active division and without memberships gets the sign-in's access token next to members with
+/// and without lockouts. The predicate used to read <c>LockOutStartDateTime.Value</c>, which an
+/// application reported as "Nullable object must have a value" on InMemory; it now compares
+/// instants and reads no value.
 /// </summary>
 public sealed class DivisionLockoutInMemoryTests
 {
     [Fact]
-    public async Task AUserWithoutDivisionsSignsInOnInMemoryNextToLockedOutMembers()
+    public async Task AUserWithoutDivisionsGetsTheSignInTokenOnInMemoryNextToLockedOutMembers()
     {
         var now = new DateTimeOffset(2026, 3, 18, 10, 0, 0, TimeSpan.Zero);
+        var todayStart = new DateTimeOffset(2026, 3, 18, 0, 0, 0, TimeSpan.Zero);
+        var tomorrowStart = todayStart.AddDays(1);
         await using var host = await DivisionProviderTestHost.CreateInMemoryAsync(new DivisionTestClock(now));
         var division = await host.AddDivisionAsync("Team division");
         await host.AddDivisionAsync("Empty division");
@@ -33,11 +37,17 @@ public sealed class DivisionLockoutInMemoryTests
         await host.AddMembershipAsync(lockedWithoutEnd, division, [memberRole], now.AddDays(-1));
         var endWithoutStart = await host.AddUserAsync("end-without-start");
         await host.AddMembershipAsync(endWithoutStart, division, [memberRole], lockOutEnd: now.AddDays(5));
-        var lockoutEnded = await host.AddUserAsync("lockout-ended");
-        await host.AddMembershipAsync(lockoutEnded, division, [memberRole], now.AddDays(-20), now.AddDays(-10));
+        var startsToday = await host.AddUserAsync("starts-today");
+        await host.AddMembershipAsync(startsToday, division, [memberRole], todayStart.AddHours(23), tomorrowStart.AddDays(5));
+        var startsTomorrow = await host.AddUserAsync("starts-tomorrow");
+        await host.AddMembershipAsync(startsTomorrow, division, [memberRole], tomorrowStart, tomorrowStart.AddDays(5));
+        var endsToday = await host.AddUserAsync("ends-today");
+        await host.AddMembershipAsync(endsToday, division, [memberRole], todayStart.AddDays(-5), todayStart);
+        var endedYesterday = await host.AddUserAsync("ended-yesterday");
+        await host.AddMembershipAsync(endedYesterday, division, [memberRole], todayStart.AddDays(-5), todayStart.AddMilliseconds(-1));
 
         // Confirmed, no active division and no membership of any division.
-        var withoutDivision = await host.AddSignInUserAsync("without-division");
+        var withoutDivision = await host.AddUserAsync("without-division");
 
         await using var scope = host.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<INhUserManager>();
@@ -54,8 +64,12 @@ public sealed class DivisionLockoutInMemoryTests
         Assert.DoesNotContain(claims, claim => claim.Type == NhPlatformClaimTypes.DivisionRole);
 
         // The co-members get what they get on SQL Server and PostgreSQL.
-        Assert.Empty(ClaimsFor(await users.GetValidClaimsByUserIdAsync(lockedWithoutEnd, withDivision: true), division));
-        foreach (var active in new[] { neverLocked, endWithoutStart, lockoutEnded })
+        foreach (var lockedOut in new[] { lockedWithoutEnd, startsToday, endsToday })
+        {
+            Assert.Empty(ClaimsFor(await users.GetValidClaimsByUserIdAsync(lockedOut, withDivision: true), division));
+        }
+
+        foreach (var active in new[] { neverLocked, endWithoutStart, startsTomorrow, endedYesterday })
         {
             Assert.Equal(
                 [$"{division}_general.view", $"{division}_{roleName}"],
