@@ -366,6 +366,13 @@
       "prompt": "Our application has its own EF context and its own user table and does not use NewHeap Identity. Add NewHeap background operations, in-app notifications and an agent that runs on our projects.",
       "expectedRules": ["nh-platform-modules-without-identity", "nh-operations-events-jobs-notifications", "nh-ai-agent-runs"],
       "expectedOutcome": "The modules are mapped into the application's context with AddNewHeapBackgroundOperations and AddNewHeapNotifications in their own schemas, registered with the standalone AddNewHeap registrations and AddNewHeapHangfireProcessing; the application implements the actor directory and tenant access, forwards the platform's authentication schemes, calls INhRetention from its deletion flow and enqueues inside its own transaction."
+    },
+    {
+      "id": "consumer-ai-script-tool",
+      "skill": "newheap-backend-development",
+      "prompt": "Let the project assistant answer chained questions, such as the overdue tasks of my projects and their owners, with one script over its tools instead of many model rounds, also for MCP clients, and let one of its scripts propose a status change.",
+      "expectedRules": ["nh-ai-scripting", "nh-ai-protected-actions"],
+      "expectedOutcome": "The backend installs the scripting package, allows scripts only for the agent and the MCP exposure that need them under the application's switch, keeps scripts read-only unless a small mutation limit is set, lets every call get the decision it gets on its own so a deferred proposal continues and an inline approval stops the script, and proves the limits, signatures and per-call decisions with engine tests and both providers."
     }
   ]
 }

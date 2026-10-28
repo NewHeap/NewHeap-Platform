@@ -204,7 +204,7 @@ the consent stay the host's. Without the option nothing changes.
 `NhAiTestAuthorizationServer.IssueAccessToken(subject, resource, scope, issuedAt, lifetime)` issues a
 token as of a given time, for example an expired one.
 
-## NewHeap.Platform.AI.Scripting (new package), NewHeap.Platform.AI.Mcp and NewHeap.Platform.AI.Chat: the script tool
+## NewHeap.Platform.AI.Scripting (new package): the script tool
 
 The new package `NewHeap.Platform.AI.Scripting` adds the script tool `run_script` (SPM-373, SPM-374):
 the model writes a short JavaScript program in which each tool it is offered in that turn is an async
@@ -225,6 +225,8 @@ TypeScript-style signatures generated from their JSON schemas, and a call that d
 with its outcome; the stop codes are in `NhAiScriptCodes`. It depends on Jint 4.17.0 (BSD-2-Clause) and
 Acornima 1.7.0 (BSD-3-Clause), which no other package references. The script is the call's argument,
 which the activity already stores: no migration.
+
+## NewHeap.Platform.AI.Mcp and NewHeap.Platform.AI.Chat: what the script tool builds on
 
 `INhAiMcpToolContributor` (`AddNewHeapPlatformAIMcpToolContributor<T>`) adds tools to the MCP export of a
 request over exactly the governed tools that caller sees; the script tool uses it to list the caller's
