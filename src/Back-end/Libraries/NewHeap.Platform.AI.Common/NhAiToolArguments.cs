@@ -105,7 +105,8 @@ internal static class NhAiToolArguments
                 NhAiOutcomeKind.TerminalFailure,
                 DateTimeOffset.UtcNow)
             {
-                ResultCode = NhAiToolFailureCodes.InputInvalid
+                ResultCode = NhAiToolFailureCodes.InputInvalid,
+                Origin = NhAiToolCallOrigins.Current
             };
             foreach (var sink in services.GetServices<INhAiAuditSink>())
             {

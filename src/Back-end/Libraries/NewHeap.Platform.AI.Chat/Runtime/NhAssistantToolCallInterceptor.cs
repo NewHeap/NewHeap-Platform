@@ -460,45 +460,120 @@ internal sealed class NhAssistantToolCallInterceptor(
             ?? throw new InvalidOperationException(
                 "The assistant only executes governed NewHeap AI functions.");
 
-        if (state.ToolsDisabled)
+        var outcome = await InvokeCallAsync(
+            new NhAssistantCallRequest(
+                descriptor,
+                context.Function,
+                context.CallContent.CallId,
+                context.Function.Name,
+                context.Arguments,
+                token => next(context, token)),
+            cancellationToken);
+        if (outcome.Terminate)
         {
             context.Terminate = true;
-            return Refusal(ToolsDisabledCode);
+        }
+
+        return outcome.Result;
+    }
+
+    /// <summary>
+    /// Runs one step of a composition or script in this turn (<see cref="INhAssistantToolSteps"/>): the
+    /// same checks, row, placement, governed execution and proposal handling as a call the model makes
+    /// itself, so the step gets exactly the decision that call would get. The step's row is a call of
+    /// the turn without a part of its own; a proposal it makes shows as any proposal does.
+    /// </summary>
+    internal async Task<NhAssistantCallOutcome> RunStepAsync(
+        NhAiToolDescriptor descriptor,
+        AIFunction function,
+        AIFunctionArguments arguments,
+        NhAssistantStepCall step,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(function);
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(step);
+        return await InvokeCallAsync(
+            new NhAssistantCallRequest(
+                descriptor,
+                function,
+                step.CallId,
+                function.Name,
+                arguments,
+                async token =>
+                {
+                    // The invoker puts the origin on the step's context and audit record.
+                    using (NhAiToolCallOrigins.Begin(step.Origin))
+                    {
+                        return await function.InvokeAsync(arguments, token);
+                    }
+                })
+            {
+                Step = step
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The governed tools offered to the agent in this turn, as registered with <see cref="UseOfferedTools"/>.
+    /// </summary>
+    internal IReadOnlyList<NhAiToolDescriptor> OfferedTools => _offeredTools.Values.ToArray();
+
+    /// <summary>
+    /// The function of an MCP server's tool offered in this turn, by its function name.
+    /// </summary>
+    internal AIFunction? FindMcpFunction(string functionName)
+    {
+        return state.McpTools?.Functions.FirstOrDefault(function => string.Equals(function.Name, functionName, StringComparison.Ordinal));
+    }
+
+    private async Task<NhAssistantCallOutcome> InvokeCallAsync(
+        NhAssistantCallRequest request,
+        CancellationToken cancellationToken)
+    {
+        var descriptor = request.Descriptor;
+        var step = request.Step;
+        if (state.ToolsDisabled)
+        {
+            return NhAssistantCallOutcome.Refused(Refusal(ToolsDisabledCode), ToolsDisabledCode, terminate: true);
         }
         if (state.TokenAllowanceUsed)
         {
             // The result of this call would go to another model call, which the run's ceiling
             // forbids; nothing runs, and the loop ends.
             state.RunTokenLimitReached = true;
-            context.Terminate = true;
-            return Refusal(NhAssistantErrorCodes.RunTokenLimit);
+            return NhAssistantCallOutcome.Refused(Refusal(NhAssistantErrorCodes.RunTokenLimit), NhAssistantErrorCodes.RunTokenLimit, terminate: true);
         }
         if (state.Scope.Consultation is { } consultation
             && descriptor.Effect != NhAiToolEffect.ReadOnly
             && !NhAssistantTurnRunner.OffersEffects(state.Scope.Agent, consultation))
         {
             // Such tools are not offered; a model that names one anyway changes nothing.
-            return Refusal(NhAssistantErrorCodes.ConsultReadOnly);
+            return NhAssistantCallOutcome.Refused(Refusal(NhAssistantErrorCodes.ConsultReadOnly), NhAssistantErrorCodes.ConsultReadOnly);
         }
         if (descriptor.CompositionFeature != NhAiCompositionFeature.None
             && state.Compositions.DecisionOf(descriptor.CompositionFeature) != true)
         {
             // The turn does not offer the feature: code does not allow it or the application's switch
             // had it off when the turn began. Nothing runs, and individual tools stay available.
-            return Refusal(NhAiCompositionFeatures.OffCodeOf(descriptor.CompositionFeature));
+            var offCode = NhAiCompositionFeatures.OffCodeOf(descriptor.CompositionFeature);
+            return NhAssistantCallOutcome.Refused(Refusal(offCode), offCode);
         }
         if (state.Scope.Consultation is { } selecting
-            && FindMemory(context.Function) is null
+            && FindMemory(request.Function) is null
             && !NhAssistantTurnRunner.IsSelectedInConsultation(selecting, descriptor))
         {
             // A tool outside the consultation's selection is not offered either; nothing runs.
-            return Refusal(NhAssistantErrorCodes.ConsultToolNotSelected);
+            return NhAssistantCallOutcome.Refused(Refusal(NhAssistantErrorCodes.ConsultToolNotSelected), NhAssistantErrorCodes.ConsultToolNotSelected);
         }
-        if (state.Scope.IncrementToolCalls() > state.Scope.Limits.MaxToolCallsPerTurn)
+        // The call of a composition or script counted once already; its first step uses that count,
+        // and every further step counts as a call of its own.
+        if ((step is null || !step.UsesCallerCount)
+            && state.Scope.IncrementToolCalls() > state.Scope.Limits.MaxToolCallsPerTurn)
         {
             state.ToolCallLimitReached = true;
-            context.Terminate = true;
-            return Refusal(NhAssistantErrorCodes.ToolCallLimitReached);
+            return NhAssistantCallOutcome.Refused(Refusal(NhAssistantErrorCodes.ToolCallLimitReached), NhAssistantErrorCodes.ToolCallLimitReached, terminate: true);
         }
 
         var presentationCulture = CultureInfo.CurrentUICulture;
@@ -508,22 +583,26 @@ internal sealed class NhAssistantToolCallInterceptor(
             cancellationToken);
         var row = await BeginToolCallAsync(
             descriptor,
-            context.CallContent.CallId,
-            context.Function.Name,
-            context.Arguments,
+            request.CallId,
+            request.FunctionName,
+            request.Arguments,
             displayName,
-            cancellationToken);
+            cancellationToken,
+            step);
 
         // A run's call that names another object than the run's own is checked against that object
         // before it runs, and runs in that object's scope (K11, K12).
         var placement = placements is not null
             && state.AgentTurn is { } agentTurn
             && NhAssistantProposalPlacement.Applies(agentTurn, state.Scope.Consultation is not null, descriptor)
-                ? await placements.DecideAsync(agentTurn, descriptor, context.Function, context.Arguments, cancellationToken)
+                ? await placements.DecideAsync(agentTurn, descriptor, request.Function, request.Arguments, cancellationToken)
                 : NhAssistantPlacementDecision.Own;
         if (placement.Refused)
         {
-            return await NotPlacedAsync(descriptor, row, placement.RefusalReason!, placement.Named, cancellationToken);
+            return NhAssistantCallOutcome.Failed(
+                await NotPlacedAsync(descriptor, row, placement.RefusalReason!, placement.Named, cancellationToken),
+                NhAssistantErrorCodes.ProposalNotPlaced,
+                row.Id);
         }
 
         NhAiAgentInvocationScope? targetScope = null;
@@ -544,9 +623,10 @@ internal sealed class NhAssistantToolCallInterceptor(
             row,
             null,
             null,
-            token => InvokeInScopeAsync(targetScope, () => next(context, token)),
+            token => InvokeInScopeAsync(targetScope, () => request.Invoke(token)),
             cancellationToken,
-            logger);
+            logger,
+            this);
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing)
         {
             NhAssistantPlacedThread? placed = null;
@@ -554,7 +634,10 @@ internal sealed class NhAssistantToolCallInterceptor(
             {
                 if (!NhAssistantProposalPlacement.Confirms(placement, descriptor, execution.Call.CapturedArguments))
                 {
-                    return await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NotFound, target.Subject, cancellationToken);
+                    return NhAssistantCallOutcome.Failed(
+                        await NotPlacedAsync(descriptor, row, NhAssistantPlacementReasons.NotFound, target.Subject, cancellationToken),
+                        NhAssistantErrorCodes.ProposalNotPlaced,
+                        row.Id);
                 }
 
                 // The thread at the object is created only once every check passed, right before
@@ -563,7 +646,10 @@ internal sealed class NhAssistantToolCallInterceptor(
                 if (!thread.Success)
                 {
                     // Nobody answers for the agent at the object, so it cannot wait there.
-                    return await NotPlacedAsync(descriptor, row, NhAssistantProposalPlacement.ReasonOf(thread), target.Subject, cancellationToken);
+                    return NhAssistantCallOutcome.Failed(
+                        await NotPlacedAsync(descriptor, row, NhAssistantProposalPlacement.ReasonOf(thread), target.Subject, cancellationToken),
+                        NhAssistantErrorCodes.ProposalNotPlaced,
+                        row.Id);
                 }
 
                 placed = new NhAssistantPlacedThread(thread.Data!, target);
@@ -579,76 +665,125 @@ internal sealed class NhAssistantToolCallInterceptor(
             if (requested is { NotPlacedReason: { } notPlaced } && placed is not null)
             {
                 // Rules read the reason from the call's result, as for a refusal before the call ran.
-                return await NotPlacedAsync(descriptor, row, notPlaced, placed.Subject.Subject, cancellationToken);
+                return NhAssistantCallOutcome.Failed(
+                    await NotPlacedAsync(descriptor, row, notPlaced, placed.Subject.Subject, cancellationToken),
+                    NhAssistantErrorCodes.ProposalNotPlaced,
+                    row.Id);
             }
             _lastProposal = requested;
             if (requested is { ConsultationRefusal: { } refusal })
             {
                 // No route of the consultation applies; the consulted model describes the change.
-                return NhAssistantConsultationProposals.RefusalResult(refusal);
+                return NhAssistantCallOutcome.Failed(
+                    NhAssistantConsultationProposals.RefusalResult(refusal),
+                    NhAssistantErrorCodes.ConsultProposalRefused,
+                    row.Id);
             }
             if (requested is { Outcome: NhAssistantProposeOutcome.NotNeeded } notNeeded)
             {
                 // A guard found the work done or no longer applicable; nothing waits for people.
-                return NotNeeded(notNeeded);
+                return new NhAssistantCallOutcome(NotNeeded(notNeeded), NhAssistantToolStepStatus.NotNeeded)
+                {
+                    Code = NhAssistantErrorCodes.ProposalNotNeeded,
+                    InvocationId = row.Id
+                };
             }
             if (requested is { Outcome: not NhAssistantProposeOutcome.Created } skipped)
             {
                 // The same proposal is open or was rejected recently; nothing new waits for people.
-                return Duplicate(skipped);
+                return NhAssistantCallOutcome.Proposed(Duplicate(skipped), skipped, row.Id);
             }
             if (requested is { PlacedAt: { } placedSubject } placedProposal)
             {
                 // The proposal waits at the object for its approvers while the run continues.
-                return ProposalPlaced(placedProposal.ProposalId, placedSubject);
+                return NhAssistantCallOutcome.Proposed(ProposalPlaced(placedProposal.ProposalId, placedSubject), placedProposal, row.Id);
             }
             if (requested is { ConsultationRoute: { } route } consulted)
             {
                 // The consulted model goes on and tells the asker who decides.
-                return ConsultationProposalRecorded(consulted.ProposalId, route);
+                return NhAssistantCallOutcome.Proposed(ConsultationProposalRecorded(consulted.ProposalId, route), consulted, row.Id);
             }
             if (requested is { Mode: NhAiApprovalMode.Inline } inline && !inline.Shadow)
             {
-                context.Terminate = true;
-                return execution.Result;
+                // The turn waits for the decision; a composition or script stops at this step.
+                return new NhAssistantCallOutcome(execution.Result, NhAssistantToolStepStatus.AwaitingApproval)
+                {
+                    Terminate = true,
+                    Code = NhAiToolFailureCodes.ApprovalRequired,
+                    ProposalId = inline.ProposalId,
+                    InvocationId = row.Id
+                };
             }
 
             if (requested is { } recorded)
             {
                 // A deferred or shadow proposal waits for people while the model continues.
-                return ProposalRecorded(recorded.ProposalId);
+                return NhAssistantCallOutcome.Proposed(ProposalRecorded(recorded.ProposalId), recorded, row.Id);
             }
         }
 
-        if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded
+        if (step is null
+            && execution.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded
             && execution.Call.AskerDecision is { } askerDecision
             && state.Scope.Consultation is null)
         {
             // A consultation left a proposal this turn's person decides now: the turn waits for it.
-            context.Terminate = true;
-            return await AwaitAskerDecisionAsync(row, execution, askerDecision, cancellationToken);
+            return new NhAssistantCallOutcome(
+                await AwaitAskerDecisionAsync(row, execution, askerDecision, cancellationToken),
+                NhAssistantToolStepStatus.AwaitingApproval)
+            {
+                Terminate = true,
+                InvocationId = row.Id
+            };
         }
-        if (state.AskedQuestion is { } asked && state.PendingQuestion is null)
+        if (step is null && state.AskedQuestion is { } asked && state.PendingQuestion is null)
         {
             // ask_question: the turn waits for the addressee's answer (LS21).
-            context.Terminate = true;
-            return await AwaitAnswerAsync(row, asked, cancellationToken);
+            return new NhAssistantCallOutcome(
+                await AwaitAnswerAsync(row, asked, cancellationToken),
+                NhAssistantToolStepStatus.AwaitingApproval)
+            {
+                Terminate = true,
+                InvocationId = row.Id
+            };
         }
 
-        var withFiles = await WithFilesAsync(descriptor, row, execution, cancellationToken);
-        await CompleteToolCallAsync(row, withFiles.Execution, cancellationToken);
+        // A step's files are not opened: only what the composition or script returns reaches the model.
+        var withFiles = step is null
+            ? await WithFilesAsync(descriptor, row, execution, cancellationToken)
+            : (Execution: execution, ModelResult: execution.Result);
+        var completed = withFiles.Execution;
+        var terminate = false;
+        if (execution.Call.Chain is { } chain)
+        {
+            // The call ran a composition or script: it ends as the chain ended, and a chain that stopped
+            // at a step, for example one that waits for a decision, ends the model loop with it.
+            completed = completed with { Outcome = chain.ParentOutcome(completed.Outcome) };
+            terminate = chain.Stopped;
+        }
+
+        await CompleteToolCallAsync(row, completed, cancellationToken, emit: step is null);
         if (state.RequestedSkill is not null)
         {
             // use_skill: the loop ends here and the turn continues in the chosen skill.
-            context.Terminate = true;
+            terminate = true;
         }
         if (state.Scope.BudgetExhausted)
         {
             // A reservation inside a tool call is a tool-budget reservation.
             state.ToolBudgetExhausted = true;
-            context.Terminate = true;
+            terminate = true;
         }
-        return withFiles.ModelResult;
+
+        var succeeded = completed.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded;
+        return new NhAssistantCallOutcome(
+            withFiles.ModelResult,
+            succeeded ? NhAssistantToolStepStatus.Succeeded : NhAssistantToolStepStatus.Failed)
+        {
+            Terminate = terminate,
+            Code = succeeded ? null : completed.Outcome.Code,
+            InvocationId = row.Id
+        };
     }
 
     /// <summary>
@@ -770,11 +905,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         row.ResultJson = NhAssistantContent.SerializeResult(result);
         row.CompletedAt = DateTimeOffset.UtcNow;
         await store.UpdateToolInvocationAsync(row, cancellationToken);
-        await state.EmitAsync(new NhAssistantToolCompletedEvent(
-            row.Id,
-            row.Status,
-            row.ResultCode,
-            NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+        await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
         await RecordBusinessEventAsync(
             new NhAssistantAuditEvent(
                 NhAssistantAuditEventKind.AgentProposalNotPlaced,
@@ -800,6 +931,10 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// Executes a governed function inside an assistant tool-call scope and classifies its outcome
     /// from the content-free audit record the shared invoker wrote.
     /// </summary>
+    /// <param name="interceptor">
+    /// The interceptor of the turn's model loop, when the model made the call, so a composition or script
+    /// the call runs can run its steps through it (<see cref="INhAssistantToolSteps"/>).
+    /// </param>
     public static async Task<NhAssistantToolExecution> ExecuteAsync(
         NhAiToolDescriptor descriptor,
         AssistantToolInvocation row,
@@ -807,7 +942,8 @@ internal sealed class NhAssistantToolCallInterceptor(
         Guid? approvalId,
         Func<CancellationToken, ValueTask<object?>> invoke,
         CancellationToken cancellationToken,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        NhAssistantToolCallInterceptor? interceptor = null)
     {
         var call = new NhAssistantToolCallScope
         {
@@ -815,7 +951,9 @@ internal sealed class NhAssistantToolCallInterceptor(
             Descriptor = descriptor,
             IdempotencyKey = "assistant-" + (proposalId ?? row.Id).ToString("N"),
             ProposalId = proposalId,
-            ApprovalId = approvalId
+            ApprovalId = approvalId,
+            Interceptor = interceptor,
+            Row = row
         };
         object? result;
         using (NhAssistantExecutionScope.EnterCall(call))
@@ -861,14 +999,21 @@ internal sealed class NhAssistantToolCallInterceptor(
         return new NhAssistantToolExecution(result, outcome, call);
     }
 
+    /// <param name="step">
+    /// The step of a composition or script the call is: its row belongs to the turn and the message,
+    /// but the message shows no part for it and the stream no event; its first step uses the count of
+    /// the call that runs it.
+    /// </param>
     public async Task<AssistantToolInvocation> BeginToolCallAsync(
         NhAiToolDescriptor descriptor,
         string callId,
         string functionName,
         IEnumerable<KeyValuePair<string, object?>>? arguments,
         string displayName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAssistantStepCall? step = null)
     {
+        var counts = step is null || !step.UsesCallerCount;
         var row = new AssistantToolInvocation
         {
             Id = Guid.NewGuid(),
@@ -891,12 +1036,24 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             // A consultation writes nothing into the thread; a call it proposes is stored when the
             // proposal is.
-            state.ToolCalls++;
+            if (counts)
+            {
+                state.ToolCalls++;
+            }
             return row;
         }
 
         await store.AddToolInvocationAsync(row, cancellationToken);
-        state.ToolCalls++;
+        if (counts)
+        {
+            state.ToolCalls++;
+        }
+        if (step is not null)
+        {
+            // A step belongs to the call that ran it; the activity finds it by its call id.
+            return row;
+        }
+
         state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ToolCallType, InvocationId: row.Id));
         await FlushAsync(cancellationToken);
         await state.EmitAsync(new NhAssistantToolStartedEvent(
@@ -908,10 +1065,15 @@ internal sealed class NhAssistantToolCallInterceptor(
         return row;
     }
 
+    /// <param name="emit">
+    /// Whether the stream reports the completed call; a step of a composition or script reports none,
+    /// as it reported no start.
+    /// </param>
     public async Task CompleteToolCallAsync(
         AssistantToolInvocation row,
         NhAssistantToolExecution execution,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool emit = true)
     {
         var succeeded = execution.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded;
         row.Status = succeeded ? NhAssistantToolCallStatuses.Succeeded : NhAssistantToolCallStatuses.Failed;
@@ -941,6 +1103,11 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         await store.UpdateToolInvocationAsync(row, cancellationToken);
+        if (!emit)
+        {
+            return;
+        }
+
         // A result of the agent's own grant, of the accountable account's rights or of a delegated
         // read is shielded per viewer; live events carry none of it, and viewers read the thread
         // again to see what they may.
@@ -1028,6 +1195,20 @@ internal sealed class NhAssistantToolCallInterceptor(
                && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+    }
+
+    /// <summary>
+    /// Reports a call that ended without running, unless it is a step of a composition or script, whose
+    /// start the stream never reported either.
+    /// </summary>
+    private async Task EmitCompletedAsync(AssistantToolInvocation row, string? preview)
+    {
+        if (NhAssistantToolStepCallIds.IsStep(row.CallId))
+        {
+            return;
+        }
+
+        await state.EmitAsync(new NhAssistantToolCompletedEvent(row.Id, row.Status, row.ResultCode, preview));
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)
@@ -1426,11 +1607,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         row.GrantSource = approval.GrantSource;
         row.CompletedAt = DateTimeOffset.UtcNow;
         await store.UpdateToolInvocationAsync(row, cancellationToken);
-        await state.EmitAsync(new NhAssistantToolCompletedEvent(
-            row.Id,
-            row.Status,
-            row.ResultCode,
-            NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+        await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
         if (workUpdates is not null)
         {
             await workUpdates.PublishAsync(
@@ -1526,7 +1703,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         if (state.Scope.Consultation is null)
         {
             await store.UpdateToolInvocationAsync(row, cancellationToken);
-            await state.EmitAsync(new NhAssistantToolCompletedEvent(row.Id, row.Status, row.ResultCode, null));
+            await EmitCompletedAsync(row, null);
         }
 
         await RecordBusinessEventAsync(
@@ -1605,7 +1782,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             Invocation = invocation,
             ConversationId = invocation.ConversationId ?? state.Scope.ConversationId,
             TurnId = state.Scope.TurnId,
-            Channel = invocation.Channel ?? state.Scope.Channel
+            Channel = invocation.Channel ?? state.Scope.Channel,
+            Origin = invocation.Origin
         };
     }
 
@@ -1637,11 +1815,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         if (state.Scope.Consultation is null)
         {
             await store.UpdateToolInvocationAsync(row, cancellationToken);
-            await state.EmitAsync(new NhAssistantToolCompletedEvent(
-                row.Id,
-                row.Status,
-                row.ResultCode,
-                NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+            await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
         }
 
         return new NhAssistantRecordedProposal(Guid.Empty, proposalId, mode, false)

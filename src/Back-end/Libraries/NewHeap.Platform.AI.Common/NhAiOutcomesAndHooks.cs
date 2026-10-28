@@ -143,6 +143,13 @@ public sealed record NhAiAuditRecord(
     /// </summary>
     public NhAiGrantSource GrantSource { get; init; } = NhAiGrantSource.None;
 
+    /// <summary>
+    /// The composition or script the invocation was a step of, with the invocation of that composition or
+    /// script call (<see cref="NhAiToolCallOrigin.ParentInvocationId"/>), so each step is audited under the
+    /// call that ran it. <see langword="null"/> for a call made directly. Content-free.
+    /// </summary>
+    public NhAiToolCallOrigin? Origin { get; init; }
+
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;
 }
 

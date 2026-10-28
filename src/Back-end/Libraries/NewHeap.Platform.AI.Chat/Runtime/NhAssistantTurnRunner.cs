@@ -766,23 +766,19 @@ internal sealed partial class NhAssistantTurnRunner(
                 return Result(state);
             }
 
+            var resumed = await ResumedCallsAsync(invocation, functionResult, CancellationToken.None);
             using var fileDeadline = BeginFileDeadline(state, cancellation.Token);
             var messages = await WithinFileDeadlineAsync(
                 state,
                 fileDeadline,
-                token => BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, invocation.Id, speakers, 0, state, null, token),
+                token => BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, resumed.Excluded, speakers, 0, state, null, token),
                 cancellation.Token);
             if (messages is null)
             {
                 return Result(state);
             }
 
-            messages.Add(new ChatMessage(
-                ChatRole.Assistant,
-                [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
-            messages.Add(new ChatMessage(
-                ChatRole.Tool,
-                [new FunctionResultContent(invocation.CallId, functionResult)]));
+            messages.AddRange(resumed.Messages);
             await RunModelAsync(state, callerContext, messages, cancellation.Token);
             return Result(state);
         }
@@ -2094,15 +2090,60 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         // The resumed call is replayed below with its real result; the summary leaves it out.
+        var resumed = await ResumedCallsAsync(invocation, functionResult, CancellationToken.None);
         using var fileDeadline = BeginFileDeadline(state, cancellationToken);
         var messages = await WithinFileDeadlineAsync(
             state,
             fileDeadline,
-            token => BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers, 0, state, null, token),
+            token => BuildHistoryAsync(conversation.Id, history, agent, null, resumed.Excluded, speakers, 0, state, null, token),
             cancellationToken);
         if (messages is null)
         {
             return;
+        }
+
+        messages.AddRange(resumed.Messages);
+        await RunModelAsync(state, callerContext, messages, cancellationToken);
+    }
+
+    /// <summary>
+    /// The calls the model reads when its turn continues after a decision: the call that waited, with
+    /// its result now. When that call was a step of a composition or script, the model first reads the
+    /// call it made itself with the result it returned, which says where the chain stopped; the summary of
+    /// the message then leaves that call out instead.
+    /// </summary>
+    private async Task<(Guid Excluded, IReadOnlyList<ChatMessage> Messages)> ResumedCallsAsync(
+        AssistantToolInvocation invocation,
+        object? functionResult,
+        CancellationToken cancellationToken)
+    {
+        var messages = new List<ChatMessage>(4);
+        var excluded = invocation.Id;
+        if (NhAssistantToolStepCallIds.TryParse(invocation.CallId, out _, out var parentId, out _)
+            && await store.FindToolInvocationAsync(parentId, cancellationToken) is { } parent
+            && parent.ConversationId == invocation.ConversationId
+            && parent.TurnId == invocation.TurnId)
+        {
+            object? parentResult = parent.ResultJson;
+            try
+            {
+                if (parent.ResultJson is { } json)
+                {
+                    using var document = JsonDocument.Parse(json);
+                    parentResult = document.RootElement.Clone();
+                }
+            }
+            catch (JsonException)
+            {
+                // A bounded result that was cut short reaches the model as the text it is.
+            }
+            messages.Add(new ChatMessage(
+                ChatRole.Assistant,
+                [new FunctionCallContent(parent.CallId, parent.FunctionName, NhAssistantContent.DeserializeArguments(parent.ArgumentsJson))]));
+            messages.Add(new ChatMessage(
+                ChatRole.Tool,
+                [new FunctionResultContent(parent.CallId, parentResult)]));
+            excluded = parent.Id;
         }
 
         messages.Add(new ChatMessage(
@@ -2111,7 +2152,7 @@ internal sealed partial class NhAssistantTurnRunner(
         messages.Add(new ChatMessage(
             ChatRole.Tool,
             [new FunctionResultContent(invocation.CallId, functionResult)]));
-        await RunModelAsync(state, callerContext, messages, cancellationToken);
+        return (excluded, messages);
     }
 
     /// <summary>

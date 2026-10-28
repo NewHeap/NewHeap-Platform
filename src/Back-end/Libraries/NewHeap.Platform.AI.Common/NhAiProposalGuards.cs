@@ -112,6 +112,14 @@ public sealed record NhAiProposalGuardContext(
     /// for a turn of the assistant's own endpoints and an agent run, and at the later stages.
     /// </summary>
     public string? Channel { get; init; }
+
+    /// <summary>
+    /// The composition or script whose step proposes, as <see cref="NhAiInvocationContext.Origin"/>: its
+    /// kind, the composition's or script tool's id and the script's hash. A guard may refuse a proposal
+    /// that a step of a composition or script makes, or check it more strictly. Set only when a step
+    /// proposes; <see langword="null"/> for a call the model made itself and at the later stages.
+    /// </summary>
+    public NhAiToolCallOrigin? Origin { get; init; }
 }
 
 /// <summary>
