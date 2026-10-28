@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.88",
   "backEnd": {
-    "hash": "e71c6450f6a5ed8812206e89e63bc5536b9120ff54f550aae262c55acea5cd17",
-    "declarationCount": 11334,
+    "hash": "01f7fb2d691ca97690c5ebcb9e0c0190bf82c6a3ded3ac25a5b6bc89feccb8c5",
+    "declarationCount": 11337,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4803,7 +4803,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
-        "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId = null);"
+        "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
@@ -22414,6 +22414,30 @@
         "declaration": "public async Task<NhAssistantThreadAccess?> ReadAccessAsync( AssistantThread thread, string actorId, NhAiSubjectAccess access, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public static readonly TimeSpan WarningInterval = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public bool Reaches( AssistantThread thread, string? tenantId, [CallerMemberName] string member = \"\", [CallerFilePath] string file = \"\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public bool Reaches( NhAiSubjectInfo subject, string? tenantId, [CallerMemberName] string member = \"\", [CallerFilePath] string file = \"\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public bool Reaches( string? storedTenantId, string subjectType, string? tenantId, [CallerMemberName] string member = \"\", [CallerFilePath] string file = \"\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public bool Includes(AssistantThread thread, string? tenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "declaration": "public bool Includes(NhAiSubjectInfo subject, string? tenantId) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
         "declaration": "public static bool TakesPart(NhAssistantRegistrationState registration, string? tenantId) {"
       },
@@ -22424,18 +22448,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
         "declaration": "public static bool Reaches( NhAssistantRegistrationState registration, string? storedTenantId, string subjectType, string? tenantId) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
-        "declaration": "public static bool Reaches(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
-        "declaration": "public static bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject, string? tenantId) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantWholeApplicationTenancy.cs",
-        "declaration": "public bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",

@@ -86,9 +86,11 @@ public interface INhAssistantProposalDecisionService
 /// <param name="User">The person's principal with the claims of their own sign-in.</param>
 /// <param name="ActorId">The person's actor id, as the assistant's context resolver gives it for the
 /// person's own requests.</param>
-/// <param name="TenantId">The person's tenant, as the context resolver gives it; <see langword="null"/>
-/// without tenants. Decisions apply the same tenant rules as the decision endpoints.</param>
-public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId = null);
+/// <param name="TenantId">The person's tenant, as the context resolver gives it for the person's own
+/// requests. It is required: <see langword="null"/> states a person without a tenant, who reaches only
+/// work stored without one, so pass <see langword="null"/> only in a host without tenants or for its
+/// operators. Decisions, counts and subject work apply the same tenant rules as the endpoints.</param>
+public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId);
 
 /// <summary>
 /// A decision of a proposal.

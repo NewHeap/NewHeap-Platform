@@ -141,7 +141,7 @@ public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantSubjectWork>()
-            .GetAsync(Subject(projectId), new NhAssistantDecidingPerson(Principal(actorId), actorId), agentId);
+            .GetAsync(Subject(projectId), new NhAssistantDecidingPerson(Principal(actorId), actorId, null), agentId);
     }
 
     private static async Task<Common.Models.TaskResult<NhAssistantSubjectSummaryListDto>> SummarizeAsync(
@@ -151,7 +151,7 @@ public sealed class AssistantSubjectWorkTests(AssistantDatabaseFixture database)
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantSubjectWork>()
-            .SummarizeAsync("project", subjectIds, new NhAssistantDecidingPerson(Principal(actorId), actorId));
+            .SummarizeAsync("project", subjectIds, new NhAssistantDecidingPerson(Principal(actorId), actorId, null));
     }
 
     private static string? Code(Common.Models.TaskResult result)

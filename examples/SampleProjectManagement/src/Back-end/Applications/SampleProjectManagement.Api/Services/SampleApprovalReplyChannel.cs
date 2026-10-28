@@ -129,7 +129,8 @@ public sealed class SampleApprovalReplyChannel(
 
         var claims = await users.GetValidClaimsByUserIdAsync(userId, true, cancellationToken);
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Channel));
-        return new NhAssistantDecidingPerson(principal, userId.ToString("D"));
+        // A host with tenants passes the tenant the person signs in with; the sample has none.
+        return new NhAssistantDecidingPerson(principal, userId.ToString("D"), TenantId: null);
     }
 
     private ReplyToken? ReadToken(string? token)

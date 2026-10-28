@@ -286,7 +286,8 @@ internal sealed class NhAssistantAgentTriggers(
     NhAssistantRunConfigurations configurations,
     IServiceProvider services,
     ILogger<NhAssistantAgentTriggers> logger,
-    NhAssistantWorksOnRule worksOn) : INhAssistantAgentTriggers
+    NhAssistantWorksOnRule worksOn,
+    NhAssistantTenancy tenancy) : INhAssistantAgentTriggers
 {
     /// <summary>
     /// The threads one resume starts runs for per batch; a resume continues with further batches.
@@ -1533,13 +1534,13 @@ internal sealed class NhAssistantAgentTriggers(
         bool shadow,
         CancellationToken cancellationToken)
     {
-        if (!tenant.Reaches(registration, subject))
+        if (!tenancy.Reaches(subject, tenant.TenantId))
         {
             return false;
         }
 
         var existing = await runs.FindThreadAsync(subject.ScopeKey, agent.Id, subject.Subject, cancellationToken, shadow);
-        return existing is null || NhAssistantWholeApplicationTenancy.Reaches(registration, existing, tenant.TenantId);
+        return existing is null || tenancy.Reaches(existing, tenant.TenantId);
     }
 
     private async Task<NhAssistantTriggerReceipt> FireCoreAsync(

@@ -78,6 +78,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAgentMetadataService>();
         services.TryAddScoped<INhAssistantAgentMetadata>(provider => provider.GetRequiredService<NhAssistantAgentMetadataService>());
         services.TryAddSingleton<NhAssistantWorksOnRule>();
+        // The tenant rule of agent work, which warns about callers without a tenant.
+        services.TryAddSingleton<NhAssistantTenancy>();
         services.TryAddScoped<NhAssistantAgentKnownSubjectTypes>();
         services.TryAddScoped<NhAssistantPersonalization>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();

@@ -5645,7 +5645,7 @@
       "id": "SPM-327",
       "categoryId": "18",
       "title": "The approval digest counts what waits per status, the inbox lists each status, and the whole application lists the people who decide",
-      "surface": "`GET approvals/inbox?status=` with `pending` (the default), `awaiting-application` and `execution-unknown` and `NhAssistantInboxDto.Status`; `NhAssistantInboxStatuses`; `INhAssistantProposalCounts.CountAsync` with `NhAssistantDecidingPerson`; `NhAssistantSystemSubjectBuilder.Members` with `INhAssistantSystemMembers` (`ListAsync`, `MaxMembers`) for the notifications of the whole application; `AgentInboxFilter.status`, `AgentInboxStatus` and `AgentInbox.status` of `@newheap/platform-ai-chat`",
+      "surface": "`GET approvals/inbox?status=` with `pending` (the default), `awaiting-application` and `execution-unknown` and `NhAssistantInboxDto.Status`; `NhAssistantInboxStatuses`; `INhAssistantProposalCounts.CountAsync` with `NhAssistantDecidingPerson` and its required `TenantId`, and the `NhAssistantTenancy` warning about a caller without a tenant refused work stored under a tenant; `NhAssistantSystemSubjectBuilder.Members` with `INhAssistantSystemMembers` (`ListAsync`, `MaxMembers`) for the notifications of the whole application; `AgentInboxFilter.status`, `AgentInboxStatus` and `AgentInbox.status` of `@newheap/platform-ai-chat`",
       "outcome": "The sample's daily approval digest (SampleApprovalDigest) asks INhAssistantProposalCounts what waits for a person per status, with the inbox's own visibility and ids and counts only. When the intake reviewer proposes an equipment order, the project's approver has one more proposal to decide and somebody without a role on the project has nothing; approved, the order waits for the order desk's report and counts, and the inbox lists it with `status=awaiting-application` by report deadline; without a report in time it waits as `execution-unknown` for an approver to resolve it. Another status is refused with `400`. The whole application lists its people through SampleSystemMembers, the users of the administrator role and of roles that grant `app.project.manage`, as the administration policy says, so a company-wide proposal of the project follow-up in a thread nobody opened reaches the people who decide it; the assistant still evaluates the policies for each of them, so a listed viewer never hears what is meant for approvers. The library tests prove the status filter, the counts and the notifications on SQL Server and PostgreSQL. The inbox and the counts follow the person's tenant: a proposal of another tenant's thread is in neither, whatever an old member snapshot row or a run the person once started says, flat and grouped, as the library tests prove on SQL Server and PostgreSQL.",
       "implementation": "implemented",
       "evidence": [
@@ -5664,7 +5664,9 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSystemMembersTests.cs",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-agent-run.models.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenancyWarningTests.cs"
       ]
     },
     {

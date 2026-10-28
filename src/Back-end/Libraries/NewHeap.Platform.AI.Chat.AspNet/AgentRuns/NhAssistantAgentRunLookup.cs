@@ -148,7 +148,8 @@ public sealed record NhAssistantTriggerEventRun(
 
 internal sealed class NhAssistantAgentRunLookup(
     NhAssistantRunStore runs,
-    NhAssistantRegistrationState registration) : INhAssistantAgentRunLookup
+    NhAssistantRegistrationState registration,
+    NhAssistantTenancy tenancy) : INhAssistantAgentRunLookup
 {
     public async Task<NhAssistantTriggerEventRun?> FindByEventAsync(
         string agentId,
@@ -183,7 +184,7 @@ internal sealed class NhAssistantAgentRunLookup(
     {
         var found = await runs.FindInputWithThreadAsync(inputId, cancellationToken);
         if (found is not { } match
-            || (tenantId is not null && !NhAssistantWholeApplicationTenancy.Reaches(registration, match.Thread, tenantId)))
+            || (tenantId is not null && !tenancy.Reaches(match.Thread, tenantId)))
         {
             return null;
         }
@@ -198,7 +199,7 @@ internal sealed class NhAssistantAgentRunLookup(
     {
         var match = await runs.FindRunWithThreadAsync(runId, cancellationToken);
         if (match is null
-            || (tenantId is not null && !NhAssistantWholeApplicationTenancy.Reaches(registration, match.Thread, tenantId)))
+            || (tenantId is not null && !tenancy.Reaches(match.Thread, tenantId)))
         {
             return null;
         }

@@ -479,6 +479,7 @@ internal sealed class NhAssistantConsultationToolHandler(
     NhAssistantAgentTriggers triggers,
     NhAssistantAgentEvents events,
     NhAssistantRegistrationState registration,
+    NhAssistantTenancy tenancy,
     IHttpContextAccessor httpContextAccessor,
     IServiceProvider services)
 {
@@ -603,7 +604,7 @@ internal sealed class NhAssistantConsultationToolHandler(
         var tenant = AskerTenantOf(context);
         var access = await subjects.ResolveForAgentAsync(subject, options.AgentId, asker, cancellationToken);
         var info = access.Role == NhAiSubjectRole.None ? null : await subjects.DescribeAsync(subject, cancellationToken);
-        if (info is null || (tenant is not null && !tenant.Reaches(registration, info)))
+        if (info is null || (tenant is not null && !tenancy.Reaches(info, tenant.TenantId)))
         {
             return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultSubjectUnavailable);
         }

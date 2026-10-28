@@ -24,7 +24,8 @@ internal sealed class NhAssistantObjectAgents(
     NhAssistantAgentCatalog agents,
     NhAssistantAgentAccess agentAccess,
     NhAssistantWorksOnRule worksOn,
-    NhAssistantManualStarts starts)
+    NhAssistantManualStarts starts,
+    NhAssistantTenancy tenancy)
 {
     /// <param name="tenantId">The person's tenant, <see langword="null"/> for a person without one: a
     /// subject of another tenant, and the whole application for a person bound to a tenant that takes no
@@ -57,7 +58,7 @@ internal sealed class NhAssistantObjectAgents(
         // administrators only.
         var threads = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
             .Where(thread => string.Equals(thread.ScopeKey, info.ScopeKey, StringComparison.Ordinal)
-                && NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+                && tenancy.Includes(thread, tenantId)
                 && (administrator || !thread.Shadow)
                 && candidates.Any(agent => string.Equals(agent.Id, thread.AgentId, StringComparison.Ordinal)))
             .ToArray();

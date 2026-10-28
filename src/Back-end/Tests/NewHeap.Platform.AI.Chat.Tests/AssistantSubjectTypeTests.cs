@@ -296,7 +296,7 @@ public sealed class AssistantSubjectTypeTests(AssistantDatabaseFixture database)
         await using var scope = host.Services.CreateAsyncScope();
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, actorId)], "test"));
         var work = await scope.ServiceProvider.GetRequiredService<INhAssistantSubjectWork>()
-            .GetAsync(new NhAiSubjectRef("project", subjectId), new NhAssistantDecidingPerson(principal, actorId));
+            .GetAsync(new NhAiSubjectRef("project", subjectId), new NhAssistantDecidingPerson(principal, actorId, null));
         Assert.True(work.Success);
         return work.Data!;
     }

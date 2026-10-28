@@ -816,10 +816,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             // bound to a tenant that the single-tenant mode does not name, answers like one that does not
             // exist, also before access records the caller as a participant. The store below applies the
             // same rule to the conversation.
-            if (!NhAssistantWholeApplicationTenancy.Reaches(
-                    services.GetRequiredService<NhAssistantRegistrationState>(),
-                    thread,
-                    caller.TenantId))
+            if (!services.GetRequiredService<NhAssistantTenancy>().Reaches(thread, caller.TenantId))
             {
                 return (null, Error(NhAssistantErrorCodes.ConversationNotFound));
             }

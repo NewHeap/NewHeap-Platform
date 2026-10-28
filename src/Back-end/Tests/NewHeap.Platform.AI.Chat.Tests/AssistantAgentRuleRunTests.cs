@@ -732,7 +732,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         {
             var person = new NhAssistantDecidingPerson(
                 new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Approver)], "test")),
-                Approver);
+                Approver,
+                null);
             var counts = await scope.ServiceProvider.GetRequiredService<INhAssistantProposalCounts>()
                 .CountAsync(person, NhAssistantInboxStatuses.All, CancellationToken.None);
             Assert.All(NhAssistantInboxStatuses.All, inboxStatus => Assert.Equal(0, counts[inboxStatus]));

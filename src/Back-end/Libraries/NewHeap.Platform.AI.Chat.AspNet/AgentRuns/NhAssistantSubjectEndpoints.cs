@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 
@@ -253,7 +254,7 @@ internal static class NhAssistantSubjectEndpoints
         }
         // A thread stored under another tenant than the subject's description now names stays out of
         // reach, as its conversation does.
-        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, thread, caller.Data!.TenantId))
+        if (!httpContext.RequestServices.GetRequiredService<NhAssistantTenancy>().Reaches(thread, caller.Data!.TenantId))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectNotFound);
         }

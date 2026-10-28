@@ -3322,7 +3322,9 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSystemMembersTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-agent-run.models.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-overview.spec.ts",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantTenancy.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenancyWarningTests.cs"
     ],
     "SPM-328": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs",

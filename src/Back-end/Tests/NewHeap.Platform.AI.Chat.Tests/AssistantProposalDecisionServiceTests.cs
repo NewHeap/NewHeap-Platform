@@ -556,7 +556,7 @@ public sealed class AssistantProposalDecisionServiceTests(AssistantDatabaseFixtu
 
     private static NhAssistantDecidingPerson Person(string actorId)
     {
-        return new NhAssistantDecidingPerson(Principal(actorId), actorId);
+        return new NhAssistantDecidingPerson(Principal(actorId), actorId, null);
     }
 
     private static ClaimsPrincipal Principal(string actorId)

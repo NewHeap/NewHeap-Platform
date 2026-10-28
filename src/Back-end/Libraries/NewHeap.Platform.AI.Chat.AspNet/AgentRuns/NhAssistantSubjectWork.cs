@@ -128,7 +128,8 @@ internal sealed class NhAssistantSubjectWork(
     NhAssistantAgentAccess agentAccess,
     NhAssistantApproverCheck approvers,
     NhAssistantManualStarts starts,
-    NhAssistantSystemApprovers systemApprovers) : INhAssistantSubjectWork
+    NhAssistantSystemApprovers systemApprovers,
+    NhAssistantTenancy tenancy) : INhAssistantSubjectWork
 {
     public const int MaxSummarySubjects = 200;
     private const int MaxProposalsPerThread = 50;
@@ -196,7 +197,7 @@ internal sealed class NhAssistantSubjectWork(
         // A subject of another tenant, and the whole application for a person bound to a tenant that
         // takes no part in it, reads as unknown.
         var info = await subjects.DescribeAsync(subject, cancellationToken);
-        if (info is not null && tenant is not null && !tenant.Reaches(registration, info))
+        if (info is not null && tenant is not null && !tenancy.Reaches(info, tenant.TenantId))
         {
             info = null;
         }
@@ -211,7 +212,7 @@ internal sealed class NhAssistantSubjectWork(
         // stored under another tenant than the person's stays out, as its conversation does.
         var visible = (await runs.FindThreadsBySubjectAsync(subject, cancellationToken))
             .Where(thread => string.Equals(thread.ScopeKey, info.ScopeKey, StringComparison.Ordinal)
-                && (tenant is null || NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenant.TenantId))
+                && (tenant is null || tenancy.Includes(thread, tenant.TenantId))
                 && registration.AgentRuns.ContainsKey(thread.AgentId)
                 && IsVisible(thread.AgentId, administrator)
                 && (administrator || !thread.Shadow))

@@ -107,7 +107,7 @@ public sealed class AssistantConversationServiceTests(AssistantDatabaseFixture d
         Assert.Equal(NhAssistantErrorCodes.TitleInvalid, CodeOf(await CreateAsync(app.Services, owner, new NhAssistantNewConversation(AgentId) { Title = new string('t', 201) })));
         Assert.Equal(NhAssistantErrorCodes.AgentForbidden, CodeOf(await CreateAsync(app.Services, PersonWithoutAccess("user-1"), new NhAssistantNewConversation(AgentId))));
         Assert.Equal(NhAssistantErrorCodes.AgentForbidden, CodeOf(await CreateAsync(app.Services, owner, new NhAssistantNewConversation("project-manager"))));
-        Assert.Equal(NhAssistantErrorCodes.ContextUnavailable, CodeOf(await CreateAsync(app.Services, new NhAssistantDecidingPerson(owner.User, "user-2"), new NhAssistantNewConversation(AgentId))));
+        Assert.Equal(NhAssistantErrorCodes.ContextUnavailable, CodeOf(await CreateAsync(app.Services, new NhAssistantDecidingPerson(owner.User, "user-2", null), new NhAssistantNewConversation(AgentId))));
 
         // Reading and stopping: someone outside the chat finds nothing, nor does anyone find an agent
         // thread, even one they take part in; without the access policy the assistant is forbidden.
@@ -405,14 +405,16 @@ public sealed class AssistantConversationServiceTests(AssistantDatabaseFixture d
     {
         return new NhAssistantDecidingPerson(
             new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user), new Claim("permission", "assistant")], ChannelCode)),
-            user);
+            user,
+            null);
     }
 
     private static NhAssistantDecidingPerson PersonWithoutAccess(string user)
     {
         return new NhAssistantDecidingPerson(
             new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user)], ChannelCode)),
-            user);
+            user,
+            null);
     }
 
     private static ClaimsPrincipal TenantPrincipal(string subject, string tenant)

@@ -766,7 +766,8 @@ passes their principal and actor id, and their tenant, as `NhAssistantDecidingPe
 
 ```csharp
 var sent = await turns.SendAsync(
-    new NhAssistantDecidingPerson(principal, userId.ToString("D")),
+    // The tenant the person signs in with; null only in a host without tenants.
+    new NhAssistantDecidingPerson(principal, userId.ToString("D"), tenantId),
     conversationId,
     new NhAssistantConversationMessage(text) { ClientMessageId = deliveryId },
     new NhAssistantConversationTurnOptions("messaging-chat")

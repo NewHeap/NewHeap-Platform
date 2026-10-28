@@ -162,7 +162,8 @@ internal sealed class NhAssistantProposalDecisions(
     NhAssistantProposalInvalidation invalidation,
     IServiceProvider services,
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
-    ILogger<NhAssistantProposalDecisions> logger)
+    ILogger<NhAssistantProposalDecisions> logger,
+    NhAssistantTenancy tenancy)
 {
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _businessSinks = businessSinks.ToArray();
 
@@ -234,7 +235,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+            || !tenancy.Reaches(thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
@@ -460,7 +461,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+            || !tenancy.Reaches(thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<NhAssistantProposalDecisionFacts>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
@@ -574,7 +575,7 @@ internal sealed class NhAssistantProposalDecisions(
         var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (approval is null
             || thread is null
-            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+            || !tenancy.Reaches(thread, tenantId)
             || !await approvers.MaySeeAsync(thread, actorId, cancellationToken))
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");

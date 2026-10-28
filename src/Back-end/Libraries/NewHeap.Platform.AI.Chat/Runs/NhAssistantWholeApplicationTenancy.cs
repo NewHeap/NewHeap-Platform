@@ -1,5 +1,3 @@
-using NewHeap.Platform.AI.Chat.Entities;
-
 namespace NewHeap.Platform.AI.Chat.Runs;
 
 /// <summary>
@@ -11,7 +9,8 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// configured tenant does as well; a caller of any other tenant never does, with or without the mode.
 /// The rule only says who may take part: the subject access resolver, the read and approve policies of
 /// the whole application and the agent's run and view policies still decide what such a caller sees
-/// and decides.
+/// and decides. Paths apply it to a thread or a subject through <see cref="NhAssistantTenancy"/>, which
+/// also warns about a caller without a tenant.
 /// </summary>
 internal static class NhAssistantWholeApplicationTenancy
 {
@@ -58,45 +57,12 @@ internal static class NhAssistantWholeApplicationTenancy
             && string.Equals(subjectType, NhAiSubjectRef.SystemType, StringComparison.Ordinal)
             && TakesPart(registration, tenantId);
     }
-
-    /// <summary>
-    /// Whether a caller bound to <paramref name="tenantId"/> reaches the agent thread: its own tenant's,
-    /// or a thread of the whole application when the caller <see cref="TakesPart"/>. Every path that
-    /// reaches a thread by id, or a run or proposal through its thread, applies it before any read,
-    /// decision or participant row; a thread it does not reach answers like an unknown one.
-    /// </summary>
-    public static bool Reaches(NhAssistantRegistrationState registration, AssistantThread thread, string? tenantId)
-    {
-        ArgumentNullException.ThrowIfNull(thread);
-        return Reaches(registration, thread.TenantId, thread.SubjectType, tenantId);
-    }
-
-    /// <summary>
-    /// Whether a caller bound to <paramref name="tenantId"/> reaches the subject as its resolver
-    /// described it: a subject of the caller's own tenant, or the whole application when the caller
-    /// <see cref="TakesPart"/>. Every path that addresses a subject applies it before any thread, run,
-    /// proposal, count, consultation or participant row; a subject it does not reach reads as unknown.
-    /// </summary>
-    public static bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject, string? tenantId)
-    {
-        ArgumentNullException.ThrowIfNull(subject);
-        return Reaches(registration, subject.TenantId, subject.Subject.Type, tenantId);
-    }
 }
 
 /// <summary>
 /// The tenant of the person for whom work is done, for a path that binds that work to the person's
-/// tenant with <see cref="NhAssistantWholeApplicationTenancy"/>. <see cref="TenantId"/> is
-/// <see langword="null"/> for a person without a tenant. A path that gets no binding applies no tenant
-/// rule of its own, as the application's events and schedules, which name their subject themselves.
+/// tenant with <see cref="NhAssistantTenancy"/>. <see cref="TenantId"/> is <see langword="null"/> for a
+/// person without a tenant. A path that gets no binding applies no tenant rule of its own, as the
+/// application's events and schedules, which name their subject themselves.
 /// </summary>
-internal sealed record NhAssistantTenantBinding(string? TenantId)
-{
-    /// <summary>
-    /// Whether the binding reaches the subject as its resolver described it.
-    /// </summary>
-    public bool Reaches(NhAssistantRegistrationState registration, NhAiSubjectInfo subject)
-    {
-        return NhAssistantWholeApplicationTenancy.Reaches(registration, subject, TenantId);
-    }
-}
+internal sealed record NhAssistantTenantBinding(string? TenantId);

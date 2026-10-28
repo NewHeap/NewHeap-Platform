@@ -37,7 +37,8 @@ internal sealed class NhAssistantAgentBoards(
     NhAssistantManualStarts starts,
     NhAssistantThreadService threadAccess,
     IEnumerable<INhAiSubjectAccessResolver> resolvers,
-    IServiceProvider services)
+    IServiceProvider services,
+    NhAssistantTenancy tenancy)
 {
     // The visibility of one reader decides with these.
     private readonly NhAssistantAgentAccess _agentAccess = agentAccess;
@@ -344,7 +345,8 @@ internal sealed class NhAssistantAgentBoards(
     /// </summary>
     private async Task<bool> ReadsThreadAsync(AssistantThread thread, NhAssistantRunReader reader, CancellationToken cancellationToken)
     {
-        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, thread, reader.TenantId))
+        // A board leaves out other tenants' threads without a warning.
+        if (!tenancy.Includes(thread, reader.TenantId))
         {
             return false;
         }

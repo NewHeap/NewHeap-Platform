@@ -206,6 +206,46 @@ public sealed class AssistantTenantBindingTests(AssistantDatabaseFixture databas
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_decision_without_the_persons_tenant_reads_as_unknown_and_warns_the_operators(AssistantTestProvider provider)
+    {
+        var logs = new CapturingLoggerProvider();
+        await using var app = await StartAsync(provider, new NhAiScriptedChatClient(), logs);
+        var project = AddProject(app, TenantA);
+        var thread = await CreateThreadAsync(app, project);
+        var run = await AddRunAsync(app, thread, NhAssistantRunStatuses.Completed);
+        var pending = await AddProposalAsync(app, thread, run.Id, NhAssistantApprovalStatuses.Pending);
+        await using var scope = app.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<INhAssistantProposalDecisionService>();
+
+        // The application passed no tenant for the person: the proposal reads as unknown, as for a
+        // person of another tenant, and nothing changes.
+        var withoutTenant = new NhAssistantDecidingPerson(Principal(Person), ActorOf(Person), null);
+        Assert.Equal(
+            NhAssistantErrorCodes.ApprovalNotFound,
+            CodeOf(await service.DecideAsync(withoutTenant, pending.Id, pending.ProposalHash, NhAssistantProposalDecision.Approve, "messaging-reply", "reply-1", CancellationToken.None)));
+
+        // The operators learn why, without the proposal, the subject or the tenant.
+        var warning = Assert.Single(TenancyWarnings(logs));
+        Assert.StartsWith("NhAssistantProposalDecisions.", warning, StringComparison.Ordinal);
+        Assert.Contains("a subject of type project stored under a tenant, because the caller has no tenant", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain(TenantA, warning, StringComparison.Ordinal);
+        Assert.DoesNotContain(project, warning, StringComparison.Ordinal);
+
+        // A person of another tenant is refused without a warning: that is the isolation working.
+        var otherTenant = new NhAssistantDecidingPerson(Principal(Person), ActorOf(Person), TenantB);
+        Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, CodeOf(await service.GetDecisionFactsAsync(otherTenant, pending.Id, CancellationToken.None)));
+        Assert.Single(TenancyWarnings(logs));
+
+        // With the tenant the person signed in with, the proposal is found and still pending.
+        var ownTenant = new NhAssistantDecidingPerson(Principal(Person), ActorOf(Person), TenantA);
+        Assert.True((await service.GetDecisionFactsAsync(ownTenant, pending.Id, CancellationToken.None)).Success);
+        await using var context = Context(app);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await context.Approvals.SingleAsync(approval => approval.Id == pending.Id)).Status);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task The_inbox_and_the_counts_list_only_the_proposals_of_the_callers_tenant(AssistantTestProvider provider)
     {
         await using var app = await StartAsync(provider, new NhAiScriptedChatClient());
@@ -355,13 +395,20 @@ public sealed class AssistantTenantBindingTests(AssistantDatabaseFixture databas
         }
     }
 
-    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, NhAiScriptedChatClient model)
+    private Task<AssistantWebApplication> StartAsync(
+        AssistantTestProvider provider,
+        NhAiScriptedChatClient model,
+        CapturingLoggerProvider? logs = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
             model,
             configure: services =>
             {
+                if (logs is not null)
+                {
+                    services.AddSingleton<ILoggerProvider>(logs);
+                }
                 // People sign in at one issuer whose tokens name their tenant, so one person keeps one
                 // actor id in every tenant.
                 services.AddAuthentication(TenantBindingAuthentication.SchemeName)
@@ -398,6 +445,14 @@ public sealed class AssistantTenantBindingTests(AssistantDatabaseFixture databas
         var id = Guid.NewGuid().ToString("D");
         app.Services.GetRequiredService<TwoTenantProjects>().Tenants[id] = tenantId;
         return id;
+    }
+
+    private static string[] TenancyWarnings(CapturingLoggerProvider logs)
+    {
+        return logs.Entries
+            .Where(entry => entry.Level == LogLevel.Warning && entry.Category == typeof(NhAssistantTenancy).FullName)
+            .Select(entry => entry.Message)
+            .ToArray();
     }
 
     private static NhAiSubjectInfo Described(NhAiSubjectRef subject, string tenantId)

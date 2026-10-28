@@ -20,9 +20,9 @@ internal sealed class NhAssistantProposalFeedbackService(
     NhAssistantSubjectAccessService subjects,
     NhAssistantAgentEvents events,
     NhAssistantAgentWorkUpdates workUpdates,
-    NhAssistantRegistrationState registration,
     IEnumerable<INhAssistantProposalFeedbackSink> feedbackSinks,
-    ILogger<NhAssistantProposalFeedbackService> logger)
+    ILogger<NhAssistantProposalFeedbackService> logger,
+    NhAssistantTenancy tenancy)
 {
     private readonly IReadOnlyList<INhAssistantProposalFeedbackSink> _feedbackSinks = feedbackSinks.ToArray();
 
@@ -70,7 +70,7 @@ internal sealed class NhAssistantProposalFeedbackService(
         if (approval is null
             || thread is null
             || actorId.StartsWith(NhAssistantAgentEvents.AgentActorPrefix, StringComparison.Ordinal)
-            || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId))
+            || !tenancy.Reaches(thread, tenantId))
         {
             return TaskResult<AssistantProposalFeedback>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
         }

@@ -364,6 +364,7 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             // A refresh of a subject's members reloads the live audience of its threads.
             services.AddSingleton<NewHeap.Platform.AI.Chat.Live.NhAssistantConversationAudience>();
             services.AddScoped<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
+            services.AddSingleton<NewHeap.Platform.AI.Chat.Runs.NhAssistantTenancy>();
             // Changes of administration agents reach the run configuration defined as data.
             services.AddLogging();
             services.AddSingleton<NhAssistantRunConfigurationStore>();

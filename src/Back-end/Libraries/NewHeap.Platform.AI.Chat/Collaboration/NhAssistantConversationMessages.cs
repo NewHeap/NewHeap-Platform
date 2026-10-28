@@ -26,6 +26,7 @@ internal sealed class NhAssistantConversationMessages(
     INhAssistantNotifier notifier,
     NhAssistantInAppApplicationMessageNotifier inAppNotifier,
     NhAssistantRegistrationState registration,
+    NhAssistantTenancy tenancy,
     IOptionsMonitor<NhAssistantOptions> options,
     IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
     ILogger<NhAssistantConversationMessages> logger) : INhAssistantConversationMessages
@@ -151,7 +152,7 @@ internal sealed class NhAssistantConversationMessages(
         {
             return await store.FindAccessAsync(conversation.Id, person.ActorId, person.TenantId, cancellationToken) is not null;
         }
-        if (thread is null || IsShadow(thread) || !NhAssistantWholeApplicationTenancy.Reaches(registration, thread, person.TenantId))
+        if (thread is null || IsShadow(thread) || !tenancy.Reaches(thread, person.TenantId))
         {
             return false;
         }

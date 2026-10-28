@@ -29,9 +29,12 @@ public sealed class SampleApprovalDigest(INhAssistantProposalCounts counts)
     public async Task<SampleApprovalDigestCounts> CountAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var actorId = userId.ToString("D");
+        // The tenant is required: a host with tenants passes the person's own, or the counts leave out
+        // every proposal stored under a tenant. The sample has no tenants.
         var person = new NhAssistantDecidingPerson(
             new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, actorId)], "sample-digest")),
-            actorId);
+            actorId,
+            TenantId: null);
         var byStatus = await counts.CountAsync(person, NhAssistantInboxStatuses.All, cancellationToken);
         return new SampleApprovalDigestCounts(
             byStatus[NhAssistantInboxStatuses.Pending],

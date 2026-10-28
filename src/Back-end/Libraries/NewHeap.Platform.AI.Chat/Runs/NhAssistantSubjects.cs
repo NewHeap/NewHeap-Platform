@@ -16,6 +16,7 @@ internal sealed class NhAssistantSubjectAccessService(
     IEnumerable<INhAiSubjectAccessResolver> resolvers,
     NhAssistantRunStore runs,
     NhAssistantRegistrationState registration,
+    NhAssistantTenancy tenancy,
     NhAssistantConversationAudience audience,
     ILogger<NhAssistantSubjectAccessService> logger) : INhAiSubjectAccess
 {
@@ -157,8 +158,8 @@ internal sealed class NhAssistantSubjectAccessService(
     /// <summary>
     /// The subject as its resolver describes it, for a caller bound to <paramref name="tenantId"/>:
     /// <see langword="null"/> when it is unknown or the caller's tenant does not reach it
-    /// (<see cref="NhAssistantWholeApplicationTenancy"/>), so a subject of another tenant, and the whole
-    /// application for a caller who takes no part in it, read as unknown.
+    /// (<see cref="NhAssistantTenancy"/>), so a subject of another tenant, and the whole application for
+    /// a caller who takes no part in it, read as unknown.
     /// </summary>
     public async ValueTask<NhAiSubjectInfo?> DescribeForAsync(
         NhAiSubjectRef subject,
@@ -166,7 +167,7 @@ internal sealed class NhAssistantSubjectAccessService(
         CancellationToken cancellationToken)
     {
         var info = await DescribeAsync(subject, cancellationToken);
-        if (info is null || !NhAssistantWholeApplicationTenancy.Reaches(registration, info, tenantId))
+        if (info is null || !tenancy.Reaches(info, tenantId))
         {
             return null;
         }

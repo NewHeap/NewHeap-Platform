@@ -13,6 +13,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
@@ -284,12 +285,13 @@ public sealed class AssistantSingleTenantTests(AssistantDatabaseFixture database
         Assert.False(NhAssistantWholeApplicationTenancy.KeepsOut(state, Tenant));
         // The mode never lets anyone into another tenant's subjects: a described subject reaches only
         // its own tenant, and the whole application only the tenant that takes part.
+        var tenancy = new NhAssistantTenancy(state, NullLogger<NhAssistantTenancy>.Instance);
         var project = new NhAiSubjectInfo(new NhAiSubjectRef("project", "1"), NhAiSubjectInfo.CreateScopeKey(OtherTenant, null)) { TenantId = OtherTenant };
-        Assert.True(NhAssistantWholeApplicationTenancy.Reaches(state, project, OtherTenant));
-        Assert.False(NhAssistantWholeApplicationTenancy.Reaches(state, project, Tenant));
+        Assert.True(tenancy.Reaches(project, OtherTenant));
+        Assert.False(tenancy.Reaches(project, Tenant));
         var global = new NhAiSubjectInfo(NhAiSystemSubjects.Global, NhAiSubjectInfo.CreateScopeKey(null, null));
-        Assert.True(NhAssistantWholeApplicationTenancy.Reaches(state, global, Tenant));
-        Assert.False(NhAssistantWholeApplicationTenancy.Reaches(state, global, OtherTenant));
+        Assert.True(tenancy.Reaches(global, Tenant));
+        Assert.False(tenancy.Reaches(global, OtherTenant));
 
         // The whole application's work, stored without a tenant, reaches the tenant; an object of
         // another tenant never does.

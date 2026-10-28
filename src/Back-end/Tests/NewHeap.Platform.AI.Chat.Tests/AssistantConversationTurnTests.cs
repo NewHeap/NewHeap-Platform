@@ -185,8 +185,8 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
         var withoutAccess = await SendAsync(app, PersonWithoutAccess("user-1"), id, message);
         var withoutAgentPolicy = await SendAsync(app, Person("user-1"), managed.Id, message);
         // The application names another person than the principal says.
-        var mismatch = await SendAsync(app, new NhAssistantDecidingPerson(Person("user-1").User, "user-2"), id, message);
-        var unauthenticated = await SendAsync(app, new NhAssistantDecidingPerson(new ClaimsPrincipal(new ClaimsIdentity()), "user-1"), id, message);
+        var mismatch = await SendAsync(app, new NhAssistantDecidingPerson(Person("user-1").User, "user-2", null), id, message);
+        var unauthenticated = await SendAsync(app, new NhAssistantDecidingPerson(new ClaimsPrincipal(new ClaimsIdentity()), "user-1", null), id, message);
         var otherDecision = await DecideAsync(app, Person("user-2"), id, Guid.NewGuid(), new NhAssistantConversationDecision(NhAssistantProposalDecision.Approve, new string('0', 64)));
 
         Assert.Equal(NhAssistantErrorCodes.ConversationNotFound, CodeOf(outsider));
@@ -265,7 +265,7 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
         var ofTenant = await SendAsync(app, new NhAssistantDecidingPerson(TenantPrincipal("subject-1", "tenant-a"), actor, "tenant-a"), conversation.Id, message);
         var ofOtherTenant = await SendAsync(app, new NhAssistantDecidingPerson(TenantPrincipal("subject-1", "tenant-b"), actor, "tenant-b"), conversation.Id, message);
         var claimedTenant = await SendAsync(app, new NhAssistantDecidingPerson(TenantPrincipal("subject-1", "tenant-b"), actor, "tenant-a"), conversation.Id, message);
-        var withoutTenant = await SendAsync(app, new NhAssistantDecidingPerson(TenantPrincipal("subject-1", "tenant-a"), actor), conversation.Id, message);
+        var withoutTenant = await SendAsync(app, new NhAssistantDecidingPerson(TenantPrincipal("subject-1", "tenant-a"), actor, null), conversation.Id, message);
 
         Assert.True(ofTenant.Success);
         Assert.Equal(NhAssistantTurnStatuses.Completed, ofTenant.Data!.Status);
@@ -479,14 +479,15 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
     {
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user), new("permission", "assistant") };
         claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
-        return new NhAssistantDecidingPerson(new ClaimsPrincipal(new ClaimsIdentity(claims, ChannelCode)), user);
+        return new NhAssistantDecidingPerson(new ClaimsPrincipal(new ClaimsIdentity(claims, ChannelCode)), user, null);
     }
 
     private static NhAssistantDecidingPerson PersonWithoutAccess(string user)
     {
         return new NhAssistantDecidingPerson(
             new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user)], ChannelCode)),
-            user);
+            user,
+            null);
     }
 
     private static ClaimsPrincipal TenantPrincipal(string subject, string tenant)

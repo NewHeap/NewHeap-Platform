@@ -190,7 +190,7 @@ internal static class NhAssistantAgentRunEndpoints
         // conversation does.
         var thread = await runs.FindThreadAsync(info.ScopeKey, agentId!, subject!, cancellationToken, runOptions.ShadowOfAgentId is not null);
         NhAssistantThreadDto? threadDto = null;
-        if (thread is not null && NhAssistantWholeApplicationTenancy.Reaches(registration, thread, caller.Data!.TenantId))
+        if (thread is not null && httpContext.RequestServices.GetRequiredService<NhAssistantTenancy>().Reaches(thread, caller.Data!.TenantId))
         {
             await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
             threadDto = await ToThreadDtoAsync(thread, access.Role, runs, subjects, cancellationToken);
@@ -914,10 +914,7 @@ internal static class NhAssistantAgentRunEndpoints
         {
             return false;
         }
-        if (!NhAssistantWholeApplicationTenancy.Reaches(
-                httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>(),
-                thread,
-                tenantId))
+        if (!httpContext.RequestServices.GetRequiredService<NhAssistantTenancy>().Reaches(thread, tenantId))
         {
             return true;
         }

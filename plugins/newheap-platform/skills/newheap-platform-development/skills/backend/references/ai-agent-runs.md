@@ -176,7 +176,8 @@ asked an approver, with `INhAssistantProposalDecisionService`. It is a server AP
 vouches for the authentication of the person: pass the person as `NhAssistantDecidingPerson` with
 the principal and actor id the application authenticated through its channel (for example a reply
 token it issued to that person, and claims rebuilt from its user store as their sign-in would give
-them), never an id taken from the message itself. Before the application asks someone, read
+them), never an id taken from the message itself, and with the tenant the person signs in with. The
+tenant is required; pass `null` only in a host without tenants or for its operators. Before the application asks someone, read
 `GetDecisionFactsAsync`: the current proposal hash, the expiry, whether four eyes apply, the
 approvals still needed and whether this person may decide, with the refusal code otherwise, and no
 proposal content; nothing changes, so the proposal guards run only when the person decides.
@@ -380,7 +381,11 @@ tenant of their request; a call outside a turn, such as over MCP: its context's;
 thread's, and a run of the whole application none, as the proposals it places), so another tenant's
 subject, and the whole application for an asker bound to a tenant that takes no part in it, are
 `assistant-consult-subject-unavailable`. `ResolveAsync` gets no tenant, so a resolver that gives one
-actor id roles in several tenants never widens this boundary.
+actor id roles in several tenants never widens this boundary. A caller without a tenant who addresses
+one thread, run, proposal or subject stored under a tenant reads it as unknown too, and the platform
+logs a warning (`NhAssistantTenancy`, at most once an hour per path, with the path and the subject
+type only), because that is nearly always a missing `NhAssistantDecidingPerson.TenantId` or a context
+resolver that gives no tenant. Listings and callers of another tenant log nothing.
 
 The whole application belongs to no tenant: its threads, runs and proposals are stored without one, and
 a caller bound to a tenant takes part in none of its work, neither in listings nor by id: deciding,
@@ -2006,9 +2011,10 @@ instructions in full: call them for an administrator or process the application 
 - Storing the whole application's work under the host's tenant, or giving every person no tenant, to
   let one customer's people see it; call `UseSingleTenant` with the tenant that
   `UseAuthenticatedClaimsForSingleTenant` projects.
-- Leaving `NhAssistantDecidingPerson.TenantId` empty for a person who has a tenant, so a channel
-  decides whole-application work the person may not take part in; pass the tenant the context
-  resolver gives the person.
+- Passing `null` as `NhAssistantDecidingPerson.TenantId` for a person who has a tenant: the person's
+  digest counts zero, their decisions and subject work read as unknown, and a channel may decide
+  whole-application work the person may not take part in; pass the tenant the context resolver gives
+  the person, and treat the `NhAssistantTenancy` warning in the log as this mistake.
 - Relying on the subject access resolver for the tenant boundary, or calling `INhAssistantSubjectWork`
   without the person's tenant in a host with several tenants; the resolver gets no tenant, so pass
   the person with `NhAssistantDecidingPerson` and let the platform compare tenants.

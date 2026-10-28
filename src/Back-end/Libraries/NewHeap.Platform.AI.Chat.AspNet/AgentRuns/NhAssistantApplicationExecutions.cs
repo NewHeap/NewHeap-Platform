@@ -49,7 +49,8 @@ internal sealed class NhAssistantApplicationExecutions(
     IAuthorizationService authorization,
     IOptions<RequestLocalizationOptions> localization,
     IServiceProvider services,
-    ILogger<NhAssistantApplicationExecutions> logger) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
+    ILogger<NhAssistantApplicationExecutions> logger,
+    NhAssistantTenancy tenancy) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
 {
     /// <summary>
     /// The statuses an inline approval is handed off from: the person's decision just approved it.
@@ -717,7 +718,7 @@ internal sealed class NhAssistantApplicationExecutions(
     private bool Reaches(ExecutionHome home, string? tenantId)
     {
         return home.Thread is { } thread
-            ? NhAssistantWholeApplicationTenancy.Reaches(registration, thread, tenantId)
+            ? tenancy.Reaches(thread, tenantId)
             : string.Equals(home.TenantId, tenantId, StringComparison.Ordinal);
     }
 

@@ -10,7 +10,7 @@ namespace NewHeap.Platform.AI.Chat.Runs;
 /// </summary>
 internal sealed class NhAssistantSubjectSearchService(
     NhAssistantSubjectAccessService subjects,
-    NhAssistantRegistrationState registration)
+    NhAssistantTenancy tenancy)
 {
     /// <summary>
     /// The search reads at most this many results per result it may show, so a search that returns
@@ -86,7 +86,8 @@ internal sealed class NhAssistantSubjectSearchService(
         string? tenantId,
         CancellationToken cancellationToken)
     {
-        if (!NhAssistantWholeApplicationTenancy.Reaches(registration, info.TenantId, info.Subject.Type, tenantId))
+        // Search results leave out other tenants' subjects without a warning.
+        if (!tenancy.Includes(info, tenantId))
         {
             return false;
         }

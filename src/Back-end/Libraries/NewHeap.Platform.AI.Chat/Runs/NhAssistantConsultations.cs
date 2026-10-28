@@ -229,7 +229,8 @@ internal sealed class NhAssistantConsultationService(
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentEvents events,
     ILogger<NhAssistantConsultationService> logger,
-    NhAssistantWorksOnRule worksOn)
+    NhAssistantWorksOnRule worksOn,
+    NhAssistantTenancy tenancy)
 {
     /// <summary>
     /// Time kept back for the asking turn to use the answer after the consultation returns.
@@ -484,7 +485,7 @@ internal sealed class NhAssistantConsultationService(
         var subjectRef = new NhAiSubjectRef(options.SubjectType, subjectId);
         var subject = await subjects.DescribeAsync(subjectRef, cancellationToken);
         if (subject is null
-            || (request.AskerTenant is { } tenant && !tenant.Reaches(registration, subject)))
+            || (request.AskerTenant is { } tenant && !tenancy.Reaches(subject, tenant.TenantId)))
         {
             return SubjectUnavailable();
         }
@@ -529,7 +530,7 @@ internal sealed class NhAssistantConsultationService(
         // A thread stored under another tenant than the subject's description now names stays out of
         // the asker's reach, as its conversation does.
         if (request.AskerTenant is { } bound
-            && !NhAssistantWholeApplicationTenancy.Reaches(registration, thread.Data!, bound.TenantId))
+            && !tenancy.Reaches(thread.Data!, bound.TenantId))
         {
             return SubjectUnavailable();
         }

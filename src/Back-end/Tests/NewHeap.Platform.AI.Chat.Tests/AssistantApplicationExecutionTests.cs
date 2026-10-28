@@ -648,7 +648,7 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
     {
         await using var scope = host.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<INhAssistantProposalDecisionService>().DecideAsync(
-            new NhAssistantDecidingPerson(Principal(Approver), Approver),
+            new NhAssistantDecidingPerson(Principal(Approver), Approver, null),
             approval.Id,
             approval.ProposalHash,
             NhAssistantProposalDecision.Approve,

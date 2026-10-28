@@ -41,7 +41,8 @@ internal sealed class NhAssistantRunHistory(
     NhAssistantAgentCatalog agents,
     NhAssistantArtifactStore artifacts,
     INhAssistantStore store,
-    IEnumerable<INhAiSubjectAccessResolver> resolvers)
+    IEnumerable<INhAiSubjectAccessResolver> resolvers,
+    NhAssistantTenancy tenancy)
 {
     // The reader's visibility decides with these per request.
     private readonly NhAssistantRegistrationState _registration = registration;
@@ -299,7 +300,7 @@ internal sealed class NhAssistantRunHistory(
         }
 
         var thread = row.Thread;
-        if (!NhAssistantWholeApplicationTenancy.Reaches(_registration, thread, visibility.Reader.TenantId)
+        if (!tenancy.Reaches(thread, visibility.Reader.TenantId)
             || !await visibility.MayViewAsync(thread, cancellationToken))
         {
             return null;
