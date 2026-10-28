@@ -354,6 +354,7 @@
     "SPM-360",
     "SPM-361",
     "SPM-362",
+    "SPM-364",
     "SPM-366",
     "SPM-369",
     "SPM-370",
@@ -3769,6 +3770,18 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs"
+    ],
+    "SPM-364": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectStatusRequestTexts.nl-NL.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectStatusRequestController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/ProjectStatusRequestModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantProposalForPersonSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantPersonProposals.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalForPersonTests.cs"
     ],
     "SPM-366": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs",
