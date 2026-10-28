@@ -145,4 +145,100 @@ public sealed class SqlReadOnlyPolicyTests
 
         action.Should().NotThrow();
     }
+
+    /// <summary>
+    /// MySQL and MariaDB also read <c>#</c> as a comment, take row locks with <c>FOR SHARE</c> and
+    /// <c>LOCK IN SHARE MODE</c>, and have functions that sleep, take user locks, read server files
+    /// or move a sequence; a backtick- or double-quoted name of such a function is refused too.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT 1 # hidden second statement", "comments-not-allowed")]
+    [InlineData("SELECT 1 -- hidden", "comments-not-allowed")]
+    [InlineData("SELECT /*!50000 SLEEP(1) */ 1", "comments-not-allowed")]
+    [InlineData("SELECT /*+ MAX_EXECUTION_TIME(0) */ id FROM items", "comments-not-allowed")]
+    [InlineData("SELECT SLEEP(1)", "function-not-allowed")]
+    [InlineData("SELECT `sleep`(1)", "function-not-allowed")]
+    [InlineData("SELECT `app`.`Sleep`(1)", "function-not-allowed")]
+    [InlineData("SELECT \"SLEEP\"(1)", "function-not-allowed")]
+    [InlineData("SELECT BENCHMARK(1000000, MD5('probe'))", "function-not-allowed")]
+    [InlineData("SELECT GET_LOCK('probe', 10)", "function-not-allowed")]
+    [InlineData("SELECT RELEASE_ALL_LOCKS()", "function-not-allowed")]
+    [InlineData("SELECT LOAD_FILE('/etc/hostname')", "function-not-allowed")]
+    [InlineData("SELECT NEXTVAL(item_numbers)", "function-not-allowed")]
+    [InlineData("SELECT NEXT VALUE FOR item_numbers", "function-not-allowed")]
+    [InlineData("SELECT id FROM items FOR SHARE", "locking-read-not-allowed")]
+    [InlineData("SELECT id FROM items LOCK IN SHARE MODE", "query-not-read-only")]
+    [InlineData("SELECT id FROM items FOR UPDATE", "query-not-read-only")]
+    [InlineData("SELECT id INTO @value FROM items", "query-not-read-only")]
+    [InlineData("SELECT id FROM items INTO OUTFILE '/tmp/items'", "query-not-read-only")]
+    [InlineData("SET STATEMENT max_statement_time = 0 FOR SELECT id FROM items", "query-not-read-only")]
+    [InlineData("SELECT 1; SELECT 2", "multiple-statements-not-allowed")]
+    public void UnsafeMySqlFamilySqlIsRejected(string sql, string expectedCode)
+    {
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        {
+            var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
+
+            action.Should()
+                .Throw<DatabaseReadExpectedException>()
+                .Which.Code.Should().Be(expectedCode, "on {0}", provider);
+        }
+    }
+
+    /// <summary>
+    /// A backslash escapes a quote in a MySQL string unless the session's <c>sql_mode</c> has
+    /// <c>NO_BACKSLASH_ESCAPES</c>, so <c>'x\''</c> ends elsewhere in one mode than in the other and
+    /// could hide the SQL behind it from the policy. A quoted value with a backslash is refused.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT 'x\\'' , SLEEP(1) , ''")]
+    [InlineData("SELECT 'C:\\temp' AS path")]
+    [InlineData("SELECT \"a\\\"\" AS a")]
+    [InlineData("SELECT name FROM items WHERE name LIKE 'a\\_%' LIMIT 1")]
+    public void MySqlFamilyBackslashesInQuotedValuesAreRejected(string sql)
+    {
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        {
+            var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
+
+            action.Should()
+                .Throw<DatabaseReadExpectedException>()
+                .Which.Code.Should().Be("backslash-escape-not-allowed");
+        }
+    }
+
+    [Theory]
+    [InlineData("SELECT `id` AS `Update`, `name` AS `Share`, `sleep_count` FROM `app`.`items` LIMIT 1")]
+    [InlineData("SELECT 'it''s' AS a, \"say \"\"hi\"\"\" AS b, '#' AS c, 'a -- b' AS d")]
+    [InlineData("SELECT name FROM items WHERE name LIKE 'a!_%' ESCAPE '!' LIMIT 1")]
+    [InlineData("WITH recent AS (SELECT id FROM items ORDER BY id DESC LIMIT 5) SELECT id FROM recent")]
+    [InlineData("SELECT id, IS_FREE_LOCK('probe') AS free, PREVIOUS VALUE FOR item_numbers FROM items LIMIT 1")]
+    [InlineData("SELECT `a``b` FROM items LIMIT 1;")]
+    public void MySqlFamilyReadsAreAllowed(string sql)
+    {
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        {
+            var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
+
+            action.Should().NotThrow("on {0}", provider);
+        }
+    }
+
+    /// <summary>
+    /// The MySQL rules stay out of the other providers: SQL Server and PostgreSQL keep their own
+    /// reading of <c>#</c> and of backslashes.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT TOP (1) Id AS [#] FROM dbo.Projects WHERE Name <> '#'", "sql-server")]
+    [InlineData("SELECT 'C:\\temp' AS path", "postgresql")]
+    [InlineData("SELECT 'C:\\temp' AS path", "sql-server")]
+    public void MySqlRulesDoNotApplyToTheOtherProviders(string sql, string providerName)
+    {
+        var provider = providerName == "sql-server"
+            ? DatabaseProviderKind.SqlServer
+            : DatabaseProviderKind.PostgreSql;
+        var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
+
+        action.Should().NotThrow();
+    }
 }

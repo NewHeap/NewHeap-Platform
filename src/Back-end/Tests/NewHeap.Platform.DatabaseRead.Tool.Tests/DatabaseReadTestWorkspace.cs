@@ -14,7 +14,8 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         string provider,
         string connectionString,
         int maximumRows = 20,
-        int profileCount = 1)
+        int profileCount = 1,
+        string? sqlServerFunctionPolicy = null)
     {
         _root = Path.Combine(
             Path.GetTempPath(),
@@ -38,7 +39,8 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                     maximumLockTimeoutMilliseconds = 2_000,
                     maximumOutputBytes = 65_536,
                     maximumCellBytes = 4_096,
-                    maximumSqlBytes = 8_192
+                    maximumSqlBytes = 8_192,
+                    sqlServerFunctionPolicy
                 });
         WriteJson(
             ProfileCatalogPath,
