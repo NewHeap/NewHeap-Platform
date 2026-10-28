@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "b281dea4a5533ca0021e5a50e2bd55c5733bfe36a9a04759d7493e9646772a26",
-    "declarationCount": 11703,
+    "hash": "c0e2172203f72476053c2bcc4226096f2a07201b0a1c731019d2775b890e533a",
+    "declarationCount": 11731,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2339,6 +2339,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AnswerRequestsInAskingConversation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantCodeConsultationDto( string SubjectType, string? Description, IReadOnlyList<string> AllowedRoutes, bool AllowRequests, IReadOnlyList<string> Exposure) {"
       },
       {
@@ -2348,6 +2352,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public string? RequestToolId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool RequestsOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AnswerRequestsInAskingConversation { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -2387,6 +2399,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool RequestsOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AnswerRequestsInAskingConversation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public IReadOnlyList<string> AskingAgents { get; init; } = [];"
       },
       {
@@ -2412,6 +2432,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public IReadOnlyList<string>? ToolSelectors { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool RequestsOnly { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -3407,7 +3431,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
-        "declaration": "public sealed record NhAssistantPackageConsultation( string SubjectType, string Description, string? Instructions = null, string? MinimumRole = null, string? AskerPolicy = null, IReadOnlyList<string>? Routes = null, string? ProposalRole = null, string? ProposalPolicy = null, IReadOnlyList<string>? ToolSelectors = null, int? MaxToolCalls = null, int? TimeoutSeconds = null, int? MaxAnswerChars = null, int? MaxHistoryMessages = null, bool AllowRequests = false, bool ExposeToMcp = false, string? DataClassification = null, bool? StartsOff = null);"
+        "declaration": "public sealed record NhAssistantPackageConsultation( string SubjectType, string Description, string? Instructions = null, string? MinimumRole = null, string? AskerPolicy = null, IReadOnlyList<string>? Routes = null, string? ProposalRole = null, string? ProposalPolicy = null, IReadOnlyList<string>? ToolSelectors = null, int? MaxToolCalls = null, int? TimeoutSeconds = null, int? MaxAnswerChars = null, int? MaxHistoryMessages = null, bool AllowRequests = false, bool ExposeToMcp = false, string? DataClassification = null, bool? StartsOff = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public bool? RequestsOnly { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -4775,6 +4803,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public Guid? AskingConversationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+        "declaration": "public Guid? AskingTurnId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>( TEvent evt, CancellationToken cancellationToken = default)"
       },
       {
@@ -5380,6 +5416,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalReads.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> ReadAsync( IReadOnlyList<Guid> approvalIds, string actorId, string? tenantId, ClaimsPrincipal user, Func<AssistantThread, Task<bool>> isHiddenThread, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRequestAnswers.cs",
+        "declaration": "public async Task<bool> PostAsync(AssistantRun run, AssistantThread thread, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
@@ -9018,6 +9058,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028221658_RequestAnswersAndRequestsOnly.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028221658_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "public partial class RequestAnswersAndRequestsOnly : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028221658_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028221658_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -9902,6 +9958,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028221639_RequestAnswersAndRequestsOnly.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028221639_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "public partial class RequestAnswersAndRequestsOnly : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028221639_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028221639_RequestAnswersAndRequestsOnly.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -10199,6 +10271,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "declaration": "public bool RequestsOnly { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "declaration": "public NhAssistantRequestAnswerRoute RequestAnswerRoute { get; internal set; } = NhAssistantRequestAnswerRoute.AgentThread;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
         "declaration": "public NhAiToolExposure Exposure { get; internal set; } = NhAiToolExposure.Local | NhAiToolExposure.Agent;"
       },
       {
@@ -10220,6 +10300,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
         "declaration": "public bool IsData => string.Equals(Source, NhAssistantConsultationSources.Data, StringComparison.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "declaration": "public enum NhAssistantRequestAnswerRoute {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
@@ -10260,6 +10344,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
         "declaration": "public NhAssistantConsultationBuilder AllowRequests(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "declaration": "public NhAssistantConsultationBuilder RequestsOnly() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
+        "declaration": "public NhAssistantConsultationBuilder AnswerRequests(NhAssistantRequestAnswerRoute route) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
@@ -12207,6 +12299,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+        "declaration": "public NhAssistantRequestAnswerRoute RequestAnswerRoute { get; internal set; } = NhAssistantRequestAnswerRoute.AgentThread;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
         "declaration": "public bool AllowMcp { get; internal set; }"
       },
       {
@@ -12244,6 +12340,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
         "declaration": "public NhAssistantConsultationCeilingBuilder AllowRequests(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
+        "declaration": "public NhAssistantConsultationCeilingBuilder AnswerRequests(NhAssistantRequestAnswerRoute route) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantConsultationsAsData.cs",
@@ -14783,6 +14883,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid? AskingConversationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
+        "declaration": "public Guid? AskingTurnId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAgentRunEntities.cs",
         "declaration": "public bool UsedRestrictedResults { get; set; }"
       },
       {
@@ -16480,6 +16588,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public bool AllowRequests { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public bool RequestsOnly { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
@@ -50804,7 +50916,10 @@
       "UncarriedParts",
       "KeptLinked",
       "NhAssistantAgentPackageReadRequest",
-      "NhAssistantAgentPackageReadDto"
+      "NhAssistantAgentPackageReadDto",
+      "NhAssistantRequestAnswerRoute",
+      "RequestsOnly",
+      "AnswerRequests"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

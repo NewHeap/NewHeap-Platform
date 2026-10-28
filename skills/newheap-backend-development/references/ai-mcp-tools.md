@@ -201,7 +201,9 @@ MCP-exposed descriptor fails at startup and on every list or call. A catalog
 without MCP exposure, such as a run-scoped imported MCP catalog that only serves
 agents, is skipped by the export path and may share the host. Catalogs may be
 registered as scoped services; startup validation resolves them in a scope of its
-own.
+own. An imported MCP tool is never exported again; to offer what a remote tool knows,
+export a code-owned `[NhAiTool]` that calls that one reviewed remote tool on the
+application's own credential (`nh-ai-mcp-imports`, SPM-362).
 
 A runtime catalog whose descriptors change while the application runs, such as the
 tools of consultations that administrators define as data, implements

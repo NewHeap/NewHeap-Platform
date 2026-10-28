@@ -41,6 +41,17 @@ audit behavior. Runtime arguments are also bounded before the remote call.
 Imported tools cannot be re-exported through MCP. MCP export accepts only
 descriptor-bound governed functions from a `SharedInvoker` catalog.
 
+Never pass an imported tool on: an import policy that asks for `NhAiToolExposure.Mcp` is refused, so
+a client of the application's own MCP endpoint never reaches a remote server on the application's
+credential through it, whatever the client may otherwise call. When the application wants to offer
+what a remote tool knows to its own MCP clients, it writes a code-owned `[NhAiTool]` that calls that
+one remote tool itself and reviews it like any of its own tools: its own id, contract, effect,
+authorization policy, capability and exposure (MCP included), arguments it builds from its own data
+(such as the key of a subject the caller may read), never the caller's text or token, its own address
+and credential for the remote server from its configuration, and an answer it bounds and passes on as
+data. It fails closed without its configuration. Such a wrapper is an ordinary generated tool: it runs
+through the governed invoker and its catalog is attested like any other (SPM-362).
+
 An imported function gives the agent the shared `NhAiToolResult` shape, with the
 remote `CallToolResult` (`content`, `structuredContent`, `isError`) as `data`.
 A remote result with `isError` fails with
@@ -104,7 +115,9 @@ connects or lists tools and holds no credentials or arguments.
 - Invoking `McpClientTool` directly from an agent and bypassing NewHeap governance.
 - Allowing imported mutations to opt out of approval or idempotent mutations to omit idempotency.
 - Exporting a raw or self-declared catalog function that bypasses the shared invoker.
-- Re-exporting an imported tool through the NewHeap MCP server adapter.
+- Re-exporting an imported tool through the NewHeap MCP server adapter, or a pass-through tool that
+  forwards a caller's tool name, arguments or token to a remote server; write a code-owned
+  `[NhAiTool]` wrapper of the one reviewed remote tool instead.
 - Registering a run-specific imported catalog as a singleton or building it at startup.
 - Asking the model for identity or conversation context that a reviewed invocation binder should add.
 - Registering an invocation binder for every server or for tools an administrator can add without review.
@@ -133,7 +146,10 @@ authorized grant source, only while the call is sent. A policy with
 and one whose server returns `isError`: the first returns `success` with the remote
 result as `data`, the second `ai-mcp-remote-tool-error` with the remote result as
 `data` and the same code in the audit record. SPM-228 is the executable
-reference.
+reference. For a code-owned wrapper, start a remote server, call the wrapper and assert that the
+server received only the arguments the wrapper builds, with the application's credential, that a
+subject outside the caller's scope never reaches it, that it fails closed without configuration and
+that an import policy with the MCP exposure is refused (SPM-362).
 
 ## Executable evidence
 
@@ -142,3 +158,8 @@ reference.
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs)
+- SPM-362 — The API offers a remote planning service's MCP tool through a tool of its own instead of passing the imported tool on
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPlanningMilestoneTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPlanningMilestoneTools.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePlanningMilestonesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePlanningMilestonesComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs)

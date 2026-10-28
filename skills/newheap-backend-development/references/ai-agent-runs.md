@@ -1568,7 +1568,31 @@ asker of a proposal that waited at the subject is told how it ended, with either
 thread; `GET threads/{id}/consultations` lists who asked through which assistant, without
 the question or the answer. A request starts an ordinary run with the asker as initiator
 (`NhAssistantTriggerIds.AgentRequest`) under the rule of a start by hand, as `POST threads/start`
-would for the asker, and notifies the initiator with `RequestAnswered`. `McpConnectionMissing` tells only the person whose consent to background use or
+would for the asker, and notifies the initiator with `RequestAnswered`. Let the answer come back
+where the person asked with `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)`
+(opt-in; `AgentThread` is the default): a request made in a person's chat turn keeps that chat and
+turn on its run (`AssistantRun.AskingConversationId` and `AskingTurnId`, migration
+`RequestAnswersAndRequestsOnly` on SQL Server and PostgreSQL, which hosts must apply), and the
+completed run posts its answer once into that chat as an application message
+(`INhAssistantConversationMessages`, untrusted, without a notification of its own) readable by the
+person who asked, titled in their culture, with the link of the subject type's `OpenAt` and the
+idempotency key `request-answer:{runId}`. A request of an MCP client, of an agent run or of a
+consultation's turn has no asking conversation, and a shadow run, a run that read results with the
+agent's own grant that people without the tool's policy may not see (`UsedRestrictedResults`), a
+consultation classified `Restricted`, a run without an answer and a chat the person may no longer
+open post nothing; a failed post never changes how the run ended. An answer longer than
+`NhAssistantLimits.MaxMessageChars` is cut with a note that the thread holds all of it. In a shared
+chat its participants read the answer too, as they read the asking turn's tool results, so ask in
+your own chat when that matters. A request that waits while the agent is paused, which a resume
+claims later, answers in the thread only (SPM-360). Use `RequestsOnly()` when other assistants
+should ask an agent to work in a run of its own but never consult it for an answer now, such as an
+agent that works by rules or skills: only `assistant.request.{agentId}.{subjectType}` is generated,
+its `Description` tells the asking model about the agent, a request's run proposes under the agent's
+own policies (no consultation proposal routes) and startup refuses `MinimumRole`, `Proposals`,
+`Limits`, `Tools`, `History`, `Instructions` and `AllowRequests(false)` with it, which only a
+consultation's own turn uses. `AnswerRequests` without requests refuses startup too. Asking agents
+select the request tool (`NhAssistantConsultationTools.RequestToolId`); the administration shows
+`requestsOnly` and an empty `consultToolId` (SPM-361). `McpConnectionMissing` tells only the person whose consent to background use or
 connection a personal MCP server needed (`McpConnectionPersonId`), at most once per server and day;
 custom notification policies and channels handle every kind. An application whose `INhAiToolDiscoveryPolicy` lists tool prefixes
 must allow `assistant.consult.` and `assistant.request.`. Bound consultations with
@@ -1593,7 +1617,16 @@ Let administrators define consultations as data only within a ceiling in code. C
 `UseConsultationsAsData(data => data.AllowRoutes(...).AllowRequests().MaxLimits(...))`: it
 names the routes data may use (answering without proposals is always allowed), whether data
 may generate request tools, whether MCP clients may see a consultation that asks for it
-(`AllowMcp`, off by default) and the highest limits. Agents created in the administration
+(`AllowMcp`, off by default) and the highest limits. `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)`
+on the ceiling lets the request runs of every consultation under it answer in the asking chat, as in
+code; it needs `AllowRequests()`, an agent's own ceiling answers there only when the application's
+does too, and the administration reports it as `answerRequestsInAskingConversation`. A consultation
+as data takes requests only with `requestsOnly` (`NhAssistantDataConsultationRequest.RequestsOnly`,
+a column of `AssistantAgentConsultationDefinition`): it needs `allowRequests` (`allowRequests:
+required`) and leaves out what only a consultation's own turn uses (`instructions`, `minimumRole`,
+`routes`, `proposalRole`, `proposalPolicy`, `toolSelectors` and the limits, each refused with
+`not-allowed`); an agent package carries `requestsOnly` without those settings, and only such a
+consultation names the field in a package's fields and locks. Agents created in the administration
 with run settings get that ceiling; an agent in code gets consultations as data only with
 `ConfigureAgent(...).ConsultableAsData(...)`, whose ceiling applies together with the
 application's, and startup refuses a code ceiling beyond the application's or one with
@@ -1960,6 +1993,10 @@ instructions in full: call them for an administrator or process the application 
   writing the asking person's question and the answer into the consulted agent's thread.
 - Offering a consulted agent every tool it has when the consultation concerns one kind of object,
   or narrowing them with a second agent or a skill instead of `Tools(...)` on the consultation.
+- Posting a requested run's answer into the asking chat yourself from a notification channel or a
+  hand-built lookup instead of `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)`, or
+  passing that answer on as a trusted message; generating a consult tool, with its own limits and
+  proposal routes, for an agent that should only take requests instead of `RequestsOnly()`.
 - Rebuilding a person's principal outside their request to execute a consultation's proposal in
   an application that cannot do so safely, instead of `AskerDecides()` or
   `AtSubject(NhAssistantConsultationRights.Agent)`; letting the asker approve a proposal that runs
@@ -2177,7 +2214,14 @@ loop or a deeper chain is refused and that consultations count in the agent's da
 usage on both providers. Give a consultation `Tools(...)` and assert that a tool outside it is
 neither offered nor executed when the model names it; save a data consultation with a tool outside
 the agent's selectors and assert `toolSelectors: not-allowed`, then narrow the agent's selectors and
-assert `tools-not-allowed` with no tools offered, on both providers. Reject a proposal and assert that only its decider and the
+assert `tools-not-allowed` with no tools offered, on both providers. For `AnswerRequests`, request in a
+person's chat, end the run completed and assert one application message there with the answer, the
+subject's link and the run's idempotency key, nothing more after a second end or post, nothing for a
+person who may no longer open the chat, for a request outside a turn, for a shadow run, for
+`UsedRestrictedResults` and for a restricted consultation, and the columns on both providers. For
+`RequestsOnly()`, assert that only the request tool is generated in code and as data, that startup
+refuses each setting of a consultation's own turn, and that a requests-only save refuses those fields.
+Reject a proposal and assert that only its decider and the
 subject's approvers may give feedback, that a pending or approved proposal refuses it,
 that a second feedback replaces the first, that the next run's continuity lists the
 rejection with the feedback on one line, that the report counts statuses, categories and

@@ -201,7 +201,9 @@ MCP-exposed descriptor fails at startup and on every list or call. A catalog
 without MCP exposure, such as a run-scoped imported MCP catalog that only serves
 agents, is skipped by the export path and may share the host. Catalogs may be
 registered as scoped services; startup validation resolves them in a scope of its
-own.
+own. An imported MCP tool is never exported again; to offer what a remote tool knows,
+export a code-owned `[NhAiTool]` that calls that one reviewed remote tool on the
+application's own credential (`nh-ai-mcp-imports`, SPM-362).
 
 A runtime catalog whose descriptors change while the application runs, such as the
 tools of consultations that administrators define as data, implements
@@ -308,6 +310,11 @@ SPM-370 and SPM-371 are the executable references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs)
+- SPM-362 — The API offers a remote planning service's MCP tool through a tool of its own instead of passing the imported tool on
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPlanningMilestoneTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPlanningMilestoneTools.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePlanningMilestonesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePlanningMilestonesComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs)
 - SPM-370 — An MCP client outside the API signs in to its /mcp through the application's authorization server and gets the tools of the linked account
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMcpSignInComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMcpSignInComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
