@@ -1642,14 +1642,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-112",
     "title": "GET deduplication",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "deduplication interceptor and explicit sample configuration",
-    "outcome": "Two concurrent identical GET requests share one network request; a later call starts a new request after completion.",
+    "surface": "deduplication interceptor and explicit sample configuration; Angular 20, 21 and 22 package compatibility",
+    "outcome": "Two concurrent identical GET requests share one network request; a later call starts a new request after completion. The packaged module builds in consumers on Angular 20, 21 and 22.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/package.json"
     ]
   },
   {
@@ -3055,7 +3056,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Toast notifications",
     "category": "Events, jobs, email, and notifications",
     "surface": "provideNhToastr, NhToastrService, and NhToastrContainerComponent",
-    "outcome": "Both application roots host one toast container and the notification playground emits localized feedback through the shared service.",
+    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
@@ -3065,7 +3066,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.html",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
-      "../../src/Front-end/projects/nh-toastr/src/components/component.ts"
+      "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
     ]
   },
   {

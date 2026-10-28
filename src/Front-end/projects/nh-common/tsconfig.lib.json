@@ -3,6 +3,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "resolveJsonModule": true,
+    "paths": { "@newheap/nh-toastr": ["../../dist/nh-toastr"] },
     "outDir": "./../../out-tsc/lib",
     "declaration": true,
     "declarationMap": true,

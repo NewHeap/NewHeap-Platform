@@ -6,7 +6,7 @@ import {
   Input,
   Output
 } from '@angular/core';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateDirective, TranslatePipe } from '@ngx-translate/core';
 import {
   NhBackgroundOperation,
   NhBackgroundOperationChild,
@@ -21,7 +21,7 @@ import {
 @Component({
   selector: 'nh-background-operation-progress',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, TranslateDirective, TranslatePipe],
   templateUrl: './component.html',
   styleUrl: './component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

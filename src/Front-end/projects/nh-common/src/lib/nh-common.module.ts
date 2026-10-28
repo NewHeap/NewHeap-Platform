@@ -36,7 +36,7 @@ import {NhTaskResultFormValidationService} from "./services/nh-task-result-form.
 import {NhJsonLdComponent} from "./components/nh-json-ld/nh-json-ld.component";
 import {NhModalLoadingComponent} from "./components/nh-loading-modal/component";
 import {NhModalConfirmComponent} from "./components/nh-confirm-modal/component";
-import {TranslateModule} from "@ngx-translate/core";
+import {TranslateDirective, TranslatePipe} from "@ngx-translate/core";
 import {SafeHtmlPipe, SafeResourceUrlPipe, SafeUrlPipe} from "./pipes/safe-html.pipes";
 import {NhCookieService} from "./services/nh-cookie.service";
 import {NhRouterLinkDirective} from "./directives/nh-router-link.directive";
@@ -65,7 +65,8 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
 @NgModule({
   imports: [
     CommonModule,
-    TranslateModule,
+    TranslateDirective,
+    TranslatePipe,
     NgxBootstrapMultiselectModule,
     FormsModule
   ],

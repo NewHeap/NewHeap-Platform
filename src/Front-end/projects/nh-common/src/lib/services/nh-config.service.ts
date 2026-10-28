@@ -173,7 +173,7 @@ export class NhConfigCommonService implements OnDestroy {
   }
 
   public async changeLanguage(newLanguageCode: string): Promise<void> {
-    const currentLang = this.translateService.currentLang;
+    const currentLang = this.translateService.getCurrentLang();
     if(newLanguageCode === currentLang) {
       return;
     }

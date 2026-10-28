@@ -30,7 +30,7 @@ import {
   TranslateModule
 } from '@ngx-translate/core';
 import { provideNhToastr } from '@newheap/nh-toastr';
-import { ToastrModule } from 'ngx-toastr';
+
 import { SAMPLE_API_BASE_URL, SampleApiConnectionInterceptor } from './sample-api-connection-state.service';
 import { SampleAuthService } from './sample-auth.service';
 import { SampleAuthSessionService } from './sample-auth-session.service';
@@ -107,7 +107,7 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     ),
     importProvidersFrom(
       TranslateModule,
-      ToastrModule.forRoot({ positionClass: 'toast-bottom-right' }),
+
       NhCommonModule.forRoot<NhAuthorization, SampleAuthService>(
         newHeapConfig,
         SampleAuthService

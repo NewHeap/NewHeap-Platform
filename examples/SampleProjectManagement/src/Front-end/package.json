@@ -8,6 +8,7 @@
     "build:management": "npm run prepare:build && ng build management",
     "build:workspace": "npm run prepare:build && ng build workspace",
     "build": "npm run prepare:build && ng build management && ng build workspace",
+    "test:platform-compatibility": "npm --prefix ../../../../src/Front-end run nh-common:test:compatibility",
     "prepare:build": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
     "generate:samples": "node scripts/generate-sample-cases.mjs",
     "verify:samples": "node scripts/verify-sample-evidence.mjs && node scripts/verify-frontend-integrity.mjs",
@@ -39,7 +40,6 @@
     "marked": "^18.0.13",
     "ngx-bootstrap-multiselect": "^4.0.0",
     "ngx-cookie-service": "^20.1.1",
-    "ngx-toastr": "^19.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"

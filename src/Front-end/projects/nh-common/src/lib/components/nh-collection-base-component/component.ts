@@ -11,7 +11,7 @@ import {
 import {Observable, Subscription} from "rxjs";
 import {ActivatedRoute, Router} from "@angular/router";
 import {TranslateService} from "@ngx-translate/core";
-import {ToastrService} from "ngx-toastr";
+import {NhToastrService} from "@newheap/nh-toastr";
 import { ColumnMode } from "@swimlane/ngx-datatable";
 import {BaseNhAuthService, NhAuthService} from "../../services/nh-auth.service";
 import { NhModalService } from "../../services/nh-modal.service";
@@ -46,7 +46,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
   protected authService: TAuthService;
   protected modalService: NhModalService = inject(NhModalService);
   protected translateService: TranslateService = inject(TranslateService);
-  protected toastrService: ToastrService = inject(ToastrService);
+  protected toastrService: NhToastrService = inject(NhToastrService);
   protected router: Router = inject(Router);
   protected activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   protected nhRouterService: NhRouterService = inject(NhRouterService);

@@ -86,7 +86,7 @@ export class NhRouterLinkDirective implements OnInit {
     altKey: boolean,
     metaKey: boolean,
   ): Promise<boolean> {
-    if (this._nhRouterLink && this._nhRouterLink.language && this._nhRouterLink.language !== this.translateService.currentLang) {
+    if (this._nhRouterLink && this._nhRouterLink.language && this._nhRouterLink.language !== this.translateService.getCurrentLang()) {
       // We detected a language change, change the language and reload the routes so navigation works.
       if (!this.changeLanguageMethod) {
         throw new Error('Nh_ROUTER_LANGUAGE_CHANGE_METHOD is not defined via DI injection token.');

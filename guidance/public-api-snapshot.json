@@ -45356,7 +45356,7 @@
     ]
   },
   "frontEnd": {
-    "hash": "40b1b9f88a5225addf2882fd441107d67e1851b2141521c97ec57591d6aa582f",
+    "hash": "a8b6fb9f3de3ca97b6b2d2212b820cec7ff5fcf38b52fc0a3e7dd9490e865801",
     "declarationCount": 871,
     "declarations": [
       {
@@ -45437,7 +45437,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-collection-base-component/component.ts",
-        "declaration": "protected toastrService: ToastrService = inject(ToastrService);"
+        "declaration": "protected toastrService: NhToastrService = inject(NhToastrService);"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-collection-base-component/component.ts",
@@ -45753,7 +45753,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
-        "declaration": "protected toastrService: ToastrService = inject(ToastrService);"
+        "declaration": "protected toastrService: NhToastrService = inject(NhToastrService);"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
