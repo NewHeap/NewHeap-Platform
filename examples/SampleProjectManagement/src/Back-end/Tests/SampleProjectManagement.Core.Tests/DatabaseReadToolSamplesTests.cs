@@ -20,6 +20,14 @@ public sealed class DatabaseReadToolSamplesTests
     [InlineData("catalog-function-execute", true)]
     [InlineData("server-permission-view-server-state", true)]
     [InlineData("object-permission-not-allowlisted", true)]
+    [InlineData("inline-function-not-schema-bound", true)]
+    [InlineData("inline-function-definition-not-visible", true)]
+    [InlineData("inline-function-dependency-not-selectable", true)]
+    [InlineData("global-privilege", true)]
+    [InlineData("dynamic-privilege", true)]
+    [InlineData("system-schema-select", true)]
+    [InlineData("definer-view", true)]
+    [InlineData("grant-not-recognized", true)]
     [InlineData("private-canary", false)]
     [InlineData(null, false)]
     public void McpPreservesOnlyKnownVerificationChecks(string? check, bool expected)
@@ -88,6 +96,136 @@ public sealed class DatabaseReadToolSamplesTests
             "NewHeapDiagnosticsReadOnly",
             profile.Value.GetProperty("connectionStringName").GetString());
         Assert.False(profile.Value.TryGetProperty("connectionString", out _));
+    }
+
+    /// <summary>
+    /// SPM-367: a MySQL or MariaDB failure keeps its flavor and error number, and a profile that
+    /// names the other flavor gets a remedy instead of a retry.
+    /// </summary>
+    [Fact]
+    public void McpKeepsTheFlavorAndErrorNumberOfAMySqlFamilyFailure()
+    {
+        using var timeout = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                code = "database-query-failed",
+                message = "Query execution was interrupted (max_statement_time exceeded) for private-canary",
+                classification = "statement-timeout",
+                provider = "mariadb",
+                providerCode = "1969",
+                transient = false,
+                stage = "query-execution"
+            }
+        }));
+        using var mismatch = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                code = "provider-flavor-mismatch",
+                message = "The database server is not MySQL, which the profile names as its provider."
+            }
+        }));
+
+        var timeoutMessage = Assert.Single(Assert.Single(
+            NewHeapSampleDatabaseReadExecutor.SafeFailure(timeout.RootElement).GetResultItems()).ErrorMessages).ToString();
+        var mismatchError = Assert.Single(
+            NewHeapSampleDatabaseReadExecutor.SafeFailure(mismatch.RootElement).GetResultItems());
+
+        Assert.Contains("Provider mariadb code 1969.", timeoutMessage, StringComparison.Ordinal);
+        Assert.Contains("Narrow the query", timeoutMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-canary", timeoutMessage);
+        Assert.Equal("provider-flavor-mismatch", mismatchError.Name);
+        Assert.Contains("Correct the profile's provider", Assert.Single(mismatchError.ErrorMessages).ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// SPM-367 and SPM-368: a consumer catalog can name a MySQL or MariaDB profile, and a SQL Server
+    /// profile can opt in to inline table-valued functions; the tool validates their requests
+    /// without a connection and refuses the SQL Server opt-in on another provider. The sample's own
+    /// database is PostgreSQL, so the platform's provider tests prove these profiles on real
+    /// MySQL 8.4, MariaDB 11.4 and SQL Server.
+    /// </summary>
+    [Theory]
+    [InlineData("mysql", null, "SELECT id FROM projects WHERE id = @id LIMIT 10", 0)]
+    [InlineData("mariadb", null, "SELECT id FROM projects WHERE id = @id LIMIT 10", 0)]
+    [InlineData("sql-server", "inline-table-valued-select", "SELECT TOP (10) Id FROM dbo.ReadProject(@id)", 0)]
+    [InlineData("mariadb", "inline-table-valued-select", "SELECT id FROM projects WHERE id = @id LIMIT 10", 3)]
+    [InlineData("mysql", null, "SELECT SLEEP(1) FROM projects WHERE id = @id", 4)]
+    public async Task ConsumerProfilesForMoreProvidersValidateLocally(
+        string provider,
+        string? sqlServerFunctionPolicy,
+        string sql,
+        int expectedExitCode)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "SampleProjectManagement.DatabaseRead", Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".newheap"));
+            Directory.CreateDirectory(Path.Combine(root, "Applications", "Example.Api"));
+            await File.WriteAllTextAsync(
+                Path.Combine(root, "Applications", "Example.Api", "appsettings.json"),
+                "{}",
+                TestContext.Current.CancellationToken);
+            var catalogPath = Path.Combine(root, ".newheap", "database-read.json");
+            await File.WriteAllTextAsync(
+                catalogPath,
+                JsonSerializer.Serialize(new
+                {
+                    schemaVersion = 1,
+                    profiles = new Dictionary<string, object>
+                    {
+                        ["diagnostics"] = new
+                        {
+                            provider,
+                            configurationPath = "Applications/Example.Api",
+                            environment = "Development",
+                            connectionStringName = "NewHeapDiagnosticsReadOnly",
+                            maximumRows = 100,
+                            sqlServerFunctionPolicy
+                        }
+                    }
+                }),
+                TestContext.Current.CancellationToken);
+            await using var input = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1,
+                sql,
+                parameters = new[] { new { name = "id", type = "uuid", value = "9894826e-92bd-4483-b842-74979cd399ee" } },
+                limits = new { maximumRows = 10, timeoutSeconds = 15 },
+                reason = "Validate a consumer profile of another provider"
+            })));
+            await using var output = new MemoryStream();
+
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                ["validate", "--profiles", catalogPath],
+                input,
+                output,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(expectedExitCode, exitCode);
+            output.Position = 0;
+            using var response = await JsonDocument.ParseAsync(
+                output,
+                cancellationToken: TestContext.Current.CancellationToken);
+            if (expectedExitCode == 0)
+            {
+                Assert.Equal(provider, response.RootElement.GetProperty("target").GetProperty("provider").GetString());
+            }
+            else
+            {
+                Assert.Equal(
+                    expectedExitCode == 3 ? "invalid-profile-value" : "function-not-allowed",
+                    response.RootElement.GetProperty("error").GetProperty("code").GetString());
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
     }
 
     [Fact]

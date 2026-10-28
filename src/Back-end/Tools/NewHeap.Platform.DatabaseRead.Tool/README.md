@@ -1,7 +1,7 @@
 # NewHeap database read tool
 
 `newheap-db` inspects selectable database schema and executes parameterized
-diagnostic queries through the same appsettings, environment and
+diagnostic queries on SQL Server, PostgreSQL, MySQL and MariaDB through the same appsettings, environment and
 secret-substitution flow as a NewHeap application.
 The connection-string name is selected by a checked-in profile and the value is
 never accepted in the JSON request, command-line arguments or output. The
@@ -47,6 +47,14 @@ that root and may not escape it.
 }
 ```
 
+The `provider` is `sql-server`, `postgresql`, `mysql` or `mariadb`. MySQL and
+MariaDB are separate values, because their statement limits, roles and
+privileges differ: the tool checks that the server is the flavor the profile
+names, MySQL 8.0 or later or MariaDB 10.11 or later, and stops with
+`provider-flavor-mismatch` or `provider-version-not-supported` (exit code `3`)
+before it verifies the principal. Only this tool supports MySQL and MariaDB; the
+NewHeap EF Core libraries support SQL Server and PostgreSQL.
+
 When the catalog contains exactly one profile, `newheap-db` selects it
 automatically. Use `--profile <name>` or the JSON `profile` property when a
 catalog contains multiple profiles. The profile environment is a default, not an
@@ -71,6 +79,25 @@ user-defined function rejects the principal with `function-select` or
 `function-execute`, because the tool does not verify a function's dependencies
 or side effects. Grant the diagnostic principal table, view or column
 permissions instead.
+
+A `sql-server` profile may opt in to inline table-valued functions with
+`"sqlServerFunctionPolicy": "inline-table-valued-select"` (the default is
+`strict`; another provider rejects the property with `invalid-profile-value`).
+The principal may then hold SELECT on an inline table-valued function that is
+schema-bound, has no `EXECUTE AS` and depends only on tables and views of the
+same database that the principal may select directly: each column the function
+names, or the whole object when it names no column of it, such as for
+`COUNT(*)`. Grant `VIEW DEFINITION` on the function too: the tool reads its
+dependencies through `sys.dm_sql_referenced_entities`, which shows them only
+then. SELECT on another kind of function still returns `function-select`; an
+inline function that does not qualify returns
+`inline-function-not-schema-bound`, `inline-function-execute-as`,
+`inline-function-definition-not-visible`,
+`inline-function-dependency-not-allowed` (another function, a synonym, a type,
+another database, or an unresolved or caller-dependent reference) or
+`inline-function-dependency-not-selectable` (a table, view or column the
+principal may not select or cannot see). The dependency checks run after all
+other checks. PostgreSQL keeps its strict function policy.
 
 SQL Server verification checks the effective permissions of the login and the
 database user, including those held through roles, ownership and implication.
@@ -126,6 +153,23 @@ The checks, in order, are `role-attribute-superuser`,
 `predefined-role-membership`, `database-create`, `schema-create`,
 `object-owner`, `relation-write` (also through views), `column-write`,
 `sequence-usage`, `function-execute` and `catalog-function-execute`.
+
+On MySQL and MariaDB the verification denies by default from `SHOW GRANTS`, read
+with every role the principal can use active: on MySQL all granted and mandatory
+roles at once, with the roles they grant, and on MariaDB each role granted to
+the account in turn, with what is granted to `PUBLIC`. Afterwards the session
+has its own roles again. The principal may hold `USAGE` on `*.*`, SELECT on a
+schema, table or column outside `mysql`, `sys` and `performance_schema` (also
+through a schema pattern such as `my_ql`), and roles that hold no more. The
+checks, in order, are `global-privilege`, `dynamic-privilege`,
+`proxy-privilege`, `grant-option`, `role-admin-option`, `system-schema-select`,
+`schema-privilege-not-allowlisted`, `table-privilege-not-allowlisted`,
+`column-privilege-not-allowlisted`, `routine-privilege`, `definer-view` and
+`grant-not-recognized`. `definer-view` rejects a selectable view with
+`SQL SECURITY DEFINER` of another account, because such a view runs the stored
+functions it calls with its definer's privileges; create diagnostic views with
+`SQL SECURITY INVOKER`. Loadable functions installed on the server need no
+privilege and cannot be verified; keep them off a diagnostic server.
 
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the
@@ -189,8 +233,18 @@ cased identifier. A Unicode-escaped identifier (`U&"..."`) is refused with
 `unicode-escaped-identifier-not-allowed`, and an escape string (`E'...'`) with
 `escape-string-not-allowed`; pass such a value as a parameter. The tool
 keeps `standard_conforming_strings` on in the diagnostic transaction, so a
-backslash in an ordinary string literal stays an ordinary character. The policy
-is a safeguard in front of the read-only principal, not a replacement for it.
+backslash in an ordinary string literal stays an ordinary character. On MySQL and
+MariaDB it also refuses `#` comments, a backslash in a quoted value
+(`backslash-escape-not-allowed`, because the session's `sql_mode` decides where
+such a value ends), `FOR SHARE` (`locking-read-not-allowed`) and `SLEEP`,
+`BENCHMARK`, the user-lock functions, `LOAD_FILE`, the replication wait
+functions, `NEXTVAL`, `SETVAL` and `NEXT VALUE FOR` (`function-not-allowed`),
+also as a backtick- or double-quoted name. The MySQL and MariaDB transaction
+starts with `START TRANSACTION READ ONLY`; MySQL ends a SELECT after
+`max_execution_time` and MariaDB any statement after `max_statement_time`, and
+both wait for a lock at most the profile's lock timeout, rounded up to whole
+seconds. The policy is a safeguard in front of the read-only principal, not a
+replacement for it.
 
 Use `validate` only for CI, request-template checks or another deliberate dry
 run without a database connection:
@@ -298,7 +352,12 @@ newheap-db schema --request-file schema-request.json
 ```
 
 Schema search, description and index inspection return only objects and columns
-visible to the configured principal. They never return view definitions, default
+visible to the configured principal. On MySQL and MariaDB they read
+`information_schema`, never search the system schemas, leave out an index over
+a column the principal may not select and invisible or ignored indexes, show a
+MySQL functional key part only when every column it names is selectable, and
+report every relationship with `isValidated` false, because neither flavor
+records whether existing rows were checked against a foreign key. They never return view definitions, default
 expressions, index filter predicates, stored routines or provider exception text.
 
 When table size, predicate selectivity or ordering cost is uncertain, optionally
@@ -349,7 +408,9 @@ allowlisted `classification`, `provider`, `providerCode`, `stage`, `transient`
 and `retryHint` value. Stages distinguish `connection-open`,
 `readonly-verification`, `query-execution` and `schema-execution`. For example,
 PostgreSQL SQLSTATE `42P01` is returned as `object-not-found`, while SQL Server
-error `207` is returned as `column-not-found`. Authentication and database
+error `207` and MySQL or MariaDB error `1054` are returned as `column-not-found`.
+MySQL and MariaDB report a missing table as `permission-denied` (`1142`) unless
+the principal holds a privilege on the whole schema. Authentication and database
 selection remain `authentication-failed` and `database-not-found`. A socket,
 DNS or unknown provider error during connection open returns
 `connection-failed`, preserves the first safe provider code when present, and
@@ -395,7 +456,8 @@ cancellation. Exit code `1` is reserved for an unexpected tool failure.
 - On a database that holds those tables, grant SELECT per table, view or column.
   A database-wide read grant, such as `db_datareader`, database-level or
   schema-level SELECT, PostgreSQL `pg_read_all_data` or
-  `GRANT SELECT ON ALL TABLES`, includes them. Principal verification accepts
+  `GRANT SELECT ON ALL TABLES`, or a MySQL or MariaDB schema-level SELECT,
+  includes them. Principal verification accepts
   such grants because they are read-only, so it cannot catch this.
 - Treat query results as potentially sensitive data even though configuration
   secrets are not displayed.

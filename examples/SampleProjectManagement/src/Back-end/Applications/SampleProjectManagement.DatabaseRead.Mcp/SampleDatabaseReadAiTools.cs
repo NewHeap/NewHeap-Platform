@@ -372,6 +372,10 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             "database-not-found" => "The configured database does not exist or is unavailable to the read-only principal.",
             _ when code == "schema-object-not-found" =>
                 "The database object was not found or is not selectable by the configured principal.",
+            _ when code == "provider-flavor-mismatch" =>
+                "The database server is not the MySQL or MariaDB flavor that the profile names. Correct the profile's provider; retrying does not help.",
+            _ when code == "provider-version-not-supported" =>
+                "The database server's version is older than the read-only verification supports.",
             _ => "The NewHeap database read tool rejected the sample diagnostic request."
         };
         if (provider is not null && providerCode is not null)
@@ -456,6 +460,23 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         "database-principal-permission-not-allowlisted" or
         "server-principal-permission-not-allowlisted" or
         "database-securable-permission-not-allowlisted" or
+        "inline-function-not-schema-bound" or
+        "inline-function-execute-as" or
+        "inline-function-definition-not-visible" or
+        "inline-function-dependency-not-allowed" or
+        "inline-function-dependency-not-selectable" or
+        "global-privilege" or
+        "dynamic-privilege" or
+        "proxy-privilege" or
+        "grant-option" or
+        "role-admin-option" or
+        "system-schema-select" or
+        "schema-privilege-not-allowlisted" or
+        "table-privilege-not-allowlisted" or
+        "column-privilege-not-allowlisted" or
+        "routine-privilege" or
+        "definer-view" or
+        "grant-not-recognized" or
         "table" or
         "view" or
         "table" or
