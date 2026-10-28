@@ -605,6 +605,99 @@ public sealed class DatabaseReadApplicationTests
             .Should().Be("too-many-parameters");
     }
 
+    [Theory]
+    [InlineData("mysql")]
+    [InlineData("mariadb")]
+    public async Task MySqlFamilyProfilesValidateWithoutOpeningTheDatabase(string provider)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
+        using var input = DatabaseReadTestWorkspace.Request(
+            "SELECT id FROM projects WHERE id = @id LIMIT 10",
+            [new { name = "id", type = "uuid", value = Guid.NewGuid().ToString() }]);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(0, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("target").GetProperty("provider").GetString().Should().Be(provider);
+    }
+
+    [Theory]
+    [InlineData("mysql", "SELECT SLEEP(1)", "function-not-allowed")]
+    [InlineData("mariadb", "SELECT 'a\\'' AS a", "backslash-escape-not-allowed")]
+    [InlineData("mysql", "SELECT 1 # comment", "comments-not-allowed")]
+    public async Task MySqlFamilyQueryPolicyRejectsBeforeConnecting(string provider, string sql, string expectedCode)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
+        using var input = DatabaseReadTestWorkspace.Request(sql);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(4, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("error").GetProperty("code").GetString().Should().Be(expectedCode);
+    }
+
+    [Theory]
+    [InlineData("sql-server", "strict", 0, null)]
+    [InlineData("sql-server", "inline-table-valued-select", 0, null)]
+    [InlineData("sql-server", "inline", 3, "invalid-profile-value")]
+    [InlineData("postgresql", "inline-table-valued-select", 3, "invalid-profile-value")]
+    [InlineData("mysql", "strict", 3, "invalid-profile-value")]
+    [InlineData("mariadb", "inline-table-valued-select", 3, "invalid-profile-value")]
+    public async Task FunctionPolicyIsAcceptedOnlyForItsProvider(
+        string provider,
+        string policy,
+        int expectedExitCode,
+        string? expectedCode)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, "unused", sqlServerFunctionPolicy: policy);
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1 AS one");
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(expectedExitCode, "the tool returned {0}", DatabaseReadTestWorkspace.OutputText(output));
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        if (expectedCode is null)
+        {
+            response.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
+        }
+        else
+        {
+            response.RootElement.GetProperty("error").GetProperty("code").GetString().Should().Be(expectedCode);
+        }
+    }
+
+    [Fact]
+    public async Task FunctionPolicyOfTheProfileReachesTheProvider()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "sql-server",
+            "unused",
+            sqlServerFunctionPolicy: "inline-table-valued-select");
+
+        var profile = await DatabaseReadProfileLoader.LoadAsync(
+            null,
+            null,
+            workspace.ProfileCatalogPath,
+            CancellationToken.None);
+
+        profile.SqlServerFunctionPolicy.Should().Be(SqlServerFunctionPolicy.InlineTableValuedSelect);
+        DatabaseReadProviderFactory.Create(profile).Should().BeOfType<SqlServerDatabaseReadProvider>();
+    }
+
     private sealed class ThrowingConnectionFactory : IDatabaseReadConnectionFactory
     {
         private readonly DbException _exception;

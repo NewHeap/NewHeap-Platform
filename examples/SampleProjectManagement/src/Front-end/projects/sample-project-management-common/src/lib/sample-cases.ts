@@ -6302,6 +6302,42 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-367",
+    "title": "A MySQL or MariaDB profile verifies its read-only principal from the server's own grants and reads its schema from information_schema",
+    "category": "DAL, repositories, and transactions",
+    "surface": "newheap-db profile providers mysql and mariadb on MySqlConnector, the server-flavor and version check (provider-flavor-mismatch, provider-version-not-supported), START TRANSACTION READ ONLY with max_execution_time on MySQL or max_statement_time on MariaDB and innodb_lock_wait_timeout and lock_wait_timeout, the verification checks global-privilege, dynamic-privilege, proxy-privilege, grant-option, role-admin-option, system-schema-select, schema-privilege-not-allowlisted, table-privilege-not-allowlisted, column-privilege-not-allowlisted, routine-privilege, definer-view and grant-not-recognized, the query-policy codes backslash-escape-not-allowed and locking-read-not-allowed, and information_schema schema evidence",
+    "outcome": "A consumer catalog names a `mysql` or `mariadb` profile and `newheap-db` validates its requests without a connection; against a server it first checks that the server is the flavor the profile names, MySQL 8.0 or later or MariaDB 10.11 or later, and a profile of the other flavor stops with `provider-flavor-mismatch`. The verification denies by default from `SHOW GRANTS`, read with all granted and mandatory roles active on MySQL and with each granted role in turn, and the grants to PUBLIC, on MariaDB, and restores the session's own roles afterwards: a SELECT-only principal, also through a role that only selects or a schema-level SELECT, passes, while a global or dynamic privilege, PROXY, GRANT OPTION, ADMIN OPTION, SELECT on the mysql schema or a pattern that matches it, any other schema, table, column or routine privilege, the same through a nested role, a mandatory role or PUBLIC, and SELECT on a view that runs as another definer are each rejected with their own check, and a grant the tool cannot read with grant-not-recognized. The diagnostic transaction starts read only, so not even an administrator writes in it, and carries the flavor's statement and lock limits, so the server ends a long statement and a wait for a locked table with statement-timeout and lock-timeout. The query policy also refuses # comments, backslashes in quoted values, FOR SHARE and the functions that sleep, take user locks, read files or move sequences, also quoted. Schema search, description and indexes come from information_schema without the system schemas, filtered to what the principal may select, with composite, descending and MySQL functional keys and relationships that report isValidated false; failures keep safe classifications and the error number. The sample MCP preserves the new checks and explains a profile of the wrong flavor, and its tests validate MySQL and MariaDB profiles through the tool. The sample database is PostgreSQL, so the platform provider tests prove the provider on real MySQL 8.4 and MariaDB 11.4 containers, shared per test process, with a CI job per flavor. The NewHeap EF libraries stay SQL Server and PostgreSQL, a recorded library-gap.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/MySql/MySqlDatabaseReadProvider.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/MySql/MySqlGrantPolicy.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Sql/SqlReadOnlyPolicy.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlPrincipalVerificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlServerWideGrantTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/MySqlGrantPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-368",
+    "title": "A SQL Server profile opts in to SELECT on inline table-valued functions that the tool can prove read only what the principal may read",
+    "category": "DAL, repositories, and transactions",
+    "surface": "newheap-db profile property sqlServerFunctionPolicy (strict, inline-table-valued-select) and the verification checks inline-function-not-schema-bound, inline-function-execute-as, inline-function-definition-not-visible, inline-function-dependency-not-allowed and inline-function-dependency-not-selectable",
+    "outcome": "With `\"sqlServerFunctionPolicy\": \"inline-table-valued-select\"` a SQL Server principal may hold SELECT, with VIEW DEFINITION, on an inline table-valued function that is schema-bound, has no EXECUTE AS and depends only on tables and views of the same database that the principal may select directly, column by column or as a whole object for COUNT(*): a function over a column-limited table, over a schema-bound view or without dependencies passes, and the tool reads through it. Every other case stays rejected with its own check: SELECT without VIEW DEFINITION, a function that is not schema-bound, a multi-statement function with function-select, a dependency on a scalar or table-valued function the principal can see, a referenced object it cannot see, a column it may not select, COUNT(*) over a table it may select only by column and a table it may not select. SQL Server refuses EXECUTE AS on an inline function, which the execute-as check guards. The strict policy, the default, still rejects each of them with function-select, db_datareader stays rejected while a function of the database does not qualify, and another provider rejects the property with invalid-profile-value. The sample database is PostgreSQL, where functions stay strict as a recorded gap, so the platform provider test proves the opt-in on real SQL Server; the sample MCP preserves the new checks and its tests validate an opt-in profile through the tool.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/SqlServer/SqlServerDatabaseReadProvider.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Profiles/DatabaseReadProfileLoader.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSqlServerFunctionPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
+    ]
+  },
+  {
     "id": "SPM-369",
     "title": "The assistant lab keeps a message the person typed and did not send when the drawer closes",
     "category": "AI tools and generated catalogs",

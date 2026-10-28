@@ -355,6 +355,8 @@
     "SPM-361",
     "SPM-362",
     "SPM-366",
+    "SPM-367",
+    "SPM-368",
     "SPM-369",
     "SPM-370",
     "SPM-371",
@@ -3784,6 +3786,26 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainPayloadTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
+    ],
+    "SPM-367": [
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/MySql/MySqlDatabaseReadProvider.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/MySql/MySqlGrantPolicy.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Sql/SqlReadOnlyPolicy.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlPrincipalVerificationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlServerWideGrantTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/MySqlGrantPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs"
+    ],
+    "SPM-368": [
+      "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/SqlServer/SqlServerDatabaseReadProvider.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Profiles/DatabaseReadProfileLoader.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSqlServerFunctionPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
     ],
     "SPM-369": [
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",

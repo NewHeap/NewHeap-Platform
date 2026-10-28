@@ -264,8 +264,13 @@ and mutate models where applicable.
   (`RelationalTestServer.CreateDatabaseAsync`) or lease a prepared one from a
   `RelationalTestPool`; never start a container per test or class. Write provider
   tests as theories over `RelationalTestProvider`, so `test:affected` can run the
-  SQL Server cases in a process of their own. The sample's tests share one
-  PostgreSQL container through the `SamplePostgreSqlServer` assembly fixture; a
+  SQL Server cases in a process of their own. The database read tool, the only
+  NewHeap code that supports MySQL and MariaDB, shares one container of each per
+  process through its own `DatabaseReadMySqlTestServer` and writes those cases
+  as theories over the tool-local `DatabaseReadMySqlFlavor`; tests that change
+  every account of such a server run in a non-parallel collection. The sample's
+  tests share one PostgreSQL container through the `SamplePostgreSqlServer`
+  assembly fixture; a
   sample host gets a copy of a template database that is migrated once per run
   (`CreateMigratedDatabaseAsync`), and a test that proves migrations creates an
   empty database of its own.
