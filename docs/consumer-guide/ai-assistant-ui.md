@@ -74,10 +74,9 @@ closed before the assistant was ready leave the composer as it is. On a page of 
 (`mode="page"`), call `NhAssistantStore.setDraft(text, { replace })` (`NhAssistantDraftOptions`)
 after `initialize()`, with `startNewConversation` and then `selectAgent` for another agent; it
 returns `false` while the assistant is not available and when the person's own unsent text keeps its
-place. The drawer and the page share the store's
-draft, `pendingDraft()` (`NhAssistantComposerDraft`): a custom layout binds it to the composer's
-`restore` input and calls `consumeRestoredDraft` on its `restored` output, while `restoredDraft()`
-keeps naming only a refused message. SampleProjectManagement's assistant lab drafts a status brief
+place. The drawer and the page share the store's draft, `pendingDraft()` (`NhAssistantComposerDraft`):
+a custom layout binds it to the composer's `restore` input and calls `consumeRestoredDraft` on its
+`restored` output, while `restoredDraft()` keeps naming only a refused message. SampleProjectManagement's assistant lab drafts a status brief
 about its open project page this way (SPM-350).
 
 What the person typed and did not send stays with its conversation. The store keeps it per
