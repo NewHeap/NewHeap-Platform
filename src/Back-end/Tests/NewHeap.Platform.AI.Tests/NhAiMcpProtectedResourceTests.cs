@@ -242,7 +242,7 @@ public sealed class NhAiMcpProtectedResourceTests(NhAiMcpProtectedResourceTests.
     [InlineData("http://planning.example.org/mcp", "https://login.example.org", "planning.read", "plain http")]
     [InlineData("https://planning.example.org/mcp?tenant=a", "https://login.example.org", "planning.read", "no query or fragment")]
     [InlineData("https://planning.example.org/mcp#tools", "https://login.example.org", "planning.read", "no query or fragment")]
-    [InlineData("https://user:secret@planning.example.org/mcp", "https://login.example.org", "planning.read", "without credentials")]
+    [InlineData("https://operator@planning.example.org/mcp", "https://login.example.org", "planning.read", "without credentials")]
     [InlineData("planning/mcp", "https://login.example.org", "planning.read", "absolute https URL")]
     [InlineData("https://planning.example.org/mcp", null, "planning.read", "at least one issuer")]
     [InlineData("https://planning.example.org/mcp", "http://login.example.org", "planning.read", "plain http")]
