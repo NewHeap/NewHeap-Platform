@@ -28,7 +28,7 @@ public sealed class TestRiskToolRecorder
 /// (read-only and also exposed over MCP), a change that needs approval, an idempotent change that needs
 /// none, and a read a person needs a claim for.
 /// </summary>
-public sealed class TestRiskToolCatalog : INhAiToolCatalog
+public sealed class TestRiskToolCatalog : INhAiGeneratedToolCatalog
 {
     public const string RestrictedPolicy = "app.project.manage";
 

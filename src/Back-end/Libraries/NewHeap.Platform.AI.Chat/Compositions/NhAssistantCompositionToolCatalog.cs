@@ -152,6 +152,12 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
                 throw new InvalidOperationException(
                     $"The step '{step.Name}' of composition '{definition.Id}' calls '{step.ToolId}', a composition, script or consultation tool, which no step calls.");
             }
+            if (tool.Effect == NhAiToolEffect.Destructive)
+            {
+                // A destructive tool stays a call of its own, with its verifier.
+                throw new InvalidOperationException(
+                    $"The step '{step.Name}' of composition '{definition.Id}' calls '{step.ToolId}', a destructive tool, which no composition calls.");
+            }
             if ((tool.Exposure & definition.Exposure) != definition.Exposure)
             {
                 throw new InvalidOperationException(
@@ -199,6 +205,15 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
                         outputSchema,
                         .. stepLines
                     ])),
+                // The composition's own call runs no tool, so it declares what its strongest step needs
+                // where the host's checks of a tool with side effects ask for it; every step keeps its own
+                // approval and idempotency in the invoker.
+                Approval = effect is NhAiToolEffect.Mutation or NhAiToolEffect.ExternalSideEffect
+                    ? NhAiApprovalRequirement.Required
+                    : NhAiApprovalRequirement.PolicyControlled,
+                Idempotency = effect == NhAiToolEffect.ReadOnly
+                    ? NhAiIdempotencySupport.None
+                    : NhAiIdempotencySupport.Required,
                 // A composition grants nothing: every step is authorized with the caller's rights.
                 AllowAgentGrant = true,
                 MaxConcurrency = 8,
