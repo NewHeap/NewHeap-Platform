@@ -21,6 +21,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- The mail tests run Mailpit; Testcontainers' own SSH.NET minimum fails the dependency audit. -->
+    <PackageReference Include="SSH.NET" PrivateAssets="all" />
+    <PackageReference Include="Testcontainers" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>

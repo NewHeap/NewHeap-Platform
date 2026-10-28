@@ -60,6 +60,66 @@ public sealed class NhEmailNotificationDispatcherTests
         logEntry.Properties["ExceptionMessage"].Should().Be(exception.Message);
     }
 
+    [Fact]
+    public async Task ACancelledDispatchIsRethrownInsteadOfRecordedAsAFailure()
+    {
+        var logger = new ListLogger<NhEmailNotificationDispatcher>();
+        var dispatcher = CreateDispatcher(logger, new CancellableMailService());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => dispatcher.DispatchAsync(Delivery(), cancellation.Token));
+
+        logger.Entries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ACancellationTheCallerDidNotRequestStaysADispatchError()
+    {
+        // A client library that reports its own time-out as a cancellation did not stop the caller.
+        var exception = new TaskCanceledException("SMTP client time-out");
+        var logger = new ListLogger<NhEmailNotificationDispatcher>();
+        var dispatcher = CreateDispatcher(logger, new FailingMailService(exception));
+
+        var result = await dispatcher.DispatchAsync(Delivery(), CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.AllErrorMessages.Should().ContainSingle(message =>
+            message.ToString().Contains("Failed to dispatch email notification.", StringComparison.Ordinal));
+        logger.Entries.Should().ContainSingle().Which.Exception.Should().BeSameAs(exception);
+    }
+
+    private static NhEmailNotificationDispatcher CreateDispatcher(
+        ListLogger<NhEmailNotificationDispatcher> logger,
+        NhMailService mailService)
+    {
+        return new NhEmailNotificationDispatcher(
+            Options.Create(new NhEmailNotificationSettings()),
+            Substitute.For<IRepository<NhNotification>>(),
+            CreateLocalizer(),
+            Substitute.For<INhDbLogService>(),
+            new LogHelperService(
+                Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+                NullLogger<LogHelperService>.Instance),
+            new ValidationService(Substitute.For<IServiceProvider>()),
+            Substitute.For<IMapper>(),
+            logger,
+            mailService);
+    }
+
+    private static NhEmailDeliveryData Delivery()
+    {
+        return new NhEmailDeliveryData
+        {
+            FromEmail = "sender@example.com",
+            FromDisplayName = "Sample sender",
+            Subject = "Notification test",
+            Body = "Notification body",
+            To = ["recipient@example.com"]
+        };
+    }
+
     private static IStringLocalizer<NhEmailNotificationDispatcher> CreateLocalizer()
     {
         var localizer = Substitute.For<IStringLocalizer<NhEmailNotificationDispatcher>>();
@@ -80,6 +140,23 @@ public sealed class NhEmailNotificationDispatcherTests
             CancellationToken cancellationToken = default)
         {
             return Task.FromException(exception);
+        }
+    }
+
+    /// <summary>Stops as a real delivery does when its caller cancels.</summary>
+    private sealed class CancellableMailService()
+        : NhMailService(
+            Options.Create(new MailServiceSettings()),
+            NullLogger<NhMailService>.Instance)
+    {
+        public override Task SendAsync(
+            MailMessage mailMessage,
+            MailAddress? fromMailAddress = null,
+            string? formDisplayName = null,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
         }
     }
 

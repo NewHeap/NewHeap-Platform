@@ -83,6 +83,7 @@ public static class NhPlatformModuleServiceCollectionExtensions
         services.TryAddScoped<INhDbLogService, NhNoOpDbLogService>();
         // E-mail deliveries use the platform's mail service; configure MailServiceSettings to send them.
         services.AddOptions<MailServiceSettings>();
+        NhMailServiceSettingsValidator.Register(services);
         services.TryAddScoped<NhMailService>();
         NhNotificationRegistration.Add(services, configure ?? (_ => { }));
         return services;
