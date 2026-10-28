@@ -28,7 +28,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// SPM-211 evidence with the API's own division policies, controller and seeded identities: the
 /// manager manages the memberships of Sample North, the division in the active-division header,
-/// and cannot reach Sample South, where it is a member without the manage permission.
+/// and cannot reach Sample South, where it is a member without the manage permission. A lockout
+/// the manager sets counts in whole UTC days of the application's clock, and an account without
+/// an active division or memberships keeps its application claims.
 /// </summary>
 public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgreSql)
 {
@@ -166,6 +168,65 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
         Assert.True(await HasProjectViewAsync(application, divisionEditor, North));
     }
 
+    [Fact]
+    public async Task ALockoutCountsInWholeUtcDaysOfTheApplicationClock()
+    {
+        // The application's clock, moved to noon UTC so the test never runs across midnight.
+        var clock = new SampleTestClock();
+        var startedAt = clock.GetUtcNow();
+        var noon = new DateTimeOffset(startedAt.UtcDateTime.Date.AddHours(12), TimeSpan.Zero);
+        clock.Advance(noon > startedAt ? noon - startedAt : noon.AddDays(1) - startedAt);
+        var todayStart = new DateTimeOffset(clock.GetUtcNow().UtcDateTime.Date, TimeSpan.Zero);
+
+        await using var application = await BuildSeededApplicationAsync("division_membership_lockout_days", clock);
+        var manager = await FindUserIdAsync(application, SampleAuthorizationDefaults.ManagerEmail);
+        var divisionEditor = await FindUserIdAsync(application, SampleAuthorizationDefaults.DivisionEditorEmail);
+        var securityOfficer = await FindUserIdAsync(application, SampleAuthorizationDefaults.SecurityOfficerEmail);
+        var editorInNorth = await FindMembershipIdAsync(application, divisionEditor, North);
+        var editorRole = await FindDivisionRoleIdAsync(application, SampleAuthorizationDefaults.DivisionEditorRole);
+
+        // The manager suspends the division editor's membership of Sample North through today: the
+        // lockout ends at midnight UTC this morning, and the end day counts whole.
+        var lockout = Membership(North, divisionEditor, editorRole);
+        lockout.LockOutStartDateTime = todayStart.AddDays(-3);
+        lockout.LockOutEndDateTime = todayStart;
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            Assert.IsType<OkResult>(await CreateController(scope, manager, North).Update(editorInNorth, lockout));
+        }
+
+        Assert.Empty(await DivisionClaimsAsync(application, divisionEditor, North));
+        Assert.False(await HasProjectViewAsync(application, divisionEditor, North));
+
+        // On the next UTC day of the application's clock the membership counts again, without a
+        // change to the row.
+        clock.Advance(TimeSpan.FromDays(1));
+        Assert.NotEmpty(await DivisionClaimsAsync(application, divisionEditor, North));
+        Assert.True(await HasProjectViewAsync(application, divisionEditor, North));
+
+        // The security officer has no active division and no membership: the claims that sign-in
+        // and the division policies load hold the application permissions and no division.
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+            Assert.Null(await context.Users
+                .Where(user => user.Id == securityOfficer)
+                .Select(user => user.ActiveDivisionId)
+                .SingleAsync(TestContext.Current.CancellationToken));
+            Assert.False(await context.DivisionUsers.AnyAsync(
+                membership => membership.UserId == securityOfficer,
+                TestContext.Current.CancellationToken));
+
+            var claims = await scope.ServiceProvider
+                .GetRequiredService<INhUserManager>()
+                .GetValidClaimsByUserIdAsync(securityOfficer, withDivision: true, TestContext.Current.CancellationToken);
+            Assert.Contains(claims, claim => claim.Type == NhPlatformClaimTypes.Permission && claim.Value == "app.project.view");
+            Assert.DoesNotContain(claims, claim => claim.Type == NhPlatformClaimTypes.DivisionMember);
+        }
+
+        Assert.False(await HasDivisionAccessAsync(application, securityOfficer, North));
+    }
+
     private static async Task<List<string>> DivisionClaimsAsync(WebApplication application, Guid userId, Guid divisionId)
     {
         await using var scope = application.Services.CreateAsyncScope();
@@ -191,9 +252,9 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
             cancellationToken: TestContext.Current.CancellationToken);
     }
 
-    private async Task<WebApplication> BuildSeededApplicationAsync(string databaseName)
+    private async Task<WebApplication> BuildSeededApplicationAsync(string databaseName, TimeProvider? clock = null)
     {
-        var application = BuildApplication(await postgreSql.CreateMigratedDatabaseAsync(databaseName));
+        var application = BuildApplication(await postgreSql.CreateMigratedDatabaseAsync(databaseName), clock);
         await using var scope = application.Services.CreateAsyncScope();
         await SampleDevelopmentIdentitySeeder.SeedAsync(scope.ServiceProvider);
 
@@ -282,7 +343,7 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
         };
     }
 
-    private static WebApplication BuildApplication(string connectionString)
+    private static WebApplication BuildApplication(string connectionString, TimeProvider? clock)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -319,6 +380,13 @@ public sealed class DivisionMembershipSamplesTests(SamplePostgreSqlServer postgr
             .WithIdentityEntityFramework(options => options.UseNewHeapPostgreSql(connectionString))
             .WithIdentity()
             .WithDbLogService(_ => { });
+
+        // The application's clock decides the UTC day of division lockouts; without one, the
+        // system clock does.
+        if (clock is not null)
+        {
+            builder.Services.AddSingleton(clock);
+        }
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddAuthorization(options => options.AddSampleDivisionPolicies());

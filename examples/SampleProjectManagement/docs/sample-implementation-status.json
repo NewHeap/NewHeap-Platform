@@ -1605,7 +1605,9 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DivisionMembershipSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionWriteScopeProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionLockoutProviderTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionMembershipAccessProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionMembershipAccessProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/DivisionLockoutInMemoryTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs"
     ],
     "SPM-212": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/ProjectAccessHandler.cs",

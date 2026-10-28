@@ -9,11 +9,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
+using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Tests.Relational;
 using System.Security.Claims;
 
@@ -33,6 +35,9 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
     /// <summary>A division policy that requires the <c>general.view</c> division permission.</summary>
     public const string GeneralViewPolicy = "test.division.general-view";
 
+    /// <summary>The password of the users that <see cref="AddSignInUserAsync"/> adds.</summary>
+    public const string Password = "Divisions1!Password";
+
     private readonly WebApplication _application;
 
     private DivisionProviderTestHost(WebApplication application, string label)
@@ -46,10 +51,33 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _application.Services;
 
-    public static async Task<DivisionProviderTestHost> CreateAsync(RelationalTestProvider provider)
+    /// <summary>
+    /// The composition on an empty database of its own on <paramref name="provider"/>;
+    /// <paramref name="clock"/>, when given, is the application's clock.
+    /// </summary>
+    public static async Task<DivisionProviderTestHost> CreateAsync(RelationalTestProvider provider, TimeProvider? clock = null)
     {
         var database = await ProviderTestDatabase.CreateAsync(provider);
 
+        return await CreateAsync(database.UseNewHeapProvider, database.Label, clock);
+    }
+
+    /// <summary>
+    /// The same composition on an EF Core InMemory database of its own. It runs the code path of an
+    /// application whose unit tests use InMemory, and is no evidence of relational translation.
+    /// </summary>
+    public static Task<DivisionProviderTestHost> CreateInMemoryAsync(TimeProvider? clock = null)
+    {
+        var databaseName = $"divisions-{Guid.NewGuid():N}";
+
+        return CreateAsync(options => options.UseInMemoryDatabase(databaseName), "in-memory", clock);
+    }
+
+    private static async Task<DivisionProviderTestHost> CreateAsync(
+        Action<DbContextOptionsBuilder> useDatabase,
+        string label,
+        TimeProvider? clock)
+    {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             EnvironmentName = Environments.Development,
@@ -81,9 +109,23 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
                 NhDivisionMutateModel,
                 NhDivisionUserService,
                 NhDivisionUserMutateModel>(NewHeapAspNetCommonOptions.Builder(builder.Configuration).Build())
-            .WithIdentityEntityFramework(database.UseNewHeapProvider)
+            .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(authentication =>
+            {
+                // Password sign-in with division claims in the token, as an application with divisions has.
+                authentication.AddUserNamePasswordAuthentication(options =>
+                {
+                    options.EnableRefreshToken = true;
+                    options.EnableDivisions = true;
+                });
+            })
+            .WithIdentityEntityFramework(useDatabase)
             .WithIdentity()
             .WithDbLogService(_ => { });
+
+        if (clock is not null)
+        {
+            builder.Services.AddSingleton(clock);
+        }
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddAuthorization(options =>
@@ -102,7 +144,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
             await scope.ServiceProvider.GetRequiredService<DivisionTestDbContext>().Database.EnsureCreatedAsync();
         }
 
-        return new DivisionProviderTestHost(application, database.Label);
+        return new DivisionProviderTestHost(application, label);
     }
 
     public AsyncServiceScope CreateScope()
@@ -163,6 +205,41 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
         }));
 
         return id;
+    }
+
+    /// <summary>Adds a user with <see cref="Password"/>, who signs in through <see cref="SignInAsync"/>.</summary>
+    public async Task<Guid> AddSignInUserAsync(string name)
+    {
+        var id = await AddUserAsync(name);
+
+        await using var scope = CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var user = await users.FindByIdAsync(id.ToString())
+            ?? throw new InvalidOperationException($"User {id} does not exist.");
+
+        var result = await users.AddPasswordAsync(user, Password);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
+        }
+
+        return id;
+    }
+
+    /// <summary>
+    /// Signs the user in with <see cref="Password"/> through the platform's password sign-in, which
+    /// puts the user's division claims into the token.
+    /// </summary>
+    public async Task<TaskResult<UserToken>> SignInAsync(Guid userId)
+    {
+        await using var scope = CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var user = await users.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException($"User {userId} does not exist.");
+
+        var authentication = scope.ServiceProvider.GetRequiredService<INhAuthenticationService>();
+
+        return await authentication.Authenticate(new AuthenticateRequest(user.UserName!, Password));
     }
 
     /// <summary>Gives the user an application permission, such as the division access-all permission.</summary>
@@ -283,3 +360,15 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
 }
 
 internal sealed class DivisionTestDbContext(DbContextOptions<DivisionTestDbContext> options) : NhIdentityDbContext(options);
+
+/// <summary>
+/// The application's clock of a division test, standing still at <paramref name="now"/>, so the
+/// UTC day that division lockouts count in does not depend on when the test runs.
+/// </summary>
+internal sealed class DivisionTestClock(DateTimeOffset now) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow()
+    {
+        return now.ToUniversalTime();
+    }
+}
