@@ -637,6 +637,21 @@ without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the off
 client through the whole flow against a stand-in authorization server; the authorization server, the
 registration of clients and the consent stay the application's.
 
+Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
+assistant settings page stores it per environment and agent in the portal's table
+`AssistantCompositionSetting`, and `SampleAssistantCompositionSwitch`, registered with
+`UseCompositionSwitch`, answers the assistant from that table through a short cache at the start of every
+turn, run step and MCP request: a person switches the script tool on for the project assistant and the
+next turn follows, without a restart or a configuration change. Code keeps the ceiling. The project
+assistant allows both features in code, agents created in the administration may only get the script tool
+(`UseCompositionsAsData`), as the scripting desk of the development seed does in its own definition, and
+the MCP exposure allows the script tool, whose setting the page lists under MCP clients. Next to each
+checkbox the page shows what the assistant actually does and why, from `GET admin/agents/{id}/compositions`;
+the sample registers no composition or script tool of its own, so the state reads that neither is
+installed until they are. `AssistantCompositionSwitchSamplesTests` saves a setting and asks the switch per
+environment and agent, and reads the effective state and the refusal of compositions for an agent created
+in the administration over the assistant API.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports

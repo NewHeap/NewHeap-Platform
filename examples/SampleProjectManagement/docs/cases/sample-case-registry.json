@@ -6266,6 +6266,39 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
       ]
+    },
+    {
+      "id": "SPM-371",
+      "categoryId": "18",
+      "title": "The portal switches compositions and scripts per environment and agent from its own setting, and shows next to it what the assistant actually does",
+      "surface": "`INhAssistantCompositionSwitch` with `NhAssistantCompositionSwitchContext` (`Feature`, `Channel`, `TenantId`, `AgentId`, `PersonActorId`) and `NhAssistantCompositionChannel`; `NhAssistantBuilder.UseCompositionSwitch`; `NhAssistantOptions` (`NewHeap:AI:Assistant:Compositions`, `NewHeap:AI:Assistant:Scripts`); the ceiling in code `NhAssistantAgentContextBuilder.AllowCompositions` and `AllowScripts`, `NhAssistantBuilder.UseCompositionsAsData` with `NhAssistantCompositionCeilingBuilder`, and `NhAiMcpExposureBuilder.AllowCompositions` and `AllowScripts`; the marker `NhAiToolDescriptor.CompositionFeature` (`NhAiCompositionFeature`, `NhAiCompositionFeatures`); the refusals `assistant-composition-off` and `assistant-scripting-off`; `INhAssistantCompositionStatus` and `GET admin/agents/{id}/compositions` with `NhAssistantCompositionReasons`; `compositions` and `scripts` of an agent created in the administration and `compositionCeiling` of the run catalog; `NhAssistantAdminApiService.getAgentCompositionStatus`",
+      "outcome": "The portal stores whether an agent uses compositions and the script tool per environment and agent in its own table (`AssistantCompositionSetting`, the PostgreSQL migration `AddAssistantCompositionSettings`) and changes it on its assistant settings page through `PUT assistant-composition-settings/{agentId}`, in English and Dutch. `SampleAssistantCompositionSwitch`, registered with `UseCompositionSwitch`, answers the assistant from that table through a short cache; a save clears the cached value, so the next turn follows it without a restart, while another environment and the MCP exposure (stored under `mcp`) keep their own setting. Code stays the ceiling: the project assistant allows both with `ConfigureAgentContext(...).AllowCompositions().AllowScripts()`, agents created in the administration may get the script tool only (`UseCompositionsAsData(c => c.AllowScripts())`), so an administrator who switches compositions on for such an agent gets the field error `compositions: not-allowed`, and the MCP exposure allows the script tool. The development seed creates the scripting desk, an agent created as data whose own definition uses the script tool. Next to each checkbox the page shows the assistant's effective state from `GET admin/agents/{id}/compositions`; in this sample no composition or script tool is registered yet, so it reads `not-installed` for both. The library tests prove the default off, configuration and the application's switch, each channel (chat, run, consultation, hand-off and MCP), one question per feature and turn with a change from the next turn, the ceiling in code winning, a marked tool not offered or listed while off, an approved call and an MCP call refused with the code, every reason of the effective state, the setting of agents created in the administration with its package export and import on SQL Server and PostgreSQL, and that only administrators read and save it.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/AssistantCompositionSetting.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20261028212153_AddAssistantCompositionSettings.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCompositionSwitchSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-settings/assistant-settings-page.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/assistant-composition-setting-api.service.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCompositionFeatures.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpCompositions.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionSwitchTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionChannelTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionMcpTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionStatusTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataAgentCompositionTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-compositions.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compositions-admin.spec.ts"
+      ]
     }
   ]
 }

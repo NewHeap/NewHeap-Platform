@@ -349,7 +349,8 @@
     "SPM-355",
     "SPM-366",
     "SPM-369",
-    "SPM-370"
+    "SPM-370",
+    "SPM-371"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3718,6 +3719,31 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpProtectedResourceHttpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
+    ],
+    "SPM-371": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantCompositionSettingsController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantCompositionSettingModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/AssistantCompositionSetting.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20261028212153_AddAssistantCompositionSettings.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCompositionSwitchSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-settings/assistant-settings-page.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/assistant-composition-setting-api.service.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCompositionFeatures.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionGate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionStatus.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionsAsData.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpCompositions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionSwitchTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionChannelTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionStatusTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDataAgentCompositionTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-compositions.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compositions-admin.spec.ts"
     ]
   }
 }
