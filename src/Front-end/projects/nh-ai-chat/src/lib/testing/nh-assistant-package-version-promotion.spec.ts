@@ -9,11 +9,14 @@ import { NH_ASSISTANT_AGENT_PACKAGE_FORMAT, NH_ASSISTANT_AGENT_PACKAGE_FORMAT_VE
 import { AgentShadowVariants, ShadowVariantPromotion } from '../models/assistant-hand-off.models';
 import { openAdminAgent } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
+import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 
 /**
  * A shadow variant promoted as its package's next version (FB11): the mock API takes a variant whose
  * every part is linked to one package onto its live agent as an import of that version, and the run
- * configuration of the live agent offers "As the package's next version" for such a variant.
+ * configuration of the live agent offers "As the package's next version" for such a variant. With
+ * `uncarriedParts: 'relink'` (FB33) the live agent's linked parts the variant does not carry stay linked
+ * to the package version with their locks.
  */
 
 /** A form flow renders several times; one generous timeout covers it. */
@@ -146,6 +149,53 @@ describe('A shadow variant promoted as its package\'s next version', () => {
     // The package's lock holds on the live agent.
     const locked = await call('PUT', 'admin/agents/kickoff-desk', { ...agents[0], instructions: 'Start right away.', expectedVersion: 2 });
     expect([locked.status, locked.body.errors]).toEqual([400, { instructions: ['locked'] }]);
+  });
+
+  it('keeps the live agent\'s linked parts the variant does not carry linked to the package version with relink', async () => {
+    // The live desk belongs to a package of its own with a review skill, whose instructions it locks,
+    // that the next version does not carry.
+    const review = await call('PUT', 'admin/agents/kickoff-desk/skills/review', { description: 'Reviews a plan.', instructions: 'Review the plan.', tools: ['projects.*'] });
+    expect(review.status).withContext(JSON.stringify(review.body)).toBe(200);
+    const exported = await call('POST', 'admin/agent-packages/export', {
+      agentIds: ['kickoff-desk'],
+      options: { packageId: 'desks', locks: { 'kickoff-desk': { 'skill:review': ['instructions'] } } }
+    });
+    expect(exported.status).withContext(JSON.stringify(exported.body)).toBe(200);
+    const linked = await call('POST', 'admin/agent-packages/import', { package: exported.body, options: { relink: [{ agentId: 'kickoff-desk' }] } });
+    expect(linked.status).withContext(JSON.stringify(linked.body)).toBe(200);
+    const live = ((await call('GET', 'admin/agents')).body as AdminAgent[]).find(agent => agent.id === 'kickoff-desk')!;
+
+    // Only unlink and relink, and relink only as the package's version.
+    const unknown = await call('POST', 'admin/agents/kickoff-trial/promote', { expectedVersion: live.version, asPackageVersion: true, uncarriedParts: 'keep' });
+    expect([unknown.status, unknown.body.errors]).toEqual([400, { uncarriedParts: ['invalid'] }]);
+    const notAllowed = await call('POST', 'admin/agents/kickoff-trial/promote', { expectedVersion: live.version, uncarriedParts: 'relink' });
+    expect([notAllowed.status, notAllowed.body.errors]).toEqual([400, { uncarriedParts: ['not-allowed'] }]);
+
+    const promotion = await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).promoteShadowVariant('kickoff-trial', {
+      expectedVersion: live.version,
+      expectedVariantVersion: 1,
+      asPackageVersion: true,
+      uncarriedParts: 'relink'
+    }));
+
+    expect(requestBodies('POST', 'admin/agents/kickoff-trial/promote').at(-1)).toEqual({
+      expectedVersion: live.version, expectedVariantVersion: 1, asPackageVersion: true, uncarriedParts: 'relink'
+    });
+    expect(promotion.package?.parts.filter(part => part.outcome === 'kept-linked').map(part => [part.part, part.lockedFields, part.changedLocally]))
+      .toEqual([['skill:review', ['instructions'], false]]);
+    expect(promotion.movedSkills).toEqual(['kickoff']);
+    expect(promotion.agent.package?.packageId).toBe('desks-next');
+    expect(promotion.agent.package?.parts.map(part => part.part)).toContain('skill:review');
+    // The kept skill stays as it was, and its lock keeps holding.
+    const locked = await call('PUT', 'admin/agents/kickoff-desk/skills/review', {
+      description: 'Reviews a plan.', instructions: 'Approve every plan.', tools: ['projects.*'], expectedVersion: 1
+    });
+    expect([locked.status, locked.body.errors]).toEqual([400, { instructions: ['locked'] }]);
+    // The package version holds it; the earlier package no longer holds the live desk.
+    const next = await call('GET', 'admin/agent-packages/desks-next');
+    expect(next.body.agents.map((agent: { agentId: string; parts: { part: string }[] }) => [agent.agentId, agent.parts.map(part => part.part)]))
+      .toEqual([['kickoff-desk', jasmine.arrayContaining(['agent', 'skill:kickoff', 'skill:review'])]]);
+    expect((await call('GET', 'admin/agent-packages/desks')).body.agentIds).toEqual([]);
   });
 
   it('refuses a variant with a part an administrator unlinked and changes nothing', async () => {

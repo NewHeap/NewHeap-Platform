@@ -3,7 +3,9 @@
  * exported with `POST admin/agent-packages/export`, previewed and imported on another host with
  * `POST admin/agent-packages/preview` and `.../import` through the same validators as saving, and
  * parts the package locks against local changes until an administrator unlinks them with
- * `POST admin/agents/{id}/package/unlink`. The names are those of the server's JSON (camelCase).
+ * `POST admin/agents/{id}/package/unlink`. `POST admin/agent-packages/read` and
+ * `GET admin/agent-packages/{packageId}` read agents' parts and an installed package without an export.
+ * The names are those of the server's JSON (camelCase).
  */
 import {
   AgentAccountability,
@@ -309,8 +311,12 @@ export interface AgentPackageImportRequest {
   options?: AgentPackageImportOptions | null;
 }
 
-/** What an import does or did with one part. */
-export type AgentPackagePartOutcome = 'created' | 'changed' | 'unchanged' | 'kept-local' | 'left-behind' | 'refused';
+/**
+ * What an import does or did with one part. `kept-linked` is reported only by a promotion of a shadow
+ * variant as its package's version with `uncarriedParts: 'relink'`: a part of the live agent the
+ * variant does not carry stays as it is and stays linked to the package version with its locks.
+ */
+export type AgentPackagePartOutcome = 'created' | 'changed' | 'unchanged' | 'kept-local' | 'left-behind' | 'refused' | 'kept-linked';
 
 /** The outcome of one part in a preview or an import. */
 export interface AgentPackagePart {
@@ -392,4 +398,49 @@ export interface AgentPackageLink {
   packageVersion: number;
   /** The linked parts, ordered by part key. */
   parts: PackagePartLink[];
+}
+
+/** Body of `POST admin/agent-packages/read`. */
+export interface AgentPackageReadRequest {
+  /** The agents to read, 1 to 20, each once; agents of different packages may be read together. */
+  agentIds: string[];
+}
+
+/**
+ * `POST admin/agent-packages/read`: agents as an export would put them in a package, without exporting
+ * or auditing.
+ */
+export interface AgentPackageParts {
+  /**
+   * Exactly the agents asked for, in the same order, each with every part and its SHA-256 per part key
+   * in `hashes`, built as an export builds them, without `locks`, which only an export's options set.
+   */
+  agents: PackageAgent[];
+}
+
+/** The parts of one agent that are linked to an installed package. */
+export interface PackageAgentLinks {
+  agentId: string;
+  /** Its linked parts, ordered by part key, each with whether it changed locally. */
+  parts: PackagePartLink[];
+}
+
+/**
+ * `GET admin/agent-packages/{packageId}`: a package this host imported, as it stores it, with the
+ * current link of every part still linked to it. It stays known after its agents were unlinked.
+ */
+export interface InstalledAgentPackage {
+  packageId: string;
+  /** The version of the package the host has. */
+  version: number;
+  /** The version of the package format it was read with. */
+  formatVersion: number;
+  /** The SHA-256 of the package's canonical JSON at import, lowercase hex. */
+  hash: string;
+  /** The agents that belong to the package on this host, ordered by id. */
+  agentIds: string[];
+  importedAt: string;
+  importedBy: string;
+  /** The parts still linked to the package, per agent ordered by id; empty once everything was unlinked. */
+  agents: PackageAgentLinks[];
 }

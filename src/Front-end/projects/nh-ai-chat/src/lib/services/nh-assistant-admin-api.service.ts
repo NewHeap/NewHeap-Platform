@@ -70,10 +70,13 @@ import {
   AgentPackageExportOptions,
   AgentPackageImport,
   AgentPackageImportOptions,
+  AgentPackageParts,
   AgentPackagePreview,
+  AgentPackageReadRequest,
   AgentPackageUnlink,
   AgentPackageUnlinkRequest,
-  AgentPackageWarning
+  AgentPackageWarning,
+  InstalledAgentPackage
 } from '../models/assistant-agent-package.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
 import {
@@ -647,6 +650,8 @@ export class NhAssistantAdminApiService {
    * keeps its name, MCP servers, metadata, run settings, triggers, state and shadow mode; an agent in
    * code takes only the fields it can override. Fails with `assistant-not-shadow-variant`,
    * `assistant-shadow-variants-not-allowed`, `assistant-version-conflict` and `assistant-skill-in-code`.
+   * With `asPackageVersion` and `uncarriedParts: 'relink'` the live agent's linked parts the variant
+   * does not carry stay linked to the package version with their locks, reported as `kept-linked`.
    */
   promoteShadowVariant(variantId: string, request: ShadowVariantPromotionRequest): Observable<ShadowVariantPromotion> {
     return this.request<ShadowVariantPromotion>('POST', `${agentPath(variantId)}/promote`, request);
@@ -707,6 +712,30 @@ export class NhAssistantAdminApiService {
    */
   unlinkAgentPackage(agentId: string, request: AgentPackageUnlinkRequest = {}): Observable<AgentPackageUnlink> {
     return this.request<AgentPackageUnlink>('POST', `${agentPath(agentId)}/package/unlink`, request);
+  }
+
+  /**
+   * Exactly `agentIds` (1 to 20), in the same order, as an export would put them in a package
+   * (`POST admin/agent-packages/read`): every part and its SHA-256 per part key in `hashes`, without
+   * locks. Compare them with a shipped package's hashes, or with the hashes of the parts' links of
+   * `getInstalledAgentPackage`, to see which parts this host has otherwise. Nothing is exported, audited
+   * or changed. Fails with the field error `agentIds` (`required`, `too-long`, `invalid` for a malformed
+   * id or one named twice) and with `assistant-agent-not-found`.
+   */
+  readAgentPackageParts(agentIds: readonly string[]): Observable<AgentPackageParts> {
+    const request: AgentPackageReadRequest = { agentIds: [...agentIds] };
+    return this.request<AgentPackageParts>('POST', 'admin/agent-packages/read', request);
+  }
+
+  /**
+   * The package this host imported as `packageId` (`GET admin/agent-packages/{packageId}`): its
+   * version, format version and hash, its agents, when and by whom it was imported, and the current link
+   * of every part still linked to it, each with whether it changed locally. It stays known after its
+   * agents were unlinked. Reads only, without an audit. Fails with `assistant-package-not-found` for a
+   * package this host never imported.
+   */
+  getInstalledAgentPackage(packageId: string): Observable<InstalledAgentPackage> {
+    return this.request<InstalledAgentPackage>('GET', `admin/agent-packages/${encodeURIComponent(packageId)}`);
   }
 
   private download(path: string): Promise<Blob> {

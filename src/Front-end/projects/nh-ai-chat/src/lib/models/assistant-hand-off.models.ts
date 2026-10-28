@@ -142,7 +142,17 @@ export interface ShadowVariantPromotionRequest {
    * live agent keeps its name and is linked to the variant's package version. Not with `moveSkills`.
    */
   asPackageVersion?: boolean;
+  /**
+   * With `asPackageVersion`: what happens to the live agent's linked parts that the variant does not
+   * carry. `unlink` (default when missing) leaves them as local parts; `relink` keeps them linked to the
+   * variant's package version with their locks, reported as `kept-linked`. Another value fails with
+   * `uncarriedParts: invalid`, `relink` without `asPackageVersion` with `uncarriedParts: not-allowed`.
+   */
+  uncarriedParts?: ShadowVariantUncarriedParts;
 }
+
+/** What a promotion as the package's version does with the live agent's linked parts the variant does not carry. */
+export type ShadowVariantUncarriedParts = 'unlink' | 'relink';
 
 /** The answer of a promotion: the live agent after it, and what moved. */
 export interface ShadowVariantPromotion {

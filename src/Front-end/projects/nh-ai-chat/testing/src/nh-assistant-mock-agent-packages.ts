@@ -63,6 +63,10 @@ interface AgentLink {
 interface InstalledPackage {
   version: number;
   agents: string[];
+  /** The SHA-256 of the package's canonical JSON at import. */
+  hash: string;
+  importedAt: string;
+  importedBy: string;
 }
 
 /** What the mock reads of one agent on the host. */
@@ -176,7 +180,9 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
  * Unlinking makes a part local: the next upgrade keeps it as `kept-local` unless the import relinks it.
  * An import takes over an agent the host has with a package agent's id and no package of its own when
  * `relink` names that whole agent; otherwise the agent refuses the package (`assistant-agent-exists`).
- * Hashes are the SHA-256 of each part's canonical JSON; a hash a package gives is not checked.
+ * Hashes are the SHA-256 of each part's canonical JSON; a hash a package gives is not checked. A read
+ * (`POST admin/agent-packages/read`) answers agents as an export builds them and the installed package
+ * (`GET admin/agent-packages/{packageId}`) its current links, both without an export (FB34).
  */
 export class NhAssistantMockAgentPackages {
   private readonly links = new Map<string, AgentLink>();
@@ -199,14 +205,19 @@ export class NhAssistantMockAgentPackages {
   }
 
   /**
-   * `POST admin/agent-packages/export`, `.../preview` and `.../import`, and `POST
-   * admin/agents/{id}/package/unlink`; `null` for another route.
+   * `POST admin/agent-packages/export`, `.../preview`, `.../import` and `.../read`, `GET
+   * admin/agent-packages/{packageId}` and `POST admin/agents/{id}/package/unlink`; `null` for another
+   * route.
    */
   handle(method: string, segments: readonly string[], body: unknown): NhAssistantMockResult | null {
     if (segments[0] !== 'admin') {
       return null;
     }
     if (segments[1] === 'agent-packages' && segments.length === 3) {
+      // A package this host imported, read without an audit (FB34).
+      if (method === 'GET') {
+        return this.installedPackage(segments[2]);
+      }
       if (method !== 'POST') {
         return { status: 405 };
       }
@@ -217,6 +228,8 @@ export class NhAssistantMockAgentPackages {
           return this.importPackage(body, false);
         case 'import':
           return this.importPackage(body, true);
+        case 'read':
+          return this.readParts(body);
         default:
           return failure('assistant-not-found');
       }
@@ -240,15 +253,27 @@ export class NhAssistantMockAgentPackages {
    * variant leaves first, with its links, so its trigger ids are free, and the live agent leaves the
    * package it belonged to; a refused part puts everything back and answers the import's
    * `409 assistant-package-refused`. A part without a link answers `404 assistant-package-not-linked`.
+   * The live agent's linked parts the variant does not carry lose their link, or with
+   * `uncarriedParts: 'relink'` (FB33) stay linked to the package version as `kept-linked`.
    */
   private promoteAsPackageVersion(variantId: string, body: unknown): NhAssistantMockResult {
     const listed = this.context.call('GET', 'admin/agents');
     if (listed.status !== 200) {
       return listed;
     }
-    const request = (body ?? {}) as { expectedVersion?: unknown; expectedVariantVersion?: unknown; moveSkills?: unknown; reason?: unknown };
+    const request = (body ?? {}) as {
+      expectedVersion?: unknown;
+      expectedVariantVersion?: unknown;
+      moveSkills?: unknown;
+      reason?: unknown;
+      uncarriedParts?: unknown;
+    };
     if (typeof request.expectedVersion !== 'number') {
       return failure('assistant-validation', { expectedVersion: ['required'] });
+    }
+    const uncarriedParts = request.uncarriedParts ?? 'unlink';
+    if (uncarriedParts !== 'unlink' && uncarriedParts !== 'relink') {
+      return failure('assistant-validation', { uncarriedParts: ['invalid'] });
     }
     if (request.moveSkills === true) {
       return failure('assistant-validation', { moveSkills: ['not-allowed'] });
@@ -314,6 +339,12 @@ export class NhAssistantMockAgentPackages {
     const account = liveRead.configuration?.runSettings?.serviceAccountActorId
       ?? variantRead.configuration?.runSettings?.serviceAccountActorId
       ?? null;
+    // With relink the live agent's linked parts the variant does not carry keep their links (FB33).
+    const carriedParts = new Set(partsOf(agent).keys());
+    const kept = uncarriedParts === 'relink'
+      ? [...(this.links.get(live.id)?.parts ?? new Map<string, PartLink>())].filter(([part]) => !carriedParts.has(part))
+      : [];
+    const installedBefore = this.installed.get(link.packageId);
 
     // All of it or nothing: the variant leaves first, and the package's other agents stay linked.
     const restore = [this.context.snapshot(), this.snapshot()];
@@ -342,12 +373,17 @@ export class NhAssistantMockAgentPackages {
     for (const [agentId, item] of others) {
       this.links.set(agentId, item);
     }
+    // The package keeps its version, hash and import, and holds the live agent in place of the variant.
+    const result = imported.body as { packageId: string; packageVersion: number; hash: string; parts: AgentPackagePart[] };
     this.installed.set(link.packageId, {
       version: link.packageVersion,
-      agents: [...others.map(([agentId]) => agentId), live.id].sort()
+      agents: [...others.map(([agentId]) => agentId), live.id].sort(),
+      hash: installedBefore?.hash ?? result.hash,
+      importedAt: installedBefore?.importedAt ?? this.context.now(),
+      importedBy: installedBefore?.importedBy ?? 'current-user'
     });
+    const keptLinked = this.keepLinked(live.id, link.packageVersion, kept);
 
-    const result = imported.body as { packageId: string; packageVersion: number; hash: string; parts: AgentPackagePart[] };
     const promoted = this.read(live.id)!.agent;
     return {
       status: 200,
@@ -355,12 +391,38 @@ export class NhAssistantMockAgentPackages {
         agent: this.withAgentPackage(promoted),
         variantId,
         movedSkills: result.parts
-          .filter(part => part.part.startsWith('skill:') && part.outcome !== 'refused' && part.outcome !== 'left-behind' && part.outcome !== 'kept-local')
+          .filter(part => part.part.startsWith('skill:') && (part.outcome === 'created' || part.outcome === 'changed' || part.outcome === 'unchanged'))
           .map(part => part.part.slice('skill:'.length))
           .sort(),
-        package: result
+        package: { ...result, hash: installedBefore?.hash ?? result.hash, parts: [...result.parts, ...keptLinked] }
       }
     };
+  }
+
+  /**
+   * Links the parts a promotion with `uncarriedParts: 'relink'` keeps (FB33) to the package version the
+   * live agent took, with the locks and hash of their link, and reports them as `kept-linked`.
+   */
+  private keepLinked(agentId: string, packageVersion: number, kept: readonly (readonly [string, PartLink])[]): AgentPackagePart[] {
+    const link = this.links.get(agentId);
+    if (!link || kept.length === 0) {
+      return [];
+    }
+    const read = this.read(agentId);
+    const now = this.context.now();
+    return kept.map(([part, partLink]) => {
+      link.parts.set(part, { ...partLink, lockedFields: [...partLink.lockedFields], packageVersion, linkedAt: now, linkedBy: 'current-user' });
+      link.local.delete(part);
+      return {
+        agentId,
+        part,
+        outcome: 'kept-linked',
+        changedLocally: read ? this.hostHash(read, part) !== partLink.hash : false,
+        code: null,
+        errors: null,
+        lockedFields: [...partLink.lockedFields]
+      };
+    });
   }
 
   /**
@@ -509,24 +571,9 @@ export class NhAssistantMockAgentPackages {
 
   private exportPackage(body: unknown): NhAssistantMockResult {
     const request = (body ?? {}) as { agentIds?: unknown; options?: AgentPackageExportOptions | null };
-    const agentIds = request.agentIds;
-    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every(id => typeof id === 'string')) {
-      return failure('assistant-validation', { agentIds: ['required'] });
-    }
-    if (agentIds.length > NH_ASSISTANT_AGENT_PACKAGE_MAX_AGENTS) {
-      return failure('assistant-validation', { agentIds: ['too-long'] });
-    }
-    if (new Set(agentIds).size !== agentIds.length) {
-      return failure('assistant-validation', { agentIds: ['invalid'] });
-    }
-
-    const reads: HostRead[] = [];
-    for (const agentId of agentIds as string[]) {
-      const read = this.read(agentId);
-      if (!read) {
-        return failure('assistant-agent-not-found');
-      }
-      reads.push(read);
+    const reads = this.readAgents(request.agentIds);
+    if (!Array.isArray(reads)) {
+      return reads;
     }
 
     const options = request.options ?? {};
@@ -564,7 +611,7 @@ export class NhAssistantMockAgentPackages {
     }
 
     for (const agent of agents) {
-      agent.hashes = Object.fromEntries([...partsOf(agent)].map(([part, value]) => [part, mockSha256(canonicalJson(value))]));
+      agent.hashes = hashesOf(agent);
     }
     const agentPackage: AgentPackage = {
       format: NH_ASSISTANT_AGENT_PACKAGE_FORMAT,
@@ -581,6 +628,83 @@ export class NhAssistantMockAgentPackages {
         [warningsHeader]: JSON.stringify(this.warningsOf(reads))
       }
     };
+  }
+
+  /**
+   * `POST admin/agent-packages/read` (FB34): exactly the agents asked for, in their order, as an export
+   * would put them in a package, with the hash of every part and without locks. Nothing is exported.
+   */
+  private readParts(body: unknown): NhAssistantMockResult {
+    const request = (body ?? {}) as { agentIds?: unknown };
+    const reads = this.readAgents(request.agentIds);
+    if (!Array.isArray(reads)) {
+      return reads;
+    }
+
+    const agents = reads.map(read => {
+      const agent = this.packageAgentOf(read);
+      return { ...agent, hashes: hashesOf(agent) };
+    });
+    return { status: 200, body: { agents } };
+  }
+
+  /**
+   * `GET admin/agent-packages/{packageId}` (FB34): the package this host imported, with the current
+   * link of every part still linked to it per agent; `404 assistant-package-not-found` for another id.
+   */
+  private installedPackage(packageId: string): NhAssistantMockResult {
+    const installed = this.installed.get(packageId);
+    if (!installed) {
+      return failure('assistant-package-not-found');
+    }
+
+    const agents = [...this.links]
+      .filter(([, link]) => link.packageId === packageId && link.parts.size > 0)
+      .map(([agentId, link]) => ({
+        agentId,
+        parts: [...link.parts.keys()].sort().map(part => this.partLinkOf(agentId, part, link, null)!)
+      }))
+      .sort((left, right) => left.agentId < right.agentId ? -1 : left.agentId > right.agentId ? 1 : 0);
+    return {
+      status: 200,
+      body: {
+        packageId,
+        version: installed.version,
+        formatVersion: NH_ASSISTANT_AGENT_PACKAGE_FORMAT_VERSION,
+        hash: installed.hash,
+        agentIds: [...installed.agents].sort(),
+        importedAt: installed.importedAt,
+        importedBy: installed.importedBy,
+        agents
+      }
+    };
+  }
+
+  /**
+   * The agents an export or a read names, as the host has them: 1 to 20 distinct dash-case ids
+   * (`agentIds: required`, `too-long` or `invalid`), each an agent of the host
+   * (`assistant-agent-not-found`).
+   */
+  private readAgents(agentIds: unknown): HostRead[] | NhAssistantMockResult {
+    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every(id => typeof id === 'string')) {
+      return failure('assistant-validation', { agentIds: ['required'] });
+    }
+    if (agentIds.length > NH_ASSISTANT_AGENT_PACKAGE_MAX_AGENTS) {
+      return failure('assistant-validation', { agentIds: ['too-long'] });
+    }
+    if (new Set(agentIds).size !== agentIds.length || !(agentIds as string[]).every(id => mockDashCase.test(id))) {
+      return failure('assistant-validation', { agentIds: ['invalid'] });
+    }
+
+    const reads: HostRead[] = [];
+    for (const agentId of agentIds as string[]) {
+      const read = this.read(agentId);
+      if (!read) {
+        return failure('assistant-agent-not-found');
+      }
+      reads.push(read);
+    }
+    return reads;
   }
 
   /** Every reference of the exported agents to agents outside the selection. */
@@ -988,7 +1112,13 @@ export class NhAssistantMockAgentPackages {
     for (const item of planned.filter(entry => entry.outcome === 'left-behind' && entry.part === 'agent')) {
       this.links.delete(item.agentId);
     }
-    this.installed.set(packageId, { version, agents: agentPackage.agents.map(agent => agent.id) });
+    this.installed.set(packageId, {
+      version,
+      agents: agentPackage.agents.map(agent => agent.id),
+      hash: mockSha256(canonicalJson(agentPackage)),
+      importedAt: now,
+      importedBy: 'current-user'
+    });
   }
 
   /** `POST admin/agents/{id}/package/unlink`: one part, or without one the whole agent, becomes local. */
@@ -1277,6 +1407,11 @@ function partsOf(agent: PackageAgent): Map<string, unknown> {
     parts.set(`metadata:${name}`, value);
   }
   return parts;
+}
+
+/** The SHA-256 of the canonical JSON of every part an agent carries, by part key, as an export writes them. */
+function hashesOf(agent: PackageAgent): Record<string, string> {
+  return Object.fromEntries([...partsOf(agent)].map(([part, value]) => [part, mockSha256(canonicalJson(value))]));
 }
 
 function kindOf(part: string): AgentPackagePartKind {

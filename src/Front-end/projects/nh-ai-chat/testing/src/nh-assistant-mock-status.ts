@@ -88,6 +88,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-consultation-not-found',
     'assistant-handoff-not-found',
     'assistant-package-not-linked',
+    'assistant-package-not-found',
     'assistant-not-found',
     'assistant-context-not-found',
     'assistant-mcp-server-not-found',

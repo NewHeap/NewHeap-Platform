@@ -525,6 +525,7 @@
       "assistant-package-too-large": "Een agentpakket is hoogstens 1 MB en bevat hoogstens 20 agents.",
       "assistant-package-refused": "De controle weigerde onderdelen van het pakket, dus er is niets geïmporteerd. Controleer het pakket opnieuw om te zien welke.",
       "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld.",
+      "assistant-package-not-found": "Deze host heeft nooit een agentpakket met deze id geïmporteerd.",
       "assistant-question-invalid": "De assistent kon deze vraag niet stellen; hij gaat verder zonder.",
       "assistant-question-not-found": "Deze vraag is niet gevonden.",
       "assistant-question-not-pending": "Deze vraag wacht niet meer op een antwoord.",
