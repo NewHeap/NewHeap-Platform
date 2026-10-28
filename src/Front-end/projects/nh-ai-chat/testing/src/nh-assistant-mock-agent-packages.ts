@@ -161,7 +161,8 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
     required: ['subjectType', 'description'],
     optional: [
       'instructions', 'minimumRole', 'askerPolicy', 'routes', 'proposalRole', 'proposalPolicy', 'toolSelectors', 'maxToolCalls',
-      'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp', 'dataClassification', 'startsOff'
+      'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'requestsOnly', 'exposeToMcp', 'dataClassification',
+      'startsOff'
     ]
   },
   handOff: { required: ['subjectType', 'sources'], optional: ['description', 'notifySource', 'maxPerSubjectPerDay'] },
@@ -1518,6 +1519,19 @@ function triggerOf(trigger: AgentRunConfiguration['dataTriggers'][number]): Reco
 }
 
 function consultationOf(consultation: NonNullable<AgentRunConfiguration['dataConsultations']>[number]): Record<string, unknown> {
+  if (consultation.requestsOnly) {
+    // As the server writes it: the flag, without the settings of a consultation's own turn.
+    return {
+      subjectType: consultation.subjectType,
+      description: consultation.description,
+      askerPolicy: consultation.askerPolicy,
+      allowRequests: consultation.allowRequests,
+      requestsOnly: true,
+      exposeToMcp: consultation.exposeToMcp,
+      dataClassification: consultation.dataClassification
+    };
+  }
+
   return {
     subjectType: consultation.subjectType,
     description: consultation.description,
