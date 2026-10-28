@@ -57,6 +57,23 @@
     }
   }
 
+  // A checkbox or a radio keeps the browser's own control box. A host page that sizes every field
+  // (`input { width: 100%; padding: … }`, which several do) would otherwise stretch the control over
+  // the whole row and push its label out of the card it belongs to.
+  input[type='checkbox'],
+  input[type='radio'] {
+    box-sizing: border-box;
+    flex: none;
+    width: 16px;
+    min-width: 0;
+    max-width: none;
+    height: 16px;
+    min-height: 0;
+    border: 0;
+    padding: 0;
+    accent-color: var(--nha-highlight);
+  }
+
   textarea {
     line-height: 1.45;
     resize: vertical;

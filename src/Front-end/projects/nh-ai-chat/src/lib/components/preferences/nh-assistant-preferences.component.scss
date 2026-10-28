@@ -79,6 +79,7 @@ h3 {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  min-width: 0;
   border: 1px solid var(--nha-border);
   border-radius: var(--nha-radius-control);
   padding: 10px;
@@ -100,10 +101,9 @@ h3 {
     outline-offset: 2px;
   }
 
+  // Size and colour come from the shared controls; only the alignment with the first text line is local.
   input {
-    flex: none;
     margin: 2px 0 0;
-    accent-color: var(--nha-highlight);
   }
 
   span {
@@ -132,9 +132,6 @@ h3 {
   cursor: pointer;
 
   input {
-    width: 16px;
-    height: 16px;
     margin: 0;
-    accent-color: var(--nha-highlight);
   }
 }
