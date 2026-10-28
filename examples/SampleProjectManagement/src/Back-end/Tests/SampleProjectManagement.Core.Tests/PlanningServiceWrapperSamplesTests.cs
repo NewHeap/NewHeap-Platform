@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Client;
 using NewHeap.Platform.AI;
+using NewHeap.Platform.AI.Mcp;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
@@ -51,6 +53,32 @@ public sealed class PlanningServiceWrapperSamplesTests
         var foreign = await tools.NextMilestoneAsync(new ProjectNextMilestoneInput(Guid.NewGuid()), Context(divisionId), CancellationToken.None);
         Assert.False(foreign.Success);
         Assert.Single(planning.Calls);
+    }
+
+    [Fact]
+    public async Task An_imported_planning_tool_may_serve_chats_and_agents_but_is_never_exported_over_mcp()
+    {
+        await using var planning = await SampleMcpServer.StartAsync(ApiKey);
+        await using var client = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(planning.Url),
+            TransportMode = HttpTransportMode.StreamableHttp,
+            AdditionalHeaders = new Dictionary<string, string> { ["X-Api-Key"] = ApiKey }
+        }));
+        var remote = await client.ListToolsAsync();
+        var services = new ServiceCollection();
+        services.AddNewHeapPlatformAIMcp();
+        await using var provider = services.BuildServiceProvider();
+        var importer = provider.GetRequiredService<INhAiMcpClientToolImporter>();
+        NhAiMcpImportOptions Import(NhAiToolExposure exposure) => new(
+            "planning",
+            "planning",
+            [new NhAiMcpImportedToolPolicy("next_milestone", "next-milestone", "Returns the next milestone of a project.", NhAiToolEffect.ReadOnly, exposure, [ProjectAiTools.ViewPolicy])]);
+
+        // The boundary holds in the importer: an imported tool cannot ask for the MCP exposure.
+        Assert.Throws<InvalidOperationException>(() => importer.Import(remote, Import(NhAiToolExposure.Local | NhAiToolExposure.Agent | NhAiToolExposure.Mcp)));
+        var imported = Assert.Single(importer.Import(remote, Import(NhAiToolExposure.Local | NhAiToolExposure.Agent)).Descriptors);
+        Assert.False(imported.Exposure.HasFlag(NhAiToolExposure.Mcp));
     }
 
     [Fact]

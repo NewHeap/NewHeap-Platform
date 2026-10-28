@@ -185,6 +185,16 @@ tools stay with its own runs; a status change its model names anyway runs nothin
 person: an agent created in the administration that acts with the operations account's
 rights is not offered it in a run that a created project starts, because it does not
 delegate from the person who created the project.
+The reviewer's answer to such a request also comes back where the participant asked (SPM-360): its
+consultation answers requests in the asking conversation (`AnswerRequests`), so the completed run posts
+its answer once into the participant's chat as an application message that only they need to be able to
+open, with a link to the intake reviews page of the project. The run keeps that chat and turn; a request
+of an MCP client or of an agent run has none, and a shadow run or one that read results people may not
+see posts nothing. The project planner takes requests only (SPM-361): the project assistant may ask it
+to look at a project in a run of its own, never consult it for an answer, so only its request tool
+exists, and the settings of a consultation's own turn would stop the API at startup. An administrator
+gives the project follow-up such a consultation as data about the whole application
+(`requestsOnly`), and a requests-only save that names the turn's settings is refused at its fields.
 A partner application's assistant may consult the intake reviewer over MCP as well (SPM-366), and
 the two applications keep one consultation chain: `SampleConsultationChain` names the API in chains
 (`UseMcpChainApplication`) and reviews the partner by the issuer its calls carry (`ContinueMcpChain`).
@@ -623,6 +633,15 @@ background use, nor starts or completes a personal connection, nor registers a b
 (`assistant-not-allowed-while-impersonating`), while withdrawing and disconnecting stay allowed and the
 audit names the administrator. The playground shows the connect card in the chat, the preferences and
 the organization's CRM account on the mock.
+A tool that a remote MCP server offers is never passed on (SPM-362): an imported MCP tool may serve the
+API's chats and agents, but its import cannot ask for the MCP exposure, so a partner that calls the
+API's `/mcp` never reaches the remote server on the API's credential. To offer what the planning
+service's `next_milestone` knows, the API writes its own tool, `projects.next-milestone`
+(`ProjectPlanningMilestoneTools`): its own contract, view policy, read capability and exposure, a
+project of the authorized division only, the project's key as the one argument it sends and a bounded
+answer. `SamplePlanningMilestonesComposition` calls that one remote tool with the address and key of
+`SampleProjectManagement:PlanningService`; without the section the tool fails closed with
+`planning-not-configured`.
 The other direction works too: an MCP client outside the application signs in to the API's own
 `/mcp` (SPM-370). With `SampleProjectManagement:McpSignIn` naming the public URL of `/mcp`, the
 application's authorization server and the scope `projects.read`, `SampleMcpSignInComposition` makes the
