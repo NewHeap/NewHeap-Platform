@@ -18,6 +18,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// technical account an agent answers to, without a deploy.
 /// SPM-326: they find the intake review that a project's creation event started and read the facts
 /// of its run.
+/// SPM-365: while <c>NewHeap:AI:Assistant:AgentWork</c> switches agent work off on the host, the page
+/// keeps serving and every agent reports <c>agentWork: false</c>.
 /// </summary>
 [ApiController]
 [Route("agent-maintenance")]
@@ -64,7 +66,7 @@ public sealed class AgentMaintenanceController(
 
     [HttpGet]
     [EndpointSummary("List the sample's agents with their state")]
-    [EndpointDescription("Returns active, paused, stopped, off or configured-off per agent, who changed it when and why, and the events that wait while an agent is paused.")]
+    [EndpointDescription("Returns active, paused, stopped, off or configured-off per agent, who changed it when and why, the events that wait while an agent is paused, and agentWork: false on every agent while NewHeap:AI:Assistant:AgentWork switches agent work off on this host, when no agent is active.")]
     [ProducesResponseType<NhAssistantAgentState[]>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -114,7 +116,7 @@ public sealed class AgentMaintenanceController(
 
     [HttpPost("{agentId}/resume")]
     [EndpointSummary("Resume an agent")]
-    [EndpointDescription("Makes a paused, stopped or off agent active: every project with waiting events gets one run and held approved proposals execute; an agent that was off starts nothing. An agent disabled in configuration answers 409.")]
+    [EndpointDescription("Makes a paused, stopped or off agent active: every project with waiting events gets one run and held approved proposals execute; an agent that was off starts nothing. An agent disabled in configuration answers 409, and so does a paused agent while agent work is off on this host (assistant-agent-work-off).")]
     [ProducesResponseType<NhAssistantAgentState>(StatusCodes.Status200OK)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
