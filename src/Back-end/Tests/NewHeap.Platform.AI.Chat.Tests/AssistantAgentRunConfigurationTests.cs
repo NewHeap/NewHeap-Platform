@@ -7,6 +7,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
@@ -321,6 +322,34 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_rules_of_an_administration_agent_with_propose_autonomy_propose_while_the_turn_withholds_the_script_tool(AssistantTestProvider provider)
+    {
+        // As the sample's project starter and project follow-up: an agent created in the administration
+        // that only proposes and names only the status tool. The host registers the script tool, which
+        // needs no selector and which the application does not allow agents created in the
+        // administration, so the run withholds it; the rules still propose with the status tool.
+        await using var host = await CreateHostAsync(provider, scriptTool: true);
+        var outcomes = ProposeHoldAndRecord(host);
+        await CreateFollowerAsync(host, NhAiAutonomyLevel.Propose, ["projects.change-status"]);
+        Assert.True((await SaveSettingsAsync(host, Settings(KnownAccountPrincipalFactory.First))).Success);
+        Assert.True((await SaveFollowerTriggerAsync(host)).Success);
+        Assert.True((await ConfigureAsync(host, configuration => configuration.SetTriggerShadowAsync(Follower, FollowerTrigger, false, Admin))).Success);
+        var scripts = (await CompositionStatusAsync(host, Follower)).Features.Single(feature => feature.Feature == NhAiCompositionFeatures.NameOf(NhAiCompositionFeature.Scripts));
+        Assert.All(scripts.Channels, channel => Assert.Equal(NhAssistantCompositionReasons.NotAllowedForDataAgents, channel.Reason));
+
+        var receipt = Assert.Single(await PublishAsync(host, Guid.NewGuid(), "data follow", FollowerTrigger));
+        await ExecuteAsync(host, receipt.RunId!.Value);
+
+        var run = (await Runs(host).FindRunAsync(receipt.RunId.Value, CancellationToken.None))!;
+        Assert.Equal((NhAssistantRunStatuses.Completed, NhAssistantRunKinds.Rule), (run.Status, run.Kind));
+        Assert.Equal(NhAssistantProposeOutcome.Created, Assert.Single(outcomes).Outcome);
+        var approval = Assert.Single(await ApprovalsAsync(host, receipt.ConversationId!.Value));
+        Assert.Equal((NhAiGrantSource.Accountable, NhAssistantApprovalStatuses.Pending), (approval.GrantSource, approval.Status));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Run_settings_are_checked_against_the_code_and_give_an_administration_agent_skills(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider);
@@ -545,7 +574,10 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         return outcomes;
     }
 
-    private static async Task CreateFollowerAsync(AssistantTestHost host)
+    private static async Task CreateFollowerAsync(
+        AssistantTestHost host,
+        NhAiAutonomyLevel autonomy = NhAiAutonomyLevel.Execute,
+        IReadOnlyList<string>? toolSelectors = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var created = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
@@ -554,10 +586,10 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
                 "Project follower",
                 "Follows up changed projects.",
                 "Follow up the project.",
-                ["projects.*"],
+                toolSelectors ?? ["projects.*"],
                 [],
                 null,
-                NhAiAutonomyLevel.Execute),
+                autonomy),
             Admin,
             CancellationToken.None);
         Assert.True(created.Success);
@@ -593,7 +625,14 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         return await context.Approvals.AsNoTracking().Where(approval => approval.ConversationId == conversationId).ToListAsync();
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAssistantTiming? timing = null)
+    private static async Task<NhAssistantCompositionStatusDto> CompositionStatusAsync(AssistantTestHost host, string agentId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return (await scope.ServiceProvider.GetRequiredService<INhAssistantCompositionStatus>()
+            .GetAsync(agentId, new NhAssistantCompositionStatusRequest(null, null), CancellationToken.None))!;
+    }
+
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAssistantTiming? timing = null, bool scriptTool = false)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -612,6 +651,10 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, KnownAccountPrincipalFactory>());
+                if (scriptTool)
+                {
+                    services.AddNewHeapPlatformAIScripting();
+                }
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<TestSubjectResolver>()
