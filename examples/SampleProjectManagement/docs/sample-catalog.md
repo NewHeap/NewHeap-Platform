@@ -16,7 +16,7 @@ when it:
 | Project register | CRUD, composite, short projection, partial and bulk operations, and outbox events | thin base controller, concrete service, transaction scope, `NhProjection`, `BulkAsync` |
 | Collection playground | LIKE, filters, OR and AND, paging, page size, and search debounce | collection request and result models, and collection components |
 | Authentication playground | password, OAuth, refresh, multiple roles, scoped permissions, and authentication overrides | authentication service, request claims, policies, guards, and pipes |
-| Operations API | CAP, Hangfire, email, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService`, notification builder |
+| Operations API | CAP, Hangfire, email with a named SMTP security mode, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService` with `MailServiceSettings.SecurityMode`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
 | Platform playground | text, binary, download, modal, multi-select, custom control, head, and JSON-LD | HTTP options, modal, form, head, and configuration services |
 | Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |

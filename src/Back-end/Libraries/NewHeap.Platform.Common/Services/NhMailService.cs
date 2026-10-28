@@ -1,12 +1,25 @@
-﻿using Microsoft.Extensions.Options;
+﻿using MailKit.Security;
+using Microsoft.Extensions.Options;
+using MimeKit;
 using NewHeap.Platform.Common.Models.Options;
 using Microsoft.Extensions.Logging;
-using System.Net;
 using System.Net.Mail;
 using System.Text;
+using SmtpClient = MailKit.Net.Smtp.SmtpClient;
 
 namespace NewHeap.Platform.Common.Services;
 
+/// <summary>
+/// Sends a <see cref="MailMessage"/> over SMTP with MailKit, secured as
+/// <see cref="MailServiceSettings.SecurityMode"/> says (see <see cref="NhSmtpSecurityMode"/>).
+/// </summary>
+/// <remarks>
+/// A delivery that fails throws the exception of MailKit or of the connection, for example
+/// <see cref="SslHandshakeException"/> for a certificate the host does not trust,
+/// <see cref="NotSupportedException"/> for a server without STARTTLS, <see cref="AuthenticationException"/>
+/// for refused credentials and <see cref="MailKit.Net.Smtp.SmtpCommandException"/> for a refused
+/// command. A cancelled delivery throws <see cref="OperationCanceledException"/>.
+/// </remarks>
 public partial class NhMailService
 {
     protected readonly MailServiceSettings _emailSettings;
@@ -72,14 +85,70 @@ public partial class NhMailService
             }
         }
 
-        using (SmtpClient smtp = new(_emailSettings.Host, _emailSettings.Port))
+        var secureSocketOptions = ToSecureSocketOptions(_emailSettings.ResolveSecurityMode());
+
+        // The MIME parts read the streams of the message's attachments, which stay the caller's to
+        // dispose, as they did with the framework's SMTP client.
+        var mimeMessage = MimeMessage.CreateFromMailMessage(mailMessage);
+
+        using var smtp = CreateSmtpClient();
+
+        // One attempt in the configured mode: a failed TLS handshake or a server without STARTTLS
+        // ends the delivery with its exception, never with a second attempt in plain text.
+        await smtp.ConnectAsync(_emailSettings.Host, _emailSettings.Port, secureSocketOptions, cancellationToken);
+
+        if (!string.IsNullOrEmpty(_emailSettings.User))
         {
-            smtp.Credentials = new NetworkCredential(_emailSettings.User, _emailSettings.Password);
-            smtp.EnableSsl = _emailSettings.EnableSsl;
-            await smtp.SendMailAsync(mailMessage, cancellationToken);
-            _logger.LogDebug(
-                "Mail delivery completed for {RecipientCount} recipient(s).",
-                mailMessage.To.Count + mailMessage.CC.Count + mailMessage.Bcc.Count);
+            await smtp.AuthenticateAsync(_emailSettings.User, _emailSettings.Password ?? string.Empty, cancellationToken);
         }
+
+        await smtp.SendAsync(mimeMessage, cancellationToken);
+
+        _logger.LogDebug(
+            "Mail delivery completed for {RecipientCount} recipient(s).",
+            mailMessage.To.Count + mailMessage.CC.Count + mailMessage.Bcc.Count);
+
+        await CloseAfterDeliveryAsync(smtp, cancellationToken);
+    }
+
+    /// <summary>
+    /// The SMTP client of one delivery. It validates the server's certificate with MailKit's default
+    /// validation, which checks revocation, and writes no protocol log, so neither the message nor the
+    /// credentials reach a log.
+    /// </summary>
+    internal virtual SmtpClient CreateSmtpClient()
+    {
+        return new SmtpClient();
+    }
+
+    /// <summary>
+    /// Ends the session with QUIT. The server accepted the message already, so a QUIT that fails or
+    /// is cancelled does not report the delivery as failed; disposing the client closes the socket.
+    /// </summary>
+    private async Task CloseAfterDeliveryAsync(SmtpClient smtp, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await smtp.DisconnectAsync(quit: true, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(
+                "The SMTP session did not close cleanly after the delivery: {ExceptionType}.",
+                exception.GetType().FullName);
+        }
+    }
+
+    private static SecureSocketOptions ToSecureSocketOptions(NhSmtpSecurityMode securityMode)
+    {
+        return securityMode switch
+        {
+            // StartTls requires the upgrade; StartTlsWhenAvailable and Auto would send in plain text
+            // to a server that does not offer it.
+            NhSmtpSecurityMode.StartTlsRequired => SecureSocketOptions.StartTls,
+            NhSmtpSecurityMode.ImplicitTls => SecureSocketOptions.SslOnConnect,
+            NhSmtpSecurityMode.None => SecureSocketOptions.None,
+            _ => throw new ArgumentOutOfRangeException(nameof(securityMode), securityMode, null),
+        };
     }
 }

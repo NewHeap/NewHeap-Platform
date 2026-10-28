@@ -1326,10 +1326,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-088",
     "title": "Email dispatcher",
     "category": "Events, jobs, email, and notifications",
-    "surface": "email notification dispatcher",
-    "outcome": "Sent and failed states include error details.",
+    "surface": "email notification dispatcher (NhEmailNotificationDispatcher) and its cancellation",
+    "outcome": "Sent and failed states include error details. A dispatch that its caller cancels, such as the notification processor while the host stops, throws the `OperationCanceledException` instead of recording a dispatch error, so the delivery is claimed again once its processing lock times out; a cancellation the caller did not request, such as a client library's own time-out, stays a dispatch error.",
     "implementation": "implemented",
     "evidence": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEmailNotificationDispatcherTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
@@ -5999,6 +6000,26 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-355",
+    "title": "The API's mail settings name their SMTP security mode, and a mode that does not exist stops the host",
+    "category": "Events, jobs, email, and notifications",
+    "surface": "MailServiceSettings.SecurityMode (NhSmtpSecurityMode: StartTlsRequired, ImplicitTls, None) and MailServiceSettings.ResolveSecurityMode, which follows EnableSsl when no mode is set; NhMailService on MailKit with required STARTTLS, implicit TLS or plain text, authentication only with a User, certificate validation without a switch to skip it, no protocol log and no plain-text retry; the startup validation of WithMail and AddNewHeapNotifications<TContext>",
+    "outcome": "SampleMailComposition registers the API's mail service from `NewHeap:PlatformCommon:MailServiceSettings`, whose appsettings.json names `\"SecurityMode\": \"None\"` for the development mail server on localhost:1025 without a user, so the service sends in plain text and does not authenticate. A deployment overrides the mode with its own settings, for example `StartTlsRequired` on port 587 with a user, and the host starts with it; `StartTlsWhenAvailable`, a mode NewHeap deliberately does not have, stops the host at startup. The library tests run Mailpit with a certificate of a test authority: required STARTTLS upgrades the connection and authenticates with the user, implicit TLS delivers on the server's SMTPS port, a delivery without a user does not authenticate, required STARTTLS refuses a server without STARTTLS, an untrusted certificate delivers nothing and is not retried in plain text although the server accepts plain text, `None` sends in plain text even when the server offers STARTTLS, a missing mode follows `EnableSsl`, a cancelled delivery sends nothing and cancellation stops a delivery that waits for the server, and host start refuses a number that no mode has.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMailComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MailSecuritySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhSmtpSecurityMode.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhMailServiceSettingsValidator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
     ]
   }
 ] as const;

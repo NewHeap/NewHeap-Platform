@@ -194,6 +194,13 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
 
             await _mailService.SendAsync(mailMessage, cancellationToken: cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // A cancelled dispatch did not fail: the caller stopped it. The notification processor
+            // stops without recording a failure, and the delivery is claimed again once its
+            // processing lock times out.
+            throw;
+        }
         catch (Exception ex)
         {
             taskResult.AddError("DispatchError", _localizer["Failed to dispatch email notification."]);

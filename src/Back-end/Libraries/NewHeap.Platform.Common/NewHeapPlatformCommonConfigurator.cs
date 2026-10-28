@@ -58,9 +58,15 @@ public class NewHeapPlatformCommonConfigurator
         });
     }
 
+    /// <summary>
+    /// Registers <see cref="NhMailService"/> with the settings <paramref name="mailServiceSettingsAction"/>
+    /// configures. Host start fails when <see cref="MailServiceSettings.SecurityMode"/> is not an
+    /// <see cref="NhSmtpSecurityMode"/>.
+    /// </summary>
     public NewHeapPlatformCommonConfigurator WithMail(Action<MailServiceSettings> mailServiceSettingsAction)
     {
         _serviceCollection.Configure(mailServiceSettingsAction);
+        NhMailServiceSettingsValidator.Register(_serviceCollection);
         _serviceCollection.AddScoped<NhMailService, NhMailService>();
 
         return this;

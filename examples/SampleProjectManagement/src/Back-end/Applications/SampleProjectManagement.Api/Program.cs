@@ -181,8 +181,8 @@ builder.Services
     })
     .ConfigureCommon(common =>
     {
-        common.WithMail(mail =>
-            builder.Configuration.GetSection("NewHeap:PlatformCommon:MailServiceSettings").Bind(mail));
+        // SPM-355: the mail settings name their SMTP security mode; see SampleMailComposition.
+        common.WithSampleMail(builder.Configuration);
     })
     .WithEvents(events =>
     {

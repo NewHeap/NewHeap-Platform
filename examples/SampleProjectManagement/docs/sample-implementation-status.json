@@ -339,7 +339,8 @@
     "SPM-344",
     "SPM-345",
     "SPM-346",
-    "SPM-350"
+    "SPM-350",
+    "SPM-355"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -960,6 +961,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NotificationProcessingSamplesTests.cs"
     ],
     "SPM-088": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhEmailNotificationDispatcher.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEmailNotificationDispatcherTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
@@ -3583,6 +3585,18 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/composer/nh-assistant-composer.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-draft.spec.ts"
+    ],
+    "SPM-355": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMailComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MailSecuritySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/MailServiceSettings.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhSmtpSecurityMode.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhMailServiceSettingsValidator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
     ]
   }
 }
