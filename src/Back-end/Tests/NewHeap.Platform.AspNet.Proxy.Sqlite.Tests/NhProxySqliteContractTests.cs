@@ -72,6 +72,7 @@ public sealed class NhProxySqliteContractTests
         var services = builder.Services.AddNewHeapProxy(options =>
         {
             optionCalls++;
+            options.UseGenerousRedirectBudget();
             options.Administrator.UserName = "proxy-admin";
             options.ConfigureYarp(yarp =>
             {

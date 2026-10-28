@@ -33,6 +33,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -98,6 +99,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -181,6 +183,7 @@ public sealed class NhProxyApiTests
             builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -246,6 +249,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "<test:password>";
                 options.Administrator.LoginAttemptLimit = 1;
@@ -363,6 +367,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = limit;
@@ -406,6 +411,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -446,6 +452,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = 30;
@@ -491,6 +498,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = 1;
@@ -539,6 +547,7 @@ public sealed class NhProxyApiTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.Administrator.UserName = "api-admin";
                 options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = database);
