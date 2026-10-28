@@ -547,10 +547,12 @@ internal sealed class NhAssistantAgentRunOperation(
         agentTurn = WithSkill(agentTurn, result);
 
         // Messages that arrived while the run worked get further turns, a bounded number of times,
-        // also while the agent is off; after a pause they wait for the resume instead.
+        // also while the agent is off; after a pause they wait for the resume instead, and once agent
+        // work is off on the host for the next run in the thread.
         var turnCount = 1;
         while (result.Outcome == NhAssistantTurnStatuses.Completed
                && turnCount < MaxTurnsPerRun
+               && NhAssistantAgentWorkGate.IsOn(assistantOptions)
                && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken, agentTurn.SkillId ?? string.Empty) > 0
                && await agents.FindRunStateAsync(agentId, cancellationToken) is NhAssistantAgentRunStates.Active or NhAssistantAgentRunStates.Off)
         {
@@ -653,19 +655,20 @@ internal sealed class NhAssistantAgentRunOperation(
     }
 
     /// <summary>
-    /// Why the run may not work now: the assistant is disabled, the agent is disabled in code or
-    /// stopped, or the agent is paused and the run has not started yet. A run that started before a
-    /// pause finishes, and every run of an agent that is off works: it was accepted before the agent
-    /// was switched off, or a person started it.
+    /// Why the run may not work now: the assistant is disabled or agent work is off on this host, the
+    /// agent is disabled in code or stopped, or the agent is paused and the run has not started yet. A
+    /// run that started before a pause finishes, and every run of an agent that is off works: it was
+    /// accepted before the agent was switched off, or a person started it. A run that agent work being
+    /// off ends claims none of its inputs, as with the assistant disabled.
     /// </summary>
     private async Task<string?> RefusalAsync(
         AssistantRun run,
         NhAssistantAgentTurnContext agentTurn,
         CancellationToken cancellationToken)
     {
-        if (!assistantOptions.CurrentValue.Enabled)
+        if (NhAssistantAgentWorkGate.RefusalOf(assistantOptions) is { } refusal)
         {
-            return NhAssistantErrorCodes.Disabled;
+            return refusal;
         }
         if (!agentTurn.Options.Enabled)
         {
@@ -888,7 +891,8 @@ internal sealed class NhAssistantAgentRunOperation(
                 or NhAssistantErrorCodes.AgentConfiguredOff
                 or NhAssistantErrorCodes.ClassificationNotPermitted
                 or NhAssistantErrorCodes.ModelRegionDenied
-                or NhAssistantErrorCodes.Disabled => NhAssistantRunFailureClasses.Policy,
+                or NhAssistantErrorCodes.Disabled
+                or NhAssistantErrorCodes.AgentWorkOff => NhAssistantRunFailureClasses.Policy,
             NhAssistantErrorCodes.SubjectNotFound
                 or NhAssistantErrorCodes.AgentNotConfigured
                 or NhAssistantErrorCodes.AgentInstructionsUnavailable
@@ -1016,13 +1020,13 @@ internal sealed class NhAssistantProposalExecution(
 
         var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (thread is not null
-            && (!assistantOptions.CurrentValue.Enabled
+            && (!NhAssistantAgentWorkGate.IsOn(assistantOptions)
                 || (registration.AgentRuns.TryGetValue(thread.AgentId, out var runOptions) && !runOptions.Enabled)
                 || await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null))
         {
-            // A stopped or code-disabled agent, or a disabled assistant, keeps approved proposals
-            // waiting; the maintenance job queues their execution again once the agent works. A
-            // paused agent's proposals execute.
+            // A stopped or code-disabled agent, a disabled assistant and agent work that is off keep
+            // approved proposals waiting; the maintenance job queues their execution again once the
+            // agent works. A paused agent's proposals execute.
             await runs.TryTransitionApprovalAsync(
                 approval.Id,
                 ExecutableStatuses,

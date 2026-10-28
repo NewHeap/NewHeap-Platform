@@ -898,6 +898,14 @@ public static class NhAssistantErrorCodes
     public const string AgentOff = "assistant-agent-off";
 
     /// <summary>
+    /// Agent work is off on this host (<see cref="NhAssistantOptions.AgentWork"/>): no agent takes
+    /// events, schedules, webhooks, starts, hand-offs, follow-ups, consultations or the application's
+    /// messages, a queued run ends without working and approved proposals wait, while people keep
+    /// chatting and the administration serves.
+    /// </summary>
+    public const string AgentWorkOff = "assistant-agent-work-off";
+
+    /// <summary>
     /// The skill is switched off: a run that rules route to it ends without working in it. Triggers
     /// that name it are ignored with the reason <c>skill-off</c> instead.
     /// </summary>

@@ -118,6 +118,9 @@ internal static class NhAssistantServiceRegistration
         // The application posts its own messages into conversations (SPM-312), and notifies of them in
         // its inbox when it turned on in-app agent notifications.
         services.TryAddScoped<INhAssistantConversationMessages, NhAssistantConversationMessages>();
+        // The assistant's own report of an execution the application made posts through the class,
+        // without the agent-work gate of the interface (FB17).
+        services.TryAddScoped<NhAssistantConversationMessages>();
         services.TryAddScoped<NhAssistantInAppApplicationMessageNotifier>();
         services.TryAddScoped<INhAssistantDisplayNameResolver, NhAssistantClaimsDisplayNameResolver>();
 

@@ -163,16 +163,29 @@ internal sealed class NhAssistantRunMaintenance(
         // A proposal the application executes whose report deadline passed becomes uncertain; an
         // approver hands it to the application again or marks it resolved.
         await services.GetRequiredService<NhAssistantApplicationExecutions>().ExpireReportsAsync(proposalTime, BatchSize, cancellationToken);
-        if (services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
+        var assistantOptions = services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>();
+        if (assistantOptions.CurrentValue.Enabled)
         {
-            // With the assistant disabled nobody is reminded and nothing is queued for execution.
+            // With the assistant disabled nobody is reminded. People keep deciding while agent work is
+            // off, so they are reminded then too.
             await RemindAsync(runs, notifier, proposalTime, cancellationToken);
+        }
+        // With the assistant disabled or agent work off nothing is queued for execution: approved
+        // proposals wait, and the first pass once agents work again queues them (FB17).
+        var agentWork = NhAssistantAgentWorkGate.IsOn(assistantOptions);
+        if (agentWork)
+        {
             await QueueMissingExecutionsAsync(runs, decisions, proposalTime, cancellationToken);
         }
         if (operations is not null)
         {
             await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
-            await RecoverOrphanedRunsAsync(runs, operations, services.GetRequiredService<NhAssistantAgentTriggers>(), cancellationToken);
+            if (agentWork)
+            {
+                // A run that lost its operation stays queued while agents do not work, and is queued
+                // again once they do.
+                await RecoverOrphanedRunsAsync(runs, operations, services.GetRequiredService<NhAssistantAgentTriggers>(), cancellationToken);
+            }
             // An operation counts as ended once it has been terminal for as long as the background
             // operations take an attempt to be stale: liveness, on the system clock.
             var settled = services.GetService<NhBackgroundOperationsOptions>()?.StaleAttemptTimeout ?? TimeSpan.FromMinutes(2);

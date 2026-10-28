@@ -51,7 +51,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         group.MapGet("status", GetStatusAsync)
             .WithName("NhAssistantGetStatus")
             .WithSummary("Get assistant status")
-            .WithDescription("Returns whether the assistant is enabled, the agents the caller may use, the message limits and the collaboration features.")
+            .WithDescription("Returns whether the assistant is enabled, whether agents work on this host (agentWork), the agents the caller may use, the message limits and the collaboration features.")
             .Produces<NhAssistantStatusDto>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -210,7 +210,10 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 agents,
                 limits,
                 canAdminister,
-                collaboration),
+                collaboration)
+            {
+                AgentWork = NhAssistantAgentWorkGate.IsOn(current)
+            },
             NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
     }
 

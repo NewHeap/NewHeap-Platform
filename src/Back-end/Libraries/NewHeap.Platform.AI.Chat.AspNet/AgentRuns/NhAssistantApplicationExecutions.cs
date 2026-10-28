@@ -650,7 +650,8 @@ internal sealed class NhAssistantApplicationExecutions(
     /// Posts <paramref name="text"/> into the proposal's conversation as an application message without
     /// the trusted flag, so its people read it and a model reads it as information from the application,
     /// never as instructions. One message per hand-off and kind; a failed post is logged and changes
-    /// nothing about the close.
+    /// nothing about the close. It reports work the application already did, also for a person's chat,
+    /// so it is posted while agent work is off as well (FB17).
     /// </summary>
     private async Task PostAsync(AssistantApproval approval, ExecutionHome home, string text, string keyPrefix)
     {
@@ -661,8 +662,8 @@ internal sealed class NhAssistantApplicationExecutions(
             Access = NhAssistantApplicationMessageAccess.WithoutPersonCheck(),
             IdempotencyKey = keyPrefix + approval.Id.ToString("N") + "-" + approval.ExecutionAttempts.ToString(CultureInfo.InvariantCulture)
         };
-        var posted = await services.GetRequiredService<INhAssistantConversationMessages>()
-            .PostAsync(home.ConversationId, message, CancellationToken.None);
+        var posted = await services.GetRequiredService<NhAssistantConversationMessages>()
+            .PostAsync(home.ConversationId, message, agentWork: false, CancellationToken.None);
         if (!posted.Success)
         {
             logger.LogWarning(

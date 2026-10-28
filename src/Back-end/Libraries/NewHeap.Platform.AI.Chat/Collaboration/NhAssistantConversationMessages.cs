@@ -38,16 +38,39 @@ internal sealed class NhAssistantConversationMessages(
 
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _auditSinks = auditSinks.ToArray();
 
-    public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync(
+    /// <summary>
+    /// Posts the application's message, and the answer a request run posts into the asking chat. Both
+    /// are agent work: while agent work is off they are refused with
+    /// <see cref="NhAssistantErrorCodes.AgentWorkOff"/>.
+    /// </summary>
+    public Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync(
         Guid conversationId,
         NhAssistantApplicationMessage message,
         CancellationToken cancellationToken = default)
+    {
+        return PostAsync(conversationId, message, agentWork: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts <paramref name="message"/>. <paramref name="agentWork"/> <see langword="false"/> is for the
+    /// assistant's own report of what the application did with a proposal it executes, which tells
+    /// people about work already done, also in a person's chat, so it needs the assistant enabled only.
+    /// </summary>
+    internal async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync(
+        Guid conversationId,
+        NhAssistantApplicationMessage message,
+        bool agentWork,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
 
         if (!options.CurrentValue.Enabled)
         {
             return Failed(NhAssistantErrorCodes.Disabled, "The assistant is disabled.");
+        }
+        if (agentWork && NhAssistantAgentWorkGate.RefusalOf(options) is { } refusal)
+        {
+            return Failed(refusal, "Agent work is off on this host.");
         }
         if (Validate(message) is { } invalid)
         {

@@ -214,6 +214,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.SkillStopped,
             NhAssistantErrorCodes.SkillPaused,
             NhAssistantErrorCodes.AgentOff,
+            NhAssistantErrorCodes.AgentWorkOff,
             NhAssistantErrorCodes.SkillOff,
             NhAssistantErrorCodes.AgentDoesNotWorkOn,
             NhAssistantErrorCodes.MovedToShadow,

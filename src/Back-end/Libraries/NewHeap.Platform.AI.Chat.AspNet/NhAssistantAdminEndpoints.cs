@@ -71,7 +71,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("agents", GetAgentsAsync)
             .WithName("NhAssistantAdminGetAgents")
             .WithSummary("List agents")
-            .WithDescription("Returns code and administrator agents with their run state, including paused, stopped, switched-off and code-disabled agents.")
+            .WithDescription("Returns code and administrator agents with their run state, including paused, stopped, switched-off and code-disabled agents, and agentWork: false on every agent while agent work is off on this host.")
             .Produces<NhAssistantAdminAgentDto[]>();
         admin.MapPost("agents", CreateAgentAsync)
             .WithName("NhAssistantAdminCreateAgent")
@@ -106,7 +106,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("agents/{id}/state", GetAgentStateAsync)
             .WithName("NhAssistantAdminGetAgentState")
             .WithSummary("Get the run state of an agent")
-            .WithDescription("Returns active, paused, stopped, off or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
+            .WithDescription("Returns active, paused, stopped, off or configured-off, who changed it when and why, the inputs that wait while the agent is paused, and agentWork: whether agents work on this host; while they do not, active is false.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapGet("agents/{id}/compositions", GetAgentCompositionsAsync)
@@ -119,10 +119,11 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents/{id}/skills/{skillId}/state", SetSkillStateAsync)
             .WithName("NhAssistantAdminSetSkillState")
             .WithSummary("Pause, stop, switch off or resume one skill of an agent")
-            .WithDescription("paused: triggers that name the skill let their events wait and triage no longer offers it. stopped: its active runs are cancelled and its waiting events dropped. off: triggers that name the skill are ignored (reason skill-off), rules and triage no longer route to it, its running runs finish and nothing waits. active: resumes it with one run per thread with waiting events; a skill that was off starts nothing. The agent's other skills keep working; the agent's own state covers all skills.")
+            .WithDescription("paused: triggers that name the skill let their events wait and triage no longer offers it. stopped: its active runs are cancelled and its waiting events dropped. off: triggers that name the skill are ignored (reason skill-off), rules and triage no longer route to it, its running runs finish and nothing waits. active: resumes it with one run per thread with waiting events; a skill that was off starts nothing, and a paused skill of an active agent cannot be resumed while agent work is off on this host (409 assistant-agent-work-off). The agent's other skills keep working; the agent's own state covers all skills.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantSkillState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
-            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/skills/{skillId}/shadow", SetSkillShadowAsync)
             .WithName("NhAssistantAdminSetSkillShadow")
             .WithSummary("Put one skill of an agent in shadow or live")
@@ -158,7 +159,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents/{id}/state", SetAgentStateAsync)
             .WithName("NhAssistantAdminSetAgentState")
             .WithSummary("Pause, stop, switch off or resume an agent")
-            .WithDescription("paused: no new runs start and events wait; running runs finish and approved proposals execute. stopped: active runs are cancelled, waiting inputs end, approved proposals are held and events are refused. off: events, schedules, webhooks, hand-offs and follow-ups are ignored (reason agent-off) and nothing waits; running runs finish, open proposals stay decidable and people still chat and start the agent by hand. active: resumes, with one run per thread that has waiting inputs; an agent that was off starts nothing. A code-disabled agent cannot be resumed (409). The reason has at most 500 characters.")
+            .WithDescription("paused: no new runs start and events wait; running runs finish and approved proposals execute. stopped: active runs are cancelled, waiting inputs end, approved proposals are held and events are refused. off: events, schedules, webhooks, hand-offs and follow-ups are ignored (reason agent-off) and nothing waits; running runs finish, open proposals stay decidable and people still chat and start the agent by hand. active: resumes, with one run per thread that has waiting inputs; an agent that was off starts nothing. A code-disabled agent cannot be resumed (409), nor a paused agent while agent work is off on this host (409 assistant-agent-work-off). The reason has at most 500 characters.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -1331,6 +1332,7 @@ internal static class NhAssistantAdminEndpoints
             WorksOnDeclared = agent.WorksOn.Declared,
             ChatOnly = agent.ChatOnly,
             OffBeforeStop = state.OffBeforeStop,
+            AgentWork = state.AgentWork,
             InstructionsAsset = agent.InstructionsAsset,
             InstructionsProblem = agent.InstructionsProblem,
             Compositions = agent.Compositions.Compositions,

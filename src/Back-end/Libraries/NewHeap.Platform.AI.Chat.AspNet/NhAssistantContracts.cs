@@ -16,7 +16,15 @@ public sealed record NhAssistantStatusDto(
     IReadOnlyList<NhAssistantAgentSummaryDto> Agents,
     NhAssistantLimitsDto Limits,
     bool CanAdminister,
-    NhAssistantCollaborationDto? Collaboration = null);
+    NhAssistantCollaborationDto? Collaboration = null)
+{
+    /// <summary>
+    /// Whether agents work on this host (<see cref="NhAssistantOptions.AgentWork"/>):
+    /// <see langword="false"/> while agent work is off, when people still chat but no agent works on
+    /// its own, takes work or is consulted, and while the assistant is disabled.
+    /// </summary>
+    public bool AgentWork { get; init; }
+}
 
 /// <param name="Directory">Owners can invite colleagues directly through the application's directory.</param>
 /// <param name="HubPath">Path of the SignalR hub for live updates, or <see langword="null"/> when they are off.</param>
@@ -1062,6 +1070,13 @@ public sealed record NhAssistantAdminAgentDto(
     /// otherwise (<see cref="NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState.OffBeforeStop"/>).
     /// </summary>
     public bool OffBeforeStop { get; init; }
+
+    /// <summary>
+    /// Whether agents work on this host (<see cref="NhAssistantOptions.AgentWork"/>), the same for
+    /// every agent: <see langword="false"/> while agent work is off, when no agent works whatever its
+    /// <see cref="RunState"/> (<see cref="NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState.AgentWork"/>).
+    /// </summary>
+    public bool AgentWork { get; init; } = true;
 
     /// <summary>
     /// The asset of the application an agent created in the administration takes its instructions

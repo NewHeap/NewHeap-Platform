@@ -118,8 +118,8 @@ internal sealed class NhAssistantManualStarts(
     }
 
     /// <summary>
-    /// Whether the person may start the agent now, as <c>canStart</c> says: nothing refuses it and the
-    /// agent is enabled.
+    /// Whether the person may start the agent now, as <c>canStart</c> says: nothing refuses it, the
+    /// agent is enabled and agents work on this host.
     /// </summary>
     public async Task<bool> CanStartAsync(
         NhAssistantAgent? agent,
@@ -130,6 +130,7 @@ internal sealed class NhAssistantManualStarts(
         CancellationToken cancellationToken)
     {
         return agent is not null
+            && NhAssistantAgentWorkGate.IsOn(options)
             && registration.AgentRuns.TryGetValue(agent.Id, out var runOptions)
             && runOptions.Enabled
             && (await CheckStartAsync(agent, subject, access, actorId, user, cancellationToken)).Success;
