@@ -1,4 +1,4 @@
-﻿import {Injectable, Type} from '@angular/core';
+import {Injectable, Type} from '@angular/core';
 import {TranslateService} from "@ngx-translate/core";
 import {
   ActivatedRoute,
@@ -83,7 +83,7 @@ export class NhRouterSetupService {
     private moduleConfig: NhCommonModuleConfig,
     private translateService: TranslateService
   ) {
-    this.activeLanguage = this.translateService.currentLang;
+    this.activeLanguage = this.translateService.getCurrentLang();
     this.translateService.onLangChange.subscribe((langChangeEvent) => {
       this.activeLanguage = langChangeEvent.lang;
     });
@@ -135,7 +135,7 @@ export class NhRouterSetupService {
       throw new Error(`Navigation item with id ${nhRouterLink.id} not found.`);
     }
 
-    const language = nhRouterLink.language ?? this.translateService.currentLang;
+    const language = nhRouterLink.language ?? this.translateService.getCurrentLang();
     const parts: string[] = [];
     let current: NhRouteNavigationItem|undefined = navigationItem;
     while(current) {

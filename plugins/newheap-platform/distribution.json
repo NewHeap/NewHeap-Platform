@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.88",
   "guidanceVersion": "1.13.88",
-  "skillContentHash": "68bf8968766702a9214ea8e3b302ae86e092f49828911641149349e89400cd98",
+  "skillContentHash": "76979bbd8d354132efbed9b1f5b325f34dd250c97f995416e0cb426bebc98401",
   "skills": [
     "newheap-platform-development"
   ],
@@ -82,20 +82,20 @@
       "rxjs": "~7.8.0"
     },
     "@newheap/platform-common": {
-      "@angular/common": "^20.3.28",
-      "@angular/core": "^20.3.28",
-      "@angular/forms": "^20.3.28",
-      "@angular/platform-browser": "^20.3.28",
-      "@angular/router": "^20.3.28",
+      "@angular/common": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/core": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/forms": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/platform-browser": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/router": "^20.3.28 || ^21.0.0 || ^22.0.0",
       "@microsoft/signalr": "^10.0.11",
       "@msgpack/msgpack": "^2.8.0",
-      "@ngx-translate/core": "^17.0.0",
-      "@swimlane/ngx-datatable": "^23.0.1",
+      "@newheap/nh-toastr": "^0.0.7",
+      "@ngx-translate/core": "^17.0.0 || ^18.0.0",
+      "@swimlane/ngx-datatable": "^23.0.1 || ^24.0.0 || ^25.0.0",
       "js-base64": "^3.7.7",
       "luxon": "^3.5.0",
       "ngx-bootstrap-multiselect": "^4.0.0",
-      "ngx-cookie-service": "^20.1.1",
-      "ngx-toastr": "^19.0.0",
+      "ngx-cookie-service": "^20.1.1 || ^21.0.0 || ^22.0.0",
       "rxjs": "~7.8.0"
     }
   },

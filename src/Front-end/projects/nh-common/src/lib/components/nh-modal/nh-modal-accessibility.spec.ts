@@ -1,6 +1,6 @@
 import {Component, ViewContainerRef, inject, signal, viewChild} from '@angular/core';
 import {ComponentFixture, TestBed, fakeAsync, tick} from '@angular/core/testing';
-import {TranslateModule, TranslateService, provideTranslateService} from '@ngx-translate/core';
+import {TranslateDirective, TranslatePipe, TranslateService, provideTranslateService} from '@ngx-translate/core';
 
 import {NhModalContentDirective} from '../../directives/nh-modal.directives';
 import {NhModalComponentRef, NhModalOptions, NhModalService} from '../../services/nh-modal.service';
@@ -93,7 +93,7 @@ describe('NhModalComponent accessibility', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [TranslateModule],
+      imports: [TranslateDirective, TranslatePipe],
       declarations: [
         NhModalComponent,
         NhModalContentDirective,

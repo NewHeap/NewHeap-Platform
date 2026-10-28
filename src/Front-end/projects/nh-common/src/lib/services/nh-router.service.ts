@@ -1,4 +1,4 @@
-﻿import {Inject, Injectable, InjectionToken, Optional, REQUEST_CONTEXT, Type} from '@angular/core';
+import {Inject, Injectable, InjectionToken, Optional, REQUEST_CONTEXT, Type} from '@angular/core';
 import {TranslateService} from "@ngx-translate/core";
 import {
   ActivatedRoute,
@@ -81,7 +81,7 @@ export class NhRouterService {
     @Optional() @Inject(NH_ROUTER_LANGUAGE_CHANGE_METHOD) private changeLanguageMethod: (newLanguage: string) => Promise<void>,
     @Optional() @Inject(REQUEST_CONTEXT) private requestContext: any
   ) {
-    this.activeLanguage = this.translateService.currentLang;
+    this.activeLanguage = this.translateService.getCurrentLang();
     this.translateService.onLangChange.subscribe((langChangeEvent) => {
       this.activeLanguage = langChangeEvent.lang;
     });
@@ -155,7 +155,7 @@ export class NhRouterService {
   }
 
   async navigate(nhRouterLink: NhRouterLink, navigationExtras?: NavigationExtras) {
-    if(nhRouterLink && nhRouterLink.language && nhRouterLink.language !== this.translateService.currentLang) {
+    if(nhRouterLink && nhRouterLink.language && nhRouterLink.language !== this.translateService.getCurrentLang()) {
       if(!this.changeLanguageMethod) {
         throw new Error('Nh_ROUTER_LANGUAGE_CHANGE_METHOD is not defined via DI injection token.');
       }

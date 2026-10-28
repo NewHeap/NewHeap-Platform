@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "build": "npm run nh-common:build && npm run nh-toastr:build && npm run nh-ai-chat:build",
-    "build:production": "npm run nh-common:build:production && npm run nh-toastr:build:production && npm run nh-ai-chat:build:production",
+    "build": "npm run nh-common:build && npm run nh-ai-chat:build",
+    "build:production": "npm run nh-common:build:production && npm run nh-ai-chat:build:production",
     "test": "ng test nh-common --watch=false",
     "nh-common:analyze": "ng build nh-common --stats-json",
-    "nh-common:build": "ng build nh-common --configuration=development",
-    "nh-common:build:production": "ng build nh-common --configuration=production",
+    "nh-common:build": "npm run nh-toastr:build && ng build nh-common --configuration=development",
+    "nh-common:build:production": "npm run nh-toastr:build:production && ng build nh-common --configuration=production",
     "nh-toastr:analyze": "ng build nh-toastr --stats-json",
     "nh-toastr:build": "ng build nh-toastr --configuration=development",
     "nh-toastr:build:production": "ng build nh-toastr --configuration=production",
@@ -16,7 +16,8 @@
     "nh-ai-chat:build": "ng build nh-ai-chat --configuration=development",
     "nh-ai-chat:build:production": "ng build nh-ai-chat --configuration=production",
     "nh-ai-chat:test": "ng test nh-ai-chat --watch=false",
-    "nh-toastr:test:compatibility": "node ../../tools/release/verify-nh-toastr-angular-compatibility.mjs"
+    "nh-toastr:test:compatibility": "node ../../tools/release/verify-nh-toastr-angular-compatibility.mjs",
+    "nh-common:test:compatibility": "node ../../tools/release/verify-nh-common-angular-compatibility.mjs"
   },
   "private": true,
   "dependencies": {
@@ -42,7 +43,6 @@
     "newheap-platform-guidance": "file:../..",
     "ngx-bootstrap-multiselect": "^4.0.0",
     "ngx-cookie-service": "^20.1.1",
-    "ngx-toastr": "^19.0.0",
     "node-fetch": "^3.3.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

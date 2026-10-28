@@ -15,7 +15,7 @@ import {
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
 import {BaseNhAuthService, NhAuthService} from "../../services/nh-auth.service";
 import {TranslateService} from "@ngx-translate/core";
-import { ToastrService } from "ngx-toastr";
+import { NhToastrService } from "@newheap/nh-toastr";
 import {ActivatedRoute} from "@angular/router";
 import {ClaimTypes, INhAuthorization, NhAuthorization} from "../../models/auth.models";
 import {
@@ -49,7 +49,7 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
 {
   protected authService: TAuthService;
   protected translateService: TranslateService = inject(TranslateService);
-  protected toastrService: ToastrService = inject(ToastrService);
+  protected toastrService: NhToastrService = inject(NhToastrService);
   protected activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   protected nhRouterService: NhRouterService = inject(NhRouterService);
   protected formValidator: NhServerSideFormValidationService = inject(NhServerSideFormValidationService);

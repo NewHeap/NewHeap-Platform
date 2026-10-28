@@ -30,6 +30,9 @@ const angularFrameworkPackages = [
 
 /** Whether an exact version satisfies a caret, tilde or exact peer range. */
 function satisfies(version, range) {
+  if (range.includes('||')) {
+    return range.split('||').some(part => satisfies(version, part));
+  }
   const [major, minor, patch] = version.split('.').map(Number);
   const match = /^([\^~]?)(\d+)\.(\d+)\.(\d+)$/.exec(range.trim());
   assert.ok(match, `The test supports caret, tilde and exact ranges, not ${range}.`);
@@ -44,7 +47,7 @@ function satisfies(version, range) {
 /** The Angular pins of a generated package.json match platform-common's peer ranges. */
 async function assertAngularPins(root) {
   const frontendPackage = JSON.parse(await readFile(resolve(root, 'src/Front-end/package.json'), 'utf8'));
-  const expected = platformCommonPeers['@angular/core'].replace(/^[\^~]/, '');
+  const expected = platformCommonPeers['@angular/core'].split('||')[0].trim().replace(/^[\^~]/, '');
   for (const name of angularFrameworkPackages) {
     assert.equal(frontendPackage.dependencies[name], expected, `${name} must be pinned to the lowest version platform-common accepts.`);
   }

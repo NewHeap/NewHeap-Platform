@@ -62,7 +62,7 @@ const requiredNpmPeers = {
     'luxon',
     'ngx-bootstrap-multiselect',
     'ngx-cookie-service',
-    'ngx-toastr',
+    '@newheap/nh-toastr',
     'rxjs'
   ],
   '@newheap/nh-toastr': [
@@ -73,6 +73,16 @@ const requiredNpmPeers = {
   ]
 };
 const supportedNpmPeerRanges = {
+  '@newheap/platform-common': {
+    '@angular/common': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/core': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/forms': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/platform-browser': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/router': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@ngx-translate/core': '^17.0.0 || ^18.0.0',
+    '@swimlane/ngx-datatable': '^23.0.1 || ^24.0.0 || ^25.0.0',
+    'ngx-cookie-service': '^20.1.1 || ^21.0.0 || ^22.0.0'
+  },
   '@newheap/nh-toastr': {
     '@angular/common': '^20.3.28 || ^21.0.0 || ^22.0.0',
     '@angular/core': '^20.3.28 || ^21.0.0 || ^22.0.0',
