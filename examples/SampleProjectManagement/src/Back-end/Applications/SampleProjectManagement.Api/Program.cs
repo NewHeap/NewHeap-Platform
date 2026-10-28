@@ -363,9 +363,11 @@ if (builder.Environment.IsDevelopment())
     // After the assistant's own start-up work: its schema exists when the project starter is created.
     builder.Services.AddHostedService<SampleRuntimeAgentSeeder>();
 }
+// SPM-370: with SampleProjectManagement:McpSignIn, MCP clients outside the application sign in to
+// /mcp through the application's authorization server; its own clients keep their NewHeap token.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithNewHeapPlatformAITools();
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration));
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.
@@ -450,7 +452,7 @@ app.UseNewHeapPlatformAspNetCommon(
             .UseEndpoints(endpoints =>
             {
                 endpoints.MapOpenApi();
-                endpoints.MapMcp("/mcp").RequireAuthorization();
+                endpoints.MapSampleMcp(builder.Configuration);
                 endpoints.MapSampleAssistant();
                 endpoints.MapScalarApiReference("/scalar", options =>
                 {

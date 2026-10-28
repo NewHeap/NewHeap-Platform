@@ -33,6 +33,23 @@ public static class NhAiAspNetMcpBuilderExtensions
         builder.WithCallToolHandler(NhAiMcpRequestHandlers.CallToolAsync);
         return builder;
     }
+
+    /// <summary>
+    /// Exposes the NewHeap tools as <see cref="WithNewHeapPlatformAITools(IMcpServerBuilder)"/> does and
+    /// configures the exposure, for example as a protected resource of the host's authorization servers
+    /// (<see cref="NhAiMcpExposureBuilder.UseProtectedResource"/>), so that MCP clients that follow the
+    /// MCP authorization flow sign in.
+    /// </summary>
+    public static IMcpServerBuilder WithNewHeapPlatformAITools(
+        this IMcpServerBuilder builder,
+        Action<NhAiMcpExposureBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configure);
+        builder.WithNewHeapPlatformAITools();
+        configure(new NhAiMcpExposureBuilder(builder.Services));
+        return builder;
+    }
 }
 
 /// <summary>

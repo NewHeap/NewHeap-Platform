@@ -13,14 +13,17 @@ public interface INhAiCallerCredentialAccessor
 {
     /// <summary>
     /// Returns the caller's bearer token for same-user delegated calls, or null.
-    /// Never stored in <see cref="NhAiInvocationContext"/>, never logged.
+    /// Never stored in <see cref="NhAiInvocationContext"/>, never logged. A request signed in with an
+    /// access token for the MCP exposure (<see cref="NhAiMcpExposureBuilder.UseProtectedResource"/>) has
+    /// none: that token is for the MCP resource only and is never passed on.
     /// </summary>
     ValueTask<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
 /// Default accessor: the saved <c>access_token</c> of the current authentication result,
-/// falling back to the <c>Authorization: Bearer</c> header of the current request.
+/// falling back to the <c>Authorization: Bearer</c> header of the current request; none for a
+/// request signed in with an access token for the MCP exposure.
 /// </summary>
 internal sealed class NhAiHttpContextCallerCredentialAccessor(
     IHttpContextAccessor httpContextAccessor) : INhAiCallerCredentialAccessor
@@ -33,6 +36,12 @@ internal sealed class NhAiHttpContextCallerCredentialAccessor(
         var httpContext = httpContextAccessor.HttpContext;
         if (httpContext is null)
         {
+            return null;
+        }
+        if (NhAiMcpProtectedResourceSignIn.Applies(httpContext))
+        {
+            // The token's audience is the MCP resource (RFC 8707): passing it on to the application's own
+            // API or another server would make it a credential for something it was not issued for.
             return null;
         }
 

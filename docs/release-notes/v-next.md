@@ -182,3 +182,24 @@ both reads and the relink as the server does.
 | Breaking change | Required action |
 |---|---|
 | `AgentPackagePartOutcome` has the new member `'kept-linked'`. | A `switch` or `Record<AgentPackagePartOutcome, ...>` over the outcomes handles `'kept-linked'`. |
+
+## NewHeap.Platform.AI.AspNet.Common and NewHeap.Platform.AI.Test: signing MCP clients in through the host's authorization server
+
+`WithNewHeapPlatformAITools(exposure => exposure.UseProtectedResource(...))` makes the MCP exposure an
+OAuth protected resource of the host's authorization servers, so any MCP client that follows the MCP
+authorization flow finds the authorization server from the endpoint and signs in.
+`NhAiMcpProtectedResourceOptions` takes the public URL of the MCP endpoint (`Resource`), the issuers
+(`AuthorizationServers`) and the scopes (`ScopesSupported`); map the endpoint with
+`RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicy)`. The exposure then serves
+the protected resource metadata (RFC 9728) at the resource's well-known address and at the root,
+answers an MCP request without a valid token with `401` and
+`WWW-Authenticate: Bearer resource_metadata="...", scope="..."` (with `error="invalid_token"` when a
+token was sent), and accepts only access tokens whose audience is the resource (RFC 8707), validated
+with the keys of the issuers' metadata. Behind a reverse proxy the resource is the public URL; the
+metadata follows its path and the challenge names its public address. `AcceptHostSchemes` keeps the
+host's own sign-in at the same endpoint, `OnTokenValidated` maps the token's person to the
+application's account or refuses it, and `INhAiCallerCredentialAccessor` returns no token for such a
+request, so the token is never passed on. The authorization server, the registration of clients and
+the consent stay the host's. Without the option nothing changes.
+`NhAiTestAuthorizationServer.IssueAccessToken(subject, resource, scope, issuedAt, lifetime)` issues a
+token as of a given time, for example an expired one.

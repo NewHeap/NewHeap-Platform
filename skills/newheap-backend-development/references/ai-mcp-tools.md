@@ -30,6 +30,56 @@ filters enabled where applicable, but retain the NewHeap discovery policy and
 invocation gate: transport authorization does not replace application resource
 authorization.
 
+To let MCP clients outside the application sign in, make the exposure a protected
+resource of the host's authorization server: call
+`WithNewHeapPlatformAITools(exposure => exposure.UseProtectedResource(...))` with
+`NhAiMcpProtectedResourceOptions.Resource`, the public URL of the MCP endpoint, the
+`AuthorizationServers`, issuer identifiers exactly as their metadata names them, and the
+`ScopesSupported`, and map the endpoint with
+`RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicy)`. An MCP client
+that follows the MCP authorization flow then finds the authorization server from the
+endpoint, obtains a token for the resource there and signs in; nothing depends on one
+client. The exposure serves the protected resource metadata (RFC 9728) with `resource`,
+`authorization_servers`, `scopes_supported` and `bearer_methods_supported` at the
+resource's well-known address (`/.well-known/oauth-protected-resource` followed by the
+resource's path) and at the root. It answers an MCP request without a valid token with
+`401` and `WWW-Authenticate: Bearer resource_metadata="...", scope="..."`, adding
+`error="invalid_token"` when the request sent a token, and accepts only JWT access tokens
+of those servers whose audience is the resource (RFC 8707), validated with the keys their
+metadata publishes. The authorization server, the registration of clients and the consent
+stay the host's; NewHeap is not an authorization server.
+
+The token's person is the host's decision. Without `OnTokenValidated` the request signs in
+with the token's claims (`iss`, `sub`, `scope`, `client_id`), which
+`UseAuthenticatedClaimsWithoutTenant(issuer)` projects for a host without accounts of its
+own. A host with its own accounts replaces the principal in `OnTokenValidated`, for
+example with the account linked to the token's issuer and subject and that account's
+current claims, and calls `Fail` for a subject linked to no account. The resource requires
+no scope of a token; map a granted scope to a capability with
+`AddScopeCapability("scope", value, capability)` when a tool needs one. The discovery
+policy, the invocation gate and each tool's own policies still decide what the person may
+see and call. Name the host's own schemes in `AcceptHostSchemes` to keep its own clients
+signing in at the same endpoint: only a token that none of the authorization servers issued
+reaches them, so a token of those servers is accepted for this resource only.
+
+A token for the resource is never passed on. `INhAiCallerCredentialAccessor` returns no
+token for such a request, so an API bridge tool, which calls the application's own API with
+the caller's token, fails with `api-bridge-unauthenticated` over it; expose generated or
+code-owned tools to these clients. The token signs in nowhere else either: the scheme
+authenticates only on endpoints that require the policy.
+
+Behind a reverse proxy, `Resource` is the public URL, which may differ from the app's own
+route. The metadata is served at the well-known address of the public path, matched against
+the full path of the request as the app sees it, and at the root; the challenge always names
+the public metadata address built from `Resource`, never one built from the request's host or
+forwarded headers. Let the proxy forward `/.well-known/oauth-protected-resource` followed by
+the public path, and the root when the origin serves this resource alone, to the app
+unchanged; `NhAiMcpProtectedResourceDefaults.MetadataAddressOf(resource)` names that address.
+A stateless exposure maps only `POST`, so a client that probes with `GET` finds the metadata
+at the well-known addresses, as RFC 9728 lets every client. The metadata document allows any
+origin; a browser-based client also needs the host's CORS policy to expose
+`WWW-Authenticate`.
+
 Expected `TaskResult` failures remain structured tool results and are marked as
 MCP tool errors rather than JSON-RPC protocol failures. An enveloped export
 publishes the shared `NhAiToolResult` shape as structured content and its schema,
@@ -185,6 +235,14 @@ from a stale list fails with `ai-tool-not-authorized` and runs nothing.
 - Trusting MCP arguments, prompts, retrieved content, or headers as scope authorization.
 - Returning credentials, internal exception text, prompts, or raw audit content over MCP.
 - Using MCP Tasks as NewHeap's authoritative durable-operation store.
+- Passing an MCP client's access token on to the application's own API or another
+  server; it is for the MCP resource only.
+- Accepting a token at the MCP endpoint whose audience is not the resource, for example
+  through a host scheme that trusts the same authorization server without an audience.
+- Building an authorization server, client registration or consent into the MCP
+  exposure, or a sign-in for one particular MCP client; the MCP authorization flow is the
+  contract, and the authorization server stays the host's.
+- Deriving the resource or its metadata address from the request's host behind a proxy.
 
 ## Verification
 
@@ -212,8 +270,16 @@ listed and audited, and that a widening hint fails with `NHAI013`. Fail a tool w
 a `FormattableString` message and assert that the text stays `code: message` while
 `_meta` and the client exception carry its format and arguments, also over
 Streamable HTTP, that joined messages carry neither, and that a refusal of the
-export carries its fixed text without arguments. SPM-222 and SPM-240 are the executable
-references.
+export carries its fixed text without arguments. With `UseProtectedResource`, assert the
+metadata at both addresses and its fields, also behind a path prefix, the challenge without a
+token and `error="invalid_token"` with an invalid, expired (`NhAiTestAuthorizationServer.IssueAccessToken`
+with an issue time) or foreign-audience token, that a token for the resource signs in while a
+token of the same server for another audience never reaches a host scheme, that the token is
+never passed on, that a person without rights meets the tools' own refusals, and that a host
+without the option serves no metadata and keeps its own challenge. Prove a round trip in
+which a client that follows the MCP authorization flow, such as the MCP SDK client or the
+assistant's own client, discovers the exposure, registers and signs in at
+`NhAiTestAuthorizationServer`. SPM-222, SPM-240 and SPM-370 are the executable references.
 
 ## Optional source evidence
 
