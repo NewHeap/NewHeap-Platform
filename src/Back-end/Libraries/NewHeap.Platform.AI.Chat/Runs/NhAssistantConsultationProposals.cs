@@ -289,6 +289,8 @@ internal sealed class NhAssistantConsultationProposals(
 
         var guards = services.GetRequiredService<NhAssistantProposalGuards>();
         var now = DateTimeOffset.UtcNow;
+        // The asker moves a proposal that a call made earlier, so no call proposes now: the context names
+        // no invocation, conversation, turn or channel (FB26).
         var keys = await guards.GetKeysAsync(
             new NhAiProposalGuardContext(proposal.ProposalId, approval.ToolId, proposal.Arguments, subject.Subject, thread.ScopeKey, now),
             cancellationToken);

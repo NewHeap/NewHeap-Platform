@@ -23,6 +23,7 @@
   <data name="StaleTaskCompleted" xml:space="preserve"><value>Al afgevinkt op {0}.</value></data>
   <data name="StaleTaskDeleted" xml:space="preserve"><value>De taak is verwijderd.</value></data>
   <data name="StaleProjectStatusSet" xml:space="preserve"><value>Het project staat al op {0}.</value></data>
+  <data name="StaleArchiveInPortal" xml:space="preserve"><value>Archiveer het project in het portaal, waar je kiest wat je bewaart.</value></data>
   <data name="CloserNoTaskCompleted" xml:space="preserve"><value>Er is geen taak afgerond; niets te controleren.</value></data>
   <data name="CloserProjectNotActive" xml:space="preserve"><value>Het project is niet actief; alleen actieve projecten worden voltooid.</value></data>
   <data name="CloserTasksOpen" xml:space="preserve"><value>{0} van de {1} taken staan nog open; het project blijft actief.</value></data>

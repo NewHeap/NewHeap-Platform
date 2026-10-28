@@ -65,7 +65,16 @@ thread's tenant, the attempt and the report deadline. Accept the work and return
 id, because an approver may hand the same proposal over again. The hand-off carries the approved
 arguments, not the division or scope the call was authorized in, so bind an object the arguments name
 again before acting on it: read the object's division and refuse unless `DecidedByActorId` may act
-there (SPM-314 refuses an order for another division's project with `order-project-out-of-scope`). A
+there (SPM-314 refuses an order for another division's project with `order-project-out-of-scope`). The
+hand-off and the receipt of its report carry `DecisionCulture`, the UI culture the person approved in, so
+the application can address them in their language, as the SPM-348 order desk confirms an order to its
+approver: the request culture of the decision endpoints, `NhAssistantDecidingPerson.Culture` of a
+decision through `INhAssistantProposalDecisionService` (the language of the message the channel asked
+them in), or the culture of the person's turn for an inline approval. Only a supported UI culture of
+`RequestLocalizationOptions.SupportedUICultures` is recorded, by its exact name or as the supported
+culture of its language (`nl-BE` as `nl-NL`); another language records `null` and the decision stands,
+as does a proposal approved before the culture was recorded. A resolution that hands the proposal over
+again keeps it, and the assistant's own posts into an agent thread keep the default culture. A
 failed result refuses the proposal
 (`execution-failed` with the result's code), and an exception leaves it `execution-unknown`
 (`hand-off-failed`). Report with `INhAssistantProposalExecutionReports.ReportExecutionAsync`, built with
@@ -103,7 +112,8 @@ above applies. In a chat, which has no approvers, nobody is notified and no foll
 close is posted into that conversation as an application message without the trusted flag, the outcome
 with its code and the report's summary, so the report, a refused hand-off and a passed deadline reach
 the person who approved. The approval records the UI culture of the person's turn that approved it
-(`AssistantApproval.DecisionCulture`, the `ApprovalCulture` migrations), and these posts, their title
+(`AssistantApproval.DecisionCulture`, the `ApprovalCulture` migrations, which deferred decisions record
+as well), and these posts, their title
 included, use that culture when the application still supports it as a UI culture
 (`RequestLocalizationOptions.SupportedUICultures`), otherwise the default request culture, as for an
 approval handed off before the culture was recorded; an agent thread keeps the default culture of reports
@@ -1651,6 +1661,18 @@ language why nothing was proposed; the model gets `assistant-proposal-not-needed
 `kind` and `explanation` as its tool result, and the tool call reads `not-executed`. A guard that
 throws at proposal time lets the proposal be recorded; the decision and the execution check again.
 
+Know the call that proposes. At the proposal stage, and for the keys of the new proposal, the
+`NhAiProposalGuardContext` also names the call that proposes: `Invocation` (its `NhAiInvocationContext`
+with the actor, scope, tenant and run), `ConversationId`, `TurnId` and `Channel`, the application's
+channel of `INhAssistantConversationTurns` such as `messaging-chat`. A guard can then refuse before an
+approval card is shown, for example a change that a channel's chat may not propose, with a stale result
+whose reason and explanation the model reads (SPM-349 keeps the messaging app from proposing to archive
+a project). At revalidation, decision and execution no call proposes and they are `null`, as they are
+for a proposal an asker leaves for the subject's approvers, so register such a guard for
+`NhAiProposalGuardStages.Proposal` alone and never authorize or refuse at the later stages on them.
+They take no part in the proposal hash or the approval evidence, and the guard still runs without a
+signed-in person: the tool's policies keep authorizing the call.
+
 Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
 `RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox
 consumer or after the commit (without a scope key it uses `global`), or declare it with
@@ -1863,6 +1885,12 @@ instructions in full: call them for an administrator or process the application 
   several events records the first event's key only.
 - Reading a run's status, summary or result from the assistant's tables; read them with
   `INhAssistantAgentRunLookup.FindRunAsync`, and never render its result as HTML.
+- Deciding at revalidation, decision or execution on `NhAiProposalGuardContext.Invocation`,
+  `ConversationId`, `TurnId` or `Channel`: only the proposal stage names the call that proposes, and
+  the later stages read them as `null`. Register a guard that needs them for the proposal stage alone.
+- Comparing whole `NhAiProposalGuardContext` or `NhAssistantExecutionReportReceipt` records, for example
+  in a cache key or a test: their init-only properties take part in record equality. Compare the
+  members you mean.
 - Writing a guard without object keys for a tool whose arguments change on every run, such as a due
   date of today, when its agent is evaluated in shadow: without keys every changed argument is a new
   shadow proposal and the evaluation counts more than the live agent would propose.
@@ -2152,7 +2180,10 @@ runs/{id}`, `GET runs`, `GET admin/agents/{id}/runs`, the agents of the subject 
 result in an English and a Dutch request and a model's answer as written, on both providers; hand a
 run over and assert `rule-then-model` and that the model's briefing names what became of each rule
 proposal and the rejections the rules saw; assert `NotNeededKind` and `Explanations` per supported
-culture for a proposal a proposal-time guard found not needed. Propose the same change
+culture for a proposal a proposal-time guard found not needed; assert that such a guard sees the
+invocation, conversation, turn and channel of a channel's turn and refuses before the card, that the
+decision's guard sees them as `null` and that the stored proposal does not carry the channel
+(SPM-349). Propose the same change
 twice from rules and from a model and assert one proposal and the deduplication audit; propose for
 the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
 approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
@@ -2425,7 +2456,12 @@ refused executor, that the report, the uncertain post and the deadline post read
 turn that approved it, title included, that an approval without a supported culture reads in the default
 one and that an agent thread keeps the default, that only the person who approved resolves an uncertain chat proposal, that a
 proposal in another status is refused and that handing it again starts a new attempt with a new deadline,
-and that without it the inline approval still runs the function. For
+and that without it the inline approval still runs the function. For the decision culture assert on
+both providers that a decision through the service with `NhAssistantDecidingPerson.Culture`, through
+the endpoints in the request culture and an inline approval in the turn's culture reach
+`NhAssistantProposalHandOff.DecisionCulture` and `NhAssistantExecutionReportReceipt.DecisionCulture`,
+that another culture of a supported language records the supported one and that an unsupported
+language records none while the decision stands (SPM-348). For
 `MaxConsultationsPerTurn` assert the refusal beyond the limit before the consulted agent runs, the
 default without a limit and an agent's own limit. SPM-327 and SPM-328 are the executable references.
 On both providers, override the required policy of an agent in code to one an asker lacks and assert
@@ -2738,3 +2774,13 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageService.Promotion.cs)
+- SPM-348 — The order desk confirms an approved order to its approver in the language they approved it in
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderDesk.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleEquipmentOrderTexts.resx)
+- SPM-349 — The messaging app's chat does not propose to archive a project and reads why before any card
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)

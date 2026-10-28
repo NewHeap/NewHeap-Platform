@@ -84,9 +84,9 @@ internal sealed class NhAssistantApplicationExecutions(
     /// <summary>
     /// Hands a person's inline approval in their own conversation to the application (LS17), as
     /// <see cref="HandOffAsync"/> does for an approved deferred proposal. The decision ran the proposal
-    /// guards already; no background operation carries the hand-off. In a person's chat the approval
-    /// records the UI culture of the turn that approved it, in which the chat later reads the close of
-    /// the hand-off (FB4).
+    /// guards already; no background operation carries the hand-off. The approval records the UI culture
+    /// of the person's turn that approved it, which the hand-off carries (FB22) and in which a chat later
+    /// reads the close of the hand-off (FB4); an agent thread's posts keep the default culture.
     /// </summary>
     public async Task<NhAssistantHandOffOutcome?> HandOffInlineAsync(
         AssistantApproval approval,
@@ -109,7 +109,7 @@ internal sealed class NhAssistantApplicationExecutions(
             operationId: null,
             inline: true,
             cancellationToken,
-            decisionCulture: thread is null ? CultureOfTurn() : null);
+            decisionCulture: CultureOfTurn());
     }
 
     /// <summary>
@@ -301,15 +301,14 @@ internal sealed class NhAssistantApplicationExecutions(
         if (approval.Status == NhAssistantApprovalStatuses.AwaitingApplication
             && await CloseReportedAsync(approval, home, report.Outcome, report.Code, summary) is { } closed)
         {
-            return TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(
-                new NhAssistantExecutionReportReceipt(closed.Id, closed.Status, Duplicate: false));
+            return TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(ReceiptOf(closed, duplicate: false));
         }
 
         // Idempotent by state: a proposal this report closed before is the earlier report; any other
         // proposal does not wait for one.
         var latest = await store.FindApprovalAsync(approval.Id, cancellationToken) ?? approval;
         return IsRepeat(latest, report)
-            ? TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(new NhAssistantExecutionReportReceipt(latest.Id, latest.Status, Duplicate: true))
+            ? TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(ReceiptOf(latest, duplicate: true))
             : TaskResult<NhAssistantExecutionReportReceipt>.Failed(
                 NhAssistantErrorCodes.ExecutionReportNotAwaited,
                 "The proposal does not wait for a report of its execution.");
@@ -410,7 +409,8 @@ internal sealed class NhAssistantApplicationExecutions(
             current.ExecutionAttempts,
             dueAt)
         {
-            Inline = inline
+            Inline = inline,
+            DecisionCulture = current.DecisionCulture
         };
         TaskResult result;
         try
@@ -465,6 +465,17 @@ internal sealed class NhAssistantApplicationExecutions(
             && approval.ExecutedAt is not null
             && string.Equals(approval.Status, NhAssistantApplicationExecutionCodes.StatusOf(report.Outcome), StringComparison.Ordinal)
             && string.Equals(approval.ExecutionResultCode, report.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The receipt of a report on <paramref name="approval"/>, with the culture the person approved it in.
+    /// </summary>
+    private static NhAssistantExecutionReportReceipt ReceiptOf(AssistantApproval approval, bool duplicate)
+    {
+        return new NhAssistantExecutionReportReceipt(approval.Id, approval.Status, duplicate)
+        {
+            DecisionCulture = approval.DecisionCulture
+        };
     }
 
     /// <summary>
@@ -604,13 +615,12 @@ internal sealed class NhAssistantApplicationExecutions(
     }
 
     /// <summary>
-    /// The UI culture the current turn works in, as a person's request or service turn set it; a name
-    /// longer than the approval keeps is not recorded.
+    /// The UI culture the current turn works in, as a person's request or service turn set it, when the
+    /// application supports it as a UI culture, as a deferred decision records its culture (FB22).
     /// </summary>
-    private static string? CultureOfTurn()
+    private string? CultureOfTurn()
     {
-        var name = CultureInfo.CurrentUICulture.Name;
-        return name.Length is > 0 and <= AssistantApproval.MaxDecisionCultureLength ? name : null;
+        return NhAssistantRunCulture.SupportedUiCultureName(localization.Value, CultureInfo.CurrentUICulture.Name);
     }
 
     /// <summary>

@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat;
 
@@ -43,7 +45,8 @@ public sealed record NhAssistantApprovalPresentation(
 /// drop logs a warning with the presenter's type, the tool id, the culture and the broken rule
 /// (<see cref="NhAssistantPresentationRules"/>), never the text. A presenter that throws or takes longer
 /// than <see cref="PresenterTimeout"/> falls back the same way. A tool classified
-/// <see cref="NhAiDataClassification.Confidential"/> or above is never presented.
+/// <see cref="NhAiDataClassification.Confidential"/> or above is never presented. Test a presenter's
+/// result with <see cref="FindBrokenRule"/>, the check that decides the drop.
 /// </summary>
 public static class NhAssistantPresentationLimits
 {
@@ -77,6 +80,76 @@ public static class NhAssistantPresentationLimits
 
     /// <summary>How long one presenter call may take before it falls back.</summary>
     public static TimeSpan PresenterTimeout { get; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// The first of these limits that <paramref name="presentation"/> breaks, as a
+    /// <see cref="NhAssistantPresentationRules"/> name, or <see langword="null"/> when it keeps within all
+    /// of them. This is the check the assistant drops a presenter's result by, so a presenter's unit test
+    /// can call it with the longest texts the application allows and fail before production drops the
+    /// presentation for the generic summary.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="presentation"/> is <see langword="null"/>.</exception>
+    public static string? FindBrokenRule(NhAssistantApprovalPresentation presentation)
+    {
+        ArgumentNullException.ThrowIfNull(presentation);
+
+        if (string.IsNullOrWhiteSpace(presentation.ToolDisplayName))
+        {
+            return NhAssistantPresentationRules.DisplayNameMissing;
+        }
+        if (presentation.ToolDisplayName.Length > MaxDisplayNameLength)
+        {
+            return NhAssistantPresentationRules.DisplayNameTooLong;
+        }
+        if (string.IsNullOrWhiteSpace(presentation.Summary))
+        {
+            return NhAssistantPresentationRules.SummaryMissing;
+        }
+        if (presentation.Summary.Length > MaxSummaryLength)
+        {
+            return NhAssistantPresentationRules.SummaryTooLong;
+        }
+        if (presentation.Fields is null)
+        {
+            return NhAssistantPresentationRules.FieldsMissing;
+        }
+        if (presentation.Fields.Count > MaxFields)
+        {
+            return NhAssistantPresentationRules.TooManyFields;
+        }
+        foreach (var field in presentation.Fields)
+        {
+            if (field is null || string.IsNullOrWhiteSpace(field.Label))
+            {
+                return NhAssistantPresentationRules.FieldLabelMissing;
+            }
+            if (field.Label.Length > MaxFieldLabelLength)
+            {
+                return NhAssistantPresentationRules.FieldLabelTooLong;
+            }
+            if (string.IsNullOrWhiteSpace(field.Value))
+            {
+                return NhAssistantPresentationRules.FieldValueMissing;
+            }
+            if (field.Value.Length > MaxFieldValueLength)
+            {
+                return NhAssistantPresentationRules.FieldValueTooLong;
+            }
+        }
+        if (presentation.Notice?.Length > MaxNoticeLength)
+        {
+            return NhAssistantPresentationRules.NoticeTooLong;
+        }
+
+        // The stored JSON counts escaped characters, so texts within their own caps can still be too long.
+        var serialized = JsonSerializer.Serialize(presentation, NhAssistantContent.JsonOptions);
+        if (serialized.Length > MaxSerializedLength)
+        {
+            return NhAssistantPresentationRules.TooLong;
+        }
+
+        return null;
+    }
 }
 
 /// <summary>

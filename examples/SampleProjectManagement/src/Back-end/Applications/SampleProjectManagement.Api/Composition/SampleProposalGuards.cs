@@ -128,6 +128,45 @@ public sealed class ProjectStatusProposalGuard(
 }
 
 /// <summary>
+/// SPM-349: keeps the chat in the messaging app from proposing to archive a project, before an approval
+/// card is shown there. Archiving a project asks what to keep, which only the portal shows, so a proposal
+/// of the status Archived that a turn of the messaging channel makes
+/// (<see cref="NhAiProposalGuardContext.Channel"/>) does not apply: nothing is proposed, the model reads
+/// the reason and the explanation and points the person to the portal. The same chat in the portal still
+/// proposes it. The guard is registered for the proposal stage only, because only that stage names the
+/// call that proposes; at revalidation, decision and execution the context names no channel, so a guard
+/// must not decide on it there.
+/// </summary>
+public sealed class ProjectArchiveChannelProposalGuard(
+    IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAiProposalGuard
+{
+    public const string ArchiveInPortalCode = "project-archive-in-portal";
+
+    public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>([]);
+    }
+
+    public ValueTask<NhAiPreconditionResult> CheckAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (!string.Equals(context.Channel, Services.SampleAssistantMessagingChannel.Channel, StringComparison.Ordinal)
+            || context.ToolId != ProjectAiTools.ChangeStatusToolId
+            || context.Arguments.Deserialize<ProjectAiStatusChangeInput>(JsonSerializerOptions.Web) is not { Status: DAL.Entities.ProjectStatus.Archived })
+        {
+            return ValueTask.FromResult(NhAiPreconditionResult.Satisfied);
+        }
+
+        return ValueTask.FromResult(NhAiPreconditionResult.NotApplicable(
+            ArchiveInPortalCode,
+            _ => localizer["StaleArchiveInPortal"].Value));
+    }
+}
+
+/// <summary>
 /// SPM-339: names what an equipment order changes, the order of one item for one project, so a newer
 /// order of the same item for the same project (another quantity) is a newer proposal for the same
 /// objects. The intake policy's duplicate rule then keeps one open order per item: a newer one replaces

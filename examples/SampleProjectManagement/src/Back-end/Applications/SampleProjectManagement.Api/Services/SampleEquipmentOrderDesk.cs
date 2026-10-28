@@ -2,7 +2,10 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
@@ -29,17 +32,26 @@ public sealed record SampleEquipmentOrder(
 /// proposal finds its order again. When the supplier confirms (<see cref="ConfirmAsync"/>, which a
 /// supplier's callback calls in a real application and the sample's tests call here), the desk reports
 /// the outcome of a handed-off order through <see cref="INhAssistantProposalExecutionReports"/>: with the
-/// supplier's code and a short summary, in the tenant of the hand-off.
+/// supplier's code and a short summary, in the tenant of the hand-off. SPM-348: it then confirms the
+/// outcome to the person who approved the order in the language they approved it in
+/// (<see cref="Confirmations"/>).
 /// </summary>
 public sealed class SampleEquipmentOrderDesk(IServiceScopeFactory scopes) : IProjectEquipmentOrderDesk
 {
     private readonly ConcurrentDictionary<string, SampleEquipmentOrder> _orders = new(StringComparer.Ordinal);
+    private readonly ConcurrentQueue<SampleEquipmentOrderConfirmation> _confirmations = new();
     private int _sequence;
 
     /// <summary>
     /// The orders on the desk.
     /// </summary>
     public IReadOnlyCollection<SampleEquipmentOrder> Orders => _orders.Values.ToArray();
+
+    /// <summary>
+    /// SPM-348: the confirmations the desk sent to the people who approved its reported orders, each in
+    /// the language they approved in.
+    /// </summary>
+    public IReadOnlyCollection<SampleEquipmentOrderConfirmation> Confirmations => _confirmations.ToArray();
 
     /// <summary>
     /// Takes an order a person approved in their own turn, outside any proposal.
@@ -94,9 +106,53 @@ public sealed class SampleEquipmentOrderDesk(IServiceScopeFactory scopes) : IPro
             ? $"Order {order.OrderNumber} for {order.Quantity} {order.Item} is placed with the supplier."
             : $"Order {order.OrderNumber}: the supplier answered {code}.";
         await using var scope = scopes.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<INhAssistantProposalExecutionReports>().ReportExecutionAsync(
+        var reported = await scope.ServiceProvider.GetRequiredService<INhAssistantProposalExecutionReports>().ReportExecutionAsync(
             NhAssistantExecutionReport.For(handOff, outcome, code, summary),
             cancellationToken);
+        if (reported.Success && !reported.Data!.Duplicate)
+        {
+            _confirmations.Enqueue(ConfirmationFor(scope.ServiceProvider, order, handOff, reported.Data, outcome, code));
+        }
+
+        return reported;
+    }
+
+    /// <summary>
+    /// SPM-348: the confirmation the desk sends the approver, in the UI culture they approved the order in
+    /// (<see cref="NhAssistantExecutionReportReceipt.DecisionCulture"/>, as the hand-off's
+    /// <see cref="NhAssistantProposalHandOff.DecisionCulture"/>), or in the application's default culture
+    /// when the platform recorded none. The agent's thread keeps the summary in the default culture.
+    /// </summary>
+    private static SampleEquipmentOrderConfirmation ConfirmationFor(
+        IServiceProvider services,
+        SampleEquipmentOrder order,
+        NhAssistantProposalHandOff handOff,
+        NhAssistantExecutionReportReceipt receipt,
+        NhAssistantExecutionOutcome outcome,
+        string code)
+    {
+        var culture = receipt.DecisionCulture is { } name
+            ? CultureInfo.GetCultureInfo(name)
+            : services.GetRequiredService<IOptions<RequestLocalizationOptions>>().Value.DefaultRequestCulture.UICulture;
+        var localizer = services.GetRequiredService<IStringLocalizer<SampleEquipmentOrderTexts>>();
+        var (previousCulture, previousUiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+        try
+        {
+            var text = outcome switch
+            {
+                NhAssistantExecutionOutcome.Completed => localizer["ConfirmationPlaced", order.OrderNumber, order.Quantity, order.Item].Value,
+                NhAssistantExecutionOutcome.Failed => localizer["ConfirmationNotPlaced", order.OrderNumber, code].Value,
+                _ => localizer["ConfirmationNeedsAttention", order.OrderNumber, code].Value
+            };
+            return new SampleEquipmentOrderConfirmation(order.OrderNumber, handOff.DecidedByActorId, culture.Name, text);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     private string NextOrderNumber()
@@ -104,6 +160,16 @@ public sealed class SampleEquipmentOrderDesk(IServiceScopeFactory scopes) : IPro
         return "EQ-" + Interlocked.Increment(ref _sequence).ToString("D4", CultureInfo.InvariantCulture);
     }
 }
+
+/// <summary>
+/// SPM-348: the confirmation of a reported order that the desk sends the person who approved it, in the
+/// culture they approved it in.
+/// </summary>
+public sealed record SampleEquipmentOrderConfirmation(
+    string OrderNumber,
+    string ApproverActorId,
+    string Culture,
+    string Text);
 
 /// <summary>
 /// SPM-314: the sample's executor of approved equipment orders (<c>UseProposalExecutor</c>). It reads

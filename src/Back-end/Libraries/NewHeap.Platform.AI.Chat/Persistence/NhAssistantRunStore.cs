@@ -3444,7 +3444,8 @@ internal sealed record NhAssistantApprovalTransition
     public Guid? SupersededByApprovalId { get; init; }
 
     /// <summary>
-    /// The UI culture of the person's turn that handed the inline approval to the application.
+    /// The UI culture the person decided in: of the decision of a deferred proposal, or of the person's
+    /// turn that handed the inline approval to the application.
     /// </summary>
     public string? DecisionCulture { get; init; }
 }

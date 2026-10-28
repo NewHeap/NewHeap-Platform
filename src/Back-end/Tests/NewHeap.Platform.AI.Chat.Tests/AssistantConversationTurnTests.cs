@@ -321,6 +321,69 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
         Assert.Equal("Found the roadmap project.", TextOf(conversation.GetProperty("messages")[1]));
     }
 
+    /// <summary>
+    /// FB26: a guard at the proposal stage sees the call that proposes, its invocation, conversation, turn
+    /// and channel, so it refuses a change that the channel's chat may not propose before an approval card
+    /// is shown. The decision reads the stored proposal without them, and the proposal does not carry them.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_guard_sees_the_call_that_proposes_only_at_the_proposal_stage(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = ChannelProposalGuard.RefusedStatus } })
+            .RespondWithText("Close the project in the portal.")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "Active" } })
+            .RespondWithText("Done: the project is active.");
+        await using var app = await StartAsync(provider, model, configure: services =>
+        {
+            services.AddSingleton<GuardContexts>();
+            services.AddNewHeapAssistant(assistant => assistant.AddProposalGuard<ChannelProposalGuard>(
+                [TestProjectToolCatalog.ChangeStatus.Id],
+                NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal));
+        });
+        using var client = app.CreateClient();
+        var id = Guid.Parse(await CreateConversationAsync(client));
+        var person = Person("user-1");
+        var seen = app.Services.GetRequiredService<GuardContexts>();
+
+        // The channel's chat may not close a project: nothing is proposed and the turn ends without a card.
+        var refused = await SendAsync(app, person, id, new NhAssistantConversationMessage("Close the roadmap project."));
+
+        Assert.True(refused.Success);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, refused.Data!.Status);
+        Assert.Empty(refused.Data.PendingApprovals);
+        var proposing = Assert.Single(seen.Checked);
+        Assert.Equal(
+            ((Guid?)id, (Guid?)refused.Data.TurnId, (string?)ChannelCode),
+            (proposing.ConversationId, proposing.TurnId, proposing.Channel));
+        Assert.NotNull(proposing.Invocation);
+        Assert.Equal(
+            ((Guid?)id, (string?)ChannelCode, "user-1"),
+            (proposing.Invocation.ConversationId, proposing.Invocation.Channel, proposing.Invocation.AccountableOwnerId));
+        var tool = refused.Data.Message!.Parts.OfType<NhAssistantToolCallPartDto>().Single();
+        Assert.Equal(NhAssistantErrorCodes.ProposalNotNeeded, tool.ResultCode);
+        Assert.Empty(app.Tools.StatusChanges);
+
+        // Another change gets its card; the decision's guard reads the stored proposal without the call.
+        var sent = await SendAsync(app, person, id, new NhAssistantConversationMessage("Activate the roadmap project."));
+        var approval = Assert.Single(sent.Data!.PendingApprovals);
+        var decided = await DecideAsync(app, person, id, approval.ApprovalId, new NhAssistantConversationDecision(NhAssistantProposalDecision.Approve, approval.ProposalHash));
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, decided.Data!.Status);
+        var checks = seen.Checked.ToArray();
+        Assert.True(checks.Length >= 3);
+        Assert.Equal(((Guid?)id, (Guid?)sent.Data.TurnId, (string?)ChannelCode), (checks[1].ConversationId, checks[1].TurnId, checks[1].Channel));
+        Assert.All(checks.Skip(2), later => Assert.Equal(
+            ((NhAiInvocationContext?)null, (Guid?)null, (Guid?)null, (string?)null),
+            (later.Invocation, later.ConversationId, later.TurnId, later.Channel)));
+        await using var scope = app.Services.CreateAsyncScope();
+        var stored = await scope.ServiceProvider.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None);
+        Assert.DoesNotContain(ChannelCode, stored!.ProposalJson, StringComparison.Ordinal);
+    }
+
     private static async Task DisconnectDuringTurnAsync(HttpClient client, string id, GatedChatClient model, TaskCompletionSource aborted)
     {
         using var abort = new CancellationTokenSource();
@@ -630,6 +693,46 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
         private TaskCompletionSource<NhAssistantTurnOutcome> SourceOf(Guid conversationId)
         {
             return _ended.GetOrAdd(conversationId, _ => new TaskCompletionSource<NhAssistantTurnOutcome>(TaskCreationOptions.RunContinuationsAsynchronously));
+        }
+    }
+
+    /// <summary>
+    /// The contexts the channel guard checked, in order.
+    /// </summary>
+    private sealed class GuardContexts
+    {
+        public ConcurrentQueue<NhAiProposalGuardContext> Checked { get; } = new();
+    }
+
+    /// <summary>
+    /// FB26: refuses closing a project from the messaging channel before the card, at the proposal stage,
+    /// where it knows the channel of the call; it records every context it checks.
+    /// </summary>
+    private sealed class ChannelProposalGuard(GuardContexts contexts) : INhAiProposalGuard
+    {
+        public const string RefusedStatus = "Closed";
+
+        public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+            NhAiProposalGuardContext context,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>([]);
+        }
+
+        public ValueTask<NhAiPreconditionResult> CheckAsync(
+            NhAiProposalGuardContext context,
+            CancellationToken cancellationToken = default)
+        {
+            contexts.Checked.Enqueue(context);
+            var (_, status) = ProjectStatusGuard.Read(context.Arguments);
+            if (context.Channel == ChannelCode && status == RefusedStatus)
+            {
+                return ValueTask.FromResult(NhAiPreconditionResult.NotApplicable(
+                    "close-in-the-portal",
+                    _ => "Close the project in the portal."));
+            }
+
+            return ValueTask.FromResult(NhAiPreconditionResult.Satisfied);
         }
     }
 

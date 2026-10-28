@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "4f4bbcaece7ad4d0d0bab7caf448c0a3c3e8d0f6c4a1d9edfc341cc1956ae532",
-    "declarationCount": 11354,
+    "hash": "94bb4d8849ffe659fb3715f6b6b21334da0d44453f06ff49da159239f57a252a",
+    "declarationCount": 11364,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4255,6 +4255,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
+        "declaration": "public static string? SupportedUiCultureName(RequestLocalizationOptions? options, string? uiCulture) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunOperations.cs",
         "declaration": "public void Dispose() {"
       },
       {
@@ -4855,7 +4859,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
-        "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId);"
+        "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public string? Culture { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
@@ -4968,6 +4976,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
         "declaration": "public static NhAssistantDecisionOrigin Web { get; } = new(NhAssistantDecisionChannels.Web, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public string? Culture { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackEndpoints.cs",
@@ -11463,6 +11475,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string? DecisionCulture { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
         "declaration": "public Guid ProposalId => Proposal.ProposalId;"
       },
       {
@@ -11511,7 +11527,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
-        "declaration": "public sealed record NhAssistantExecutionReportReceipt(Guid ApprovalId, string Status, bool Duplicate);"
+        "declaration": "public sealed record NhAssistantExecutionReportReceipt(Guid ApprovalId, string Status, bool Duplicate) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string? DecisionCulture { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
@@ -19591,6 +19611,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public static string? FindBrokenRule(NhAssistantApprovalPresentation presentation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
         "declaration": "public static class NhAssistantPresentationRules {"
       },
       {
@@ -26131,7 +26155,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
-        "declaration": "public sealed record NhAiProposalGuardContext( Guid ProposalId, string ToolId, JsonElement Arguments, NhAiSubjectRef? Subject, string? ScopeKey, DateTimeOffset ProposedAt);"
+        "declaration": "public sealed record NhAiProposalGuardContext( Guid ProposalId, string ToolId, JsonElement Arguments, NhAiSubjectRef? Subject, string? ScopeKey, DateTimeOffset ProposedAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public NhAiInvocationContext? Invocation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public Guid? ConversationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public Guid? TurnId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public string? Channel { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
@@ -49310,6 +49350,7 @@
       "NhAssistantExecutionReport",
       "NhAssistantExecutionOutcome",
       "NhAssistantExecutionReportReceipt",
+      "DecisionCulture",
       "NhAssistantApplicationExecutionCodes",
       "UseTextAssetSource",
       "INhAiTextAssetSource",
@@ -49515,6 +49556,7 @@
       "NhAssistantApprovalPresentation",
       "NhAssistantPresentationField",
       "NhAssistantPresentationLimits",
+      "FindBrokenRule",
       "NhAssistantPresentationRules",
       "AddToolPresenter",
       "INhAssistantParticipantDirectory",

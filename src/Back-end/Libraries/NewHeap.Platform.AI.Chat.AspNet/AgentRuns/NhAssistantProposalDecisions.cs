@@ -1,7 +1,10 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Live;
@@ -184,7 +187,8 @@ internal sealed class NhAssistantProposalDecisions(
 
     /// <summary>
     /// Decides the proposal as the decision endpoints do: through the <c>web</c> channel, without an
-    /// idempotency key.
+    /// idempotency key, in the UI culture of the request (FB22), which request localization set as the
+    /// current UI culture.
     /// </summary>
     /// <param name="tenantId">
     /// The caller's tenant, <see langword="null"/> for a caller without one: a proposal in a thread of
@@ -208,7 +212,7 @@ internal sealed class NhAssistantProposalDecisions(
             approve,
             expectedProposalHash,
             reason,
-            NhAssistantDecisionOrigin.Web,
+            NhAssistantDecisionOrigin.Web with { Culture = CultureInfo.CurrentUICulture.Name },
             cancellationToken,
             tenantId);
     }
@@ -286,6 +290,11 @@ internal sealed class NhAssistantProposalDecisions(
         }
 
         var status = approve ? NhAssistantApprovalStatuses.Approved : NhAssistantApprovalStatuses.Rejected;
+        // The culture the person decided in, which a hand-off to the application carries (FB22); only a
+        // supported UI culture is recorded.
+        var decisionCulture = NhAssistantRunCulture.SupportedUiCultureName(
+            services.GetService<IOptions<RequestLocalizationOptions>>()?.Value,
+            origin.Culture);
         var decided = await runs.TryTransitionApprovalAsync(
             approval.Id,
             [NhAssistantApprovalStatuses.Pending],
@@ -295,7 +304,8 @@ internal sealed class NhAssistantProposalDecisions(
                 DecidedByActorId = actorId,
                 DecidedAt = now,
                 ApprovalExpiresAt = approve ? approval.ExpiresAt : null,
-                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim()
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                DecisionCulture = decisionCulture
             },
             cancellationToken);
         if (!decided)
@@ -829,4 +839,11 @@ internal sealed record NhAssistantDecisionOrigin(string Channel, string? Idempot
     /// The decision endpoints of the assistant.
     /// </summary>
     public static NhAssistantDecisionOrigin Web { get; } = new(NhAssistantDecisionChannels.Web, null);
+
+    /// <summary>
+    /// The UI culture the person decided in: the request culture of the decision endpoints or
+    /// <see cref="NhAssistantDecidingPerson.Culture"/>. The approval records it when the application
+    /// supports it as a UI culture.
+    /// </summary>
+    public string? Culture { get; init; }
 }

@@ -56,7 +56,16 @@ public enum NhAiProposalGuardStages
     Proposal = 8
 }
 
-/// <summary>The facts a proposal guard works with.</summary>
+/// <summary>
+/// The facts a proposal guard works with. When a call proposes, at <see cref="NhAiProposalGuardStages.Proposal"/>
+/// and for the keys of the new proposal (<see cref="INhAiProposalGuard.GetKeysAsync"/>), it also names the
+/// call that proposes: <see cref="Invocation"/>, <see cref="ConversationId"/>, <see cref="TurnId"/> and
+/// <see cref="Channel"/>, so a guard can refuse before an approval card is shown, for example a change
+/// that a channel's chat may not propose. At revalidation, decision and execution no call proposes and
+/// they are <see langword="null"/>, as they are for a proposal that a person leaves for the subject's
+/// approvers: a guard must not authorize, or refuse, at those stages on them. None of them takes part in
+/// the proposal hash or the approval evidence.
+/// </summary>
 /// <param name="ProposalId">The proposal.</param>
 /// <param name="ToolId">The tool the proposal would run.</param>
 /// <param name="Arguments">The exact arguments the proposal would run with.</param>
@@ -75,7 +84,35 @@ public sealed record NhAiProposalGuardContext(
     JsonElement Arguments,
     NhAiSubjectRef? Subject,
     string? ScopeKey,
-    DateTimeOffset ProposedAt);
+    DateTimeOffset ProposedAt)
+{
+    /// <summary>
+    /// The invocation context of the call that proposes, as the tool would run with it: its actor, scope,
+    /// tenant, run, conversation and channel. Set only when a call proposes; <see langword="null"/> at
+    /// the later stages.
+    /// </summary>
+    public NhAiInvocationContext? Invocation { get; init; }
+
+    /// <summary>
+    /// The assistant conversation of the call that proposes, as <see cref="NhAiInvocationContext.ConversationId"/>:
+    /// the person's chat, the agent's thread or the consulted agent's thread. Set only when a call proposes;
+    /// <see langword="null"/> at the later stages.
+    /// </summary>
+    public Guid? ConversationId { get; init; }
+
+    /// <summary>
+    /// The assistant turn of the call that proposes. Set only when a call proposes; <see langword="null"/>
+    /// at the later stages.
+    /// </summary>
+    public Guid? TurnId { get; init; }
+
+    /// <summary>
+    /// The application's channel that started the turn of the call that proposes, as
+    /// <see cref="NhAiInvocationContext.Channel"/>, such as <c>messaging-chat</c>; <see langword="null"/>
+    /// for a turn of the assistant's own endpoints and an agent run, and at the later stages.
+    /// </summary>
+    public string? Channel { get; init; }
+}
 
 /// <summary>
 /// An application check for proposals of one or more tools: which application objects a proposal

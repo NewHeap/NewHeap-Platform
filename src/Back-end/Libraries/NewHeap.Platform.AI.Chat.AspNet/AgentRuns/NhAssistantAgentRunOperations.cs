@@ -323,6 +323,32 @@ internal static class NhAssistantRunCulture
         return new Restore(previous.CurrentCulture, previous.CurrentUICulture);
     }
 
+    /// <summary>
+    /// The name of the application's supported UI culture (<see cref="RequestLocalizationOptions.SupportedUICultures"/>)
+    /// that <paramref name="uiCulture"/> names, as the application spells it, for recording the culture a
+    /// person decided a proposal in (FB22): the culture of that exact name, otherwise the first supported
+    /// culture of its language, as the endpoints read an <c>Accept-Language</c> that names another culture
+    /// of a supported language (<c>nl</c> or <c>nl-BE</c> for <c>nl-NL</c>). <see langword="null"/> without
+    /// options or a name, for a language the application does not support and for a name longer than an
+    /// approval keeps.
+    /// </summary>
+    public static string? SupportedUiCultureName(RequestLocalizationOptions? options, string? uiCulture)
+    {
+        if (options?.SupportedUICultures is not { Count: > 0 } supported || string.IsNullOrWhiteSpace(uiCulture))
+        {
+            return null;
+        }
+
+        var name = uiCulture.Trim();
+        var language = name.Split('-')[0];
+        var match = supported.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? supported.FirstOrDefault(item => string.Equals(item.TwoLetterISOLanguageName, language, StringComparison.OrdinalIgnoreCase));
+
+        return match is { Name.Length: > 0 and <= AssistantApproval.MaxDecisionCultureLength }
+            ? match.Name
+            : null;
+    }
+
     private sealed class Restore(CultureInfo culture, CultureInfo uiCulture) : IDisposable
     {
         public void Dispose()

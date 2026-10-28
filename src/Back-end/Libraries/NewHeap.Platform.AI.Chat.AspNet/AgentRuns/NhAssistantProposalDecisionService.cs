@@ -90,7 +90,21 @@ public interface INhAssistantProposalDecisionService
 /// requests. It is required: <see langword="null"/> states a person without a tenant, who reaches only
 /// work stored without one, so pass <see langword="null"/> only in a host without tenants or for its
 /// operators. Decisions, counts and subject work apply the same tenant rules as the endpoints.</param>
-public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId);
+public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId)
+{
+    /// <summary>
+    /// The UI culture the person decides in, such as <c>nl-NL</c>: the language of the message the
+    /// application's channel asked them in. <see cref="INhAssistantProposalDecisionService.DecideAsync"/>
+    /// records it with the decision when the application supports it as a UI culture
+    /// (<c>RequestLocalizationOptions.SupportedUICultures</c>): by its exact name, otherwise as the first
+    /// supported culture of its language (<c>nl</c> or <c>nl-BE</c> as <c>nl-NL</c>), as the endpoints read
+    /// <c>Accept-Language</c>. A culture of another language is not recorded, and the decision stands.
+    /// An approved proposal of a tool the application executes hands it over as
+    /// <see cref="NhAssistantProposalHandOff.DecisionCulture"/>. <see langword="null"/> records none; the
+    /// decision endpoints record the request culture.
+    /// </summary>
+    public string? Culture { get; init; }
+}
 
 /// <summary>
 /// A decision of a proposal.
@@ -260,7 +274,7 @@ internal sealed class NhAssistantProposalDecisionService(NhAssistantProposalDeci
             approve,
             expectedProposalHash,
             reason: null,
-            new NhAssistantDecisionOrigin(channel, idempotencyKey),
+            new NhAssistantDecisionOrigin(channel, idempotencyKey) { Culture = person.Culture },
             cancellationToken,
             person.TenantId);
         if (decided.Success)

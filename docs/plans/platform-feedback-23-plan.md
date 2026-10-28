@@ -332,6 +332,18 @@ Recorded by each lane under its own heading while it builds; ids are the lane's 
 
 ### Lane DC
 
+| # | Choice |
+|---|---|
+| DC1 | Built by lane DC (2026-10-28): **`NhAssistantPresentationLimits.FindBrokenRule(presentation)` is the only check, and the resolver's internal `BrokenRuleOf` is gone**, because one implementation keeps the tested check and the drop identical; a null presentation throws `ArgumentNullException`, and no separate display-name check is added because its caps are two public constants; for Lars to review. |
+| DC2 | Built by lane DC (2026-10-28): **a decision culture is recorded by its exact supported UI culture, otherwise as the first supported culture of its language (`nl-BE` as `nl-NL`), and a culture of another language records none while the decision stands**, because the endpoints read `Accept-Language` the same way and the culture is information for the application, not a reason to lose a valid decision; for Lars to review. |
+| DC3 | Built by lane DC (2026-10-28): **the decision endpoints record the request's current UI culture, single and bulk decisions alike, and rejections record it too**, because request localization already chose a supported culture there and the record says how the person decided, whatever they decided; for Lars to review. |
+| DC4 | Built by lane DC (2026-10-28): **an inline approval in an agent thread now records the turn's culture too (it was the chat only), checked as in DC2, and a resolution keeps the culture of the approval**, because the hand-off of every inline approval should carry it and agent-thread posts read only the default culture anyway, while a resolver's culture would need a way to clear the old one; for Lars to review. |
+| DC5 | Built by lane DC (2026-10-28): **`DecisionCulture` is an init property of the receipt as of the hand-off, not a positional parameter**, because the constructors stay compatible; record equality changes, hence the release row; for Lars to review. |
+| DC6 | Built by lane DC (2026-10-28): **the guard context names the call for the proposal-stage check and for `GetKeysAsync` of the new proposal (both run when a call proposes), with `ConversationId` and `Channel` from the invocation (the turn's scope as fallback) and `TurnId` from the turn; the consultation's move to the subject's approvers (CP20) names none**, because no call proposes there and the stored call is an older one; for Lars to review. |
+| DC7 | Built by lane DC (2026-10-28): **new cases SPM-347, SPM-348 and SPM-349 instead of extending SPM-246, SPM-314 and SPM-342**, because each adds its own executable path: a presenter unit test without a host (SPM-246 is a host test), the reply channel's culture reaching the order desk (crossing SPM-268 and SPM-314) and a channel-aware guard (crossing SPM-282 and SPM-332); for Lars to review. |
+| DC8 | Built by lane DC (2026-10-28): **the sample's reply token carries the message's culture (`OfferAsync(..., CultureInfo messageCulture, ...)`, the old overload uses the current UI culture) and the order desk confirms each reported order to its approver in the receipt's culture through localized `SampleEquipmentOrderTexts`**, because the thread's summary must keep the default culture and the approver's own confirmation is where an application uses the culture; for Lars to review. |
+| DC9 | Built by lane DC (2026-10-28): **the sample guard refuses only the status Archived from the `messaging-chat` channel, registered for `NhAiProposalGuardStages.Proposal` alone, with `NotApplicable("project-archive-in-portal")`**, because archiving asks what to keep, which the portal shows, and the channel is known only at that stage; for Lars to review. |
+
 ### Lane PD
 
 | # | Choice |

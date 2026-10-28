@@ -182,6 +182,11 @@ public static class SampleAssistantComposition
             .UseTimeZone("Europe/Amsterdam")
             .UseTurnContextProvider<SampleAssistantTurnContextProvider>()
             .AddToolPresenter<SampleAssistantToolPresenter>()
+            // SPM-349: the messaging app's chat may not propose to archive a project. Only the proposal
+            // stage names the channel of the call that proposes, so the guard runs there alone.
+            .AddProposalGuard<ProjectArchiveChannelProposalGuard>(
+                [ProjectAiTools.ChangeStatusToolId],
+                NhAiProposalGuardStages.Proposal)
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,
                 Version: 1,

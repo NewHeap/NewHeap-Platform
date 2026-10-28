@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="ConfirmationPlaced" xml:space="preserve"><value>Je goedgekeurde bestelling {0} van {1} {2} is geplaatst bij de leverancier.</value></data>
+  <data name="ConfirmationNotPlaced" xml:space="preserve"><value>Je goedgekeurde bestelling {0} is niet geplaatst: de leverancier antwoordde {1}.</value></data>
+  <data name="ConfirmationNeedsAttention" xml:space="preserve"><value>Je goedgekeurde bestelling {0} vraagt aandacht: de leverancier antwoordde {1}.</value></data>
+</root>
