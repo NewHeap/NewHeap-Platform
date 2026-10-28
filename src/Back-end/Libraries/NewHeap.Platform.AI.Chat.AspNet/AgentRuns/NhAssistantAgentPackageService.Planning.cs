@@ -154,7 +154,8 @@ internal sealed partial class NhAssistantAgentPackageService
         PlanConsultations(plan, agent, options, stored, actorId, reason);
         PlanHandOffs(plan, agent, options, stored, actorId, reason);
 
-        // A part an earlier version linked that this version no longer contains stays, unlinked.
+        // A part an earlier version linked that this version no longer contains stays, unlinked, unless
+        // a promotion keeps the parts its variant does not carry linked (FB33).
         var carried = PartsOf(source);
         if (plan.Promotion is { RelinkUncarried: true } promotion && promotion.LiveAgentId == source.Id)
         {
