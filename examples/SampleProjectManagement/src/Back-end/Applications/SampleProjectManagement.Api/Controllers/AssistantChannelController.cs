@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.Common.Models;
@@ -16,7 +17,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// carry no sign-in. <see cref="SampleAssistantMessagingChannel"/> runs each turn as the person through
 /// the platform's <c>INhAssistantConversationTurns</c>. SPM-341: the person also starts a chat, reads the
 /// linked chat, answers its question card and stops its turn from the messaging app, through the
-/// platform's <c>INhAssistantConversations</c> and <c>AnswerAsync</c>.
+/// platform's <c>INhAssistantConversations</c> and <c>AnswerAsync</c>. SPM-358: the messaging app lists
+/// the person's chats and agents and uploads attachments to the linked chat.
 /// </summary>
 [ApiController]
 [Route("assistant-channel")]
@@ -54,7 +56,7 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
     [HttpPost("messages")]
     [AllowAnonymous]
     [EndpointSummary("Send a person's message from the messaging app")]
-    [EndpointDescription("The messaging provider delivers a person's message with the link token of their chat. The turn runs as the person the token names, with the checks of POST /api/assistant/conversations/{id}/messages and the person's own rights for every tool, and answers with the assistant's text and, when the turn waits for the person, the approval card to answer through POST assistant-channel/decisions. The turn keeps running when the delivery gives up; the chat in the portal holds its result. 400 for an unknown, altered or expired token, a link that a password change or session revocation ended, or an invalid message, 403 when the person may not use the assistant or no longer sign in, 404 for a chat the person does not take part in, 409 when the chat is busy or the delivery repeats one.")]
+    [EndpointDescription("The messaging provider delivers a person's message with the link token of their chat. The turn runs as the person the token names, with the checks of POST /api/assistant/conversations/{id}/messages and the person's own rights for every tool, and answers with the assistant's text and, when the turn waits for the person, the approval card to answer through POST assistant-channel/decisions. The turn keeps running when the delivery gives up; the chat in the portal holds its result. SPM-358: files carries the attachments POST assistant-channel/files uploaded to the chat. 400 for an unknown, altered or expired token, a link that a password change or session revocation ended, or an invalid message, 403 when the person may not use the assistant or no longer sign in, 404 for a chat the person does not take part in, 409 when the chat is busy or the delivery repeats one.")]
     [ProducesResponseType<AssistantChannelAnswerViewModel>(StatusCodes.Status200OK)]
     [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status403Forbidden)]
@@ -63,7 +65,10 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
     public async Task<IActionResult> Send([FromBody] AssistantChannelMessageMutateModel model, CancellationToken cancellationToken)
     {
         var sent = await channel.SendAsync(
-            new SampleAssistantChannelMessage(model.DeliveryId, model.Token, model.Text),
+            new SampleAssistantChannelMessage(model.DeliveryId, model.Token, model.Text)
+            {
+                Files = model.Files.Select(file => new NhAiFileReference(file.Id, file.Name, file.MediaType, file.Size, file.Hash)).ToArray()
+            },
             cancellationToken);
         return sent.Success ? Ok(ToViewModel(sent.Data!)) : Refusal(sent);
     }
@@ -105,6 +110,84 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
 
         var chat = started.Data!;
         return Ok(new AssistantChannelChatViewModel(chat.Token, chat.ExpiresAt, ToViewModel(chat.Chat)));
+    }
+
+    [HttpPost("chat-list")]
+    [AllowAnonymous]
+    [EndpointSummary("List the person's chats in the messaging app")]
+    [EndpointDescription("SPM-358: the messaging app lists the chats of the person a link token names, most recently updated first and ten to a page, through the platform's INhAssistantConversations.ListAsync with the checks of GET /api/assistant/conversations. Each chat carries a link token of its own, which expires with the presented link, so the messaging app continues in the chat the person picks; agents' threads are not listed. The token travels in the body, never in the address. 400 for an unknown, altered or expired token, a link that a password change or session revocation ended, or a page below 1, 403 when the person may not use the assistant or no longer sign in.")]
+    [ProducesResponseType<AssistantChannelChatListViewModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListChats([FromBody] AssistantChannelChatListMutateModel model, CancellationToken cancellationToken)
+    {
+        var listed = await channel.ListChatsAsync(model.Token, model.Page, cancellationToken);
+        if (!listed.Success)
+        {
+            return Refusal(listed);
+        }
+
+        var chats = listed.Data!;
+        return Ok(new AssistantChannelChatListViewModel(
+            chats.Items.Select(chat => new AssistantChannelChatItemViewModel(chat.Token, chat.Title, chat.AgentId, chat.Status, chat.Unread)).ToArray(),
+            chats.Total));
+    }
+
+    [HttpPost("agents")]
+    [AllowAnonymous]
+    [EndpointSummary("List the agents the person may chat with in the messaging app")]
+    [EndpointDescription("SPM-358: the agents the person a link token names may start a chat with through POST assistant-channel/chats, and what they may attach to a message to each, through the platform's INhAssistantConversations.ListAgentsAsync with the checks of GET /api/assistant/agents. SPM-359: an agent whose model profile, and its fallbacks, may not receive the uploads' classification takes no attachments. 400 for an unknown, altered or expired token, or a link that a password change or session revocation ended, 403 when the person may not use the assistant or no longer sign in.")]
+    [ProducesResponseType<AssistantChannelAgentViewModel[]>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListAgents([FromBody] AssistantChannelTokenMutateModel model, CancellationToken cancellationToken)
+    {
+        var listed = await channel.ListAgentsAsync(model.Token, cancellationToken);
+        if (!listed.Success)
+        {
+            return Refusal(listed);
+        }
+
+        return Ok(listed.Data!
+            .Select(agent => new AssistantChannelAgentViewModel(agent.AgentId, agent.DisplayNameKey, agent.AcceptsFiles, agent.AcceptedMediaTypes, agent.MaxFileBytes))
+            .ToArray());
+    }
+
+    [HttpPost("files")]
+    [AllowAnonymous]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
+    [EndpointSummary("Upload an attachment from the messaging app")]
+    [EndpointDescription("SPM-358: the messaging provider delivers an attachment for the linked chat as multipart/form-data with the chat's link token in the token field and one file part named file. The platform's INhAssistantConversations.UploadAsync uploads it as the person the token names, with the checks of POST /api/assistant/conversations/{id}/files: the chat, the agent's policy and rules, the type against the content and the size; the sample's scanner then checks it and the media library stores it in the chat's folder. The answer is the reference that files of POST assistant-channel/messages carries. The file's name never reaches a log. 400 for an unknown, altered or expired token, a link that a password change or session revocation ended, or a file without a name or content, 403 when the person may not use the assistant or the agent or no longer sign in, 404 for a chat the person does not take part in or a host that takes no uploads, 409 when the agent takes no attachments (SPM-359: also when its profile chain may not receive them), 413 for a file larger than the agent takes, 415 for a type that is not accepted or content of another type, 422 when the scanner refuses the file, 503 when it could not be stored.")]
+    [ProducesResponseType<AssistantChannelFileViewModel>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status415UnsupportedMediaType)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Upload([FromForm] AssistantChannelFileMutateModel model, CancellationToken cancellationToken)
+    {
+        if (model.File is not { } file)
+        {
+            return BadRequest(new AssistantChannelErrorViewModel(NhAssistantErrorCodes.FileUploadInvalid));
+        }
+
+        // The form buffered the file, so the platform can read it again for its checks.
+        await using var content = file.OpenReadStream();
+        var uploaded = await channel.UploadAsync(
+            new SampleAssistantChannelFile(model.Token, file.FileName, file.ContentType, content),
+            cancellationToken);
+        if (!uploaded.Success)
+        {
+            return Refusal(uploaded);
+        }
+
+        var reference = uploaded.Data!;
+        return Ok(new AssistantChannelFileViewModel(reference.Id, reference.Name, reference.MediaType, reference.Size, reference.Hash));
     }
 
     [HttpPost("chat")]
@@ -186,6 +269,11 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
             : new AssistantChannelQuestionViewModel(question.QuestionId, question.Question, question.Choices);
     }
 
+    /// <summary>
+    /// SPM-358: the largest upload request: the platform's largest file (20 MB) and the form around it.
+    /// </summary>
+    private const long MaxUploadRequestBytes = 20L * 1024 * 1024 + 64 * 1024;
+
     private IActionResult Refusal(TaskResult result)
     {
         var code = result.GetResultItems()
@@ -212,7 +300,15 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
                 or NhAssistantErrorCodes.ProposalHashMismatch
                 or NhAssistantErrorCodes.ProposalStale
                 or NhAssistantErrorCodes.QuestionNotPending
-                or NhAssistantErrorCodes.QuestionExpired => Conflict(error),
+                or NhAssistantErrorCodes.QuestionExpired
+                or NhAssistantErrorCodes.FilesNotAccepted => Conflict(error),
+            // SPM-358: an attachment keeps the status of the portal's upload endpoint.
+            NhAssistantErrorCodes.FileTooLarge => StatusCode(StatusCodes.Status413PayloadTooLarge, error),
+            NhAssistantErrorCodes.FileTypeNotAccepted => StatusCode(StatusCodes.Status415UnsupportedMediaType, error),
+            NhAssistantErrorCodes.FileScanRefused
+                or NhAssistantErrorCodes.FileUploadRefused => UnprocessableEntity(error),
+            NhAssistantErrorCodes.FilesUnavailable => NotFound(error),
+            NhAssistantErrorCodes.FileUploadFailed => StatusCode(StatusCodes.Status503ServiceUnavailable, error),
             _ => BadRequest(error)
         };
     }

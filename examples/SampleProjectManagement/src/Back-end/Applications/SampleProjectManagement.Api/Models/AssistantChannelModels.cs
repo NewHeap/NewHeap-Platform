@@ -39,6 +39,52 @@ public sealed class AssistantChannelMessageMutateModel
     [Required]
     [MaxLength(8_000)]
     public string Text { get; set; } = "";
+
+    /// <summary>
+    /// SPM-358: the attachments <c>POST assistant-channel/files</c> uploaded to the chat, as it answered
+    /// them; the turn opens them with the person's rights.
+    /// </summary>
+    [MaxLength(5)]
+    public List<AssistantChannelFileViewModel> Files { get; set; } = [];
+}
+
+/// <summary>
+/// SPM-358: a page of the person's chats the messaging app lists (<c>POST assistant-channel/chat-list</c>).
+/// </summary>
+public sealed class AssistantChannelChatListMutateModel
+{
+    /// <summary>
+    /// A link token of the person, of any of their linked chats.
+    /// </summary>
+    [Required]
+    [MaxLength(4_000)]
+    public string Token { get; set; } = "";
+
+    /// <summary>
+    /// The page, from 1.
+    /// </summary>
+    [Range(1, 1_000)]
+    public int Page { get; set; } = 1;
+}
+
+/// <summary>
+/// SPM-358: an attachment the messaging provider delivers to <c>POST assistant-channel/files</c> as
+/// <c>multipart/form-data</c>: the chat's link token and one file part.
+/// </summary>
+public sealed class AssistantChannelFileMutateModel
+{
+    /// <summary>
+    /// The link token of the chat the attachment is for.
+    /// </summary>
+    [Required]
+    [MaxLength(4_000)]
+    public string Token { get; set; } = "";
+
+    /// <summary>
+    /// The attachment, with the name and media type the person's device gave it.
+    /// </summary>
+    [Required]
+    public IFormFile? File { get; set; }
 }
 
 /// <summary>
@@ -187,6 +233,46 @@ public sealed record AssistantChannelChatStateViewModel(
 /// chat.
 /// </summary>
 public sealed record AssistantChannelChatViewModel(string Token, DateTimeOffset ExpiresAt, AssistantChannelChatStateViewModel Chat);
+
+/// <summary>
+/// SPM-358: an attachment of the chat as the platform stored it: the reference a message carries.
+/// </summary>
+/// <param name="Id">The media item's id.</param>
+/// <param name="Name">The file's name without a path.</param>
+/// <param name="MediaType">The media type it was checked and stored as.</param>
+/// <param name="Size">The length in bytes.</param>
+/// <param name="Hash">The hash the media library gave it, when it gave one.</param>
+public sealed record AssistantChannelFileViewModel(string Id, string Name, string MediaType, long Size, string? Hash = null);
+
+/// <summary>
+/// SPM-358: a page of the person's chats and how many there are.
+/// </summary>
+public sealed record AssistantChannelChatListViewModel(IReadOnlyList<AssistantChannelChatItemViewModel> Items, int Total);
+
+/// <summary>
+/// SPM-358: a chat of the person in the list.
+/// </summary>
+/// <param name="Token">The link token to continue in the chat; it expires with the presented link.</param>
+/// <param name="Title">The chat's title.</param>
+/// <param name="AgentId">The agent of the chat.</param>
+/// <param name="Status">idle, running, waiting-for-approval or failed.</param>
+/// <param name="Unread">Whether the chat has messages the person did not read.</param>
+public sealed record AssistantChannelChatItemViewModel(string Token, string? Title, string AgentId, string Status, bool Unread);
+
+/// <summary>
+/// SPM-358: an agent the person may chat with, and what they may attach to a message to it.
+/// </summary>
+/// <param name="AgentId">The agent to start a chat with through <c>POST assistant-channel/chats</c>.</param>
+/// <param name="DisplayNameKey">The translation key of its name.</param>
+/// <param name="AcceptsFiles">Whether the person may attach files; SPM-359: not when the agent's profile chain may not receive them.</param>
+/// <param name="AcceptedMediaTypes">The media types the person may attach.</param>
+/// <param name="MaxFileBytes">The largest file in bytes; 0 without attachments.</param>
+public sealed record AssistantChannelAgentViewModel(
+    string AgentId,
+    string DisplayNameKey,
+    bool AcceptsFiles,
+    IReadOnlyList<string> AcceptedMediaTypes,
+    int MaxFileBytes);
 
 /// <summary>
 /// SPM-332: an approval card: the approval, the proposal hash to answer with and what it does.

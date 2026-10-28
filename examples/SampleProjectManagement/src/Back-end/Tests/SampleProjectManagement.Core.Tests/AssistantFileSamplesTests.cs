@@ -887,7 +887,7 @@ public sealed class RecordingChatClient(IChatClient inner) : IChatClient
 /// file source on it, the example reader and the document reader, and sinks that capture logs and
 /// the platform audit to prove that no file content reaches them.
 /// </summary>
-public sealed class AssistantFileSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
+public class AssistantFileSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
 {
     private readonly string _mediaPath = Path.Combine(
         Path.GetTempPath(),
