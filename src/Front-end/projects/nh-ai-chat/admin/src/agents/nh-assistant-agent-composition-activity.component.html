@@ -1,0 +1,117 @@
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.compositions.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.compositions.description' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="secondary" type="button" data-compositions-refresh [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.compositions.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="field">
+      <label [for]="id + '-period'">{{ 'nh-assistant.admin.compositions.period' | translate }}</label>
+      <select [id]="id + '-period'" [disabled]="loading()" (change)="onPeriod($event)">
+        @for (days of periods; track days) {
+          <option [value]="days" [selected]="period() === days">{{ 'nh-assistant.admin.compositions.periods.last-' + days + '-days' | translate }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (loading() && !activity()) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (error(); as failure) {
+    <div class="state" role="alert">
+      <p>{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (activity(); as read) {
+    @if (read.calls.length === 0) {
+      <p class="state" data-compositions-empty>{{ 'nh-assistant.admin.compositions.empty' | translate }}</p>
+    } @else {
+      @if (read.truncated) {
+        <p class="muted" role="status" data-compositions-truncated>
+          {{ 'nh-assistant.admin.compositions.truncated' | translate: { total: read.total, shown: read.calls.length } }}
+        </p>
+      }
+
+      <section class="subsection" [attr.aria-labelledby]="id + '-usage-title'">
+        <h4 [id]="id + '-usage-title'">{{ 'nh-assistant.admin.compositions.usage-title' | translate }}</h4>
+        <div class="table-container">
+          <table class="summary-table" [attr.aria-labelledby]="id + '-usage-title'">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'nh-assistant.admin.compositions.columns.tool' | translate }}</th>
+                <th scope="col">{{ 'nh-assistant.admin.compositions.columns.kind' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.compositions.columns.calls' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.compositions.columns.tool-calls' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.compositions.columns.rounds-saved' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.compositions.columns.average-result' | translate }}</th>
+                <th scope="col" class="number">{{ 'nh-assistant.admin.compositions.columns.max-result' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tool of read.tools; track tool.toolId) {
+                <tr [attr.data-composition-tool]="tool.toolId">
+                  <th scope="row" [attr.data-label]="'nh-assistant.admin.compositions.columns.tool' | translate"><span class="mono">{{ tool.toolId }}</span></th>
+                  <td [attr.data-label]="'nh-assistant.admin.compositions.columns.kind' | translate">{{ 'nh-assistant.admin.compositions.kinds.' + tool.kind | translate }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.compositions.columns.calls' | translate">{{ tool.calls }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.compositions.columns.tool-calls' | translate">{{ tool.toolCalls }}</td>
+                  <td class="number" data-rounds-saved [attr.data-label]="'nh-assistant.admin.compositions.columns.rounds-saved' | translate">{{ tool.roundsSaved }}</td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.compositions.columns.average-result' | translate">
+                    {{ 'nh-assistant.admin.compositions.characters' | translate: { count: tool.averageResultCharacters } }}
+                  </td>
+                  <td class="number" [attr.data-label]="'nh-assistant.admin.compositions.columns.max-result' | translate">
+                    {{ 'nh-assistant.admin.compositions.characters' | translate: { count: tool.maxResultCharacters } }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="subsection" [attr.aria-labelledby]="id + '-calls-title'">
+        <h4 [id]="id + '-calls-title'">{{ 'nh-assistant.admin.compositions.calls-title' | translate }}</h4>
+        <ol class="cards">
+          @for (call of calls(); track call.invocationId) {
+            <li class="card" [attr.data-composition-call]="call.invocationId">
+              <div class="card-header">
+                <strong><time [attr.datetime]="call.startedAt">{{ call.startedAt | date: 'medium' }}</time></strong>
+                <span class="mono">{{ call.toolId }}</span>
+                <span class="badge">{{ 'nh-assistant.admin.compositions.kinds.' + call.kind | translate }}</span>
+                <span [class]="statusClass(call.status)">{{ 'nh-assistant.tool-call.status.' + call.status | nhAssistantTranslate: call.status }}</span>
+                @if (call.resultCode; as code) {
+                  <span class="muted" data-call-code>{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
+                }
+              </div>
+              <div class="meta">
+                <span data-call-rounds>{{ 'nh-assistant.admin.compositions.rounds-saved' | translate: { count: call.roundsSaved } }}</span>
+                <span>{{ 'nh-assistant.admin.compositions.result-size' | translate: { count: call.resultCharacters } }}</span>
+              </div>
+              @if (call.steps.length === 0) {
+                <p class="muted">{{ 'nh-assistant.admin.compositions.no-steps' | translate }}</p>
+              } @else {
+                <ol class="steps" [attr.aria-label]="'nh-assistant.admin.compositions.steps' | translate">
+                  @for (step of call.steps; track step.index) {
+                    <li [attr.data-step]="step.index">
+                      <span class="mono">{{ step.toolId }}</span>
+                      <span [class]="statusClass(step.status)">{{ 'nh-assistant.tool-call.status.' + step.status | nhAssistantTranslate: step.status }}</span>
+                      @if (step.resultCode; as code) {
+                        <span class="muted">{{ codeKeys(code) | nhAssistantTranslate: code }}</span>
+                      }
+                    </li>
+                  }
+                </ol>
+              }
+            </li>
+          }
+        </ol>
+      </section>
+    }
+  }
+</section>

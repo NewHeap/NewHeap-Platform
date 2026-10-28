@@ -15,6 +15,7 @@ import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockSc
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
+import { mockCompositionActivity } from './nh-assistant-mock-compositions';
 import { NhAssistantMockHandOffs } from './nh-assistant-mock-hand-offs';
 import {
   NhAssistantMockResult,
@@ -240,6 +241,9 @@ export class NhAssistantMockAdmin {
       case 'accounts':
         return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
       case 'agents':
+        if (id !== undefined && action === 'compositions' && segments.length === 4) {
+          return mockCompositionActivity(method, id, query);
+        }
         if (id !== undefined && action === 'feedback') {
           return this.agents.agentFeedback(method, id, child, segments.length);
         }

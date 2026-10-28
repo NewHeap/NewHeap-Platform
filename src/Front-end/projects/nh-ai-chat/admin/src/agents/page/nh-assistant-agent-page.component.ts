@@ -49,6 +49,7 @@ import {
 import { agentWork, hasRunConfiguration, offeredInChat, runsOnItsOwn, skillsInShadow } from '../agent-operations';
 import { NhAssistantAdminAgentEditorComponent, NhAssistantAgentEditorSection, nhAssistantSelectorMatches } from '../nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentMetadataComponent } from '../metadata/nh-assistant-agent-metadata.component';
+import { NhAssistantAgentCompositionActivityComponent } from '../nh-assistant-agent-composition-activity.component';
 import { NhAssistantAgentFeedbackReportComponent } from '../nh-assistant-agent-feedback-report.component';
 import { NhAssistantAgentRunHistoryComponent } from '../nh-assistant-agent-run-history.component';
 import { NhAssistantAgentRunConfigurationComponent, NhAssistantRunConfigurationSection } from '../nh-assistant-agent-run-configuration.component';
@@ -78,7 +79,7 @@ let nextId = 0;
  *   guided setup of an agent that only chats, the skills, the triggers, the agents it is connected to
  *   by consultations and hand-offs, and its guardrails.
  * - Rollout: everything that is not live yet, with its shadow variants and their evaluation.
- * - Activity: the agent's runs and the feedback on its proposals.
+ * - Activity: the agent's runs, the feedback on its proposals and what its compositions and scripts ran.
  *
  * The flow's entry points open their section of Build; a candidate in Rollout opens its comparison
  * there. Chat-only agents have no rollout and no runs.
@@ -98,6 +99,7 @@ let nextId = 0;
     NhAssistantAgentHandOffsComponent,
     NhAssistantAgentRunHistoryComponent,
     NhAssistantAgentFeedbackReportComponent,
+    NhAssistantAgentCompositionActivityComponent,
     NhAssistantPackageLockComponent,
     NhAssistantRunNowDialogComponent,
     NhAssistantAgentAccountControlComponent,
@@ -159,7 +161,7 @@ export class NhAssistantAgentPageComponent {
   readonly editing = signal<NhAssistantAgentEditorSection | null>(null);
   /** The section of Build its index last went to. */
   readonly currentSection = signal<AgentBuildSection>('profile');
-  readonly activity = signal<'runs' | 'feedback'>('runs');
+  readonly activity = signal<'runs' | 'feedback' | 'compositions'>('runs');
   readonly moreOpen = signal(false);
   readonly confirming = signal<'reset' | 'delete' | null>(null);
   readonly busy = signal(false);
@@ -173,6 +175,8 @@ export class NhAssistantAgentPageComponent {
   readonly work = computed(() => agentWork(this.agent()));
   readonly hasRunConfiguration = computed(() => hasRunConfiguration(this.agent()));
   readonly runs = computed(() => runsOnItsOwn(this.agent()));
+  /** The activity shown: an agent that does not run on its own has no runs, so it opens at the feedback. */
+  readonly shownActivity = computed(() => this.activity() === 'runs' && !this.runs() ? 'feedback' : this.activity());
   readonly tabs = computed<NhAssistantAgentTab[]>(() => NH_ASSISTANT_AGENT_TABS.filter(tab => tab !== 'rollout' || this.runs()));
   readonly selectedTab = computed<NhAssistantAgentTab>(() => this.tabs().includes(this.tab()) ? this.tab() : 'overview');
   /** What is not live yet, as Rollout lists it, for the count on its tab: the agent's skills in shadow. */

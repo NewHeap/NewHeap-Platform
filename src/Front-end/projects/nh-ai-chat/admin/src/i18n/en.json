@@ -1905,8 +1905,42 @@
           }
         },
         "activity": {
-          "label": "Show"
+          "label": "Show",
+          "compositions": "Compositions"
         }
+      },
+      "compositions": {
+        "title": "Compositions and scripts",
+        "description": "What this agent's compositions and scripts ran: each call with its tool calls in order, the model rounds it saved and the size of the result the model received.",
+        "period": "Period",
+        "periods": {
+          "last-7-days": "Last 7 days",
+          "last-30-days": "Last 30 days",
+          "last-90-days": "Last 90 days"
+        },
+        "refresh": "Refresh",
+        "empty": "No composition or script calls in this period.",
+        "usage-title": "Use per tool",
+        "calls-title": "Latest calls",
+        "truncated": "The period holds {{total}} calls; the use per tool covers the latest {{shown}}.",
+        "columns": {
+          "tool": "Tool",
+          "kind": "Kind",
+          "calls": "Calls",
+          "tool-calls": "Tool calls",
+          "rounds-saved": "Rounds saved",
+          "average-result": "Average result",
+          "max-result": "Largest result"
+        },
+        "kinds": {
+          "composition": "Composition",
+          "script": "Script"
+        },
+        "characters": "{{count}} characters",
+        "steps": "Tool calls in order",
+        "no-steps": "No tool call ran.",
+        "rounds-saved": "{{count}} model rounds saved",
+        "result-size": "{{count}} characters returned to the model"
       }
     }
   }

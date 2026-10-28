@@ -92,7 +92,8 @@ describe('Chat-only agents in the administration', () => {
     expect(page.querySelector('[data-status-menu="agent"]')).toBeNull();
     expect(adminStatusOf(page.querySelector('.page-head') as HTMLElement)).toBe('live');
     await openAdminTab(fixture, element, 'activity');
-    expect(page.querySelector('[data-activity]')).toBeNull();
+    // Without runs the activity offers the feedback and what its compositions and scripts ran.
+    expect(Array.from(page.querySelectorAll('[data-activity]')).map(button => button.getAttribute('data-activity'))).toEqual(['feedback', 'compositions']);
     expect(page.querySelector('nh-assistant-agent-run-history')).toBeNull();
     expect(page.querySelector('nh-assistant-agent-feedback-report')).not.toBeNull();
 
