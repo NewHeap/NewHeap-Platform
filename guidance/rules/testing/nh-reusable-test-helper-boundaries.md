@@ -42,6 +42,11 @@ tests, but they never become part of a consumer package.
   consumer's chosen runner and test framework explicitly.
 - Using EF Core InMemory as evidence for query translation, migrations,
   relational constraints, transactions, or provider-specific behavior.
+- Expecting the complete password sign-in on InMemory. Its claims and access
+  token (`INhAuthenticationService.CreateToken`) load there, but the session
+  also stores a refresh token and deletes expired ones with
+  `ExecuteDeleteAsync`, which InMemory cannot run; prove sign-in, division
+  claims and their lockout days on SQL Server and PostgreSQL.
 - Publishing test-runner, coverage, or browser dependencies when no public
   helper API depends on them.
 

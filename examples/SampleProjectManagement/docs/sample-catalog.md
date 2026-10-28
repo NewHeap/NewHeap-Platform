@@ -1171,8 +1171,11 @@ active, a body that names Sample South returns `403` and a Sample South
 membership returns `404`, because the inherited update and delete first
 resolve their row through the controller's `GetQueryableAsync`. A lockout the
 manager sets on a membership removes that member's claims for Sample North from
-the next request until the lockout ends; the other members keep theirs.
-Membership is also what a division check without requirements asks for, such as
+the next request until the lockout ends; the other members keep theirs. Its
+dates count in whole UTC days of the application's clock, from the start day
+through the end day, so a lockout that ends at midnight UTC still applies that
+day. The security officer, without an active division or memberships, keeps the
+application permissions. Membership is also what a division check without requirements asks for, such as
 the gate of the division-exclusive portfolio operations: the division editor
 works in Sample North only, and a member without division roles is still a
 member. `SampleRuntimeAuthorizationClaims` keeps the membership claim out of the

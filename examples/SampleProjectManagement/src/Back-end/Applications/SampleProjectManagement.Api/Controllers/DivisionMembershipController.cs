@@ -17,7 +17,8 @@ namespace SampleProjectManagement.Api.Controllers;
 /// policies, so a division manager reads and changes the memberships of the division in the
 /// <c>X-NH-ActiveDivisionId</c> header only: a membership of another division returns <c>404</c>,
 /// and a body that names another division returns <c>403</c>. A lockout that has started removes
-/// the member's claims for the division until it ends.
+/// the member's claims for the division until it ends; its dates count in whole UTC days of the
+/// application's clock, from the start day through the end day.
 /// </summary>
 [Route("division-memberships")]
 public sealed class DivisionMembershipController : NhBaseDivisionUserController<
