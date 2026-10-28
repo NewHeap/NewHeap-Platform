@@ -6340,6 +6340,26 @@
       ]
     },
     {
+      "id": "SPM-365",
+      "categoryId": "18",
+      "title": "An operator switches agent work off on the API host while people keep chatting and the administration serves",
+      "surface": "`NhAssistantOptions.AgentWork` (`NewHeap:AI:Assistant:AgentWork`, true by default, counting only while `Enabled`) and the code `assistant-agent-work-off` (409) for triggers, schedules, webhooks, starts by hand, replays, runs, hand-offs, follow-ups, consultations and `INhAssistantConversationMessages.PostAsync`; `NhAssistantStatusDto.AgentWork` on `GET status`, `NhAssistantAgentState.AgentWork` and `Active` on `INhAssistantAgentControl` and `GET admin/agents/{id}/state`, `NhAssistantAdminAgentDto.AgentWork` on `GET admin/agents`; `ResumeAsync` and `ResumeSkillAsync` refusing a paused agent or skill while agent work is off; `agentWork` on `AssistantStatus`, `AdminAgent` and `AgentState`, the agent list banner of `NhAssistantAdminAgentsComponent` in English and Dutch, and `agentWork` and `setAgentWork` of the mock API",
+      "outcome": "The API host keeps its endpoints and the administration while `NewHeap:AI:Assistant:AgentWork` is false, as an operator sets it in the host's configuration. `GET status` says `agentWork: false`, the administration and the maintenance page of SPM-284 list every agent with `agentWork: false` and none active, and the agent list says in a banner that no agent works. A new project's intake review is refused with `assistant-agent-work-off` and starts no run. The owner keeps chatting with the project assistant; its consultation of the intake reviewer answers `assistant-agent-work-off` as a tool result and the turn completes. When the configuration switches agent work on again and the host reloads it, the next project's review starts. The library tests prove on SQL Server and PostgreSQL that events, schedules, webhooks, starts and follow-ups are refused before any of their lambdas runs and are not audited per event, that a run queued before the switch ends with the code without claiming its inputs, that hand-offs, consultations and the application's messages are refused while a person's chat completes and the assistant's report of an execution the application made is still posted, that people decide proposals while approved ones are held and the maintenance job queues them once agent work is on, and that a paused agent or skill resumes only once agents work; over HTTP that the status and the administration report it and a person's inline decision in their own chat executes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorkGate.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkSwitchTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-list.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-switch.spec.ts"
+      ]
+    },
+    {
       "id": "SPM-366",
       "categoryId": "18",
       "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",
