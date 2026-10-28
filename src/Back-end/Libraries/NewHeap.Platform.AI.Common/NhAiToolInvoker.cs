@@ -312,7 +312,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
 
         // From here on an exception belongs to the governed invocation, not to argument binding.
         NhAiToolArguments.MarkInvokerEntered();
-        var trace = new InvocationTrace();
+        // A step of a composition or script carries its origin; a call its tool makes internally does not.
+        var trace = new InvocationTrace { Origin = NhAiToolCallOrigins.Take() };
         var result = await InvokeGovernedAsync(
             descriptor,
             arguments,
@@ -352,11 +353,16 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 null,
                 NhAiOutcomeKind.AuthorizationDenied,
                 cancellationToken,
-                resultCode: NhAiToolResult.GetCode(denied));
+                resultCode: NhAiToolResult.GetCode(denied),
+                origin: trace.Origin);
             return denied;
         }
 
         var context = authorization.Data;
+        if (trace.Origin is { } origin)
+        {
+            context = context with { Origin = origin };
+        }
         if (ExceedsInputLimit(arguments, descriptor.MaxInputBytes))
         {
             activity?.SetTag("newheap.ai.tool.outcome", "input-too-large");
@@ -860,7 +866,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         string? idempotencyCode = null,
         string? verificationCode = null,
         string? verificationEvidenceReference = null,
-        string? resultCode = null)
+        string? resultCode = null,
+        NhAiToolCallOrigin? origin = null)
     {
         if (_auditSinks.Count == 0)
         {
@@ -890,7 +897,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             AgentId = context?.AgentId,
             AccountableOwnerId = context?.AccountableOwnerId,
             ProposalId = context?.ProposalId,
-            GrantSource = context?.GrantSource ?? NhAiGrantSource.None
+            GrantSource = context?.GrantSource ?? NhAiGrantSource.None,
+            Origin = context?.Origin ?? origin
         };
         foreach (var sink in _auditSinks)
         {
@@ -1034,6 +1042,9 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private sealed class InvocationTrace
     {
         public string? EvidenceReference { get; set; }
+
+        /// <summary>The composition or script this invocation is a step of.</summary>
+        public NhAiToolCallOrigin? Origin { get; init; }
     }
 
     private static string? FirstResultCode(TaskResult result)

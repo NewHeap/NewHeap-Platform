@@ -1914,7 +1914,8 @@
           }
         },
         "activity": {
-          "label": "Tonen"
+          "label": "Tonen",
+          "compositions": "Composities"
         },
         "compositions": {
           "title": "Composities en scripts",
@@ -1945,6 +1946,39 @@
             "off-by-application": "Uitgezet door de applicatie."
           }
         }
+      },
+      "composition-activity": {
+        "title": "Composities en scripts",
+        "description": "Wat de composities en scripts van deze agent uitvoerden: elke aanroep met zijn toolaanroepen op volgorde, de modelrondes die dat bespaarde en de grootte van het resultaat dat het model kreeg.",
+        "period": "Periode",
+        "periods": {
+          "last-7-days": "Afgelopen 7 dagen",
+          "last-30-days": "Afgelopen 30 dagen",
+          "last-90-days": "Afgelopen 90 dagen"
+        },
+        "refresh": "Vernieuwen",
+        "empty": "Geen aanroepen van composities of scripts in deze periode.",
+        "usage-title": "Gebruik per tool",
+        "calls-title": "Laatste aanroepen",
+        "truncated": "De periode bevat {{total}} aanroepen; het gebruik per tool betreft de laatste {{shown}}.",
+        "columns": {
+          "tool": "Tool",
+          "kind": "Soort",
+          "calls": "Aanroepen",
+          "tool-calls": "Toolaanroepen",
+          "rounds-saved": "Bespaarde rondes",
+          "average-result": "Gemiddeld resultaat",
+          "max-result": "Grootste resultaat"
+        },
+        "kinds": {
+          "composition": "Compositie",
+          "script": "Script"
+        },
+        "characters": "{{count}} tekens",
+        "steps": "Toolaanroepen op volgorde",
+        "no-steps": "Er is geen toolaanroep uitgevoerd.",
+        "rounds-saved": "{{count}} modelrondes bespaard",
+        "result-size": "{{count}} tekens teruggegeven aan het model"
       }
     }
   }

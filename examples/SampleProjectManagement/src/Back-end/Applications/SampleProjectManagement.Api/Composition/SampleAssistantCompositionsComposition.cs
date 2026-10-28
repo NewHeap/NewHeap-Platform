@@ -14,8 +14,8 @@ namespace SampleProjectManagement.Api.Composition;
 /// portal's assistant settings page, decides at the start of every turn, run step and MCP request whether
 /// the assistant offers them; a change applies from the next turn without a restart. Code stays the
 /// ceiling: the project assistant allows both in code, agents created in the administration may get the
-/// script tool only (<c>UseCompositionsAsData</c>), and the MCP exposure allows the script tool. Call it
-/// after <c>AddSampleAssistant</c>.
+/// script tool only (<c>UseCompositionsAsData</c>), and the MCP exposure allows the script tool and, for the
+/// project overview (SPM-372), compositions. Call it after <c>AddSampleAssistant</c>.
 /// </summary>
 public static class SampleAssistantCompositionsComposition
 {

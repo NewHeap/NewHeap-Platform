@@ -403,6 +403,16 @@ public sealed record NhAiInvocationContext(
     /// </summary>
     public string? Channel { get; init; }
 
+    /// <summary>
+    /// The composition or script the call is a step of, set by the invoker from the assistant's step
+    /// runtime: <see cref="NhAiToolCallOrigin.Kind"/>, the composition's or script tool's id, the script's
+    /// hash and the call it is a step of. <see langword="null"/> for a call the model, a person or the
+    /// application made directly. A tool may treat such a call differently, for example refuse a step it
+    /// only allows on its own. Like <see cref="ConversationId"/> it takes part in no proposal hash or
+    /// approval evidence.
+    /// </summary>
+    public NhAiToolCallOrigin? Origin { get; init; }
+
     public string? AccountableOwnerId { get; init; }
     public IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes { get; init; } = [];
     public IReadOnlySet<string> CapabilityGrants { get; init; } = new HashSet<string>(StringComparer.Ordinal);

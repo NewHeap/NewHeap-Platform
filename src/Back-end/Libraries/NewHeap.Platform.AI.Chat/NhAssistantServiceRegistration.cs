@@ -87,6 +87,10 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<INhAssistantMcpToolSource, NhAssistantNoMcpToolSource>();
         services.TryAddSingleton<NhAssistantTurnCancellationRegistry>();
         services.TryAddScoped<INhAssistantTurnRunner, NhAssistantTurnRunner>();
+        // The step runtime of compositions and scripts.
+        services.TryAddScoped<INhAssistantToolSteps, NhAssistantToolSteps>();
+        // What compositions and scripts ran, as the agent's activity shows it (TC1).
+        services.TryAddScoped<NhAssistantCompositionActivity>();
         services.TryAddScoped<NhAssistantConversationReader>();
         services.TryAddScoped<INhAssistantConversationSnapshotProvider, NhAssistantConversationSnapshotProvider>();
         services.TryAddScoped<INhAssistantTitleGenerator, NhAssistantFirstLineTitleGenerator>();

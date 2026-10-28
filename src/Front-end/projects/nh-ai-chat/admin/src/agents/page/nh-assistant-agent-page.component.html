@@ -387,16 +387,23 @@
       }
 
       @case ('activity') {
-        @if (runs()) {
-          <div class="segments" role="group" [attr.aria-label]="'nh-assistant.admin.agent-page.activity.label' | translate">
-            <button type="button" data-activity="runs" [attr.aria-pressed]="activity() === 'runs'" (click)="activity.set('runs')">{{ 'nh-assistant.admin.agents.runs' | translate }}</button>
-            <button type="button" data-activity="feedback" [attr.aria-pressed]="activity() === 'feedback'" (click)="activity.set('feedback')">{{ 'nh-assistant.admin.agents.feedback' | translate }}</button>
-          </div>
-        }
-        @if (runs() && activity() === 'runs') {
-          <nh-assistant-agent-run-history [agentId]="current.id" [subjectTypes]="catalog()?.subjectTypes ?? []" (openConversation)="openConversation($event)" />
-        } @else {
-          <nh-assistant-agent-feedback-report [agentId]="current.id" />
+        <div class="segments" role="group" [attr.aria-label]="'nh-assistant.admin.agent-page.activity.label' | translate">
+          @if (runs()) {
+            <button type="button" data-activity="runs" [attr.aria-pressed]="shownActivity() === 'runs'" (click)="activity.set('runs')">{{ 'nh-assistant.admin.agents.runs' | translate }}</button>
+          }
+          <button type="button" data-activity="feedback" [attr.aria-pressed]="shownActivity() === 'feedback'" (click)="activity.set('feedback')">{{ 'nh-assistant.admin.agents.feedback' | translate }}</button>
+          <button type="button" data-activity="compositions" [attr.aria-pressed]="shownActivity() === 'compositions'" (click)="activity.set('compositions')">{{ 'nh-assistant.admin.agent-page.activity.compositions' | translate }}</button>
+        </div>
+        @switch (shownActivity()) {
+          @case ('runs') {
+            <nh-assistant-agent-run-history [agentId]="current.id" [subjectTypes]="catalog()?.subjectTypes ?? []" (openConversation)="openConversation($event)" />
+          }
+          @case ('compositions') {
+            <nh-assistant-agent-composition-activity [agentId]="current.id" />
+          }
+          @default {
+            <nh-assistant-agent-feedback-report [agentId]="current.id" />
+          }
         }
       }
     }

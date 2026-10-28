@@ -1,0 +1,112 @@
+// Styles of the composition activity on top of the shared administration styles.
+@use '../../../src/lib/styles/tokens';
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.subsection h4 {
+  margin: 0;
+}
+
+// The table stacks into labelled rows when its container is narrow, so the page never scrolls sideways.
+.table-container {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    border-bottom: 1px solid var(--nha-border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  thead th {
+    color: var(--nha-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  tbody th {
+    font-weight: 600;
+  }
+
+  .number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@container (max-width: 720px) {
+  .summary-table thead {
+    @include tokens.visually-hidden;
+  }
+
+  .summary-table,
+  .summary-table tbody,
+  .summary-table tr {
+    display: block;
+  }
+
+  .summary-table tr {
+    margin-bottom: 8px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+    background: var(--nha-background);
+  }
+
+  .summary-table tbody th,
+  .summary-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+    text-align: left;
+
+    &::before {
+      content: attr(data-label);
+      color: var(--nha-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+  }
+}
+
+.mono {
+  overflow-wrap: anywhere;
+}
+
+.steps {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+  }
+}

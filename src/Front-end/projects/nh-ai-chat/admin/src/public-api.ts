@@ -14,6 +14,7 @@ export * from './agents/metadata/nh-assistant-agent-metadata-slot';
 export * from './agents/metadata/nh-assistant-agent-metadata.component';
 export * from './agents/nh-assistant-agent-evaluation.component';
 export * from './agents/nh-assistant-agent-feedback-report.component';
+export * from './agents/nh-assistant-agent-composition-activity.component';
 export * from './agents/nh-assistant-agent-run-history.component';
 export * from './agents/nh-assistant-agent-run-configuration.component';
 export * from './mcp/nh-assistant-admin-mcp-servers.component';

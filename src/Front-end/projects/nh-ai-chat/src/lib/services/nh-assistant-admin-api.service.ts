@@ -9,6 +9,8 @@ import {
   AgentRunConfiguration,
   AgentRunSettings,
   AgentRunSettingsRequest,
+  AgentCompositionActivity,
+  AgentCompositionActivityFilter,
   AgentEvaluation,
   AgentEvaluationFilter,
   AgentFeedbackExportFilter,
@@ -371,6 +373,15 @@ export class NhAssistantAdminApiService {
    */
   unassignMcpServer(serverId: string, agentId: string): Observable<McpServer> {
     return this.request<McpServer>('DELETE', `${mcpServerPath(serverId)}/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /**
+   * What the agent's compositions and scripts ran in the period: each call with its tool calls in
+   * order, the model rounds it saved and the size of the result returned to the model, and the use
+   * per tool. Content-free.
+   */
+  getAgentCompositionActivity(agentId: string, filter: AgentCompositionActivityFilter = {}): Observable<AgentCompositionActivity> {
+    return this.request<AgentCompositionActivity>('GET', withQuery(`${agentPath(agentId)}/compositions/activity`, filter));
   }
 
   /**

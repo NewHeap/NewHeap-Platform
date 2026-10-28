@@ -208,6 +208,24 @@ internal sealed class NhAssistantToolCallScope
     /// </summary>
     public Runs.NhAssistantAskerDecision? AskerDecision { get; set; }
 
+    /// <summary>
+    /// The interceptor of the model loop that made the call, through which a composition or script the
+    /// call runs runs its steps; <see langword="null"/> for a call the model did not make, such as an
+    /// approved proposal that executes.
+    /// </summary>
+    public NhAssistantToolCallInterceptor? Interceptor { get; init; }
+
+    /// <summary>
+    /// The call's tool invocation row, which the steps of a composition or script it runs belong to.
+    /// </summary>
+    public Entities.AssistantToolInvocation? Row { get; init; }
+
+    /// <summary>
+    /// Set by the step runtime when the call runs a composition or script: how the chain ended, which
+    /// decides how the call itself ends.
+    /// </summary>
+    public INhAssistantStepChain? Chain { get; set; }
+
     public IReadOnlyList<NhAiAuditRecord> AuditRecords
     {
         get
