@@ -273,6 +273,8 @@ NewHeap has only the client half: `NhAssistantMcpDiscovery` reads another server
   in its own identity provider.
 - **(c) Leave it to the application**: every consumer that exposes tools writes the same server half again.
 
+Follow-up of lane MS, taken into train A of `ai-tool-composition-plan.md` by Lars on 2026-10-28 (lane MD): `NhAssistantMcpDiscovery` probes a remote MCP server with GET to read its challenge, but a stateless server answers GET with 405. The assistant then misses the challenge's scopes and relies only on `scopes_supported` in the metadata. The probe should use an MCP `initialize` POST, or fall back to it after a 405.
+
 #### FB29. A request that answers where it was asked
 
 - **(a) `AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)` (advice)** on the consultation and its
@@ -508,3 +510,8 @@ Recorded by each lane under its own heading while it builds; ids are the lane's 
 | UT6 | Built by lane UT (2026-10-28): **each conversation, and the new chat, shows its own unsent text, also after "New conversation" and in the conversation list, where the text used to stay in the composer; only choosing another agent in the composer, which starts a new chat, takes the text along (unless the new chat has text of its own), and `open({ agentId, draft })` starts the new chat before choosing the agent, so the old conversation keeps its text and the draft lands in the new chat's empty composer**, because the picker sits in the composer and the guidance already says choosing an agent preserves the draft; no `Breaking change` row, since no host has to act; for Lars to review. |
 | UT7 | Built by lane UT (2026-10-28): **the composer handles `unsent` and `restore` in one effect, the kept message first, and each value once by identity**, so a draft that arrives together with another conversation's message is decided against the text it lands on and the composer's own reported text coming back is no change; the panel spec renders after typing, as a browser does after every input event, because switching conversations in the same task as typing would leave the textarea's `[value]` binding stale, as for PD's `restore`; for Lars to review. |
 | UT8 | Built by lane UT (2026-10-28): **new case SPM-369 with an "Unsent message" card in the assistant lab (open and close the assistant, the kept text quoted up to 80 characters or a prepared brief named, English and Dutch) and the store state's length and `prepared`, with the library specs as evidence; the access switch shows signing out**, because the lab runs on the mock API with two agents and the drawer, while the portal's chat page (SPM-253) uses the real API in another scope, so the drawer and the page sharing the text is proven by the library spec; SPM-350 and SPM-248 stay as they are; for Lars to review. |
+
+### Lane MD
+
+| # | Choice |
+|---|---|
