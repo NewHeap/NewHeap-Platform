@@ -1171,7 +1171,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         var argumentsHash = NhAssistantProposalDuplicates.IdentityOf(descriptor.Id, proposal.Arguments);
         // Guards that check at proposal time keep work that is already done or no longer applies
         // from being proposed at all.
-        if (await CheckAtProposalAsync(home, descriptor.Id, proposal, now, cancellationToken) is { } stale)
+        if (await CheckAtProposalAsync(home, descriptor.Id, proposal, now, context, cancellationToken) is { } stale)
         {
             if (route?.Route == NhAssistantConsultationRoutes.AskerDecides)
             {
@@ -1187,7 +1187,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         // proposal for the same objects applies among shadow proposals too (FB3). Its status keeps it
         // out of revalidation, inboxes and counts.
         var keys = agentProposal || shadow
-            ? await GuardKeysAsync(home!, descriptor.Id, proposal, now, cancellationToken)
+            ? await GuardKeysAsync(home!, descriptor.Id, proposal, now, context, cancellationToken)
             : [];
         var duplicate = agentProposal && duplicates is not null && policy is not null
             ? await duplicates.CheckAsync(home!, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
@@ -1546,13 +1546,14 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// Runs the guards of the tool that check at proposal time (<see cref="NhAiProposalGuardStages.Proposal"/>)
     /// and returns their stale result, or <see langword="null"/> when the proposal is needed. A guard
     /// that fails keeps the proposal, as at the other stages: the decision and the execution check it
-    /// again.
+    /// again. The guards see the call that proposes (FB26).
     /// </summary>
     private async Task<NhAiPreconditionResult?> CheckAtProposalAsync(
         AssistantThread? thread,
         string toolId,
         NhAiProposal proposal,
         DateTimeOffset now,
+        NhAiInvocationContext invocation,
         CancellationToken cancellationToken)
     {
         if (proposalGuards is null || !proposalGuards.HasGuards(toolId, NhAiProposalGuardStages.Proposal))
@@ -1561,16 +1562,38 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         var check = await proposalGuards.CheckAsync(
-            new NhAiProposalGuardContext(
-                proposal.ProposalId,
-                toolId,
-                proposal.Arguments,
-                thread is null ? null : new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-                thread?.ScopeKey,
-                now),
+            ProposingGuardContext(thread, toolId, proposal, now, invocation),
             NhAiProposalGuardStages.Proposal,
             cancellationToken);
         return check.Stale;
+    }
+
+    /// <summary>
+    /// The guard context of a proposal this call makes, with the call that proposes (FB26): its invocation
+    /// context, the conversation, the turn and the channel that started the turn. Only the proposal stage
+    /// and the keys of the new proposal see them; the later stages read a stored proposal without them.
+    /// They never enter the proposal or its hash.
+    /// </summary>
+    private NhAiProposalGuardContext ProposingGuardContext(
+        AssistantThread? thread,
+        string toolId,
+        NhAiProposal proposal,
+        DateTimeOffset now,
+        NhAiInvocationContext invocation)
+    {
+        return new NhAiProposalGuardContext(
+            proposal.ProposalId,
+            toolId,
+            proposal.Arguments,
+            thread is null ? null : new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            thread?.ScopeKey,
+            now)
+        {
+            Invocation = invocation,
+            ConversationId = invocation.ConversationId ?? state.Scope.ConversationId,
+            TurnId = state.Scope.TurnId,
+            Channel = invocation.Channel ?? state.Scope.Channel
+        };
     }
 
     /// <summary>
@@ -1621,13 +1644,15 @@ internal sealed class NhAssistantToolCallInterceptor(
 
     /// <summary>
     /// The application objects an agent proposal changes, as its guards name them, so the application
-    /// can revalidate it by object and recognize a newer proposal for the same objects.
+    /// can revalidate it by object and recognize a newer proposal for the same objects. The guards see
+    /// the call that proposes (FB26).
     /// </summary>
     private async Task<IReadOnlyList<NhAiProposalKey>> GuardKeysAsync(
         AssistantThread thread,
         string toolId,
         NhAiProposal proposal,
         DateTimeOffset now,
+        NhAiInvocationContext invocation,
         CancellationToken cancellationToken)
     {
         if (proposalGuards is null || state.AgentTurn is null)
@@ -1636,13 +1661,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         return await proposalGuards.GetKeysAsync(
-            new NhAiProposalGuardContext(
-                proposal.ProposalId,
-                toolId,
-                proposal.Arguments,
-                new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
-                thread.ScopeKey,
-                now),
+            ProposingGuardContext(thread, toolId, proposal, now, invocation),
             cancellationToken);
     }
 

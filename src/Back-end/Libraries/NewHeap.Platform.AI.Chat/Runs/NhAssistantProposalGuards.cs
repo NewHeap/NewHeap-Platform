@@ -140,7 +140,8 @@ internal sealed class NhAssistantProposalGuards(
     }
 
     /// <summary>
-    /// The guard context of a stored proposal.
+    /// The guard context of a stored proposal, for revalidation, decision and execution: no call proposes
+    /// at those stages, so it names no invocation, conversation, turn or channel (FB26).
     /// </summary>
     public static NhAiProposalGuardContext ContextOf(AssistantApproval approval, AssistantThread? thread)
     {
