@@ -362,6 +362,8 @@ builder.Services.AddSampleAssistantFiles();
 builder.Services.AddSampleProjectDocumentReader();
 // SPM-372: the project overview chains three reads of the project assistant into one tool.
 builder.Services.AddSampleProjectOverview();
+// SPM-362: the planning service's one reviewed MCP tool, offered as the API's own code-owned tool.
+builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
