@@ -439,6 +439,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             }
         }
         _offeredTools = offered;
+        state.Scope.OfferedTools = [.. offered.Values];
     }
 
     private NhAiToolDescriptor? FindOffered(string functionName)

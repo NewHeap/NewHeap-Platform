@@ -80,6 +80,13 @@ internal sealed class NhAssistantTurnScope
     public bool ShadowRun { get; init; }
 
     /// <summary>
+    /// The governed tools the agent is offered in this turn, set when the model's tools are registered,
+    /// so a composition or the script tool can describe its steps before its own call
+    /// (<see cref="NhAssistantToolStepTurn"/>).
+    /// </summary>
+    public IReadOnlyList<NhAiToolDescriptor> OfferedTools { get; set; } = [];
+
+    /// <summary>
     /// The skill the turn works in; <see langword="null"/> while it works with the agent's own tools.
     /// </summary>
     public string? SkillId { get; set; }
