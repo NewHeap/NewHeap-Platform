@@ -1606,8 +1606,9 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
-    /// The governed functions the agent may use in this run, as for the model: its selectors, the
-    /// tools the caller may discover and its autonomy.
+    /// The governed functions the agent's rules may use in this run: its selectors, the tools the
+    /// caller may discover, the compositions and the script tool the turn offers, and its autonomy as
+    /// a rule turn has it (<see cref="SelectRuleToolsAsync"/>).
     /// </summary>
     private async Task<IReadOnlyDictionary<string, AIFunction>> RuleToolsAsync(
         NhAssistantTurnState state,
@@ -1617,7 +1618,7 @@ internal sealed partial class NhAssistantTurnRunner(
     {
         var agent = state.Scope.Agent;
         var context = CreateAgentInvocationContext(state, callerContext);
-        var selected = (await SelectToolsAsync(state, agent, context, null, cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        var selected = (await SelectRuleToolsAsync(state, agent, context, cancellationToken)).ToHashSet(StringComparer.Ordinal);
         var tools = new Dictionary<string, AIFunction>(StringComparer.Ordinal);
         foreach (var catalog in _catalogs.Select(NhAiToolCatalogViews.Of))
         {
@@ -3134,16 +3135,104 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
-    /// Discovers the agent-exposed tools the caller may see, intersects them with the agent's
-    /// selectors, and in a consultation with the consultation's own tool selection, leaves out the
-    /// compositions and the script tool that the turn does not offer, and caps the result. Only the
-    /// count is logged.
+    /// The allow-list of the model's tools for the adapter: the tools the turn offers
+    /// (<see cref="OfferedToolIdsAsync"/>) with the agent's autonomy as its own turns and consultations
+    /// have it (<see cref="OffersEffects"/>), capped. The adapter needs a non-empty list and filters it
+    /// again by the same discovery, selectors and autonomy, so a selection that offers nothing falls
+    /// back to the agent's selectors, except in a consultation and in a turn that withheld a
+    /// composition or the script tool. Only the count is logged. A rule turn selects with
+    /// <see cref="SelectRuleToolsAsync"/>, which has no fallback.
     /// </summary>
     private async Task<IReadOnlyList<string>> SelectToolsAsync(
         NhAssistantTurnState state,
         NhAssistantAgentDefinition agent,
         NhAiInvocationContext context,
         NhAssistantConsultationScope? consultation,
+        CancellationToken cancellationToken)
+    {
+        var (selected, withheld) = await OfferedToolIdsAsync(
+            state,
+            agent,
+            context,
+            consultation,
+            OffersEffects(agent, consultation),
+            cancellationToken);
+        if (consultation is not null)
+        {
+            // The adapter needs a non-empty allow-list; one that selects nothing offers no tools,
+            // where falling back to the agent's selectors would offer more than the consultation may use.
+            return selected.Length == 0 ? [NoToolsSelector] : selected.Take(registration.Limits.MaxToolsPerAgent).ToArray();
+        }
+        if (selected.Length == 0 && withheld)
+        {
+            // Falling back to the agent's selectors would offer the withheld compositions again.
+            return [NoToolsSelector];
+        }
+
+        selected = Capped(agent, selected);
+        logger.LogDebug("Assistant agent {AgentId} offers {ToolCount} tools.", agent.Id, selected.Length);
+        return selected.Length == 0 ? agent.ToolSelectors : selected;
+    }
+
+    /// <summary>
+    /// The tools a rule turn proposes with, which its rules find by id: the tools the turn offers
+    /// (<see cref="OfferedToolIdsAsync"/>) with the agent's autonomy as a rule turn has it
+    /// (<see cref="OffersEffectsToRules"/>), capped as the model's. A rule turn uses exactly this
+    /// selection and never falls back to the agent's selectors, as the model's allow-list does: no
+    /// adapter filters these tools again, and rules that took their tools from that fallback lost them
+    /// whenever the turn withheld a composition or the script tool, or offered either.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> SelectRuleToolsAsync(
+        NhAssistantTurnState state,
+        NhAssistantAgentDefinition agent,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        var (selected, _) = await OfferedToolIdsAsync(
+            state,
+            agent,
+            context,
+            null,
+            OffersEffectsToRules(agent),
+            cancellationToken);
+        selected = Capped(agent, selected);
+        logger.LogDebug("The rules of assistant agent {AgentId} may use {ToolCount} tools.", agent.Id, selected.Length);
+        return selected;
+    }
+
+    /// <summary>
+    /// At most <see cref="NhAssistantLimits.MaxToolsPerAgent"/> of <paramref name="selected"/>, in order;
+    /// a cut is logged with the counts only.
+    /// </summary>
+    private string[] Capped(NhAssistantAgentDefinition agent, string[] selected)
+    {
+        var limit = registration.Limits.MaxToolsPerAgent;
+        if (selected.Length <= limit)
+        {
+            return selected;
+        }
+
+        logger.LogWarning(
+            "Assistant agent {AgentId} can see {ToolCount} tools; the first {ToolLimit} are offered.",
+            agent.Id,
+            selected.Length,
+            limit);
+        return selected.Take(limit).ToArray();
+    }
+
+    /// <summary>
+    /// Discovers the agent-exposed tools the caller may see, intersects them with the agent's
+    /// selectors, and in a consultation with the consultation's own tool selection, keeps the tools
+    /// that change state only when <paramref name="offersEffects"/>, and leaves out the compositions and
+    /// the script tool that the turn does not offer and the compositions whose steps it does not offer.
+    /// Returns the ids in order, and whether a composition or the script tool was withheld.
+    /// </summary>
+    private async Task<(string[] Selected, bool Withheld)> OfferedToolIdsAsync(
+        NhAssistantTurnState state,
+        NhAssistantAgentDefinition agent,
+        NhAiInvocationContext context,
+        NhAssistantConsultationScope? consultation,
+        bool offersEffects,
         CancellationToken cancellationToken)
     {
         var discovered = await discovery.DiscoverAsync(
@@ -3153,7 +3242,7 @@ internal sealed partial class NhAssistantTurnRunner(
             .Where(descriptor => IsSelectedForAgent(agent, descriptor))
             // A consultation's selection only narrows the agent's tools, consultation tools included.
             .Where(descriptor => consultation is null || IsSelectedInConsultation(consultation, descriptor))
-            .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || OffersEffects(agent, consultation))
+            .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || offersEffects)
             .Where(descriptor => IsOfferedInConsultation(descriptor, consultation))
             // An agent never consults itself.
             .Where(descriptor => !string.Equals(
@@ -3183,37 +3272,15 @@ internal sealed partial class NhAssistantTurnRunner(
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        if (consultation is not null)
-        {
-            // The adapter needs a non-empty allow-list; one that selects nothing offers no tools,
-            // where falling back to the agent's selectors would offer more than the consultation may use.
-            return selected.Length == 0 ? [NoToolsSelector] : selected.Take(registration.Limits.MaxToolsPerAgent).ToArray();
-        }
-        if (selected.Length == 0 && withheld)
-        {
-            // Falling back to the agent's selectors would offer the withheld compositions again.
-            return [NoToolsSelector];
-        }
-        var limit = registration.Limits.MaxToolsPerAgent;
-        if (selected.Length > limit)
-        {
-            logger.LogWarning(
-                "Assistant agent {AgentId} can see {ToolCount} tools; the first {ToolLimit} are offered.",
-                agent.Id,
-                selected.Length,
-                limit);
-            selected = selected.Take(limit).ToArray();
-        }
-        logger.LogDebug("Assistant agent {AgentId} offers {ToolCount} tools.", agent.Id, selected.Length);
-        return selected.Length == 0 ? agent.ToolSelectors : selected;
+        return (selected, withheld);
     }
 
     /// <summary>
-    /// Whether the agent is offered tools that change state. In its own turns, runs and rules only
-    /// with execute autonomy. In a consultation every effect becomes a proposal through the
-    /// consultation's routes, so one with a route in effect for this call offers them from propose
-    /// autonomy on; observe and explain agents only read, and a consultation that only answers
-    /// offers them to nobody (AC34).
+    /// Whether the agent's model is offered tools that change state. In its own turns and runs only
+    /// with execute autonomy; its rules follow <see cref="OffersEffectsToRules"/>. In a consultation
+    /// every effect becomes a proposal through the consultation's routes, so one with a route in
+    /// effect for this call offers them from propose autonomy on; observe and explain agents only
+    /// read, and a consultation that only answers offers them to nobody (AC34).
     /// </summary>
     internal static bool OffersEffects(NhAssistantAgentDefinition agent, NhAssistantConsultationScope? consultation)
     {
@@ -3223,6 +3290,19 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         return consultation.MayPropose && agent.Autonomy >= NhAiAutonomyLevel.Propose;
+    }
+
+    /// <summary>
+    /// Whether the agent's rules are offered tools that change state: from propose autonomy on.
+    /// Every effect of a rule turn becomes a proposal, because its agent scope requires approval for
+    /// every effect (<see cref="BeginAgentScope"/>), just as the adapter offers them to a propose agent
+    /// whose effects all become proposals (<see cref="NhAiAgentCreateRequest.EffectsAsProposals"/>);
+    /// observe and explain agents only read, also by rules.
+    /// </summary>
+    internal static bool OffersEffectsToRules(NhAssistantAgentDefinition agent)
+    {
+        ArgumentNullException.ThrowIfNull(agent);
+        return agent.Autonomy >= NhAiAutonomyLevel.Propose;
     }
 
     /// <summary>

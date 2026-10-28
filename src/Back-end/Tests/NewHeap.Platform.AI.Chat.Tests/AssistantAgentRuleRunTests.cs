@@ -13,6 +13,7 @@ using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
+using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
@@ -32,6 +33,11 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
     private const string ChangeStatusTool = "projects.change-status";
     private const string ChangeStatusFunction = "projects_change_status_v1";
     private const string Approver = "approver-1";
+
+    /// <summary>Agents of the script tool's host, each with the rules of <see cref="TestRules"/>.</summary>
+    private const string ProposingAgent = "project-proposer";
+    private const string ScriptingAgent = "project-scripter";
+    private const string ObservingAgent = "project-observer";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -511,6 +517,62 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Rules_propose_from_propose_autonomy_on_whether_the_turn_withholds_or_offers_the_script_tool(AssistantTestProvider provider)
+    {
+        // Every effect of a rule turn is a proposal, so the rules of a Propose agent propose with its
+        // tools that change state. The host registers the script tool, which needs no selector: the
+        // turn withholds it from an agent that is not allowed scripts, and offers it, next to read
+        // tools, to one that is. Neither may cost the rules their tools. An Observe agent only reads,
+        // also by rules.
+        await using var host = await CreateHostAsync(provider, new NhAiScriptedChatClient(), scriptTool: true);
+        var switchState = host.Services.GetRequiredService<TestCompositionSwitchState>();
+        var script = Script(host);
+        script.Run = async (context, cancellationToken) =>
+        {
+            script.Proposals.Enqueue(await context.ProposeAsync(
+                ChangeStatusTool,
+                new ProjectStatusInput(Guid.Parse(context.Subject.Subject.Id), "Active"),
+                null,
+                cancellationToken));
+            return NhAssistantRuleResult.Done("Proposed to activate the project.");
+        };
+
+        var proposed = new Dictionary<string, NhAssistantRuleProposal>(StringComparer.Ordinal);
+        var runs = new Dictionary<string, StartedRun>(StringComparer.Ordinal);
+        foreach (var agentId in new[] { ProposingAgent, ScriptingAgent, ObservingAgent })
+        {
+            script.Proposals.Clear();
+            var run = await StartRunAsync(host, Guid.NewGuid(), agentId: agentId);
+            var result = await RunTurnAsync(host, run, "Project PRJ-1 was created.");
+
+            Assert.Equal(NhAssistantTurnStatuses.Completed, result.Outcome);
+            Assert.Equal(NhAssistantRunKinds.Rule, result.Kind);
+            proposed[agentId] = Assert.Single(script.Proposals);
+            runs[agentId] = run;
+        }
+
+        // Withheld: code does not allow the agent scripts, so the switch is not even asked.
+        Assert.Equal(NhAssistantProposeOutcome.Created, proposed[ProposingAgent].Outcome);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, Assert.Single(await RunStore(host).GetRunApprovalsAsync(runs[ProposingAgent].Run.Id, CancellationToken.None)).Status);
+        Assert.DoesNotContain(switchState.Asked, asked => asked.AgentId == ProposingAgent);
+
+        // Offered: the switch has scripts on for the run, and the rules still propose with the status tool.
+        Assert.Equal(NhAssistantProposeOutcome.Created, proposed[ScriptingAgent].Outcome);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, Assert.Single(await RunStore(host).GetRunApprovalsAsync(runs[ScriptingAgent].Run.Id, CancellationToken.None)).Status);
+        Assert.Contains(
+            switchState.Asked,
+            asked => (asked.AgentId, asked.Feature, asked.Channel) == (ScriptingAgent, NhAiCompositionFeature.Scripts, NhAssistantCompositionChannel.Run));
+
+        // An Observe agent's rules are offered no tool that changes state, so nothing waits for people.
+        Assert.Equal(NhAssistantProposeOutcome.Refused, proposed[ObservingAgent].Outcome);
+        Assert.Equal(NhAssistantErrorCodes.ProposalRefused, proposed[ObservingAgent].Code);
+        Assert.Empty(await RunStore(host).GetRunApprovalsAsync(runs[ObservingAgent].Run.Id, CancellationToken.None));
+        Assert.Empty(host.Tools.StatusChanges);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task A_shadow_rule_run_records_a_shadow_proposal_that_notifies_nobody(AssistantTestProvider provider)
     {
         var projectId = Guid.NewGuid();
@@ -771,7 +833,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         bool shadow = false,
         bool recordRuns = false,
         NhAiProposalGuardStages guardStages = NhAiProposalGuardStages.All,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        bool scriptTool = false)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -797,6 +860,11 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
                     services.AddSingleton(provider => provider.GetRequiredService<RevalidationOperations>().Service);
                 }
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
+                if (scriptTool)
+                {
+                    services.AddNewHeapPlatformAIScripting();
+                    services.AddSingleton(new TestCompositionSwitchState());
+                }
                 services.Configure<Microsoft.AspNetCore.Builder.RequestLocalizationOptions>(options =>
                 {
                     options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("en");
@@ -804,35 +872,66 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
                     options.SupportedUICultures = [CultureInfo.GetCultureInfo("en"), CultureInfo.GetCultureInfo("nl")];
                 });
             },
-            assistantBuilder: assistant => assistant
-                .AddSubjectType<TestSubjectResolver>()
-                .AddProposalGuard<ProjectStatusGuard>([ChangeStatusTool], guardStages)
-                .AddApprovalPolicy("project-review", builder =>
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddSubjectType<TestSubjectResolver>()
+                    .AddProposalGuard<ProjectStatusGuard>([ChangeStatusTool], guardStages)
+                    .AddApprovalPolicy("project-review", builder =>
+                    {
+                        builder
+                            .Lifetime(TimeSpan.FromDays(3))
+                            .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                            .Mode(NhAiApprovalMode.Deferred)
+                            .BindTo(NhAiApprovalBinding.ToolContract);
+                        policy?.Invoke(builder);
+                    })
+                    .AddTrigger<ProjectChanged>(ModelTriggerId, trigger => trigger
+                        .StartAgent(AgentId)
+                        .Subject(evt => Subject(evt.ProjectId))
+                        .Message(evt => evt.Change)
+                        .Dedupe(evt => "model:" + evt.EventId.ToString("N"))
+                        .UseModel())
+                    .AddTrigger<ProjectChanged>(PayloadTriggerId, trigger => trigger
+                        .StartAgent(AgentId)
+                        .Subject(evt => Subject(evt.ProjectId))
+                        .Message(evt => "The project changed.")
+                        .Dedupe(evt => "payload:" + evt.EventId.ToString("N"))
+                        .Payload(evt => new RuleNotice(evt.Change)))
+                    .ConfigureAgent(AgentId, agent => agent
+                        .Grant("projects.*")
+                        .UseApprovalPolicy("project-review")
+                        .UseRuleHandler<TestRules>()
+                        .Shadow(shadow));
+                if (scriptTool)
                 {
-                    builder
-                        .Lifetime(TimeSpan.FromDays(3))
-                        .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                        .Mode(NhAiApprovalMode.Deferred)
-                        .BindTo(NhAiApprovalBinding.ToolContract);
-                    policy?.Invoke(builder);
-                })
-                .AddTrigger<ProjectChanged>(ModelTriggerId, trigger => trigger
-                    .StartAgent(AgentId)
-                    .Subject(evt => Subject(evt.ProjectId))
-                    .Message(evt => evt.Change)
-                    .Dedupe(evt => "model:" + evt.EventId.ToString("N"))
-                    .UseModel())
-                .AddTrigger<ProjectChanged>(PayloadTriggerId, trigger => trigger
-                    .StartAgent(AgentId)
-                    .Subject(evt => Subject(evt.ProjectId))
-                    .Message(evt => "The project changed.")
-                    .Dedupe(evt => "payload:" + evt.EventId.ToString("N"))
-                    .Payload(evt => new RuleNotice(evt.Change)))
-                .ConfigureAgent(AgentId, agent => agent
-                    .Grant("projects.*")
-                    .UseApprovalPolicy("project-review")
-                    .UseRuleHandler<TestRules>()
-                    .Shadow(shadow)));
+                    AddScriptToolAgents(assistant);
+                }
+            });
+    }
+
+    /// <summary>
+    /// Three rule agents next to the script tool, which needs no selector: a Propose agent that names
+    /// only the status tool and is not allowed scripts, a Propose agent over every project tool that is
+    /// allowed scripts under a switch that has them on, and an Observe agent that names only the status
+    /// tool. Each run may discover the script tool, as one acting with an account's rights does, so the
+    /// turn withholds it or offers it.
+    /// </summary>
+    private static void AddScriptToolAgents(NhAssistantBuilder assistant)
+    {
+        assistant
+            .UseCompositionSwitch<TestCompositionSwitch>()
+            .AddAgent(AssistantTestData.Agent(ProposingAgent, autonomy: NhAiAutonomyLevel.Propose) with { ToolSelectors = [ChangeStatusTool] })
+            .AddAgent(AssistantTestData.Agent(ScriptingAgent, autonomy: NhAiAutonomyLevel.Propose))
+            .AddAgent(AssistantTestData.Agent(ObservingAgent, autonomy: NhAiAutonomyLevel.Observe) with { ToolSelectors = [ChangeStatusTool] })
+            .ConfigureAgentContext(ScriptingAgent, context => context.AllowScripts());
+        foreach (var agentId in new[] { ProposingAgent, ScriptingAgent, ObservingAgent })
+        {
+            assistant.ConfigureAgent(agentId, agent => agent
+                .Grant("projects.*", NhAiScriptTool.ToolId)
+                .UseApprovalPolicy("project-review")
+                .UseRuleHandler<TestRules>());
+        }
     }
 
     private sealed record StartedRun(AssistantThread Thread, AssistantRun Run, NhAssistantAgentTurnContext AgentTurn);
@@ -843,12 +942,13 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         string triggerId = "project-created",
         bool isRequestTurn = false,
         bool agentEnabled = true,
-        bool shadow = false)
+        bool shadow = false,
+        string agentId = AgentId)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var info = (await services.GetRequiredService<NhAssistantSubjectAccessService>().DescribeAsync(Subject(projectId), CancellationToken.None))!;
-        var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(AgentId, includeDisabled: !agentEnabled, CancellationToken.None))!;
+        var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(agentId, includeDisabled: !agentEnabled, CancellationToken.None))!;
         var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None, shadow)).Data!;
         var run = new AssistantRun
         {
@@ -863,7 +963,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
             ConcurrencyStamp = Guid.NewGuid()
         };
         await services.GetRequiredService<NhAssistantRunStore>().AddRunAsync(run, CancellationToken.None);
-        var options = services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[AgentId];
+        var options = services.GetRequiredService<NhAssistantRegistrationState>().AgentRuns[agentId];
         var agentTurn = new NhAssistantAgentTurnContext(
             thread,
             info,

@@ -1531,9 +1531,10 @@ thread with `consultationId`; it never executes during the consultation, because
 `RequireApprovalForEffects` on the agent scope enforces that in the tool invoker. That is why a
 consultation with a proposal route in effect for the call offers the tools that change state to an
 agent with `Propose` or `Simulate` autonomy as well as `Execute`; `Observe` and `Explain` agents only
-read, a consultation that only answers offers them to nobody, and the agent's own turns, runs and
-rules keep offering them only with `Execute`. Give an agent `Explain` or `Observe`, or remove its
-consultation's proposal routes, when it must not propose. Choose who
+read, a consultation that only answers offers them to nobody, and the agent's model keeps being
+offered them in its own turns and runs only with `Execute`. Its rules, whose every effect is a
+proposal for the same reason, propose with them from `Propose` on. Give an agent `Explain` or
+`Observe`, or remove its consultation's proposal routes, when it must not propose. Choose who
 decides it with `Proposals(p => p.MinimumRole(...).AskerDecides().AtSubject(rights).Policy(id))`;
 each call takes the first route that applies and the audit names it (`ConsultationRoute`):
 
@@ -1778,7 +1779,11 @@ that the handler reads with `GetPayload<T>()`. It proposes with
 as a model's tool call: the agent's selectors and grants, its approval policy (always deferred for
 rules), presenters, guards, deduplication, audit and live updates. Only tools that need approval
 can be proposed and nothing executes before people decide; a tool the agent may not use, or one
-whose arguments do not fit, is `Refused`. The rationale is rendered in every supported culture;
+whose arguments do not fit, is `Refused`. Every effect of a rule turn is a proposal, so the rules
+of an agent with `Propose`, `Simulate` or `Execute` autonomy propose with its tools that change
+state, also while the turn offers or withholds compositions and the script tool; the rules of an
+`Observe` or `Explain` agent are refused. A rule turn uses exactly the tools it selects and never
+the agent's selectors in their place. The rationale is rendered in every supported culture;
 approvers read it as `rationale` on the proposal and its approval part, and it ends the rule's
 message in the thread. Finish with `NhAssistantRuleResult.Done(culture => summary)` so people read the
 run's result in their own language (`Done(summary)` writes it in the run's culture only), or hand an unclear case
