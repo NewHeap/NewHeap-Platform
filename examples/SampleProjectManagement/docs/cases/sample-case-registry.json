@@ -6204,6 +6204,43 @@
       ]
     },
     {
+      "id": "SPM-356",
+      "categoryId": "18",
+      "title": "The intake review needs four eyes only while a second approver may decide, and the decision checks the policy the proposal keeps",
+      "surface": "`INhAssistantApprovalPolicySelector` with `NhAssistantApprovalPolicySelection` (`AgentId`, `ToolId`, `Subject`, `Arguments`, `ResolvedPolicyId`, `Source`, `SkillId`, `TriggerId`, `InitiatorActorId`, `TenantId`, `RunId`, `Origin`, `DefaultTimeLimit`, `MaxTimeLimit`) and `NhAssistantApprovalPolicySource` (`Run`, `Request`, `Consultation`); `NhAssistantBuilder.UseApprovalPolicySelector<TSelector>()` and its overload with a time limit; the refusals `assistant-approval-policy-unknown`, `assistant-approval-policy-selector-failed` and `assistant-approval-policy-selector-timed-out`; the chosen policy in the proposal's policy copy, which the decision, `GetDecisionFactsAsync` and the approver directory read",
+      "outcome": "The intake reviewer's policy `project-intake` keeps the person who created a project out, so on a project whose creator is its only approver nobody could ever decide the review. SampleApprovalPolicySelectionComposition registers `project-intake-sole-approver`, the same policy without four eyes, and `SampleIntakeApprovalPolicySelector`, which code asks after it resolved `project-intake`: it counts with the approver directory (SPM-357) whether anyone other than the initiator may approve under `project-intake`, stops at the first, and chooses the sole-approver policy only when the directory is sure nobody else may; every other proposal and every incomplete answer keep the resolved policy. A review on a project the creator approves alone waits under `project-intake-sole-approver` and the creator approves it; on a project with a second approver it stays four-eyes and the creator is refused with `assistant-four-eyes-required`; a colleague who joins later changes nothing for the proposal, which keeps its policy copy. The library tests on SQL Server and PostgreSQL show the choice kept and checked at the decision, `null` and the resolved id keeping the resolved policy, an unknown id, a throwing selector and one past its time limit (also one that ignores its token) refusing the proposal with their codes, a content-free audit and a log that names only the selector and exception types, and the selector asked for runs, rule runs, a person's message in an agent's thread, a composition's step with its origin, and a consultation, also when the asker leaves its proposal for the subject's approvers.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicySelector.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultationProposals.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApprovalPolicySelectorTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-357",
+      "categoryId": "18",
+      "title": "The approval reply channel asks everyone the approver directory lists under the proposal's policy",
+      "surface": "`INhAssistantApproverDirectory` (`ListAsync(policyId, subject, tenantId, excludeActorId, limit)`, `CountAsync` and `ListForProposalAsync(approvalId, tenantId, limit)`) with `NhAssistantApproverList` (`Approvers`, `Complete`, `DefaultLimit`, `MaxLimit`, `MaxCandidates`), `NhAssistantApprover` (`ActorId`, `Role`, `DisplayName`, `Initiator`) and `NhAssistantApproverCount`; the candidates are the subject's members as its resolver lists them now and the proposal's initiator, checked as a decision checks them; no endpoint",
+      "outcome": "`SampleApprovalReplyChannel.OfferToApproversAsync` finds whom to send the message about a waiting proposal through `ListForProposalAsync`, under the proposal's own policy copy, also one the selector of SPM-356 chose, and issues each listed person a reply token after the platform's facts confirm they may decide. On a project with its creator, a colleague approver and a participant, only the colleague is asked: four eyes leave the creator out and the participant is no approver, and the list says it is complete; the colleague's \"yes\" approves the review. On a project the creator approves alone the creator is asked. The selector of SPM-356 counts the approvers of `project-intake` other than the initiator with `CountAsync` before any proposal. The library tests list members in the resolver's order with their names and roles, never an agent or the excluded person, named roles, policy rules through the principal factory (never complete), the initiator rule, the defaults `trigger-default` and `chat-default`, the limit with `Complete` false, an unknown policy or subject, another tenant's subject and the whole application (no members, never complete); for a proposal, on SQL Server and PostgreSQL, the policy copy with four eyes, the initiator first, a proposal placed at another object, a consultation the asker decides, the tool's approve policies for a person who may no longer sign in, another tenant's proposal, and that everyone listed passes the decision's check and nobody else does.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApproverDirectory.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApproverDirectoryTests.cs"
+      ]
+    },
+    {
       "id": "SPM-366",
       "categoryId": "18",
       "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",

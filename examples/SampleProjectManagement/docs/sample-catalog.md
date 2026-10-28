@@ -45,7 +45,18 @@ approver may also answer with a messaging reply: `SampleApprovalReplyChannel` as
 `INhAssistantProposalDecisionService` whether the person may decide before it issues
 them a reply token, and whether the project changed since, and `POST approval-replies` decides their reply as them with the
 checks of the decision endpoint; a reply delivered twice returns the earlier decision,
-and the audit names the `messaging-reply` channel and the delivery. Project
+and the audit names the `messaging-reply` channel and the delivery. The review needs four eyes
+only while a second person may approve it (SPM-356): on a project whose creator is its only approver,
+four eyes would keep it waiting for nobody, so the API's approval policy selector
+(`SampleIntakeApprovalPolicySelector`, registered with `UseApprovalPolicySelector`) asks the approver
+directory whether anyone else may approve under `project-intake` and only then lets it wait under
+`project-intake-sole-approver`, the same policy without four eyes, which the creator decides. The
+proposal keeps the chosen policy, so the decision checks it and a colleague who joins later changes
+nothing; a selector that chooses an unknown policy, throws or answers too late refuses the proposal with
+its own code. The reply channel finds whom to ask through the same directory (SPM-357):
+`OfferToApproversAsync` lists the people who may decide under the proposal's policy copy
+(`INhAssistantApproverDirectory.ListForProposalAsync`), the project's members and the initiator checked as
+the decision checks them, and says whether the list is complete. Project
 members and their roles decide who sees the project's agent thread, through
 `ProjectSubjectAccessResolver`; removing a member refreshes the thread's people, so the former
 member's participant row goes and no live update or notification of the thread reaches them

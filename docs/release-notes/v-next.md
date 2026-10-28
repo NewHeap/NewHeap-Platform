@@ -309,3 +309,28 @@ its reason, and an agent created in the administration switches compositions and
 within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
 answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
 Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: an approval policy chosen per proposal and who may approve it
+
+`INhAssistantApprovalPolicySelector`, registered with `NhAssistantBuilder.UseApprovalPolicySelector<TSelector>()`
+(or with a time limit of at most 30 seconds; two by default), chooses the approval policy of each proposal after
+code resolved it: it receives `NhAssistantApprovalPolicySelection` with the agent, tool, subject, arguments,
+`ResolvedPolicyId`, `Source` (`NhAssistantApprovalPolicySource`), skill, trigger, initiator, tenant, run and the
+`Origin` of a composition's or script's step, and returns a registered policy id or `null` for the resolved one.
+It is asked for runs and rule runs, a person's messages in an agent's thread, consultations (also when the asker
+leaves a proposal for the subject's approvers) and the steps of compositions and scripts in those turns. The
+proposal keeps the chosen policy in its policy copy, so the decision checks it. An unknown id refuses the proposal
+with `assistant-approval-policy-unknown` (409), a selector that throws with
+`assistant-approval-policy-selector-failed` and one past its time limit with
+`assistant-approval-policy-selector-timed-out` (both 503); nothing is recorded (SPM-356).
+`INhAssistantApproverDirectory` lists (`ListAsync`), counts (`CountAsync`) and, for a proposal under its policy copy
+(`ListForProposalAsync`), lists the people who may approve: the subject's members and the initiator, checked as a
+decision checks them, in `NhAssistantApproverList(Approvers, Complete)` with `NhAssistantApprover` and
+`NhAssistantApproverCount`. It is a server API without an endpoint (SPM-357). Without a selector nothing changes.
+
+## @newheap/platform-ai-chat: texts of the approval policy selector's codes
+
+`NH_ASSISTANT_SERVER_ERROR_CODES` names `assistant-approval-policy-unknown`,
+`assistant-approval-policy-selector-failed` and `assistant-approval-policy-selector-timed-out`, with English and
+Dutch texts for a tool call's result and for an error, and the mock API answers them with the server's statuses
+(409 and 503).

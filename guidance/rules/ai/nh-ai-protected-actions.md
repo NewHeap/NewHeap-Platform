@@ -4,8 +4,8 @@ title: "Protect AI mutations with exact approval and verification"
 area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
-sample-cases: ["SPM-224", "SPM-240", "SPM-268", "SPM-372"]
-public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult", "AllowAgentGrant", "NhAiGrantSource", "NhAiToolCallOrigin", "NhAiToolCallOriginKind"]
+sample-cases: ["SPM-224", "SPM-240", "SPM-268", "SPM-356", "SPM-372"]
+public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult", "AllowAgentGrant", "NhAiGrantSource", "NhAiToolCallOrigin", "NhAiToolCallOriginKind", "INhAssistantApprovalPolicySelector", "NhAssistantApprovalPolicySelection"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -115,6 +115,14 @@ the grant source (`NhAiGrantSource.Delegated` or `Agent`), the agent, the
 accountable owner and the proposal, so reviewers can tell elevated calls from
 calls within a person's own rights. The contract hash of a tool changes when it
 opts in, so existing approvals for that tool expire.
+
+Who approves a proposal of the assistant is a named approval policy that code resolves. When it depends
+on the proposal itself, such as four eyes only while a second person may approve, choose among registered
+policies with an `INhAssistantApprovalPolicySelector` (`UseApprovalPolicySelector`, SPM-356) and count the
+people a policy admits with `INhAssistantApproverDirectory` (SPM-357); never relax the policy at the
+decision. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
+selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. See
+`nh-ai-agent-runs` for the selection and the directory.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
