@@ -63,7 +63,7 @@ public interface INhAssistantProposals
     /// <c>assistant-proposal-presentation-invalid</c> for a presentation of a tool that is never presented;
     /// <c>assistant-no-accountable-owner</c> when nobody answers for the agent at the subject; the governed
     /// call's own code when the arguments do not fit the tool's contract or the person's rights do not allow
-    /// it, such as <c>ai-tool-input-invalid</c> or <c>ai-agent-not-granted</c>;
+    /// it, such as <c>ai-tool-input-invalid</c> or <c>ai-tool-agent-not-granted</c>;
     /// <c>assistant-proposal-idempotency-conflict</c> when the key recorded another proposal; and
     /// <c>assistant-approval-policy-unknown</c>, <c>assistant-approval-policy-selector-failed</c> and
     /// <c>assistant-approval-policy-selector-timed-out</c>. Nothing is recorded then.
