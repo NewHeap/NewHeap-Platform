@@ -25,7 +25,8 @@ public interface INhAssistantConversationMessages
     /// for a conversation the application chose itself.
     /// </para>
     /// <para>
-    /// Fails with <c>assistant-disabled</c> while the assistant is disabled,
+    /// Fails with <c>assistant-disabled</c> while the assistant is disabled, <c>assistant-agent-work-off</c>
+    /// while agent work is off on this host (<see cref="NhAssistantOptions.AgentWork"/>),
     /// <c>assistant-conversation-not-found</c> for an unknown or archived conversation or one that the
     /// person of <see cref="NhAssistantApplicationMessageAccess.ReadableBy"/> may not open,
     /// <c>assistant-message-invalid</c> for a message without an access choice, an empty text or an

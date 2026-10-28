@@ -17,8 +17,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// application message readable by the person who asked, with a link to where the application shows
 /// the subject. It is posted once: one idempotency key per run. A shadow run, a run that read results
 /// with the agent's own grant that people without the tool's policy may not see, a run without an
-/// answer, a conversation that is gone, archived or no chat, and a person who may no longer open it
-/// post nothing. A failed post never changes how the run ended; nothing here logs the answer.
+/// answer, a conversation that is gone, archived or no chat, a person who may no longer open it and a
+/// host whose agent work is off post nothing. A failed post never changes how the run ended; nothing here logs the answer.
 /// </summary>
 internal sealed class NhAssistantRequestAnswers(
     INhAssistantStore store,
