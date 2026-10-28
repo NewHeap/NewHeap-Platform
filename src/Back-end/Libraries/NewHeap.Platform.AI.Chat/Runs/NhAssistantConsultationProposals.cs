@@ -69,11 +69,15 @@ internal sealed class NhAssistantConsultationProposals(
     /// decision of the consultation and of the asking turn; release it with
     /// <see cref="ReleaseAskerDecision"/> when the proposal is not recorded after all.
     /// </summary>
+    /// <param name="chosen">The policy the application's selector chose after
+    /// <see cref="NhAssistantApprovalPolicies.ResolveConsultation"/> (FB19), which the route adapts;
+    /// <see langword="null"/> resolves it here without a selector.</param>
     public async Task<NhAssistantConsultationRoute> DecideAsync(
         NhAssistantConsultationScope consultation,
         NhAssistantAgentTurnContext agentTurn,
         NhAssistantAgent agent,
         NhAiToolDescriptor descriptor,
+        NhAiApprovalPolicy? chosen,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(consultation);
@@ -81,7 +85,8 @@ internal sealed class NhAssistantConsultationProposals(
         ArgumentNullException.ThrowIfNull(agent);
         ArgumentNullException.ThrowIfNull(descriptor);
 
-        var policy = policies.ResolveConsultation(agentTurn.Thread.AgentId, descriptor.Id, consultation.Options.ProposalPolicyId);
+        var policy = chosen
+            ?? policies.ResolveConsultation(agentTurn.Thread.AgentId, descriptor.Id, consultation.Options.ProposalPolicyId);
         var routing = consultation.Routing;
         string? askerRefusal = null;
         if (routing.AskerDecides && registration.TryGetApplicationExecution(descriptor.Id, out _))
@@ -252,7 +257,27 @@ internal sealed class NhAssistantConsultationProposals(
             return RefusedMove(NhAssistantConsultationRefusalReasons.NoRoute);
         }
 
-        var policy = policies.ResolveConsultation(thread.AgentId, approval.ToolId, options.ProposalPolicyId);
+        // The proposal at the subject is a new proposal: code resolves its policy and the application's
+        // selector may choose another registered one (FB19), as for the consulted agent's own call.
+        var previous = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
+        var resolved = policies.ResolveConsultation(thread.AgentId, approval.ToolId, options.ProposalPolicyId);
+        var choice = await policies.SelectAsync(
+            resolved,
+            new NhAssistantApprovalPolicySelection(thread.AgentId, approval.ToolId, subject.Subject, previous.Arguments, resolved.Id)
+            {
+                Source = NhAssistantApprovalPolicySource.Consultation,
+                InitiatorActorId = askerActorId,
+                TenantId = subject.TenantId
+            },
+            cancellationToken);
+        if (choice.Refused)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                choice.RefusalCode!,
+                "The approval policy of the proposal at the subject could not be chosen.");
+        }
+
+        var policy = choice.Policy!;
         var route = routing.AtSubjectRights == NhAssistantConsultationRights.Agent
             ? await AgentRightsRouteAsync(agent, runOptions, subject, thread, policy, descriptor, askerActorId, consultationId, cancellationToken)
             : new NhAssistantConsultationRoute(NhAssistantConsultationRoutes.SubjectAskerRights, policy with { Mode = NhAiApprovalMode.Deferred });
@@ -261,7 +286,6 @@ internal sealed class NhAssistantConsultationProposals(
             return RefusedMove(route.RefusalReason!);
         }
 
-        var previous = NhAssistantProposalSerializer.Deserialize(approval.ProposalJson);
         var proposedAt = _applicationClock.GetUtcNow();
         var expiresAt = proposedAt.Add(route.Policy.Lifetime);
         var proposal = proposalFactory.Create(new NhAiProposalCreateRequest(

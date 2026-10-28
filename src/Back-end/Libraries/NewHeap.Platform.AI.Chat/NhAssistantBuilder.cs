@@ -109,6 +109,40 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets the application choose the approval policy of each proposal after code resolved it
+    /// (<see cref="INhAssistantApprovalPolicySelector"/>), within
+    /// <see cref="NhAssistantApprovalPolicySelection.DefaultTimeLimit"/>. One selector serves the host; a
+    /// later call replaces an earlier one. It is a scoped service.
+    /// </summary>
+    public NhAssistantBuilder UseApprovalPolicySelector<TSelector>()
+        where TSelector : class, INhAssistantApprovalPolicySelector
+    {
+        return UseApprovalPolicySelector<TSelector>(NhAssistantApprovalPolicySelection.DefaultTimeLimit);
+    }
+
+    /// <summary>
+    /// Lets the application choose the approval policy of each proposal, as
+    /// <see cref="UseApprovalPolicySelector{TSelector}()"/> does, with its own time limit: longer than zero and
+    /// at most <see cref="NhAssistantApprovalPolicySelection.MaxTimeLimit"/>. A selector that does not answer
+    /// within it refuses the proposal with <c>assistant-approval-policy-selector-timed-out</c>.
+    /// </summary>
+    public NhAssistantBuilder UseApprovalPolicySelector<TSelector>(TimeSpan timeLimit)
+        where TSelector : class, INhAssistantApprovalPolicySelector
+    {
+        if (timeLimit <= TimeSpan.Zero || timeLimit > NhAssistantApprovalPolicySelection.MaxTimeLimit)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(timeLimit),
+                timeLimit,
+                "The time limit of an approval policy selector is longer than zero and at most 30 seconds.");
+        }
+
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantApprovalPolicySelector, TSelector>());
+        _state.ApprovalPolicySelectorTimeLimit = timeLimit;
+        return this;
+    }
+
+    /// <summary>
     /// Configures turn limits, approval lifetime and durable daily budgets.
     /// </summary>
     public NhAssistantBuilder WithLimits(Action<NhAssistantLimits> configure)
@@ -1179,6 +1213,12 @@ internal sealed class NhAssistantRegistrationState
     /// <see cref="NhAssistantBuilder.UseApplicationBudgetInTurns"/>.
     /// </summary>
     public bool ApplicationBudgetInTurns { get; set; }
+
+    /// <summary>
+    /// How long the application's approval policy selector may take for one proposal; see
+    /// <see cref="NhAssistantBuilder.UseApprovalPolicySelector{TSelector}(TimeSpan)"/>.
+    /// </summary>
+    public TimeSpan ApprovalPolicySelectorTimeLimit { get; set; } = NhAssistantApprovalPolicySelection.DefaultTimeLimit;
 
     /// <summary>
     /// Agent notifications and the notifications of application messages also reach the

@@ -1,15 +1,123 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace NewHeap.Platform.AI.Chat.Runs;
 
 /// <summary>
 /// Finds the approval policy of a proposal. The most specific reference wins: the trigger of the
 /// run, then the skill the run works in, then the tool within the agent, then the agent. Without a reference, chat turns use the
-/// chat default and runs use the trigger default.
+/// chat default and runs use the trigger default. The application's selector, when one is registered,
+/// then chooses among the registered policies (<see cref="SelectAsync"/>).
 /// </summary>
-internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState registration)
+internal sealed class NhAssistantApprovalPolicies(
+    NhAssistantRegistrationState registration,
+    IServiceProvider services,
+    ILogger<NhAssistantApprovalPolicies> logger)
 {
+    private static readonly Action<ILogger, string, string, string, Exception?> SelectorFailed =
+        LoggerMessage.Define<string, string, string>(
+            LogLevel.Warning,
+            new EventId(1, "AssistantApprovalPolicySelectorFailed"),
+            "The approval policy selector {SelectorType} failed for a proposal of tool {ToolId} with {ExceptionType}; the proposal was refused.");
+
+    private static readonly Action<ILogger, string, string, double, Exception?> SelectorTimedOut =
+        LoggerMessage.Define<string, string, double>(
+            LogLevel.Warning,
+            new EventId(2, "AssistantApprovalPolicySelectorTimedOut"),
+            "The approval policy selector {SelectorType} did not answer for a proposal of tool {ToolId} within {TimeLimitMs} ms; the proposal was refused.");
+
+    private static readonly Action<ILogger, string, string, Exception?> SelectorChoseUnknown =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Warning,
+            new EventId(3, "AssistantApprovalPolicySelectorChoseUnknown"),
+            "The approval policy selector {SelectorType} chose a policy that is not registered for a proposal of tool {ToolId}; the proposal was refused.");
+
+    /// <summary>
+    /// The policy of a proposal after the application's selector: the resolved one when no selector is
+    /// registered or it keeps it, the registered policy it chose, or a refusal code when it chose a policy
+    /// that is not registered, threw or did not answer within its time limit. The caller's cancellation
+    /// ends the selection with the caller.
+    /// </summary>
+    /// <param name="resolved">The policy code resolved.</param>
+    /// <param name="selection">The proposal, with <see cref="NhAssistantApprovalPolicySelection.ResolvedPolicyId"/>
+    /// set to <paramref name="resolved"/>'s id.</param>
+    public async Task<NhAssistantPolicyChoice> SelectAsync(
+        NhAiApprovalPolicy resolved,
+        NhAssistantApprovalPolicySelection selection,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(resolved);
+        ArgumentNullException.ThrowIfNull(selection);
+        var selector = services.GetService<INhAssistantApprovalPolicySelector>();
+        if (selector is null)
+        {
+            return NhAssistantPolicyChoice.Of(resolved);
+        }
+
+        var selectorType = selector.GetType().Name;
+        var timeLimit = registration.ApprovalPolicySelectorTimeLimit;
+        string? chosen;
+        using (var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        {
+            limit.CancelAfter(timeLimit);
+            try
+            {
+                // The time limit holds also for a selector that does not observe its token.
+                chosen = await selector.SelectAsync(selection, limit.Token).AsTask().WaitAsync(timeLimit, cancellationToken);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                SelectorTimedOut(logger, selectorType, selection.ToolId, timeLimit.TotalMilliseconds, null);
+                return NhAssistantPolicyChoice.Refusal(NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut);
+            }
+            catch (TimeoutException) when (!cancellationToken.IsCancellationRequested)
+            {
+                SelectorTimedOut(logger, selectorType, selection.ToolId, timeLimit.TotalMilliseconds, null);
+                return NhAssistantPolicyChoice.Refusal(NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // Content-free: the selector's and the exception's type, never its message.
+                SelectorFailed(logger, selectorType, selection.ToolId, exception.GetType().FullName ?? exception.GetType().Name, null);
+                return NhAssistantPolicyChoice.Refusal(NhAssistantErrorCodes.ApprovalPolicySelectorFailed);
+            }
+        }
+
+        if (chosen is null || string.Equals(chosen, resolved.Id, StringComparison.Ordinal))
+        {
+            return NhAssistantPolicyChoice.Of(resolved);
+        }
+        if (!registration.ApprovalPolicies.TryGetValue(chosen, out var policy))
+        {
+            SelectorChoseUnknown(logger, selectorType, selection.ToolId, null);
+            return NhAssistantPolicyChoice.Refusal(NhAssistantErrorCodes.ApprovalPolicyUnknown);
+        }
+
+        return NhAssistantPolicyChoice.Of(policy);
+    }
+
+    /// <summary>
+    /// A policy the approver directory can be asked about: a registered one, or one of the defaults code
+    /// resolves without a registration (<c>trigger-default</c> and <c>chat-default</c>).
+    /// </summary>
+    public NhAiApprovalPolicy? FindKnown(string policyId)
+    {
+        if (Find(policyId) is { } registered)
+        {
+            return registered;
+        }
+
+        if (string.Equals(policyId, NhAiApprovalPolicy.TriggerDefault.Id, StringComparison.Ordinal))
+        {
+            return NhAiApprovalPolicy.TriggerDefault;
+        }
+
+        var chat = NhAiApprovalPolicy.ChatDefault(registration.Limits.ApprovalLifetime);
+        return string.Equals(policyId, chat.Id, StringComparison.Ordinal) ? chat : null;
+    }
+
     public NhAiApprovalPolicy Resolve(
         string agentId,
         string toolId,
@@ -67,6 +175,27 @@ internal sealed class NhAssistantApprovalPolicies(NhAssistantRegistrationState r
         return registration.ApprovalPolicies.TryGetValue(policyId, out var policy)
             ? policy
             : throw new InvalidOperationException($"Approval policy '{policyId}' is not registered.");
+    }
+}
+
+/// <summary>
+/// The approval policy a proposal waits under after the application's selector, or the code that refuses
+/// the proposal.
+/// </summary>
+internal sealed record NhAssistantPolicyChoice(NhAiApprovalPolicy? Policy, string? RefusalCode)
+{
+    public bool Refused => RefusalCode is not null;
+
+    public static NhAssistantPolicyChoice Of(NhAiApprovalPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        return new NhAssistantPolicyChoice(policy, null);
+    }
+
+    public static NhAssistantPolicyChoice Refusal(string code)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        return new NhAssistantPolicyChoice(null, code);
     }
 }
 

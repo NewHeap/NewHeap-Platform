@@ -98,6 +98,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   ],
   409: [
     'assistant-conversation-busy',
+    'assistant-approval-policy-unknown',
     'assistant-message-duplicate',
     'assistant-approval-not-pending',
     'assistant-proposal-hash-mismatch',
@@ -184,6 +185,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   ],
   503: [
     'assistant-proposal-check-failed',
+    'assistant-approval-policy-selector-failed',
+    'assistant-approval-policy-selector-timed-out',
     'assistant-trigger-rolled-back',
     'assistant-mcp-secret-unavailable',
     'assistant-instructions-asset-unavailable',

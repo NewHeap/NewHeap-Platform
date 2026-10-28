@@ -304,7 +304,10 @@
       "assistant-proposal-recently-rejected": "Niet opnieuw voorgesteld: het is kort geleden afgewezen.",
       "assistant-proposal-placed": "Voorgesteld bij het object; wacht op de goedkeurders daarvan",
       "assistant-proposal-not-placed": "Niet voorgesteld: het object waar het om gaat accepteert het niet.",
-      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing."
+      "assistant-proposal-not-needed": "Niet voorgesteld: het werk is al gedaan of is niet meer van toepassing.",
+      "assistant-approval-policy-unknown": "Niet voorgesteld: de applicatie koos een goedkeuringsbeleid dat niet bestaat.",
+      "assistant-approval-policy-selector-failed": "Niet voorgesteld: de applicatie kon niet kiezen wie het goedkeurt.",
+      "assistant-approval-policy-selector-timed-out": "Niet voorgesteld: de applicatie deed te lang over de keuze wie het goedkeurt."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -430,6 +433,9 @@
       "assistant-board-not-found": "Dit bord bestaat niet, of je mag geen van zijn agents zien.",
       "assistant-board-scope-invalid": "De divisie van het bord is niet geldig.",
       "assistant-approval-policy-denied": "Je mag over dit voorstel niet beslissen.",
+      "assistant-approval-policy-unknown": "Dit goedkeuringsbeleid bestaat niet in deze applicatie.",
+      "assistant-approval-policy-selector-failed": "De applicatie kon niet kiezen wie dit voorstel goedkeurt. Probeer het later opnieuw.",
+      "assistant-approval-policy-selector-timed-out": "De applicatie deed te lang over de keuze wie dit voorstel goedkeurt. Probeer het later opnieuw.",
       "assistant-four-eyes-required": "Iemand anders dan de starter moet hierover beslissen.",
       "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
       "assistant-proposal-stale": "Dit voorstel is niet meer van toepassing, bijvoorbeeld omdat het werk al gedaan is. Er is niets gewijzigd.",

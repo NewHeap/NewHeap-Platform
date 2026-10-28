@@ -673,6 +673,12 @@ internal sealed class NhAssistantToolCallInterceptor(
                     NhAssistantErrorCodes.ProposalNotPlaced,
                     row.Id);
             }
+            if (requested is { PolicyRefusal: { } policyRefusal })
+            {
+                // The application's selector refused (FB19): nothing waits, and the model, the rules or the
+                // step read the code from the result, as for a refusal before the call ran.
+                return NhAssistantCallOutcome.Failed(PolicyRefusalResult(policyRefusal), policyRefusal, row.Id);
+            }
             _lastProposal = requested;
             if (requested is { ConsultationRefusal: { } refusal })
             {
@@ -1281,30 +1287,48 @@ internal sealed class NhAssistantToolCallInterceptor(
 
         var agentTurn = state.AgentTurn;
         var consultation = state.Scope.Consultation;
+        NhAiApprovalPolicy? policy = null;
+        if (agentTurn is not null && approvalPolicies is not null)
+        {
+            // Code resolves the policy, and the application's selector may choose another registered one
+            // (FB19); the proposal keeps the choice in its policy copy. A selector that chooses an unknown
+            // policy, throws or does not answer in time refuses the proposal.
+            var resolved = consultation is null
+                ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null, state.Skill?.Id)
+                : consultationProposals is not null
+                    ? approvalPolicies.ResolveConsultation(agentTurn.Thread.AgentId, descriptor.Id, consultation.Options.ProposalPolicyId)
+                    : approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, null, isRun: true);
+            var choice = await approvalPolicies.SelectAsync(
+                resolved,
+                SelectionOf(descriptor, call.CapturedArguments, context, agentTurn, resolved, placed),
+                cancellationToken);
+            if (choice.Refused)
+            {
+                return await RefusePolicyAsync(descriptor, row, choice.RefusalCode!, cancellationToken);
+            }
+
+            policy = choice.Policy!;
+        }
+
         NhAssistantConsultationRoute? route = null;
         if (consultation is not null && agentTurn is not null && consultationProposals is not null)
         {
             // A consultation's proposal takes the first route that applies (CP3): the asker decides
             // it now, it waits at the subject, or it is refused and the model describes the change.
-            route = await consultationProposals.DecideAsync(consultation, agentTurn, state.EffectiveAgent, descriptor, cancellationToken);
+            route = await consultationProposals.DecideAsync(consultation, agentTurn, state.EffectiveAgent, descriptor, policy, cancellationToken);
             if (route.Refused)
             {
                 return await RefuseConsultationProposalAsync(descriptor, row, route.RefusalReason!, cancellationToken);
             }
-        }
 
-        var policy = route is not null
-            ? route.Policy
-            : agentTurn is not null && approvalPolicies is not null
-            ? consultation is null
-                ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null, state.Skill?.Id)
-                // A consultation answers now and cannot wait: its proposals always wait for the
-                // subject's approvers, under the agent's policy or the trigger default.
-                : approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, null, isRun: true) with
-                {
-                    Mode = NhAiApprovalMode.Deferred
-                }
-            : null;
+            policy = route.Policy;
+        }
+        else if (consultation is not null && policy is not null)
+        {
+            // A consultation answers now and cannot wait: its proposals always wait for the subject's
+            // approvers, under the agent's policy or the trigger default.
+            policy = policy with { Mode = NhAiApprovalMode.Deferred };
+        }
         // A request turn cannot wait days for a decision: a person typing always decides inline. A
         // rule turn has no model to continue with a decision, so its proposals always wait deferred,
         // as a proposal placed at another object does: the run never waits in another thread. Neither
@@ -1944,6 +1968,112 @@ internal sealed class NhAssistantToolCallInterceptor(
     }
 
     /// <summary>
+    /// What the application's approval policy selector is asked about this call's proposal: the agent,
+    /// the tool, the subject it waits at (the object a run placed it at, or the thread's subject), the
+    /// arguments as the proposal records them, the policy code resolved, and where the call comes from.
+    /// </summary>
+    private NhAssistantApprovalPolicySelection SelectionOf(
+        NhAiToolDescriptor descriptor,
+        object arguments,
+        NhAiInvocationContext context,
+        NhAssistantAgentTurnContext agentTurn,
+        NhAiApprovalPolicy resolved,
+        NhAssistantPlacedThread? placed)
+    {
+        var subject = placed?.Subject ?? agentTurn.Subject;
+        var consultation = state.Scope.Consultation;
+        var source = consultation is not null
+            ? NhAssistantApprovalPolicySource.Consultation
+            : agentTurn.IsRequestTurn
+                ? NhAssistantApprovalPolicySource.Request
+                : NhAssistantApprovalPolicySource.Run;
+        var inRun = consultation is null && agentTurn.RunId is not null;
+        return new NhAssistantApprovalPolicySelection(
+            agentTurn.Thread.AgentId,
+            descriptor.Id,
+            subject.Subject,
+            NhAiProposalFactory.Canonicalize(JsonSerializer.SerializeToElement(arguments, arguments.GetType(), SelectionJson)),
+            resolved.Id)
+        {
+            Source = source,
+            SkillId = consultation is null ? state.Skill?.Id : null,
+            TriggerId = inRun ? agentTurn.TriggerId : null,
+            InitiatorActorId = agentTurn.InitiatorActorId,
+            TenantId = subject.TenantId,
+            RunId = inRun ? agentTurn.RunId : null,
+            Origin = context.Origin
+        };
+    }
+
+    /// <summary>
+    /// The arguments as <see cref="NhAiProposalFactory"/> records them in the proposal.
+    /// </summary>
+    private static readonly JsonSerializerOptions SelectionJson = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// Ends a call whose proposal the application's approval policy selector refused (FB19): nothing is
+    /// recorded, the call reads <c>not-executed</c> with the refusal's code, the model, the rules or the
+    /// step read it, and the content-free audit records it.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> RefusePolicyAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        var result = PolicyRefusalResult(code);
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = code;
+        row.ResultJson = NhAssistantContent.SerializeResult(result);
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        if (state.Scope.Consultation is null)
+        {
+            await store.UpdateToolInvocationAsync(row, cancellationToken);
+            await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
+        }
+
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.ToolInvoked,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = descriptor.Id,
+                ToolVersion = descriptor.Version,
+                InvocationId = row.Id,
+                ResultCode = code,
+                StartedAt = row.StartedAt,
+                CompletedAt = row.CompletedAt
+            },
+            cancellationToken);
+        return new NhAssistantRecordedProposal(Guid.Empty, Guid.Empty, NhAiApprovalMode.Deferred, false)
+        {
+            Outcome = NhAssistantProposeOutcome.Refused,
+            PolicyRefusal = code
+        };
+    }
+
+    /// <summary>
+    /// The result the model reads when the approval policy of its proposal could not be chosen.
+    /// </summary>
+    private static JsonElement PolicyRefusalResult(string code)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = code,
+                ["message"] = "Nothing was proposed: the application could not choose who approves this change. "
+                    + "The action has not happened. Do not retry it now; mention it in your answer."
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
     /// Ends the consulted agent's call when no route of the consultation applies: nothing is recorded,
     /// the audit names the reason, and the model describes the change instead.
     /// </summary>
@@ -2215,6 +2345,14 @@ internal sealed record NhAssistantRecordedProposal(
     /// Why a consultation recorded nothing: one of <see cref="NhAssistantConsultationRefusalReasons"/>.
     /// </summary>
     public string? ConsultationRefusal { get; init; }
+
+    /// <summary>
+    /// Why nothing was recorded because the application's approval policy selector refused: one of
+    /// <see cref="NhAssistantErrorCodes.ApprovalPolicyUnknown"/>,
+    /// <see cref="NhAssistantErrorCodes.ApprovalPolicySelectorFailed"/> and
+    /// <see cref="NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut"/>.
+    /// </summary>
+    public string? PolicyRefusal { get; init; }
 
     /// <summary>
     /// The pending proposals a newly recorded one replaced.

@@ -340,6 +340,8 @@ builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 // SPM-371: the portal's own setting switches compositions and scripts per environment and agent.
 builder.Services.AddSampleAssistantCompositions();
 builder.Services.AddSampleIntakeReviewer();
+// SPM-356 and SPM-357: the intake review needs four eyes only while the approver directory finds a second approver.
+builder.Services.AddSampleApprovalPolicySelection();
 // SPM-314: the order desk executes the intake reviewer's approved equipment orders and reports how they went.
 builder.Services.AddSampleEquipmentOrders();
 builder.Services.AddSampleStatusAdvisor();

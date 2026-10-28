@@ -70,43 +70,100 @@ internal sealed class NhAssistantApproverCheck(
         }
 
         var info = resolved is null ? await subjects.DescribeAsync(subject, cancellationToken) : resolved.Info;
-        var resource = new NhAiSubjectAuthorizationResource(subject, thread.ScopeKey, info?.DivisionId ?? thread.DivisionId, "approval");
+        var resource = ResourceOf(thread, info);
         var access = resolved is null ? await subjects.ResolveAsync(subject, actorId, cancellationToken) : resolved.Access;
-        var qualifies = false;
-        foreach (var rule in policy.Approvers)
-        {
-            qualifies = rule switch
-            {
-                // A proposal a run placed at another object is that object's to decide: the run's
-                // initiator decides it only as one of the object's approvers.
-                NhAiInitiatorApproverRule => approval.PlacedFromConversationId is null
-                    && string.Equals(actorId, approval.InitiatorActorId, StringComparison.Ordinal),
-                NhAiSubjectRoleApproverRule role => access.Has(role.Role)
-                    && (role.NamedRole is null || access.NamedRoles.Contains(role.NamedRole)),
-                NhAiPolicyApproverRule named => (await authorization.AuthorizeAsync(user, resource, named.PolicyName)).Succeeded,
-                _ => false
-            };
-            if (qualifies)
-            {
-                break;
-            }
-        }
-        if (!qualifies)
+        var principal = () => ValueTask.FromResult<ClaimsPrincipal?>(user);
+        if (!await QualifiesAsync(policy, actorId, approval.InitiatorActorId, approval.PlacedFromConversationId is not null, access, principal, resource))
         {
             return TaskResult.Failed(NhAssistantErrorCodes.ApprovalPolicyDenied, "The caller is not an approver of this proposal.");
         }
 
         // The tool's approve policy keeps a person from approving what they may not do themselves.
-        var descriptor = FindDescriptor(approval.ToolId);
-        foreach (var toolPolicy in descriptor?.ApproverPolicies ?? [])
+        if (!await SatisfiesToolPoliciesAsync(approval.ToolId, principal, resource))
         {
-            if (!(await authorization.AuthorizeAsync(user, resource, toolPolicy)).Succeeded)
-            {
-                return TaskResult.Failed(NhAssistantErrorCodes.ApprovalPolicyDenied, "The caller may not approve this tool.");
-            }
+            return TaskResult.Failed(NhAssistantErrorCodes.ApprovalPolicyDenied, "The caller may not approve this tool.");
         }
 
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// The resource a proposal's approvers are authorized against: the thread's subject with its division.
+    /// </summary>
+    internal static NhAiSubjectAuthorizationResource ResourceOf(AssistantThread thread, NhAiSubjectInfo? info)
+    {
+        ArgumentNullException.ThrowIfNull(thread);
+        return new NhAiSubjectAuthorizationResource(
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            thread.ScopeKey,
+            info?.DivisionId ?? thread.DivisionId,
+            "approval");
+    }
+
+    /// <summary>
+    /// Whether the person matches one of the policy's approver rules, the check of every decision that the
+    /// approver directory applies to its candidates too. The principal is asked only for a policy rule.
+    /// </summary>
+    /// <param name="placed">The proposal was placed at another object than its run's: the run's initiator
+    /// decides it only as one of that object's approvers.</param>
+    internal async Task<bool> QualifiesAsync(
+        NhAiApprovalPolicy policy,
+        string actorId,
+        string? initiatorActorId,
+        bool placed,
+        NhAiSubjectAccess access,
+        Func<ValueTask<ClaimsPrincipal?>> principal,
+        NhAiSubjectAuthorizationResource resource)
+    {
+        foreach (var rule in policy.Approvers)
+        {
+            var qualifies = rule switch
+            {
+                NhAiInitiatorApproverRule => !placed
+                    && string.Equals(actorId, initiatorActorId, StringComparison.Ordinal),
+                NhAiSubjectRoleApproverRule role => access.Has(role.Role)
+                    && (role.NamedRole is null || access.NamedRoles.Contains(role.NamedRole)),
+                NhAiPolicyApproverRule named => await principal() is { } user
+                    && (await authorization.AuthorizeAsync(user, resource, named.PolicyName)).Succeeded,
+                _ => false
+            };
+            if (qualifies)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether the person passes every approve policy of the tool, which keeps a person from approving
+    /// what they may not do themselves. A tool without one asks no principal.
+    /// </summary>
+    internal async Task<bool> SatisfiesToolPoliciesAsync(
+        string toolId,
+        Func<ValueTask<ClaimsPrincipal?>> principal,
+        NhAiSubjectAuthorizationResource resource)
+    {
+        var toolPolicies = FindDescriptor(toolId)?.ApproverPolicies ?? [];
+        if (toolPolicies.Count == 0)
+        {
+            return true;
+        }
+        if (await principal() is not { } user)
+        {
+            return false;
+        }
+
+        foreach (var toolPolicy in toolPolicies)
+        {
+            if (!(await authorization.AuthorizeAsync(user, resource, toolPolicy)).Succeeded)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
