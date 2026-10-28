@@ -130,24 +130,26 @@ public static class NhAiScriptTool
 
         if (unlisted.Count > 0)
         {
+            const string tail = ". A call returns the exact signature when it does not match.\n";
+            var more = ", and " + unlisted.Count.ToString(CultureInfo.InvariantCulture) + " more";
             var names = new StringBuilder("  // Also: ");
             var listed = 0;
             foreach (var tool in unlisted)
             {
-                var name = NhAiScriptSignatures.MemberName(tool.Name);
-                if (builder.Length + names.Length + name.Length + footer.Length + 40 > limits.MaxDescriptionLength)
+                var name = (listed == 0 ? string.Empty : ", ") + NhAiScriptSignatures.MemberName(tool.Name);
+                if (builder.Length + names.Length + name.Length + more.Length + tail.Length + footer.Length > limits.MaxDescriptionLength)
                 {
                     break;
                 }
 
-                names.Append(listed == 0 ? string.Empty : ", ").Append(name);
+                names.Append(name);
                 listed++;
             }
             if (listed < unlisted.Count)
             {
                 names.Append(listed == 0 ? string.Empty : ", ").Append("and ").Append((unlisted.Count - listed).ToString(CultureInfo.InvariantCulture)).Append(" more");
             }
-            builder.Append(names).Append(". A call returns the exact signature when it does not match.\n");
+            builder.Append(names).Append(tail);
         }
         if (tools.Count == 0)
         {

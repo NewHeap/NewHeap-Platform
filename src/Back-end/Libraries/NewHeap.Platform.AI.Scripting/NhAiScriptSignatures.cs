@@ -544,6 +544,10 @@ public static class NhAiScriptSignatures
             }
 
             var matching = types.FirstOrDefault(type => Matches(type, value));
+            if (matching is null && types.Contains("integer") && value.ValueKind == JsonValueKind.Number)
+            {
+                return Error(path, "expected an integer, got a number with a fraction");
+            }
             if (matching is null)
             {
                 var expected = new SchemaWriter(root).Write(schema, 0, describe: false);
