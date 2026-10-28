@@ -478,3 +478,28 @@ function that does not qualify is rejected with `inline-function-not-schema-boun
 `inline-function-execute-as`, `inline-function-definition-not-visible`,
 `inline-function-dependency-not-allowed` or `inline-function-dependency-not-selectable` (SPM-368). PostgreSQL
 keeps its strict function policy.
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: agent work off while the administration serves
+
+`NhAssistantOptions.AgentWork` (`NewHeap:AI:Assistant:AgentWork`, true by default, counting only while `Enabled` is
+on) switches agent work off on a host while the endpoints, the administration and people's chats keep serving. It is
+read for every piece of work, so a reloaded configuration applies to the next one. While it is off, events,
+schedules, webhooks, starts by hand, requests, replays, hand-offs and follow-ups start no run and are refused with
+`assistant-agent-work-off` (409) before any of their lambdas runs; a queued run ends with that code without claiming
+its inputs; consultations and `INhAssistantConversationMessages.PostAsync` (and so a request's answer in the asking
+chat) are refused with it; approved proposals of agent threads are held as for a stopped agent and queued by the
+maintenance job once agent work is on; resuming a paused agent or skill is refused with it. People keep chatting,
+deciding and being reminded, open proposals are still revalidated, and the report of an execution the application
+made is still posted. `GET status` reports `agentWork`, and `NhAssistantAgentState.AgentWork` and
+`NhAssistantAdminAgentDto.AgentWork` say it for every agent, whose `Active` is false meanwhile (SPM-365). With the
+default nothing changes; a host whose assistant is disabled no longer queues an orphaned run again only to cancel it,
+and keeps it queued until it is enabled.
+
+## @newheap/platform-ai-chat: agent work off in the agent list
+
+`AssistantStatus`, `AdminAgent` and `AgentState` gain the optional `agentWork`. While it is `false`, the agent list of
+`NhAssistantAdminAgentsComponent` shows a banner above the agents, in English and Dutch.
+`NH_ASSISTANT_SERVER_ERROR_CODES` names `assistant-agent-work-off` with English and Dutch texts for an error and for
+a tool call's result. The mock API takes `agentWork` in its scenario and `NhAssistantMockBackend.setAgentWork`,
+reports it on `GET status` and in the administration, and refuses to resume a paused agent or skill with
+`409 assistant-agent-work-off`, as the server does.

@@ -79,7 +79,9 @@ public interface INhAssistantAgentControl
     /// <summary>
     /// Makes a paused, stopped or off agent active again; an agent that was off starts no run for
     /// what happened meanwhile. Fails with <c>assistant-agent-configured-off</c> for an agent that is
-    /// disabled in code.
+    /// disabled in code, and with <c>assistant-agent-work-off</c> for a paused agent while agent work is
+    /// off on this host (<see cref="NhAssistantOptions.AgentWork"/>), because the events that waited
+    /// would start no run.
     /// </summary>
     Task<TaskResult<NhAssistantAgentState>> ResumeAsync(
         string agentId,
@@ -137,7 +139,8 @@ public interface INhAssistantAgentControl
 
     /// <summary>
     /// Resumes one skill; every thread with events waiting for it gets one run in it. A skill that
-    /// was off starts no run.
+    /// was off starts no run. Fails with <c>assistant-agent-work-off</c> for a paused skill of an active
+    /// agent while agent work is off on this host.
     /// </summary>
     Task<TaskResult<NhAssistantSkillState>> ResumeSkillAsync(
         string agentId,
@@ -213,8 +216,8 @@ public interface INhAssistantAgentControl
 
 /// <param name="RunState">One of <see cref="NhAssistantAgentRunStates"/>: <c>active</c>,
 /// <c>paused</c>, <c>stopped</c>, <c>off</c> or <c>configured-off</c>.</param>
-/// <param name="Active">Whether the agent works now: active, enabled in code and the assistant
-/// enabled.</param>
+/// <param name="Active">Whether the agent works now: active, enabled in code, the assistant enabled
+/// and agent work on (<see cref="AgentWork"/>).</param>
 /// <param name="ChangedAt">When the state last changed; <see langword="null"/> when it never did.</param>
 /// <param name="ChangedBy">The actor who changed it last.</param>
 /// <param name="Reason">The reason given with the last change.</param>
@@ -270,6 +273,14 @@ public sealed record NhAssistantAgentState(
     /// them; <see langword="null"/> for an agent nobody can consult.
     /// </summary>
     public NhAssistantConsultationRoutesState? ConsultationRoutes { get; init; }
+
+    /// <summary>
+    /// Whether agents work on this host (<see cref="NhAssistantOptions.AgentWork"/>, while the
+    /// assistant is enabled), the same for every agent. <see langword="false"/>: no agent works,
+    /// whatever its <see cref="NhAssistantAgentState.RunState"/>, so <see cref="NhAssistantAgentState.Active"/>
+    /// is <see langword="false"/>; people keep chatting and the administration serves.
+    /// </summary>
+    public bool AgentWork { get; init; } = true;
 }
 
 /// <summary>
@@ -463,6 +474,9 @@ internal sealed class NhAssistantAgentControl(
     /// The held executions one state change queues; the maintenance job queues any others.
     /// </summary>
     private const int MaxReleasedExecutions = 500;
+
+    private const string ResumeRefusalMessage =
+        "Agent work is off on this host; resume the agent or skill once agents work again.";
 
     public async Task<NhAssistantAgentState?> GetAsync(string agentId, CancellationToken cancellationToken = default)
     {
@@ -869,6 +883,14 @@ internal sealed class NhAssistantAgentControl(
 
         var stored = await store.GetSkillStatesAsync(agentId, cancellationToken);
         var current = stored.TryGetValue(skillId, out var row) ? row.RunState : NhAssistantAgentRunStates.Active;
+        if (target == NhAssistantAgentRunStates.Active
+            && current == NhAssistantAgentRunStates.Paused
+            && agent.RunState == NhAssistantAgentRunStates.Active
+            && ResumeRefusal() is { } refusal)
+        {
+            return TaskResult<NhAssistantSkillState>.Failed(refusal, ResumeRefusalMessage);
+        }
+
         var cancelled = 0;
         var started = 0;
         if (current != target)
@@ -1015,6 +1037,12 @@ internal sealed class NhAssistantAgentControl(
         {
             return TaskResult<NhAssistantAgentState>.Succeeded(await StateOfAsync(agent, 0, 0, cancellationToken));
         }
+        if (target == NhAssistantAgentRunStates.Active
+            && agent.RunState == NhAssistantAgentRunStates.Paused
+            && ResumeRefusal() is { } refusal)
+        {
+            return TaskResult<NhAssistantAgentState>.Failed(refusal, ResumeRefusalMessage);
+        }
 
         var previous = await store.SetAgentStateAsync(agentId, target, actorId, reason, cancellationToken);
         if (previous is null)
@@ -1062,6 +1090,20 @@ internal sealed class NhAssistantAgentControl(
     }
 
     /// <summary>
+    /// Why a paused agent or skill may not be resumed now: resuming starts one run per thread with the
+    /// events that waited, which would be refused while agent work is off on this host, and nothing
+    /// would start them later (FB17). Pausing, stopping, switching off and resuming a stopped or
+    /// switched-off agent stay possible. <see langword="null"/> when it may be resumed; with the
+    /// assistant disabled the resume behaves as before.
+    /// </summary>
+    private string? ResumeRefusal()
+    {
+        return NhAssistantAgentWorkGate.RefusalOf(options) == NhAssistantErrorCodes.AgentWorkOff
+            ? NhAssistantErrorCodes.AgentWorkOff
+            : null;
+    }
+
+    /// <summary>
     /// Queues the executions of approved proposals that the agent held while it was stopped. An
     /// execution that cannot be queued now is queued by the maintenance job.
     /// </summary>
@@ -1090,10 +1132,11 @@ internal sealed class NhAssistantAgentControl(
         var waiting = agent.RunState == NhAssistantAgentRunStates.Paused
             ? await runs.CountAgentWaitingInputsAsync(agent.Id, cancellationToken)
             : 0;
+        var agentWork = NhAssistantAgentWorkGate.IsOn(options);
         return new NhAssistantAgentState(
             agent.Id,
             runState,
-            runState == NhAssistantAgentRunStates.Active && options.CurrentValue.Enabled,
+            runState == NhAssistantAgentRunStates.Active && agentWork,
             agent.StateChangedAt,
             agent.StateChangedBy,
             agent.StateReason,
@@ -1126,7 +1169,8 @@ internal sealed class NhAssistantAgentControl(
                 : null,
             // An agent disabled in code reads configured-off whatever it stored.
             OffBeforeStop = runState == NhAssistantAgentRunStates.Stopped && agent.OffBeforeStop,
-            ConsultationRoutes = ConsultationRoutesOf(agent)
+            ConsultationRoutes = ConsultationRoutesOf(agent),
+            AgentWork = agentWork
         };
     }
 }

@@ -84,6 +84,8 @@ export interface NhAssistantMockAgentRules {
   shadowVariantRefusal?(input: AdminAgentInput): NhAssistantMockResult | null;
   /** The application's text assets, which an agent created here may take its instructions from. */
   instructionAssets?(): NhAssistantMockInstructionAssets;
+  /** Whether agents work on the host (`NewHeap:AI:Assistant:AgentWork`); missing means they do. */
+  agentWork?(): boolean;
 }
 
 /** The profile of an agent that did not choose one, as the application's chat profile. */
@@ -305,7 +307,9 @@ export class NhAssistantMockAdminAgents {
   agentsEndpoint(method: string, id: string | undefined, action: string | undefined, body: unknown, length: number): NhAssistantMockResult {
     if (id === undefined) {
       if (method === 'GET') {
-        return { status: 200, body: [...this.agents.values()].map(stored => this.withInstructions(stored.agent)) };
+        // Every agent says whether agents work on the host, as the server reports it.
+        const agentWork = this.agentWorkOn();
+        return { status: 200, body: [...this.agents.values()].map(stored => ({ ...this.withInstructions(stored.agent), agentWork })) };
       }
       if (method !== 'POST') {
         return { status: 405 };
@@ -437,6 +441,11 @@ export class NhAssistantMockAdminAgents {
       return validationFailure();
     }
     const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+    // Resuming a paused skill of an active agent starts the events that waited, which agents do not
+    // take while agent work is off.
+    if (request.state === 'active' && skill.runState === 'paused' && stored.agent.runState === 'active' && !this.agentWorkOn()) {
+      return failure('assistant-agent-work-off');
+    }
     const changed: AgentSkillState = skill.runState === request.state
       ? skill
       : { ...skill, runState: request.state, changedAt: this.now(), changedBy: 'current-user', reason };
@@ -801,9 +810,15 @@ export class NhAssistantMockAdminAgents {
     };
   }
 
-  /** The agent's state with the routes of its consultations. */
+  /** The agent's state with the routes of its consultations, and whether agents work on the host. */
   private toAgentState(stored: StoredAgent): AgentState {
-    return { ...toAgentState(stored), consultationRoutes: this.consultationRoutesState(stored) };
+    const state = toAgentState(stored);
+    const agentWork = this.agentWorkOn();
+    return { ...state, active: state.active && agentWork, consultationRoutes: this.consultationRoutesState(stored), agentWork };
+  }
+
+  private agentWorkOn(): boolean {
+    return this.rules.agentWork?.() ?? true;
   }
 
   /**
@@ -834,6 +849,10 @@ export class NhAssistantMockAdminAgents {
       return request.state === 'active'
         ? failure('assistant-agent-configured-off')
         : { status: 200, body: this.toAgentState(stored) };
+    }
+    // Resuming a paused agent starts the events that waited, which agents do not take while agent work is off.
+    if (request.state === 'active' && stored.agent.runState === 'paused' && !this.agentWorkOn()) {
+      return failure('assistant-agent-work-off');
     }
     if (stored.agent.runState !== request.state) {
       stored.agent = {

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -252,7 +253,8 @@ internal sealed class NhAssistantConsultationService(
     NhAssistantAgentEvents events,
     ILogger<NhAssistantConsultationService> logger,
     NhAssistantWorksOnRule worksOn,
-    NhAssistantTenancy tenancy)
+    NhAssistantTenancy tenancy,
+    IOptionsMonitor<NhAssistantOptions> assistantOptions)
 {
     /// <summary>
     /// Time kept back for the asking turn to use the answer after the consultation returns.
@@ -455,6 +457,13 @@ internal sealed class NhAssistantConsultationService(
         int depth,
         CancellationToken cancellationToken)
     {
+        // A consultation is agent work: while agent work is off the agent answers nobody, and the
+        // refusal counts toward no limit (FB17).
+        if (NhAssistantAgentWorkGate.RefusalOf(assistantOptions) is { } refusal)
+        {
+            return Refused(refusal, "Agents do not work on this host now.");
+        }
+
         var options = request.Options;
         // The asking turn's limit is checked first, so every consultation it starts counts (LS22).
         var asking = NhAssistantExecutionScope.CurrentTurn;

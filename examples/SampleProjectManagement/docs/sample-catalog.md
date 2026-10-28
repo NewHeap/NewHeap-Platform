@@ -1199,6 +1199,18 @@ assistant's tables. The library tests prove the reserved slots on both providers
 the lookup for every kind of fire, the run facts within their tenant and a host
 with `RunSchedules` off.
 
+An operator switches agent work off on the API host with
+`NewHeap:AI:Assistant:AgentWork` (SPM-365), which `appsettings.Development.json`
+names with its default `true`, and the host keeps serving. `GET status`, the
+administration and the maintenance page report `agentWork: false` and no agent is
+active, while the agent list says so in a banner. A new project's intake review is
+refused with `assistant-agent-work-off` and starts no run; the owner keeps chatting,
+and the project assistant's consultation of the intake reviewer answers that code as a
+tool result. Once the configuration switches agent work on and the host reloads it,
+the next review starts. The library tests prove every kind of agent work refused on
+both providers, approved proposals held and released by the maintenance job once
+agent work is on, and a person's chat and inline decisions working throughout.
+
 ## Edit modal
 
 `ProjectEditModalComponent` supports both create and update operations. The

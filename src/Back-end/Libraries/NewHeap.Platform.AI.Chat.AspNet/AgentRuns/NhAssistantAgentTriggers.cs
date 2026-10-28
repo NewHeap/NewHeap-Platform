@@ -321,16 +321,23 @@ internal sealed class NhAssistantAgentTriggers(
         var matching = registration.Triggers.Values
             .Where(trigger => trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent))
             .ToArray();
-        if (!assistantOptions.CurrentValue.Enabled)
+        if (NhAssistantAgentWorkGate.RefusalOf(assistantOptions) is { } refusal)
         {
-            // Off means off: no lambda runs and nothing is queued or audited.
+            // Off means off: no trigger's lambda runs and nothing is queued or audited. With agent work
+            // off the open proposals the event concerns are still revalidated, because people keep
+            // deciding them (FB17).
+            if (refusal == NhAssistantErrorCodes.AgentWorkOff)
+            {
+                await QueueRevalidationsAsync(evt, cancellationToken);
+            }
+
             return matching
                 .Select(trigger => new NhAssistantTriggerReceipt(
                     trigger.Id,
                     NhAssistantTriggerOutcomes.Rejected,
                     null,
                     null,
-                    NhAssistantErrorCodes.Disabled))
+                    refusal))
                 .ToArray();
         }
 
@@ -669,7 +676,7 @@ internal sealed class NhAssistantAgentTriggers(
         };
         if (await RefusalOfAsync(agentId, refusePaused: false, cancellationToken) is { } refusal)
         {
-            if (refusal != NhAssistantErrorCodes.Disabled)
+            if (!NhAssistantAgentWorkGate.IsHostRefusal(refusal))
             {
                 await events.TriggerAsync(agentId, null, fire.TriggerId, null, subject, initiatorActorId, refusal, accepted: false, cancellationToken);
             }
@@ -682,8 +689,9 @@ internal sealed class NhAssistantAgentTriggers(
 
     /// <summary>
     /// Why the agent takes no triggers now, before any of a trigger's lambdas runs: the assistant
-    /// is disabled, the agent is not configured, disabled in code or stopped, with
-    /// <paramref name="refusePaused"/> paused, or with <paramref name="refuseOff"/> switched off
+    /// is disabled or agent work is off on this host (<see cref="NhAssistantAgentWorkGate"/>), the
+    /// agent is not configured, disabled in code or stopped, with <paramref name="refusePaused"/>
+    /// paused, or with <paramref name="refuseOff"/> switched off
     /// (<see cref="NhAssistantErrorCodes.AgentOff"/>). <see langword="null"/> when it takes them.
     /// People's own starts pass <paramref name="refuseOff"/> <see langword="false"/>: an agent that
     /// is off still works for them.
@@ -694,9 +702,9 @@ internal sealed class NhAssistantAgentTriggers(
         CancellationToken cancellationToken,
         bool refuseOff = false)
     {
-        if (!assistantOptions.CurrentValue.Enabled)
+        if (NhAssistantAgentWorkGate.RefusalOf(assistantOptions) is { } refusal)
         {
-            return NhAssistantErrorCodes.Disabled;
+            return refusal;
         }
         if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions))
         {
@@ -806,7 +814,7 @@ internal sealed class NhAssistantAgentTriggers(
             {
                 refusals[agentId] = refusal;
             }
-            if (refusal is not null && refusal != NhAssistantErrorCodes.Disabled && refusal != NhAssistantErrorCodes.AgentOff)
+            if (refusal is not null && !NhAssistantAgentWorkGate.IsHostRefusal(refusal) && refusal != NhAssistantErrorCodes.AgentOff)
             {
                 await events.TriggerAsync(agentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken);
             }
@@ -1565,9 +1573,11 @@ internal sealed class NhAssistantAgentTriggers(
             throw new InvalidOperationException(
                 $"Trigger '{fire.TriggerId}' for agent '{fire.AgentId}' names a person as initiator without the clearance of the start rule.");
         }
-        if (!assistantOptions.CurrentValue.Enabled)
+        // Every fire, from events, schedules, webhooks, people, requests, hand-offs, follow-ups,
+        // replays and resumes, passes the gate of agent work first (FB17).
+        if (NhAssistantAgentWorkGate.RefusalOf(assistantOptions) is { } refusal)
         {
-            return Rejected(fire, null, NhAssistantErrorCodes.Disabled);
+            return Rejected(fire, null, refusal);
         }
 
         await configurations.EnsureCurrentAsync(cancellationToken);

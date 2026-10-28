@@ -275,7 +275,11 @@
           "attention-one": "1 warning",
           "waiting": "{{count}} waiting",
           "skill-in-shadow": "1 skill in shadow",
-          "skills-in-shadow": "{{count}} skills in shadow"
+          "skills-in-shadow": "{{count}} skills in shadow",
+          "agent-work-off": {
+            "title": "Agent work is off.",
+            "text": "No agent works on its own, takes work from others or is consulted, and approved proposals wait until agent work is on again. People keep chatting, and you can keep managing agents here; a paused agent resumes once agent work is on."
+          }
         },
         "menu": {
           "agent-label": "Status: {{status}}. Change the status of the agent",

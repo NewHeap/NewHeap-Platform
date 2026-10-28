@@ -290,6 +290,11 @@ export class NhAssistantMockBackend {
     this.enabledState.set(enabled);
   }
 
+  /** Switches the simulated `NewHeap:AI:Assistant:AgentWork` flag; people keep chatting either way. */
+  setAgentWork(agentWork: boolean): void {
+    this.admin.setAgentWork(agentWork);
+  }
+
   /** Switches whether the caller passes the admin policy (`canAdminister`, `admin/*`). */
   setCanAdminister(canAdminister: boolean): void {
     this.admin.setCanAdminister(canAdminister);
@@ -412,8 +417,8 @@ export class NhAssistantMockBackend {
         maxParticipants: this.maxParticipants()
       };
       return this.json(200, this.enabledState()
-        ? { enabled: true, agents: this.admin.chatAgents(), limits, canAdminister: this.admin.administers, collaboration }
-        : { enabled: false, agents: [], limits, canAdminister: false });
+        ? { enabled: true, agents: this.admin.chatAgents(), limits, canAdminister: this.admin.administers, collaboration, agentWork: this.admin.agentWork }
+        : { enabled: false, agents: [], limits, canAdminister: false, agentWork: false });
     }
     if (!this.enabledState()) {
       return this.empty(404);

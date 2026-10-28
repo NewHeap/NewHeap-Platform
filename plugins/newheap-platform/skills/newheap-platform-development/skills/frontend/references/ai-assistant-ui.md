@@ -469,7 +469,11 @@ off or makes it work again, while "Resume" switches it on), puts them in shadow 
 lets the code decide again
 (`setAgentShadow`, `setSkillShadow`), and replaces the technical account of an agent that
 answers to one (`setServiceAccount`), each with an optional reason; a thread view marks a
-shadow thread, which only administrators reach.
+shadow thread, which only administrators reach. While agent work is off on the host
+(`agentWork: false` on `AdminAgent`, `AgentState` and `AssistantStatus`, SPM-365), the agent list
+shows a banner above the agents, whose statuses stay as they are, and resuming a paused agent or skill
+answers `assistant-agent-work-off`; test it with `agentWork` in the mock scenario or
+`NhAssistantMockBackend.setAgentWork`.
 
 Each agent on that page also opens its run configuration
 (`NhAssistantAgentRunConfigurationComponent`). Skills and triggers in code are read only;

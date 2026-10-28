@@ -78,6 +78,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-skill-stopped',
   'assistant-skill-paused',
   'assistant-agent-off',
+  // Agent work switched off on the host (FB17)
+  'assistant-agent-work-off',
   'assistant-skill-off',
   'assistant-skill-not-found',
   'assistant-skill-not-available',

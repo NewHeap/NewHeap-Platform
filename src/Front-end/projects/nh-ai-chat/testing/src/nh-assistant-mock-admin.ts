@@ -62,10 +62,12 @@ export class NhAssistantMockAdmin {
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
+  private agentWorkOn: boolean;
 
   constructor(private readonly scenario: NhAssistantMockScenario, private readonly now: () => string) {
     const admin = scenario.admin ?? {};
     this.canAdminister = admin.canAdminister ?? true;
+    this.agentWorkOn = scenario.agentWork ?? true;
     this.preferences = { ...defaultPreferences, ...scenario.preferences };
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
@@ -78,7 +80,8 @@ export class NhAssistantMockAdmin {
       profileNames: () => this.runConfiguration.profileNames,
       dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId),
       shadowVariantRefusal: input => this.handOffs.shadowVariantRefusal(input),
-      instructionAssets: () => this.instructionAssets
+      instructionAssets: () => this.instructionAssets,
+      agentWork: () => this.agentWorkOn
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(
@@ -114,6 +117,15 @@ export class NhAssistantMockAdmin {
 
   setCanAdminister(value: boolean): void {
     this.canAdminister = value;
+  }
+
+  /** Whether agents work on the host (`NewHeap:AI:Assistant:AgentWork`). */
+  get agentWork(): boolean {
+    return this.agentWorkOn;
+  }
+
+  setAgentWork(value: boolean): void {
+    this.agentWorkOn = value;
   }
 
   /** What the mock authorization window answers next. */

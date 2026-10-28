@@ -314,7 +314,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             new NhAssistantErrorDto("code", "key", new Dictionary<string, string[]> { ["displayName"] = ["required"] }),
             context.NhAssistantErrorDto);
 
-        AssertNames(status, "enabled", "agents", "limits", "canAdminister", "collaboration");
+        AssertNames(status, "enabled", "agents", "limits", "canAdminister", "collaboration", "agentWork");
         AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate", "uploads");
         Assert.Equal(JsonValueKind.Null, status.GetProperty("agents")[0].GetProperty("uploads").ValueKind);
         var agents = JsonSerializer.SerializeToElement(

@@ -17,6 +17,9 @@ namespace SampleProjectManagement.Api.Services;
 /// its work goes to shadow threads that only administrators see, nobody is notified and nothing
 /// executes; afterwards the operator puts it live or lets the code decide again.
 /// SPM-294: the operator replaces the technical account an agent answers to, for its new runs.
+/// SPM-365: while <c>NewHeap:AI:Assistant:AgentWork</c> switches agent work off on the host, every
+/// state says so (<see cref="NhAssistantAgentState.AgentWork"/>) and none is active; pausing, stopping
+/// and switching off still work, and a paused agent resumes once agent work is on again.
 /// </summary>
 public sealed class SampleAgentMaintenanceService(INhAssistantAgentControl agents)
 {

@@ -31,7 +31,8 @@ let nextId = 0;
  * The agents of the administration as one scannable list: per agent its name, description and id,
  * one status, where it works, where it comes from and what needs attention. A search on name and id
  * and filters with their counts narrow the list; a shadow variant follows the agent it is a variant
- * of. A row has no actions of its own: it opens the agent's page (`opened`).
+ * of. A row has no actions of its own: it opens the agent's page (`opened`). While agent work is off
+ * on the host, a banner above the list says that no agent works.
  */
 @Component({
   selector: 'nh-assistant-agent-list',
@@ -59,6 +60,12 @@ export class NhAssistantAgentListComponent {
   readonly agentStatus = agentStatus;
   readonly statusTone = statusTone;
   readonly agentWork = agentWork;
+
+  /**
+   * Whether agent work is off on the host (`agentWork: false`, the same on every agent): the list then
+   * says so above the agents, whose statuses stay as they are.
+   */
+  readonly agentWorkOff = computed(() => this.agents().some(agent => agent.agentWork === false));
 
   /** How many agents each filter shows. */
   readonly counts = computed(() => {

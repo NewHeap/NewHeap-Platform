@@ -275,7 +275,11 @@
           "attention-one": "1 waarschuwing",
           "waiting": "{{count}} wachtend",
           "skill-in-shadow": "1 vaardigheid in schaduw",
-          "skills-in-shadow": "{{count}} vaardigheden in schaduw"
+          "skills-in-shadow": "{{count}} vaardigheden in schaduw",
+          "agent-work-off": {
+            "title": "Agentwerk staat uit.",
+            "text": "Geen agent werkt zelfstandig, neemt werk van anderen aan of wordt geraadpleegd, en goedgekeurde voorstellen wachten tot agentwerk weer aan staat. Mensen blijven chatten en je kunt hier agents blijven beheren; een gepauzeerde agent hervat zodra agentwerk aan staat."
+          }
         },
         "menu": {
           "agent-label": "Status: {{status}}. De status van de agent wijzigen",

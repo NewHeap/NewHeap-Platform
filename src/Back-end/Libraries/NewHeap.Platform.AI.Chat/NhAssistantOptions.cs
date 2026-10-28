@@ -15,6 +15,23 @@ public sealed class NhAssistantOptions
     public bool Enabled { get; set; }
 
     /// <summary>
+    /// Whether agents work on this host (<c>NewHeap:AI:Assistant:AgentWork</c>), true by default; it
+    /// counts only while <see cref="Enabled"/> is on. Read for every piece of work, so a reloaded
+    /// configuration applies from the next one. When false, the endpoints and the administration keep
+    /// serving and people keep chatting, while no agent works: events, schedules, webhooks, starts by
+    /// hand, replays, follow-ups and hand-offs start no run and are refused with
+    /// <c>assistant-agent-work-off</c>, a queued run ends with that code without claiming its inputs,
+    /// consultations and the application's messages through <c>INhAssistantConversationMessages</c>
+    /// are refused with it, and approved proposals of agent threads are held as for a stopped agent
+    /// until agent work is on again, when the maintenance job queues their execution. Resuming a paused
+    /// agent or skill, which starts the work that waited, is refused with it as well. A person's turn
+    /// in a chat or in an agent's thread, the decisions about proposals, the revalidation of open
+    /// proposals and the reminders keep working. <c>GET status</c> and the administration report it
+    /// as <c>agentWork</c>.
+    /// </summary>
+    public bool AgentWork { get; set; } = true;
+
+    /// <summary>
     /// Whether this host runs the scheduled triggers (<c>NewHeap:AI:Assistant:RunSchedules</c>), true by
     /// default; read when the host starts. A host that runs them registers a Hangfire recurring job for
     /// every schedule in code when it starts, and keeps the recurring jobs of schedules defined as data in

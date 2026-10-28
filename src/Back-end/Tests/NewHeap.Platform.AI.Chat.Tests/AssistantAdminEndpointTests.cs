@@ -190,7 +190,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
             "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs", "skills", "shadowOf", "shadow", "serviceAccount",
             "offeredInChat", "profile", "dataClassification", "warnings", "worksOnSubjectTypes", "worksOnAllSubjects", "worksOnApplication",
             "perDivision", "runPolicy", "viewPolicy", "worksOnDeclared", "chatOnly", "knownSubjectTypes", "groups", "codeGroups", "offBeforeStop",
-            "instructionsAsset", "instructionsProblem", "compositions", "scripts");
+            "agentWork", "instructionsAsset", "instructionsProblem", "compositions", "scripts");
         Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("project-chat", code.GetProperty("profile").GetString());
         Assert.Equal(JsonValueKind.Null, code.GetProperty("dataClassification").ValueKind);
@@ -277,7 +277,7 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var releasedAgain = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
         var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
 
-        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount", "offBeforeStop", "consultationRoutes");
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns", "skills", "shadowOf", "shadow", "serviceAccount", "offBeforeStop", "consultationRoutes", "agentWork");
         // Nobody can consult this agent, so it has no consultation routes to switch.
         Assert.Equal(JsonValueKind.Null, initial.GetProperty("consultationRoutes").ValueKind);
         Assert.False(initial.GetProperty("offBeforeStop").GetBoolean());

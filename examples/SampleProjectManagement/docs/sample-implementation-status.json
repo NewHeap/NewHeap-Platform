@@ -354,6 +354,7 @@
     "SPM-360",
     "SPM-361",
     "SPM-362",
+    "SPM-365",
     "SPM-366",
     "SPM-367",
     "SPM-368",
@@ -3771,6 +3772,18 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PlanningServiceWrapperSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs"
+    ],
+    "SPM-365": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentWorkGate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkSwitchTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-list.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-work-switch.spec.ts"
     ],
     "SPM-366": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs",
