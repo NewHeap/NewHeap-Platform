@@ -36,7 +36,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
     public const string GeneralViewPolicy = "test.division.general-view";
 
     /// <summary>The password of the users that <see cref="AddSignInUserAsync"/> adds.</summary>
-    public const string Password = "Divisions1!Password";
+    public const string SignInCredential = "Divisions1!Password";
 
     private readonly WebApplication _application;
 
@@ -207,7 +207,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
         return id;
     }
 
-    /// <summary>Adds a user with <see cref="Password"/>, who signs in through <see cref="SignInAsync"/>.</summary>
+    /// <summary>Adds a user with <see cref="SignInCredential"/>, who signs in through <see cref="SignInAsync"/>.</summary>
     public async Task<Guid> AddSignInUserAsync(string name)
     {
         var id = await AddUserAsync(name);
@@ -217,7 +217,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
         var user = await users.FindByIdAsync(id.ToString())
             ?? throw new InvalidOperationException($"User {id} does not exist.");
 
-        var result = await users.AddPasswordAsync(user, Password);
+        var result = await users.AddPasswordAsync(user, SignInCredential);
         if (!result.Succeeded)
         {
             throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
@@ -227,7 +227,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
     }
 
     /// <summary>
-    /// Signs the user in with <see cref="Password"/> through the platform's password sign-in, which
+    /// Signs the user in with <see cref="SignInCredential"/> through the platform's password sign-in, which
     /// puts the user's division claims into the token.
     /// </summary>
     public async Task<TaskResult<UserToken>> SignInAsync(Guid userId)
@@ -239,7 +239,7 @@ internal sealed class DivisionProviderTestHost : IAsyncDisposable
 
         var authentication = scope.ServiceProvider.GetRequiredService<INhAuthenticationService>();
 
-        return await authentication.Authenticate(new AuthenticateRequest(user.UserName!, Password));
+        return await authentication.Authenticate(new AuthenticateRequest(user.UserName!, SignInCredential));
     }
 
     /// <summary>Gives the user an application permission, such as the division access-all permission.</summary>
