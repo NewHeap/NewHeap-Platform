@@ -309,3 +309,40 @@ its reason, and an agent created in the administration switches compositions and
 within the run catalog's `compositionCeiling` (`AdminAgentInput.compositions`, `scripts`). The mock API
 answers the state from `admin.compositions` and `admin.compositionsAsData` of its scenario. English and
 Dutch texts include `assistant-composition-off` and `assistant-scripting-off`.
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: requests that answer where they were asked, and requests only
+
+`NhAssistantConsultationBuilder.AnswerRequests(NhAssistantRequestAnswerRoute.AskingConversation)` (opt-in;
+`AgentThread` stays the default) lets a request through another assistant answer in the chat it was made
+in. The run keeps the asking chat and turn (`AssistantRun.AskingConversationId` and `AskingTurnId`), and the
+completed run posts its answer once into that chat as an application message readable by the person who
+asked, untrusted, titled in their culture, with the subject type's `OpenAt` link and one idempotency key per
+run; the `RequestAnswered` notification stays as it was. A request of an MCP client, of an agent run or of a
+consultation's turn has no asking conversation, and a shadow run, a run that read restricted results, a
+consultation classified `Restricted` and a chat the person may no longer open post nothing.
+`NhAssistantConsultationCeilingBuilder.AnswerRequests` does the same for consultations defined as data,
+reported as `answerRequestsInAskingConversation` of the ceiling, code and data consultation DTOs.
+
+`NhAssistantConsultationBuilder.RequestsOnly()` generates only `assistant.request.{agentId}.{subjectType}`,
+with the consultation's `Description` for the asking model and no consultation proposal routes; startup
+refuses it together with `MinimumRole`, `Proposals`, `Limits`, `Tools`, `History`, `Instructions` or
+`AllowRequests(false)`, and refuses `AnswerRequests` without requests. As data,
+`NhAssistantDataConsultationRequest.RequestsOnly` (`requestsOnly`) needs `allowRequests` and leaves out the
+settings of a consultation's own turn (field errors `allowRequests: required` and `{field}: not-allowed`);
+`NhAssistantCodeConsultationDto` and `NhAssistantDataConsultationDto` report `requestsOnly` with an empty
+`consultToolId`, and `NhAssistantPackageConsultation.RequestsOnly` carries it in agent packages, written only
+when it is set and lockable as `requestsOnly`. A host before this version refuses a package with it.
+
+The migration `RequestAnswersAndRequestsOnly` adds `AskingConversationId` and `AskingTurnId` to
+`AssistantRun` and `RequestsOnly` to `AssistantAgentConsultationDefinition` on SQL Server and PostgreSQL;
+hosts must apply the migration: hosts with `RunMigrations` apply it at start, others with their deployment
+step. Without the new calls nothing else changes.
+
+## @newheap/platform-ai-chat: requests only and the answer route in the administration models
+
+`CodeConsultation` and `DataConsultation` gain `requestsOnly` and `answerRequestsInAskingConversation`,
+`DataConsultationRequest` gains `requestsOnly`, `ConsultationCeiling` gains
+`answerRequestsInAskingConversation`, and `PackageConsultation` gains `requestsOnly`; each is optional, so
+older servers keep working. `NH_ASSISTANT_PACKAGE_LOCK_FIELDS.consultation` names `requestsOnly`. The mock
+API saves and checks requests-only consultations as the server does, lists only their request tool and
+answers the ceiling's `answerRequestsInAskingConversation` from `admin.consultationsAsData`.
