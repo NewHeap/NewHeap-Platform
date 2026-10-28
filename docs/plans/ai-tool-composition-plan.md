@@ -209,9 +209,41 @@ Proposed, after the trains of `platform-feedback-23-plan.md`:
 
 | Train | Lane | Choices | Migrations | Case ids |
 |---|---|---|---|---|
-| A | SW: switch and status | TC8, the activity part of TC1 | none | SPM-371 |
-| A | CO: compositions | TC2, TC5, TC7 (compositions) | none | SPM-372 |
-| A | SC: script tool | TC3, TC4, TC5, TC6, TC7 (script) | possibly one, for the stored script text | SPM-373–374 |
+| A | SW: switch and status | TC8 | in the sample only, for its own setting | SPM-371 |
+| A | CO: compositions and their runtime | TC1 (activity), TC2, TC5, TC6 (context markers), TC7 (compositions) | none | SPM-372 |
+| A | SC: script tool | TC3, TC4, TC5, TC6, TC7 (script) | none expected: the script is the tool call's argument | SPM-373–374 |
 | later | LL: learning | TC9 | to be decided | SPM-375 |
 
-SW goes first or defines the seam's contract at the start of the train, because CO and SC both check it.
+Lars started train A on 2026-10-28, right after train 26 was pushed. The three lanes start together and divide the
+shared parts as follows:
+
+- **SW owns the switch.** That is the seam, the marker by which a tool says it is a composition or the script
+  tool, and the enforcement: offering a tool or not per turn, and refusing a call that still arrives. SW commits
+  that contract first and reports it.
+- **CO owns the runtime that runs a step.** It runs the step through the governed invoker with the caller's
+  context, aggregates effects, records each step for the activity, and puts the composition or script marker and the
+  hash on the invocation and guard context. CO makes the runtime callable from the scripting package, commits that
+  contract first and reports it.
+- **SC builds against its own small adapter** for calling a tool. Once the coordinator passes on SW's and CO's
+  contract commits, SC merges them into its branch and wires the adapter to them.
+
+The lanes are merged in the order SW, CO, SC.
+
+## Lane choices
+
+Recorded by each lane under its own heading while it builds; ids are the lane's code and a number (SW1, SW2, ...).
+
+### Lane SW
+
+| # | Choice |
+|---|---|
+
+### Lane CO
+
+| # | Choice |
+|---|---|
+
+### Lane SC
+
+| # | Choice |
+|---|---|
