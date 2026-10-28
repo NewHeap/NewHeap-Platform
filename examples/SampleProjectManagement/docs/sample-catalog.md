@@ -637,6 +637,20 @@ without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the off
 client through the whole flow against a stand-in authorization server; the authorization server, the
 registration of clients and the consent stay the application's.
 
+A known chain of tools can run as one tool (SPM-372). `SampleProjectOverviewComposition` declares the
+project overview, `projects.overview`, with `AddComposition`: it reads the project (`projects.get`),
+then its open tasks (`projects.list-open-tasks`) and its members (`projects.list-members`) with the
+project's id from the first result, and returns only the overview with the owner's name. The project
+assistant calls it once instead of three times, so the model saves two rounds and never reads the
+intermediate results. Every step is a governed call of its own tool with the person's rights and
+active division, audited under the composition's call; a step that waits for an approval or fails
+would stop the chain and return what succeeded. The overview only reads, so it runs at once and is
+read-only over MCP, where the API's exposure allows compositions. It is offered where code allows the
+agent compositions and the application's switch has them on, and the agent's Activity in the
+administration shows each call with the tool calls it ran in order, the rounds it saved and the size of
+the result the model received. `AssistantCompositionSamplesTests` runs the chat turn and reads the
+activity.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports

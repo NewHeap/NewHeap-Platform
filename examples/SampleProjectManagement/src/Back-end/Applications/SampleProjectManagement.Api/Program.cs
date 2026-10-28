@@ -358,6 +358,8 @@ builder.Services.AddSampleAgentLinksAsData();
 builder.Services.AddSampleAssistantFiles();
 // SPM-306: the document reader reads a project's documents when one is added; it opts in to files.
 builder.Services.AddSampleProjectDocumentReader();
+// SPM-372: the project overview chains three reads of the project assistant into one tool.
+builder.Services.AddSampleProjectOverview();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
@@ -367,7 +369,8 @@ if (builder.Environment.IsDevelopment())
 // /mcp through the application's authorization server; its own clients keep their NewHeap token.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration));
+    // SPM-372: compositions such as the project overview are part of the exposure; the switch decides.
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowCompositions());
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.

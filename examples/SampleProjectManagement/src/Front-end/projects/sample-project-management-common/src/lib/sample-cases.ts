@@ -6205,5 +6205,33 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
     ]
+  },
+  {
+    "id": "SPM-372",
+    "title": "The project overview chains three governed reads into one tool, and the agent's activity shows what each call ran and saved",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantBuilder.AddComposition<TInput>(id, composition => ...) with NhAssistantCompositionBuilder<TInput> (Describe, Step(name, toolId, arguments), Returns, ExposeOverMcp, Version, ExportAs, MaxResultBytes) and NhAssistantCompositionContext<TInput> (Input, Result, TryGetResult, StepOf); the composition descriptor marked NhAiCompositionFeature.Compositions, whose effect is the strongest of its steps; the step runtime INhAssistantToolSteps.BeginAsync with NhAssistantToolStepRequest (MaxSteps, MaxMutationSteps, Hash, Tools), NhAssistantToolStepSession (Tools, RunAsync, Steps, Stopped, AwaitingApproval, CompleteAsync), NhAssistantToolStep, NhAssistantToolStepStatus and NhAssistantToolStepCodes; NhAiToolCallOrigin on NhAiInvocationContext.Origin, NhAiAuditRecord.Origin and NhAiProposalGuardContext.Origin; GET admin/agents/{id}/compositions (NhAssistantCompositionActivityDto) and NhAssistantAdminApiService.getAgentCompositionActivity with the Compositions view of the agent page's Activity in @newheap/platform-ai-chat/admin",
+    "outcome": "`SampleProjectOverviewComposition` declares `projects.overview`: it reads one project (`projects.get`), then its open tasks (`projects.list-open-tasks`) and its members (`projects.list-members`) with the project's id from the first result, and returns only the overview with the owner's name. The project assistant, which allows compositions in code, calls it once where the application's switch has compositions on; the chat shows one card, every step is a governed call of its tool with the person's rights and active division, audited under the composition's call and counted against the budget, and the model saves two rounds. The overview only reads, so it runs at once and is read-only over the API's MCP exposure, which allows compositions. The agent's Activity in the administration lists the call with its three tool calls in order, the two rounds it saved and the size of the result the model received. The library tests prove values flowing between steps, an approval-free change executing, a deferred approval letting the chain continue, an inline approval stopping it with what succeeded and the turn continuing after the decision with the composition's call and the decided step, a shadow run proposing every change, a step the person may not use stopping the chain with its code, the proposal guard seeing the composition, a composition not offered without the tools its steps call or with the switch off, the MCP exposure, the per-step audit and budget, and the activity on SQL Server and PostgreSQL.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCompositionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionActivity.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolStepTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionMcpExposureTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionActivityTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-composition-activity.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-composition-activity.spec.ts"
+    ]
   }
 ] as const;

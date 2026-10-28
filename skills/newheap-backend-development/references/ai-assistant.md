@@ -1181,6 +1181,63 @@ person still needs the consultation's policy and a role on the subject, and the 
 daily `Budget`, `MaxConsultationsPerActorPerDay` and the call's deadline bound a caller that sends
 no chain or a forged one: a forged shallow chain costs budget, never correctness.
 
+## Compositions and the step runtime
+
+Declare a known chain of governed tools as one tool with `AddComposition<TInput>(id, ...)` when the
+model would otherwise read every intermediate result to choose the next call (SPM-372). The steps
+call registered tools by id, in order; a later step takes values from earlier results through
+`NhAssistantCompositionContext<TInput>.Result`, and `Returns` declares the only data that reaches the
+model. Prefer a composition over a hand-written `[NhAiTool]` that calls services directly: that tool
+loses per-step rights, approval, guards, budget and audit.
+
+```csharp
+assistant.AddComposition<ProjectOverviewInput>("projects.overview", composition => composition
+    .Describe("Show one project with its open tasks and its members in one call.")
+    .ExposeOverMcp()
+    .Step("project", "projects.get", context => new { projectId = context.Input.ProjectId })
+    .Step("open-tasks", "projects.list-open-tasks", context => new
+    {
+        projectId = context.Result("project").GetProperty("id").GetGuid()
+    })
+    .Returns(context => new { project = context.Result("project"), openTasks = context.Result("open-tasks") }));
+```
+
+- The composition is a tool marked `NhAiCompositionFeature.Compositions`. Its effect is the strongest
+  effect of its steps and its classification the highest, so one that only reads runs at once and is
+  read-only over MCP. An agent's tool selectors select it where code allows compositions
+  (`ConfigureAgentContext(...).AllowCompositions()`) and the application's switch has them on, and a
+  turn offers it only together with every tool its steps call. With `ExposeOverMcp` an exposure that
+  allows compositions lists it; its steps must be exposed there too.
+- Every step runs through the shared invoker with the caller's context and gets exactly the decision
+  the same call gets on its own. A `Deferred` proposal returns the usual "proposal recorded" result and
+  the chain continues; a later step that reads its result stops the chain with
+  `assistant-composition-step-result-unavailable`. An `Inline` approval stops the chain, the turn
+  waits as it does for a call of the model, and after the decision the model reads its own call, where
+  the chain stopped, and the decided step. A shadow run proposes every change and executes none. A step
+  that fails or is refused stops the chain; the model receives what succeeded and that step's code.
+- Steps never call another composition, the script tool, a consultation or a destructive tool, and a
+  step's files are not opened: return what the model needs through `Returns`.
+- Over MCP, and for any caller outside a turn, a step runs through its governed function: a step that
+  needs approval fails with `ai-tool-approval-required`, as the same call does there.
+
+The step runtime is public for the script tool and for an application's own chain tool: from inside
+the tool's governed function call `INhAssistantToolSteps.BeginAsync` with an
+`NhAssistantToolStepRequest` (`MaxSteps`, `MaxMutationSteps`, `Hash`, `Tools`), run each step with
+`NhAssistantToolStepSession.RunAsync`, stop when a step's `NhAssistantToolStepStatus` says so or the
+session is `Stopped`, and call `CompleteAsync` once with the result the model receives. In a turn a step
+may call only a tool the agent is offered in that turn; outside a turn only a tool the caller may
+discover through the same exposure. Each step is a tool invocation of the turn whose call id names the
+call that ran it; the message shows one card for the call, the first step uses its count of the turn's
+tool calls and every further step counts as a call of its own. Every step's context, audit record and
+proposal guard context carry `NhAiToolCallOrigin` (see the protected-actions rule).
+
+The agent's Activity in the administration shows each composition and script call with the tool calls
+it ran in order, the model rounds it saved (its tool calls minus one) and the size of the result
+returned to the model, and per tool what the calls saved: `GET admin/agents/{id}/compositions`
+(`NhAssistantCompositionActivityDto`), `getAgentCompositionActivity` and the Compositions view of
+`nh-assistant-agent-composition-activity`. It reads the stored tool invocations and is content-free;
+calls in a consultation store nothing and are not listed.
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the

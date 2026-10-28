@@ -349,7 +349,8 @@
     "SPM-355",
     "SPM-366",
     "SPM-369",
-    "SPM-370"
+    "SPM-370",
+    "SPM-372"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3718,6 +3719,26 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpProtectedResourceHttpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
+    ],
+    "SPM-372": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCompositionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionActivity.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantCompositionActivityEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolStepTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionMcpExposureTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCompositionActivityTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-composition-activity.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-composition-activity.spec.ts"
     ]
   }
 }

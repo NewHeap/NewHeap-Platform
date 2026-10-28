@@ -144,6 +144,19 @@ evidence but return a failed `TaskResult`; do not turn acceptance by a dependenc
 into verified success. Audit only bounded IDs, classifications, outcome codes,
 and evidence references—never arguments, results, prompts, or credentials.
 
+A call that a composition or a script makes is still a call of its own tool and
+gets exactly that tool's decision: rights, effect, approval, guards, budget and
+audit. The invoker marks it with `NhAiInvocationContext.Origin`, an
+`NhAiToolCallOrigin` with its `NhAiToolCallOriginKind` (`Composition` or
+`Script`), the composition's or script tool's id, the script's hash and the
+invocation of the call that ran it with the step's position, and writes the same
+on `NhAiAuditRecord.Origin`, so each step is audited under that call. A proposal
+a step makes shows it on `NhAiProposalGuardContext.Origin` at the proposal stage
+(SPM-372). A tool or guard that must treat such a call differently, for example a
+change it allows only as a call the model chose itself, refuses or checks it on
+`Origin`; never relax a rule for it. The origin takes part in no proposal hash or
+approval evidence, and a call the tool makes internally carries none.
+
 ## Avoid
 
 - Adding `AllowAgentGrant` to a tool merely so that an agent can call it, without a policy that approvers are checked against.
@@ -204,3 +217,8 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
+- SPM-372 — The project overview chains three governed reads into one tool, and the agent's activity shows what each call ran and saved
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectOverviewComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs)
