@@ -19,12 +19,15 @@ namespace SampleProjectManagement.Core.Tests;
 /// SPM-331: the sample's operations code changes the assistant through the platform's services. It
 /// connects the milestones MCP server to the status advisor without changing the advisor's definition,
 /// finds which skills and agents use the risk review's text, and compares a shipped agent package with
-/// the host without an export.
+/// the host without an export. SPM-351: it proposes the risk review's version 2 as candidates in shadow.
+/// SPM-353: an administrator compares the shipped package with the host over HTTP.
 /// </summary>
 public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHost host)
     : IClassFixture<AssistantOperationsSampleHost>
 {
     private const string RiskDesk = "sample-risk-desk";
+    /// <summary>SPM-353: the package the risk desk ships in, apart from the one SPM-331 installs.</summary>
+    private const string ShippedDeskPackage = "sample-risk-desk-shipped";
     private const string ApiKey = "sample-milestones-key-331";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -95,7 +98,9 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             var usage = await OperationsAsync(operations => operations.ListRiskReviewUsageAsync(CancellationToken.None));
 
             Assert.True(usage.Success);
-            var skill = Assert.Single(usage.Data!.Skills);
+            // The usage lists history too; SPM-351 may have left versions of an earlier risk review here.
+            var live = usage.Data!.Skills.Where(item => item.Status == NhAssistantSkillDefinitionStatuses.Live).ToArray();
+            var skill = Assert.Single(live);
             Assert.Equal(
                 (SampleProjectPlannerComposition.AgentId, SampleInstructionAssetService.RiskReviewSkill, NhAssistantSkillDefinitionStatuses.Live, 1, first.Manifest.ContentHash),
                 (skill.AgentId, skill.SkillId, skill.Status, skill.AssetVersion, skill.Hash));
@@ -105,7 +110,7 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             // Version 2 of the text exists, yet both keep naming version 1 until an administrator saves
             // it as their next version.
             Assert.Equal(2, SampleInstructionAssets.RiskReviewV2.Manifest.Version);
-            Assert.All(usage.Data.Skills, item => Assert.Equal(1, item.AssetVersion));
+            Assert.DoesNotContain(usage.Data.Skills, item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
 
             // The operator ships the desk as a package, and the deploy installs it on this host.
             NhAssistantAgentPackage shipped;
@@ -149,6 +154,137 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             }
             using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{RiskDesk}");
             Assert.True((await ConfigureAsync(service => service.RemoveRiskReviewAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_351_the_operations_code_proposes_version_2_of_the_risk_review_as_a_candidate_of_the_skills_on_version_1()
+    {
+        var second = SampleInstructionAssets.RiskReviewV2;
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        try
+        {
+            // The planner's risk review of SPM-320 and the risk desk take version 1 of the text.
+            Assert.True((await ConfigureAsync(service => service.AddRiskReviewAsync(host.OwnerId, CancellationToken.None))).Success);
+            await CreateRiskDeskAsync(administrator);
+
+            var proposed = await OperationsAsync(operations => operations.ProposeRiskReviewVersionAsync(second, host.OwnerId, CancellationToken.None));
+
+            Assert.True(proposed.Success, string.Join("; ", proposed.GetResultItems().Select(item => item.Name)));
+            Assert.Equal(
+                (SampleInstructionAssetComposition.RiskReviewAsset, 2, second.Manifest.ContentHash),
+                (proposed.Data!.AssetId, proposed.Data.AssetVersion, proposed.Data.Hash));
+            var skill = Assert.Single(proposed.Data.Skills);
+            Assert.Equal(
+                (SampleProjectPlannerComposition.AgentId, SampleInstructionAssetService.RiskReviewSkill, NhAssistantInstructionAssetCandidateOutcomes.Proposed, 1),
+                (skill.AgentId, skill.SkillId, skill.Outcome, skill.LiveAssetVersion));
+            // The desk is listed only: an administrator saves it as its next version.
+            var desk = Assert.Single(proposed.Data.Agents);
+            Assert.Equal((RiskDesk, 1), (desk.AgentId, desk.AssetVersion));
+
+            // The live risk review keeps version 1; the candidate names version 2 and runs in shadow
+            // next to it until an administrator promotes or discards it.
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(SampleProjectPlannerComposition.AgentId))!;
+                var review = configuration.DataSkills.Single(item => item.SkillId == SampleInstructionAssetService.RiskReviewSkill);
+                Assert.Equal((skill.LiveVersion, 1), (review.Version, review.InstructionsAsset!.Version));
+                Assert.Equal(
+                    (skill.CandidateVersion, 2, second.Manifest.ContentHash, "Version 2 of the risk review"),
+                    (review.Candidate!.Version, review.Candidate.InstructionsAsset!.Version, review.Candidate.InstructionsAsset.Hash, review.Candidate.Reason));
+            }
+            Assert.Contains(
+                host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+                evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged
+                       && evt.SkillId == SampleInstructionAssetService.RiskReviewSkill
+                       && evt.ResultCode == "candidate"
+                       && evt.InstructionsVersion == SampleInstructionAssetComposition.RiskReviewAsset + "@2");
+
+            // Proposed again, the candidate stays as it is.
+            var again = await OperationsAsync(operations => operations.ProposeRiskReviewVersionAsync(second, host.OwnerId, CancellationToken.None));
+            Assert.Equal(
+                (NhAssistantInstructionAssetCandidateOutcomes.AlreadyProposed, skill.CandidateVersion),
+                (Assert.Single(again.Data!.Skills).Outcome, again.Data.Skills[0].CandidateVersion));
+        }
+        finally
+        {
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{RiskDesk}");
+            Assert.True((await ConfigureAsync(service => service.RemoveRiskReviewAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_353_an_administrator_compares_the_shipped_desk_with_the_host_over_http_without_an_export()
+    {
+        var actor = host.OwnerId.ToString("D");
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        try
+        {
+            // The operator ships the risk desk as a package and the deploy installs it on this host.
+            await CreateRiskDeskAsync(administrator);
+            NhAssistantAgentPackage shipped;
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+                var installedBefore = (await packages.GetPackageAsync(ShippedDeskPackage))?.Version ?? 0;
+                var exported = await packages.ExportAsync([RiskDesk], new NhAssistantAgentPackageExportOptions(ShippedDeskPackage, installedBefore + 1, "The risk desk of the sample."), actor);
+                Assert.True(exported.Success, string.Join("; ", exported.GetResultItems().Select(item => item.Name)));
+                shipped = exported.Data!.Package;
+                var installed = await packages.ImportAsync(shipped, new NhAssistantAgentPackageImportOptions(Relink: [new(RiskDesk)]), actor);
+                Assert.True(installed.Success, string.Join("; ", installed.GetResultItems().Select(item => item.Name)));
+            }
+            await DescribeRiskDeskAsync(administrator, "Reviews the riskiest tasks of a project, by hand on this host.");
+            var exports = ExportCount();
+
+            // The administration reads the desk's parts as an export builds them, and the installed package.
+            using var read = await administrator.PostAsJsonAsync(
+                "/api/assistant/" + NhAssistantAgentPackageRoutes.Read,
+                new NhAssistantAgentPackageReadRequest([RiskDesk]),
+                Json);
+            Assert.True(read.StatusCode == HttpStatusCode.OK, await read.Content.ReadAsStringAsync());
+            var parts = await read.Content.ReadFromJsonAsync<JsonElement>(Json);
+            var installedPackage = await host.GetJsonAsync(administrator, $"/api/assistant/admin/agent-packages/{ShippedDeskPackage}");
+
+            // The definition the administrator changed has another hash than the shipped one, and its
+            // link says it changed locally; nothing was exported.
+            var hashes = Assert.Single(parts.GetProperty("agents").EnumerateArray()).GetProperty("hashes");
+            var different = shipped.Agents.Single().Hashes!
+                .Where(part => hashes.GetProperty(part.Key).GetString() != part.Value)
+                .Select(part => part.Key)
+                .ToArray();
+            Assert.Equal(["agent"], different);
+            Assert.Equal(shipped.Package.Version, installedPackage.GetProperty("version").GetInt32());
+            var agentLink = Assert.Single(installedPackage.GetProperty("agents").EnumerateArray())
+                .GetProperty("parts").EnumerateArray()
+                .Single(part => part.GetProperty("part").GetString() == "agent");
+            Assert.True(agentLink.GetProperty("changedLocally").GetBoolean());
+            Assert.Equal(shipped.Agents.Single().Hashes!["agent"], agentLink.GetProperty("hash").GetString());
+            Assert.Equal(exports, ExportCount());
+
+            // A package this host never installed is not found, and only administrators read either.
+            using (var missing = await administrator.GetAsync("/api/assistant/admin/agent-packages/sample-unknown-package"))
+            {
+                Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+                Assert.Equal(NhAssistantErrorCodes.PackageNotFound, (await missing.Content.ReadFromJsonAsync<NhAssistantErrorDto>(Json))!.Code);
+            }
+            using (var forbidden = await colleague.PostAsJsonAsync("/api/assistant/admin/agent-packages/read", new NhAssistantAgentPackageReadRequest([RiskDesk]), Json))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            }
+            using (var forbidden = await colleague.GetAsync($"/api/assistant/admin/agent-packages/{ShippedDeskPackage}"))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            }
+        }
+        finally
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                // Unlinked first: an agent that belongs to a package cannot be deleted.
+                await scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>().UnlinkAsync(RiskDesk, null, actor);
+            }
+            using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{RiskDesk}");
         }
     }
 
