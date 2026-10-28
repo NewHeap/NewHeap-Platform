@@ -189,7 +189,9 @@ public static class NhAiScriptTool
             typeof(JsonElement),
             NhAiToolEffect.ReadOnly,
             exposure,
-            false,
+            // Only an authorized caller runs a script; its calls are authorized one by one, so the tool
+            // names no policy of its own.
+            true,
             [])
         {
             ExportName = FunctionName,

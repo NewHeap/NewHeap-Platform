@@ -11,6 +11,7 @@ using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
+using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common.Localization;
 using SampleProjectManagement.Core.Models.AI;
@@ -220,12 +221,15 @@ public static class SampleAssistantComposition
             // authorization and division scope. The descriptions are internal: retrieved items raise
             // the classification of the turn's model calls, so every profile that may serve the turn,
             // a skill's or a fallback, permits what the source returns.
+            // SPM-373: the project assistant may answer a chained question with one script, which the
+            // application's composition switch turns on (NewHeap:AI:Assistant:Scripts by default).
             .ConfigureAgentContext(AgentId, context => context
                 .UseApplicationMap()
                 .UseRetrievedContext(retrieval => retrieval
                     .Sources(ProjectAiContextSource.SourceId)
                     .MaxItems(5)
-                    .MaxCharacters(4_000)))
+                    .MaxCharacters(4_000))
+                .AllowScripts())
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
             .AddBusinessAuditSink<SampleAgentRunFactsSink>()
             // Owners share conversations through an invitation link or invite colleagues of
@@ -258,6 +262,17 @@ public static class SampleAssistantComposition
                 // twice; a third consultation is refused with assistant-consult-turn-limit before the
                 // reviewer runs. Unlimited by default; an agent with runs can set its own limit.
                 limits.MaxConsultationsPerTurn = 2;
+            }));
+
+        // SPM-373, SPM-374: the project assistant's scripts make at most four calls, as its turns do, and at
+        // most one call that changes data; that call gets the sample's approval as it does on its own, so a
+        // status change in a person's chat stops the script until the person decides.
+        services.AddNewHeapPlatformAIScripting(scripting => scripting
+            .ConfigureAgent(AgentId, limits =>
+            {
+                limits.MaxToolCalls = 4;
+                limits.MaxMutationsPerScript = 1;
+                limits.Timeout = TimeSpan.FromSeconds(20);
             }));
 
         if (model is not null)
