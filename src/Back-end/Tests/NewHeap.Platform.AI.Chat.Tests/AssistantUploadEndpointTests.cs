@@ -159,7 +159,9 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
             [NhAiMediaTypes.Pdf, NhAiMediaTypes.Png, NhAiMediaTypes.Jpeg, NhAiMediaTypes.Docx, NhAiMediaTypes.Xlsx],
             MediaTypesOf(uploads));
         Assert.Equal((4_096, 3), (uploads.GetProperty("maxFileBytes").GetInt32(), uploads.GetProperty("maxFiles").GetInt32()));
-        Assert.Equal(JsonValueKind.Object, agents["project-assistant"].ValueKind);
+        // FB24: the project assistant's profile permits internal data only, while uploads are confidential,
+        // so it offers no attachments that its turn would refuse.
+        Assert.Equal(JsonValueKind.Null, agents["project-assistant"].ValueKind);
         var listed = (await ReadJsonAsync(await client.GetAsync("/api/assistant/agents"))).EnumerateArray()
             .Single(agent => agent.GetProperty("id").GetString() == FileAgent);
         Assert.Equal(3, listed.GetProperty("uploads").GetProperty("maxFiles").GetInt32());

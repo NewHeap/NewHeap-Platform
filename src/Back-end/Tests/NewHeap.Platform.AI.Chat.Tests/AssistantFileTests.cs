@@ -439,7 +439,8 @@ public sealed class AssistantFileTests(AssistantDatabaseFixture database) : ICla
         // What people may attach to the agent follows its lower limits.
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            var rules = scope.ServiceProvider.GetRequiredService<NhAssistantUploads>().RulesOf("document-follower")!;
+            var follower = (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync("document-follower", includeDisabled: false, CancellationToken.None))!;
+            var rules = scope.ServiceProvider.GetRequiredService<NhAssistantUploads>().RulesOf(follower)!;
             Assert.Equal((1_024, 2), (rules.MaxFileBytes, rules.MaxFiles));
         }
         // A turn of the agent refuses a file above its own largest file.
