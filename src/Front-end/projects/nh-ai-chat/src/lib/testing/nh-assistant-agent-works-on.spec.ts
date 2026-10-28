@@ -7,6 +7,7 @@ import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { backToAdminList, openAdminAgent, openAdminTab } from './nh-assistant-admin-navigation';
 import { eventOptions, worksOnCovers } from '../../../admin/src/agents/run-config/run-config-shared';
 
 /**
@@ -89,12 +90,18 @@ function button(element: HTMLElement, text: string): HTMLButtonElement {
   return match;
 }
 
-function card(element: HTMLElement, name: string): HTMLElement {
-  const match = Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes(name));
-  if (!match) {
-    throw new Error(`Card "${name}" not found.`);
+/** Opens Build of an agent's page, from the list or the page that is open, and returns the agent's profile. */
+async function profileOf(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
+  const open = element.querySelector('[data-agent-page]');
+  if (open?.getAttribute('data-agent-page') === agentId) {
+    await openAdminTab(fixture, element, 'build');
+  } else {
+    if (open) {
+      await backToAdminList(fixture, element);
+    }
+    await openAdminAgent(fixture, element, agentId, 'build');
   }
-  return match;
+  return element.querySelector('[data-build-section="profile"]') as HTMLElement;
 }
 
 function type(element: HTMLElement, selector: string, value: string): void {
@@ -133,21 +140,23 @@ describe('What an agent works on in the administration', () => {
     const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
     const element = await settle(fixture);
 
-    const undeclared = card(element, 'Project assistant');
+    const undeclared = await profileOf(fixture, element, 'projects');
     expect(undeclared.querySelector('[data-works-on]')?.textContent).toContain('All objects');
     expect(undeclared.querySelector('[data-works-on]')?.textContent).toContain('(not stated in code)');
     expect(undeclared.querySelector('[data-known-types]')?.textContent).toContain('Known to work on: Projects.');
 
-    const reviewer = card(element, 'Intake reviewer');
+    const reviewer = await profileOf(fixture, element, 'intake-reviewer');
     expect(reviewer.querySelector('[data-works-on]')?.textContent).toContain('Projects');
     expect(reviewer.querySelector('[data-works-on]')?.textContent).not.toContain('All objects');
     expect(reviewer.querySelector('[data-known-types]')).toBeNull();
-    expect(reviewer.querySelector('[data-works-on-policies]')?.textContent).toContain('Run for the whole application by: app.project.manage.');
+    const access = element.querySelector('[data-access-summary]') as HTMLElement;
+    expect(access.textContent).toContain('Who may run it for the whole application');
+    expect(access.textContent).toContain('app.project.manage');
 
     // An agent in code says what it works on in its code; its editor does not ask.
-    button(reviewer, 'Edit').click();
+    (reviewer.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.querySelector('[data-works-on]')).toBeNull();
+    expect(element.querySelector('[data-build-section="profile"] fieldset[data-works-on]')).toBeNull();
   });
 
   it('creates an agent that works on chosen kinds of objects and the whole application, and edits it', async () => {
@@ -179,7 +188,8 @@ describe('What an agent works on in the administration', () => {
 
     labelled(types, 'Tasks').click();
     labelled(element.querySelector('[data-works-on]') as HTMLElement, 'The whole application').click();
-    choose(element, 'select[id$="-run-policy"]', 'app.project.manage');
+    // Who may run it for the whole application is part of its access, on its page.
+    expect(element.querySelector('select[id$="-run-policy"]')).toBeNull();
     fixture.detectChanges();
     button(element, 'Save').click();
     element = await settle(fixture);
@@ -190,29 +200,45 @@ describe('What an agent works on in the administration', () => {
       worksOnAllSubjects: false,
       worksOnApplication: true,
       perDivision: false,
-      runPolicy: 'app.project.manage',
+      runPolicy: null,
       viewPolicy: null
     })]);
-    const created = card(element, 'Follow-up');
+    let created = await profileOf(fixture, element, 'follow-up');
     expect(created.querySelector('[data-works-on]')?.textContent).toContain('Tasks');
     expect(created.querySelector('[data-works-on]')?.textContent).toContain('and the whole application');
 
-    // The editor starts from what the agent works on and sends it back as a whole.
-    button(created, 'Edit').click();
+    // Its access says who may run it for the whole application.
+    (element.querySelector('[data-edit-section="access"]') as HTMLButtonElement).click();
     element = await settle(fixture);
-    expect(labelled(element.querySelector('[data-works-on]') as HTMLElement, 'Chosen kinds of objects').checked).toBeTrue();
-    expect(labelled(element.querySelector('[data-works-on-types]') as HTMLElement, 'Tasks').checked).toBeTrue();
-    labelled(element.querySelector('[data-works-on]') as HTMLElement, 'All objects').click();
+    choose(element, '[data-guardrails-access] select[id$="-run-policy"]', 'app.project.manage');
     fixture.detectChanges();
-    button(element, 'Save').click();
+    button(element.querySelector('[data-guardrails-access]') as HTMLElement, 'Save').click();
     element = await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/follow-up')).toEqual([jasmine.objectContaining({
+      worksOnSubjectTypes: ['task'],
+      worksOnApplication: true,
+      runPolicy: 'app.project.manage',
+      expectedVersion: 1
+    })]);
+
+    // The editor starts from what the agent works on and sends it back as a whole.
+    created = await profileOf(fixture, element, 'follow-up');
+    (created.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
+    element = await settle(fixture);
+    expect(labelled(element.querySelector('fieldset[data-works-on]') as HTMLElement, 'Chosen kinds of objects').checked).toBeTrue();
+    expect(labelled(element.querySelector('[data-works-on-types]') as HTMLElement, 'Tasks').checked).toBeTrue();
+    labelled(element.querySelector('fieldset[data-works-on]') as HTMLElement, 'All objects').click();
+    fixture.detectChanges();
+    button(element.querySelector('[data-build-section="profile"]') as HTMLElement, 'Save').click();
+    element = await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/follow-up')[1]).toEqual(jasmine.objectContaining({
       worksOnSubjectTypes: [],
       worksOnAllSubjects: true,
       worksOnApplication: true,
-      expectedVersion: 1
-    })]);
-    expect(card(element, 'Follow-up').querySelector('[data-works-on]')?.textContent).toContain('All objects');
+      runPolicy: 'app.project.manage',
+      expectedVersion: 2
+    }));
+    expect((await profileOf(fixture, element, 'follow-up')).querySelector('[data-works-on]')?.textContent).toContain('All objects');
   });
 
   it('offers per division only when the application lists its divisions', async () => {

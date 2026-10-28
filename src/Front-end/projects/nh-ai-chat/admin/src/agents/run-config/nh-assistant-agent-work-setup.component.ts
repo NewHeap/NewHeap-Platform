@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, concat, defer, of, tap } from 'rxjs';
 import {
@@ -69,7 +69,7 @@ const stepOfField: Record<string, WorkSetupStep> = {
   templateUrl: './nh-assistant-agent-work-setup.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })
-export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements OnInit {
+export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
   private readonly admin = inject(NhAssistantAdminApiService);
 
   readonly agentId = input.required<string>();
@@ -155,10 +155,14 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements
   readonly ruleDescription = computed(() => this.rules().find(option => option.value === this.ruleHandler())?.description ?? null);
   readonly policyDescription = computed(() => this.policies().find(option => option.value === this.approvalPolicy())?.description ?? null);
 
-  ngOnInit(): void {
-    // A new skill starts with every tool of the agent; the administrator narrows it.
-    this.tools.set([...this.toolSelectors()]);
-  }
+  /**
+   * A new skill starts with every tool of the agent; the administrator narrows it. When the agent's
+   * tools change while the setup is open, for example on its page, the skill starts from them again.
+   */
+  private readonly followTools = effect(() => {
+    const selectors = this.toolSelectors();
+    untracked(() => this.tools.set([...selectors]));
+  });
 
   stepState(step: WorkSetupStep): 'current' | 'done' | 'next' {
     const index = steps.indexOf(step);

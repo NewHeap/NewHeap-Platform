@@ -2,10 +2,12 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NhAssistantAdminComponent } from '@newheap/platform-ai-chat/admin';
 import { TranslateModule } from '@ngx-translate/core';
+import { sampleAssistantAdminLocation } from '../assistant-administration/sample-assistant-admin-location';
 
 /**
  * Hosts the library's administration page in the playground scope. A real host routes to
- * `NhAssistantAdminComponent` behind its admin permission guard.
+ * `NhAssistantAdminComponent` behind its admin permission guard. As on the real administration, the
+ * URL keeps the open agent and its tab (SPM-253).
  */
 @Component({
   selector: 'app-assistant-admin-page',
@@ -16,7 +18,7 @@ import { TranslateModule } from '@ngx-translate/core';
       <a class="back" routerLink="/management/assistant">
         <i class="ph ph-arrow-left" aria-hidden="true"></i>{{ 'project.assistant-admin-back' | translate }}
       </a>
-      <nh-assistant-admin />
+      <nh-assistant-admin [location]="admin.location()" (locationChange)="admin.follow($event)" />
     </section>
   `,
   styles: [`
@@ -45,4 +47,6 @@ import { TranslateModule } from '@ngx-translate/core';
     }
   `]
 })
-export class AssistantAdminPageComponent {}
+export class AssistantAdminPageComponent {
+  readonly admin = sampleAssistantAdminLocation();
+}

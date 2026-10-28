@@ -1056,6 +1056,77 @@ public sealed record NhAssistantCodeRunSettingsDto(
     /// triggers and is never started on its own.
     /// </summary>
     public bool ChatOnly { get; init; }
+
+    /// <summary>
+    /// The agent offers its skills in people's chats (<c>SkillsInChat()</c>), where the model
+    /// chooses one with <c>use_skill</c>.
+    /// </summary>
+    public bool SkillsInChat { get; init; }
+
+    /// <summary>
+    /// The agent may ask the person in a chat a question with choices (<c>AllowQuestions()</c>).
+    /// </summary>
+    public bool AllowQuestions { get; init; }
+
+    /// <summary>
+    /// The agent keeps a working memory per subject (<c>Memory&lt;TMemory&gt;()</c>).
+    /// </summary>
+    public bool UsesMemory { get; init; }
+
+    /// <summary>
+    /// The model profile that chooses the skill of a run that no trigger or rule routed
+    /// (<c>Triage()</c>); <see langword="null"/> without triage.
+    /// </summary>
+    public string? TriageProfile { get; init; }
+
+    /// <summary>
+    /// How often a failed run is tried again (<c>Retry()</c>).
+    /// </summary>
+    public int RetryCount { get; init; }
+
+    /// <summary>
+    /// The runs of the agent that work at the same time (<c>Budget()</c>).
+    /// </summary>
+    public int MaxConcurrentRuns { get; init; }
+
+    /// <summary>
+    /// The most runs of the agent for one subject in a day (<c>Budget()</c>).
+    /// </summary>
+    public int MaxRunsPerSubjectPerDay { get; init; }
+
+    /// <summary>
+    /// The agent's daily tool calls (<c>Budget(NhAssistantAgentBudget.PerDay(...))</c>);
+    /// <see langword="null"/> without a daily budget.
+    /// </summary>
+    public int? DailyToolCalls { get; init; }
+
+    /// <summary>
+    /// The agent's daily tokens; <see langword="null"/> without a daily budget.
+    /// </summary>
+    public long? DailyTokens { get; init; }
+
+    /// <summary>
+    /// The most tokens of one run (<c>MaxTokensPerRun()</c>); <see langword="null"/> for no ceiling.
+    /// </summary>
+    public long? MaxTokensPerRun { get; init; }
+
+    /// <summary>
+    /// The most consultations of one chat turn (<c>MaxConsultationsPerTurn()</c>);
+    /// <see langword="null"/> keeps the application's limit.
+    /// </summary>
+    public int? MaxConsultationsPerTurn { get; init; }
+
+    /// <summary>
+    /// <c>restricted</c> or <c>deny</c>: what happens when the agent reads data that the reader of
+    /// its thread may not see (<c>ElevatedReads()</c>).
+    /// </summary>
+    public string ElevatedReads { get; init; } = NhAssistantElevatedReadNames.Restricted;
+
+    /// <summary>
+    /// The agent reads through the application's data gateway with the accountable rights
+    /// (<c>AllowGatewayReads()</c>).
+    /// </summary>
+    public bool AllowGatewayReads { get; init; }
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
@@ -1941,7 +2012,20 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             StartsOff = code.StartsOff,
             AcceptsFiles = code.AcceptsFiles,
-            ChatOnly = code.ChatOnly
+            ChatOnly = code.ChatOnly,
+            SkillsInChat = code.SkillsInChat,
+            AllowQuestions = code.AllowQuestions,
+            UsesMemory = code.MemoryType is not null,
+            TriageProfile = code.TriageProfileName,
+            RetryCount = code.RetryCount,
+            MaxConcurrentRuns = code.MaxConcurrentRuns,
+            MaxRunsPerSubjectPerDay = code.MaxRunsPerSubjectPerDay,
+            DailyToolCalls = code.DailyBudget?.ToolCalls,
+            DailyTokens = code.DailyBudget?.Tokens,
+            MaxTokensPerRun = code.MaxTokensPerRun,
+            MaxConsultationsPerTurn = code.MaxConsultationsPerTurn,
+            ElevatedReads = NhAssistantElevatedReadNames.NameOf(code.ElevatedReads),
+            AllowGatewayReads = code.AllowGatewayReads
         };
     }
 

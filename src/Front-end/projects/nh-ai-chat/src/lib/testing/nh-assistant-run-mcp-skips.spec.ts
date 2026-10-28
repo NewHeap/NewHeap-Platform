@@ -5,6 +5,7 @@ import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMock
 import { firstValueFrom } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { openAdminAgent } from './nh-assistant-admin-navigation';
 import { NhAssistantRunResultComponent } from '../../../agent-runs/src/public-api';
 
 /**
@@ -120,7 +121,7 @@ describe('Personal MCP servers a run left out', () => {
     await configure(true);
     const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
     let element = await settle(fixture);
-    (element.querySelector('[data-runs-agent="projects"]') as HTMLButtonElement).click();
+    await openAdminAgent(fixture, element, 'projects', 'activity');
     element = await settle(fixture);
 
     expect(text(element.querySelector('[data-run="run-skipped"] [data-run-mcp-skips]'))).toBe('2 connected services left out');

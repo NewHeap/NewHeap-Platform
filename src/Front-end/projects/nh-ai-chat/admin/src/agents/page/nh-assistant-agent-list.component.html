@@ -1,0 +1,82 @@
+<div class="stack" data-agent-list>
+  <div class="toolbar">
+    <div class="field search">
+      <label class="visually-hidden" [for]="id + '-search'">{{ 'nh-assistant.admin.agents.list.search-label' | translate }}</label>
+      <input
+        type="search"
+        autocomplete="off"
+        data-agent-search
+        [id]="id + '-search'"
+        [attr.placeholder]="'nh-assistant.admin.agents.list.search' | translate"
+        [value]="search()"
+        (input)="search.set(value($event))" />
+    </div>
+  </div>
+  <div class="filters" role="group" [attr.aria-label]="'nh-assistant.admin.agents.list.filters' | translate">
+    @for (option of filters; track option) {
+      <button
+        type="button"
+        class="filter"
+        [attr.data-agent-filter]="option"
+        [attr.aria-pressed]="filter() === option"
+        (click)="filter.set(option)">
+        {{ 'nh-assistant.admin.agents.list.filter.' + option | translate }}
+        <span class="count">{{ counts()[option] }}</span>
+      </button>
+    }
+  </div>
+
+  @if (rows().length === 0) {
+    <div class="state" data-agent-list-empty>
+      <p>{{ 'nh-assistant.admin.agents.list.no-match' | translate }}</p>
+      <button class="secondary" type="button" (click)="clear()">{{ 'nh-assistant.admin.agents.list.clear' | translate }}</button>
+    </div>
+  } @else {
+    <div class="list-head" aria-hidden="true">
+      <span>{{ 'nh-assistant.admin.agents.list.columns.agent' | translate }}</span>
+      <span>{{ 'nh-assistant.admin.agents.list.columns.status' | translate }}</span>
+      <span>{{ 'nh-assistant.admin.agents.list.columns.works' | translate }}</span>
+      <span>{{ 'nh-assistant.admin.agents.list.columns.source' | translate }}</span>
+      <span>{{ 'nh-assistant.admin.agents.list.columns.attention' | translate }}</span>
+    </div>
+    <ul class="agent-list" [attr.aria-label]="'nh-assistant.admin.agents.title' | translate">
+      @for (row of rows(); track row.agent.id) {
+        @let agent = row.agent;
+        @let status = agentStatus(agent);
+        <li [class.variant]="row.variant" [attr.data-agent]="agent.id">
+          <button type="button" class="row" [attr.data-agent-row]="agent.id" (click)="opened.emit(agent.id)">
+            <span class="name">
+              <!-- An agent in code names and describes itself with translation keys. -->
+              <strong>{{ codeTextKeys(agent.source, agent.displayName) | nhAssistantTranslate: agent.displayName }}</strong>
+              @if (row.variant) {
+                @if (variantOf(agent); as parent) {
+                  <span class="description">{{ 'nh-assistant.admin.agents.list.variant-of' | translate: { name: (codeTextKeys(parent.source, parent.displayName) | nhAssistantTranslate: parent.displayName) } }}</span>
+                }
+              } @else if (agent.description) {
+                <span class="description">{{ codeTextKeys(agent.source, agent.description) | nhAssistantTranslate: agent.description }}</span>
+              }
+              <span class="mono muted">{{ agent.id }}</span>
+            </span>
+            <span class="cell">
+              <span class="pill" [class]="statusTone(status)" data-status [attr.data-status-value]="status">{{ 'nh-assistant.admin.agents.status.' + status | translate }}</span>
+            </span>
+            <span class="cell" [attr.data-agent-work]="agentWork(agent)">{{ 'nh-assistant.admin.agents.work.' + agentWork(agent) | translate }}</span>
+            <span class="cell">
+              <span class="tag">{{ sourceKey(agent) | translate }}</span>
+              @if (agent.package; as linked) {
+                <span class="tag" data-package-badge><nh-assistant-icon name="lock" />{{ 'nh-assistant.admin.packages.linked-badge' | translate: { package: linked.packageId, version: linked.packageVersion } }}</span>
+              }
+            </span>
+            <span class="cell">
+              @if (attention(agent); as note) {
+                <span class="attention" data-agent-attention>{{ note.key | translate: { count: note.count } }}</span>
+              } @else {
+                <span class="muted" aria-hidden="true">–</span>
+              }
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.89",
   "backEnd": {
-    "hash": "01f7fb2d691ca97690c5ebcb9e0c0190bf82c6a3ded3ac25a5b6bc89feccb8c5",
-    "declarationCount": 11337,
+    "hash": "bb0cc45463e328c7b3806dc23f74f830fcc8e62deb449511edfc591003e394de",
+    "declarationCount": 11350,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2244,6 +2244,58 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool ChatOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool SkillsInChat { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AllowQuestions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool UsesMemory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public string? TriageProfile { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public int RetryCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public int MaxConcurrentRuns { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public int MaxRunsPerSubjectPerDay { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public int? DailyToolCalls { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public long? DailyTokens { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public long? MaxTokensPerRun { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public int? MaxConsultationsPerTurn { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public string ElevatedReads { get; init; } = NhAssistantElevatedReadNames.Restricted;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool AllowGatewayReads { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -50205,7 +50257,18 @@
       "NhAssistantQuestionAnswer",
       "answerQuestion",
       "applyNhAssistantQuestionAnswer",
-      "NhAssistantMockQuestionStep"
+      "NhAssistantMockQuestionStep",
+      "NhAssistantAdminLocation",
+      "NhAssistantAdminTab",
+      "NhAssistantAgentTab",
+      "NH_ASSISTANT_AGENT_TABS",
+      "nhAssistantAgentTab",
+      "NhAssistantAgentsLocation",
+      "NhAssistantAdminAgentsComponent",
+      "NhAssistantAdminAgentEditorComponent",
+      "NhAssistantAgentEditorSection",
+      "NhAssistantRunConfigurationSection",
+      "NhAssistantPanelMode"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

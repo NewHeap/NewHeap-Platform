@@ -5,6 +5,7 @@ import { NhAssistantMockAdminAgent, NhAssistantMockBackend, NhAssistantMockScena
 import { firstValueFrom } from 'rxjs';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { AgentPackage } from '../models/assistant-agent-package.models';
+import { backToAdminList, chooseAdminMore, openAdminAgent } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
 
 /**
@@ -137,10 +138,16 @@ function requestBodies(method: string, path: string): unknown[] {
     .map(item => item.body);
 }
 
-/** The card of an agent on the agents page. */
-function card(element: HTMLElement, agentId: string): HTMLElement {
-  return Array.from(element.querySelectorAll<HTMLElement>('li.card'))
-    .find(item => item.querySelector('.card-header .mono')?.textContent?.trim() === agentId)!;
+/** The row of an agent in the list of agents. */
+function row(element: HTMLElement, agentId: string): HTMLElement {
+  return element.querySelector(`[data-agent-row="${agentId}"]`) as HTMLElement;
+}
+
+/** Opens the export dialog from the More menu of an agent's page. */
+async function openExport(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
+  const page = await openAdminAgent(fixture, element, agentId);
+  await chooseAdminMore(fixture, page, `[data-export-package="${agentId}"]`);
+  return settle(fixture);
 }
 
 async function click(fixture: ComponentFixture<unknown>, element: Element | null): Promise<HTMLElement> {
@@ -160,7 +167,7 @@ describe('The export dialog of agent packages', () => {
     const anchorClick = spyOn(HTMLAnchorElement.prototype, 'click');
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    let page = await click(fixture, card(element, 'kickoff-desk').querySelector('[data-export-package="kickoff-desk"]'));
+    let page = await openExport(fixture, element, 'kickoff-desk');
     let dialog = page.querySelector('nh-assistant-agent-package-export-dialog dialog') as HTMLDialogElement;
     expect(dialog.open).toBeTrue();
     expect((dialog.querySelector('[data-export-agent="kickoff-desk"] input') as HTMLInputElement).checked).toBeTrue();
@@ -214,7 +221,7 @@ describe('The export dialog of agent packages', () => {
   it('shows the refusal of the export at its field', async () => {
     await configure(scenario([...desks, planner]));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await click(fixture, card(element, 'intake-desk').querySelector('[data-export-package="intake-desk"]'));
+    let page = await openExport(fixture, element, 'intake-desk');
 
     type(page, '[data-export-package-id]', 'Not An Id');
     page = await settle(fixture);
@@ -271,7 +278,7 @@ describe('The import dialog of agent packages', () => {
 
     page = await click(fixture, page.querySelector('[data-import-close]'));
     expect(page.querySelector('nh-assistant-agent-package-import-dialog')).toBeNull();
-    expect(text(card(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
+    expect(text(row(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
   }, formFlowTimeout);
 
   it('checks again when the import refuses a part after the check, and shows why per part', async () => {
@@ -331,7 +338,7 @@ describe('The import dialog of agent packages', () => {
     expect(imports.map(item => item.options.relink)).toEqual([[{ agentId: 'kickoff-desk', part: null }]]);
     expect(page.querySelector('[data-import-done]')).not.toBeNull();
     page = await click(fixture, page.querySelector('[data-import-close]'));
-    expect(text(card(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
+    expect(text(row(page, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
   }, formFlowTimeout);
 
   it('reads a package file and refuses one above 1 MB before it asks the server', async () => {
@@ -394,26 +401,32 @@ describe('Fields an agent package locks', () => {
   it('shows the package on the agent, keeps a linked agent from being deleted and its locked definition fields read-only', async () => {
     await configure(scenario([planner], true));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const kickoff = card(element, 'kickoff-desk');
-    expect(text(kickoff.querySelector('[data-package-badge]'))).toBe('Package desks 1');
+    expect(text(row(element, 'kickoff-desk').querySelector('[data-package-badge]'))).toBe('Package desks 1');
+    const kickoff = await openAdminAgent(fixture, element, 'kickoff-desk', 'build');
+    expect(text(kickoff.querySelector('.page-head [data-package-badge]'))).toBe('Package desks 1');
     expect(text(kickoff.querySelector('[data-package-lock][data-package-part="agent"]'))).toContain('This agent comes from package desks, version 1.');
+    await chooseAdminMore(fixture, kickoff);
     expect((kickoff.querySelector('[data-delete-agent]') as HTMLButtonElement).disabled).toBeTrue();
     expect(text(kickoff.querySelector('[data-delete-locked]'))).toContain('Unlink the agent first');
+    (kickoff.querySelector('[data-more]') as HTMLButtonElement).click();
+    await settle(fixture);
 
-    const editButton = Array.from(kickoff.querySelectorAll<HTMLButtonElement>('.card-actions button')).find(button => text(button) === 'Edit')!;
-    const page = await click(fixture, editButton);
-    const editor = page.querySelector('nh-assistant-admin-agent-editor') as HTMLElement;
+    let page = await click(fixture, kickoff.querySelector('[data-edit-section="profile"]'));
+    const editor = page.querySelector('[data-build-section="profile"] nh-assistant-admin-agent-editor') as HTMLElement;
     expect(text(editor.querySelector('[data-package-lock] [data-locked-fields]'))).toBe('Locked: Instructions.');
     expect((editor.querySelector('[data-agent-instructions]') as HTMLFieldSetElement).disabled).toBeTrue();
     expect(editor.querySelector('[data-agent-instructions] [data-locked-mark]')).not.toBeNull();
     expect((editor.querySelector('[id$="-description"]') as HTMLInputElement).disabled).toBeFalse();
-    expect((editor.querySelector('[data-agent-tool-selectors]') as HTMLFieldSetElement).disabled).toBeFalse();
+    page = await click(fixture, Array.from(editor.querySelectorAll('button')).find(button => text(button) === 'Cancel') ?? null);
+    page = await click(fixture, page.querySelector('[data-edit-section="tools"]'));
+    expect((page.querySelector('[data-build-section="tools"] [data-agent-tool-selectors]') as HTMLFieldSetElement).disabled).toBeFalse();
   }, formFlowTimeout);
 
   it('shows locked parts in the run configuration read-only, refuses their removal and unlinks a part with a reason', async () => {
     await configure(scenario([planner], true));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await click(fixture, element.querySelector('[data-run-config-agent="intake-desk"]'));
+    await openAdminAgent(fixture, element, 'intake-desk', 'build');
+    let page = await settle(fixture);
 
     const skill = page.querySelector('[data-data-skill="intake"]') as HTMLElement;
     expect(text(skill.querySelector('[data-package-lock][data-package-part="skill:intake"]'))).toContain('Linked to package desks, version 1. Locked: Instructions.');
@@ -439,7 +452,8 @@ describe('Fields an agent package locks', () => {
   it('locks a hand-off as a whole and a metadata value for the application\'s editor', async () => {
     await configure(scenario([planner], true));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await click(fixture, element.querySelector('[data-run-config-agent="kickoff-desk"]'));
+    await openAdminAgent(fixture, element, 'kickoff-desk', 'build');
+    let page = await settle(fixture);
 
     const handOff = page.querySelector('[data-hand-offs] [data-hand-off="project"]') as HTMLElement;
     expect(text(handOff.querySelector('[data-package-lock]'))).toContain('The package locks it as a whole');
@@ -450,12 +464,10 @@ describe('Fields an agent package locks', () => {
     expect((form.querySelector('[data-hand-off-sources]') as HTMLFieldSetElement).disabled).toBeTrue();
     expect((form.querySelector('[data-hand-off-limit]') as HTMLInputElement).disabled).toBeTrue();
 
-    const back = TestBed.inject(TranslateService).instant('nh-assistant.admin.run-config.back') as string;
-    page = await click(fixture, Array.from(page.querySelectorAll('button')).find(button => text(button) === back) ?? null);
-    const intake = card(page, 'intake-desk');
-    const editIntake = Array.from(intake.querySelectorAll<HTMLButtonElement>('.card-actions button')).find(button => text(button) === 'Edit')!;
-    page = await click(fixture, editIntake);
-    const entry = page.querySelector('[data-agent-metadata-entry="cost-center"]') as HTMLElement;
+    await backToAdminList(fixture, element);
+    await openAdminAgent(fixture, element, 'intake-desk', 'build');
+    page = await settle(fixture);
+    const entry = page.querySelector('[data-build-section="profile"] [data-agent-metadata-entry="cost-center"]') as HTMLElement;
     expect(text(entry.querySelector('[data-package-lock]'))).toContain('Locked: Value.');
   }, formFlowTimeout);
 });

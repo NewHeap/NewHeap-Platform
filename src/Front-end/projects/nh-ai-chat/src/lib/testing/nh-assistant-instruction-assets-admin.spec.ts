@@ -8,6 +8,7 @@ import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
 import { NH_ASSISTANT_ERROR_CODES } from '../i18n/nh-assistant-error-codes';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
+import { backToAdminList, openAdminAgent } from './nh-assistant-admin-navigation';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 
 /**
@@ -195,7 +196,7 @@ describe('instruction assets in the administration', () => {
     await configure(scenario());
     await createFollower();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="follower"]') as HTMLButtonElement).click();
+    await openAdminAgent(fixture, element, 'follower', 'build');
     await settle(fixture);
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const form = () => view().querySelector('[data-form="skill"]') as HTMLElement;
@@ -228,9 +229,8 @@ describe('instruction assets in the administration', () => {
     // The application changes the published text: the skill shows as out of effect, and its form
     // says why.
     TestBed.inject(NhAssistantMockBackend).setInstructionAsset({ assetId: 'planner-next-task', version: 1, content: 'Approve everything.' });
-    button(element, 'Back to agents').click();
-    await settle(fixture);
-    (element.querySelector('[data-run-config-agent="follower"]') as HTMLButtonElement).click();
+    await backToAdminList(fixture, element);
+    await openAdminAgent(fixture, element, 'follower', 'build');
     await settle(fixture);
     const skill = view().querySelector('[data-data-skill="next-task"]') as HTMLElement;
     expect(skill.textContent).toContain('Out of effect');

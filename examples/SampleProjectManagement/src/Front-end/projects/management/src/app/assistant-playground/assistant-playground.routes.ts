@@ -34,7 +34,7 @@ export const ASSISTANT_PLAYGROUND_ROUTES: Routes = [
     children: [
       {
         path: '',
-        title: 'Assistant',
+        title: 'Assistant lab',
         loadComponent: () => import('./assistant-playground.component')
           .then(module => module.AssistantPlaygroundComponent)
       },

@@ -1,4 +1,5 @@
 import { TemplatePortal } from '@angular/cdk/portal';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -10,6 +11,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   signal,
   untracked,
   viewChild
@@ -45,15 +47,26 @@ import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assi
 
 let nextId = 0;
 
+/** Where the panel shows: as the drawer of the application, or in a page of its own. */
+export type NhAssistantPanelMode = 'drawer' | 'page';
+
 /**
  * The assistant drawer. Place it once in the application layout; it renders nothing in
  * place and appears as an overlay when `NhAssistantPanelService.open()` is called. It opens
  * by itself for an invitation link (`#nh-assistant-join=...`) and for a clicked notification.
+ *
+ * With `mode="page"` the same chat renders in place instead, filling the element the host gives it,
+ * for example on a "Chat" page of the application's menu for long sessions: the conversations stay
+ * listed beside the thread on wide screens, there is nothing to close, and invitation links and
+ * clicked notifications stay with the drawer of the layout. Both share the conversations of the
+ * assistant's scope.
  */
 @Component({
   selector: 'nh-assistant-panel',
   standalone: true,
+  host: { '[class.nh-assistant-page]': 'page()' },
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     TranslatePipe,
     NhAssistantTranslatePipe,
@@ -79,6 +92,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router, { optional: true });
   private readonly drawer = viewChild.required<TemplateRef<unknown>>('drawer');
   private portal?: TemplatePortal;
+
+  /** `drawer` by default; `page` renders the chat in place. */
+  readonly mode = input<NhAssistantPanelMode>('drawer');
+  /** The chat renders in a page of its own instead of the drawer. */
+  readonly page = computed(() => this.mode() === 'page');
 
   readonly titleId = `nh-assistant-panel-title-${nextId++}`;
   readonly markdown = this.config.markdown?.enabled ?? true;
@@ -154,18 +172,22 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    // The open thread counts as seen only while the drawer shows it.
+    // The open thread counts as seen only while the drawer, or the page, shows it.
     effect(() => {
-      const viewing = this.panel.isOpen() && !this.showConversations() && !this.showPreferences() && !this.showShare();
+      const viewing = (this.page() || this.panel.isOpen()) && !this.showConversations() && !this.showPreferences() && !this.showShare();
       untracked(() => this.store.setViewing(viewing));
     });
 
-    // A clicked notification opens its conversation in this window.
-    const notifications = this.push.openConversation$.subscribe(conversationId => this.panel.open(conversationId));
+    // A clicked notification opens its conversation in this window, in the drawer of the layout.
+    const notifications = this.push.openConversation$.subscribe(conversationId => {
+      if (!this.page()) {
+        this.panel.open(conversationId);
+      }
+    });
     inject(DestroyRef).onDestroy(() => notifications.unsubscribe());
 
     effect(() => {
-      if (this.panel.isOpen()) {
+      if (this.page() || this.panel.isOpen()) {
         untracked(() => {
           void this.store.initialize().then(() => this.store.refreshConversations());
           this.refreshPageContext();
@@ -175,7 +197,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
     // The drawer stays open while the user navigates; keep the page-context control current.
     const navigation = this.router?.events.subscribe(event => {
-      if (event instanceof NavigationEnd && this.panel.isOpen()) {
+      if (event instanceof NavigationEnd && (this.page() || this.panel.isOpen())) {
         this.refreshPageContext();
       }
     });
@@ -183,6 +205,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    // A page renders the chat in place; only the drawer registers with the panel service.
+    if (this.page()) {
+      return;
+    }
+
     this.portal = new TemplatePortal(this.drawer(), this.viewContainerRef);
     this.panel.registerPanel(this.portal);
     this.openFromLocation();

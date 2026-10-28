@@ -142,6 +142,37 @@ module, so whatever a lazy page imports from it loads with the application as we
 administration's `nh-assistant.admin.` texts ship with `@newheap/platform-ai-chat/admin`
 (`NH_ASSISTANT_ADMIN_TRANSLATIONS`), and each of its components merges them when it is created.
 
+The administration opens on its Agents section (`initialTab`, now `agents` by default), next to
+"Tools & connections" (the MCP servers) and the application context. Its agent list shows every
+agent once with one status (stopped, paused, off, off in code, shadow or live, in that order of
+weight), where it works, where it comes from and what needs attention; a search on name and id and
+filters narrow it, and each shadow variant follows its agent. A row opens the agent's page, so keep
+actions off the list: the page's header holds the status with only the changes it allows now, each
+with its explanation and an optional reason, "Test in chat" (the panel opens with the agent in a new
+conversation), "Run now" and "More" (export as a package, reset to code, delete, each confirmed and
+locked by a package as before). Its tabs follow the agent's life: Overview (the flow and the status in
+detail), Build (one page of sections: profile, tools, the guided setup of an agent that only chats,
+skills with their status and today's use, triggers, connected agents by consultation and hand-off,
+and guardrails, with what an agent in code sets for its runs read only), Rollout (everything not live
+yet: the agent's and its skills' shadow mode, triggers in shadow, candidate versions to compare in
+Build, shadow variants and their evaluation) and Activity (runs and feedback). A chat-only agent has
+no Rollout and no runs. A host that keeps the open agent in its URL binds `location`
+(`NhAssistantAdminLocation`: `tab`, `agentId`, `agentTab`) and follows `locationChange`,
+which reports every navigation of the administrator, as SampleProjectManagement's
+`sampleAssistantAdminLocation` does with `?section=…&agent=…&view=…`; `nhAssistantAgentTab`
+reads a tab from a URL parameter. A host with a sticky header of its own sets
+`--nh-assistant-scroll-margin-top` to its height, so Build scrolls its sections below it. The agent
+editor (`sections`: `profile`, `tools`, `access`) and the run configuration (`sections`:
+`flow`, `skills`, `triggers`, `consultations`, `settings`) still show everything without
+`sections`, for a host that places them on a page of its own.
+
+To show the chat in a page instead of the drawer, for example on a "Chat" item of the application's
+menu for long sessions, place `<nh-assistant-panel mode="page" />` in that page and give it the
+height it fills; keep the one drawer panel in the layout. On a page the chat is a region with
+nothing to close, the conversations stay listed beside the thread from 900 px wide and behind the
+list button below that, and invitation links and clicked notifications stay with the layout's drawer.
+Both share the conversations and the open conversation of the assistant's scope (SPM-253).
+
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
 a region, such as `nl-NL`, receives the texts of its base language, so do not merge the
 bundles into regional languages yourself. Add only host-specific keys under `nh-assistant.`: agent names and descriptions from the

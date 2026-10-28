@@ -59,6 +59,11 @@ export class ManagementLayoutComponent implements OnDestroy {
     return this.auth.isOnePermissionGranted(['app.background-operation.administer']);
   }
 
+  /** SPM-253: the assistant's access permission, which the Chat page needs. */
+  canUseAssistant(): boolean {
+    return this.auth.isOnePermissionGranted(['app.assistant.access']);
+  }
+
   /** The assistant's access permission and the permission behind its admin policy. */
   canAdministerAssistant(): boolean {
     return this.auth.isOnePermissionGranted(['app.assistant.access']) && this.auth.isOnePermissionGranted(['app.project.manage']);

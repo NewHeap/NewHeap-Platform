@@ -1427,6 +1427,34 @@ export interface CodeRunSettings {
   startsOff?: boolean;
   /** The agent accepts files in code (`AcceptsFiles()`); missing on older servers. */
   acceptsFiles?: boolean;
+  /** The agent works in people's chats only (`ChatOnly()`); missing on older servers. */
+  chatOnly?: boolean;
+  /** The agent offers its skills in people's chats (`SkillsInChat()`); missing on older servers. */
+  skillsInChat?: boolean;
+  /** The agent may ask the person in a chat a question with choices (`AllowQuestions()`); missing on older servers. */
+  allowQuestions?: boolean;
+  /** The agent keeps a working memory per subject (`Memory<TMemory>()`); missing on older servers. */
+  usesMemory?: boolean;
+  /** The profile that triages runs no trigger or rule routed (`Triage()`); `null` without triage; missing on older servers. */
+  triageProfile?: string | null;
+  /** How often a failed run is tried again (`Retry()`); missing on older servers. */
+  retryCount?: number;
+  /** The runs of the agent that work at the same time (`Budget()`); missing on older servers. */
+  maxConcurrentRuns?: number;
+  /** The most runs for one subject in a day (`Budget()`); missing on older servers. */
+  maxRunsPerSubjectPerDay?: number;
+  /** The daily tool calls; `null` without a daily budget; missing on older servers. */
+  dailyToolCalls?: number | null;
+  /** The daily tokens; `null` without a daily budget; missing on older servers. */
+  dailyTokens?: number | null;
+  /** The most tokens of one run (`MaxTokensPerRun()`); `null` for no ceiling; missing on older servers. */
+  maxTokensPerRun?: number | null;
+  /** The most consultations of one chat turn; `null` keeps the application's; missing on older servers. */
+  maxConsultationsPerTurn?: number | null;
+  /** `restricted` or `deny`: reads of data the thread's reader may not see; missing on older servers. */
+  elevatedReads?: 'restricted' | 'deny';
+  /** The agent reads through the application's data gateway (`AllowGatewayReads()`); missing on older servers. */
+  allowGatewayReads?: boolean;
 }
 
 /**

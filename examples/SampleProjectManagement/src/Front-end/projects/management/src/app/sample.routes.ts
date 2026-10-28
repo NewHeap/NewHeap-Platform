@@ -93,6 +93,15 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.ASSISTANT_PLAYGROUND_ROUTES)
       },
       {
+        // SPM-253: the assistant's chat on a page of its own, for long sessions.
+        path: 'chat',
+        title: 'Chat',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.assistant.access'] },
+        loadComponent: () => import('./assistant-chat/assistant-chat-page.component')
+          .then(module => module.AssistantChatPageComponent)
+      },
+      {
         // The real administration; the server's admin policy decides what the page shows.
         path: 'assistant-administration',
         title: 'Assistant administration',

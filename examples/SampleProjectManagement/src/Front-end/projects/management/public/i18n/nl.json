@@ -284,7 +284,8 @@
       "two-factor-description": "Beveilig je account met een authenticator-app, e-mailcodes of een passkey.",
       "two-factor-loading": "Tweestapsverificatie laden…"
     },
-    "assistant-playground-nav": "Assistent",
+    "assistant-chat-nav": "Chat",
+    "assistant-playground-nav": "Assistentlab",
     "assistant-administration-nav": "Assistentbeheer",
     "assistant-administration-intro": "Het echte assistentbeheer. De projectstarter is een hier aangemaakte agent die zelfstandig werkt: hij werkt namens het operations-account, staat niet in de chat en start bij elk nieuw project.",
     "assistant-playground-title": "Assistentpaneel",
@@ -319,7 +320,7 @@
     "assistant-board-description": "Het bord van de groep projectbeheer: het laatste resultaat van de follow-up voor de hele applicatie, als nieuw gemarkeerd tot je opnieuw kijkt, de geschiedenis en nu uitvoeren. De pagina Projectbeheer van het portaal toont hetzelfde tegen de echte back-end.",
     "assistant-simulate-schema-change": "Gewijzigde MCP-tool simuleren",
     "assistant-schema-change-simulated": "De zoektool voor documenten meldt nu een nieuw invoerschema. Synchroniseer de server op het tabblad MCP-servers om te zien dat hij uitgaat.",
-    "assistant-admin-back": "Terug naar de assistent-playground",
+    "assistant-admin-back": "Terug naar het assistentlab",
     "assistant-cost-center-title": "Kostenplaats",
     "assistant-cost-center-code": "Code van de kostenplaats",
     "assistant-cost-center-code-hint": "CC- gevolgd door vier cijfers, zoals CC-4100.",

@@ -152,7 +152,15 @@ public sealed class AssistantAgentRunConfigurationTests(AssistantDatabaseFixture
         // Its subject is chosen by a function, so its type is known only when it fires.
         Assert.Contains(view.CodeTriggers, item => item.TriggerId == "task-changed" && item.Source == NhAssistantDataTriggerSources.Event && item.SubjectType is null);
         // How the agent runs, as its code says, for the administration's flow view.
-        Assert.Equal(new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, "project-review", true), view.CodeRunSettings);
+        // Settings it leaves to their defaults show those defaults.
+        Assert.Equal(
+            new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, "project-review", true)
+            {
+                RetryCount = 3,
+                MaxConcurrentRuns = 4,
+                MaxRunsPerSubjectPerDay = 10
+            },
+            view.CodeRunSettings);
         var versions = await ConfigureAsync(host, configuration => configuration.GetSkillVersionsAsync(AgentId, FollowUp));
         Assert.Equal([(2, NhAssistantSkillDefinitionStatuses.Superseded), (1, NhAssistantSkillDefinitionStatuses.Superseded)], versions.Select(item => (item.Version, item.Status)));
         Assert.Equal("Sharper", versions[0].Reason);

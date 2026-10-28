@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,6 +19,7 @@ import { Observable, Subscription, forkJoin, map, startWith } from 'rxjs';
 import {
   AdminAgent,
   AgentRunConfiguration,
+  AgentSkillState,
   DataConsultation,
   DataSkill,
   DataSkillVersion,
@@ -52,11 +53,32 @@ import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-a
 import { NhAssistantTriggerFormComponent } from './run-config/nh-assistant-trigger-form.component';
 import { describePolicy, runConfigLimits } from './run-config/run-config-shared';
 import { TriggerChange, isConflict, triggerChanges, triggerFieldKeys, versionSummary } from './run-config/trigger-versions';
+import { NhAssistantAgentStateControlComponent } from './page/nh-assistant-agent-state-control.component';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
 type Form = 'setup' | 'settings' | 'skill' | 'trigger' | 'consultation';
+
+/**
+ * The parts of the run configuration a page shows: the agent's flow, its skills, its triggers, the
+ * consultations of other agents (with the page's hand-offs) and its run settings as guardrails.
+ */
+export type NhAssistantRunConfigurationSection = 'flow' | 'skills' | 'triggers' | 'consultations' | 'settings';
+
+/** The section that holds the form a flow entry opens. */
+const entrySections: Partial<Record<AgentFlowEntry['kind'], NhAssistantRunConfigurationSection>> = {
+  setup: 'skills',
+  settings: 'settings',
+  'add-skill': 'skills',
+  'edit-skill': 'skills',
+  'add-trigger': 'triggers',
+  'edit-trigger': 'triggers',
+  'add-consultation': 'consultations',
+  'edit-consultation': 'consultations',
+  'compare-skill': 'skills',
+  'compare-trigger': 'triggers'
+};
 
 /** A removal, promotion or discard that waits for its confirmation. */
 interface Confirmation {
@@ -84,6 +106,14 @@ interface Confirmation {
  * code, each with the agents that ask it (`openAgent` opens the editor of one) and its problems, and
  * switch on or off (a new one may start off), followed by the switches that turn a route off for all of
  * its consultations.
+ *
+ * With `sections` a page shows the parts it chooses: the flow on its own, or the skills, triggers,
+ * consultations and run settings as the sections of its build page. There each skill also shows its
+ * status and today's use with the changes it allows (`agentChanged`), an agent created here that
+ * only chats offers its guided setup first, an agent in code shows what its code sets for its runs
+ * read only, and the page projects its hand-offs (`[nhAssistantConnectedAgents]`) and its access
+ * (`[nhAssistantGuardrails]`) into the matching sections. A flow entry whose form is in a section
+ * the page does not show asks for it with `entryRequested`; `openEntry` opens it once loaded.
  */
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
@@ -91,6 +121,7 @@ interface Confirmation {
   imports: [
     DatePipe,
     DecimalPipe,
+    NgTemplateOutlet,
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
@@ -103,11 +134,12 @@ interface Confirmation {
     NhAssistantAccountNamesErrorComponent,
     NhAssistantAccountLabelComponent,
     NhAssistantAgentConsultationRoutesComponent,
-    NhAssistantPackageLockComponent
+    NhAssistantPackageLockComponent,
+    NhAssistantAgentStateControlComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-run-configuration.component.html',
-  styleUrls: ['../nh-assistant-admin-shared.scss', './nh-assistant-agent-feedback-report.component.scss', './run-config/run-config-forms.scss']
+  styleUrls: ['../nh-assistant-admin-shared.scss', './nh-assistant-agent-feedback-report.component.scss', './run-config/run-config-forms.scss', './page/agent-page.scss']
 })
 export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   private readonly admin = inject(NhAssistantAdminApiService);
@@ -119,6 +151,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   private detailSubscription?: Subscription;
   /** The flow's entry point that opened the form, which takes the focus back when the form closes. */
   private returnFocus: HTMLElement | null = null;
+  /** A flow entry to open once the configuration is loaded. */
+  private pendingEntry: AgentFlowEntry | null = null;
 
   readonly agent = input.required<AdminAgent>();
   /** Opens the guided setup at once, for an agent that was just created to work on its own. */
@@ -144,6 +178,12 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly openMcpServers = output<void>();
   /** Opens the editor of an agent that asks one of the agent's consultations, by its id. */
   readonly openAgent = output<string>();
+  /** The parts to show; `null` shows the whole run configuration with its flow on top. */
+  readonly sections = input<readonly NhAssistantRunConfigurationSection[] | null>(null);
+  /** A skill's status changed; the agent comes with the skill's new state. */
+  readonly agentChanged = output<AdminAgent>();
+  /** A flow entry opens a form in a section this page does not show. */
+  readonly entryRequested = output<AgentFlowEntry>();
 
   readonly id = `nh-assistant-run-configuration-${nextId++}`;
   readonly maxReason = runConfigLimits.reason;
@@ -307,6 +347,11 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         ]);
         if (openSetup && configuration.source === 'admin' && configuration.runSettings === null) {
           this.open('setup');
+        }
+        const pending = this.pendingEntry;
+        this.pendingEntry = null;
+        if (pending) {
+          this.onFlowEntry(pending);
         }
       },
       error: () => {
@@ -610,7 +655,36 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
    * An entry point of the flow: the forms of the run configuration open below with the focus in them;
    * the editor, the account, the runs and the MCP servers belong to the host.
    */
+  /** Whether the page shows a part of the run configuration. */
+  shows(section: NhAssistantRunConfigurationSection): boolean {
+    const sections = this.sections();
+    return sections === null || sections.includes(section);
+  }
+
+  /** The state of one of the agent's skills, as the agent list reports it. */
+  skillState(skillId: string): AgentSkillState | null {
+    return this.agent().skills?.find(skill => skill.skillId === skillId) ?? null;
+  }
+
+  /**
+   * Opens the form of a flow entry that another view of the agent asked for, such as its overview,
+   * once the configuration is loaded.
+   */
+  openEntry(entry: AgentFlowEntry): void {
+    if (this.configuration() === null || this.loading()) {
+      this.pendingEntry = entry;
+      return;
+    }
+    this.onFlowEntry(entry);
+  }
+
   onFlowEntry(entry: AgentFlowEntry): void {
+    const section = entrySections[entry.kind];
+    if (section !== undefined && !this.shows(section)) {
+      this.entryRequested.emit(entry);
+      return;
+    }
+
     const opener = this.host.nativeElement.ownerDocument.activeElement;
     switch (entry.kind) {
       case 'setup':
@@ -649,8 +723,35 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
         }
         return;
       }
+      case 'compare-skill': {
+        const skill = this.configuration()?.dataSkills.find(item => item.skillId === entry.skillId);
+        if (skill) {
+          this.reveal(`[data-data-skill="${skill.skillId}"]`);
+          if (this.comparison()?.skillId !== skill.skillId) {
+            this.toggleComparison(skill);
+          }
+        }
+        return;
+      }
+      case 'compare-trigger': {
+        const trigger = this.configuration()?.dataTriggers.find(item => item.triggerId === entry.triggerId);
+        if (trigger) {
+          this.reveal(`[data-data-trigger="${trigger.triggerId}"]`);
+          if (this.triggerComparison()?.triggerId !== trigger.triggerId) {
+            this.toggleTriggerComparison(trigger);
+          }
+        }
+        return;
+      }
       case 'edit-agent':
-        this.editAgent.emit();
+      case 'edit-tools':
+      case 'edit-access':
+        // A page that shows the run configuration in sections opens the part of the editor itself.
+        if (this.sections() === null) {
+          this.editAgent.emit();
+        } else {
+          this.entryRequested.emit(entry);
+        }
         return;
       case 'account':
         this.changeAccount.emit();
@@ -737,6 +838,15 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     afterNextRender(() => {
       this.host.nativeElement.querySelector<HTMLElement>(
         `[data-form="${form}"] input:not([disabled]), [data-form="${form}"] textarea, [data-work-setup] input:not([disabled])`)?.focus();
+    }, { injector: this.injector });
+  }
+
+  /** Scrolls an item of a section into view and moves the focus to it. */
+  private reveal(selector: string): void {
+    afterNextRender(() => {
+      const item = this.host.nativeElement.querySelector<HTMLElement>(selector);
+      item?.scrollIntoView({ block: 'center' });
+      item?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }, { injector: this.injector });
   }
 

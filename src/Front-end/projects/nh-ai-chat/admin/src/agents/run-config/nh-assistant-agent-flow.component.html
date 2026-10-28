@@ -450,7 +450,7 @@
                     <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.skills.add' | translate }}
                   </button>
                 }
-                <button class="secondary" type="button" data-flow-entry="tools" [disabled]="busy()" (click)="open({ kind: 'edit-agent' })">
+                <button class="secondary" type="button" data-flow-entry="tools" [disabled]="busy()" (click)="open({ kind: 'edit-tools' })">
                   <nh-assistant-icon name="tool" />{{ 'nh-assistant.admin.run-config.flow.entry.tools' | translate }}
                 </button>
               }
@@ -483,7 +483,7 @@
                   <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.flow.entry.runs' | translate }}
                 </button>
                 @if (groupable()) {
-                  <button class="secondary" type="button" data-flow-entry="groups" [disabled]="busy()" (click)="open({ kind: 'edit-agent' })">
+                  <button class="secondary" type="button" data-flow-entry="groups" [disabled]="busy()" (click)="open({ kind: 'edit-access' })">
                     <nh-assistant-icon name="users" />{{ 'nh-assistant.admin.run-config.flow.entry.groups' | translate }}
                   </button>
                 }

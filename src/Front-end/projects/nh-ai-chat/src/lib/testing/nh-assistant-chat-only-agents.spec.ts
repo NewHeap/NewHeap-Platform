@@ -5,6 +5,7 @@ import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMock
 import { firstValueFrom } from 'rxjs';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { AdminAgent } from '../models/assistant-admin.models';
+import { adminStatusOf, backToAdminList, openAdminAgent, openAdminTab, settleAdmin } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
 
 /**
@@ -66,11 +67,6 @@ function text(element: Element | null | undefined): string {
   return element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
-function cardOf(element: HTMLElement, agentId: string): HTMLElement {
-  return Array.from(element.querySelectorAll<HTMLElement>('li.card'))
-    .find(card => Array.from(card.querySelectorAll('.mono')).some(id => text(id) === agentId))!;
-}
-
 async function call(method: string, path: string, body?: unknown): Promise<{ status: number; body: any }> {
   const response = await TestBed.inject(NhAssistantMockBackend).fetch(`/api/assistant/${path}`, {
     method,
@@ -83,28 +79,42 @@ async function call(method: string, path: string, body?: unknown): Promise<{ sta
 describe('Chat-only agents in the administration', () => {
   it('says the agent works in the chat only and offers nothing that runs it', async () => {
     await configure();
-    const { element } = await render(NhAssistantAdminAgentsComponent);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    const helper = cardOf(element, 'chat-helper');
-    expect(text(helper.querySelector('[data-chat-only]'))).toBe('Chat only');
-    expect(text(helper.querySelector('[data-chat-only-hint]'))).toBe('Works in the chat only: it is on no object\'s page, has no triggers and does not run on its own.');
-    expect(helper.querySelector('[data-works-on]')).toBeNull();
-    expect(helper.querySelector('[data-run-now-agent]')).toBeNull();
-    expect(helper.querySelector('[data-runs-agent]')).toBeNull();
-    expect(Array.from(helper.querySelectorAll('[data-state-action]')).filter(action => !action.closest('li.skill'))).toEqual([]);
-    expect(helper.querySelector('[data-shadow-action]')).toBeNull();
-    // Its skills always work live: no shadow badge and no shadow action.
-    const notes = helper.querySelector('li.skill[data-skill="notes"]');
+    // The list says where it works.
+    expect(text(element.querySelector('[data-agent-row="chat-helper"] [data-agent-work]'))).toBe('Chat only');
+
+    // Its page: no rollout and no runs, no run now, no shadow mode; only resuming if it was held.
+    const page = await openAdminAgent(fixture, element, 'chat-helper');
+    expect(text(page.querySelector('[data-state-details]'))).toBe('Works in the chat only: it is on no object\'s page, has no triggers and does not run on its own.');
+    expect(Array.from(page.querySelectorAll('[data-agent-tab]')).map(tab => tab.getAttribute('data-agent-tab'))).toEqual(['overview', 'build', 'activity']);
+    expect(page.querySelector('[data-run-now-agent]')).toBeNull();
+    expect(page.querySelector('[data-status-menu="agent"]')).toBeNull();
+    expect(adminStatusOf(page.querySelector('.page-head') as HTMLElement)).toBe('live');
+    await openAdminTab(fixture, element, 'activity');
+    expect(page.querySelector('[data-activity]')).toBeNull();
+    expect(page.querySelector('nh-assistant-agent-run-history')).toBeNull();
+    expect(page.querySelector('nh-assistant-agent-feedback-report')).not.toBeNull();
+
+    // In Build it has no triggers and no works-on; its skills always work live and only change state.
+    await openAdminTab(fixture, element, 'build');
+    expect(page.querySelector('[data-build-section="triggers"]')).toBeNull();
+    expect(page.querySelector('[data-profile-summary] [data-works-on]')).toBeNull();
+    const notes = page.querySelector('[data-skill-status="notes"]') as HTMLElement;
     expect(notes).not.toBeNull();
-    expect(notes!.querySelector('[data-shadow-badge]')).toBeNull();
-    expect(notes!.querySelector('[data-shadow-action]')).toBeNull();
-    // Its skills as data stay in its run configuration.
-    expect(helper.querySelector('[data-run-config-agent="chat-helper"]')).not.toBeNull();
+    expect(adminStatusOf(notes)).toBe('live');
+    (notes.querySelector('[data-status-menu="notes"]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    expect(notes.querySelector('[data-state-action]')).not.toBeNull();
+    expect(notes.querySelector('[data-shadow-action]')).toBeNull();
 
-    // An agent that runs on objects keeps them.
-    const planner = cardOf(element, 'planner');
-    expect(planner.querySelector('[data-chat-only]')).toBeNull();
+    // An agent that runs on objects keeps all of it.
+    await backToAdminList(fixture, element);
+    const planner = await openAdminAgent(fixture, element, 'planner');
+    expect(planner.querySelector('[data-agent-tab="rollout"]')).not.toBeNull();
     expect(planner.querySelector('[data-run-now-agent="planner"]')).not.toBeNull();
+    (planner.querySelector('[data-status-menu="agent"]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
     expect(planner.querySelector('[data-state-action]')).not.toBeNull();
   });
 
@@ -112,7 +122,7 @@ describe('Chat-only agents in the administration', () => {
     await configure('nl');
     const { element } = await render(NhAssistantAdminAgentsComponent);
 
-    expect(text(cardOf(element, 'chat-helper').querySelector('[data-chat-only]'))).toBe('Alleen chat');
+    expect(text(element.querySelector('[data-agent-row="chat-helper"] [data-agent-work]'))).toBe('Alleen chat');
   });
 
   it('refuses a start and the shadow mode in the mock API, as the server does', async () => {

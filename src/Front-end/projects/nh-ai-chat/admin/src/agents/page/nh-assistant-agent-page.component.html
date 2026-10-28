@@ -1,0 +1,500 @@
+@let current = agent();
+<div class="page" [attr.data-agent-page]="current.id">
+  <button class="secondary back" type="button" data-back (click)="back.emit()">
+    <nh-assistant-icon name="chevron-down" />{{ 'nh-assistant.admin.agent-page.back' | translate }}
+  </button>
+
+  <header class="page-head">
+    <div class="title-row">
+      <!-- An agent in code names and describes itself with translation keys. -->
+      <h3 tabindex="-1" [id]="id + '-title'">{{ codeTextKeys(current.source, current.displayName) | nhAssistantTranslate: current.displayName }}</h3>
+      <span class="mono muted">{{ current.id }}</span>
+      <span class="tag" data-agent-source>{{ (current.source === 'admin' ? 'nh-assistant.admin.agents.source-admin' : current.isOverridden ? 'nh-assistant.admin.agents.list.source-changed' : 'nh-assistant.admin.agents.source-code') | translate }}</span>
+      @if (current.package; as linked) {
+        <span class="tag" data-package-badge><nh-assistant-icon name="lock" />{{ 'nh-assistant.admin.packages.linked-badge' | translate: { package: linked.packageId, version: linked.packageVersion } }}</span>
+      }
+    </div>
+    <p class="muted" data-agent-origin>
+      @if (variantOf(); as parent) {
+        {{ 'nh-assistant.admin.agent-page.origin.variant' | translate: { name: (codeTextKeys(parent.source, parent.displayName) | nhAssistantTranslate: parent.displayName) } }}
+      } @else {
+        {{ (current.source === 'admin' ? 'nh-assistant.admin.agent-page.origin.admin' : current.isOverridden ? 'nh-assistant.admin.agent-page.origin.code-changed' : 'nh-assistant.admin.agent-page.origin.code') | translate }}
+      }
+    </p>
+    @if (current.description) {
+      <p class="muted">{{ codeTextKeys(current.source, current.description) | nhAssistantTranslate: current.description }}</p>
+    }
+
+    <div class="controls">
+      <nh-assistant-agent-state-control [agent]="current" [disabled]="busy()" (changed)="onStateChanged($event)" />
+      @if (canTestInChat()) {
+        <button class="secondary" type="button" data-test-in-chat [disabled]="busy()" (click)="testInChat()">
+          <nh-assistant-icon name="assistant" />{{ 'nh-assistant.admin.agent-page.test-in-chat' | translate }}
+        </button>
+      }
+      @if (canRunNow()) {
+        <button class="secondary" type="button" aria-haspopup="dialog" [attr.data-run-now-agent]="current.id" [disabled]="busy()" (click)="runningNow.set(true)">
+          <nh-assistant-icon name="send" />{{ 'nh-assistant.admin.agents.run-now' | translate }}
+        </button>
+      }
+      <div class="disclosure" (keydown.escape)="closeMore()">
+        <button
+          class="secondary toggle"
+          type="button"
+          data-more
+          [attr.aria-expanded]="moreOpen()"
+          [attr.aria-controls]="id + '-more'"
+          [disabled]="busy()"
+          (click)="toggleMore()">
+          {{ 'nh-assistant.admin.agent-page.more' | translate }}<nh-assistant-icon name="chevron-down" />
+        </button>
+        @if (moreOpen()) {
+          <ul class="menu align-end" [id]="id + '-more'" data-more-menu>
+            <li>
+              <button type="button" class="menu-item" [attr.data-export-package]="current.id" (click)="exportPackage()">
+                {{ 'nh-assistant.admin.packages.export' | translate }}
+                <span class="menu-hint">{{ 'nh-assistant.admin.agent-page.more-export-hint' | translate }}</span>
+              </button>
+            </li>
+            @if (canReset()) {
+              <li>
+                <button type="button" class="menu-item" data-reset-agent [disabled]="resetLocked()" (click)="confirm('reset')">
+                  {{ 'nh-assistant.admin.agents.reset' | translate }}
+                  <span class="menu-hint" data-reset-locked>
+                    {{ resetLocked() ? ('nh-assistant.admin.packages.reset-locked' | translate: { package: current.package?.packageId }) : ('nh-assistant.admin.agent-page.more-reset-hint' | translate) }}
+                  </span>
+                </button>
+              </li>
+            }
+            @if (canDelete()) {
+              <li class="menu-separator" aria-hidden="true"></li>
+              <li>
+                <button type="button" class="menu-item danger-item" data-delete-agent [disabled]="deleteLocked()" (click)="confirm('delete')">
+                  {{ 'nh-assistant.admin.delete' | translate }}
+                  <span class="menu-hint" data-delete-locked>
+                    {{ deleteLocked() ? ('nh-assistant.admin.packages.delete-locked' | translate: { package: current.package?.packageId }) : ('nh-assistant.admin.agent-page.more-delete-hint' | translate) }}
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+
+    @if (confirming(); as action) {
+      <div class="change-form" [attr.data-confirming]="action" (keydown.escape)="closeMore()">
+        <p class="muted">{{ (action === 'reset' ? 'nh-assistant.admin.agents.reset-keeps-state' : 'nh-assistant.admin.agent-page.delete-explain') | translate }}</p>
+        <div class="card-actions">
+          <button class="danger" type="button" [attr.data-confirm]="action" [disabled]="busy()" (click)="action === 'reset' ? reset() : remove()">
+            {{ (action === 'reset' ? 'nh-assistant.admin.agents.confirm-reset' : 'nh-assistant.admin.confirm-delete') | translate }}
+          </button>
+          <button class="secondary" type="button" (click)="closeMore()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+        </div>
+      </div>
+    }
+    @if (testUnavailable()) {
+      <p class="message warning" role="status" data-test-unavailable><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.agent-page.test-unavailable' | translate }}</p>
+    }
+    @if (error(); as failure) {
+      <p class="form-error" role="alert" data-agent-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+    }
+
+    <!-- The package the agent comes from; unlinking makes every part of it local. -->
+    <nh-assistant-package-lock [lock]="agentPackageOf(current)" [agentId]="current.id" [part]="null" (unlinked)="refreshRequested.emit()" />
+    <!-- A warning never refused the save: the agent is in effect but may not work as configured. -->
+    @for (warning of current.warnings ?? []; track warning) {
+      <p class="message warning" [attr.data-agent-warning]="warning">
+        <nh-assistant-icon name="warning" />{{ warningKeys('agent', warning) | nhAssistantTranslate: warning }}
+      </p>
+    }
+    <!-- The asset its instructions come from no longer resolves: the agent starts no model turn. -->
+    @if (current.instructionsProblem) {
+      <p class="message error" role="status" data-agent-instructions-problem>
+        <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.instruction-assets.agent-problem' | translate }}
+        {{ 'nh-assistant.admin.instruction-assets.problems.' + current.instructionsProblem | translate }}
+      </p>
+    }
+  </header>
+
+  <div class="agent-tabs" role="tablist" [attr.aria-label]="'nh-assistant.admin.agent-page.tabs-label' | translate: { name: name() }" (keydown)="onTabKeydown($event)">
+    @for (option of tabs(); track option) {
+      <button
+        type="button"
+        role="tab"
+        class="agent-tab"
+        [id]="id + '-tab-' + option"
+        [attr.data-agent-tab]="option"
+        [attr.aria-selected]="selectedTab() === option"
+        [attr.aria-controls]="id + '-panel'"
+        [attr.tabindex]="selectedTab() === option ? 0 : -1"
+        (click)="select(option)">
+        {{ 'nh-assistant.admin.agent-page.tabs.' + option | translate }}
+        @if (option === 'rollout' && rolloutCount() > 0) {
+          <span class="count" [attr.aria-label]="'nh-assistant.admin.agent-page.rollout-count' | translate: { count: rolloutCount() }">{{ rolloutCount() }}</span>
+        }
+      </button>
+    }
+  </div>
+
+  <div class="tab-panel" role="tabpanel" tabindex="0" [id]="id + '-panel'" [attr.aria-labelledby]="id + '-tab-' + selectedTab()" [attr.data-agent-panel]="selectedTab()">
+    @switch (selectedTab()) {
+      @case ('overview') {
+        <section class="build-section" [attr.aria-labelledby]="id + '-status-title'" data-overview-status>
+          <header>
+            <h4 [id]="id + '-status-title'">{{ 'nh-assistant.admin.agent-page.overview.status' | translate }}</h4>
+          </header>
+          <p class="muted" data-state-details>
+            @if (current.runState === 'configured-off') {
+              {{ 'nh-assistant.admin.agents.state.configured-off-hint' | translate }}
+            } @else if (current.runState === 'active') {
+              {{ (current.chatOnly ? 'nh-assistant.admin.agents.chat-only.hint' : 'nh-assistant.admin.agent-page.overview.active') | translate }}
+            } @else {
+              @if (current.stateChangedAt) {
+                <span [attr.title]="names().idTitleOf(current.stateChangedBy)">{{ 'nh-assistant.admin.agents.state.changed' | translate: { user: names().nameOf(current.stateChangedBy), date: (current.stateChangedAt | date: 'medium') } }}</span>
+              }
+              @if (current.stateReason) {
+                {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: current.stateReason } }}
+              }
+            }
+          </p>
+          @if (current.runState === 'paused') {
+            <p class="muted">{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: current.waitingInputs } }}</p>
+          }
+          <!-- What releasing the kill switch does: an agent that was off goes back off. Older servers do not say. -->
+          @if (current.runState === 'stopped' && current.offBeforeStop !== undefined) {
+            <p class="muted" data-stopped-hint [attr.data-off-before-stop]="current.offBeforeStop">
+              {{ (current.offBeforeStop ? 'nh-assistant.admin.agents.state.stopped-was-off-hint' : 'nh-assistant.admin.agents.state.stopped-was-on-hint') | translate }}
+            </p>
+          }
+          @if (current.runState === 'off') {
+            <p class="muted" data-off-hint>
+              {{ 'nh-assistant.admin.agents.state.off-hint' | translate }}
+              @if (!current.stateChangedAt) {
+                {{ 'nh-assistant.admin.agents.state.starts-off' | translate }}
+              }
+            </p>
+          }
+          @if (current.shadow?.shadow) {
+            <p class="muted" data-shadow-details>{{ (current.shadow?.locked ? 'nh-assistant.admin.agents.shadow.locked' : 'nh-assistant.admin.agents.shadow.hint') | translate }}</p>
+          }
+          @if (current.serviceAccount; as account) {
+            <p class="muted" data-service-account>
+              <span [attr.title]="names().idTitleOf(account.actorId)">{{ 'nh-assistant.admin.agents.service-account.label' | translate: { account: names().nameOf(account.actorId) } }}</span>
+              @if (account.overridden) {
+                <span [attr.title]="names().idTitleOf(account.configuredActorId)">{{ 'nh-assistant.admin.agents.service-account.configured' | translate: { account: names().nameOf(account.configuredActorId) } }}</span>
+              }
+            </p>
+          }
+        </section>
+
+        @if (hasRunConfiguration()) {
+          <!-- The agent at a glance; each step opens the section of Build that changes it. -->
+          <nh-assistant-agent-run-configuration
+            [agent]="current"
+            [sections]="flowSections"
+            [tools]="tools()"
+            [servers]="servers()"
+            [agents]="agents()"
+            (entryRequested)="onEntry($event)"
+            (editAgent)="onEntry({ kind: 'edit-agent' })"
+            (changeAccount)="changeAccount()"
+            (openRuns)="openRuns()"
+            (openMcpServers)="openMcpServers.emit()"
+            (openAgent)="openAgent.emit($event)"
+            (changed)="refreshRequested.emit()" />
+        } @else {
+          <!-- An agent in code that only chats: what it uses and who sees it. -->
+          <section class="build-section" [attr.aria-labelledby]="id + '-chat-title'" data-overview-chat>
+            <header>
+              <div>
+                <h4 [id]="id + '-chat-title'">{{ 'nh-assistant.admin.agent-page.overview.chat-title' | translate }}</h4>
+                <p class="muted">{{ 'nh-assistant.admin.agent-page.overview.chat-description' | translate }}</p>
+              </div>
+            </header>
+            <ng-container [ngTemplateOutlet]="toolsFacts" />
+            <ng-container [ngTemplateOutlet]="accessFacts" />
+          </section>
+        }
+      }
+
+      @case ('build') {
+        <div class="build">
+          <nav class="build-index" [attr.aria-label]="'nh-assistant.admin.agent-page.build.index' | translate">
+            @for (section of indexSections(); track section) {
+              <button type="button" [attr.data-build-index]="section" [attr.aria-current]="currentSection() === section" (click)="goTo(section)">
+                {{ 'nh-assistant.admin.agent-page.build.sections.' + section | translate }}
+              </button>
+            }
+          </nav>
+          <div class="build-sections">
+            <div class="field build-jump">
+              <label [for]="id + '-jump'">{{ 'nh-assistant.admin.agent-page.build.jump' | translate }}</label>
+              <select [id]="id + '-jump'" (change)="goTo($any(value($event)))">
+                @for (section of indexSections(); track section) {
+                  <option [value]="section" [selected]="currentSection() === section">{{ 'nh-assistant.admin.agent-page.build.sections.' + section | translate }}</option>
+                }
+              </select>
+            </div>
+
+            <section class="build-section" data-build-section="profile" [attr.aria-labelledby]="id + '-profile-title'">
+              <header>
+                <div>
+                  <h4 [id]="id + '-profile-title'">{{ 'nh-assistant.admin.agent-page.build.sections.profile' | translate }}</h4>
+                  <p class="muted">{{ 'nh-assistant.admin.agent-page.build.profile.description' | translate }}</p>
+                </div>
+                @if (editing() !== 'profile') {
+                  <button class="secondary" type="button" data-edit-section="profile" [disabled]="editing() !== null" (click)="edit('profile')">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                  </button>
+                }
+              </header>
+              @if (editing() === 'profile') {
+                <nh-assistant-admin-agent-editor
+                  [agent]="current"
+                  [tools]="tools()"
+                  [servers]="servers()"
+                  [catalog]="catalog()"
+                  [catalogUnavailable]="catalogUnavailable()"
+                  [sections]="profileSections"
+                  (saved)="onEdited($event)"
+                  (cancelled)="editing.set(null)" />
+              } @else {
+                <dl class="facts" data-profile-summary>
+                  <dt>{{ 'nh-assistant.admin.agent-page.build.profile.used' | translate }}</dt>
+                  <dd>{{ 'nh-assistant.admin.agents.work.' + work() | translate }}</dd>
+                  @if (!current.chatOnly) {
+                    <dt>{{ 'nh-assistant.admin.agents.works-on.label' | translate }}</dt>
+                    <dd data-works-on>
+                      @let works = worksOn();
+                      @switch (works.only) {
+                        @case ('all') { {{ 'nh-assistant.admin.agents.works-on.all' | translate }} }
+                        @case ('types') { {{ works.types.join(', ') }} }
+                        @default { {{ 'nh-assistant.admin.agents.works-on.application' | translate }} }
+                      }
+                      @if (works.application && works.only !== 'application') {
+                        {{ 'nh-assistant.admin.agents.works-on.and-application' | translate }}
+                      }
+                      @if (works.perDivision) {
+                        {{ 'nh-assistant.admin.agents.works-on.per-division' | translate }}
+                      }
+                      @if (works.undeclared) {
+                        <span class="muted block">{{ 'nh-assistant.admin.agents.works-on.undeclared' | translate }}</span>
+                      }
+                      @if (works.all && works.known.length > 0) {
+                        <span class="muted block" data-known-types>{{ 'nh-assistant.admin.agents.works-on.known' | translate: { types: works.known.join(', ') } }}</span>
+                      }
+                    </dd>
+                  }
+                  <dt>{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}</dt>
+                  <dd data-instructions-summary>
+                    @if (current.instructionsAsset; as asset) {
+                      <span class="mono" [attr.title]="asset.hash">{{ 'nh-assistant.admin.instruction-assets.reference' | translate: { asset: asset.assetId, version: asset.version } }}</span>
+                    } @else {
+                      {{ 'nh-assistant.admin.agent-page.build.profile.instructions-text' | translate: { count: (current.instructions.length | number) } }}
+                    }
+                  </dd>
+                  @if (current.profile) {
+                    <dt>{{ 'nh-assistant.admin.agent-editor.profile' | translate }}</dt>
+                    <dd class="mono">{{ current.profile }}</dd>
+                  }
+                  <dt>{{ 'nh-assistant.admin.agent-editor.classification' | translate }}</dt>
+                  <dd>{{ 'nh-assistant.admin.run-config.skills.classification.' + (current.dataClassification ?? 'internal') | translate }}</dd>
+                </dl>
+                <nh-assistant-agent-metadata [agent]="current" [entries]="catalog()?.agentMetadata ?? []" (agentVersionChanged)="refreshRequested.emit()" />
+              }
+            </section>
+
+            <section class="build-section" data-build-section="tools" [attr.aria-labelledby]="id + '-tools-title'">
+              <header>
+                <div>
+                  <h4 [id]="id + '-tools-title'">{{ 'nh-assistant.admin.agent-page.build.sections.tools' | translate }}</h4>
+                  <p class="muted">{{ 'nh-assistant.admin.agent-page.build.tools.description' | translate }}</p>
+                </div>
+                @if (editing() !== 'tools') {
+                  <button class="secondary" type="button" data-edit-section="tools" [disabled]="editing() !== null" (click)="edit('tools')">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                  </button>
+                }
+              </header>
+              @if (editing() === 'tools') {
+                <nh-assistant-admin-agent-editor
+                  [agent]="current"
+                  [tools]="tools()"
+                  [servers]="servers()"
+                  [catalog]="catalog()"
+                  [catalogUnavailable]="catalogUnavailable()"
+                  [sections]="toolSections"
+                  (saved)="onEdited($event)"
+                  (cancelled)="editing.set(null)" />
+              } @else {
+                <ng-container [ngTemplateOutlet]="toolsFacts" />
+              }
+            </section>
+
+            @if (hasRunConfiguration()) {
+              <nh-assistant-agent-run-configuration
+                #buildConfiguration
+                [agent]="current"
+                [sections]="buildSections()"
+                [startSetup]="startSetup()"
+                [tools]="tools()"
+                [servers]="servers()"
+                [agents]="agents()"
+                (agentChanged)="onStateChanged($event)"
+                (changed)="refreshRequested.emit()"
+                (entryRequested)="onEntry($event)"
+                (changeAccount)="changeAccount()"
+                (openRuns)="openRuns()"
+                (openMcpServers)="openMcpServers.emit()"
+                (openAgent)="openAgent.emit($event)">
+                <div nhAssistantConnectedAgents>
+                  <nh-assistant-agent-hand-offs [agent]="current" [agents]="agents()" [subjectTypes]="catalog()?.subjectTypes ?? []" />
+                </div>
+                <div nhAssistantGuardrails class="stack">
+                  <ng-container [ngTemplateOutlet]="access" />
+                </div>
+              </nh-assistant-agent-run-configuration>
+            } @else {
+              <section class="build-section" data-build-section="guardrails" [attr.aria-labelledby]="id + '-guardrails-title'">
+                <header>
+                  <div>
+                    <h4 [id]="id + '-guardrails-title'">{{ 'nh-assistant.admin.agent-page.build.guardrails.title' | translate }}</h4>
+                    <p class="muted">{{ 'nh-assistant.admin.agent-page.build.guardrails.description' | translate }}</p>
+                  </div>
+                </header>
+                <ng-container [ngTemplateOutlet]="access" />
+              </section>
+            }
+          </div>
+        </div>
+      }
+
+      @case ('rollout') {
+        <nh-assistant-agent-rollout
+          [agent]="current"
+          [agents]="agents()"
+          [names]="names()"
+          [disabled]="busy()"
+          (agentChanged)="onStateChanged($event)"
+          (review)="onReview($event)"
+          (variantCreated)="variantCreated.emit($event)"
+          (variantPromoted)="variantPromoted.emit($event)"
+          (openVariant)="openAgent.emit($event)" />
+      }
+
+      @case ('activity') {
+        @if (runs()) {
+          <div class="segments" role="group" [attr.aria-label]="'nh-assistant.admin.agent-page.activity.label' | translate">
+            <button type="button" data-activity="runs" [attr.aria-pressed]="activity() === 'runs'" (click)="activity.set('runs')">{{ 'nh-assistant.admin.agents.runs' | translate }}</button>
+            <button type="button" data-activity="feedback" [attr.aria-pressed]="activity() === 'feedback'" (click)="activity.set('feedback')">{{ 'nh-assistant.admin.agents.feedback' | translate }}</button>
+          </div>
+        }
+        @if (runs() && activity() === 'runs') {
+          <nh-assistant-agent-run-history [agentId]="current.id" [subjectTypes]="catalog()?.subjectTypes ?? []" (openConversation)="openConversation($event)" />
+        } @else {
+          <nh-assistant-agent-feedback-report [agentId]="current.id" />
+        }
+      }
+    }
+  </div>
+</div>
+
+<!-- What the agent's tool selectors choose and its MCP servers. -->
+<ng-template #toolsFacts>
+  <dl class="facts" data-tools-summary>
+    <dt>{{ 'nh-assistant.admin.agent-editor.tool-selectors' | translate }}</dt>
+    <dd class="mono">
+      @if (current.toolSelectors.length > 0) {
+        {{ current.toolSelectors.join(', ') }}
+      } @else {
+        <span class="muted">{{ 'nh-assistant.admin.agent-page.build.tools.none' | translate }}</span>
+      }
+    </dd>
+    @if (tools().length > 0) {
+      <dt>{{ 'nh-assistant.admin.agent-editor.catalog' | translate }}</dt>
+      <dd data-matched-tools>{{ 'nh-assistant.admin.agent-page.build.tools.matched' | translate: { count: matchedTools().length, changing: changingTools() } }}</dd>
+    }
+    <dt>{{ 'nh-assistant.admin.agent-editor.mcp-servers' | translate }}</dt>
+    <dd data-agent-servers>
+      @if (agentServers().length > 0) {
+        {{ agentServers().join(', ') }}
+      } @else {
+        <span class="muted">{{ 'nh-assistant.admin.agent-page.build.tools.no-servers' | translate }}</span>
+      }
+    </dd>
+  </dl>
+</ng-template>
+
+<!-- Who may use, run and see the agent, its groups and autonomy. -->
+<ng-template #accessFacts>
+  <dl class="facts" data-access-summary>
+    <dt>{{ 'nh-assistant.admin.agent-editor.autonomy' | translate }}</dt>
+    <dd>{{ 'nh-assistant.admin.agents.autonomy.' + current.autonomy | translate }}</dd>
+    <dt>{{ 'nh-assistant.admin.agent-editor.required-policy' | translate }}</dt>
+    <dd data-required-policy>
+      @if (current.requiredPolicy; as policy) {
+        @if (policyKeys(policy) | nhAssistantTranslate; as text) {
+          {{ text }}
+        } @else {
+          <code class="mono">{{ policy }}</code>
+        }
+      } @else {
+        <span class="muted">{{ 'nh-assistant.admin.agent-page.build.access.everyone' | translate }}</span>
+      }
+    </dd>
+    <!-- Who may run it and see its results for the whole application, also when code names a policy. -->
+    @if (worksOn().application || worksOn().runPolicy || worksOn().viewPolicy) {
+      <dt>{{ 'nh-assistant.admin.agent-editor.works-on.run-policy' | translate }}</dt>
+      <dd>{{ worksOn().runPolicy ? (policyKeys(worksOn().runPolicy) | nhAssistantTranslate: worksOn().runPolicy!) : ('nh-assistant.admin.agent-editor.works-on.run-policy-default' | translate) }}</dd>
+      <dt>{{ 'nh-assistant.admin.agent-editor.works-on.view-policy' | translate }}</dt>
+      <dd>{{ worksOn().viewPolicy ? (policyKeys(worksOn().viewPolicy) | nhAssistantTranslate: worksOn().viewPolicy!) : ('nh-assistant.admin.agent-editor.works-on.view-policy-default' | translate) }}</dd>
+    }
+    @if (groupNames(); as groups) {
+      <dt>{{ 'nh-assistant.admin.agent-editor.groups.title' | translate }}</dt>
+      <dd data-agent-groups>{{ groups }}</dd>
+    }
+  </dl>
+</ng-template>
+
+<!-- The access part of the guardrails with its editor, and the technical account of an agent in code. -->
+<ng-template #access>
+  <div class="subsection" data-guardrails-access>
+    <div class="section-header">
+      <h5 class="part-title">{{ 'nh-assistant.admin.agent-page.build.access.title' | translate }}</h5>
+      @if (editing() !== 'access') {
+        <button class="secondary" type="button" data-edit-section="access" [disabled]="editing() !== null" (click)="edit('access')">
+          <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+        </button>
+      }
+    </div>
+    @if (editing() === 'access') {
+      <nh-assistant-admin-agent-editor
+        [agent]="current"
+        [tools]="tools()"
+        [servers]="servers()"
+        [catalog]="catalog()"
+        [catalogUnavailable]="catalogUnavailable()"
+        [sections]="accessSections"
+        (saved)="onEdited($event)"
+        (cancelled)="editing.set(null)" />
+    } @else {
+      <ng-container [ngTemplateOutlet]="accessFacts" />
+    }
+  </div>
+  @if (current.source === 'code' && current.serviceAccount) {
+    <div class="subsection" data-guardrails-account>
+      <h5 class="part-title">{{ 'nh-assistant.admin.agent-page.build.access.account' | translate }}</h5>
+      <nh-assistant-agent-account-control [agent]="current" [accountSearch]="accountSearch()" [names]="names()" [disabled]="busy()" (changed)="onStateChanged($event)" />
+    </div>
+  }
+</ng-template>
+
+@if (runningNow()) {
+  <nh-assistant-run-now-dialog
+    [agent]="runNowAgent()"
+    [subjectTypes]="catalog()?.subjectTypes ?? []"
+    [divisions]="catalog()?.divisions === true"
+    (openConversation)="openConversation($event)"
+    (closed)="runningNow.set(false)" />
+}

@@ -7,6 +7,7 @@ import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { AgentRunConfiguration, RunCatalog, ToolCatalogEntry } from '../models/assistant-admin.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
+import { backToAdminList, openAdminAgent, openAdminTab } from './nh-assistant-admin-navigation';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 
 /**
@@ -190,9 +191,9 @@ async function changeStarterTools(toolSelectors: string[]): Promise<void> {
   expect(changed.status).toBe(200);
 }
 
-/** Opens the run configuration of the agent on the agents page and returns it. */
+/** Opens the agent's page at Build, where its consultations are, and returns its run configuration. */
 async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
-  (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
+  await openAdminAgent(fixture, element, agentId, 'build');
   await settle(fixture);
   return element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
 }
@@ -445,8 +446,7 @@ describe('The Consultations section of the run configuration', () => {
     expect(section.querySelector('nh-assistant-agent-consultation-routes [data-consultation-routes]')).not.toBeNull();
 
     // A consultation as data of an agent created here: the sentences, the asking agent and the routes.
-    button(element, 'Back to agents').click();
-    await settle(fixture);
+    await backToAdminList(fixture, element);
     view = await openRunConfiguration(fixture, element, 'starter');
     section = view.querySelector('[data-consultations]') as HTMLElement;
     const data = section.querySelector('[data-consultation="project"][data-consultation-origin="data"]') as HTMLElement;
@@ -459,7 +459,7 @@ describe('The Consultations section of the run configuration', () => {
     expect(text(data)).toContain('At most 4 tool calls, 60 seconds, 4000 characters and 20 thread messages');
     const asker = data.querySelector('[data-asker="projects"]') as HTMLButtonElement;
     expect(text(asker)).toBe('Project assistant');
-    expect(asker.getAttribute('aria-label')).toBe('Open the editor of Project assistant');
+    expect(asker.getAttribute('aria-label')).toBe('Open the page of Project assistant');
     expect(button(data, 'Edit').getAttribute('aria-label')).toBe('Edit the consultation about Project');
     // Its only kind of object has a consultation already.
     expect(button(section, 'Add consultation').disabled).toBeTrue();
@@ -472,14 +472,12 @@ describe('The Consultations section of the run configuration', () => {
     expect(text(routes.querySelector('[data-route="asker-decides"] [data-route-source]'))).toBe('As the consultations allow');
     expect(text(routes.querySelector('[data-route="subject-asker-rights"] [data-route-source]'))).toBe('Not allowed');
 
-    // The asking agent opens its editor; cancelling returns to the starter's run configuration.
+    // The asking agent opens its own page, where its tools select the consult tool.
     asker.click();
     await settle(fixture);
-    const editor = element.querySelector('nh-assistant-admin-agent-editor') as HTMLElement;
-    expect((editor.querySelector('input[id$="-id"]') as HTMLInputElement).value).toBe('projects');
-    button(editor, 'Cancel').click();
-    await settle(fixture);
-    expect(text(element.querySelector('nh-assistant-agent-run-configuration h3'))).toBe('Run configuration of Project starter');
+    expect(element.querySelector('[data-agent-page="projects"]')).not.toBeNull();
+    await openAdminTab(fixture, element, 'build');
+    expect(text(element.querySelector('[data-tools-summary]'))).toContain('assistant.consult.starter.project');
   }, formFlowTimeout);
 
   it('says why an agent cannot get consultations', async () => {
@@ -494,8 +492,7 @@ describe('The Consultations section of the run configuration', () => {
     expect(Array.from(section.querySelectorAll('button')).some(item => text(item) === 'Add consultation')).toBeFalse();
 
     // An agent created here needs run settings first.
-    button(element, 'Back to agents').click();
-    await settle(fixture);
+    await backToAdminList(fixture, element);
     view = await openRunConfiguration(fixture, element, 'drafts');
     section = view.querySelector('[data-consultations]') as HTMLElement;
     const add = button(section, 'Add consultation');
@@ -615,7 +612,6 @@ describe('The Consultations section of the run configuration', () => {
     expect(text(row().querySelector('[data-consultation-off]'))).toBe('Off');
     expect(row().querySelector('.card-header .badge.danger')).toBeNull();
     expect(text(row().querySelector('[data-consultation-off-explain]'))).toContain('asking agents get none of its tools until you switch it on');
-    expect(view.querySelector('[data-flow-consultation="project"] [data-flow-consultation-off]')).not.toBeNull();
     (row().querySelector('[data-consultation-switch="on"]') as HTMLButtonElement).click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/starter/consultations/project/state')).toEqual([{ state: 'on', reason: null }]);
@@ -627,6 +623,10 @@ describe('The Consultations section of the run configuration', () => {
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/starter/consultations/project/state').at(-1)).toEqual({ state: 'off', reason: null });
     expect(text(row().querySelector('[data-consultation-off]'))).toBe('Off');
+
+    // The overview's flow says that it is off as well.
+    await openAdminTab(fixture, element, 'overview');
+    expect(element.querySelector('[data-flow-consultation="project"] [data-flow-consultation-off]')).not.toBeNull();
   }, formFlowTimeout);
 
   it('warns when the approval policy keeps a route from applying', async () => {
@@ -718,8 +718,7 @@ describe('The Consultations section of the run configuration', () => {
 
     // The agent no longer selects the project tools: the consultation offers none, with the problem.
     await changeStarterTools(['tasks.list']);
-    button(element, 'Back to agents').click();
-    await settle(fixture);
+    await backToAdminList(fixture, element);
     const reopened = await openRunConfiguration(fixture, element, 'starter');
     const consultation = reopened.querySelector('[data-consultation="project"]') as HTMLElement;
     expect(consultation.querySelector('[data-consultation-tools]')!.getAttribute('data-tools')).toBe('none');
@@ -783,6 +782,13 @@ describe('The Consultations section of the run configuration', () => {
   }, formFlowTimeout);
 });
 
+/** Opens the agent's page on its overview, where its flow is, and returns the flow's run configuration. */
+async function openFlowView(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
+  await openAdminAgent(fixture, element, agentId);
+  await settle(fixture);
+  return element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
+}
+
 describe('Consultations in the flow view', () => {
   beforeEach(async () => configure());
 
@@ -796,7 +802,7 @@ describe('Consultations in the flow view', () => {
     const settings = (await configuration('starter')).runSettings!;
     await call('PUT', 'admin/agents/starter/run-settings', { accountability: 'agent', expectedVersion: settings.version });
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const view = await openRunConfiguration(fixture, element, 'starter');
+    const view = await openFlowView(fixture, element, 'starter');
     const when = () => view.querySelector('nh-assistant-agent-flow [data-flow-step="when"]') as HTMLElement;
 
     const consultation = when().querySelector('[data-flow-consultations] [data-flow-consultation="project"]') as HTMLElement;
@@ -810,11 +816,12 @@ describe('Consultations in the flow view', () => {
     expect(text(when().querySelector('[data-flow-attention]'))).toBe('1 to fix');
     const warning = when().querySelector('[data-flow-warning="problem:consultation:project:agent-has-no-rights"]') as HTMLElement;
     expect(text(warning)).toContain('Consultation about Project: the route with the agent\'s account is left out, because the agent answers for itself');
-    expect(text(view.querySelector('[data-consultation="project"] [data-consultation-problem="agent-has-no-rights"]')))
-      .toContain("the route with the agent's account is left out");
+    // Its fix opens the consultation's form in Build, next to the problem at its row.
     button(warning, 'Change the consultation').click();
     await settle(fixture);
-    const form = view.querySelector('[data-form="consultation"]') as HTMLElement;
+    expect(text(element.querySelector('[data-consultation="project"] [data-consultation-problem="agent-has-no-rights"]')))
+      .toContain("the route with the agent's account is left out");
+    const form = element.querySelector('[data-build-section="connected"] [data-form="consultation"]') as HTMLElement;
     expect(text(form.querySelector('h5'))).toBe('Consultation about Project, version 2');
     // The stored route that no longer fits stays checked, so it can be cleared, with its reason.
     const agentRights = form.querySelector('[data-route-choice="subject-agent-rights"] input') as HTMLInputElement;
@@ -824,12 +831,13 @@ describe('Consultations in the flow view', () => {
 
   it('offers to add a consultation from the when step of an agent that may get one', async () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const view = await openRunConfiguration(fixture, element, 'helper');
+    const view = await openFlowView(fixture, element, 'helper');
     const when = view.querySelector('nh-assistant-agent-flow [data-flow-step="when"]') as HTMLElement;
 
     expect(text(when.querySelector('[data-flow-no-consultations]'))).toBe('No other assistant can consult it yet.');
     (when.querySelector('[data-flow-entry="add-consultation"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(view.querySelector('[data-form="consultation"]')).not.toBeNull();
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
+    expect(element.querySelector('[data-build-section="connected"] [data-form="consultation"]')).not.toBeNull();
   }, formFlowTimeout);
 });

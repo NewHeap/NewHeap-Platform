@@ -16,6 +16,7 @@ import {
 import { AgentRunResult } from '../models/assistant-agent-run.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
+import { backToAdminList, openAdminAgent } from './nh-assistant-admin-navigation';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 
 /**
@@ -285,14 +286,18 @@ describe('The agents page without the run catalog', () => {
     expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth + 1);
     expect(text(notice)).toContain('The building blocks of agent runs could not be read.');
     expect(text(notice)).toContain(TestBed.inject(TranslateService).instant('nh-assistant.errors.assistant-forbidden'));
-    expect(element.querySelector('[data-run-now-agent]')).toBeNull();
+    // The agent's page offers no run now, and fits the narrow page as well.
+    const page = await openAdminAgent(fixture, element, 'projects', 'build');
+    expect(page.querySelector('[data-run-now-agent]')).toBeNull();
+    expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth + 1);
 
     // The editor leaves what the agent works on and its groups as they are.
-    button(element, 'Edit').click();
+    (page.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.querySelector('[data-catalog-unavailable]')).not.toBeNull();
-    expect(element.querySelector('[data-works-on]')).toBeNull();
-    button(element, 'Save').click();
+    const profile = page.querySelector('[data-build-section="profile"]') as HTMLElement;
+    expect(profile.querySelector('[data-catalog-unavailable]')).not.toBeNull();
+    expect(profile.querySelector('[data-works-on]')).toBeNull();
+    button(profile, 'Save').click();
     await settle(fixture);
     const saved = backend.requests.filter(request => request.method === 'PUT' && request.path === 'admin/agents/projects').at(-1)!.body as Record<string, unknown>;
     expect('worksOnSubjectTypes' in saved).toBeFalse();
@@ -301,9 +306,11 @@ describe('The agents page without the run catalog', () => {
     expect((await call('GET', 'admin/agents')).body[0].worksOnSubjectTypes).toEqual(['project']);
 
     refuse = false;
+    await backToAdminList(fixture, element);
     (element.querySelector('[data-catalog-retry]') as HTMLButtonElement).click();
     await settle(fixture);
     expect(element.querySelector('[data-catalog-error]')).toBeNull();
+    await openAdminAgent(fixture, element, 'projects');
     expect(element.querySelector('[data-run-now-agent="projects"]')).not.toBeNull();
   });
 });

@@ -2,12 +2,12 @@
   "nh-assistant": {
     "admin": {
       "title": "Assistant administration",
-      "description": "Manage the application context, the agents and the MCP servers of the assistant. Changes apply from the next turn.",
+      "description": "Manage the agents of the assistant, the connections their tools come from and the application context. Changes apply from the next turn.",
       "tabs-label": "Administration sections",
       "tabs": {
         "context": "Context",
         "agents": "Agents",
-        "mcp-servers": "MCP servers"
+        "mcp-servers": "Tools & connections"
       },
       "loading": "Loading",
       "load-failed": "The data could not be loaded.",
@@ -44,7 +44,7 @@
       },
       "agents": {
         "title": "Agents",
-        "description": "Code agents come from the application; you can override or reset them. Agents you create here can be deleted. Pause, stop and resume any agent; its definition stays as it is.",
+        "description": "Every agent of the application. Agents in code come from the application and can be changed here and reset; agents created here can be deleted. Open an agent to build, test, roll out and follow it.",
         "new": "New agent",
         "empty": "No agents yet.",
         "source-code": "Code",
@@ -233,6 +233,61 @@
         "catalog-failed": "The building blocks of agent runs could not be read. Until they are, agents cannot be run now here and what an agent works on and its groups stay as they are.",
         "warnings": {
           "classification-not-permitted": "Neither the agent's model profile nor the profile's fallbacks permit its data classification. The agent is saved, but its model calls are refused until a profile permits the classification."
+        },
+        "status": {
+          "live": "Live",
+          "shadow": "Shadow",
+          "paused": "Paused",
+          "off": "Off",
+          "stopped": "Stopped",
+          "configured-off": "Off in code"
+        },
+        "work": {
+          "chat": "In the chat",
+          "background": "On its own",
+          "both": "Chat and on its own",
+          "chat-only": "Chat only"
+        },
+        "list": {
+          "search": "Search by name or id",
+          "search-label": "Search agents",
+          "filters": "Show agents",
+          "filter": {
+            "all": "All",
+            "attention": "Needs attention",
+            "live": "Live",
+            "shadow": "Shadow",
+            "held": "Paused or off",
+            "chat-only": "Chat only"
+          },
+          "columns": {
+            "agent": "Agent",
+            "status": "Status",
+            "works": "Works",
+            "source": "Source",
+            "attention": "Attention"
+          },
+          "no-match": "No agent matches the search and filter.",
+          "clear": "Show all agents",
+          "source-changed": "Code, changed",
+          "variant-of": "Shadow variant of {{name}}",
+          "attention": "{{count}} warnings",
+          "attention-one": "1 warning",
+          "waiting": "{{count}} waiting",
+          "skill-in-shadow": "1 skill in shadow",
+          "skills-in-shadow": "{{count}} skills in shadow"
+        },
+        "menu": {
+          "agent-label": "Status: {{status}}. Change the status of the agent",
+          "skill-label": "Status of {{skill}}: {{status}}. Change it",
+          "active": "Takes on work again and replays what waited",
+          "switch-on": "Takes on work again on its triggers",
+          "paused": "Holds new work until it is resumed",
+          "off": "Ignores its triggers; people can still start it",
+          "stopped": "Cancels its runs now and refuses new work",
+          "shadow-shadow": "Works on, but nothing executes and nobody is notified",
+          "shadow-live": "Its work takes effect",
+          "shadow-code": "Back to how it was set up"
         }
       },
       "agent-editor": {
@@ -253,9 +308,9 @@
         "profile-hint": "The model the agent works with, from the profiles the application offers for agents created here.",
         "classification": "Data classification",
         "classification-hint": "How sensitive the data is that the agent's model calls carry, in chats with it and in its runs. Its model profile or one of the profile's fallbacks must permit it; a skill may set its own.",
-        "state-hint": "Pause, stop and resume the agent from the agent list. Saving never changes its state.",
+        "state-hint": "Pause, stop and resume the agent with its status at the top of its page. Saving never changes its state.",
         "switch-on-now": "Switch on now",
-        "switch-on-now-hint": "Otherwise the agent starts off: its events, schedules and other triggers are ignored until you switch it on in the agent list. People can still chat with it and start it by hand.",
+        "switch-on-now-hint": "Otherwise the agent starts off: its events, schedules and other triggers are ignored until you switch it on with its status on its page. People can still chat with it and start it by hand.",
         "tool-selectors": "Tool selectors",
         "tool-selectors-hint": "Choose tools from the catalog or add a pattern such as sample-api.project.*. MCP tools come from the assigned servers.",
         "add-selector": "Add pattern",
@@ -327,7 +382,10 @@
         },
         "catalog-unavailable": "The building blocks of agent runs could not be read, so what this agent works on and its groups cannot be changed now. Saving keeps them as they are.",
         "starts-in-shadow": "Start in shadow",
-        "starts-in-shadow-hint": "Once it has run settings, its runs work in its shadow threads, where nobody is notified and nothing executes, until you put it live in the agent list."
+        "starts-in-shadow-hint": "Once it has run settings, its runs work in its shadow threads, where nobody is notified and nothing executes, until you put it live on its Rollout tab.",
+        "access": {
+          "title": "Who may run it and see its results"
+        }
       },
       "effect": {
         "read-only": "Read only",
@@ -829,7 +887,7 @@
         "skills": {
           "description": "Skills in code come from the application. Skills added here have versions; a change goes live at once or runs in shadow next to the live version first.",
           "add": "Add skill",
-          "added": "The skill is added. It starts in shadow; put it live from the agent's list.",
+          "added": "The skill is added. It starts in shadow; put it live with its status here or on the Rollout tab.",
           "saved": "The new version of the skill is live.",
           "saved-candidate": "The new version runs in shadow next to the live version.",
           "removed": "The skill is removed; its versions stay as history.",
@@ -852,7 +910,7 @@
           "apply-live": "Put live at once",
           "starts-in-shadow": "A new skill starts in shadow.",
           "switch-on-now": "Switch on now",
-          "switch-on-now-hint": "Otherwise the skill starts off: triggers that name it are ignored and rules and triage do not route to it until you switch it on in the agent list.",
+          "switch-on-now-hint": "Otherwise the skill starts off: triggers that name it are ignored and rules and triage do not route to it until you switch it on with its status in the skills.",
           "versions": "Versions",
           "remove-explain": "Its versions stay as history. A trigger that starts it must go first.",
           "what": {
@@ -1090,7 +1148,7 @@
             "schedule": "On the schedule {{cron}} ({{zone}}), for {{set}}",
             "schedule-application": "On the schedule {{cron}} ({{zone}}), for the whole application",
             "schedule-divisions": "On the schedule {{cron}} ({{zone}}), for the whole application in every division",
-            "shadow": "The task and its trigger start in shadow. Put them live now, or later from the run configuration."
+            "shadow": "The task and its trigger start in shadow. Put them live now, or later on the Rollout tab."
           },
           "no-events": "The application registers no events yet; choose a schedule.",
           "next": "Next",
@@ -1257,7 +1315,7 @@
           "mcp": "Offered to MCP clients",
           "no-description": "No description.",
           "askers": "Asked by:",
-          "open-asker": "Open the editor of {{agent}}",
+          "open-asker": "Open the page of {{agent}}",
           "no-askers": "No agent asks it yet. Select its tool in the tools of an agent that should ask it.",
           "code-hint": "Allowed in code; here only the route switches below change it.",
           "limits-value": "At most {{calls}} tool calls, {{seconds}} seconds, {{chars}} characters and {{history}} thread messages",
@@ -1445,9 +1503,9 @@
         "needs-settings": "Needs run settings",
         "package": "Package {{package}} version {{version}}",
         "in-effect": "Receives this agent's events",
-        "open": "Run configuration",
+        "open": "Open",
         "set-up": "Set up runs",
-        "open-named": "Open the run configuration of {{name}}",
+        "open-named": "Open the page of {{name}}",
         "promote": "Promote onto {{name}}",
         "promote-named": "Promote {{variant}} onto {{name}}",
         "promote-confirm": {
@@ -1732,6 +1790,123 @@
           "value": "Value"
         },
         "reset-locked": "Package {{package}} locks fields of the definition. Unlink them first to reset the agent."
+      },
+      "agent-page": {
+        "back": "All agents",
+        "tabs-label": "Sections of {{name}}",
+        "tabs": {
+          "overview": "Overview",
+          "build": "Build",
+          "rollout": "Rollout",
+          "activity": "Activity"
+        },
+        "rollout-count": "{{count}} not live yet",
+        "origin": {
+          "code": "Defined in code. Changes made here override it; Reset to code restores the code definition.",
+          "code-changed": "Defined in code and changed here. Reset to code restores the code definition.",
+          "admin": "Created in the administration. Everything about it can change here, and it can be deleted.",
+          "variant": "A shadow variant of {{name}}: it works on the same events in shadow, so you can compare it before you promote it."
+        },
+        "test-in-chat": "Test in chat",
+        "test-unavailable": "You cannot use this agent in the chat, for example because its required policy does not include you.",
+        "more": "More",
+        "more-export-hint": "Download it as a package for another environment",
+        "more-reset-hint": "Restores the code definition",
+        "more-delete-hint": "Removes the agent; its runs stay as history",
+        "delete-explain": "Deleting removes the agent and its run configuration. Its runs and proposals stay as history.",
+        "missing": "This agent does not exist (any more).",
+        "set-in-code": "Set in code",
+        "new": {
+          "intro": "Start with what the agent is and what it does. Its tools, triggers and limits follow on its page, where you can also test it."
+        },
+        "overview": {
+          "status": "Status",
+          "active": "It works: it takes on the work its triggers and people give it.",
+          "chat-title": "In the chat",
+          "chat-description": "This agent works in people's chats. What it may use and who may use it:"
+        },
+        "build": {
+          "index": "Sections of Build",
+          "jump": "Go to",
+          "sections": {
+            "profile": "Profile",
+            "tools": "Tools",
+            "work": "Work on its own",
+            "skills": "Skills",
+            "triggers": "Triggers",
+            "connected": "Connected agents",
+            "guardrails": "Guardrails"
+          },
+          "profile": {
+            "description": "What the agent is, what it works on and how it answers.",
+            "used": "Used",
+            "instructions-text": "Text, {{count}} characters"
+          },
+          "tools": {
+            "description": "What the agent can use: tools from the catalog and the MCP servers assigned to it.",
+            "none": "No tool selectors",
+            "matched": "{{count}} catalog tools, {{changing}} that change data",
+            "no-servers": "No MCP servers"
+          },
+          "work": {
+            "title": "Work on its own",
+            "description": "This agent only chats. Set it up to start on events or a schedule and propose work that people approve."
+          },
+          "connected": {
+            "title": "Connected agents",
+            "description": "Other agents that may consult this agent or hand it work, within what the application allows in code."
+          },
+          "guardrails": {
+            "title": "Guardrails",
+            "description": "Who may use the agent, on whose behalf it works, who approves its proposals and its limits.",
+            "no-settings": "It has no run settings yet: set it up to work on its own above.",
+            "in-code": "How its code makes it run"
+          },
+          "access": {
+            "title": "Access",
+            "everyone": "Everyone who may use the assistant",
+            "account": "Technical account"
+          }
+        },
+        "code": {
+          "triage": "Triage with {{profile}}",
+          "no-limit": "No limit",
+          "daily-budget": "Daily budget",
+          "skills-in-chat": "Skills in the chat",
+          "questions": "Asks questions in the chat",
+          "consultations-per-turn": "Consultations per chat turn",
+          "memory": "Working memory per subject",
+          "gateway-reads": "Reads through the data gateway",
+          "yes": "Yes",
+          "no": "No",
+          "hint": "These settings change only in code, with a deployment."
+        },
+        "rollout": {
+          "agent": {
+            "title": "The agent",
+            "description": "In shadow the agent works as usual, but nobody is notified and nothing it proposes is carried out; only administrators see its work.",
+            "live": "It works live: its work takes effect."
+          },
+          "not-live": {
+            "title": "Not live yet",
+            "description": "Skills and triggers that work in shadow, and new versions that run in shadow next to the live one.",
+            "agent-shadow": "The agent itself works in shadow, so everything it does stays in shadow until you put it live.",
+            "empty": "Everything of this agent is live.",
+            "empty-in-shadow": "Nothing else of this agent waits; put the agent live when its results are right.",
+            "skill-shadow": "Skill {{skill}} works in shadow",
+            "skill-candidate": "Version {{candidate}} of {{skill}} runs in shadow next to version {{version}}",
+            "trigger-shadow": "Trigger {{trigger}} fires in shadow",
+            "trigger-candidate": "Version {{candidate}} of trigger {{trigger}} fires in shadow next to version {{version}}",
+            "review": "Compare and decide"
+          },
+          "evaluation": {
+            "title": "Evaluation",
+            "description": "How the agent and its shadow variants did on the same work."
+          }
+        },
+        "activity": {
+          "label": "Show"
+        }
       }
     }
   }

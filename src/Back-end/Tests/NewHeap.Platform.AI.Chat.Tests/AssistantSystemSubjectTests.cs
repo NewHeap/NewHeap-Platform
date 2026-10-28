@@ -97,7 +97,14 @@ public sealed class AssistantSystemSubjectTests(AssistantDatabaseFixture databas
             var configured = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(AppWide))!;
             var schedule = Assert.Single(configured.CodeTriggers);
             Assert.Equal((WeeklyTick, NhAssistantDataTriggerSources.Schedule, NhAiSubjectRef.SystemType), (schedule.TriggerId, schedule.Source, schedule.SubjectType));
-            Assert.Equal(new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, null, false), configured.CodeRunSettings);
+            Assert.Equal(
+                new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.Agent, false, null, false)
+                {
+                    RetryCount = 3,
+                    MaxConcurrentRuns = 4,
+                    MaxRunsPerSubjectPerDay = 10
+                },
+                configured.CodeRunSettings);
         }
     }
 

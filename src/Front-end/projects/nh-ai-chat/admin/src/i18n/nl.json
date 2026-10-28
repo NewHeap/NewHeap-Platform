@@ -2,12 +2,12 @@
   "nh-assistant": {
     "admin": {
       "title": "Beheer van de assistent",
-      "description": "Beheer de applicatiecontext, de agents en de MCP-servers van de assistent. Wijzigingen gelden vanaf de volgende beurt.",
+      "description": "Beheer de agents van de assistent, de koppelingen waar hun tools vandaan komen en de applicatiecontext. Wijzigingen gelden vanaf de volgende beurt.",
       "tabs-label": "Beheeronderdelen",
       "tabs": {
         "context": "Context",
         "agents": "Agents",
-        "mcp-servers": "MCP-servers"
+        "mcp-servers": "Tools en koppelingen"
       },
       "loading": "Laden",
       "load-failed": "De gegevens konden niet worden geladen.",
@@ -44,7 +44,7 @@
       },
       "agents": {
         "title": "Agents",
-        "description": "Code-agents komen uit de applicatie; je kunt ze overschrijven of terugzetten. Agents die je hier aanmaakt, kun je verwijderen. Elke agent kun je pauzeren, stoppen en hervatten; de definitie blijft dan zoals hij is.",
+        "description": "Alle agents van de applicatie. Agents in code komen uit de applicatie en kun je hier aanpassen en terugzetten; agents die je hier aanmaakt, kun je verwijderen. Open een agent om hem te bouwen, te testen, uit te rollen en te volgen.",
         "new": "Nieuwe agent",
         "empty": "Nog geen agents.",
         "source-code": "Code",
@@ -233,6 +233,61 @@
         "catalog-failed": "De bouwstenen van agentruns konden niet worden gelezen. Tot dat lukt, kunnen agents hier niet nu draaien en blijven waar een agent aan werkt en zijn groepen zoals ze zijn.",
         "warnings": {
           "classification-not-permitted": "Het modelprofiel van de agent en de terugvalprofielen daarvan staan zijn dataclassificatie niet toe. De agent is opgeslagen, maar zijn modelaanroepen worden geweigerd tot een profiel de classificatie toestaat."
+        },
+        "status": {
+          "live": "Live",
+          "shadow": "Schaduw",
+          "paused": "Gepauzeerd",
+          "off": "Uit",
+          "stopped": "Gestopt",
+          "configured-off": "Uit in code"
+        },
+        "work": {
+          "chat": "In de chat",
+          "background": "Zelfstandig",
+          "both": "Chat en zelfstandig",
+          "chat-only": "Alleen chat"
+        },
+        "list": {
+          "search": "Zoek op naam of id",
+          "search-label": "Agents zoeken",
+          "filters": "Agents tonen",
+          "filter": {
+            "all": "Alle",
+            "attention": "Aandacht nodig",
+            "live": "Live",
+            "shadow": "Schaduw",
+            "held": "Gepauzeerd of uit",
+            "chat-only": "Alleen chat"
+          },
+          "columns": {
+            "agent": "Agent",
+            "status": "Status",
+            "works": "Werkt",
+            "source": "Herkomst",
+            "attention": "Aandacht"
+          },
+          "no-match": "Geen agent past bij de zoekopdracht en het filter.",
+          "clear": "Alle agents tonen",
+          "source-changed": "Code, aangepast",
+          "variant-of": "Schaduwvariant van {{name}}",
+          "attention": "{{count}} waarschuwingen",
+          "attention-one": "1 waarschuwing",
+          "waiting": "{{count}} wachtend",
+          "skill-in-shadow": "1 vaardigheid in schaduw",
+          "skills-in-shadow": "{{count}} vaardigheden in schaduw"
+        },
+        "menu": {
+          "agent-label": "Status: {{status}}. De status van de agent wijzigen",
+          "skill-label": "Status van {{skill}}: {{status}}. Wijzigen",
+          "active": "Neemt weer werk aan en speelt af wat wachtte",
+          "switch-on": "Neemt weer werk aan op zijn triggers",
+          "paused": "Houdt nieuw werk vast tot hij wordt hervat",
+          "off": "Negeert zijn triggers; mensen kunnen hem nog starten",
+          "stopped": "Breekt zijn runs nu af en weigert nieuw werk",
+          "shadow-shadow": "Werkt door, maar er wordt niets uitgevoerd en niemand krijgt een melding",
+          "shadow-live": "Zijn werk heeft effect",
+          "shadow-code": "Terug naar hoe hij is ingesteld"
         }
       },
       "agent-editor": {
@@ -253,9 +308,9 @@
         "profile-hint": "Het model waarmee de agent werkt, uit de profielen die de applicatie aanbiedt voor agents die hier gemaakt worden.",
         "classification": "Dataclassificatie",
         "classification-hint": "Hoe gevoelig de gegevens zijn die de modelaanroepen van de agent bevatten, in chats met hem en in zijn runs. Zijn modelprofiel of een van de terugvalprofielen daarvan moet dit toestaan; een vaardigheid kan een eigen classificatie hebben.",
-        "state-hint": "Pauzeer, stop en hervat de agent vanuit de lijst met agents. Opslaan verandert de stand nooit.",
+        "state-hint": "Pauzeer, stop en hervat de agent met zijn status bovenaan zijn pagina. Opslaan verandert de stand nooit.",
         "switch-on-now": "Nu aanzetten",
-        "switch-on-now-hint": "Anders begint de agent uit: zijn gebeurtenissen, schema's en andere triggers worden genegeerd tot je hem aanzet in de lijst met agents. Mensen kunnen nog met de agent chatten en hem handmatig starten.",
+        "switch-on-now-hint": "Anders begint de agent uit: zijn gebeurtenissen, schema's en andere triggers worden genegeerd tot je hem aanzet met zijn status op zijn pagina. Mensen kunnen nog met de agent chatten en hem handmatig starten.",
         "tool-selectors": "Toolselectors",
         "tool-selectors-hint": "Kies tools uit de catalogus of voeg een patroon toe, zoals sample-api.project.*. MCP-tools komen van de toegewezen servers.",
         "add-selector": "Patroon toevoegen",
@@ -327,7 +382,10 @@
         },
         "catalog-unavailable": "De bouwstenen van agentruns konden niet worden gelezen, dus waar deze agent aan werkt en zijn groepen kun je nu niet wijzigen. Opslaan laat ze zoals ze zijn.",
         "starts-in-shadow": "In schaduw beginnen",
-        "starts-in-shadow-hint": "Zodra de agent run-instellingen heeft, werken zijn runs in zijn schaduwthreads, waar niemand een melding krijgt en niets wordt uitgevoerd, tot je hem live zet in de lijst met agents."
+        "starts-in-shadow-hint": "Zodra de agent run-instellingen heeft, werken zijn runs in zijn schaduwthreads, waar niemand een melding krijgt en niets wordt uitgevoerd, tot je hem live zet op zijn tab Uitrol.",
+        "access": {
+          "title": "Wie hem mag uitvoeren en zijn resultaten ziet"
+        }
       },
       "effect": {
         "read-only": "Alleen lezen",
@@ -829,7 +887,7 @@
         "skills": {
           "description": "Vaardigheden in code komen uit de applicatie. Vaardigheden die je hier toevoegt hebben versies; een wijziging gaat direct live of draait eerst in schaduw naast de live versie.",
           "add": "Vaardigheid toevoegen",
-          "added": "De vaardigheid is toegevoegd. Ze start in schaduw; zet haar live vanuit de lijst van de agent.",
+          "added": "De vaardigheid is toegevoegd. Ze start in schaduw; zet haar live met haar status hier of op de tab Uitrol.",
           "saved": "De nieuwe versie van de vaardigheid is live.",
           "saved-candidate": "De nieuwe versie draait in schaduw naast de live versie.",
           "removed": "De vaardigheid is verwijderd; haar versies blijven bewaard.",
@@ -852,7 +910,7 @@
           "apply-live": "Direct live zetten",
           "starts-in-shadow": "Een nieuwe vaardigheid start in schaduw.",
           "switch-on-now": "Nu aanzetten",
-          "switch-on-now-hint": "Anders begint de vaardigheid uit: triggers die haar noemen worden genegeerd en regels en triage sturen er niets heen tot je haar aanzet in de lijst met agents.",
+          "switch-on-now-hint": "Anders begint de vaardigheid uit: triggers die haar noemen worden genegeerd en regels en triage sturen er niets heen tot je haar aanzet met haar status bij de vaardigheden.",
           "versions": "Versies",
           "remove-explain": "Haar versies blijven bewaard. Een trigger die haar start moet eerst weg.",
           "what": {
@@ -1090,7 +1148,7 @@
             "schedule": "Volgens het schema {{cron}} ({{zone}}), voor {{set}}",
             "schedule-application": "Volgens het schema {{cron}} ({{zone}}), voor de hele applicatie",
             "schedule-divisions": "Volgens het schema {{cron}} ({{zone}}), voor de hele applicatie in elke divisie",
-            "shadow": "De taak en de trigger beginnen in schaduw. Zet ze nu live, of later vanuit de runconfiguratie."
+            "shadow": "De taak en de trigger beginnen in schaduw. Zet ze nu live, of later op de tab Uitrol."
           },
           "no-events": "De applicatie registreert nog geen gebeurtenissen; kies een schema.",
           "next": "Volgende",
@@ -1257,7 +1315,7 @@
           "mcp": "Aangeboden aan MCP-clients",
           "no-description": "Geen beschrijving.",
           "askers": "Gevraagd door:",
-          "open-asker": "De editor van {{agent}} openen",
+          "open-asker": "De pagina van {{agent}} openen",
           "no-askers": "Nog geen agent vraagt het. Selecteer de tool bij de tools van een agent die het moet vragen.",
           "code-hint": "Toegestaan in code; hier veranderen alleen de routeschakelaars hieronder iets.",
           "limits-value": "Hooguit {{calls}} toolaanroepen, {{seconds}} seconden, {{chars}} tekens en {{history}} berichten uit de thread",
@@ -1445,9 +1503,9 @@
         "needs-settings": "Heeft runinstellingen nodig",
         "package": "Pakket {{package}} versie {{version}}",
         "in-effect": "Krijgt de gebeurtenissen van deze agent",
-        "open": "Runconfiguratie",
+        "open": "Openen",
         "set-up": "Runs instellen",
-        "open-named": "De runconfiguratie van {{name}} openen",
+        "open-named": "De pagina van {{name}} openen",
         "promote": "Promoveren naar {{name}}",
         "promote-named": "{{variant}} promoveren naar {{name}}",
         "promote-confirm": {
@@ -1732,6 +1790,123 @@
           "value": "Waarde"
         },
         "reset-locked": "Pakket {{package}} vergrendelt velden van de definitie. Ontkoppel ze eerst om de agent terug te zetten."
+      },
+      "agent-page": {
+        "back": "Alle agents",
+        "tabs-label": "Onderdelen van {{name}}",
+        "tabs": {
+          "overview": "Overzicht",
+          "build": "Bouwen",
+          "rollout": "Uitrol",
+          "activity": "Activiteit"
+        },
+        "rollout-count": "{{count}} nog niet live",
+        "origin": {
+          "code": "Gedefinieerd in code. Wijzigingen die je hier maakt, overschrijven die; Terugzetten naar code herstelt de codedefinitie.",
+          "code-changed": "Gedefinieerd in code en hier aangepast. Terugzetten naar code herstelt de codedefinitie.",
+          "admin": "Aangemaakt in het beheer. Alles eraan kan hier veranderen, en je kunt hem verwijderen.",
+          "variant": "Een schaduwvariant van {{name}}: hij werkt in schaduw op dezelfde gebeurtenissen, zodat je hem kunt vergelijken voordat je hem promoveert."
+        },
+        "test-in-chat": "Testen in de chat",
+        "test-unavailable": "Je kunt deze agent niet in de chat gebruiken, bijvoorbeeld omdat zijn vereiste policy jou niet toelaat.",
+        "more": "Meer",
+        "more-export-hint": "Download hem als pakket voor een andere omgeving",
+        "more-reset-hint": "Herstelt de codedefinitie",
+        "more-delete-hint": "Verwijdert de agent; zijn runs blijven als geschiedenis",
+        "delete-explain": "Verwijderen haalt de agent en zijn runconfiguratie weg. Zijn runs en voorstellen blijven als geschiedenis.",
+        "missing": "Deze agent bestaat niet (meer).",
+        "set-in-code": "In code ingesteld",
+        "new": {
+          "intro": "Begin met wat de agent is en wat hij doet. Zijn tools, triggers en grenzen volgen op zijn pagina, waar je hem ook kunt testen."
+        },
+        "overview": {
+          "status": "Status",
+          "active": "Hij werkt: hij neemt het werk aan dat zijn triggers en mensen hem geven.",
+          "chat-title": "In de chat",
+          "chat-description": "Deze agent werkt in de chats van mensen. Wat hij mag gebruiken en wie hem mag gebruiken:"
+        },
+        "build": {
+          "index": "Onderdelen van Bouwen",
+          "jump": "Ga naar",
+          "sections": {
+            "profile": "Profiel",
+            "tools": "Tools",
+            "work": "Zelfstandig werken",
+            "skills": "Vaardigheden",
+            "triggers": "Triggers",
+            "connected": "Verbonden agents",
+            "guardrails": "Grenzen"
+          },
+          "profile": {
+            "description": "Wat de agent is, waaraan hij werkt en hoe hij antwoordt.",
+            "used": "Gebruik",
+            "instructions-text": "Tekst, {{count}} tekens"
+          },
+          "tools": {
+            "description": "Wat de agent kan gebruiken: tools uit de catalogus en de MCP-servers die aan hem zijn toegewezen.",
+            "none": "Geen toolselectors",
+            "matched": "{{count}} catalogustools, waarvan {{changing}} gegevens wijzigen",
+            "no-servers": "Geen MCP-servers"
+          },
+          "work": {
+            "title": "Zelfstandig werken",
+            "description": "Deze agent chat alleen. Richt hem in om te starten op gebeurtenissen of een schema en werk voor te stellen dat mensen goedkeuren."
+          },
+          "connected": {
+            "title": "Verbonden agents",
+            "description": "Andere agents die deze agent mogen raadplegen of werk aan hem mogen overdragen, binnen wat de applicatie in code toestaat."
+          },
+          "guardrails": {
+            "title": "Grenzen",
+            "description": "Wie de agent mag gebruiken, namens wie hij werkt, wie zijn voorstellen goedkeurt en zijn limieten.",
+            "no-settings": "Hij heeft nog geen runinstellingen: richt hem hierboven in om zelfstandig te werken.",
+            "in-code": "Hoe zijn code hem laat werken"
+          },
+          "access": {
+            "title": "Toegang",
+            "everyone": "Iedereen die de assistent mag gebruiken",
+            "account": "Technisch account"
+          }
+        },
+        "code": {
+          "triage": "Triage met {{profile}}",
+          "no-limit": "Geen limiet",
+          "daily-budget": "Dagbudget",
+          "skills-in-chat": "Vaardigheden in de chat",
+          "questions": "Stelt vragen in de chat",
+          "consultations-per-turn": "Raadplegingen per chatbeurt",
+          "memory": "Werkgeheugen per onderwerp",
+          "gateway-reads": "Leest via de datagateway",
+          "yes": "Ja",
+          "no": "Nee",
+          "hint": "Deze instellingen veranderen alleen in code, met een deployment."
+        },
+        "rollout": {
+          "agent": {
+            "title": "De agent",
+            "description": "In schaduw werkt de agent zoals altijd, maar niemand krijgt een melding en niets wat hij voorstelt wordt uitgevoerd; alleen beheerders zien zijn werk.",
+            "live": "Hij werkt live: zijn werk heeft effect."
+          },
+          "not-live": {
+            "title": "Nog niet live",
+            "description": "Vaardigheden en triggers die in schaduw werken, en nieuwe versies die in schaduw naast de live versie draaien.",
+            "agent-shadow": "De agent zelf werkt in schaduw, dus alles wat hij doet blijft in schaduw tot je hem live zet.",
+            "empty": "Alles van deze agent is live.",
+            "empty-in-shadow": "Verder wacht er niets van deze agent; zet de agent live als zijn resultaten kloppen.",
+            "skill-shadow": "Vaardigheid {{skill}} werkt in schaduw",
+            "skill-candidate": "Versie {{candidate}} van {{skill}} draait in schaduw naast versie {{version}}",
+            "trigger-shadow": "Trigger {{trigger}} vuurt in schaduw",
+            "trigger-candidate": "Versie {{candidate}} van trigger {{trigger}} vuurt in schaduw naast versie {{version}}",
+            "review": "Vergelijken en beslissen"
+          },
+          "evaluation": {
+            "title": "Evaluatie",
+            "description": "Hoe de agent en zijn schaduwvarianten het deden op hetzelfde werk."
+          }
+        },
+        "activity": {
+          "label": "Tonen"
+        }
       }
     }
   }

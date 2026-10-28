@@ -2037,7 +2037,21 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/agent-texts.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-display-name.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/i18n/nh-assistant-admin-translations.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/nh-assistant-translations.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/i18n/nh-assistant-translations.spec.ts",
+      "src/Front-end/projects/management/src/app/assistant-administration/assistant-administration-page.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-administration/sample-assistant-admin-location.ts",
+      "src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "src/Front-end/projects/management/src/styles.scss",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/nh-assistant-admin-location.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/agent-operations.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-list.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-page.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-state-control.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-rollout.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page.spec.ts"
     ],
     "SPM-254": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2748,7 +2762,10 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-flow.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/agent-flow.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-flow.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunConfigurationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantChatOnlyAgentTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-run-configuration.component.ts"
     ],
     "SPM-299": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

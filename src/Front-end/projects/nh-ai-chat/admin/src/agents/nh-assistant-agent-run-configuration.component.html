@@ -1,10 +1,12 @@
-<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || busy()">
-  <header class="section-header">
-    <div>
-      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.run-config.title' | translate: { name: agentName() } }}</h3>
-      <p class="muted">{{ 'nh-assistant.admin.run-config.description' | translate }}</p>
-    </div>
-  </header>
+<section class="section" [attr.aria-labelledby]="sections() === null ? id + '-title' : null" [attr.aria-busy]="loading() || busy()">
+  @if (sections() === null) {
+    <header class="section-header">
+      <div>
+        <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.run-config.title' | translate: { name: agentName() } }}</h3>
+        <p class="muted">{{ 'nh-assistant.admin.run-config.description' | translate }}</p>
+      </div>
+    </header>
+  }
 
   @if (saved(); as key) {
     <p class="message success" role="status" tabindex="-1" data-saved>{{ key | translate }}</p>
@@ -25,671 +27,859 @@
     </div>
   } @else if (configuration(); as config) {
     <nh-assistant-account-names-error [names]="accountNames" />
-    @if (problems().length > 0) {
-      <!-- Each problem shows at the step of the flow it concerns, with the form that fixes it. -->
-      <p class="message warning" role="status" data-problems>
-        <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.flow.problems' | translate }}
-      </p>
-    }
-
-    <!-- The agent at a glance; the forms below change what each step shows. -->
-    <nh-assistant-agent-flow
-      [agent]="agent()"
-      [configuration]="config"
-      [catalog]="catalog()"
-      [tools]="tools()"
-      [servers]="servers()"
-      [accountName]="accountName()"
-      [busy]="busy()"
-      (entry)="onFlowEntry($event)" />
-
-    @if (config.source === 'admin') {
-      <section class="subsection" [attr.aria-labelledby]="id + '-settings-title'" data-run-settings>
-        <header class="section-header">
-          <h4 [id]="id + '-settings-title'">{{ 'nh-assistant.admin.run-config.settings.title' | translate }}</h4>
-        </header>
-        @if (form() === 'setup') {
-          <nh-assistant-agent-work-setup
-            [agentId]="config.agentId"
-            [agentName]="agentName()"
-            [catalog]="catalog()"
-            [worksOn]="agent()"
-            [toolSelectors]="config.toolSelectors"
-            [toolCatalog]="tools()"
-            [takenSkillIds]="skillIds()"
-            [takenTriggerIds]="triggerIds()"
-            (completed)="onSetupCompleted($event.live)"
-            (cancelled)="cancel()" />
-        } @else if (form() === 'settings') {
-          <nh-assistant-run-settings-form
-            [agentId]="config.agentId"
-            [catalog]="catalog()"
-            [settings]="config.runSettings"
-            [lock]="packageLockOf(config.runSettings?.package)"
-            (saved)="onSettingsSaved()"
-            (cancelled)="cancel()" />
-        } @else if (config.runSettings; as settings) {
-          <dl class="review" data-settings-summary>
-            <dt>{{ 'nh-assistant.admin.run-config.settings.who.short' | translate }}</dt>
-            <dd>
-              {{ 'nh-assistant.admin.run-config.settings.accountability.' + settings.accountability | translate }}
-              @if (settings.serviceAccountActorId; as accountId) {
-                <span class="block" data-account-name>
-                  <nh-assistant-account-label [actorId]="accountId" [name]="accountName()" />
-                </span>
-              }
-            </dd>
-            <dt>{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</dt>
-            <dd>{{ settings.ruleHandler ?? ('nh-assistant.admin.run-config.model' | translate) }}</dd>
-            <dt>{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</dt>
-            <dd>
-              {{ settings.approvalPolicy ?? ('nh-assistant.admin.run-config.settings.approval.default' | translate) }}
-              @if (settingsPolicy(); as sentence) {
-                <span class="muted block">{{ sentence }}</span>
-              }
-            </dd>
-            <dt>{{ 'nh-assistant.admin.agents.version-label' | translate }}</dt>
-            <dd>
-              {{ 'nh-assistant.admin.agents.version' | translate: { version: settings.version } }}
-              @if (!settings.inEffect) {
-                <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
-              }
-            </dd>
-          </dl>
-          <p class="muted">{{ 'nh-assistant.admin.run-config.settings.rights' | translate }}</p>
-          <nh-assistant-package-lock [lock]="packageLockOf(settings.package)" [agentId]="config.agentId" [part]="'runSettings'" (unlinked)="load()" />
-          <div class="card-actions">
-            <button class="secondary" type="button" data-open-form="settings" [disabled]="busy()" (click)="editSettings()">
-              <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.run-config.settings.edit' | translate }}
-            </button>
-            @if (isConfirming('remove-settings', config.agentId)) {
-              <span class="muted">{{ 'nh-assistant.admin.run-config.settings.remove-explain' | translate }}</span>
-              <button class="danger" type="button" [disabled]="busy()" (click)="removeSettings()">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-              <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-            } @else {
-              <button class="danger" type="button" [disabled]="busy() || isPackageLocked(packageLockOf(settings.package))" (click)="confirm('remove-settings', config.agentId)">
-                <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.run-config.settings.remove' | translate }}
-              </button>
-              @if (isPackageLocked(packageLockOf(settings.package))) {
-                <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: settings.package?.packageId } }}</span>
-              }
-            }
-          </div>
-          @if (failed('settings')) {
-            <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
-          }
-        } @else {
-          <div class="state" data-setup-offer>
-            <p>{{ 'nh-assistant.admin.run-config.settings.empty' | translate }}</p>
-            <div class="card-actions">
-              <button class="primary" type="button" data-open-form="setup" [disabled]="busy()" (click)="openSetup()">
-                <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.setup.start' | translate }}
-              </button>
-              <button class="secondary" type="button" data-open-form="settings" [disabled]="busy()" (click)="editSettings()">
-                {{ 'nh-assistant.admin.run-config.settings.add' | translate }}
-              </button>
-            </div>
-          </div>
-        }
-      </section>
-    }
-
-    <section class="subsection" [attr.aria-labelledby]="id + '-skills-title'" data-skills>
-      <header class="section-header">
-        <div>
-          <h4 [id]="id + '-skills-title'">{{ 'nh-assistant.admin.agents.skills.title' | translate }}</h4>
-          <p class="muted">{{ 'nh-assistant.admin.run-config.skills.description' | translate }}</p>
-        </div>
-        <button class="secondary" type="button" data-open-form="skill" [disabled]="busy() || !canAddRunData() || form() === 'skill'" (click)="addSkill()">
-          <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.skills.add' | translate }}
-        </button>
-      </header>
-      @if (!canAddRunData()) {
-        <p class="muted">{{ 'nh-assistant.admin.run-config.needs-settings' | translate }}</p>
-      }
-
-      @if (form() === 'skill') {
-        <nh-assistant-skill-form
-          [agentId]="config.agentId"
-          [catalog]="catalog()"
-          [toolSelectors]="config.toolSelectors"
-          [toolCatalog]="tools()"
-          [skill]="editingSkill()"
-          [lock]="packageLockOf(editingSkill()?.package)"
-          [takenIds]="skillIds()"
-          (saved)="onSkillSaved($event)"
-          (cancelled)="cancel()" />
-      }
-
-      @if (config.codeSkills.length === 0 && config.dataSkills.length === 0) {
-        <p class="state">{{ 'nh-assistant.admin.run-config.skills.empty' | translate }}</p>
-      } @else {
-        <ul class="skills">
-          @for (skill of config.codeSkills; track skill.skillId) {
-            <li class="skill" [attr.data-code-skill]="skill.skillId">
-              <div class="card-header">
-                <strong>{{ (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) }}</strong>
-                <span class="mono muted">{{ skill.skillId }}</span>
-                <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
-              </div>
-              <p class="muted">{{ skillDescriptionKeys(config.agentId, skill.skillId) | nhAssistantTranslate: skill.description }}</p>
-            </li>
-          }
-          @for (skill of config.dataSkills; track skill.skillId) {
-            <li class="skill" [attr.data-data-skill]="skill.skillId">
-              <div class="card-header">
-                <strong>{{ (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) }}</strong>
-                <span class="mono muted">{{ skill.skillId }}</span>
-                <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: skill.version } }}</span>
-                @if (!skill.inEffect) {
-                  <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
-                }
-                @if (skill.candidate) {
-                  <span class="badge warning" data-candidate-badge>{{ 'nh-assistant.admin.run-config.candidate.badge' | translate: { version: skill.candidate.version } }}</span>
-                }
-              </div>
-              <p class="muted">{{ skill.description }}</p>
-              <nh-assistant-package-lock [lock]="packageLockOf(skill.package)" [agentId]="config.agentId" [part]="'skill:' + skill.skillId" (unlinked)="load()" />
-              @for (warning of skill.warnings ?? []; track warning) {
-                <p class="message warning" [attr.data-skill-warning]="warning">
-                  <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
-                </p>
-              }
-              <div class="meta">
-                <span>{{ skill.ruleHandler ? ('nh-assistant.admin.run-config.rule-handler-value' | translate: { name: skill.ruleHandler }) : ('nh-assistant.admin.run-config.model' | translate) }}</span>
-                @if (skill.profile) {
-                  <span>{{ 'nh-assistant.admin.run-config.profile-value' | translate: { name: skill.profile } }}</span>
-                }
-                @if (skill.instructionsAsset; as asset) {
-                  <span class="mono" data-skill-asset [attr.title]="asset.hash">{{ 'nh-assistant.admin.instruction-assets.reference' | translate: { asset: asset.assetId, version: asset.version } }}</span>
-                }
-                <span>{{ (skill.tools.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: skill.tools.length } }}</span>
-                <span [attr.title]="accountTitle(skill.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(skill.changedBy), date: (skill.changedAt | date: 'medium') } }}</span>
-              </div>
-              @if (skill.candidate; as candidate) {
-                <div class="subsection" data-candidate>
-                  <p class="muted">{{ 'nh-assistant.admin.run-config.candidate.explain' | translate: { version: candidate.version, description: candidate.description } }}</p>
-                  <div class="card-actions">
-                    <button class="secondary" type="button" [attr.aria-expanded]="comparison()?.skillId === skill.skillId" (click)="toggleComparison(skill)">
-                      <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.candidate.compare' | translate }}
-                    </button>
-                    @if (isConfirming('promote', skill.skillId)) {
-                      <button class="primary" type="button" [disabled]="busy()" (click)="promote(skill)">{{ 'nh-assistant.admin.run-config.candidate.confirm-promote' | translate }}</button>
-                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                    } @else if (isConfirming('discard', skill.skillId)) {
-                      <button class="danger" type="button" [disabled]="busy()" (click)="discard(skill)">{{ 'nh-assistant.admin.run-config.candidate.confirm-discard' | translate }}</button>
-                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                    } @else {
-                      <button class="secondary" type="button" [disabled]="busy()" (click)="confirm('promote', skill.skillId)">{{ 'nh-assistant.admin.run-config.candidate.promote' | translate }}</button>
-                      <button class="danger" type="button" [disabled]="busy()" (click)="confirm('discard', skill.skillId)">{{ 'nh-assistant.admin.run-config.candidate.discard' | translate }}</button>
-                    }
-                  </div>
-                  @if (comparison(); as shown) {
-                    @if (shown.skillId === skill.skillId) {
-                      @if (shown.failed) {
-                        <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
-                      } @else if (shown.result; as result) {
-                        <div class="table-scroll">
-                          <table class="summary-table" data-comparison>
-                            <caption class="visually-hidden">{{ 'nh-assistant.admin.run-config.candidate.comparison' | translate: { skill: (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) } }}</caption>
-                            <thead>
-                              <tr>
-                                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
-                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.live-column' | translate: { version: result.live.version } }}</th>
-                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.candidate-column' | translate: { version: result.candidate.version } }}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.runs' | translate }}</th><td>{{ result.live.runs | number }}</td><td>{{ result.candidate.runs | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.completed' | translate }}</th><td>{{ result.live.completed | number }}</td><td>{{ result.candidate.completed | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.failed' | translate }}</th><td>{{ result.live.failed | number }}</td><td>{{ result.candidate.failed | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.proposals' | translate }}</th><td>{{ result.live.proposals | number }}</td><td>{{ result.candidate.proposals | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.tokens' | translate }}</th><td>{{ result.live.tokens | number }}</td><td>{{ result.candidate.tokens | number }}</td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <p class="muted">{{ 'nh-assistant.admin.run-config.candidate.paired' | translate: { count: result.pairedEvents, date: (result.from | date: 'medium') } }}</p>
-                      } @else {
-                        <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
-                      }
-                    }
-                  }
-                </div>
-              }
-              <div class="card-actions">
-                <button class="secondary" type="button" [disabled]="busy()" (click)="editSkill(skill)">
-                  <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
-                </button>
-                <button class="secondary" type="button" [attr.aria-expanded]="versions()?.skillId === skill.skillId" (click)="toggleVersions(skill)">
-                  <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.skills.versions' | translate }}
-                </button>
-                @if (isConfirming('remove-skill', skill.skillId)) {
-                  <span class="muted">{{ 'nh-assistant.admin.run-config.skills.remove-explain' | translate }}</span>
-                  <button class="danger" type="button" [disabled]="busy()" (click)="removeSkill(skill)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                } @else {
-                  <button class="danger" type="button" data-remove-skill [disabled]="busy() || isPackageLocked(packageLockOf(skill.package))" (click)="confirm('remove-skill', skill.skillId)">
-                    <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
-                  </button>
-                  @if (isPackageLocked(packageLockOf(skill.package))) {
-                    <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: skill.package?.packageId } }}</span>
-                  }
-                }
-              </div>
-              @if (failed('skill:' + skill.skillId)) {
-                <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
-              }
-              @if (versions(); as shown) {
-                @if (shown.skillId === skill.skillId) {
-                  @if (shown.failed) {
-                    <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
-                  } @else if (shown.items; as items) {
-                    <ul class="history" data-versions>
-                      @for (version of items; track version.version) {
-                        <li>
-                          <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
-                          <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
-                          <span>{{ version.description }}</span>
-                          <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
-                          @if (version.reason) {
-                            <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
-                          }
-                        </li>
-                      }
-                    </ul>
-                  } @else {
-                    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
-                  }
-                }
-              }
-            </li>
-          }
-        </ul>
-      }
-    </section>
-
-    <section class="subsection" [attr.aria-labelledby]="id + '-triggers-title'" data-triggers>
-      <header class="section-header">
-        <div>
-          <h4 [id]="id + '-triggers-title'">{{ 'nh-assistant.admin.run-config.triggers.title' | translate }}</h4>
-          <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.description' | translate }}</p>
-        </div>
-        <button class="secondary" type="button" data-open-form="trigger" [disabled]="busy() || !canAddRunData() || form() === 'trigger'" (click)="addTrigger()">
-          <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.triggers.add' | translate }}
-        </button>
-      </header>
-
-      @if (form() === 'trigger') {
-        <nh-assistant-trigger-form
-          [agentId]="config.agentId"
-          [catalog]="catalog()"
-          [worksOn]="agent()"
-          [skills]="skillOptions()"
-          [trigger]="editingTrigger()"
-          [lock]="packageLockOf(editingTrigger()?.package)"
-          [takenIds]="triggerIds()"
-          (saved)="onTriggerSaved($event)"
-          (cancelled)="cancel()" />
-      }
-
-      @if (config.codeTriggers.length === 0 && config.dataTriggers.length === 0) {
-        <p class="state">{{ 'nh-assistant.admin.run-config.triggers.empty' | translate }}</p>
-      } @else {
-        <ul class="skills">
-          @for (trigger of config.codeTriggers; track trigger.triggerId) {
-            <li class="skill" [attr.data-code-trigger]="trigger.triggerId">
-              <div class="card-header">
-                <span class="mono">{{ trigger.triggerId }}</span>
-                <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
-                <span class="badge">{{ 'nh-assistant.admin.run-config.triggers.sources.' + trigger.source | translate }}</span>
-              </div>
-              @if (trigger.skillId) {
-                <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.skill-value' | translate: { skill: skillName(trigger.skillId) } }}</p>
-              }
-            </li>
-          }
-          @for (trigger of config.dataTriggers; track trigger.triggerId) {
-            <li class="skill" [attr.data-data-trigger]="trigger.triggerId">
-              <div class="card-header">
-                <span class="mono">{{ trigger.triggerId }}</span>
-                <span class="badge">{{ 'nh-assistant.admin.run-config.triggers.sources.' + trigger.source | translate }}</span>
-                @if (trigger.shadow) {
-                  <span class="badge warning" data-shadow-badge>{{ 'nh-assistant.admin.agents.shadow.badge' | translate }}</span>
-                } @else {
-                  <span class="badge success">{{ 'nh-assistant.admin.run-config.triggers.live-badge' | translate }}</span>
-                }
-                @if (!trigger.inEffect) {
-                  <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
-                }
-                @if (trigger.candidate) {
-                  <span class="badge warning" data-trigger-candidate-badge>{{ 'nh-assistant.admin.run-config.candidate.badge' | translate: { version: trigger.candidate.version } }}</span>
-                }
-              </div>
-              <div class="meta">
-                @if (trigger.source === 'event') {
-                  <span class="mono">{{ trigger.event }}</span>
-                  @if (trigger.filters?.length) {
-                    <span data-trigger-filters>{{ 'nh-assistant.admin.run-config.triggers.filters.applied' | translate: { filters: trigger.filters!.join(', ') } }}</span>
-                  }
-                } @else {
-                  <span class="mono">{{ trigger.cron }} {{ trigger.timeZone ?? 'UTC' }}</span>
-                  @if (trigger.subjectSet) {
-                    <span class="mono">{{ trigger.subjectSet }}</span>
-                  } @else {
-                    <!-- A schedule without a subject set runs for the whole application, per division for a per-division agent. -->
-                    <span data-trigger-target>{{ (agent().perDivision ? 'nh-assistant.admin.run-config.triggers.target.every-division' : 'nh-assistant.admin.run-config.triggers.target.application') | translate }}</span>
-                  }
-                }
-                <span>{{ (trigger.skillId ? 'nh-assistant.admin.run-config.triggers.skill-value' : 'nh-assistant.admin.run-config.triggers.agent-routes') | translate: { skill: skillName(trigger.skillId) } }}</span>
-                <span>{{ 'nh-assistant.admin.run-config.triggers.conflicts.' + trigger.conflict | translate }}</span>
-                <span>{{ 'nh-assistant.admin.agents.version' | translate: { version: trigger.version } }}</span>
-              </div>
-              <nh-assistant-package-lock [lock]="packageLockOf(trigger.package)" [agentId]="config.agentId" [part]="'trigger:' + trigger.triggerId" (unlinked)="load()" />
-              @if (trigger.candidate; as candidate) {
-                <!-- The candidate fires in shadow next to the live version, which keeps working. -->
-                <div class="subsection" data-trigger-candidate>
-                  <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.candidate.explain' | translate: { version: candidate.version } }}</p>
-                  @if (!candidate.inEffect) {
-                    <p class="message warning" data-trigger-candidate-problem>
-                      <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.triggers.candidate.out-of-effect' | translate: { problem: candidate.problem } }}
-                    </p>
-                  }
-                  @if (triggerChanges(trigger); as changes) {
-                    @if (changes.length === 0) {
-                      <p class="muted" data-trigger-changes-none>{{ 'nh-assistant.admin.run-config.triggers.candidate.no-changes' | translate }}</p>
-                    } @else {
-                      <dl class="review" data-trigger-changes [attr.aria-label]="'nh-assistant.admin.run-config.triggers.candidate.changes' | translate">
-                        @for (change of changes; track change.field) {
-                          <dt [attr.data-trigger-change]="change.field">{{ triggerFieldKeys[change.field] | translate }}</dt>
-                          <dd>{{ 'nh-assistant.admin.run-config.triggers.candidate.change' | translate: { candidate: changeValue(change, change.candidate), live: changeValue(change, change.live) } }}</dd>
-                        }
-                      </dl>
-                    }
-                  }
-                  <div class="card-actions">
-                    <button class="secondary" type="button" [attr.aria-expanded]="triggerComparison()?.triggerId === trigger.triggerId" (click)="toggleTriggerComparison(trigger)">
-                      <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.candidate.compare' | translate }}
-                    </button>
-                    @if (isConfirming('promote-trigger', trigger.triggerId)) {
-                      <button class="primary" type="button" [disabled]="busy()" (click)="promoteTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-promote' | translate }}</button>
-                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                    } @else if (isConfirming('discard-trigger', trigger.triggerId)) {
-                      <button class="danger" type="button" [disabled]="busy()" (click)="discardTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-discard' | translate }}</button>
-                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                    } @else {
-                      <button class="secondary" type="button" data-promote-trigger [disabled]="busy()" (click)="confirm('promote-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.promote' | translate }}</button>
-                      <button class="danger" type="button" data-discard-trigger [disabled]="busy()" (click)="confirm('discard-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.discard' | translate }}</button>
-                    }
-                  </div>
-                  @if (triggerComparison(); as shown) {
-                    @if (shown.triggerId === trigger.triggerId) {
-                      @if (shown.failed) {
-                        <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
-                      } @else if (shown.result; as result) {
-                        <div class="table-scroll">
-                          <table class="summary-table" data-trigger-comparison>
-                            <caption class="visually-hidden">{{ 'nh-assistant.admin.run-config.triggers.candidate.comparison' | translate: { trigger: trigger.triggerId } }}</caption>
-                            <thead>
-                              <tr>
-                                <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
-                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.live-column' | translate: { version: result.live.version } }}</th>
-                                <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.candidate-column' | translate: { version: result.candidate.version } }}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.runs' | translate }}</th><td>{{ result.live.runs | number }}</td><td>{{ result.candidate.runs | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.completed' | translate }}</th><td>{{ result.live.completed | number }}</td><td>{{ result.candidate.completed | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.failed' | translate }}</th><td>{{ result.live.failed | number }}</td><td>{{ result.candidate.failed | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.proposals' | translate }}</th><td>{{ result.live.proposals | number }}</td><td>{{ result.candidate.proposals | number }}</td></tr>
-                              <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.tokens' | translate }}</th><td>{{ result.live.tokens | number }}</td><td>{{ result.candidate.tokens | number }}</td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <p class="muted" data-trigger-paired>{{ 'nh-assistant.admin.run-config.triggers.candidate.paired' | translate: { count: result.pairedEvents, liveOnly: result.liveOnlyEvents, candidateOnly: result.candidateOnlyEvents, date: (result.from | date: 'medium') } }}</p>
-                      } @else {
-                        <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
-                      }
-                    }
-                  }
-                </div>
-              }
-              <div class="card-actions">
-                <button class="secondary" type="button" [disabled]="busy()" (click)="editTrigger(trigger)">
-                  <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
-                </button>
-                <button class="secondary" type="button" data-trigger-versions [attr.aria-expanded]="triggerVersions()?.triggerId === trigger.triggerId" (click)="toggleTriggerVersions(trigger)">
-                  <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.triggers.versions' | translate }}
-                </button>
-                <button class="secondary" type="button" [attr.data-trigger-shadow]="trigger.shadow ? 'live' : 'shadow'" [disabled]="busy()" (click)="setTriggerShadow(trigger, !trigger.shadow)">
-                  {{ (trigger.shadow ? 'nh-assistant.admin.agents.shadow.action.live' : 'nh-assistant.admin.agents.shadow.action.shadow') | translate }}
-                </button>
-                @if (isConfirming('remove-trigger', trigger.triggerId)) {
-                  <button class="danger" type="button" [disabled]="busy()" (click)="removeTrigger(trigger)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-                  <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                } @else {
-                  <button class="danger" type="button" data-remove-trigger [disabled]="busy() || isPackageLocked(packageLockOf(trigger.package))" (click)="confirm('remove-trigger', trigger.triggerId)">
-                    <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
-                  </button>
-                  @if (isPackageLocked(packageLockOf(trigger.package))) {
-                    <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: trigger.package?.packageId } }}</span>
-                  }
-                }
-              </div>
-              @if (failed('trigger:' + trigger.triggerId)) {
-                <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
-              }
-              @if (triggerVersions(); as shown) {
-                @if (shown.triggerId === trigger.triggerId) {
-                  @if (shown.failed) {
-                    <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
-                  } @else if (shown.items; as items) {
-                    <ul class="history" data-trigger-history>
-                      @for (version of items; track version.version) {
-                        <li [attr.data-trigger-version]="version.version">
-                          <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
-                          <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
-                          <span class="mono">{{ versionSummary(version) }}</span>
-                          <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
-                          @if (version.reason) {
-                            <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
-                          }
-                        </li>
-                      }
-                    </ul>
-                  } @else {
-                    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
-                  }
-                }
-              }
-            </li>
-          }
-        </ul>
-      }
-    </section>
-
-    @if (showConsultations()) {
-      <!-- What other assistants may consult the agent about: in code read only, as data within the ceiling in code. -->
-      <section class="subsection" [attr.aria-labelledby]="id + '-consultations-title'" data-consultations>
-        <header class="section-header">
-          <div>
-            <h4 [id]="id + '-consultations-title'">{{ 'nh-assistant.admin.run-config.consultations.title' | translate }}</h4>
-            <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.description' | translate }}</p>
-          </div>
-          @if (consultationCeiling()) {
-            <button
-              class="secondary"
-              type="button"
-              data-open-form="consultation"
-              [attr.aria-describedby]="consultationsClosed() ? id + '-consultations-closed' : null"
-              [disabled]="busy() || consultationsClosed() !== null || form() === 'consultation'"
-              (click)="addConsultation()">
-              <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.consultations.add' | translate }}
-            </button>
-          }
-        </header>
-        @if (consultationsClosed(); as closed) {
-          <p class="muted" [id]="id + '-consultations-closed'" [attr.data-consultations-closed]="closed">
-            {{ 'nh-assistant.admin.run-config.consultations.closed.' + closed | translate: { max: consultationCeiling()?.maxConsultations } }}
-          </p>
-        }
-
-        @if (form() === 'consultation') {
-          @if (consultationCeiling(); as ceiling) {
-            <nh-assistant-consultation-form
+    <!-- The run settings with the guided setup and the forms that change them, and the consultations, wherever they show. -->
+    <ng-template #settingsBody>
+          @if (form() === 'setup') {
+            <nh-assistant-agent-work-setup
               [agentId]="config.agentId"
-              [agentSource]="config.source"
+              [agentName]="agentName()"
               [catalog]="catalog()"
-              [ceiling]="ceiling"
               [worksOn]="agent()"
-              [accountability]="accountability()"
-              [agentApprovalPolicy]="approvalPolicy()"
               [toolSelectors]="config.toolSelectors"
               [toolCatalog]="tools()"
-              [consultation]="editingConsultation()"
-              [lock]="packageLockOf(editingConsultation()?.package)"
-              [takenTypes]="consultationTypes()"
-              (saved)="onConsultationSaved($event)"
+              [takenSkillIds]="skillIds()"
+              [takenTriggerIds]="triggerIds()"
+              (completed)="onSetupCompleted($event.live)"
               (cancelled)="cancel()" />
+          } @else if (form() === 'settings') {
+            <nh-assistant-run-settings-form
+              [agentId]="config.agentId"
+              [catalog]="catalog()"
+              [settings]="config.runSettings"
+              [lock]="packageLockOf(config.runSettings?.package)"
+              (saved)="onSettingsSaved()"
+              (cancelled)="cancel()" />
+          } @else if (config.runSettings; as settings) {
+            <dl class="review" data-settings-summary>
+              <dt>{{ 'nh-assistant.admin.run-config.settings.who.short' | translate }}</dt>
+              <dd>
+                {{ 'nh-assistant.admin.run-config.settings.accountability.' + settings.accountability | translate }}
+                @if (settings.serviceAccountActorId; as accountId) {
+                  <span class="block" data-account-name>
+                    <nh-assistant-account-label [actorId]="accountId" [name]="accountName()" />
+                  </span>
+                }
+              </dd>
+              <dt>{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</dt>
+              <dd>{{ settings.ruleHandler ?? ('nh-assistant.admin.run-config.model' | translate) }}</dd>
+              <dt>{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</dt>
+              <dd>
+                {{ settings.approvalPolicy ?? ('nh-assistant.admin.run-config.settings.approval.default' | translate) }}
+                @if (settingsPolicy(); as sentence) {
+                  <span class="muted block">{{ sentence }}</span>
+                }
+              </dd>
+              <dt>{{ 'nh-assistant.admin.agents.version-label' | translate }}</dt>
+              <dd>
+                {{ 'nh-assistant.admin.agents.version' | translate: { version: settings.version } }}
+                @if (!settings.inEffect) {
+                  <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+                }
+              </dd>
+            </dl>
+            <p class="muted">{{ 'nh-assistant.admin.run-config.settings.rights' | translate }}</p>
+            <nh-assistant-package-lock [lock]="packageLockOf(settings.package)" [agentId]="config.agentId" [part]="'runSettings'" (unlinked)="load()" />
+            <div class="card-actions">
+              <button class="secondary" type="button" data-open-form="settings" [disabled]="busy()" (click)="editSettings()">
+                <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.run-config.settings.edit' | translate }}
+              </button>
+              @if (isConfirming('remove-settings', config.agentId)) {
+                <span class="muted">{{ 'nh-assistant.admin.run-config.settings.remove-explain' | translate }}</span>
+                <button class="danger" type="button" [disabled]="busy()" (click)="removeSettings()">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+              } @else {
+                <button class="danger" type="button" [disabled]="busy() || isPackageLocked(packageLockOf(settings.package))" (click)="confirm('remove-settings', config.agentId)">
+                  <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.run-config.settings.remove' | translate }}
+                </button>
+                @if (isPackageLocked(packageLockOf(settings.package))) {
+                  <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: settings.package?.packageId } }}</span>
+                }
+              }
+            </div>
+            @if (failed('settings')) {
+              <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+            }
+          } @else {
+            <div class="state" data-setup-offer>
+              <p>{{ 'nh-assistant.admin.run-config.settings.empty' | translate }}</p>
+              <div class="card-actions">
+                <button class="primary" type="button" data-open-form="setup" [disabled]="busy()" (click)="openSetup()">
+                  <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.setup.start' | translate }}
+                </button>
+                <button class="secondary" type="button" data-open-form="settings" [disabled]="busy()" (click)="editSettings()">
+                  {{ 'nh-assistant.admin.run-config.settings.add' | translate }}
+                </button>
+              </div>
+            </div>
           }
-        }
+    </ng-template>
+    <ng-template #consultationsSection>
+        <section class="subsection" [attr.aria-labelledby]="id + '-consultations-title'" data-consultations>
+          <header class="section-header">
+            <div>
+              <h4 [id]="id + '-consultations-title'">{{ 'nh-assistant.admin.run-config.consultations.title' | translate }}</h4>
+              <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.description' | translate }}</p>
+            </div>
+            @if (consultationCeiling()) {
+              <button
+                class="secondary"
+                type="button"
+                data-open-form="consultation"
+                [attr.aria-describedby]="consultationsClosed() ? id + '-consultations-closed' : null"
+                [disabled]="busy() || consultationsClosed() !== null || form() === 'consultation'"
+                (click)="addConsultation()">
+                <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.consultations.add' | translate }}
+              </button>
+            }
+          </header>
+          @if (consultationsClosed(); as closed) {
+            <p class="muted" [id]="id + '-consultations-closed'" [attr.data-consultations-closed]="closed">
+              {{ 'nh-assistant.admin.run-config.consultations.closed.' + closed | translate: { max: consultationCeiling()?.maxConsultations } }}
+            </p>
+          }
 
-        @if (consultationRows().length === 0) {
-          <p class="state" data-consultations-empty>{{ 'nh-assistant.admin.run-config.consultations.empty' | translate }}</p>
-        } @else {
-          <ul class="skills">
-            @for (row of consultationRows(); track row.origin + row.subjectType) {
-              <li class="skill" [attr.data-consultation]="row.subjectType" [attr.data-consultation-origin]="row.origin">
-                <div class="card-header">
-                  <strong>{{ typeName(row.subjectType) }}</strong>
-                  <span class="mono muted">{{ row.subjectType }}</span>
-                  @if (row.data; as data) {
-                    <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: data.version } }}</span>
-                  } @else {
-                    <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
-                  }
-                  @if (row.off) {
-                    <span class="badge warning" data-consultation-off>{{ 'nh-assistant.admin.run-config.consultations.off-badge' | translate }}</span>
-                  } @else if (!row.inEffect) {
-                    <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
-                  }
-                  @if (row.requests) {
-                    <span class="badge" data-consultation-requests>{{ 'nh-assistant.admin.run-config.consultations.requests' | translate }}</span>
-                  }
-                  @if (row.mcp) {
-                    <span class="badge" data-consultation-mcp>{{ 'nh-assistant.admin.run-config.consultations.mcp' | translate }}</span>
-                  }
-                </div>
-                <p class="muted">{{ row.description ?? ('nh-assistant.admin.run-config.consultations.no-description' | translate) }}</p>
-                @if (row.off) {
-                  <p class="message warning" data-consultation-off-explain>
-                    <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.consultations.off-explain' | translate }}
-                  </p>
-                }
-                @if (askSentence(row); as sentence) {
-                  <p class="summary" data-consultation-ask>{{ sentence }}</p>
-                }
-                <p class="summary" data-consultation-decides>{{ decideSentence(row) }}</p>
-                <!-- The second key: the agents whose tool selectors select the consult tool now. -->
-                <div class="meta" data-consultation-askers>
-                  @if (row.askingAgents.length > 0) {
-                    <span>{{ 'nh-assistant.admin.run-config.consultations.askers' | translate }}</span>
-                    @for (asker of row.askingAgents; track asker) {
-                      <button
-                        class="link"
-                        type="button"
-                        [attr.data-asker]="asker"
-                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.open-asker' | translate: { agent: agentNameOf(asker) }"
-                        (click)="openAgent.emit(asker)">{{ agentNameOf(asker) }}</button>
+          @if (form() === 'consultation') {
+            @if (consultationCeiling(); as ceiling) {
+              <nh-assistant-consultation-form
+                [agentId]="config.agentId"
+                [agentSource]="config.source"
+                [catalog]="catalog()"
+                [ceiling]="ceiling"
+                [worksOn]="agent()"
+                [accountability]="accountability()"
+                [agentApprovalPolicy]="approvalPolicy()"
+                [toolSelectors]="config.toolSelectors"
+                [toolCatalog]="tools()"
+                [consultation]="editingConsultation()"
+                [lock]="packageLockOf(editingConsultation()?.package)"
+                [takenTypes]="consultationTypes()"
+                (saved)="onConsultationSaved($event)"
+                (cancelled)="cancel()" />
+            }
+          }
+
+          @if (consultationRows().length === 0) {
+            <p class="state" data-consultations-empty>{{ 'nh-assistant.admin.run-config.consultations.empty' | translate }}</p>
+          } @else {
+            <ul class="skills">
+              @for (row of consultationRows(); track row.origin + row.subjectType) {
+                <li class="skill" [attr.data-consultation]="row.subjectType" [attr.data-consultation-origin]="row.origin">
+                  <div class="card-header">
+                    <strong>{{ typeName(row.subjectType) }}</strong>
+                    <span class="mono muted">{{ row.subjectType }}</span>
+                    @if (row.data; as data) {
+                      <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: data.version } }}</span>
+                    } @else {
+                      <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
                     }
-                  } @else {
-                    <span data-consultation-no-askers>{{ 'nh-assistant.admin.run-config.consultations.no-askers' | translate }}</span>
-                  }
-                  <span class="mono" data-consultation-tool>{{ row.consultToolId }}</span>
-                </div>
-                <!-- The consulted agent's tools: every tool of the agent, the selection, or none when no chosen tool fits any more. -->
-                <div class="meta" data-consultation-tools [attr.data-tools]="row.toolSelectors === null ? 'all' : row.toolSelectors.length === 0 ? 'none' : 'selected'">
-                  <span>{{ 'nh-assistant.admin.run-config.consultations.tools-label' | translate }}</span>
-                  @if (row.toolSelectors === null) {
-                    <span>{{ 'nh-assistant.admin.run-config.consultations.tools-all' | translate }}</span>
-                  } @else if (row.toolSelectors.length === 0) {
-                    <span>{{ 'nh-assistant.admin.run-config.consultations.tools-none' | translate }}</span>
-                  } @else {
-                    @for (selector of row.toolSelectors; track selector) {
-                      <span class="mono" [attr.data-consultation-tool-selector]="selector">{{ selector }}</span>
+                    @if (row.off) {
+                      <span class="badge warning" data-consultation-off>{{ 'nh-assistant.admin.run-config.consultations.off-badge' | translate }}</span>
+                    } @else if (!row.inEffect) {
+                      <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
                     }
-                  }
-                </div>
-                @if (row.code) {
-                  <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.code-hint' | translate }}</p>
-                }
-                @for (problem of row.problems; track problem) {
-                  <p class="message warning" [attr.data-consultation-problem]="problem">
-                    <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.problems.code.' + problem | translate }}
-                  </p>
-                }
-                @if (row.data; as data) {
-                  <nh-assistant-package-lock [lock]="packageLockOf(data.package)" [agentId]="config.agentId" [part]="'consultation:' + row.subjectType" (unlinked)="load()" />
-                  <div class="meta">
-                    <span>{{ 'nh-assistant.admin.run-config.consultations.limits-value' | translate: { calls: data.maxToolCalls, seconds: data.timeoutSeconds, chars: data.maxAnswerChars, history: data.maxHistoryMessages } }}</span>
-                    <span [attr.title]="accountTitle(data.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(data.changedBy), date: (data.changedAt | date: 'medium') } }}</span>
+                    @if (row.requests) {
+                      <span class="badge" data-consultation-requests>{{ 'nh-assistant.admin.run-config.consultations.requests' | translate }}</span>
+                    }
+                    @if (row.mcp) {
+                      <span class="badge" data-consultation-mcp>{{ 'nh-assistant.admin.run-config.consultations.mcp' | translate }}</span>
+                    }
                   </div>
-                  <div class="card-actions">
-                    <!-- Without a ceiling, as after a deploy took it away, the consultation can only be removed. -->
-                    @if (consultationCeiling()) {
+                  <p class="muted">{{ row.description ?? ('nh-assistant.admin.run-config.consultations.no-description' | translate) }}</p>
+                  @if (row.off) {
+                    <p class="message warning" data-consultation-off-explain>
+                      <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.consultations.off-explain' | translate }}
+                    </p>
+                  }
+                  @if (askSentence(row); as sentence) {
+                    <p class="summary" data-consultation-ask>{{ sentence }}</p>
+                  }
+                  <p class="summary" data-consultation-decides>{{ decideSentence(row) }}</p>
+                  <!-- The second key: the agents whose tool selectors select the consult tool now. -->
+                  <div class="meta" data-consultation-askers>
+                    @if (row.askingAgents.length > 0) {
+                      <span>{{ 'nh-assistant.admin.run-config.consultations.askers' | translate }}</span>
+                      @for (asker of row.askingAgents; track asker) {
+                        <button
+                          class="link"
+                          type="button"
+                          [attr.data-asker]="asker"
+                          [attr.aria-label]="'nh-assistant.admin.run-config.consultations.open-asker' | translate: { agent: agentNameOf(asker) }"
+                          (click)="openAgent.emit(asker)">{{ agentNameOf(asker) }}</button>
+                      }
+                    } @else {
+                      <span data-consultation-no-askers>{{ 'nh-assistant.admin.run-config.consultations.no-askers' | translate }}</span>
+                    }
+                    <span class="mono" data-consultation-tool>{{ row.consultToolId }}</span>
+                  </div>
+                  <!-- The consulted agent's tools: every tool of the agent, the selection, or none when no chosen tool fits any more. -->
+                  <div class="meta" data-consultation-tools [attr.data-tools]="row.toolSelectors === null ? 'all' : row.toolSelectors.length === 0 ? 'none' : 'selected'">
+                    <span>{{ 'nh-assistant.admin.run-config.consultations.tools-label' | translate }}</span>
+                    @if (row.toolSelectors === null) {
+                      <span>{{ 'nh-assistant.admin.run-config.consultations.tools-all' | translate }}</span>
+                    } @else if (row.toolSelectors.length === 0) {
+                      <span>{{ 'nh-assistant.admin.run-config.consultations.tools-none' | translate }}</span>
+                    } @else {
+                      @for (selector of row.toolSelectors; track selector) {
+                        <span class="mono" [attr.data-consultation-tool-selector]="selector">{{ selector }}</span>
+                      }
+                    }
+                  </div>
+                  @if (row.code) {
+                    <p class="muted">{{ 'nh-assistant.admin.run-config.consultations.code-hint' | translate }}</p>
+                  }
+                  @for (problem of row.problems; track problem) {
+                    <p class="message warning" [attr.data-consultation-problem]="problem">
+                      <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.problems.code.' + problem | translate }}
+                    </p>
+                  }
+                  @if (row.data; as data) {
+                    <nh-assistant-package-lock [lock]="packageLockOf(data.package)" [agentId]="config.agentId" [part]="'consultation:' + row.subjectType" (unlinked)="load()" />
+                    <div class="meta">
+                      <span>{{ 'nh-assistant.admin.run-config.consultations.limits-value' | translate: { calls: data.maxToolCalls, seconds: data.timeoutSeconds, chars: data.maxAnswerChars, history: data.maxHistoryMessages } }}</span>
+                      <span [attr.title]="accountTitle(data.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(data.changedBy), date: (data.changedAt | date: 'medium') } }}</span>
+                    </div>
+                    <div class="card-actions">
+                      <!-- Without a ceiling, as after a deploy took it away, the consultation can only be removed. -->
+                      @if (consultationCeiling()) {
+                        <button
+                          class="secondary"
+                          type="button"
+                          [attr.aria-label]="'nh-assistant.admin.run-config.consultations.edit-named' | translate: { type: typeName(row.subjectType) }"
+                          [disabled]="busy()"
+                          (click)="editConsultation(data)">
+                          <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                        </button>
+                      }
+                      <!-- Off, it is not offered; on, asking agents get its tools. -->
                       <button
                         class="secondary"
                         type="button"
-                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.edit-named' | translate: { type: typeName(row.subjectType) }"
+                        [attr.data-consultation-switch]="data.off ? 'on' : 'off'"
+                        [attr.aria-label]="(data.off ? 'nh-assistant.admin.run-config.consultations.switch-on-named' : 'nh-assistant.admin.run-config.consultations.switch-off-named') | translate: { type: typeName(row.subjectType) }"
                         [disabled]="busy()"
-                        (click)="editConsultation(data)">
-                        <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                        (click)="setConsultationState(data, data.off === true)">
+                        {{ (data.off ? 'nh-assistant.admin.run-config.consultations.switch-on' : 'nh-assistant.admin.run-config.consultations.switch-off') | translate }}
                       </button>
+                      @if (isConfirming('remove-consultation', row.subjectType)) {
+                        <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.remove-explain' | translate }}</span>
+                        <button class="danger" type="button" [disabled]="busy()" (click)="removeConsultation(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                        <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                      } @else {
+                        <button
+                          class="danger"
+                          type="button"
+                          data-remove-consultation
+                          [attr.aria-label]="'nh-assistant.admin.run-config.consultations.remove-named' | translate: { type: typeName(row.subjectType) }"
+                          [disabled]="busy() || isPackageLocked(packageLockOf(data.package))"
+                          (click)="confirm('remove-consultation', row.subjectType)">
+                          <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                        </button>
+                        @if (isPackageLocked(packageLockOf(data.package))) {
+                          <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: data.package?.packageId } }}</span>
+                        }
+                      }
+                    </div>
+                    @if (failed('consultation:' + row.subjectType)) {
+                      <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
                     }
-                    <!-- Off, it is not offered; on, asking agents get its tools. -->
-                    <button
-                      class="secondary"
-                      type="button"
-                      [attr.data-consultation-switch]="data.off ? 'on' : 'off'"
-                      [attr.aria-label]="(data.off ? 'nh-assistant.admin.run-config.consultations.switch-on-named' : 'nh-assistant.admin.run-config.consultations.switch-off-named') | translate: { type: typeName(row.subjectType) }"
-                      [disabled]="busy()"
-                      (click)="setConsultationState(data, data.off === true)">
-                      {{ (data.off ? 'nh-assistant.admin.run-config.consultations.switch-on' : 'nh-assistant.admin.run-config.consultations.switch-off') | translate }}
-                    </button>
-                    @if (isConfirming('remove-consultation', row.subjectType)) {
-                      <span class="muted">{{ 'nh-assistant.admin.run-config.consultations.remove-explain' | translate }}</span>
-                      <button class="danger" type="button" [disabled]="busy()" (click)="removeConsultation(data)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
-                      <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                    } @else {
-                      <button
-                        class="danger"
-                        type="button"
-                        data-remove-consultation
-                        [attr.aria-label]="'nh-assistant.admin.run-config.consultations.remove-named' | translate: { type: typeName(row.subjectType) }"
-                        [disabled]="busy() || isPackageLocked(packageLockOf(data.package))"
-                        (click)="confirm('remove-consultation', row.subjectType)">
-                        <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                  }
+                </li>
+              }
+            </ul>
+
+            <!-- Switch a route off for every consultation of the agent, in code and as data, in one action. -->
+            <nh-assistant-agent-consultation-routes
+              [agentId]="config.agentId"
+              [subjectTypes]="catalog()?.subjectTypes ?? []"
+              [refresh]="loads()"
+              (changed)="changed.emit()" />
+          }
+        </section>
+    </ng-template>
+
+    @if (shows('flow')) {
+      @if (problems().length > 0) {
+        <!-- Each problem shows at the step of the flow it concerns, with the form that fixes it. -->
+        <p class="message warning" role="status" data-problems>
+          <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.flow.problems' | translate }}
+        </p>
+      }
+
+      <!-- The agent at a glance; the forms below change what each step shows. -->
+      <nh-assistant-agent-flow
+        [agent]="agent()"
+        [configuration]="config"
+        [catalog]="catalog()"
+        [tools]="tools()"
+        [servers]="servers()"
+        [accountName]="accountName()"
+        [busy]="busy()"
+        (entry)="onFlowEntry($event)" />
+    }
+
+    @if (sections() === null) {
+      @if (config.source === 'admin') {
+        <section class="subsection" [attr.aria-labelledby]="id + '-settings-title'" data-run-settings>
+          <header class="section-header">
+            <h4 [id]="id + '-settings-title'">{{ 'nh-assistant.admin.run-config.settings.title' | translate }}</h4>
+          </header>
+          <ng-container [ngTemplateOutlet]="settingsBody" />
+        </section>
+      }
+    } @else if (shows('skills') && config.source === 'admin' && config.runSettings === null) {
+      <!-- An agent created here that only chats: the guided setup lets it work on its own. -->
+      <section class="build-section" data-build-section="work" data-run-settings [attr.aria-labelledby]="id + '-work-title'">
+        <header>
+          <div>
+            <h4 [id]="id + '-work-title'">{{ 'nh-assistant.admin.agent-page.build.work.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.agent-page.build.work.description' | translate }}</p>
+          </div>
+        </header>
+        <ng-container [ngTemplateOutlet]="settingsBody" />
+      </section>
+    }
+
+    @if (shows('skills')) {
+      <section [class.subsection]="sections() === null" [class.build-section]="sections() !== null" [attr.data-build-section]="sections() === null ? null : 'skills'" [attr.aria-labelledby]="id + '-skills-title'" data-skills>
+        <header class="section-header">
+          <div>
+            <h4 [id]="id + '-skills-title'">{{ 'nh-assistant.admin.agents.skills.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.run-config.skills.description' | translate }}</p>
+          </div>
+          <button class="secondary" type="button" data-open-form="skill" [disabled]="busy() || !canAddRunData() || form() === 'skill'" (click)="addSkill()">
+            <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.skills.add' | translate }}
+          </button>
+        </header>
+        @if (!canAddRunData()) {
+          <p class="muted">{{ 'nh-assistant.admin.run-config.needs-settings' | translate }}</p>
+        }
+
+        @if (form() === 'skill') {
+          <nh-assistant-skill-form
+            [agentId]="config.agentId"
+            [catalog]="catalog()"
+            [toolSelectors]="config.toolSelectors"
+            [toolCatalog]="tools()"
+            [skill]="editingSkill()"
+            [lock]="packageLockOf(editingSkill()?.package)"
+            [takenIds]="skillIds()"
+            (saved)="onSkillSaved($event)"
+            (cancelled)="cancel()" />
+        }
+
+        @if (config.codeSkills.length === 0 && config.dataSkills.length === 0) {
+          <p class="state">{{ 'nh-assistant.admin.run-config.skills.empty' | translate }}</p>
+        } @else {
+          <ul class="skills">
+            @for (skill of config.codeSkills; track skill.skillId) {
+              <li class="skill" [attr.data-code-skill]="skill.skillId">
+                <div class="card-header">
+                  <strong>{{ (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) }}</strong>
+                  <span class="mono muted">{{ skill.skillId }}</span>
+                  <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
+                </div>
+                <p class="muted">{{ skillDescriptionKeys(config.agentId, skill.skillId) | nhAssistantTranslate: skill.description }}</p>
+                @if (sections() !== null) {
+                  @if (skillState(skill.skillId); as state) {
+                    <!-- The skill's status and today's use, with the changes it allows now. -->
+                    <div class="skill-status" [attr.data-skill-status]="skill.skillId">
+                      <nh-assistant-agent-state-control [agent]="agent()" [skill]="state" [disabled]="busy()" (changed)="agentChanged.emit($event)" />
+                      <div class="meta">
+                        <span>{{ 'nh-assistant.admin.agents.skills.usage' | translate: { calls: state.toolCallsToday, tokens: state.tokensToday } }}</span>
+                        @if (state.dailyToolCalls !== null) {
+                          <span>{{ 'nh-assistant.admin.agents.skills.budget' | translate: { calls: state.dailyToolCalls, tokens: state.dailyTokens } }}</span>
+                        }
+                        @if (state.runState === 'paused') {
+                          <span>{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: state.waitingInputs } }}</span>
+                        }
+                        @if (state.reason) {
+                          <span>{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: state.reason } }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              </li>
+            }
+            @for (skill of config.dataSkills; track skill.skillId) {
+              <li class="skill" [attr.data-data-skill]="skill.skillId">
+                <div class="card-header">
+                  <strong>{{ (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) }}</strong>
+                  <span class="mono muted">{{ skill.skillId }}</span>
+                  <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: skill.version } }}</span>
+                  @if (!skill.inEffect) {
+                    <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+                  }
+                  @if (skill.candidate) {
+                    <span class="badge warning" data-candidate-badge>{{ 'nh-assistant.admin.run-config.candidate.badge' | translate: { version: skill.candidate.version } }}</span>
+                  }
+                </div>
+                <p class="muted">{{ skill.description }}</p>
+                @if (sections() !== null) {
+                  @if (skillState(skill.skillId); as state) {
+                    <!-- The skill's status and today's use, with the changes it allows now. -->
+                    <div class="skill-status" [attr.data-skill-status]="skill.skillId">
+                      <nh-assistant-agent-state-control [agent]="agent()" [skill]="state" [disabled]="busy()" (changed)="agentChanged.emit($event)" />
+                      <div class="meta">
+                        <span>{{ 'nh-assistant.admin.agents.skills.usage' | translate: { calls: state.toolCallsToday, tokens: state.tokensToday } }}</span>
+                        @if (state.dailyToolCalls !== null) {
+                          <span>{{ 'nh-assistant.admin.agents.skills.budget' | translate: { calls: state.dailyToolCalls, tokens: state.dailyTokens } }}</span>
+                        }
+                        @if (state.runState === 'paused') {
+                          <span>{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: state.waitingInputs } }}</span>
+                        }
+                        @if (state.reason) {
+                          <span>{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: state.reason } }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+                <nh-assistant-package-lock [lock]="packageLockOf(skill.package)" [agentId]="config.agentId" [part]="'skill:' + skill.skillId" (unlinked)="load()" />
+                @for (warning of skill.warnings ?? []; track warning) {
+                  <p class="message warning" [attr.data-skill-warning]="warning">
+                    <nh-assistant-icon name="warning" />{{ warningKeys('skill', warning) | nhAssistantTranslate: warning }}
+                  </p>
+                }
+                <div class="meta">
+                  <span>{{ skill.ruleHandler ? ('nh-assistant.admin.run-config.rule-handler-value' | translate: { name: skill.ruleHandler }) : ('nh-assistant.admin.run-config.model' | translate) }}</span>
+                  @if (skill.profile) {
+                    <span>{{ 'nh-assistant.admin.run-config.profile-value' | translate: { name: skill.profile } }}</span>
+                  }
+                  @if (skill.instructionsAsset; as asset) {
+                    <span class="mono" data-skill-asset [attr.title]="asset.hash">{{ 'nh-assistant.admin.instruction-assets.reference' | translate: { asset: asset.assetId, version: asset.version } }}</span>
+                  }
+                  <span>{{ (skill.tools.length === 1 ? 'nh-assistant.admin.agents.tool-count-one' : 'nh-assistant.admin.agents.tool-count') | translate: { count: skill.tools.length } }}</span>
+                  <span [attr.title]="accountTitle(skill.changedBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(skill.changedBy), date: (skill.changedAt | date: 'medium') } }}</span>
+                </div>
+                @if (skill.candidate; as candidate) {
+                  <div class="subsection" data-candidate>
+                    <p class="muted">{{ 'nh-assistant.admin.run-config.candidate.explain' | translate: { version: candidate.version, description: candidate.description } }}</p>
+                    <div class="card-actions">
+                      <button class="secondary" type="button" [attr.aria-expanded]="comparison()?.skillId === skill.skillId" (click)="toggleComparison(skill)">
+                        <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.candidate.compare' | translate }}
                       </button>
-                      @if (isPackageLocked(packageLockOf(data.package))) {
-                        <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: data.package?.packageId } }}</span>
+                      @if (isConfirming('promote', skill.skillId)) {
+                        <button class="primary" type="button" [disabled]="busy()" (click)="promote(skill)">{{ 'nh-assistant.admin.run-config.candidate.confirm-promote' | translate }}</button>
+                        <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                      } @else if (isConfirming('discard', skill.skillId)) {
+                        <button class="danger" type="button" [disabled]="busy()" (click)="discard(skill)">{{ 'nh-assistant.admin.run-config.candidate.confirm-discard' | translate }}</button>
+                        <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                      } @else {
+                        <button class="secondary" type="button" [disabled]="busy()" (click)="confirm('promote', skill.skillId)">{{ 'nh-assistant.admin.run-config.candidate.promote' | translate }}</button>
+                        <button class="danger" type="button" [disabled]="busy()" (click)="confirm('discard', skill.skillId)">{{ 'nh-assistant.admin.run-config.candidate.discard' | translate }}</button>
+                      }
+                    </div>
+                    @if (comparison(); as shown) {
+                      @if (shown.skillId === skill.skillId) {
+                        @if (shown.failed) {
+                          <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                        } @else if (shown.result; as result) {
+                          <div class="table-scroll">
+                            <table class="summary-table" data-comparison>
+                              <caption class="visually-hidden">{{ 'nh-assistant.admin.run-config.candidate.comparison' | translate: { skill: (skillNameKeys(config.agentId, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) } }}</caption>
+                              <thead>
+                                <tr>
+                                  <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
+                                  <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.live-column' | translate: { version: result.live.version } }}</th>
+                                  <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.candidate-column' | translate: { version: result.candidate.version } }}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.runs' | translate }}</th><td>{{ result.live.runs | number }}</td><td>{{ result.candidate.runs | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.completed' | translate }}</th><td>{{ result.live.completed | number }}</td><td>{{ result.candidate.completed | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.failed' | translate }}</th><td>{{ result.live.failed | number }}</td><td>{{ result.candidate.failed | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.proposals' | translate }}</th><td>{{ result.live.proposals | number }}</td><td>{{ result.candidate.proposals | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.tokens' | translate }}</th><td>{{ result.live.tokens | number }}</td><td>{{ result.candidate.tokens | number }}</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <p class="muted">{{ 'nh-assistant.admin.run-config.candidate.paired' | translate: { count: result.pairedEvents, date: (result.from | date: 'medium') } }}</p>
+                        } @else {
+                          <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                        }
                       }
                     }
                   </div>
-                  @if (failed('consultation:' + row.subjectType)) {
-                    <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+                }
+                <div class="card-actions">
+                  <button class="secondary" type="button" [disabled]="busy()" (click)="editSkill(skill)">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                  </button>
+                  <button class="secondary" type="button" [attr.aria-expanded]="versions()?.skillId === skill.skillId" (click)="toggleVersions(skill)">
+                    <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.skills.versions' | translate }}
+                  </button>
+                  @if (isConfirming('remove-skill', skill.skillId)) {
+                    <span class="muted">{{ 'nh-assistant.admin.run-config.skills.remove-explain' | translate }}</span>
+                    <button class="danger" type="button" [disabled]="busy()" (click)="removeSkill(skill)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                    <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                  } @else {
+                    <button class="danger" type="button" data-remove-skill [disabled]="busy() || isPackageLocked(packageLockOf(skill.package))" (click)="confirm('remove-skill', skill.skillId)">
+                      <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                    </button>
+                    @if (isPackageLocked(packageLockOf(skill.package))) {
+                      <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: skill.package?.packageId } }}</span>
+                    }
+                  }
+                </div>
+                @if (failed('skill:' + skill.skillId)) {
+                  <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+                }
+                @if (versions(); as shown) {
+                  @if (shown.skillId === skill.skillId) {
+                    @if (shown.failed) {
+                      <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                    } @else if (shown.items; as items) {
+                      <ul class="history" data-versions>
+                        @for (version of items; track version.version) {
+                          <li>
+                            <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
+                            <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
+                            <span>{{ version.description }}</span>
+                            <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
+                            @if (version.reason) {
+                              <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    } @else {
+                      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                    }
                   }
                 }
               </li>
             }
           </ul>
+        }
+      </section>
+    }
 
-          <!-- Switch a route off for every consultation of the agent, in code and as data, in one action. -->
-          <nh-assistant-agent-consultation-routes
+    @if (shows('triggers')) {
+      <section [class.subsection]="sections() === null" [class.build-section]="sections() !== null" [attr.data-build-section]="sections() === null ? null : 'triggers'" [attr.aria-labelledby]="id + '-triggers-title'" data-triggers>
+        <header class="section-header">
+          <div>
+            <h4 [id]="id + '-triggers-title'">{{ 'nh-assistant.admin.run-config.triggers.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.description' | translate }}</p>
+          </div>
+          <button class="secondary" type="button" data-open-form="trigger" [disabled]="busy() || !canAddRunData() || form() === 'trigger'" (click)="addTrigger()">
+            <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.run-config.triggers.add' | translate }}
+          </button>
+        </header>
+
+        @if (form() === 'trigger') {
+          <nh-assistant-trigger-form
             [agentId]="config.agentId"
-            [subjectTypes]="catalog()?.subjectTypes ?? []"
-            [refresh]="loads()"
-            (changed)="changed.emit()" />
+            [catalog]="catalog()"
+            [worksOn]="agent()"
+            [skills]="skillOptions()"
+            [trigger]="editingTrigger()"
+            [lock]="packageLockOf(editingTrigger()?.package)"
+            [takenIds]="triggerIds()"
+            (saved)="onTriggerSaved($event)"
+            (cancelled)="cancel()" />
+        }
+
+        @if (config.codeTriggers.length === 0 && config.dataTriggers.length === 0) {
+          <p class="state">{{ 'nh-assistant.admin.run-config.triggers.empty' | translate }}</p>
+        } @else {
+          <ul class="skills">
+            @for (trigger of config.codeTriggers; track trigger.triggerId) {
+              <li class="skill" [attr.data-code-trigger]="trigger.triggerId">
+                <div class="card-header">
+                  <span class="mono">{{ trigger.triggerId }}</span>
+                  <span class="badge">{{ 'nh-assistant.admin.agents.source-code' | translate }}</span>
+                  <span class="badge">{{ 'nh-assistant.admin.run-config.triggers.sources.' + trigger.source | translate }}</span>
+                </div>
+                @if (trigger.skillId) {
+                  <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.skill-value' | translate: { skill: skillName(trigger.skillId) } }}</p>
+                }
+              </li>
+            }
+            @for (trigger of config.dataTriggers; track trigger.triggerId) {
+              <li class="skill" [attr.data-data-trigger]="trigger.triggerId">
+                <div class="card-header">
+                  <span class="mono">{{ trigger.triggerId }}</span>
+                  <span class="badge">{{ 'nh-assistant.admin.run-config.triggers.sources.' + trigger.source | translate }}</span>
+                  @if (trigger.shadow) {
+                    <span class="badge warning" data-shadow-badge>{{ 'nh-assistant.admin.agents.shadow.badge' | translate }}</span>
+                  } @else {
+                    <span class="badge success">{{ 'nh-assistant.admin.run-config.triggers.live-badge' | translate }}</span>
+                  }
+                  @if (!trigger.inEffect) {
+                    <span class="badge danger">{{ 'nh-assistant.admin.run-config.out-of-effect' | translate }}</span>
+                  }
+                  @if (trigger.candidate) {
+                    <span class="badge warning" data-trigger-candidate-badge>{{ 'nh-assistant.admin.run-config.candidate.badge' | translate: { version: trigger.candidate.version } }}</span>
+                  }
+                </div>
+                <div class="meta">
+                  @if (trigger.source === 'event') {
+                    <span class="mono">{{ trigger.event }}</span>
+                    @if (trigger.filters?.length) {
+                      <span data-trigger-filters>{{ 'nh-assistant.admin.run-config.triggers.filters.applied' | translate: { filters: trigger.filters!.join(', ') } }}</span>
+                    }
+                  } @else {
+                    <span class="mono">{{ trigger.cron }} {{ trigger.timeZone ?? 'UTC' }}</span>
+                    @if (trigger.subjectSet) {
+                      <span class="mono">{{ trigger.subjectSet }}</span>
+                    } @else {
+                      <!-- A schedule without a subject set runs for the whole application, per division for a per-division agent. -->
+                      <span data-trigger-target>{{ (agent().perDivision ? 'nh-assistant.admin.run-config.triggers.target.every-division' : 'nh-assistant.admin.run-config.triggers.target.application') | translate }}</span>
+                    }
+                  }
+                  <span>{{ (trigger.skillId ? 'nh-assistant.admin.run-config.triggers.skill-value' : 'nh-assistant.admin.run-config.triggers.agent-routes') | translate: { skill: skillName(trigger.skillId) } }}</span>
+                  <span>{{ 'nh-assistant.admin.run-config.triggers.conflicts.' + trigger.conflict | translate }}</span>
+                  <span>{{ 'nh-assistant.admin.agents.version' | translate: { version: trigger.version } }}</span>
+                </div>
+                <nh-assistant-package-lock [lock]="packageLockOf(trigger.package)" [agentId]="config.agentId" [part]="'trigger:' + trigger.triggerId" (unlinked)="load()" />
+                @if (trigger.candidate; as candidate) {
+                  <!-- The candidate fires in shadow next to the live version, which keeps working. -->
+                  <div class="subsection" data-trigger-candidate>
+                    <p class="muted">{{ 'nh-assistant.admin.run-config.triggers.candidate.explain' | translate: { version: candidate.version } }}</p>
+                    @if (!candidate.inEffect) {
+                      <p class="message warning" data-trigger-candidate-problem>
+                        <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.triggers.candidate.out-of-effect' | translate: { problem: candidate.problem } }}
+                      </p>
+                    }
+                    @if (triggerChanges(trigger); as changes) {
+                      @if (changes.length === 0) {
+                        <p class="muted" data-trigger-changes-none>{{ 'nh-assistant.admin.run-config.triggers.candidate.no-changes' | translate }}</p>
+                      } @else {
+                        <dl class="review" data-trigger-changes [attr.aria-label]="'nh-assistant.admin.run-config.triggers.candidate.changes' | translate">
+                          @for (change of changes; track change.field) {
+                            <dt [attr.data-trigger-change]="change.field">{{ triggerFieldKeys[change.field] | translate }}</dt>
+                            <dd>{{ 'nh-assistant.admin.run-config.triggers.candidate.change' | translate: { candidate: changeValue(change, change.candidate), live: changeValue(change, change.live) } }}</dd>
+                          }
+                        </dl>
+                      }
+                    }
+                    <div class="card-actions">
+                      <button class="secondary" type="button" [attr.aria-expanded]="triggerComparison()?.triggerId === trigger.triggerId" (click)="toggleTriggerComparison(trigger)">
+                        <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.candidate.compare' | translate }}
+                      </button>
+                      @if (isConfirming('promote-trigger', trigger.triggerId)) {
+                        <button class="primary" type="button" [disabled]="busy()" (click)="promoteTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-promote' | translate }}</button>
+                        <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                      } @else if (isConfirming('discard-trigger', trigger.triggerId)) {
+                        <button class="danger" type="button" [disabled]="busy()" (click)="discardTrigger(trigger)">{{ 'nh-assistant.admin.run-config.candidate.confirm-discard' | translate }}</button>
+                        <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                      } @else {
+                        <button class="secondary" type="button" data-promote-trigger [disabled]="busy()" (click)="confirm('promote-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.promote' | translate }}</button>
+                        <button class="danger" type="button" data-discard-trigger [disabled]="busy()" (click)="confirm('discard-trigger', trigger.triggerId)">{{ 'nh-assistant.admin.run-config.candidate.discard' | translate }}</button>
+                      }
+                    </div>
+                    @if (triggerComparison(); as shown) {
+                      @if (shown.triggerId === trigger.triggerId) {
+                        @if (shown.failed) {
+                          <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                        } @else if (shown.result; as result) {
+                          <div class="table-scroll">
+                            <table class="summary-table" data-trigger-comparison>
+                              <caption class="visually-hidden">{{ 'nh-assistant.admin.run-config.triggers.candidate.comparison' | translate: { trigger: trigger.triggerId } }}</caption>
+                              <thead>
+                                <tr>
+                                  <th scope="col">{{ 'nh-assistant.admin.evaluation.columns.measure' | translate }}</th>
+                                  <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.live-column' | translate: { version: result.live.version } }}</th>
+                                  <th scope="col">{{ 'nh-assistant.admin.run-config.candidate.candidate-column' | translate: { version: result.candidate.version } }}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.runs' | translate }}</th><td>{{ result.live.runs | number }}</td><td>{{ result.candidate.runs | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.completed' | translate }}</th><td>{{ result.live.completed | number }}</td><td>{{ result.candidate.completed | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.failed' | translate }}</th><td>{{ result.live.failed | number }}</td><td>{{ result.candidate.failed | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.proposals' | translate }}</th><td>{{ result.live.proposals | number }}</td><td>{{ result.candidate.proposals | number }}</td></tr>
+                                <tr><th scope="row">{{ 'nh-assistant.admin.run-config.candidate.tokens' | translate }}</th><td>{{ result.live.tokens | number }}</td><td>{{ result.candidate.tokens | number }}</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <p class="muted" data-trigger-paired>{{ 'nh-assistant.admin.run-config.triggers.candidate.paired' | translate: { count: result.pairedEvents, liveOnly: result.liveOnlyEvents, candidateOnly: result.candidateOnlyEvents, date: (result.from | date: 'medium') } }}</p>
+                        } @else {
+                          <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                        }
+                      }
+                    }
+                  </div>
+                }
+                <div class="card-actions">
+                  <button class="secondary" type="button" [disabled]="busy()" (click)="editTrigger(trigger)">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
+                  </button>
+                  <button class="secondary" type="button" data-trigger-versions [attr.aria-expanded]="triggerVersions()?.triggerId === trigger.triggerId" (click)="toggleTriggerVersions(trigger)">
+                    <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.run-config.triggers.versions' | translate }}
+                  </button>
+                  <button class="secondary" type="button" [attr.data-trigger-shadow]="trigger.shadow ? 'live' : 'shadow'" [disabled]="busy()" (click)="setTriggerShadow(trigger, !trigger.shadow)">
+                    {{ (trigger.shadow ? 'nh-assistant.admin.agents.shadow.action.live' : 'nh-assistant.admin.agents.shadow.action.shadow') | translate }}
+                  </button>
+                  @if (isConfirming('remove-trigger', trigger.triggerId)) {
+                    <button class="danger" type="button" [disabled]="busy()" (click)="removeTrigger(trigger)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                    <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                  } @else {
+                    <button class="danger" type="button" data-remove-trigger [disabled]="busy() || isPackageLocked(packageLockOf(trigger.package))" (click)="confirm('remove-trigger', trigger.triggerId)">
+                      <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}
+                    </button>
+                    @if (isPackageLocked(packageLockOf(trigger.package))) {
+                      <span class="muted" data-remove-locked>{{ 'nh-assistant.admin.packages.remove-locked' | translate: { package: trigger.package?.packageId } }}</span>
+                    }
+                  }
+                </div>
+                @if (failed('trigger:' + trigger.triggerId)) {
+                  <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: error()!.code }}</p>
+                }
+                @if (triggerVersions(); as shown) {
+                  @if (shown.triggerId === trigger.triggerId) {
+                    @if (shown.failed) {
+                      <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                    } @else if (shown.items; as items) {
+                      <ul class="history" data-trigger-history>
+                        @for (version of items; track version.version) {
+                          <li [attr.data-trigger-version]="version.version">
+                            <span class="badge">{{ 'nh-assistant.admin.agents.version' | translate: { version: version.version } }}</span>
+                            <span class="badge" [class.success]="version.status === 'live'" [class.warning]="version.status === 'candidate'">{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
+                            <span class="mono">{{ versionSummary(version) }}</span>
+                            <span class="muted" [attr.title]="accountTitle(version.createdBy)">{{ 'nh-assistant.admin.run-config.changed' | translate: { user: nameOf(version.createdBy), date: (version.createdAt | date: 'medium') } }}</span>
+                            @if (version.reason) {
+                              <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    } @else {
+                      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                    }
+                  }
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    @if (sections() === null) {
+      @if (showConsultations()) {
+        <!-- What other assistants may consult the agent about: in code read only, as data within the ceiling in code. -->
+        <ng-container [ngTemplateOutlet]="consultationsSection" />
+      }
+    } @else if (shows('consultations')) {
+      <!-- Other agents that consult this agent or hand it work; the page adds its hand-offs here. -->
+      <section class="build-section" data-build-section="connected" [attr.aria-labelledby]="id + '-connected-title'">
+        <header>
+          <div>
+            <h4 [id]="id + '-connected-title'">{{ 'nh-assistant.admin.agent-page.build.connected.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.agent-page.build.connected.description' | translate }}</p>
+          </div>
+        </header>
+        @if (showConsultations()) {
+          <ng-container [ngTemplateOutlet]="consultationsSection" />
+        }
+        <ng-content select="[nhAssistantConnectedAgents]" />
+      </section>
+    }
+
+    @if (sections() !== null && shows('settings')) {
+      <!-- The agent's limits: the page adds who may use it and its technical account first. -->
+      <section class="build-section" data-build-section="guardrails" [attr.aria-labelledby]="id + '-guardrails-title'">
+        <header>
+          <div>
+            <h4 [id]="id + '-guardrails-title'">{{ 'nh-assistant.admin.agent-page.build.guardrails.title' | translate }}</h4>
+            <p class="muted">{{ 'nh-assistant.admin.agent-page.build.guardrails.description' | translate }}</p>
+          </div>
+        </header>
+        <ng-content select="[nhAssistantGuardrails]" />
+        @if (config.source === 'admin') {
+          @if (config.runSettings || !shows('skills')) {
+            <div class="subsection" data-run-settings>
+              <h5 class="part-title">{{ 'nh-assistant.admin.run-config.settings.title' | translate }}</h5>
+              <ng-container [ngTemplateOutlet]="settingsBody" />
+            </div>
+          } @else {
+            <p class="muted" data-guardrails-no-settings>{{ 'nh-assistant.admin.agent-page.build.guardrails.no-settings' | translate }}</p>
+          }
+        } @else if (config.codeRunSettings; as code) {
+          <ng-container [ngTemplateOutlet]="codeSettings" [ngTemplateOutletContext]="{ $implicit: code }" />
         }
       </section>
     }
   }
 </section>
+
+<!-- How an agent in code runs, as its code says: read only, with what it leaves to the platform's defaults. -->
+<ng-template #codeSettings let-code>
+  <div class="subsection" data-code-run-settings>
+    <h5 class="part-title">{{ 'nh-assistant.admin.agent-page.build.guardrails.in-code' | translate }} <span class="set-in-code">{{ 'nh-assistant.admin.agent-page.set-in-code' | translate }}</span></h5>
+    <dl class="facts">
+      <dt>{{ 'nh-assistant.admin.run-config.settings.who.short' | translate }}</dt>
+      <dd data-code-setting="accountability">
+        {{ 'nh-assistant.admin.run-config.settings.accountability.' + code.accountability | translate }}
+        @if (code.delegateFromInitiator) {
+          <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.delegate' | translate }}</span>
+        }
+      </dd>
+      <dt>{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</dt>
+      <dd data-code-setting="way-of-working">
+        {{ (code.usesRules ? 'nh-assistant.admin.run-config.flow.skills.code-rules' : 'nh-assistant.admin.run-config.model') | translate }}
+        @if (code.triageProfile) {
+          <span class="muted block">{{ 'nh-assistant.admin.agent-page.code.triage' | translate: { profile: code.triageProfile } }}</span>
+        }
+      </dd>
+      <dt>{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</dt>
+      <dd data-code-setting="approval-policy">{{ code.approvalPolicy ?? ('nh-assistant.admin.run-config.settings.approval.default' | translate) }}</dd>
+      @if (code.retryCount !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}</dt>
+        <dd data-code-setting="retries">{{ code.retryCount | number }}</dd>
+      }
+      @if (code.maxConcurrentRuns !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.settings.max-concurrent' | translate }}</dt>
+        <dd data-code-setting="max-concurrent">{{ code.maxConcurrentRuns | number }}</dd>
+      }
+      @if (code.maxRunsPerSubjectPerDay !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.settings.max-per-subject' | translate }}</dt>
+        <dd data-code-setting="max-per-subject">{{ code.maxRunsPerSubjectPerDay | number }}</dd>
+      }
+      @if (code.maxTokensPerRun !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.max-tokens' | translate }}</dt>
+        <dd data-code-setting="max-tokens">{{ code.maxTokensPerRun === null ? ('nh-assistant.admin.agent-page.code.no-limit' | translate) : (code.maxTokensPerRun | number) }}</dd>
+      }
+      @if (code.dailyToolCalls !== undefined) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.daily-budget' | translate }}</dt>
+        <dd data-code-setting="daily-budget">
+          @if (code.dailyToolCalls === null) {
+            {{ 'nh-assistant.admin.agent-page.code.no-limit' | translate }}
+          } @else {
+            {{ 'nh-assistant.admin.agents.skills.budget' | translate: { calls: code.dailyToolCalls, tokens: code.dailyTokens } }}
+          }
+        </dd>
+      }
+      @if (code.skillsInChat !== undefined) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.skills-in-chat' | translate }}</dt>
+        <dd data-code-setting="skills-in-chat">{{ (code.skillsInChat ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
+      @if (code.allowQuestions !== undefined) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.questions' | translate }}</dt>
+        <dd data-code-setting="questions">{{ (code.allowQuestions ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
+      @if (code.maxConsultationsPerTurn) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.consultations-per-turn' | translate }}</dt>
+        <dd data-code-setting="consultations-per-turn">{{ code.maxConsultationsPerTurn | number }}</dd>
+      }
+      @if (code.usesMemory !== undefined) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.memory' | translate }}</dt>
+        <dd data-code-setting="memory">{{ (code.usesMemory ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
+      @if (code.acceptsFiles !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.files.label' | translate }}</dt>
+        <dd data-code-setting="files">{{ (code.acceptsFiles ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
+      @if (code.elevatedReads) {
+        <dt>{{ 'nh-assistant.admin.run-config.settings.elevated-reads' | translate }}</dt>
+        <dd data-code-setting="elevated-reads">{{ 'nh-assistant.admin.run-config.settings.elevated.' + code.elevatedReads | translate }}</dd>
+      }
+      @if (code.allowGatewayReads !== undefined) {
+        <dt>{{ 'nh-assistant.admin.agent-page.code.gateway-reads' | translate }}</dt>
+        <dd data-code-setting="gateway-reads">{{ (code.allowGatewayReads ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
+    </dl>
+    <p class="muted">{{ 'nh-assistant.admin.agent-page.code.hint' | translate }}</p>
+  </div>
+</ng-template>

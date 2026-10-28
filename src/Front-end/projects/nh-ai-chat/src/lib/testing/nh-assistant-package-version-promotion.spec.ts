@@ -7,6 +7,7 @@ import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { AdminAgent } from '../models/assistant-admin.models';
 import { NH_ASSISTANT_AGENT_PACKAGE_FORMAT, NH_ASSISTANT_AGENT_PACKAGE_FORMAT_VERSION } from '../models/assistant-agent-package.models';
 import { AgentShadowVariants, ShadowVariantPromotion } from '../models/assistant-hand-off.models';
+import { openAdminAgent } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
 
 /**
@@ -109,8 +110,9 @@ function requestBodies(method: string, path: string): unknown[] {
     .map(item => item.body);
 }
 
+/** Opens the rollout of the agent on the agents page, where its shadow variants are, and returns the page. */
 async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
-  (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
+  await openAdminAgent(fixture, element, agentId, 'rollout');
   return settle(fixture);
 }
 

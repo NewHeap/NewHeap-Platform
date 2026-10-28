@@ -6,13 +6,25 @@ import { firstValueFrom } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantStore } from '../services/nh-assistant.store';
+import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 import { NhAssistantAgentPickerComponent } from '../components/agent-picker/nh-assistant-agent-picker.component';
 import {
   NhAssistantAdminAgentsComponent,
   NhAssistantAdminComponent,
   NhAssistantAdminContextComponent,
-  NhAssistantAdminMcpServersComponent
+  NhAssistantAdminLocation,
+  NhAssistantAdminMcpServersComponent,
+  nhAssistantAgentTab
 } from '../../../admin/src/public-api';
+import { ownShadowModeKey, shadowActionKey, shadowExplainKey } from '../../../admin/src/agents/agent-operations';
+import {
+  adminAgentPage as agentPage,
+  adminStatusOf as statusOf,
+  chooseAdminMore as openMore,
+  chooseAdminStatus as chooseStatus,
+  openAdminAgent as openAgent,
+  openAdminTab as openTab
+} from './nh-assistant-admin-navigation';
 
 const secretValue = 'do-not-show-this-secret';
 
@@ -147,22 +159,66 @@ function requestBodies(method: string, path: string): unknown[] {
     .map(item => item.body);
 }
 
+
+
 describe('NhAssistantAdminComponent', () => {
-  it('shows the tabs as an ARIA tablist that follows the arrow keys', async () => {
+  it('opens on the agents and shows the sections as an ARIA tablist that follows the arrow keys', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminComponent);
 
-    const tabs = () => Array.from(element.querySelectorAll('[role="tab"]')) as HTMLElement[];
-    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Context', 'Agents', 'MCP servers']);
+    const tabs = () => Array.from(element.querySelectorAll('.admin > .tabs [role="tab"]')) as HTMLElement[];
+    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Agents', 'Tools & connections', 'Context']);
     expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
-    expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-context')).not.toBeNull();
+    expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-agents')).not.toBeNull();
 
-    element.querySelector('[role="tablist"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    element.querySelector('.admin > .tabs')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     await settle(fixture);
 
     expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
     expect(tabs()[0].getAttribute('tabindex')).toBe('-1');
-    expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-agents')).not.toBeNull();
+    expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-mcp-servers')).not.toBeNull();
+  });
+
+  it('still opens on the section a host chooses', async () => {
+    await configure();
+    const fixture = TestBed.createComponent(NhAssistantAdminComponent);
+    fixture.componentRef.setInput('initialTab', 'context');
+    const element = await settle(fixture);
+
+    expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-context')).not.toBeNull();
+  });
+
+  it('opens the agent page and tab its location names and reports where the administrator goes', async () => {
+    await configure();
+    const fixture = TestBed.createComponent(NhAssistantAdminComponent);
+    const reported: NhAssistantAdminLocation[] = [];
+    fixture.componentInstance.locationChange.subscribe(location => reported.push(location));
+    fixture.componentRef.setInput('location', { tab: 'agents', agentId: 'projects', agentTab: 'build' });
+    const element = await settle(fixture);
+
+    expect(element.querySelector('[data-agent-page="projects"]')).not.toBeNull();
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
+    expect(reported).toEqual([]);
+
+    await openTab(fixture, element, 'activity');
+    expect(reported.at(-1)).toEqual({ tab: 'agents', agentId: 'projects', agentTab: 'activity' });
+
+    (element.querySelector('[data-back]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(reported.at(-1)).toEqual({ tab: 'agents', agentId: null, agentTab: null });
+    expect(element.querySelector('[data-agent-list]')).not.toBeNull();
+
+    // The host follows the browser's back button: the location opens the agent again.
+    fixture.componentRef.setInput('location', { tab: 'agents', agentId: 'projects', agentTab: 'overview' });
+    await settle(fixture);
+    expect(element.querySelector('[data-agent-page="projects"]')).not.toBeNull();
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('overview');
+
+    button(element, 'Tools & connections').click();
+    await settle(fixture);
+    expect(reported.at(-1)).toEqual({ tab: 'mcp-servers', agentId: null, agentTab: null });
+    expect(nhAssistantAgentTab('rollout')).toBe('rollout');
+    expect(nhAssistantAgentTab('elsewhere')).toBe('overview');
   });
 
   it('shows a no-access state without canAdminister', async () => {
@@ -237,21 +293,88 @@ describe('NhAssistantAdminContextComponent', () => {
 });
 
 describe('NhAssistantAdminAgentsComponent', () => {
-  it('lists code agents without a delete action', async () => {
-    await configure();
-    const { element } = await render(NhAssistantAdminAgentsComponent);
-
-    const card = element.querySelector('.card') as HTMLElement;
-    expect(card.textContent).toContain('Project assistant');
-    expect(card.textContent).toContain('Code');
-    expect(buttons(card, 'Delete').length).toBe(0);
-  });
-
-  it('opens the feedback report of an agent from its card and returns to the list', async () => {
+  it('lists code agents with one status and opens a page without a delete action', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element.querySelector('.card') as HTMLElement, 'Feedback').click();
+    const row = element.querySelector('[data-agent-row="projects"]') as HTMLElement;
+    expect(row.textContent).toContain('Project assistant');
+    expect(row.textContent).toContain('Code');
+    expect(row.querySelectorAll('[data-status]').length).toBe(1);
+    expect(row.querySelector('[data-status]')?.getAttribute('data-status-value')).toBe('live');
+    expect(row.querySelector('button')).toBeNull();
+
+    const page = await openAgent(fixture, element, 'projects');
+    expect(document.activeElement).toBe(page.querySelector('h3'));
+    await openMore(fixture, page);
+    expect(page.querySelector('[data-export-package="projects"]')).not.toBeNull();
+    expect(page.querySelector('[data-delete-agent]')).toBeNull();
+  });
+
+  it('finds agents by their translated name and id, filters them with counts and lists a shadow variant below its agent', async () => {
+    const script = scenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      displayName: 'agents.projects.name',
+      skills: [{ skillId: 'deadline-risk', description: 'Judges deadline risks.', shadow: true }]
+    };
+    script.admin!.agents!.push(
+      {
+        source: 'code', id: 'projects-v2', displayName: 'Project assistant v2', description: 'Projects', instructions: 'Other instructions.',
+        toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute', isEnabled: true,
+        shadowOf: 'projects'
+      },
+      {
+        source: 'code', id: 'helper', displayName: 'Chat helper', description: 'Helps in the chat.', instructions: 'Help.',
+        toolSelectors: [], mcpServerIds: [], requiredPolicy: null, autonomy: 'explain', isEnabled: true, chatOnly: true, startsOff: true
+      }
+    );
+    await configure(script);
+    TestBed.inject(TranslateService).setTranslation('en', { agents: { projects: { name: 'Planning desk' } } }, true);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const rows = () => Array.from(element.querySelectorAll<HTMLElement>('[data-agent]')).map(item => item.getAttribute('data-agent'));
+    const count = (filter: string) => element.querySelector(`[data-agent-filter="${filter}"] .count`)?.textContent?.trim();
+    const filter = async (name: string) => {
+      (element.querySelector(`[data-agent-filter="${name}"]`) as HTMLButtonElement).click();
+      await settle(fixture);
+    };
+
+    // The variant follows its agent, indented; each agent shows one status.
+    expect(rows()).toEqual(['projects', 'projects-v2', 'helper']);
+    expect(element.querySelector('li.variant')?.getAttribute('data-agent')).toBe('projects-v2');
+    expect(element.querySelector('li.variant')?.textContent).toContain('Shadow variant of Planning desk');
+    expect(element.querySelector('[data-agent-row="projects-v2"] [data-status]')?.getAttribute('data-status-value')).toBe('shadow');
+    expect(element.querySelector('[data-agent-row="helper"] [data-status]')?.getAttribute('data-status-value')).toBe('off');
+    expect(element.querySelector('[data-agent-row="helper"] [data-agent-work]')?.textContent?.trim()).toBe('Chat only');
+    expect(element.querySelector('[data-agent-row="projects"] [data-agent-attention]')?.textContent).toContain('1 skill in shadow');
+    expect([count('all'), count('attention'), count('live'), count('shadow'), count('held'), count('chat-only')]).toEqual(['3', '1', '1', '2', '1', '1']);
+
+    // The search reads the name in the reader's language and the id.
+    type(element, '[data-agent-search]', 'planning');
+    await settle(fixture);
+    expect(rows()).toEqual(['projects']);
+    type(element, '[data-agent-search]', 'v2');
+    await settle(fixture);
+    // A matching variant brings its agent along, so it keeps its place.
+    expect(rows()).toEqual(['projects', 'projects-v2']);
+    type(element, '[data-agent-search]', '');
+    await filter('chat-only');
+    expect(rows()).toEqual(['helper']);
+    expect(element.querySelector('[data-agent-filter="chat-only"]')?.getAttribute('aria-pressed')).toBe('true');
+    type(element, '[data-agent-search]', 'nothing like this');
+    await settle(fixture);
+    expect(element.querySelector('[data-agent-list-empty]')?.textContent).toContain('No agent matches the search and filter.');
+    button(element, 'Show all agents').click();
+    await settle(fixture);
+    expect(rows()).toEqual(['projects', 'projects-v2', 'helper']);
+  });
+
+  it('opens the feedback report of an agent in its activity and returns to the list at its row', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    const page = await openAgent(fixture, element, 'projects', 'activity');
+    (page.querySelector('[data-activity="feedback"]') as HTMLButtonElement).click();
     await settle(fixture);
 
     const report = element.querySelector('nh-assistant-agent-feedback-report') as HTMLElement;
@@ -260,34 +383,27 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(report.textContent).toContain('The agent made no proposals in this period.');
     expect(report.textContent).toContain('Nobody gave feedback in this period.');
     expect(button(report, 'Export (JSON Lines)').disabled).toBeTrue();
-    expect(document.activeElement).toBe(button(element, 'Back to agents'));
     const summary = TestBed.inject(NhAssistantMockBackend).requests.find(item => item.path === 'admin/agents/projects/feedback/summary');
     expect(summary?.method).toBe('GET');
 
-    button(element, 'Back to agents').click();
+    (element.querySelector('[data-back]') as HTMLButtonElement).click();
     await settle(fixture);
 
     expect(element.querySelector('nh-assistant-agent-feedback-report')).toBeNull();
-    expect(document.activeElement).toBe(button(element.querySelector('.card') as HTMLElement, 'Feedback'));
+    expect(document.activeElement).toBe(element.querySelector('[data-agent-row="projects"]'));
   });
 
-  it('creates an agent with catalog selectors and an MCP server', async () => {
+  it('creates an agent with its profile first and gives it catalog selectors and an MCP server on its page', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
+    // The first step asks what the agent is; its tools follow on its page.
+    expect(element.querySelector('.catalog')).toBeNull();
     type(element, 'input[id$="-id"]', 'support-agent');
     type(element, 'input[id$="-name"]', 'Support agent');
     type(element, 'textarea', 'Help with support questions.');
-    const catalog = Array.from(element.querySelectorAll('.catalog input[type="checkbox"]')) as HTMLInputElement[];
-    catalog[0].click();
-    const server = Array.from(element.querySelectorAll('fieldset .check input[type="checkbox"]')).pop() as HTMLInputElement;
-    server.click();
-    fixture.detectChanges();
-
-    expect(element.textContent).toContain('1 catalog tools match the selectors.');
-
     button(element, 'Save').click();
     await settle(fixture);
 
@@ -295,20 +411,39 @@ describe('NhAssistantAdminAgentsComponent', () => {
       id: 'support-agent',
       displayName: 'Support agent',
       instructions: 'Help with support questions.',
-      toolSelectors: ['sample-api.project.list'],
-      mcpServerIds: ['files'],
+      toolSelectors: [],
+      mcpServerIds: [],
       autonomy: 'explain'
     })]);
     expect(Object.keys(requestBodies('POST', 'admin/agents')[0] as object)).not.toContain('isEnabled');
-    expect(element.textContent).toContain('Support agent');
-    expect(element.textContent).toContain('Created here');
+    const page = agentPage(element);
+    expect(page.getAttribute('data-agent-page')).toBe('support-agent');
+    expect(page.querySelector('[data-agent-source]')?.textContent).toContain('Created here');
+
+    await openTab(fixture, element, 'build');
+    (page.querySelector('[data-edit-section="tools"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const tools = page.querySelector('[data-build-section="tools"]') as HTMLElement;
+    const catalog = Array.from(tools.querySelectorAll('.catalog input[type="checkbox"]')) as HTMLInputElement[];
+    catalog[0].click();
+    const server = Array.from(tools.querySelectorAll('fieldset .check input[type="checkbox"]')).pop() as HTMLInputElement;
+    server.click();
+    fixture.detectChanges();
+    expect(tools.textContent).toContain('1 catalog tools match the selectors.');
+    button(tools, 'Save').click();
+    await settle(fixture);
+
+    expect(requestBodies('PUT', 'admin/agents/support-agent')).toEqual([jasmine.objectContaining({ toolSelectors: ['sample-api.project.list'] })]);
+    expect(requestBodies('PUT', 'admin/mcp-servers/files/agents/support-agent').length).toBe(1);
+    expect(tools.querySelector('[data-tools-summary]')?.textContent).toContain('sample-api.project.list');
+    expect(tools.querySelector('[data-agent-servers]')?.textContent).toContain('Files');
   });
 
   it('creates an agent that works with a model profile of the run catalog', async () => {
     await configure(runScenario());
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     type(element, 'input[id$="-id"]', 'profiled-agent');
     type(element, 'input[id$="-name"]', 'Profiled agent');
@@ -327,7 +462,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await configure(runScenario());
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     const select = element.querySelector('[data-agent-classification] select') as HTMLSelectElement;
     expect(Array.from(select.options).map(option => option.textContent?.trim())).toEqual(['Public', 'Internal', 'Confidential', 'Restricted']);
@@ -340,7 +475,9 @@ describe('NhAssistantAdminAgentsComponent', () => {
     fixture.detectChanges();
     button(element, 'Save').click();
     await settle(fixture);
-    button(element, 'New agent').click();
+    (element.querySelector('[data-back]') as HTMLButtonElement).click();
+    await settle(fixture);
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     type(element, 'input[id$="-id"]', 'notes-desk');
     type(element, 'input[id$="-name"]', 'Notes desk');
@@ -370,19 +507,18 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await firstValueFrom(admin.saveRunSettings('vault-desk', { accountability: 'agent' }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    // The agent's card says that its model calls will be refused; so does its editor.
-    const card = () => Array.from(element.querySelectorAll('.card')).find(item => item.textContent?.includes('Vault desk')) as HTMLElement;
-    expect(card().querySelector('[data-agent-warning="classification-not-permitted"]')?.textContent)
+    // The list says the agent needs attention; its page says that its model calls will be refused, and so does its editor.
+    expect(element.querySelector('[data-agent-row="vault-desk"] [data-agent-attention]')?.textContent).toContain('1 warning');
+    const page = await openAgent(fixture, element, 'vault-desk', 'build');
+    expect(page.querySelector('[data-agent-warning="classification-not-permitted"]')?.textContent)
       .toContain("Neither the agent's model profile nor the profile's fallbacks permit its data classification.");
-    button(card(), 'Edit').click();
+    (page.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.querySelector('[data-agent-editor-warning="classification-not-permitted"]')).not.toBeNull();
-    button(element, 'Cancel').click();
+    expect(page.querySelector('[data-agent-editor-warning="classification-not-permitted"]')).not.toBeNull();
+    button(page.querySelector('[data-build-section="profile"]') as HTMLElement, 'Cancel').click();
     await settle(fixture);
 
     // A skill saved with a classification no profile permits is saved, with the warning next to it.
-    (element.querySelector('[data-run-config-agent="vault-desk"]') as HTMLButtonElement).click();
-    await settle(fixture);
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     button(view(), 'Add skill').click();
     await settle(fixture);
@@ -407,7 +543,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     type(element, 'input[id$="-id"]', 'Not Valid');
     type(element, 'input[id$="-name"]', 'Name');
@@ -425,18 +561,21 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await firstValueFrom(admin.updateAgent(agent.id, { ...agent, instructions: 'Override.', expectedVersion: agent.version }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    expect(element.textContent).toContain('Overridden');
-    button(element, 'Reset to code').click();
-    fixture.detectChanges();
-    expect(element.textContent).toContain('the agent stays active, paused or stopped as it is');
-    button(element, 'Confirm reset').click();
+    expect(element.querySelector('[data-agent-row="projects"]')?.textContent).toContain('Code, changed');
+    const page = await openAgent(fixture, element, 'projects');
+    expect(page.querySelector('[data-agent-origin]')?.textContent).toContain('Defined in code and changed here.');
+    await openMore(fixture, page);
+    (page.querySelector('[data-reset-agent]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(page.querySelector('[data-confirming="reset"]')?.textContent).toContain('the agent stays active, paused or stopped as it is');
+    button(page, 'Confirm reset').click();
     await settle(fixture);
 
-    expect(element.textContent).not.toContain('Overridden');
+    expect(page.querySelector('[data-agent-source]')?.textContent?.trim()).toBe('Code');
     expect(requestBodies('POST', 'admin/agents/projects/reset').length).toBe(1);
   });
 
-  it('lists the skills of an agent with their usage and stops one of them', async () => {
+  it('lists the skills of an agent in Build with their usage and stops one of them', async () => {
     const script = scenario();
     script.admin!.agents![0] = {
       ...script.admin!.agents![0],
@@ -447,25 +586,25 @@ describe('NhAssistantAdminAgentsComponent', () => {
     };
     await configure(script);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const skill = () => element.querySelector('[data-skill="deadline-risk"]')!;
+    const page = await openAgent(fixture, element, 'projects', 'build');
+    const skill = () => page.querySelector('[data-code-skill="deadline-risk"]') as HTMLElement;
 
-    expect(element.querySelectorAll('li.skill').length).toBe(2);
+    expect(page.querySelectorAll('[data-skill-status]').length).toBe(2);
     expect(skill().textContent).toContain('Judges deadline risks.');
     expect(skill().textContent).toContain('Today 0 tool calls, 0 tokens');
-    expect(skill().textContent).toContain('Active');
+    expect(statusOf(skill())).toBe('live');
 
-    (skill().querySelector('button.danger') as HTMLButtonElement).click();
-    await settle(fixture);
-    expect(element.textContent).toContain('The runs of the skill Deadline risk are cancelled');
-    type(element, 'input[id$="-reason"]', 'Wrong risks');
-    button(element, 'Confirm stop').click();
+    await chooseStatus(fixture, skill(), 'deadline-risk', '[data-state-action="stopped"]');
+    expect(skill().textContent).toContain('The runs of the skill Deadline risk are cancelled');
+    type(skill(), '.change-form input', 'Wrong risks');
+    button(skill(), 'Confirm stop').click();
     await settle(fixture);
 
     expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/state')).toEqual([{ state: 'stopped', reason: 'Wrong risks' }]);
-    expect(skill().textContent).toContain('Stopped');
+    expect(statusOf(skill())).toBe('stopped');
     expect(skill().textContent).toContain('Note: Wrong risks');
-    expect(element.querySelector('[data-skill="task-follow-up"]')?.textContent).toContain('Active');
-    expect(element.querySelector('.card .card-header')?.textContent).toContain('Active');
+    expect(statusOf(page.querySelector('[data-code-skill="task-follow-up"]') as HTMLElement)).toBe('live');
+    expect(statusOf(page.querySelector('.page-head') as HTMLElement)).toBe('live');
   });
 
   it('puts an agent and a skill in shadow or live and changes the technical account, each with a reason', async () => {
@@ -480,87 +619,90 @@ describe('NhAssistantAdminAgentsComponent', () => {
     };
     await configure(script);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const card = () => element.querySelector('li.card')!;
-    const skill = (id: string) => element.querySelector(`[data-skill="${id}"]`)!;
-    const header = () => card().querySelector('.card-header')!;
+    const page = await openAgent(fixture, element, 'projects');
+    const head = () => page.querySelector('.page-head') as HTMLElement;
+    const skill = (id: string) => page.querySelector(`[data-code-skill="${id}"]`) as HTMLElement;
 
-    // A skill in shadow by code shows it and offers to go live; the agent offers shadow.
-    expect(header().querySelector('[data-shadow-badge]')).toBeNull();
-    expect(skill('deadline-risk').querySelector('[data-shadow-badge]')).not.toBeNull();
-    expect(skill('deadline-risk').querySelector('[data-shadow-action="live"]')).not.toBeNull();
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
+    // The overview names the technical account; the agent itself works live.
+    expect(page.querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
+    expect(statusOf(head())).toBe('live');
 
-    (card().querySelector('[data-shadow-action="shadow"]') as HTMLButtonElement).click();
-    await settle(fixture);
-    expect(element.textContent).toContain('New runs work in shadow threads that only administrators see');
-    type(element, 'input[id$="-shadow-reason"]', 'Evaluate the rules');
-    button(element, 'Confirm shadow').click();
+    await chooseStatus(fixture, head(), 'agent', '[data-shadow-action="shadow"]');
+    expect(head().textContent).toContain('New runs work in shadow threads that only administrators see');
+    type(head(), '.change-form input', 'Evaluate the rules');
+    button(head(), 'Confirm shadow').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/shadow')).toEqual([{ mode: 'shadow', reason: 'Evaluate the rules' }]);
-    expect(header().querySelector('[data-shadow-badge]')).not.toBeNull();
-    expect(card().textContent).toContain('Note: Evaluate the rules');
-    // Every skill of an agent in shadow works in shadow.
-    expect(skill('task-follow-up').querySelector('[data-shadow-badge]')).not.toBeNull();
+    expect(statusOf(head())).toBe('shadow');
+    await openTab(fixture, element, 'rollout');
+    expect(page.querySelector('[data-rollout-mode]')?.textContent).toContain('Note: Evaluate the rules');
+    expect(page.querySelector('[data-rollout-agent-shadow]')).not.toBeNull();
 
-    (skill('deadline-risk').querySelector('[data-shadow-action="live"]') as HTMLButtonElement).click();
-    await settle(fixture);
-    expect(element.textContent).toContain('The skill Deadline risk works live again, unless its agent works in shadow.');
-    button(element, 'Confirm live').click();
+    // In Build every skill of an agent in shadow works in shadow; one in shadow by code offers to go live.
+    await openTab(fixture, element, 'build');
+    expect(statusOf(skill('task-follow-up'))).toBe('shadow');
+    expect(statusOf(skill('deadline-risk'))).toBe('shadow');
+    await chooseStatus(fixture, skill('deadline-risk'), 'deadline-risk', '[data-shadow-action="live"]');
+    expect(skill('deadline-risk').textContent).toContain('The skill Deadline risk works live again, unless its agent works in shadow.');
+    button(skill('deadline-risk'), 'Confirm live').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/shadow')).toEqual([{ mode: 'live', reason: null }]);
-    expect(skill('deadline-risk').querySelector('[data-shadow-action="code"]')).not.toBeNull();
-
-    (card().querySelector('[data-shadow-action="code"]') as HTMLButtonElement).click();
+    (skill('deadline-risk').querySelector('[data-status-menu="deadline-risk"]') as HTMLButtonElement).click();
     await settle(fixture);
-    button(element, 'Confirm').click();
+    expect(skill('deadline-risk').querySelector('[data-shadow-action="code"]')).not.toBeNull();
+    (skill('deadline-risk').querySelector('[data-status-menu="deadline-risk"]') as HTMLButtonElement).click();
+    await settle(fixture);
+
+    await chooseStatus(fixture, head(), 'agent', '[data-shadow-action="code"]');
+    button(head(), 'Confirm').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/shadow')[1]).toEqual({ mode: 'code', reason: null });
-    expect(header().querySelector('[data-shadow-badge]')).toBeNull();
-    expect(skill('deadline-risk').querySelector('[data-shadow-badge]')).toBeNull();
+    expect(statusOf(head())).toBe('live');
+    expect(statusOf(skill('deadline-risk'))).toBe('live');
 
-    // An account that does not exist is refused; another one answers for new runs.
-    (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
+    // In the guardrails an account that does not exist is refused; another one answers for new runs.
+    const account = () => page.querySelector('[data-guardrails-account]') as HTMLElement;
+    (account().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
     await settle(fixture);
-    button(element, 'Confirm account').click();
+    button(account(), 'Confirm account').click();
     await settle(fixture);
     // A missing account shows at the account field, which describes itself with it.
-    const accountError = card().querySelector('[data-account-error]') as HTMLElement;
+    const accountError = account().querySelector('[data-account-error]') as HTMLElement;
     expect(accountError.textContent).toContain('Required.');
-    const accountField = element.querySelector('input[id$="-account"]') as HTMLInputElement;
+    const accountField = account().querySelector('input[id$="-account"]') as HTMLInputElement;
+    expect(document.activeElement).toBe(accountField);
     expect(accountField.getAttribute('aria-invalid')).toBe('true');
     expect(accountField.getAttribute('aria-describedby')).toContain(accountError.id);
-    expect(card().querySelector('[data-agent-error]')).toBeNull();
+    expect(account().querySelector('[data-agent-error]')).toBeNull();
     expect(requestBodies('POST', 'admin/agents/projects/service-account')).toEqual([]);
-    type(element, 'input[id$="-account"]', 'unknown-1');
+    type(account(), 'input[id$="-account"]', 'unknown-1');
     await settle(fixture);
-    button(element, 'Confirm account').click();
+    button(account(), 'Confirm account').click();
     await settle(fixture);
     // The server's refusal of the account shows at the field too, and the form stays open.
-    expect(card().querySelector('[data-account-error]')?.textContent).toContain('No account that may sign in exists with this id.');
-    expect(card().querySelector('[data-account-form]')).not.toBeNull();
+    expect(account().querySelector('[data-account-error]')?.textContent).toContain('No account that may sign in exists with this id.');
+    expect(account().querySelector('[data-account-form]')).not.toBeNull();
 
-    (card().querySelector('[data-account-action="set"]') as HTMLButtonElement).click();
+    type(account(), 'input[id$="-account"]', 'service-2');
+    type(account(), 'input[id$="-reason"]', 'Rotate');
     await settle(fixture);
-    type(element, 'input[id$="-account"]', 'service-2');
-    type(element, 'input[id$="-account-reason"]', 'Rotate');
-    await settle(fixture);
-    button(element, 'Confirm account').click();
+    button(account(), 'Confirm account').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: 'service-2', reason: 'Rotate' });
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-2');
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('In code: account ID service-1');
+    expect(account().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-2');
+    expect(account().querySelector('[data-service-account]')?.textContent).toContain('In code: account ID service-1');
 
-    (card().querySelector('[data-account-action="code"]') as HTMLButtonElement).click();
+    (account().querySelector('[data-account-action="code"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.textContent).toContain('New runs answer to the account in code again: account ID service-1.');
-    button(element, 'Confirm').click();
+    expect(account().textContent).toContain('New runs answer to the account in code again: account ID service-1.');
+    button(account(), 'Confirm').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/service-account').at(-1)).toEqual({ actorId: null, reason: null });
-    expect(card().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
-    expect(card().querySelector('[data-account-action="code"]')).toBeNull();
+    expect(account().querySelector('[data-service-account]')?.textContent).toContain('Technical account: account ID service-1');
+    expect(account().querySelector('[data-account-action="code"]')).toBeNull();
   });
 
-  it('compares an agent with its shadow variant, replays the period and offers evaluation only with a variant', async () => {
+  it('compares an agent with its shadow variant in its rollout, replays the period and offers evaluation only with a variant', async () => {
     const script = scenario();
     script.admin!.agents!.push({
       source: 'code', id: 'projects-v2', displayName: 'Project assistant v2', description: 'Projects', instructions: 'Other instructions.',
@@ -570,73 +712,75 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await configure(script);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    // Only the live agent offers the evaluation; the variant itself has no variants.
-    const actions = Array.from(element.querySelectorAll<HTMLButtonElement>('[data-evaluation-agent]'));
-    expect(actions.map(action => action.dataset['evaluationAgent'])).toEqual(['projects']);
-    actions[0].click();
+    // The variant itself has no variants, so its rollout offers no evaluation.
+    let page = await openAgent(fixture, element, 'projects-v2', 'rollout');
+    expect(page.querySelector('[data-agent-origin]')?.textContent).toContain('A shadow variant of Project assistant');
+    expect(page.querySelector('[data-rollout-evaluation]')).toBeNull();
+    (page.querySelector('[data-back]') as HTMLButtonElement).click();
     await settle(fixture);
 
-    expect(element.textContent).toContain('Evaluation of shadow variants');
-    expect(element.querySelector('[data-paired]')?.textContent?.trim()).toBe('0');
+    page = await openAgent(fixture, element, 'projects', 'rollout');
+    const evaluation = page.querySelector('[data-rollout-evaluation]') as HTMLElement;
+    expect(evaluation.textContent).toContain('Evaluation of shadow variants');
+    expect(evaluation.querySelector('[data-paired]')?.textContent?.trim()).toBe('0');
     // The mock answers only for the agent's own variant, so the report names it.
-    expect(element.textContent).toContain('Small numbers mislead');
-    expect(element.querySelector('select[id$="-variant"]')?.textContent).toContain('projects-v2');
+    expect(evaluation.textContent).toContain('Small numbers mislead');
+    expect(evaluation.querySelector('select[id$="-variant"]')?.textContent).toContain('projects-v2');
 
-    button(element, 'Replay the period').click();
+    button(evaluation, 'Replay the period').click();
     await settle(fixture);
     const [request] = requestBodies('POST', 'admin/agents/projects-v2/replay') as { sourceAgentId: string; maxRuns: number }[];
     expect(request.sourceAgentId).toBe('projects');
     expect(request.maxRuns).toBe(100);
-    expect(element.querySelector('[data-replay="completed"]')?.textContent).toContain('0 of at most 100 runs replayed');
-
-    button(element, 'Back to the agents').click();
-    await settle(fixture);
-    expect(document.activeElement).toBe(element.querySelector('[data-evaluation-agent="projects"]'));
+    expect(evaluation.querySelector('[data-replay="completed"]')?.textContent).toContain('0 of at most 100 runs replayed');
   });
 
-  it('pauses with a reason, stops and resumes an agent from the list', async () => {
+  it('pauses with a reason, stops and resumes an agent from the status of its page', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const card = () => element.querySelector('.card')!;
+    const page = await openAgent(fixture, element, 'projects');
+    const head = () => page.querySelector('.page-head') as HTMLElement;
+    const overview = () => page.querySelector('[data-overview-status]') as HTMLElement;
 
-    expect(card().textContent).toContain('Active');
-    button(element, 'Pause').click();
-    await settle(fixture);
-    expect(card().textContent).toContain('Events wait and run after the resume');
-    expect(document.activeElement).toBe(element.querySelector('input[id$="-reason"]'));
-    type(element, 'input[id$="-reason"]', 'Nightly import');
-    button(element, 'Confirm pause').click();
+    expect(statusOf(head())).toBe('live');
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="paused"]');
+    expect(head().textContent).toContain('Events wait and run after the resume');
+    expect(document.activeElement).toBe(head().querySelector('.change-form input'));
+    type(head(), '.change-form input', 'Nightly import');
+    button(head(), 'Confirm pause').click();
     await settle(fixture);
 
     expect(requestBodies('POST', 'admin/agents/projects/state')).toEqual([{ state: 'paused', reason: 'Nightly import' }]);
-    expect(card().textContent).toContain('Paused');
-    expect(card().textContent).toContain('Note: Nightly import');
-    expect(card().textContent).toContain('0 events wait for the resume.');
+    expect(statusOf(head())).toBe('paused');
+    expect(overview().textContent).toContain('Note: Nightly import');
+    expect(overview().textContent).toContain('0 events wait for the resume.');
 
-    button(element, 'Stop').click();
-    await settle(fixture);
-    button(element, 'Cancel').click();
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="stopped"]');
+    button(head(), 'Cancel').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/state').length).toBe(1);
+    expect(document.activeElement).toBe(head().querySelector('[data-status-menu="agent"]'));
 
-    button(element, 'Stop').click();
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="stopped"]');
+    button(head(), 'Confirm stop').click();
     await settle(fixture);
-    button(element, 'Confirm stop').click();
+    expect(statusOf(head())).toBe('stopped');
+    (head().querySelector('[data-status-menu="agent"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(card().textContent).toContain('Stopped');
-    expect(buttons(element, 'Stop').length).toBe(0);
+    expect(head().querySelector('[data-state-action="stopped"]')).toBeNull();
+    (head().querySelector('[data-status-menu="agent"]') as HTMLButtonElement).click();
+    await settle(fixture);
     // It was not off when it stopped, so releasing the kill switch makes it work again.
-    const stoppedHint = card().querySelector('[data-stopped-hint]');
+    const stoppedHint = overview().querySelector('[data-stopped-hint]');
     expect(stoppedHint?.getAttribute('data-off-before-stop')).toBe('false');
     expect(stoppedHint?.textContent).toContain('releasing the kill switch makes it work again, as Resume does.');
 
-    button(element, 'Resume').click();
-    await settle(fixture);
-    button(element, 'Confirm resume').click();
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="active"]');
+    button(head(), 'Confirm resume').click();
     await settle(fixture);
 
     expect(requestBodies('POST', 'admin/agents/projects/state').at(-1)).toEqual({ state: 'active', reason: null });
-    expect(card().textContent).toContain('Active');
+    expect(statusOf(head())).toBe('live');
   });
 
   it('switches an agent and a skill off and on again, and creates an agent that starts off', async () => {
@@ -648,59 +792,63 @@ describe('NhAssistantAdminAgentsComponent', () => {
     };
     await configure(script);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const card = () => element.querySelector('.card')!;
-    const skill = () => element.querySelector('[data-skill="deadline-risk"]')!;
+    const page = await openAgent(fixture, element, 'projects');
+    const head = () => page.querySelector('.page-head') as HTMLElement;
+    const overview = () => page.querySelector('[data-overview-status]') as HTMLElement;
 
     // Off in code: the agent says what that means, and offers to switch it on instead of a resume.
-    expect(card().querySelector('.card-header')?.textContent).toContain('Off');
-    expect(card().querySelector('[data-off-hint]')?.textContent).toContain('It started off, as its code says.');
-    expect(buttons(element, 'Resume').length).toBe(0);
-    (card().querySelector('.card-actions [data-state-action="active"]') as HTMLButtonElement).click();
+    expect(statusOf(head())).toBe('off');
+    expect(overview().querySelector('[data-off-hint]')?.textContent).toContain('It started off, as its code says.');
+    (head().querySelector('[data-status-menu="agent"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(card().textContent).toContain('Nothing that happened while it was off runs.');
-    button(element, 'Confirm switch on').click();
+    expect(buttons(head(), 'Resume').length).toBe(0);
+    (head().querySelector('[data-state-action="active"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(head().textContent).toContain('Nothing that happened while it was off runs.');
+    button(head(), 'Confirm switch on').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/state')).toEqual([{ state: 'active', reason: null }]);
-    expect(card().querySelector('.card-header')?.textContent).toContain('Active');
+    expect(statusOf(head())).toBe('live');
 
-    (skill().querySelector('[data-state-action="active"]') as HTMLButtonElement).click();
-    await settle(fixture);
-    expect(card().textContent).toContain('The skill Deadline risk takes work again.');
-    button(element, 'Confirm switch on').click();
+    await openTab(fixture, element, 'build');
+    const skill = () => page.querySelector('[data-code-skill="deadline-risk"]') as HTMLElement;
+    await chooseStatus(fixture, skill(), 'deadline-risk', '[data-state-action="active"]');
+    expect(skill().textContent).toContain('The skill Deadline risk takes work again.');
+    button(skill(), 'Confirm switch on').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/state')).toEqual([{ state: 'active', reason: null }]);
 
-    (card().querySelector('.card-actions [data-state-action="off"]') as HTMLButtonElement).click();
-    await settle(fixture);
-    expect(card().textContent).toContain('Events, schedules, webhooks, hand-offs and follow-ups are ignored');
-    type(element, 'input[id$="-reason"]', 'Not yet');
-    button(element, 'Confirm switch off').click();
+    await openTab(fixture, element, 'overview');
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="off"]');
+    expect(head().textContent).toContain('Events, schedules, webhooks, hand-offs and follow-ups are ignored');
+    type(head(), '.change-form input', 'Not yet');
+    button(head(), 'Confirm switch off').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents/projects/state').at(-1)).toEqual({ state: 'off', reason: 'Not yet' });
-    expect(card().querySelector('[data-off-hint]')?.textContent).toContain('People can still chat with it and start it by hand.');
-    expect(card().textContent).toContain('Note: Not yet');
+    expect(overview().querySelector('[data-off-hint]')?.textContent).toContain('People can still chat with it and start it by hand.');
+    expect(overview().textContent).toContain('Note: Not yet');
 
-    // Stopped while it was off, the card says that releasing the kill switch switches it back off,
+    // Stopped while it was off, the page says that releasing the kill switch switches it back off,
     // while resuming switches it on; once it works again the hint is gone.
-    expect(card().querySelector('[data-stopped-hint]')).toBeNull();
-    (card().querySelector('.card-actions [data-state-action="stopped"]') as HTMLButtonElement).click();
+    expect(overview().querySelector('[data-stopped-hint]')).toBeNull();
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="stopped"]');
+    button(head(), 'Confirm stop').click();
     await settle(fixture);
-    button(element, 'Confirm stop').click();
-    await settle(fixture);
-    const stoppedHint = card().querySelector('[data-stopped-hint]');
+    const stoppedHint = overview().querySelector('[data-stopped-hint]');
     expect(stoppedHint?.getAttribute('data-off-before-stop')).toBe('true');
     expect(stoppedHint?.textContent).toContain('It was off when it stopped: releasing the kill switch switches it back off. Resume switches it on.');
     expect(await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).getAgentState('projects')))
       .toEqual(jasmine.objectContaining({ runState: 'stopped', offBeforeStop: true }));
-    (card().querySelector('.card-actions [data-state-action="active"]') as HTMLButtonElement).click();
+    await chooseStatus(fixture, head(), 'agent', '[data-state-action="active"]');
+    button(head(), 'Confirm resume').click();
     await settle(fixture);
-    button(element, 'Confirm resume').click();
-    await settle(fixture);
-    expect(card().querySelector('.card-header')?.textContent).toContain('Active');
-    expect(card().querySelector('[data-stopped-hint]')).toBeNull();
+    expect(statusOf(head())).toBe('live');
+    expect(overview().querySelector('[data-stopped-hint]')).toBeNull();
 
     // A new agent starts off when the administrator leaves it switched off.
-    button(element, 'New agent').click();
+    (page.querySelector('[data-back]') as HTMLButtonElement).click();
+    await settle(fixture);
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     type(element, 'input[id$="-id"]', 'quiet-agent');
     type(element, 'input[id$="-name"]', 'Quiet agent');
@@ -710,8 +858,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     button(element, 'Save').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ id: 'quiet-agent', startsOff: true })]);
-    const created = Array.from(element.querySelectorAll('.card')).find(item => item.textContent?.includes('quiet-agent'))!;
-    expect(created.querySelector('.card-header')?.textContent).toContain('Off');
+    expect(statusOf(agentPage(element).querySelector('.page-head') as HTMLElement)).toBe('off');
   });
 
   it('gives an administration agent run settings with errors at their fields, a skill that starts in shadow and a trigger it puts live', async () => {
@@ -726,14 +873,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
       toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute'
     }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="follower"]') as HTMLButtonElement).click();
-    await settle(fixture);
+    await openAgent(fixture, element, 'follower', 'build');
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const form = () => view().querySelector('[data-form="settings"]') as HTMLElement;
 
-    // It only chats until it has run settings; the guided setup is offered first.
-    expect(document.activeElement).toBe(button(element, 'Back to agents'));
-    expect(view().querySelector('[data-setup-offer]')?.textContent).toContain('This agent only chats.');
+    // It only chats until it has run settings; Build offers the guided setup first.
+    expect(view().querySelector('[data-build-section="work"] [data-setup-offer]')?.textContent).toContain('This agent only chats.');
+    expect(view().querySelector('[data-guardrails-no-settings]')).not.toBeNull();
     expect(button(view(), 'Add skill').disabled).toBeTrue();
     expect(button(view(), 'Add trigger').disabled).toBeTrue();
 
@@ -767,7 +913,9 @@ describe('NhAssistantAdminAgentsComponent', () => {
       approvalPolicy: 'project-review', dailyToolCalls: 100, dailyTokens: 20000, expectedVersion: null, acceptsFiles: true
     }));
     expect(view().textContent).toContain('The run settings are saved.');
-    const summary = view().querySelector('[data-settings-summary]') as HTMLElement;
+    // With run settings the setup is gone and the guardrails show them.
+    expect(view().querySelector('[data-build-section="work"]')).toBeNull();
+    const summary = view().querySelector('[data-build-section="guardrails"] [data-settings-summary]') as HTMLElement;
     expect(summary.querySelector('[data-account-name]')?.textContent).toContain('Operations account');
     // The name only: the account's ID is its tooltip, not text next to it.
     expect(summary.querySelector('[data-account-name]')?.textContent).not.toContain('service-1');
@@ -838,12 +986,11 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     expect(view().querySelector('[data-run-settings] [role="alert"]')?.textContent).toContain('Skills, triggers, consultations or hand-offs still belong to this agent.');
 
-    // Back in the list, the skill shows among the agent's skills, in shadow.
-    button(element, 'Back to agents').click();
+    // Back in the list, the new skill in shadow needs attention.
+    (element.querySelector('[data-back]') as HTMLButtonElement).click();
     await settle(fixture);
-    const skill = element.querySelector('[data-skill="kickoff"]') as HTMLElement;
-    expect(skill.querySelector('[data-shadow-badge]')).not.toBeNull();
-    expect(document.activeElement).toBe(element.querySelector('[data-run-config-agent="follower"]'));
+    expect(element.querySelector('[data-agent-row="follower"] [data-agent-attention]')?.textContent).toContain('1 skill in shadow');
+    expect(document.activeElement).toBe(element.querySelector('[data-agent-row="follower"]'));
   }, formFlowTimeout);
 
   it('lowers the file limits of an administration agent and its skill within the application\'s, with errors at their fields', async () => {
@@ -855,8 +1002,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
       toolSelectors: ['sample-api.project.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'execute'
     }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="reader"]') as HTMLButtonElement).click();
-    await settle(fixture);
+    await openAgent(fixture, element, 'reader', 'build');
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const form = () => view().querySelector('[data-form="settings"]') as HTMLElement;
     button(view(), 'Add run settings').click();
@@ -928,33 +1074,47 @@ describe('NhAssistantAdminAgentsComponent', () => {
     })]);
   });
 
-  it('creates an agent that works on its own, out of the chat, through the guided setup', async () => {
+  it('creates an agent that works on its own, out of the chat, gives it tools and sets it up through the guided setup', async () => {
     const script = runScenario();
     script.admin!.accounts = [{ actorId: 'service-1', displayName: 'Operations account', detail: 'operations@example.test' }];
     await configure(script);
     const store = TestBed.inject(NhAssistantStore);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     type(element, 'input[id$="-id"]', 'starter');
     type(element, 'input[id$="-name"]', 'Project starter');
     check(element, '[data-agent-use] input[value="background"]');
     await settle(fixture);
     expect(element.textContent).toContain('After saving, a short setup asks when the agent starts');
-    type(element, 'input.mono[aria-label]', 'sample-api.project.*');
-    await settle(fixture);
-    (element.querySelector('.inline button') as HTMLButtonElement).click();
-    await settle(fixture);
     button(element, 'Save').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents').at(-1)).toEqual(jasmine.objectContaining({ id: 'starter', offeredInChat: false }));
     await store.reloadStatus();
     expect(store.agents().map(agent => agent.id)).not.toContain('starter');
 
-    // The run configuration opens with the guided setup.
+    // Its page opens at Build with the guided setup; the administrator first gives it tools.
+    const page = agentPage(element);
+    expect(page.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
     const setup = () => element.querySelector('[data-work-setup]') as HTMLElement;
     expect(setup()).not.toBeNull();
+    (page.querySelector('[data-edit-section="tools"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const tools = page.querySelector('[data-build-section="tools"]') as HTMLElement;
+    type(tools, 'input.mono[aria-label]', 'sample-api.project.*');
+    await settle(fixture);
+    (tools.querySelector('.inline button') as HTMLButtonElement).click();
+    await settle(fixture);
+    button(tools, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/agents/starter').at(-1)).toEqual(jasmine.objectContaining({ toolSelectors: ['sample-api.project.*'] }));
+    // The run configuration read the agent again, so the setup offers its new tools.
+    if (!setup()) {
+      button(page, 'Let this agent work on its own').click();
+      await settle(fixture);
+    }
+
     expect(setup().querySelector('[aria-current="step"]')?.textContent).toContain('When');
     button(setup(), 'Next').click();
     await settle(fixture);
@@ -999,10 +1159,10 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(view.textContent).toContain('The agent works in shadow now');
     expect(view.querySelector('[data-data-trigger="start-new-projects-project-created"] [data-shadow-badge]')).not.toBeNull();
 
-    button(element, 'Back to agents').click();
+    (element.querySelector('[data-back]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.querySelector('[data-hidden-from-chat]')?.textContent).toContain('Not in the chat');
-  });
+    expect(element.querySelector('[data-agent-row="starter"] [data-agent-work]')?.textContent?.trim()).toBe('On its own');
+  }, formFlowTimeout);
 
   it('evaluates a changed skill of a code agent as a candidate and promotes it; skills and triggers in code stay read only', async () => {
     const script = runScenario();
@@ -1012,14 +1172,15 @@ describe('NhAssistantAdminAgentsComponent', () => {
     const admin = TestBed.inject(NhAssistantAdminApiService);
     await firstValueFrom(admin.saveDataSkill('projects', 'progress-note', { description: 'Notes progress.', ruleHandler: 'project-progress-note' }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
-    await settle(fixture);
+    await openAgent(fixture, element, 'projects', 'build');
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const skill = () => view().querySelector('[data-data-skill="progress-note"]') as HTMLElement;
 
+    // A skill in code offers its status, never an edit or a removal.
     const codeSkill = view().querySelector('[data-code-skill="task-follow-up"]') as HTMLElement;
     expect(codeSkill.textContent).toContain('Code');
-    expect(codeSkill.querySelector('button')).toBeNull();
+    expect(buttons(codeSkill, 'Edit').length).toBe(0);
+    expect(codeSkill.querySelector('[data-remove-skill]')).toBeNull();
     expect(view().querySelector('[data-code-skill="progress-note"]')).toBeNull();
     expect((view().querySelector('[data-code-trigger="task-completed"]') as HTMLElement).textContent).toContain('Skill: Task follow up');
     expect(view().querySelector('[data-run-settings]')).toBeNull();
@@ -1029,7 +1190,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     expect((view().querySelector('[data-apply] input[value="shadow"]') as HTMLInputElement).checked).toBeTrue();
     type(view(), 'input[id$="-skill-description"]', 'Notes progress as a percentage.');
-    button(view(), 'Save').click();
+    button(view().querySelector('[data-form="skill"]') as HTMLElement, 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/projects/skills/progress-note').at(-1)).toEqual(jasmine.objectContaining({
       description: 'Notes progress as a percentage.', expectedVersion: 1, apply: 'shadow'
@@ -1072,8 +1233,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await firstValueFrom(admin.saveDataTrigger('projects', 'project-created', { source: 'event', event: 'project.created' }));
     await firstValueFrom(admin.setDataTriggerShadow('projects', 'project-created', { mode: 'live' }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
-    await settle(fixture);
+    await openAgent(fixture, element, 'projects', 'build');
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const trigger = () => view().querySelector('[data-data-trigger="project-created"]') as HTMLElement;
     const form = () => view().querySelector('[data-form="trigger"]') as HTMLElement;
@@ -1140,8 +1300,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
       source: 'event', event: 'project.created', debounceSeconds: 30, expectedVersion: 1, apply: 'shadow'
     }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
-    await settle(fixture);
+    await openAgent(fixture, element, 'projects', 'build');
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     const trigger = () => view().querySelector('[data-data-trigger="project-created"]') as HTMLElement;
     expect(trigger().querySelector('[data-trigger-change="debounce"]')).not.toBeNull();
@@ -1158,11 +1317,119 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(versions.map(version => [version.version, version.status])).toEqual([[2, 'discarded'], [1, 'live']]);
   });
 
+  it('lists in its rollout what of an agent is not live yet and opens the comparison of a candidate in Build', async () => {
+    const script = runScenario();
+    script.admin!.agents![0] = { ...script.admin!.agents![0], skills: [{ skillId: 'deadline-risk', description: 'Judges deadline risks.', shadow: true }] };
+    await configure(script);
+    const admin = TestBed.inject(NhAssistantAdminApiService);
+    await firstValueFrom(admin.saveDataTrigger('projects', 'project-created', { source: 'event', event: 'project.created' }));
+    await firstValueFrom(admin.saveDataSkill('projects', 'progress-note', { description: 'Notes progress.', ruleHandler: 'project-progress-note' }));
+    await firstValueFrom(admin.saveDataSkill('projects', 'progress-note', {
+      description: 'Notes progress as a percentage.', ruleHandler: 'project-progress-note', expectedVersion: 1, apply: 'shadow'
+    }));
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const page = await openAgent(fixture, element, 'projects');
+
+    // The tab counts the skills in shadow, the new data skill among them; the rollout lists every part that is not live.
+    expect(page.querySelector('[data-agent-tab="rollout"] .count')?.textContent?.trim()).toBe('2');
+    await openTab(fixture, element, 'rollout');
+    const rollout = () => page.querySelector('[data-rollout-not-live]') as HTMLElement;
+    expect(rollout().querySelector('[data-rollout-skill="deadline-risk"]')?.textContent).toContain('Skill Deadline risk works in shadow');
+    expect(rollout().querySelector('[data-rollout-skill="progress-note"]')).not.toBeNull();
+    expect(rollout().querySelector('[data-rollout-trigger="project-created"]')?.textContent).toContain('Trigger project-created fires in shadow');
+    expect(rollout().querySelector('[data-rollout-skill-candidate="progress-note"]')?.textContent)
+      .toContain('Version 2 of Progress note runs in shadow next to version 1');
+
+    // A trigger goes live here at once.
+    (rollout().querySelector('[data-rollout-trigger-live="project-created"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/triggers/project-created/shadow')).toEqual([{ mode: 'live', reason: null }]);
+    expect(rollout().querySelector('[data-rollout-trigger="project-created"]')).toBeNull();
+
+    // A skill in shadow goes live with its own status.
+    await chooseStatus(fixture, rollout().querySelector('[data-rollout-skill="deadline-risk"]') as HTMLElement, 'deadline-risk', '[data-shadow-action="live"]');
+    button(rollout(), 'Confirm live').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/skills/deadline-risk/shadow')).toEqual([{ mode: 'live', reason: null }]);
+    expect(rollout().querySelector('[data-rollout-skill="deadline-risk"]')).toBeNull();
+
+    // A candidate is compared and decided in Build, where its comparison opens.
+    (rollout().querySelector('[data-rollout-review="skill:progress-note"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(page.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
+    expect(page.querySelector('[data-data-skill="progress-note"] [data-comparison]')?.textContent).toContain('Candidate (v2)');
+  });
+
+  it('shows in the guardrails what the code of an agent in code sets for its runs, read only', async () => {
+    const script = runScenario();
+    script.admin!.agents![0] = {
+      ...script.admin!.agents![0],
+      codeRunSettings: {
+        accountability: 'subject-responsible', approvalPolicy: 'project-review', usesRules: false, skillsInChat: true, allowQuestions: true,
+        triageProfile: 'project-triage', maxConcurrentRuns: 2, maxRunsPerSubjectPerDay: 20, dailyToolCalls: 100, dailyTokens: 300_000,
+        maxTokensPerRun: 40_000, allowGatewayReads: true, usesMemory: true
+      }
+    };
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const page = await openAgent(fixture, element, 'projects', 'build');
+    const fact = (name: string) => page.querySelector(`[data-build-section="guardrails"] [data-code-setting="${name}"]`)?.textContent?.replace(/\s+/g, ' ').trim();
+
+    expect(page.querySelector('[data-code-run-settings]')?.textContent).toContain('Set in code');
+    expect(fact('accountability')).toBe('The person responsible for the subject');
+    expect(fact('way-of-working')).toContain('Triage with project-triage');
+    expect(fact('approval-policy')).toBe('project-review');
+    expect(fact('retries')).toBe('3');
+    expect(fact('max-concurrent')).toBe('2');
+    expect(fact('max-per-subject')).toBe('20');
+    expect(fact('max-tokens')).toBe('40,000');
+    expect(fact('skills-in-chat')).toBe('Yes');
+    expect(fact('questions')).toBe('Yes');
+    expect(fact('memory')).toBe('Yes');
+    expect(fact('gateway-reads')).toBe('Yes');
+    expect(fact('files')).toBe('No');
+    // Nothing that code sets has an input here.
+    expect(page.querySelector('[data-code-run-settings] input, [data-code-run-settings] select')).toBeNull();
+  });
+
+  it('opens the chat with the agent for a test, and says so when the administrator cannot use it there', async () => {
+    await configure();
+    await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).createAgent({
+      id: 'hidden-desk', displayName: 'Hidden desk', description: '', instructions: 'Help.', toolSelectors: [], mcpServerIds: [],
+      requiredPolicy: null, autonomy: 'observe'
+    }));
+    const store = TestBed.inject(NhAssistantStore);
+    const panel = TestBed.inject(NhAssistantPanelService);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    let page = await openAgent(fixture, element, 'projects');
+    (page.querySelector('[data-test-in-chat]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(panel.isOpen()).toBeTrue();
+    expect(store.selectedAgentId()).toBe('projects');
+    expect(store.activeConversation()).toBeNull();
+    panel.close();
+
+    (page.querySelector('[data-back]') as HTMLButtonElement).click();
+    await settle(fixture);
+    page = await openAgent(fixture, element, 'hidden-desk');
+    if (store.agents().some(agent => agent.id === 'hidden-desk')) {
+      // The mock offers agents created here in the chat; then the test opens it the same way.
+      (page.querySelector('[data-test-in-chat]') as HTMLButtonElement).click();
+      await settle(fixture);
+      expect(store.selectedAgentId()).toBe('hidden-desk');
+    } else {
+      (page.querySelector('[data-test-in-chat]') as HTMLButtonElement).click();
+      await settle(fixture);
+      expect(page.querySelector('[data-test-unavailable]')?.textContent).toContain('You cannot use this agent in the chat');
+    }
+  });
+
   it('creates an agent that works on its own and starts in shadow once it has run settings', async () => {
     await configure(runScenario());
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
-    button(element, 'New agent').click();
+    (element.querySelector('[data-new-agent]') as HTMLButtonElement).click();
     await settle(fixture);
     // Only an agent that works on its own may start in shadow.
     expect(element.querySelector('[data-starts-in-shadow]')).toBeNull();
@@ -1172,10 +1439,6 @@ describe('NhAssistantAdminAgentsComponent', () => {
     await settle(fixture);
     expect(element.querySelector('[data-starts-in-shadow]')?.textContent).toContain('Start in shadow');
     check(element, '[data-starts-in-shadow] input');
-    type(element, 'input.mono[aria-label]', 'sample-api.project.*');
-    await settle(fixture);
-    (element.querySelector('.inline button') as HTMLButtonElement).click();
-    await settle(fixture);
     button(element, 'Save').click();
     await settle(fixture);
     expect(requestBodies('POST', 'admin/agents').at(-1)).toEqual(jasmine.objectContaining({ id: 'shadow-starter', startsInShadow: true }));
@@ -1202,24 +1465,26 @@ describe('NhAssistantAdminAgentsComponent', () => {
       }
     }, true);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    const card = () => element.querySelector('.card')!;
+    const row = element.querySelector('[data-agent-row="projects"]') as HTMLElement;
 
-    expect(card().textContent).toContain('Project assistant');
-    expect(card().textContent).toContain('Answers questions about projects.');
-    expect(card().textContent).not.toContain('agents.projects');
-    expect(card().querySelector('[data-required-policy]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Requires: viewing projects');
-    expect(card().textContent).toContain('1 tool selector');
-    expect(card().textContent).not.toContain('1 tool selectors');
-    const skill = card().querySelector('[data-skill="task-follow-up"]')!;
+    expect(row.textContent).toContain('Project assistant');
+    expect(row.textContent).toContain('Answers questions about projects.');
+    expect(row.textContent).not.toContain('agents.projects');
+    const page = await openAgent(fixture, element, 'projects', 'build');
+    expect(page.querySelector('h3')?.textContent?.trim()).toBe('Project assistant');
+    expect(page.querySelector('[data-required-policy]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('viewing projects');
+    expect(page.querySelector('[data-tools-summary]')?.textContent).toContain('sample-api.project.*');
+    const skill = page.querySelector('[data-code-skill="task-follow-up"]')!;
     expect(skill.querySelector('strong')?.textContent?.trim()).toBe('Task follow up');
     expect(skill.textContent).toContain('Follows up completed tasks.');
 
     // The editor shows the translations and sends the keys back while they are kept.
-    button(element, 'Edit').click();
+    const profile = () => page.querySelector('[data-build-section="profile"]') as HTMLElement;
+    (page.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect((element.querySelector('input[id$="-name"]') as HTMLInputElement).value).toBe('Project assistant');
-    expect((element.querySelector('input[id$="-description"]') as HTMLInputElement).value).toBe('Answers questions about projects.');
-    button(element, 'Save').click();
+    expect((profile().querySelector('input[id$="-name"]') as HTMLInputElement).value).toBe('Project assistant');
+    expect((profile().querySelector('input[id$="-description"]') as HTMLInputElement).value).toBe('Answers questions about projects.');
+    button(profile(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/projects')).toEqual([jasmine.objectContaining({
       displayName: 'agents.projects.name',
@@ -1227,10 +1492,10 @@ describe('NhAssistantAdminAgentsComponent', () => {
     })]);
 
     // A changed text is the administrator's own.
-    button(element, 'Edit').click();
+    (page.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     await settle(fixture);
-    type(element, 'input[id$="-name"]', 'Projects helper');
-    button(element, 'Save').click();
+    type(profile(), 'input[id$="-name"]', 'Projects helper');
+    button(profile(), 'Save').click();
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/projects')[1]).toEqual(jasmine.objectContaining({
       displayName: 'Projects helper',
@@ -1243,13 +1508,14 @@ describe('NhAssistantAdminAgentsComponent', () => {
     script.admin!.agents![0] = { ...script.admin!.agents![0], requiredPolicy: 'app.project.view' };
     await configure(script);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const page = await openAgent(fixture, element, 'projects', 'build');
 
-    expect(element.querySelector('[data-required-policy] code')?.textContent).toBe('app.project.view');
-    button(element, 'Pause').click();
-    await settle(fixture);
-    const note = element.querySelector('input[id$="-reason"]') as HTMLInputElement;
-    expect(element.querySelector(`label[for="${note.id}"]`)?.textContent).toContain('Note for other administrators (optional)');
-    expect(element.querySelector(`#${note.getAttribute('aria-describedby')}`)?.textContent).toContain('The agent does not read it.');
+    expect(page.querySelector('[data-required-policy] code')?.textContent).toBe('app.project.view');
+    const head = page.querySelector('.page-head') as HTMLElement;
+    await chooseStatus(fixture, head, 'agent', '[data-state-action="paused"]');
+    const note = head.querySelector('.change-form input') as HTMLInputElement;
+    expect(head.querySelector(`label[for="${note.id}"]`)?.textContent).toContain('Note for other administrators (optional)');
+    expect(head.querySelector(`#${note.getAttribute('aria-describedby')}`)?.textContent).toContain('The agent does not read it.');
   });
 
   it('offers an agent created here its own setting instead of the code to return to', async () => {
@@ -1266,13 +1532,13 @@ describe('NhAssistantAdminAgentsComponent', () => {
     } as typeof codeAgent;
     const translate = TestBed.inject(TranslateService);
 
-    expect(translate.instant(list.shadowActionKey(codeAgent, 'code'))).toBe('Follow the code');
-    expect(translate.instant(list.shadowActionKey(created, 'code'))).toBe('Back to its own setting');
-    expect(translate.instant(list.shadowExplainKey(created, 'code', true), {
+    expect(translate.instant(shadowActionKey(codeAgent, 'code'))).toBe('Follow the code');
+    expect(translate.instant(shadowActionKey(created, 'code'))).toBe('Back to its own setting');
+    expect(translate.instant(shadowExplainKey(created, 'code', true), {
       skill: 'Kickoff',
-      mode: translate.instant(list.ownShadowModeKey(created, 'kickoff'))
+      mode: translate.instant(ownShadowModeKey(created, 'kickoff'))
     })).toBe('The own setting of the skill Kickoff decides again: in shadow.');
-    expect(translate.instant(list.shadowExplainKey(created, 'live', false))).toContain('New runs work live');
+    expect(translate.instant(shadowExplainKey(created, 'live', false))).toContain('New runs work live');
   });
 
   it('deletes an admin agent only after confirmation', async () => {
@@ -1282,15 +1548,20 @@ describe('NhAssistantAdminAgentsComponent', () => {
       requiredPolicy: null, autonomy: 'observe'
     }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const page = await openAgent(fixture, element, 'temporary');
 
-    button(element, 'Delete').click();
-    fixture.detectChanges();
+    await openMore(fixture, page);
+    (page.querySelector('[data-delete-agent]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(page.querySelector('[data-confirming="delete"]')).not.toBeNull();
     expect(requestBodies('DELETE', 'admin/agents/temporary')).toEqual([]);
 
-    button(element, 'Confirm delete').click();
+    button(page, 'Confirm delete').click();
     await settle(fixture);
 
     expect(requestBodies('DELETE', 'admin/agents/temporary').length).toBe(1);
+    expect(element.querySelector('[data-agent-page]')).toBeNull();
+    expect(element.querySelector('[data-agent-row="temporary"]')).toBeNull();
     expect(element.textContent).not.toContain('Temporary');
   });
 });

@@ -442,9 +442,22 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         worksOnSubjectTypes: ['project'],
         // SPM-313: the cost center its code books its work on.
         metadata: { 'cost-center': { code: 'CC-4100', owner: 'Planning office' } },
-        // SPM-298: how its code makes it run, for the flow view: it answers to the person responsible for
-        // the project and its proposals wait for the intake approval.
-        codeRunSettings: { accountability: 'subject-responsible', approvalPolicy: 'project-intake', usesRules: false },
+        // SPM-298: how its code makes it run, for the flow view and the guardrails: it answers to the
+        // person responsible for the project, its proposals wait for the intake approval, and the rest
+        // is what the API's planner sets in code (SampleProjectPlannerComposition).
+        codeRunSettings: {
+          accountability: 'subject-responsible',
+          approvalPolicy: 'project-intake',
+          usesRules: false,
+          skillsInChat: true,
+          triageProfile: 'project-planner-triage',
+          maxConcurrentRuns: 2,
+          maxRunsPerSubjectPerDay: 20,
+          dailyToolCalls: 100,
+          dailyTokens: 300_000,
+          maxTokensPerRun: 40_000,
+          allowGatewayReads: true
+        },
         skills: [
           { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
           { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }

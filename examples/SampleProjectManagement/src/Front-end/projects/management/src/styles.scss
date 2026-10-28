@@ -25,4 +25,6 @@
   --nh-assistant-shadow: var(--shadow-md);
   --nh-assistant-radius: var(--radius-card);
   --nh-assistant-radius-control: var(--radius-control);
+  // The sticky topbar of the management layout: an agent's Build page scrolls its sections below it.
+  --nh-assistant-scroll-margin-top: 88px;
 }

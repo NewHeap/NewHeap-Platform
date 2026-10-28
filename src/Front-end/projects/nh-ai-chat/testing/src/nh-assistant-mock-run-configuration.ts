@@ -306,7 +306,22 @@ export class NhAssistantMockRunConfiguration {
       approvalPolicy: given.approvalPolicy ?? null,
       usesRules: given.usesRules ?? false,
       startsOff: given.startsOff ?? false,
-      acceptsFiles: given.acceptsFiles ?? false
+      acceptsFiles: given.acceptsFiles ?? false,
+      chatOnly: given.chatOnly ?? agent.chatOnly === true,
+      skillsInChat: given.skillsInChat ?? false,
+      allowQuestions: given.allowQuestions ?? false,
+      usesMemory: given.usesMemory ?? false,
+      triageProfile: given.triageProfile ?? null,
+      // The platform's defaults, as an agent in code that sets none has them.
+      retryCount: given.retryCount ?? 3,
+      maxConcurrentRuns: given.maxConcurrentRuns ?? 4,
+      maxRunsPerSubjectPerDay: given.maxRunsPerSubjectPerDay ?? 10,
+      dailyToolCalls: given.dailyToolCalls ?? null,
+      dailyTokens: given.dailyTokens ?? null,
+      maxTokensPerRun: given.maxTokensPerRun ?? null,
+      maxConsultationsPerTurn: given.maxConsultationsPerTurn ?? null,
+      elevatedReads: given.elevatedReads ?? 'restricted',
+      allowGatewayReads: given.allowGatewayReads ?? false
     };
   }
 

@@ -1,11 +1,13 @@
 import { Component } from '@angular/core';
 import { NhAssistantAdminComponent } from '@newheap/platform-ai-chat/admin';
 import { TranslateModule } from '@ngx-translate/core';
+import { sampleAssistantAdminLocation } from './sample-assistant-admin-location';
 
 /**
  * The assistant's administration against the real back-end, in the portal's own assistant scope:
  * the agents the application registers in code and those created here, such as the project
- * starter that the development seed creates as an agent that works on its own.
+ * starter that the development seed creates as an agent that works on its own. SPM-253: the URL
+ * keeps the open agent and its tab, so a link opens that agent's page.
  */
 @Component({
   selector: 'app-assistant-administration-page',
@@ -14,7 +16,7 @@ import { TranslateModule } from '@ngx-translate/core';
   template: `
     <section class="assistant-administration-page">
       <p class="intro">{{ 'project.assistant-administration-intro' | translate }}</p>
-      <nh-assistant-admin />
+      <nh-assistant-admin [location]="admin.location()" (locationChange)="admin.follow($event)" />
     </section>
   `,
   styles: [`
@@ -38,4 +40,6 @@ import { TranslateModule } from '@ngx-translate/core';
     }
   `]
 })
-export class AssistantAdministrationPageComponent {}
+export class AssistantAdministrationPageComponent {
+  readonly admin = sampleAssistantAdminLocation();
+}

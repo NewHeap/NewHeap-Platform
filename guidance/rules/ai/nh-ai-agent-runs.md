@@ -854,7 +854,11 @@ response says what an administration's overview of the agent needs without anoth
 trigger in code names the subject type it runs for up front (`NhAssistantCodeTriggerDto.SubjectType`,
 `nh-system` for a schedule for the whole application, `null` when only the fire knows it), and an agent
 in code reports whom it answers to, whether it delegates from the initiator, its approval policy and
-whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`). `GET admin/tools`
+whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`), and, read only for the
+administration's guardrails, what else its code sets: `SkillsInChat`, `AllowQuestions`, `UsesMemory`,
+`TriageProfile`, `RetryCount`, `MaxConcurrentRuns`, `MaxRunsPerSubjectPerDay`, `DailyToolCalls`,
+`DailyTokens`, `MaxTokensPerRun`, `MaxConsultationsPerTurn`, `ElevatedReads` and `AllowGatewayReads`,
+with the platform's defaults for what it leaves out (SPM-298). `GET admin/tools`
 names the object type a tool declares with `[NhAiSubject]` (`SubjectType`), so a screen can say that
 a run's proposal of it waits at that object; MCP tools never declare one.
 

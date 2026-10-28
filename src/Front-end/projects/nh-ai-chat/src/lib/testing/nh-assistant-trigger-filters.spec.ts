@@ -9,6 +9,7 @@ import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.s
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { NhAssistantTriggerFormComponent } from '../../../admin/src/agents/run-config/nh-assistant-trigger-form.component';
+import { openAdminAgent } from './nh-assistant-admin-navigation';
 import { startNhAssistantAdminTranslations } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 
 /** Each searchable picker waits for its search, so a form flow takes several seconds. */
@@ -122,7 +123,7 @@ describe('Trigger event filters in the administration', () => {
   it('offers the filters of the chosen event with what they skip and saves those selected in the event\'s order', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
+    await openAdminAgent(fixture, element, 'projects', 'build');
     await settle(fixture);
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     button(view(), 'Add trigger').click();
@@ -159,7 +160,7 @@ describe('Trigger event filters in the administration', () => {
   it('drops filters the next chosen event does not offer and sends none for a schedule', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    (element.querySelector('[data-run-config-agent="projects"]') as HTMLButtonElement).click();
+    await openAdminAgent(fixture, element, 'projects', 'build');
     await settle(fixture);
     const view = () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     button(view(), 'Add trigger').click();

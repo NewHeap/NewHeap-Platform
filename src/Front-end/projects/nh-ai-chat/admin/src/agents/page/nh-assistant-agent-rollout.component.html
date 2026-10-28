@@ -1,0 +1,112 @@
+<div class="stack" data-rollout>
+  <section class="build-section" [attr.aria-labelledby]="id + '-agent-title'" data-rollout-agent>
+    <header>
+      <div>
+        <h4 [id]="id + '-agent-title'">{{ 'nh-assistant.admin.agent-page.rollout.agent.title' | translate }}</h4>
+        <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.agent.description' | translate }}</p>
+      </div>
+      <nh-assistant-agent-state-control [agent]="agent()" kinds="shadow" [disabled]="disabled()" (changed)="onChanged($event)" />
+    </header>
+    @if (agent().shadow; as shadow) {
+      <p class="muted" data-rollout-mode>
+        @if (shadow.shadow) {
+          {{ (shadow.locked ? 'nh-assistant.admin.agents.shadow.locked' : 'nh-assistant.admin.agents.shadow.hint') | translate }}
+        } @else {
+          {{ 'nh-assistant.admin.agent-page.rollout.agent.live' | translate }}
+        }
+        @if (shadow.changedAt && shadow.override !== null) {
+          <span [attr.title]="accountTitle(shadow.changedBy)">{{ 'nh-assistant.admin.agents.shadow.changed' | translate: { user: accountName(shadow.changedBy), date: (shadow.changedAt | date: 'medium') } }}</span>
+        }
+        @if (shadow.reason && shadow.override !== null) {
+          {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: shadow.reason } }}
+        }
+      </p>
+    }
+  </section>
+
+  <section class="build-section" [attr.aria-labelledby]="id + '-not-live-title'" [attr.aria-busy]="loading()" data-rollout-not-live>
+    <header>
+      <div>
+        <h4 [id]="id + '-not-live-title'">{{ 'nh-assistant.admin.agent-page.rollout.not-live.title' | translate }}</h4>
+        <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.not-live.description' | translate }}</p>
+      </div>
+    </header>
+    @if (agentInShadow()) {
+      <p class="message info" data-rollout-agent-shadow><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.agent-page.rollout.not-live.agent-shadow' | translate }}</p>
+    }
+    @if (loading() && !configuration()) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (loadFailed()) {
+      <div class="state" role="alert">
+        <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (notLive() === 0) {
+      <p class="state" data-rollout-all-live>{{ (agentInShadow() ? 'nh-assistant.admin.agent-page.rollout.not-live.empty-in-shadow' : 'nh-assistant.admin.agent-page.rollout.not-live.empty') | translate }}</p>
+    } @else {
+      <ul class="not-live">
+        @for (skill of skillsInShadow(); track skill.skillId) {
+          <li [attr.data-rollout-skill]="skill.skillId">
+            <span class="grow">{{ 'nh-assistant.admin.agent-page.rollout.not-live.skill-shadow' | translate: { skill: (skillNameKeys(agent().id, skill.skillId) | nhAssistantTranslate: readableId(skill.skillId)) } }}</span>
+            <nh-assistant-agent-state-control [agent]="agent()" [skill]="skill" kinds="shadow" [disabled]="disabled()" (changed)="onChanged($event)" />
+          </li>
+        }
+        @for (skill of skillCandidates(); track skill.skillId) {
+          @let name = skillName(skill);
+          <li [attr.data-rollout-skill-candidate]="skill.skillId">
+            <span class="grow">{{ 'nh-assistant.admin.agent-page.rollout.not-live.skill-candidate' | translate: { skill: (name.keys | nhAssistantTranslate: name.fallback), candidate: skill.candidate?.version, version: skill.version } }}</span>
+            <button class="secondary" type="button" [attr.data-rollout-review]="'skill:' + skill.skillId" (click)="review.emit({ section: 'skills', id: skill.skillId })">
+              <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agent-page.rollout.not-live.review' | translate }}
+            </button>
+          </li>
+        }
+        @for (trigger of triggersInShadow(); track trigger.triggerId) {
+          <li [attr.data-rollout-trigger]="trigger.triggerId">
+            <span class="grow">{{ 'nh-assistant.admin.agent-page.rollout.not-live.trigger-shadow' | translate: { trigger: trigger.triggerId } }}</span>
+            <button
+              class="secondary"
+              type="button"
+              [attr.data-rollout-trigger-live]="trigger.triggerId"
+              [disabled]="disabled() || busyTrigger() !== null"
+              (click)="putTriggerLive(trigger)">
+              {{ 'nh-assistant.admin.agents.shadow.action.live' | translate }}
+            </button>
+          </li>
+        }
+        @for (trigger of triggerCandidates(); track trigger.triggerId) {
+          <li [attr.data-rollout-trigger-candidate]="trigger.triggerId">
+            <span class="grow">{{ 'nh-assistant.admin.agent-page.rollout.not-live.trigger-candidate' | translate: { trigger: trigger.triggerId, candidate: trigger.candidate?.version, version: trigger.version } }}</span>
+            <button class="secondary" type="button" [attr.data-rollout-review]="'trigger:' + trigger.triggerId" (click)="review.emit({ section: 'triggers', id: trigger.triggerId })">
+              <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agent-page.rollout.not-live.review' | translate }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @if (error(); as failure) {
+      <p class="form-error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+    }
+  </section>
+
+  @if (runs()) {
+    <section class="build-section" data-rollout-variants>
+      <nh-assistant-agent-shadow-variants
+        [agent]="agent()"
+        (created)="variantCreated.emit($event)"
+        (promoted)="variantPromoted.emit($event)"
+        (openVariant)="openVariant.emit($event)" />
+    </section>
+  }
+
+  @if (variants().length > 0) {
+    <section class="build-section" [attr.aria-labelledby]="id + '-evaluation-title'" data-rollout-evaluation>
+      <header>
+        <div>
+          <h4 [id]="id + '-evaluation-title'">{{ 'nh-assistant.admin.agent-page.rollout.evaluation.title' | translate }}</h4>
+          <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.evaluation.description' | translate }}</p>
+        </div>
+      </header>
+      <nh-assistant-agent-evaluation [agentId]="agent().id" [variants]="variants()" />
+    </section>
+  }
+</div>

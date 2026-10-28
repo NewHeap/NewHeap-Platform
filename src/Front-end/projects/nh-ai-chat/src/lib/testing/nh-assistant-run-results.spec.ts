@@ -9,6 +9,7 @@ import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.s
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
 import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { backToAdminList, openAdminAgent } from './nh-assistant-admin-navigation';
 import {
   NhAssistantObjectAgentsComponent,
   NhAssistantRunResultComponent,
@@ -398,7 +399,7 @@ describe('The runs view of an agent in the administration', () => {
     host.style.display = 'block';
     host.style.width = '375px';
     let element = await settle(fixture);
-    (element.querySelector(`[data-runs-agent="${agentId}"]`) as HTMLButtonElement).click();
+    await openAdminAgent(fixture, element, agentId, 'activity');
     element = await settle(fixture);
     return { fixture, element };
   }
@@ -416,7 +417,7 @@ describe('The runs view of an agent in the administration', () => {
     const { fixture, element } = await openRuns('follow-up');
 
     expect(runs).toHaveBeenCalledWith('follow-up', { page: 1, itemsPerPage: 20 });
-    expect(text(element.querySelector('h3'))).toBe('Runs');
+    expect(text(element.querySelector('nh-assistant-agent-run-history h3'))).toBe('Runs');
     expect(text(element.querySelector('[data-runs-count]'))).toBe('3 of 3 runs');
     const cards = Array.from(element.querySelectorAll<HTMLElement>('[data-run]'));
     expect(cards.map(card => card.dataset['run'])).toEqual(['run-application', 'run-long', 'run-shadow']);
@@ -481,10 +482,9 @@ describe('The runs view of an agent in the administration', () => {
     await settle(fixture);
     expect(document.activeElement).toBe(element.querySelector('[data-open-run="run-long"]'));
 
-    // Back to the agents, at the runs action of the agent.
-    button(element, 'Back to agents').click();
-    await settle(fixture);
-    expect(document.activeElement).toBe(element.querySelector('[data-runs-agent="follow-up"]'));
+    // Back to the agents, at the row of the agent.
+    await backToAdminList(fixture, element);
+    expect(document.activeElement).toBe(element.querySelector('[data-agent-row="follow-up"]'));
   });
 });
 

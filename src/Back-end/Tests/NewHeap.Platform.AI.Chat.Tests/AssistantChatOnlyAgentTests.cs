@@ -246,7 +246,15 @@ public sealed class AssistantChatOnlyAgentTests(AssistantDatabaseFixture databas
             listed.GetProperty("worksOnApplication").GetBoolean(),
             listed.GetProperty("worksOnSubjectTypes").GetArrayLength()));
         var configuration = await ReadJsonAsync(await admin.GetAsync($"/api/assistant/admin/agents/{ChatHelper}/configuration"));
-        Assert.True(configuration.GetProperty("codeRunSettings").GetProperty("chatOnly").GetBoolean());
+        var codeSettings = configuration.GetProperty("codeRunSettings");
+        Assert.True(codeSettings.GetProperty("chatOnly").GetBoolean());
+        // What its code sets for chats shows read only in the administration's guardrails; the limits
+        // it leaves to the application stay empty.
+        Assert.Equal((true, true, JsonValueKind.Null, JsonValueKind.Null), (
+            codeSettings.GetProperty("skillsInChat").GetBoolean(),
+            codeSettings.GetProperty("allowQuestions").GetBoolean(),
+            codeSettings.GetProperty("maxConsultationsPerTurn").ValueKind,
+            codeSettings.GetProperty("maxTokensPerRun").ValueKind));
         await AssertErrorAsync(
             await admin.PostAsJsonAsync($"/api/assistant/admin/agents/{ChatHelper}/shadow", new { mode = "shadow" }),
             HttpStatusCode.Conflict,

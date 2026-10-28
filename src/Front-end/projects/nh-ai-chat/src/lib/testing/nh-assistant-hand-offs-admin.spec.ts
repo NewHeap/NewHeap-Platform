@@ -5,6 +5,7 @@ import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMock
 import { firstValueFrom } from 'rxjs';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 import { AgentHandOffs, AgentShadowVariants } from '../models/assistant-hand-off.models';
+import { AdminAgentTab, openAdminAgent, openAdminTab } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
 
 /**
@@ -121,9 +122,12 @@ const variantDefinition = {
   toolSelectors: ['projects.*'], mcpServerIds: [], requiredPolicy: null, autonomy: 'propose', shadowOf: 'planner'
 };
 
-/** Opens the run configuration of the agent on the agents page and returns the page. */
-async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
-  (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
+/**
+ * Opens the page of the agent on the agents page, at Build where its hand-offs are, or at Rollout
+ * where its shadow variants are, and returns the agents page.
+ */
+async function openRunConfiguration(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string, tab: AdminAgentTab = 'build'): Promise<HTMLElement> {
+  await openAdminAgent(fixture, element, agentId, tab);
   return settle(fixture);
 }
 
@@ -327,7 +331,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
 
   it('creates a shadow variant from the live agent and continues in its run configuration', async () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await openRunConfiguration(fixture, element, 'planner');
+    let page = await openRunConfiguration(fixture, element, 'planner', 'rollout');
     let section = page.querySelector('[data-shadow-variants]') as HTMLElement;
     expect(text(section.querySelector('[data-shadow-variants-empty]'))).toBe('This agent has no shadow variants.');
 
@@ -356,9 +360,12 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
       offeredInChat: false,
       shadowOf: 'planner'
     })]);
-    // The page continues in the variant's run configuration, where it gets its run settings.
+    // The page continues on the variant's page at Build, where its guided setup gives it run settings.
+    expect(page.querySelector('[data-agent-page="planner-v2"] [data-agent-panel="build"] nh-assistant-agent-run-configuration')).not.toBeNull();
+    expect(page.querySelector('[data-work-setup]')).not.toBeNull();
+    await openAdminTab(fixture, element, 'rollout');
+    page = await settle(fixture);
     section = page.querySelector('[data-shadow-variants]') as HTMLElement;
-    expect(page.querySelector('nh-assistant-agent-run-configuration')).not.toBeNull();
     expect(section.querySelector('[data-shadow-variants-closed]')?.getAttribute('data-shadow-variants-closed')).toBe('not-allowed');
     const variants = (await call('GET', 'admin/agents/planner/shadow-variants')).body as AgentShadowVariants;
     expect(variants.variants.map(variant => [variant.agentId, variant.hasRunSettings])).toEqual([['planner-v2', false]]);
@@ -367,7 +374,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
   it('promotes a data variant onto the agent after a confirmation and says what changed', async () => {
     expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await openRunConfiguration(fixture, element, 'planner');
+    let page = await openRunConfiguration(fixture, element, 'planner', 'rollout');
     const action = page.querySelector('[data-shadow-variants] [data-promote-variant="planner-v2"]') as HTMLButtonElement;
     expect(text(action)).toBe('Promote onto Project planner');
     expect(action.getAttribute('aria-label')).toBe('Promote Planner v2 onto Project planner');
@@ -403,7 +410,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
   it('refuses a promotion onto an agent that changed in the meantime', async () => {
     expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await openRunConfiguration(fixture, element, 'planner');
+    let page = await openRunConfiguration(fixture, element, 'planner', 'rollout');
     (page.querySelector('[data-promote-variant="planner-v2"]') as HTMLButtonElement).click();
     page = await settle(fixture);
 
@@ -422,7 +429,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     await firstValueFrom(TestBed.inject(TranslateService).use('nl'));
     expect((await call('POST', 'admin/agents', variantDefinition)).status).toBe(201);
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
-    let page = await openRunConfiguration(fixture, element, 'planner');
+    let page = await openRunConfiguration(fixture, element, 'planner', 'rollout');
     const action = page.querySelector('[data-promote-variant="planner-v2"]') as HTMLButtonElement;
     expect(text(action)).toBe('Promoveren naar Project planner');
     action.click();
@@ -440,6 +447,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     expect(page.querySelector('[data-hand-offs-closed]')?.getAttribute('data-hand-offs-closed')).toBe('application');
     expect(page.querySelector('[data-open-form="hand-off"]')).toBeNull();
     expect(text(page.querySelector('[data-hand-offs-empty]'))).toBe('No agent can hand work to this agent yet.');
+    await openAdminTab(fixture, element, 'rollout');
     expect(page.querySelector('[data-shadow-variants-closed]')?.getAttribute('data-shadow-variants-closed')).toBe('not-allowed');
     expect(page.querySelector('[data-open-form="shadow-variant"]')).toBeNull();
   }, formFlowTimeout);
@@ -450,8 +458,9 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     const page = await openRunConfiguration(fixture, element, 'closer');
 
     expect(text(page.querySelector('[data-hand-offs] h3'))).toBe('Overdrachten');
-    expect(text(page.querySelector('[data-shadow-variants] h3'))).toBe('Schaduwvarianten');
     expect(text(page.querySelector('[data-hand-off="project"]'))).toContain('Hoogstens 3 per bron en object per dag');
+    await openAdminTab(fixture, element, 'rollout');
+    expect(text(page.querySelector('[data-shadow-variants] h3'))).toBe('Schaduwvarianten');
   }, formFlowTimeout);
 
   it('names agents in code in the reader\'s language, as the agent list does', async () => {
@@ -480,7 +489,7 @@ describe('Hand-offs and shadow variants in the run configuration', () => {
     expect(page.querySelector('[data-hand-offs]')?.textContent).not.toContain('nh-assistant.agents.planner.name');
 
     const planner = await render(NhAssistantAdminAgentsComponent);
-    page = await openRunConfiguration(planner.fixture, planner.element, 'planner');
+    page = await openRunConfiguration(planner.fixture, planner.element, 'planner', 'rollout');
     const section = page.querySelector('[data-shadow-variants]') as HTMLElement;
     expect(text(section.querySelector('[data-shadow-variant="planner-strict"] [data-shadow-variant-name]'))).toBe('Strict planner');
     (section.querySelector('[data-open-form="shadow-variant"]') as HTMLButtonElement).click();

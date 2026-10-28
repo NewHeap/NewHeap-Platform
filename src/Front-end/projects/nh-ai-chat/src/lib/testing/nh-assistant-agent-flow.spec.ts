@@ -13,6 +13,7 @@ import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
+import { openAdminAgent, openAdminTab } from './nh-assistant-admin-navigation';
 import { NhAssistantAdminAgentsComponent, NhAssistantAdminComponent } from '../../../admin/src/public-api';
 
 /**
@@ -183,9 +184,9 @@ async function render<T>(component: Type<T>): Promise<{ fixture: ComponentFixtur
   return { fixture, element };
 }
 
-/** Opens the run configuration of the agent on the agents page and returns its flow. */
+/** Opens the page of the agent on the agents page and returns the flow on its overview. */
 async function openFlow(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
-  (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
+  await openAdminAgent(fixture, element, agentId);
   await settle(fixture);
   return flowOf(element);
 }
@@ -209,10 +210,11 @@ describe('The flow view of an agent', () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
     const flow = await openFlow(fixture, element, 'follow-up');
 
-    // An ordered list of six steps, each with its heading, at the top of the run configuration.
-    const configuration = element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
-    const settings = configuration.querySelector('[data-run-settings]') as HTMLElement;
-    expect(flow.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // An ordered list of six steps, each with its heading, on the overview after the agent's status;
+    // the forms the steps summarize are in Build.
+    const status = element.querySelector('[data-overview-status]') as HTMLElement;
+    expect(status.compareDocumentPosition(flow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(element.querySelector('nh-assistant-agent-run-configuration [data-run-settings]')).toBeNull();
     expect(flow.querySelector('ol.flow-steps')?.children.length).toBe(6);
     expect(Array.from(flow.querySelectorAll('ol.flow-steps > li h5')).map(text)).toEqual([
       'What it works on', 'When it runs', 'How it works', 'Who it answers to', 'Who approves its proposals', 'Its results'
@@ -272,9 +274,10 @@ describe('The flow view of an agent', () => {
     expectAccount(account, 'Account ID operations');
     expect(account.querySelector('[data-account-label-id]')).not.toBeNull();
     expect(account.querySelector('[data-account-copy-id]')).toBeNull();
+    expect(element.querySelector('nh-assistant-agent-run-configuration [data-account-names-error]')).not.toBeNull();
+    await openAdminTab(fixture, element, 'build');
     const summary = element.querySelector('[data-settings-summary] [data-account-name]') as HTMLElement;
     expect(text(summary)).toBe('Account ID operations');
-    expect(element.querySelector('nh-assistant-agent-run-configuration [data-account-names-error]')).not.toBeNull();
   });
 
   it('shows problems at the step they concern with the entry point that fixes them', async () => {
@@ -304,18 +307,18 @@ describe('The flow view of an agent', () => {
       .toContain('MCP server Project documents is not used in runs that start on their own: its background use is off.');
     expect(step(flow, 'works-on').querySelector('[data-flow-warning]')).toBeNull();
 
-    // The fix opens the trigger's form below; cancelling returns to the fix.
+    // The fix opens the trigger's form in Build, with the focus in it.
     const fix = button(warning, 'Change the trigger');
     fix.focus();
     fix.click();
     await settle(fixture);
-    const form = element.querySelector('[data-form="trigger"]') as HTMLElement;
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
+    const form = element.querySelector('[data-build-section="triggers"] [data-form="trigger"]') as HTMLElement;
     expect(form).not.toBeNull();
     expect(form.contains(document.activeElement)).toBeTrue();
     button(form, 'Cancel').click();
     await settle(fixture);
     expect(element.querySelector('[data-form="trigger"]')).toBeNull();
-    expect(document.activeElement).toBe(step(flowOf(element), 'when').querySelector('[data-flow-fix="edit-trigger"]'));
   });
 
   it('opens every form it summarizes from its steps and keeps the forms below reachable', async () => {
@@ -324,12 +327,15 @@ describe('The flow view of an agent', () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
     let flow = await openFlow(fixture, element, 'follow-up');
 
+    // Each entry opens its form in Build; the overview is a tab away.
     const opens = async (selector: string, form: string): Promise<void> => {
       (flow.querySelector(selector) as HTMLButtonElement).click();
       await settle(fixture);
+      expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).withContext(selector).toBe('build');
       expect(element.querySelector(`[data-form="${form}"]`)).withContext(selector).not.toBeNull();
       button(element.querySelector(`[data-form="${form}"]`)!, 'Cancel').click();
       await settle(fixture);
+      await openAdminTab(fixture, element, 'overview');
       flow = flowOf(element);
     };
     await opens('[data-flow-entry="add-trigger"]', 'trigger');
@@ -339,12 +345,15 @@ describe('The flow view of an agent', () => {
     await opens('[data-flow-entry="settings"]', 'settings');
     await opens('[data-flow-entry="approval"]', 'settings');
 
-    // The sections below keep their own actions.
+    // The sections of Build keep their own actions.
+    await openAdminTab(fixture, element, 'build');
     const configuration = element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement;
     expect(configuration.querySelector('[data-run-settings] [data-open-form="settings"]')).not.toBeNull();
     expect(configuration.querySelector('[data-skills] [data-open-form="skill"]')).not.toBeNull();
     expect(configuration.querySelector('[data-triggers] [data-open-form="trigger"]')).not.toBeNull();
     expect(configuration.querySelector('[data-data-trigger="weekly"]')).not.toBeNull();
+    await openAdminTab(fixture, element, 'overview');
+    flow = flowOf(element);
 
     // The edit button of a trigger names it.
     expect(flow.querySelector('[data-flow-trigger="weekly"] button')?.getAttribute('aria-label')).toBe('Edit trigger weekly');
@@ -355,39 +364,52 @@ describe('The flow view of an agent', () => {
     expect(element.querySelector('nh-assistant-agent-flow nh-assistant-run-now-dialog dialog')).not.toBeNull();
   });
 
-  it('opens the editor and the runs from its steps and returns to the run configuration', async () => {
+  it('opens the parts of the editor in Build and the runs in Activity from its steps', async () => {
     await configure();
     await configureFollowUp();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
     let flow = await openFlow(fixture, element, 'follow-up');
 
-    // What it works on opens the agent editor; cancelling returns to the flow.
+    // What it works on opens the profile in Build.
     (flow.querySelector('[data-flow-entry="edit-agent"]') as HTMLButtonElement).click();
     await settle(fixture);
-    const editor = element.querySelector('nh-assistant-admin-agent-editor') as HTMLElement;
+    const editor = element.querySelector('[data-build-section="profile"] nh-assistant-admin-agent-editor') as HTMLElement;
     expect(editor).not.toBeNull();
+    expect(editor.querySelector('[data-works-on]')).not.toBeNull();
     button(editor, 'Cancel').click();
     await settle(fixture);
+    await openAdminTab(fixture, element, 'overview');
     flow = flowOf(element);
 
-    // Its groups open the editor too; saving returns to the flow with the change.
+    // Its tools open the tools in Build.
+    (flow.querySelector('[data-flow-entry="tools"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const tools = element.querySelector('[data-build-section="tools"] nh-assistant-admin-agent-editor') as HTMLElement;
+    expect(tools.querySelector('[data-agent-tool-selectors]')).not.toBeNull();
+    button(tools, 'Cancel').click();
+    await settle(fixture);
+    await openAdminTab(fixture, element, 'overview');
+    flow = flowOf(element);
+
+    // Its groups open the access in the guardrails; the overview shows the change.
     (flow.querySelector('[data-flow-entry="groups"]') as HTMLButtonElement).click();
     await settle(fixture);
-    const groups = element.querySelector('nh-assistant-admin-agent-editor') as HTMLElement;
+    const groups = element.querySelector('[data-guardrails-access] nh-assistant-admin-agent-editor') as HTMLElement;
     const member = groups.querySelector('[data-agent-group="project-management"] input') as HTMLInputElement;
     member.click();
     await settle(fixture);
     button(groups, 'Save').click();
     await settle(fixture);
+    await openAdminTab(fixture, element, 'overview');
     flow = flowOf(element);
     expect(text(step(flow, 'results').querySelector('[data-flow-groups]'))).toBe('Groups: In no group, so no board shows it.');
 
-    // All runs opens the runs view, whose back button returns to the run configuration.
+    // All runs opens the runs in Activity; the overview is a tab away.
     (flow.querySelector('[data-flow-entry="runs"]') as HTMLButtonElement).click();
     await settle(fixture);
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('activity');
     expect(element.querySelector('nh-assistant-agent-run-history')).not.toBeNull();
-    button(element, 'Back to the run configuration').click();
-    await settle(fixture);
+    await openAdminTab(fixture, element, 'overview');
     expect(flowOf(element)).not.toBeNull();
     expect(element.querySelector('nh-assistant-agent-run-history')).toBeNull();
   });
@@ -421,11 +443,11 @@ describe('The flow view of an agent', () => {
     expectAccount(step(flow, 'account'), 'Operations');
     expect(text(step(flow, 'approval').querySelector('[data-flow-policy="agent"]'))).toContain('project-review');
 
-    // Changing its technical account happens on its card in the list.
+    // Changing its technical account happens in its guardrails in Build.
     (step(flow, 'account').querySelector('[data-flow-entry="account"]') as HTMLButtonElement).click();
     await settle(fixture);
-    expect(element.querySelector('nh-assistant-agent-run-configuration')).toBeNull();
-    expect(element.querySelector('[data-account-form]')).not.toBeNull();
+    expect(element.querySelector('[data-agent-panel]')?.getAttribute('data-agent-panel')).toBe('build');
+    expect(element.querySelector('[data-guardrails-account] [data-account-form]')).not.toBeNull();
   });
 
   it('asks an agent created here without run settings to work on its own first', async () => {
@@ -456,7 +478,7 @@ describe('The flow view of an agent', () => {
     await settle(fixture);
 
     const selected = element.querySelector('[role="tab"][aria-selected="true"]') as HTMLElement;
-    expect(text(selected)).toBe('MCP servers');
+    expect(text(selected)).toBe('Tools & connections');
     expect(document.activeElement).toBe(selected);
     expect(element.querySelector('nh-assistant-admin-mcp-servers')).not.toBeNull();
   });
@@ -529,7 +551,22 @@ describe('The mock API for the flow view', () => {
       usesRules: true,
       startsOff: false,
       // As the server does, the mock says whether the agent accepts files in code.
-      acceptsFiles: false
+      acceptsFiles: false,
+      // And what else its code sets, with the platform's defaults for what it leaves out.
+      chatOnly: false,
+      skillsInChat: false,
+      allowQuestions: false,
+      usesMemory: false,
+      triageProfile: null,
+      retryCount: 3,
+      maxConcurrentRuns: 4,
+      maxRunsPerSubjectPerDay: 10,
+      dailyToolCalls: null,
+      dailyTokens: null,
+      maxTokensPerRun: null,
+      maxConsultationsPerTurn: null,
+      elevatedReads: 'restricted',
+      allowGatewayReads: false
     });
 
     const followUp = (await call('GET', 'admin/agents/follow-up/configuration')).body as AgentRunConfiguration;

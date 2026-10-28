@@ -23,8 +23,9 @@ export type AgentFlowStepId = 'works-on' | 'when' | 'skills' | 'account' | 'appr
 export const agentFlowSteps: readonly AgentFlowStepId[] = ['works-on', 'when', 'skills', 'account', 'approval', 'results'];
 
 /**
- * What an entry point of the flow opens: the run configuration opens its own forms; the agent editor,
- * the technical account, the runs view and the MCP servers belong to the page that hosts it.
+ * What an entry point of the flow opens: the run configuration opens its own forms; the agent editor
+ * (its profile, its tools or its access), the technical account, the runs view and the MCP servers
+ * belong to the page that hosts it. A comparison of a candidate opens next to the skill or trigger.
  */
 export type AgentFlowEntry =
   | { kind: 'setup' }
@@ -36,6 +37,10 @@ export type AgentFlowEntry =
   | { kind: 'add-consultation' }
   | { kind: 'edit-consultation'; subjectType: string }
   | { kind: 'edit-agent' }
+  | { kind: 'edit-tools' }
+  | { kind: 'edit-access' }
+  | { kind: 'compare-skill'; skillId: string }
+  | { kind: 'compare-trigger'; triggerId: string }
   | { kind: 'account' }
   | { kind: 'runs' }
   | { kind: 'mcp-servers' };

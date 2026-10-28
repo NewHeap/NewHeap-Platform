@@ -6,6 +6,7 @@ import { AdminAgentInput } from '../models/assistant-admin.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantApiError } from '../services/nh-assistant-transport';
+import { backToAdminList, openAdminAgent, openAdminTab } from './nh-assistant-admin-navigation';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 
 /**
@@ -87,12 +88,18 @@ function button(element: HTMLElement, text: string): HTMLButtonElement {
   return match;
 }
 
-function card(element: HTMLElement, name: string): HTMLElement {
-  const match = Array.from(element.querySelectorAll<HTMLElement>('.card')).find(item => item.textContent?.includes(name));
-  if (!match) {
-    throw new Error(`Card "${name}" not found.`);
+/** Opens Build of an agent's page, from the list or the page that is open, and returns the agent's profile. */
+async function profileOf(fixture: ComponentFixture<unknown>, element: HTMLElement, agentId: string): Promise<HTMLElement> {
+  const open = element.querySelector('[data-agent-page]');
+  if (open?.getAttribute('data-agent-page') === agentId) {
+    await openAdminTab(fixture, element, 'build');
+  } else {
+    if (open) {
+      await backToAdminList(fixture, element);
+    }
+    await openAdminAgent(fixture, element, agentId, 'build');
   }
-  return match;
+  return element.querySelector('[data-build-section="profile"]') as HTMLElement;
 }
 
 function type(element: HTMLElement, selector: string, value: string): void {
@@ -154,7 +161,7 @@ async function narrowToProjects(input: AdminAgentInput): Promise<void> {
 async function openRunConfiguration(agentId: string): Promise<{ fixture: ComponentFixture<NhAssistantAdminAgentsComponent>; view: () => HTMLElement }> {
   const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
   const element = await settle(fixture);
-  (element.querySelector(`[data-run-config-agent="${agentId}"]`) as HTMLButtonElement).click();
+  await openAdminAgent(fixture, element, agentId, 'build');
   await settle(fixture);
   return { fixture, view: () => element.querySelector('nh-assistant-agent-run-configuration') as HTMLElement };
 }
@@ -295,10 +302,13 @@ describe('A schedule for the whole application in the run configuration', () => 
     await narrowToProjects(statistics);
     const { fixture, view } = await openRunConfiguration('statistics');
 
-    // The flow shows the problem at when the agent runs, with the trigger's form as its fix.
-    expect(view().querySelector('[data-problems]')).not.toBeNull();
-    expect(view().querySelector('[data-flow-step="when"] [data-flow-warning="problem:trigger:weekly-count:not-worked-on"]')?.textContent?.replace(/\s+/g, ' '))
+    // The overview's flow shows the problem at when the agent runs, with the trigger's form as its fix.
+    const page = fixture.nativeElement as HTMLElement;
+    await openAdminTab(fixture, page, 'overview');
+    expect(page.querySelector('[data-problems]')).not.toBeNull();
+    expect(page.querySelector('[data-flow-step="when"] [data-flow-warning="problem:trigger:weekly-count:not-worked-on"]')?.textContent?.replace(/\s+/g, ' '))
       .toContain('Trigger weekly-count: it concerns a kind of object, or the whole application, that the agent does not work on.');
+    await openAdminTab(fixture, page, 'build');
     const listed = view().querySelector('[data-data-trigger="weekly-count"]') as HTMLElement;
     expect(listed.textContent).toContain('Out of effect');
     expect(listed.querySelector('[data-trigger-target]')?.textContent?.trim()).toBe('The whole application');
@@ -406,7 +416,7 @@ describe('A schedule for the whole application in the guided setup', () => {
 });
 
 describe('Per division and the whole application in the agent editor', () => {
-  it('sends per division when the application lists its divisions and shows it on the card', async () => {
+  it('sends per division when the application lists its divisions and shows it in the agent\'s profile', async () => {
     await configure(scenario(true));
     const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
     let element = await settle(fixture);
@@ -428,21 +438,21 @@ describe('Per division and the whole application in the agent editor', () => {
     expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({
       id: 'statistics', worksOnAllSubjects: true, worksOnApplication: true, perDivision: true
     })]);
-    const created = card(element, 'Project statistics');
+    const created = await profileOf(fixture, element, 'statistics');
     expect(created.querySelector('[data-works-on]')?.textContent).toContain('and the whole application');
     expect(created.querySelector('[data-works-on]')?.textContent).toContain('per division');
 
     // The editor starts from the stored choice and sends a change back.
-    button(created, 'Edit').click();
+    (created.querySelector('[data-edit-section="profile"]') as HTMLButtonElement).click();
     element = await settle(fixture);
     const edited = element.querySelector('[data-per-division] input') as HTMLInputElement;
     expect(edited.checked).toBeTrue();
     edited.click();
     fixture.detectChanges();
-    button(element, 'Save').click();
+    button(element.querySelector('[data-build-section="profile"]') as HTMLElement, 'Save').click();
     element = await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/statistics')).toEqual([jasmine.objectContaining({ perDivision: false, expectedVersion: 1 })]);
-    expect(card(element, 'Project statistics').querySelector('[data-works-on]')?.textContent).not.toContain('per division');
+    expect((await profileOf(fixture, element, 'statistics')).querySelector('[data-works-on]')?.textContent).not.toContain('per division');
   });
 
   it('does not offer or send per division when the application lists no divisions', async () => {
@@ -462,15 +472,16 @@ describe('Per division and the whole application in the agent editor', () => {
     element = await settle(fixture);
 
     expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ worksOnApplication: true, perDivision: false })]);
-    expect(card(element, 'Project statistics').querySelector('[data-works-on]')?.textContent).not.toContain('per division');
+    expect((await profileOf(fixture, element, 'statistics')).querySelector('[data-works-on]')?.textContent).not.toContain('per division');
   });
 
   it('never offers the whole application as a kind of object, nor counts it as a known kind', async () => {
     await configure();
     const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
     let element = await settle(fixture);
-    expect(card(element, 'Project assistant').querySelector('[data-known-types]')?.textContent?.trim()).toBe('Known to work on: Projects.');
+    expect((await profileOf(fixture, element, 'projects')).querySelector('[data-known-types]')?.textContent?.trim()).toBe('Known to work on: Projects.');
 
+    await backToAdminList(fixture, element);
     button(element, 'New agent').click();
     element = await settle(fixture);
     labelled(element.querySelector('[data-works-on]') as HTMLElement, 'Chosen kinds of objects').click();

@@ -284,7 +284,8 @@
       "two-factor-description": "Protect your account with an authenticator app, e-mail codes or a passkey.",
       "two-factor-loading": "Loading two-step verification…"
     },
-    "assistant-playground-nav": "Assistant",
+    "assistant-chat-nav": "Chat",
+    "assistant-playground-nav": "Assistant lab",
     "assistant-administration-nav": "Assistant administration",
     "assistant-administration-intro": "The real assistant administration. The project starter is an agent created here that works on its own: it answers to the operations account, is not offered in the chat, and starts on every new project.",
     "assistant-playground-title": "Assistant panel",
@@ -319,7 +320,7 @@
     "assistant-board-description": "The board of the project management group: the follow-up's latest result for the whole application, marked new until you look again, its history and run now. The portal's Project management page shows the same against the real back-end.",
     "assistant-simulate-schema-change": "Simulate a changed MCP tool",
     "assistant-schema-change-simulated": "The document search tool now reports a new input schema. Sync the server on the MCP servers tab to see it disabled.",
-    "assistant-admin-back": "Back to the assistant playground",
+    "assistant-admin-back": "Back to the assistant lab",
     "assistant-cost-center-title": "Cost center",
     "assistant-cost-center-code": "Cost center code",
     "assistant-cost-center-code-hint": "CC- followed by four digits, such as CC-4100.",

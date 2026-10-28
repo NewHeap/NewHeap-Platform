@@ -19,6 +19,9 @@
       @if (canAdministerBackgroundOperations()) {
         <a class="nav-item" routerLink="/management/background-operation-administration" routerLinkActive="active"><i class="ph ph-list-checks" aria-hidden="true"></i>{{ 'sample-project-management.background-operation-administration.navigation' | translate }}</a>
       }
+      @if (canUseAssistant()) {
+        <a class="nav-item" routerLink="/management/chat" routerLinkActive="active"><i class="ph ph-chats-circle" aria-hidden="true"></i>{{ 'project.assistant-chat-nav' | translate }}</a>
+      }
       <a class="nav-item" routerLink="/management/assistant" routerLinkActive="active"><i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-playground-nav' | translate }}</a>
       @if (canAdministerAssistant()) {
         <a class="nav-item" routerLink="/management/assistant-administration" routerLinkActive="active"><i class="ph ph-robot" aria-hidden="true"></i>{{ 'project.assistant-administration-nav' | translate }}</a>

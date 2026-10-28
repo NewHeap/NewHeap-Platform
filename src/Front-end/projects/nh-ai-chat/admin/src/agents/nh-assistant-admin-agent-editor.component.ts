@@ -58,6 +58,13 @@ interface KeyedText {
 /** How an agent created in the administration is used: chosen in the chat, working on its own, or both. */
 export type AgentUse = 'chat' | 'background' | 'both';
 
+/**
+ * The parts of an agent the editor shows: its profile (name, use, what it works on, description,
+ * instructions, model and classification, and the application's fields), its tools and MCP servers,
+ * and its access (groups, who may run it and see its results, autonomy and the required policy).
+ */
+export type NhAssistantAgentEditorSection = 'profile' | 'tools' | 'access';
+
 /** Whether an agent created in the administration works on every object type or on chosen ones. */
 export type WorksOnScope = 'all' | 'types';
 
@@ -124,6 +131,13 @@ export class NhAssistantAdminAgentEditorComponent {
    */
   readonly workRequested = output<AdminAgent>();
   readonly cancelled = output<void>();
+  /**
+   * The parts to show, for a page that edits an agent part by part; `null` shows every part. A save
+   * keeps the values of the parts it does not show as they are.
+   */
+  readonly sections = input<readonly NhAssistantAgentEditorSection[] | null>(null);
+  /** A page shows the editor in one of its own sections, which names it: the title goes, except for a new agent. */
+  readonly embedded = computed(() => this.sections() !== null);
   readonly uses: readonly AgentUse[] = ['chat', 'background', 'both'];
 
   readonly id = `nh-assistant-agent-editor-${nextId++}`;
@@ -391,6 +405,12 @@ export class NhAssistantAdminAgentEditorComponent {
   /** An application field of an agent created here made the agent's next version. */
   fieldsChanged(agentVersion: number): void {
     this.fieldsVersion.set(agentVersion);
+  }
+
+  /** Whether the editor shows a part of the agent. */
+  shows(section: NhAssistantAgentEditorSection): boolean {
+    const sections = this.sections();
+    return sections === null || sections.includes(section);
   }
 
   save(): void {

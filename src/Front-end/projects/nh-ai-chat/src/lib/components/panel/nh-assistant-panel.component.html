@@ -1,5 +1,10 @@
 <ng-template #drawer>
-  <section class="drawer" role="dialog" aria-modal="false" [attr.aria-labelledby]="titleId">
+  <section
+    class="drawer"
+    [class.page]="page()"
+    [attr.role]="page() ? 'region' : 'dialog'"
+    [attr.aria-modal]="page() ? null : 'false'"
+    [attr.aria-labelledby]="titleId">
     <header class="header">
       <div class="heading">
         <h2 [id]="titleId">{{ 'nh-assistant.panel.title' | translate }}</h2>
@@ -22,7 +27,7 @@
             </button>
           }
           <button
-            class="icon-button"
+            class="icon-button conversations-toggle"
             type="button"
             [class.active]="showConversations()"
             [attr.aria-expanded]="showConversations()"
@@ -60,19 +65,34 @@
             <nh-assistant-icon name="plus" />
           </button>
         }
-        <button
-          class="icon-button"
-          type="button"
-          [attr.aria-label]="'nh-assistant.panel.close' | translate"
-          [attr.title]="'nh-assistant.panel.close' | translate"
-          (click)="panel.close()">
-          <nh-assistant-icon name="close" />
-        </button>
+        @if (!page()) {
+          <button
+            class="icon-button"
+            type="button"
+            [attr.aria-label]="'nh-assistant.panel.close' | translate"
+            [attr.title]="'nh-assistant.panel.close' | translate"
+            (click)="panel.close()">
+            <nh-assistant-icon name="close" />
+          </button>
+        }
       </div>
     </header>
 
     @if (store.enabled()) {
       <nh-assistant-activity [items]="store.activity()" (conversationSelect)="openConversation($event)" />
+    }
+
+    @if (page() && store.enabled()) {
+      <!-- On a page the conversations stay listed beside the thread, for long sessions. -->
+      <nh-assistant-conversation-list
+        class="sidebar"
+        [conversations]="store.conversations()"
+        [total]="store.conversationsTotal()"
+        [activeConversationId]="conversation()?.id ?? null"
+        [loading]="store.conversationsLoading()"
+        (conversationSelect)="openConversation($event)"
+        (conversationDelete)="deleteConversation($event)"
+        (conversationCreate)="newConversation()" />
     }
 
     <div class="body">
@@ -294,3 +314,7 @@
     }
   </section>
 </ng-template>
+
+@if (page()) {
+  <ng-container [ngTemplateOutlet]="drawer" />
+}

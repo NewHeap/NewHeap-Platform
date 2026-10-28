@@ -9,6 +9,13 @@
   display: contents;
 }
 
+// On a page of its own the chat fills the element the host gives it.
+:host(.nh-assistant-page) {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
 .drawer {
   position: relative;
   display: flex;
@@ -311,4 +318,50 @@ h2 {
   margin: 0 0 8px;
   color: var(--nha-text-muted);
   font-size: 12px;
+}
+
+// The chat on a page: a card that fills its place, with the conversations beside the thread on
+// wide screens and behind the list button on narrow ones.
+.drawer.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  box-shadow: none;
+  overflow: hidden;
+
+  > .header { grid-row: 1; }
+  > nh-assistant-activity { grid-row: 2; }
+  > .body { grid-row: 3; }
+  > .error,
+  > .turn-notice { grid-row: 4; }
+  > .footer { grid-row: 5; }
+
+  > .sidebar {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .drawer.page {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+
+    > :not(.sidebar) {
+      grid-column: 2;
+    }
+
+    > .sidebar {
+      display: block;
+      grid-column: 1;
+      grid-row: 1 / -1;
+      min-height: 0;
+      overflow: auto;
+      border-right: 1px solid var(--nha-border);
+    }
+
+    .conversations-toggle {
+      display: none;
+    }
+  }
 }

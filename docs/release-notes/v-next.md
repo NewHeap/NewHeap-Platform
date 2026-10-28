@@ -14,3 +14,28 @@ callers of another tenant log nothing. Hosts without tenants see no change in be
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantDecidingPerson(User, ActorId, TenantId)` requires `TenantId`; the default `null` is gone. | Pass the tenant the person signs in with, as the context resolver gives it; pass `null` explicitly only in a host without tenants or for its operators. |
+
+## @newheap/platform-ai-chat: agent administration by agent page
+
+The administration opens on Agents and lists every agent once, with one status, where it works, where
+it comes from and what needs attention; a row opens the agent's page, whose header holds the status
+changes, "Test in chat", "Run now" and "More" (export, reset to code, delete), and whose tabs Overview,
+Build, Rollout and Activity replace the separate editor, run configuration, runs, feedback and
+evaluation views. Every feature stays; hosts can keep the open agent in their URL with `location` and
+`locationChange`. `nh-assistant-panel` gains `mode="page"` for a chat in a page of its own.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAdminComponent.initialTab` defaults to `agents` instead of `context`, and the sections read Agents, Tools & connections, Application context. | Pass `initialTab="context"` to keep opening on the application context. |
+| The agent cards and their buttons are gone: state, shadow, account, run now, export, reset and delete moved to the agent's page, the editor and the run configuration to its Build tab, runs and feedback to Activity, shadow variants and evaluation to Rollout. | Update end-to-end tests and documentation that clicked card buttons: open the agent with its list row (`[data-agent-row]`), then the tab (`[data-agent-tab]`) or the header menus (`[data-status-menu]`, `[data-more]`). |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: code settings in the administration
+
+`NhAssistantCodeRunSettingsDto` also carries what an agent's code sets for its runs, read only, so the
+administration's guardrails show it: `SkillsInChat`, `AllowQuestions`, `UsesMemory`, `TriageProfile`,
+`RetryCount`, `MaxConcurrentRuns`, `MaxRunsPerSubjectPerDay`, `DailyToolCalls`, `DailyTokens`,
+`MaxTokensPerRun`, `MaxConsultationsPerTurn`, `ElevatedReads` and `AllowGatewayReads`.
+
+| Breaking change | Required action |
+|---|---|
+| A record comparison with `new NhAssistantCodeRunSettingsDto(...)` now also compares the new init properties, whose values come from the agent's code, such as `RetryCount = 3`. | Set the properties the agent's code configures in the expected record, or compare the four constructor values. |

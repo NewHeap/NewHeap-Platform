@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { openAdminAgent } from './nh-assistant-admin-navigation';
 import { NhAssistantObjectAgentsComponent } from '../../../agent-runs/src/public-api';
 
 /**
@@ -138,10 +139,11 @@ function dialogOf(element: HTMLElement): HTMLDialogElement {
   return dialog;
 }
 
-/** Opens the administration's run-now dialog of an agent. */
+/** Opens the run-now dialog of an agent from the header of its page in the administration. */
 async function openFromCard(agentId: string): Promise<{ fixture: ComponentFixture<NhAssistantAdminAgentsComponent>; element: HTMLElement; dialog: HTMLDialogElement }> {
   const fixture = TestBed.createComponent(NhAssistantAdminAgentsComponent);
   const element = await settle(fixture);
+  await openAdminAgent(fixture, element, agentId);
   (element.querySelector(`[data-run-now-agent="${agentId}"]`) as HTMLButtonElement).click();
   await settle(fixture);
   return { fixture, element, dialog: dialogOf(element) };
