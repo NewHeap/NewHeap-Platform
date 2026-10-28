@@ -347,6 +347,8 @@
     "SPM-352",
     "SPM-353",
     "SPM-355",
+    "SPM-358",
+    "SPM-359",
     "SPM-366",
     "SPM-369",
     "SPM-370",
@@ -3680,6 +3682,30 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
+    ],
+    "SPM-358": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelFileSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationChannelTests.cs"
+    ],
+    "SPM-359": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaUploadRetention.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleQuickAnswersComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelFileSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationChannelTests.cs"
     ],
     "SPM-366": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs",

@@ -6143,6 +6143,46 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-358",
+    "title": "A messaging app lists the person's chats and agents and attaches a file to the linked chat",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantConversations.ListAsync with NhAssistantConversationPage (Page, ItemsPerPage) and NhAssistantConversationListDto, INhAssistantConversations.ListAgentsAsync with NhAssistantAgentSummaryDto and its Uploads, INhAssistantConversations.UploadAsync with NhAssistantConversationUpload (FileName, MediaType, Content, a readable stream that can seek) returning the NhAiFileReference that NhAssistantConversationMessage.Files carries; the checks they share with GET conversations, GET agents and POST conversations/{id}/files",
+    "outcome": "The person continues in the messaging app of SPM-332 what the portal's panel offers. `POST assistant-channel/chat-list` lists the chats of the person a link token names through `ListAsync`, newest first and ten to a page, each with a link token of its own that expires with the presented link, so the messaging app continues in the chat the person picks; agents' threads are not listed and a page below 1 is refused. `POST assistant-channel/agents` lists the agents the person may chat with through `ListAgentsAsync`, with the media types and the largest file the person may attach to each, as the panel shows them; the status advisor takes no attachments. `POST assistant-channel/files` takes the provider's attachment as `multipart/form-data` and uploads it to the linked chat through `UploadAsync`, which reads the buffered file again for the content check, the sample's scanner and the media library, and answers with the reference that `files` of `POST assistant-channel/messages` carries: the person's next message brings the PDF to the model. The upload keeps the refusals and statuses of the portal's endpoint: a forged token, content of another type (`415 assistant-file-type-not-accepted`), a file without content (`400 assistant-file-upload-invalid`), an agent that takes no files (`409 assistant-files-not-accepted`) and someone else's chat (`404 assistant-conversation-not-found`). The file's name reaches neither a log nor the platform audit. The library tests prove on SQL Server and PostgreSQL that the service and the endpoint list the same chats, pages and agents and refuse the same page; that they refuse an upload alike for its size, type, content, name, agent, profile chain, scanner and file source, for someone outside the chat, a participant without the agent's policy and the owner who lost it, without the access policy and for another person's principal; that a participant who may use the agent uploads through either; that the stream is read again from where the caller left it and stays the caller's; that a stream that cannot seek is the caller's mistake; that only the endpoint uploads to an agent's thread and only for a participant of its subject; and that no log names the file.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelFileSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationChannelTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-359",
+    "title": "An archived chat takes its uploads along, and an agent whose profile may not receive them offers no attachments",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantFileRetention.ForgetConversationAsync with NhAssistantForgottenConversation (ConversationId, AgentId, Reason, TenantId, Subject) and NhAssistantFileRetentionReasons (Archived, SubjectForgotten), registered with NhAssistantBuilder.UseFileRetention<T>(); called after the owner's archive of DELETE conversations/{id} committed and after INhAiSubjectRetention.ForgetSubjectAsync deleted a thread; uploads of GET agents and GET status (NhAssistantAgentSummaryDto.Uploads) and POST conversations/{id}/files only for an agent whose profile chain permits the uploads' classification in the execution region",
+    "outcome": "The sample's `ProjectMediaUploadRetention` removes the media items of a conversation's upload folder and their content through the media library's storage modules, as `ProjectMediaFileSource` stores them. When the owner archives a chat in the portal, its uploads are gone while another chat's stay, and forgetting the chat again finds nothing and succeeds. The quick answers agent runs on `project-assistant-internal`, a profile for a model that may receive internal data only and has no fallback, while uploads are confidential: `GET /api/assistant/agents` gives it `uploads: null`, the messaging app's agent list offers it no attachments, an upload to its chat is refused with `409 assistant-files-not-accepted` in the portal and in the messaging app instead of failing later in the turn, and the agent still answers in the chat. The library tests prove on SQL Server and PostgreSQL that the archive forgets the chat's uploads once with the reason `archived`, that a participant who leaves forgets nothing, that a second archive finds nothing and forgets nothing, that a retention that fails or throws is logged as a warning with the conversation and the code or exception type, never the file's name, while the archive stays; that subject retention forgets the uploads of each thread it deletes with the reason `subject-forgotten` and the subject, also when the retention throws, and forgets nothing when it runs again; and that agents offer uploads when their profile or a fallback permits the uploads' classification, and not for an internal profile, an agent whose own restricted classification no profile permits, a profile of another region or an agent without files, in `GET agents` and `GET status` alike.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaUploadRetention.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantFilesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleQuickAnswersComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelFileSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFileRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationChannelTests.cs"
+    ]
+  },
+  {
     "id": "SPM-366",
     "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",
     "category": "AI tools and generated catalogs",
