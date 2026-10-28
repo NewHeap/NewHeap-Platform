@@ -604,6 +604,21 @@ background use, nor starts or completes a personal connection, nor registers a b
 (`assistant-not-allowed-while-impersonating`), while withdrawing and disconnecting stay allowed and the
 audit names the administrator. The playground shows the connect card in the chat, the preferences and
 the organization's CRM account on the mock.
+The other direction works too: an MCP client outside the application signs in to the API's own
+`/mcp` (SPM-370). With `SampleProjectManagement:McpSignIn` naming the public URL of `/mcp`, the
+application's authorization server and the scope `projects.read`, `SampleMcpSignInComposition` makes the
+exposure a protected resource of that server (`UseProtectedResource`): `/mcp` answers a request without a
+valid token with `401` and a challenge that names its protected resource metadata, which names the
+authorization server. Any client that follows the MCP authorization flow registers there, lets the
+person sign in and consent, and comes back with a token whose audience is the API's `/mcp`; the sample
+has no client-specific code. The token's person is the account linked to its issuer and subject, an
+Identity login (`SampleMcpSignInComposition.LoginInfo`), with that account's current rights: the
+division editor lists and calls the project tools in Sample North, the viewer signs in but gets none,
+and a subject linked to no account or a token for another address is refused. The token is never passed
+on to the API's own endpoints. The API's own clients keep calling `/mcp` with their NewHeap token, and
+without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the official MCP SDK
+client through the whole flow against a stand-in authorization server; the authorization server, the
+registration of clients and the consent stay the application's.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
