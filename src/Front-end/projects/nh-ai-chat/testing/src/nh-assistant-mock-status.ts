@@ -15,6 +15,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-approval-expired',
     'assistant-approval-invalid',
     'assistant-subject-invalid',
+    'assistant-subject-required',
     'assistant-service-account-not-found',
     'assistant-run-not-retryable',
     'assistant-run-filter-invalid',

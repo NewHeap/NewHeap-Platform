@@ -163,6 +163,20 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly canShare = computed(() => this.conversation() !== null && !!this.store.collaboration());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.notificationError() ?? this.store.error()));
   readonly noticeKeys = computed(() => nhAssistantErrorKeys(this.store.notice()));
+  /**
+   * What the open or next chat is about (FB25): the subject's type name and name as the server or the
+   * host gave them, or its id; `null` for a chat without a subject.
+   */
+  readonly chatSubjectLabel = computed(() => {
+    const subject = this.store.chatSubject();
+    if (!subject) {
+      return null;
+    }
+
+    const name = subject.subjectDisplayName?.trim() || subject.subjectId;
+    const typeName = 'subjectTypeName' in subject ? subject.subjectTypeName?.trim() : null;
+    return typeName ? `${typeName}: ${name}` : name;
+  });
 
   constructor() {
     // Opening, creating or leaving a conversation returns from the list to the thread.

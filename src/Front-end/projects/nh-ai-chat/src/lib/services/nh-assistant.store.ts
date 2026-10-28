@@ -25,6 +25,8 @@ import {
   Conversation,
   ConversationMember,
   ConversationStatus,
+  ConversationSubject,
+  ConversationSubjectRef,
   ConversationSummary,
   DirectoryEntry,
   FileReference,
@@ -258,6 +260,15 @@ const newConversationKey = '';
 const maxWaitCheckDelayMs = 60 * 60 * 1000;
 
 /**
+ * The subject a host gives the next new chat, such as the project whose page is open, with the name
+ * the panel shows until the server describes it.
+ */
+export interface NhAssistantChatSubject extends ConversationSubjectRef {
+  /** The subject's name as the host shows it; the panel shows the id without one. */
+  subjectDisplayName?: string | null;
+}
+
+/**
  * Signal-based state of one assistant scope: availability, agents, the conversation list and
  * every conversation this tab has opened. Several conversations can run turns at the same time;
  * the public signals describe the conversation that is open in the panel. With live updates the
@@ -280,6 +291,13 @@ export class NhAssistantStore {
   private readonly statusState = signal<AssistantStatus | null>(null);
   private readonly statusLoadingState = signal(false);
   private readonly selectedAgentIdState = signal<string | null>(null);
+  /** The subject of the next new chat (FB25); `null` for a chat without one. */
+  private readonly newChatSubjectState = signal<NhAssistantChatSubject | null>(null);
+  /** The agents of a chat about `newChatSubjectState`, as `GET agents?subjectType=&subjectId=` listed them. */
+  private readonly subjectAgentsState = signal<AgentSummary[]>([]);
+  /** Agents the store met in chats about a subject that the status does not list, by id. */
+  private readonly knownSubjectAgentsState = signal<ReadonlyMap<string, AgentSummary>>(new Map());
+  private subjectRevision = 0;
   private readonly conversationsState = signal<ConversationSummary[]>([]);
   private readonly conversationsTotalState = signal(0);
   private readonly conversationsLoadingState = signal(false);
@@ -349,7 +367,32 @@ export class NhAssistantStore {
   readonly canAdminister = computed(() => this.enabled() && this.statusState()?.canAdminister === true);
   readonly statusLoading = this.statusLoadingState.asReadonly();
   readonly limits = computed(() => this.statusState()?.limits ?? null);
-  readonly agents = computed<AgentSummary[]>(() => this.statusState()?.agents ?? []);
+  /**
+   * The agents the caller may chat with: those of the status, and the agents offered only for chats about
+   * a subject that the store met for the next new chat's subject or in an open chat about one.
+   */
+  readonly agents = computed<AgentSummary[]>(() => {
+    const listed = this.statusState()?.agents ?? [];
+    const extra = [...this.subjectAgentsState(), ...this.knownSubjectAgentsState().values()]
+      .filter((agent, index, all) => !listed.some(item => item.id === agent.id) && all.findIndex(item => item.id === agent.id) === index);
+    return extra.length === 0 ? listed : [...listed, ...extra];
+  });
+  /**
+   * The agents a person chooses from for the next new chat: those of a chat about the subject the host
+   * set with `setChatSubject`, otherwise those of the status.
+   */
+  readonly chatAgents = computed<AgentSummary[]>(() =>
+    this.newChatSubjectState() ? this.subjectAgentsState() : this.statusState()?.agents ?? []);
+  /** The subject the next new chat is about (FB25), as the host set it; `null` without one. */
+  readonly newChatSubject = this.newChatSubjectState.asReadonly();
+  /**
+   * The subject of the open chat, or of the next new chat while no conversation is open; `null` when
+   * neither has one.
+   */
+  readonly chatSubject = computed<NhAssistantChatSubject | ConversationSubject | null>(() => {
+    const conversation = this.activeConversation();
+    return conversation ? conversation.subject ?? null : this.newChatSubjectState();
+  });
   /** Sharing, live update and notification features the server offers. */
   readonly collaboration = computed(() => this.statusState()?.collaboration ?? null);
   readonly selectedAgentId = this.selectedAgentIdState.asReadonly();
@@ -796,6 +839,50 @@ export class NhAssistantStore {
     this.activeIdState.set(null);
     this.uiState.update({ conversationId: null });
     this.draftErrorState.set(null);
+  }
+
+  /**
+   * Makes the next new chat a chat about `subject` (FB25), such as the project whose page the person has
+   * open, or a chat without a subject again with `null`. It loads the agents of a chat about the subject
+   * (`GET agents?subjectType=&subjectId=`), keeps the chosen agent when it works on the subject or
+   * chooses the default or first one, and leaves the open conversation, as `startNewConversation` does.
+   * The next message creates the chat with the subject; the server checks the person's role on it then
+   * and on every later turn and read. Resolves `false`, keeping the previous subject and showing the
+   * error, when the server refuses the subject, for example with `assistant-subject-access-denied`, or
+   * when the assistant is not available. Call it again with `null` when the person leaves the page.
+   */
+  async setChatSubject(subject: NhAssistantChatSubject | null): Promise<boolean> {
+    const revision = ++this.subjectRevision;
+    const accountRevision = this.accountRevision;
+    if (!subject) {
+      this.newChatSubjectState.set(null);
+      this.subjectAgentsState.set([]);
+      this.selectInitialAgent(this.statusState()?.agents ?? []);
+      return true;
+    }
+
+    await this.initialize();
+    if (!this.enabled() || revision !== this.subjectRevision || accountRevision !== this.accountRevision) {
+      return false;
+    }
+
+    try {
+      const agents = await firstValueFrom(this.api.agents(subject));
+      if (revision !== this.subjectRevision || accountRevision !== this.accountRevision) {
+        return false;
+      }
+
+      this.newChatSubjectState.set({ ...subject });
+      this.subjectAgentsState.set(agents);
+      this.startNewConversation();
+      this.selectInitialAgent(agents);
+      return true;
+    } catch (error) {
+      if (revision === this.subjectRevision && accountRevision === this.accountRevision) {
+        this.setError(null, error);
+      }
+      return false;
+    }
   }
 
   /** Opens a conversation; one that this tab already follows opens immediately. */
@@ -1757,6 +1844,14 @@ export class NhAssistantStore {
       if (revision !== this.accountRevision) {
         return;
       }
+      // A chat about a subject may be with an agent offered only for such chats; the agents of its
+      // subject say whether the person may still use it (FB25).
+      if (conversation.subject && !this.agents().some(agent => agent.id === conversation.agentId)) {
+        await this.rememberSubjectAgents(conversation.subject);
+        if (revision !== this.accountRevision) {
+          return;
+        }
+      }
       // An agent's thread about a subject opens for whoever the server lets read it, also for an
       // agent kept out of the chat, such as one run by hand; it is never chosen for a new chat.
       const offered = this.agents().some(agent => agent.id === conversation.agentId);
@@ -1867,6 +1962,26 @@ export class NhAssistantStore {
     void this.push.activate(collaboration?.push === true);
   }
 
+  /**
+   * Remembers the agents of a chat about `subject` that the status does not list, so a chat about it with
+   * an agent offered only for such chats opens and offers uploads. A refusal remembers nothing: the
+   * person may no longer use a chat about the subject.
+   */
+  private async rememberSubjectAgents(subject: ConversationSubjectRef): Promise<void> {
+    try {
+      const agents = await firstValueFrom(this.api.agents(subject));
+      this.knownSubjectAgentsState.update(known => {
+        const next = new Map(known);
+        for (const agent of agents) {
+          next.set(agent.id, agent);
+        }
+        return next;
+      });
+    } catch {
+      // The conversation's own read reports what the server refused.
+    }
+  }
+
   /** Forgets everything about the previous account: turns, conversations, live updates and push. */
   private resetAccount(): void {
     this.accountRevision++;
@@ -1890,6 +2005,10 @@ export class NhAssistantStore {
     this.submittingState.set(false);
     this.feedbackApprovalsState.set(new Set());
     this.unsentState.set(new Map());
+    this.subjectRevision++;
+    this.newChatSubjectState.set(null);
+    this.subjectAgentsState.set([]);
+    this.knownSubjectAgentsState.set(new Map());
     this.dropAttachments();
     this.attachmentConversation = null;
     this.clearAgentWorkTimers();
@@ -1904,8 +2023,12 @@ export class NhAssistantStore {
     }
 
     const revision = this.accountRevision;
+    // A chat about the host's subject names it; the server checks the person's role on it (FB25).
+    const subject = this.newChatSubjectState();
     try {
-      const conversation = await firstValueFrom(this.api.createConversation({ agentId }));
+      const conversation = await firstValueFrom(this.api.createConversation(subject
+        ? { agentId, subjectType: subject.subjectType, subjectId: subject.subjectId }
+        : { agentId }));
       if (revision !== this.accountRevision) {
         return null;
       }
@@ -2479,7 +2602,8 @@ function toSummary(conversation: Conversation): ConversationSummary {
     participantCount: conversation.members ? Math.max(0, conversation.members.length - 1) : conversation.participantCount,
     lastMessageSequence: conversation.lastMessageSequence,
     lastReadSequence: conversation.lastReadSequence,
-    activeActorId: conversation.activeActorId
+    activeActorId: conversation.activeActorId,
+    ...(conversation.subject ? { subject: conversation.subject } : {})
   };
 }
 

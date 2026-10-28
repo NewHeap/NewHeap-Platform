@@ -36,7 +36,8 @@
       "add-members": "Mensen toevoegen aan het gesprek",
       "notifications-on": "Notificaties aanzetten",
       "notifications-off": "Notificaties uitzetten",
-      "members": "Mensen in dit gesprek"
+      "members": "Mensen in dit gesprek",
+      "chat-subject": "Over {{subject}}"
     },
     "agent-picker": {
       "label": "Agent",
@@ -401,6 +402,7 @@
       "assistant-subject-search-unavailable": "Dit soort object is niet te doorzoeken; geef de id.",
       "assistant-agent-does-not-work-on": "Deze agent werkt niet aan dit soort object.",
       "assistant-subject-access-denied": "Je rol op dit onderwerp staat dit niet toe.",
+      "assistant-subject-required": "Deze agent praat alleen over een onderwerp. Begin het gesprek vanaf de pagina van waar je iets over wilt vragen.",
       "assistant-no-accountable-owner": "Niemand staat voor deze agent op dit onderwerp in.",
       "assistant-agent-disabled": "Deze agent is stopgezet.",
       "assistant-agent-configured-off": "Deze agent is uitgeschakeld in de configuratie van de applicatie.",

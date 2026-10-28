@@ -16,6 +16,7 @@ import {
   AssistantStatus,
   Conversation,
   ConversationPage,
+  ConversationSubjectRef,
   CreateConversationRequest,
   DecideApprovalRequest,
   DirectoryEntry,
@@ -67,8 +68,19 @@ export class NhAssistantApiService {
     return this.transport.json<AssistantStatus>('GET', 'status');
   }
 
-  agents(): Observable<AgentSummary[]> {
-    return this.transport.json<AgentSummary[]>('GET', 'agents');
+  /**
+   * The agents the caller may chat with (`GET agents`). With `subject`, the agents of a chat about that
+   * subject: those that work on it, also those offered only for chats about a subject. Fails with
+   * `assistant-subject-access-denied` or `assistant-subject-not-found` when the caller may not use a chat
+   * about it.
+   */
+  agents(subject?: ConversationSubjectRef | null): Observable<AgentSummary[]> {
+    if (!subject) {
+      return this.transport.json<AgentSummary[]>('GET', 'agents');
+    }
+
+    const query = `subjectType=${encodeURIComponent(subject.subjectType)}&subjectId=${encodeURIComponent(subject.subjectId)}`;
+    return this.transport.json<AgentSummary[]>('GET', `agents?${query}`);
   }
 
   listConversations(page = 1, itemsPerPage = 20): Observable<ConversationPage> {

@@ -194,6 +194,9 @@
         } @else if (lastTurnFailed()) {
           <p class="notice">{{ 'nh-assistant.panel.last-turn-failed' | translate }}</p>
         }
+        @if (chatSubjectLabel(); as subject) {
+          <p class="notice chat-subject">{{ 'nh-assistant.panel.chat-subject' | translate: { subject } }}</p>
+        }
         @if (store.collaboration() || store.pageContext()) {
           <div class="conversation-actions">
             @if (store.collaboration()) {
@@ -303,11 +306,11 @@
           (attach)="attach($event)"
           (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
-          @if (store.agents().length > 1) {
+          @if (store.chatAgents().length > 1) {
             <nh-assistant-agent-picker
               nhAssistantComposerControls
               [compact]="true"
-              [agents]="store.agents()"
+              [agents]="store.chatAgents()"
               [selectedAgentId]="store.selectedAgentId()"
               (agentChange)="store.selectAgent($event)" />
           }
