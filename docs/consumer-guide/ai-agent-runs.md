@@ -1579,7 +1579,10 @@ bounds the consultations one turn starts, and the asking agent's `MaxConsultatio
 `ConfigureAgent` replaces it for that agent's turns, higher or lower; every consultation the turn starts
 counts, also one refused later, and the next one is refused first with `assistant-consult-turn-limit`
 before the consulted agent runs (SPM-278). A consultation outside a turn, such as one through MCP, has no
-turn to count. Make `INhAiSubjectAccessResolver` accept only the canonical id of a
+turn to count; it starts at depth 1 without an asking agent, unless a reviewed caller of another
+application sent its consultation chain (`ContinueMcpChain`, SPM-366): it then continues that chain,
+its agents count as askers and the depth limit bounds the whole path, as the assistant rule describes.
+Make `INhAiSubjectAccessResolver` accept only the canonical id of a
 subject, because the asking model types the id. Unknown subjects and subjects the asker
 may not read both return `assistant-consult-subject-unavailable`. About the whole application the
 asker reads the agent's work only with the agent's view policy (by default its required policy), so a
@@ -2843,3 +2846,8 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageEndpoints.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs)
+- SPM-366 — A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs)

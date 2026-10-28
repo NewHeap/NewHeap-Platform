@@ -6203,6 +6203,29 @@
       ]
     },
     {
+      "id": "SPM-366",
+      "categoryId": "18",
+      "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",
+      "surface": "`NhAssistantMcpContextBinding.IncludeChain` (the `chain` of `com.newheap/assistant-context`, version 1: `agents` with `application` and `agentId`, outermost first, and `consultationDepth`), `NhAssistantMcpContext.UseMcpChainApplication`, `ContinueMcpChain` with `NhAssistantMcpChainCaller` (`ApplicationId`, `Issuer`, `IssuerClaimType`, `ClientClaimType`, `ClientId`), `NhAssistantMcpContext.BinderId`, `MaxChainAgents`, `MaxApplicationIdLength` and `IsApplicationId`, `NhAssistantConsultationBuilder.Exposure` with `NhAiToolExposure.Mcp`, the code `assistant-consult-depth-exceeded`, `AssistantConsultation.Depth` and `AskingAgentId`, and `NhAssistantConsultationDto.Depth` of `GET threads/{id}/consultations`",
+      "outcome": "SampleConsultationChain names the API in consultation chains across applications (`Sample:Assistant:ConsultationChain:Application`) and reviews a partner application by the issuer its MCP calls carry; the intake reviewer's consultation is offered to MCP clients, and the research binding of SPM-266 sends the chain of the calling turn once the API has a name. A project participant consults the reviewer through the partner's assistant: the partner's desk agent counts as an asker and the consultation is recorded one level deep, without an asking agent of the API. When the partner's desk, consulted in turn by the reviewer itself, asks the reviewer again, the call is refused with `assistant-consult-depth-exceeded` before the reviewer runs; the same chain from an MCP client of another issuer is ignored, not refused, and consults as any MCP client does. It is loop protection between cooperating applications, not authorization: the consultation's policy, the person's project role, the reviewer's daily budget, the daily consultation limit per person and the call's deadline still apply. The library tests prove with four hosts, each with its own schema, MCP endpoint and model, that an agent consulted across applications that consults back is refused before a run starts, that A asks B, B asks C and C asks B is refused at B without A taking part, that the chain of a caller that was not reviewed is ignored and one host's rules apply, that two applications with an agent of the same id do not refuse each other, that a forged shallow chain stays bounded by the daily limit per person, that a malformed chain of a reviewed caller is ignored and never refused, that a consulted agent's request across applications is refused, and that the context keeps its shape without the chain.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleConsultationChain.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantConsultationChainSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantConsultationTools.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpChainPayloadTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
+      ]
+    },
+    {
       "id": "SPM-369",
       "categoryId": "18",
       "title": "The assistant lab keeps a message the person typed and did not send when the drawer closes",

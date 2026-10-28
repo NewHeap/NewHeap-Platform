@@ -33,6 +33,9 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     public const string AdminHeader = "X-Test-Admin";
     public const string NameHeader = "X-Test-Name";
     public const string ImpersonatedByHeader = "X-Test-Impersonated-By";
+
+    /// <summary>The issuer the caller's token carries, as its <c>iss</c> claim.</summary>
+    public const string IssuerHeader = "X-Test-Issuer";
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
@@ -272,6 +275,11 @@ internal sealed class TestAuthenticationHandler(
         if (Request.Headers.ContainsKey(AssistantWebApplication.AdminHeader))
         {
             claims.Add(new Claim("permission", "assistant-admin"));
+        }
+        var issuer = Request.Headers[AssistantWebApplication.IssuerHeader].ToString();
+        if (!string.IsNullOrWhiteSpace(issuer))
+        {
+            claims.Add(new Claim("iss", issuer));
         }
         var impersonatedBy = Request.Headers[AssistantWebApplication.ImpersonatedByHeader].ToString();
         if (!string.IsNullOrWhiteSpace(impersonatedBy))

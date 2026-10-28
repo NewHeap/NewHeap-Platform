@@ -84,6 +84,47 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
         Assert.DoesNotContain("Research is queued", context.ToJsonString(), StringComparison.Ordinal);
         Assert.DoesNotContain("export of Alpha", context.ToJsonString(), StringComparison.Ordinal);
         Assert.DoesNotContain("tool-call", context.ToJsonString(), StringComparison.Ordinal);
+        // Without IncludeChain the context keeps its shape: no consultation chain.
+        Assert.Equal(["version", "invocation", "conversation", "snapshot"], context.Select(item => item.Key));
+    }
+
+    [Fact]
+    public async Task A_binding_with_the_chain_adds_the_asking_agents_and_the_consultation_depth()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ResearchFunction, new { question = "Which risks block Alpha?" })
+            .RespondWithText("Research is queued.");
+        var research = new ResearchServer();
+        await using var host = await CreateHostAsync(model, research, includeChain: true);
+        await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly);
+        var conversation = await host.CreateConversationAsync();
+
+        await host.SendAsync(conversation.Id, "Ask research which risks block Alpha.");
+
+        // The chain is one more member of the same version: a receiver that does not know it reads the
+        // rest as before. A turn that is no consultation names only its own agent, at depth 0.
+        var context = Assert.Single(research.Calls).Context!;
+        Assert.Equal(NhAssistantMcpContext.Version, context["version"]!.GetValue<int>());
+        Assert.Equal(["version", "invocation", "conversation", "snapshot", "chain"], context.Select(item => item.Key));
+        Assert.Equal(
+            """{"agents":[{"application":"https://projects.test","agentId":"project-assistant"}],"consultationDepth":0}""",
+            context["chain"]!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task A_host_whose_binding_sends_the_chain_without_the_applications_name_does_not_start()
+    {
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            AssistantTestProvider.PostgreSql,
+            new NhAiScriptedChatClient(),
+            assistantBuilder: assistant => assistant.AddMcpContextBinding(
+                new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask") { IncludeChain = true }));
+
+        var validator = host.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<NhAssistantStartupValidator>().Single();
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => validator.StartAsync(CancellationToken.None));
+
+        Assert.Contains("UseMcpChainApplication", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -359,7 +400,8 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
     private Task<AssistantTestHost> CreateHostAsync(
         NhAiScriptedChatClient model,
         ResearchServer research,
-        string serverUrl = ResearchUrl)
+        string serverUrl = ResearchUrl,
+        bool includeChain = false)
     {
         var servers = new InMemoryMcpServers();
         servers.Register(serverUrl, research.Handlers);
@@ -368,12 +410,20 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
             AssistantTestProvider.PostgreSql,
             model,
             configure: services => services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers)),
-            assistantBuilder: assistant => assistant
-                .ConfigureMcp(mcp => mcp.RequireHttps = true)
-                .AddMcpContextBinding(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask")
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .ConfigureMcp(mcp => mcp.RequireHttps = true)
+                    .AddMcpContextBinding(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask")
+                    {
+                        Snapshot = new NhAssistantConversationSnapshotRequest { MaxRecentMessages = 4, MaxBytes = 2_048, MaxMessageBytes = 512 },
+                        IncludeChain = includeChain
+                    });
+                if (includeChain)
                 {
-                    Snapshot = new NhAssistantConversationSnapshotRequest { MaxRecentMessages = 4, MaxBytes = 2_048, MaxMessageBytes = 512 }
-                }));
+                    assistant.UseMcpChainApplication("https://projects.test");
+                }
+            });
     }
 
     private static async Task ConnectResearchServerAsync(AssistantTestHost host, string url, string effect)

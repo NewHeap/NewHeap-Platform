@@ -149,6 +149,26 @@ administration compares a shipped package with the host without an export. A pac
 imported answers the new code `404 assistant-package-not-found`. The routes are
 `NhAssistantAgentPackageRoutes.Read` and `NhAssistantAgentPackageRoutes.Package`.
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the consultation chain across applications
+
+Cooperating applications that consult each other's agents over MCP keep one consultation chain, so a
+loop between them is refused as one host refuses it (SPM-366). `UseMcpChainApplication(applicationId)`
+names the application in chains. `NhAssistantMcpContextBinding.IncludeChain` (off by default) adds
+`chain` to `com.newheap/assistant-context`: the agents that asked, outermost first and each with its
+`application`, and the calling turn's `consultationDepth`; the version stays 1 and the other members
+keep their shape. With the chain a binding also binds a call from a consultation turn, without a
+snapshot; a code-owned import names the binder with the new constant `NhAssistantMcpContext.BinderId`.
+`ContinueMcpChain(new NhAssistantMcpChainCaller(applicationId, issuer))` reviews a caller by the issuer
+claim (and optionally the client claim) of its principal: a consultation it starts over MCP is one
+level deeper than the deeper of the caller's depth and the local one, counts the caller's agents as
+askers and is refused with `assistant-consult-depth-exceeded` before it is recorded or the agent runs
+when an agent of this application is already in the chain; a request from inside a consultation is
+refused the same way. The chain of any other caller, and a malformed one, is ignored, never refused.
+Two applications with an agent of the same id never refuse each other. The agent's budget,
+`MaxConsultationsPerActorPerDay` and the call's deadline still bound every call. Startup fails for a
+binding with the chain or a reviewed caller without the application's name, and for a reviewed caller
+with that name. No migration.
+
 ## @newheap/platform-ai-chat: read package parts and keep uncarried parts linked
 
 `NhAssistantAdminApiService.readAgentPackageParts(agentIds)` (`AgentPackageParts`) and

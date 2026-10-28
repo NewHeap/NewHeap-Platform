@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "ca92a5b0559e160eec46e6addc038dcf9c678cd73180ae5a88f2daf26cef58f2",
-    "declarationCount": 11382,
+    "hash": "ebd24042aa2b37f1369db3d40f169d60a03f72ee3b565fe92379a6989830fdbe",
+    "declarationCount": 11415,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -424,6 +424,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
         "declaration": "public static async ValueTask<CallToolResult> CallToolAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "declaration": "public static JsonObject? Meta => CurrentMeta.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "declaration": "public static IDisposable Enter(JsonObject? meta) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
@@ -7362,6 +7374,90 @@
         "declaration": "public static TaskResult<T> Refused<T>() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public sealed record NhAssistantMcpChainCaller(string ApplicationId, string Issuer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public string IssuerClaimType { get; init; } = \"iss\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public string? ClientClaimType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public string? ClientId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const char Separator = '@';"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public static string Qualify(string agentId, string applicationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public static (string AgentId, string? ApplicationId) Split(string entry) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const string ChainKey = \"chain\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const string AgentsKey = \"agents\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const string ApplicationKey = \"application\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const string AgentIdKey = \"agentId\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public const string ConsultationDepthKey = \"consultationDepth\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public NhAssistantMcpChains( IEnumerable<NhAssistantMcpChainApplicationRegistration> applications, IEnumerable<NhAssistantMcpChainCallerRegistration> callers) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public string? ApplicationId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpChainCaller> Callers => _callers;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public bool ContinuesChains => ApplicationId is not null && _callers.Length > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public void Validate(bool bindingsIncludeChain) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public NhAssistantMcpChainCaller? FindCaller(ClaimsPrincipal? principal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public JsonObject ChainOf(NhAssistantTurnScope turn) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public static NhAssistantInheritedChain? Parse( JsonObject context, NhAssistantMcpChainCaller caller, string applicationId, out string? problem) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public NhAssistantInheritedChain? Read() {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder enabled) {"
       },
@@ -7379,6 +7475,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public bool IncludeChain { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
         "declaration": "public static class NhAssistantMcpContext {"
       },
       {
@@ -7391,7 +7491,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public const string BinderId = \"newheap-assistant-context\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public const int MaxChainAgents = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public const int MaxApplicationIdLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
         "declaration": "public static NhAssistantBuilder AddMcpContextBinding( this NhAssistantBuilder builder, NhAssistantMcpContextBinding binding) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAssistantBuilder UseMcpChainApplication(this NhAssistantBuilder builder, string applicationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAssistantBuilder ContinueMcpChain(this NhAssistantBuilder builder, NhAssistantMcpChainCaller caller) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static bool IsApplicationId(string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public bool IncludeChain => _bindings.Any(binding => binding.IncludeChain);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
@@ -7407,7 +7535,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
-        "declaration": "public const string BinderId = \"newheap-assistant-context\";"
+        "declaration": "public const string BinderId = NhAssistantMcpContext.BinderId;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
@@ -22112,6 +22240,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultationProposals.cs",
         "declaration": "public static JsonElement RefusalResult(string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
+        "declaration": "public NhAssistantInheritedChain? Inherited { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultations.cs",
@@ -49753,7 +49885,15 @@
       "NhAssistantNewConversation",
       "NhAssistantConversationOptions",
       "NhAssistantConversationAnswer",
-      "INhAiTurnPerson"
+      "INhAiTurnPerson",
+      "IncludeChain",
+      "UseMcpChainApplication",
+      "ContinueMcpChain",
+      "NhAssistantMcpChainCaller",
+      "BinderId",
+      "MaxChainAgents",
+      "MaxApplicationIdLength",
+      "IsApplicationId"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

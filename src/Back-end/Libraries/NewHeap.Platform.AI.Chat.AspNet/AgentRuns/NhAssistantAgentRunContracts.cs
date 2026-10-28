@@ -809,7 +809,10 @@ public sealed record NhAssistantFeedbackExportRecord(
 /// it cost. Question and answer stay in the asking conversation.
 /// </summary>
 /// <param name="AskerDisplayName">The asker's name from the subject's member snapshot, when known.</param>
-/// <param name="AskingAgentId">The assistant whose turn consulted, or <see langword="null"/> for a direct call.</param>
+/// <param name="AskingAgentId">The assistant of this application whose turn consulted, or <see langword="null"/> for a
+/// direct call, also one from a reviewed MCP caller of another application that sent its consultation chain.</param>
+/// <param name="Depth">How deep the consultation nests: 1 for one that no consultation asked for; for a reviewed MCP
+/// caller that sent its chain, one more than that chain's depth.</param>
 /// <param name="Status"><c>running</c>, <c>completed</c> or <c>failed</c>.</param>
 public sealed record NhAssistantConsultationDto(
     Guid Id,

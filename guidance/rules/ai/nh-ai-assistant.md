@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312", "SPM-323", "SPM-331", "SPM-332", "SPM-334", "SPM-341", "SPM-342", "SPM-345", "SPM-346", "SPM-347"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "FindBrokenRule", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "ReaderCallTimeout", "MaxTextCharacters", "MaxResponseBytes", "MaxToolListPages", "MaxTools", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto", "INhAssistantMcpServers", "NhAssistantMcpServerRequest", "NhAssistantMcpOAuthRequest", "NhAssistantMcpReaderRequest", "NhAssistantMcpToolSettingsRequest", "NhAssistantMcpServerLimits", "NhAssistantMcpServerDto", "NhAssistantMcpToolDto", "NhAssistantMcpServerTestResultDto", "MaxToolsAwaitingSync", "AwaitingSync", "AdminMcpToolReviewedBeforeSync", "AdminMcpToolSeenAfterReview", "AllowLoopback", "MaxConsultationsPerTurn", "KeepTurnsAfterDisconnect", "INhAssistantConversationTurns", "NhAssistantConversationMessage", "NhAssistantConversationDecision", "NhAssistantConversationTurnOptions", "NhAssistantConversationTurnResult", "AllowQuestions", "NhAssistantQuestionStatuses", "NhAssistantQuestionLimits", "NhAssistantQuestionPartDto", "NhAssistantAnswerQuestionRequest", "NhAssistantConversationDto", "INhAssistantConversations", "NhAssistantNewConversation", "NhAssistantConversationOptions", "NhAssistantConversationAnswer", "INhAiTurnPerson"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312", "SPM-323", "SPM-331", "SPM-332", "SPM-334", "SPM-341", "SPM-342", "SPM-345", "SPM-346", "SPM-347", "SPM-366"]
+public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "FindBrokenRule", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "ReaderCallTimeout", "MaxTextCharacters", "MaxResponseBytes", "MaxToolListPages", "MaxTools", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto", "INhAssistantMcpServers", "NhAssistantMcpServerRequest", "NhAssistantMcpOAuthRequest", "NhAssistantMcpReaderRequest", "NhAssistantMcpToolSettingsRequest", "NhAssistantMcpServerLimits", "NhAssistantMcpServerDto", "NhAssistantMcpToolDto", "NhAssistantMcpServerTestResultDto", "MaxToolsAwaitingSync", "AwaitingSync", "AdminMcpToolReviewedBeforeSync", "AdminMcpToolSeenAfterReview", "AllowLoopback", "MaxConsultationsPerTurn", "KeepTurnsAfterDisconnect", "INhAssistantConversationTurns", "NhAssistantConversationMessage", "NhAssistantConversationDecision", "NhAssistantConversationTurnOptions", "NhAssistantConversationTurnResult", "AllowQuestions", "NhAssistantQuestionStatuses", "NhAssistantQuestionLimits", "NhAssistantQuestionPartDto", "NhAssistantAnswerQuestionRequest", "NhAssistantConversationDto", "INhAssistantConversations", "NhAssistantNewConversation", "NhAssistantConversationOptions", "NhAssistantConversationAnswer", "INhAiTurnPerson", "IncludeChain", "UseMcpChainApplication", "ContinueMcpChain", "NhAssistantMcpChainCaller", "BinderId", "MaxChainAgents", "MaxApplicationIdLength", "IsApplicationId"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -1134,10 +1134,61 @@ verifies the running call, the run, the accountable actor's access and the activ
 itself, and never returns instructions, tool calls or results, approvals, page context
 or output of the running turn, also not text written before an approval pause.
 
+## Consultation chains across applications
+
+When cooperating applications consult each other's agents over MCP, let them keep one
+consultation chain, so a loop between them is refused as one host refuses it (SPM-366). Name
+the application once with `UseMcpChainApplication(applicationId)`, for example its public origin
+or token issuer: 1 to `NhAssistantMcpContext.MaxApplicationIdLength` characters without white
+space or control characters (`IsApplicationId`). Every application of a chain needs a name of
+its own.
+
+On the sending side set `IncludeChain = true` on the `NhAssistantMcpContextBinding` of the other
+application's consult tool. The assistant context then also carries `chain`: `agents`, the agents
+that asked, outermost first and each as `{ "application", "agentId" }`, ending with the calling
+turn's own agent, and `consultationDepth`, the depth of the calling turn (0 outside a
+consultation). The version stays 1 and the other members keep their shape, so a receiver that does
+not know `chain` reads the rest as before. A consultation turn offers no administrator-connected MCP
+tools, so a consulted agent reaches another application through a code-owned import
+(`INhAiMcpClientToolImporter`) whose policy names `InvocationBinderId =
+NhAssistantMcpContext.BinderId` for the binding's server id and remote name. With the chain the
+binding also binds a call from a consultation turn: its `conversation` names the consulted agent's
+thread and the consultation as turn, and it carries no snapshot.
+
+On the receiving side register every reviewed caller with `ContinueMcpChain(new
+NhAssistantMcpChainCaller(applicationId, issuer))`. A request is from that caller when its
+authenticated principal carries exactly one `IssuerClaimType` claim (`iss`) with the issuer and,
+for an issuer that serves several applications, exactly one `ClientClaimType` claim with
+`ClientId`. A consultation such a caller starts over MCP begins where its chain ended: one level
+deeper than the deeper of the caller's depth and this application's own, with the caller's agents
+counted as askers, each qualified by its application. `MaxConsultationDepth` then bounds the whole
+path, and an agent of this application already in the chain, also on a path that never returns to
+the application that asked first, refuses the call with `assistant-consult-depth-exceeded` before a
+consultation is recorded or the agent runs. Two applications with an agent of the same id never
+refuse each other. A request (`assistant.request.*`) whose chain comes from a consultation is
+refused the same way, as one host never offers a request inside a consultation. The chain of any
+other caller is ignored, never refused, so an ordinary MCP client keeps working: the call is a
+direct call at depth 1. A malformed chain of a reviewed caller is ignored too, with a warning that
+names the problem and not the payload: another version, a missing or non-integer depth, no agents
+or more than `MaxChainAgents`, an invalid application or agent id, or a calling agent of another
+application than the caller's. The consultation keeps `AskingAgentId` `null`, because no agent of
+this application asked, and counts the chain in `Depth`.
+
+The chain is loop protection between cooperating applications, not authorization. The caller's
+person still needs the consultation's policy and a role on the subject, and the consulted agent's
+daily `Budget`, `MaxConsultationsPerActorPerDay` and the call's deadline bound a caller that sends
+no chain or a forged one: a forged shallow chain costs budget, never correctness.
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
   invocation gate, budget, idempotency or evidence manager afterwards; startup fails.
+- Believing a consultation chain from a caller you did not review with `ContinueMcpChain`, or
+  reading the chain as authorization; it only ever refuses, and budgets and limits still bound a
+  forged one.
+- Giving two applications of a chain the same name, or reviewing a caller under this application's
+  own name: agents of the same id would refuse each other, and startup refuses the second. A binding
+  with `IncludeChain` or a reviewed caller without `UseMcpChainApplication` fails startup too.
 - Registering or replacing `INhAiToolDiscoveryPolicy` for the assistant; discovery
   stays owned by the application or the API bridge.
 - Adding agent-specific copies of tools to bypass approval, or approving on behalf
@@ -1288,6 +1339,14 @@ agent version and is audited once, the per-agent limit refuses another server an
 refuses what the administration refuses. Assert that an agent save without `mcpServerIds` keeps an
 assignment made after the editor read the agent, that `[]` clears them, and that the assignment
 endpoints answer `403` without the admin policy and the service's codes and audit with it (SPM-345).
+For a consultation chain across applications, run real hosts with their own MCP endpoints and
+code-owned imports of each other's consult tools, and assert: A consults B and B consulting A back
+is refused with `assistant-consult-depth-exceeded` before a consultation is recorded or a model
+runs; A asks B, B asks C and C asks B is refused at B while A receives no call; the same call from a
+caller that was not reviewed is a direct call at depth 1; two applications with an agent of the
+same id answer each other; a reviewed caller that sends a shallow chain on every call is refused by
+`MaxConsultationsPerActorPerDay`; and a malformed chain of a reviewed caller is ignored, not
+refused. Pin the JSON names of `chain` and the shape of the context without it (SPM-366).
 For a tool that no sync has seen, assert that it is stored `missing` without a schema and never
 offered, that a sync that cannot reach the server or does not see it leaves it waiting, that the first
 sync that sees it keeps its settings and a later schema change disables it, and that refused names and

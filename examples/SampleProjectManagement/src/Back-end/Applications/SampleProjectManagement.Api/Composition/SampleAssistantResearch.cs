@@ -38,7 +38,11 @@ public static class SampleAssistantResearch
                 MaxRecentMessages = 4,
                 MaxBytes = 4_096,
                 MaxMessageBytes = 1_024
-            }
+            },
+            // SPM-366: once the API has a name in consultation chains, the research service also learns
+            // which agents asked and how deep the consultation is, so a research service that consults
+            // this API's agents in turn can continue the chain.
+            IncludeChain = SampleConsultationChain.IsNamed(configuration)
         });
     }
 }

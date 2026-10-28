@@ -185,6 +185,16 @@ tools stay with its own runs; a status change its model names anyway runs nothin
 person: an agent created in the administration that acts with the operations account's
 rights is not offered it in a run that a created project starts, because it does not
 delegate from the person who created the project.
+A partner application's assistant may consult the intake reviewer over MCP as well (SPM-366), and
+the two applications keep one consultation chain: `SampleConsultationChain` names the API in chains
+(`UseMcpChainApplication`) and reviews the partner by the issuer its calls carry (`ContinueMcpChain`).
+A consultation the partner starts counts the partner's agents as askers and begins one level deeper,
+so when the partner's desk, which the reviewer consulted in turn, asks the reviewer again, the call is
+refused with `assistant-consult-depth-exceeded` before the reviewer runs. The same chain from an MCP
+client of another issuer is ignored, not refused. Once the API has a name in chains, the research
+binding sends the chain of the calling turn too (`IncludeChain`). The chain is loop protection
+between cooperating applications, not authorization: the policy, the project role, the budgets, the
+daily consultation limit and the call's deadline still decide every call.
 After rejecting a proposal, an approver may say what was wrong (SPM-279): a category such
 as `not-now` and a short text, never required and never asked before the decision. The
 next run of the reviewer on that project starts from the rejection and the approver's
