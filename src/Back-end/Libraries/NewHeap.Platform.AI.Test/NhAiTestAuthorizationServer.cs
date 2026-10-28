@@ -165,6 +165,15 @@ public sealed class NhAiTestAuthorizationServer : IAsyncDisposable
     }
 
     /// <summary>
+    /// Issues an access token directly as of <paramref name="issuedAt"/>, for tests of a resource server
+    /// that refuses an expired token, for example one issued ten minutes ago for five minutes.
+    /// </summary>
+    public string IssueAccessToken(string subject, string resource, string scope, DateTimeOffset issuedAt, TimeSpan lifetime, string clientId = "test-client")
+    {
+        return CreateAccessToken(subject, resource, scope, clientId, lifetime, issuedAt: issuedAt.UtcDateTime);
+    }
+
+    /// <summary>
     /// Validates an access token of this server for <paramref name="resource"/>: signature, issuer,
     /// audience and lifetime. Returns the principal, or null.
     /// </summary>
@@ -417,7 +426,7 @@ public sealed class NhAiTestAuthorizationServer : IAsyncDisposable
         await WriteJsonAsync(context, 200, response);
     }
 
-    private string CreateAccessToken(string subject, string resource, string scope, string clientId, TimeSpan lifetime, string? family = null)
+    private string CreateAccessToken(string subject, string resource, string scope, string clientId, TimeSpan lifetime, string? family = null, DateTime? issuedAt = null)
     {
         var claims = new List<Claim>
         {
@@ -430,7 +439,7 @@ public sealed class NhAiTestAuthorizationServer : IAsyncDisposable
         {
             claims.Add(new Claim("family", family));
         }
-        var now = DateTime.UtcNow;
+        var now = issuedAt ?? DateTime.UtcNow;
         return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
             Issuer,
             resource,
