@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "ca92a5b0559e160eec46e6addc038dcf9c678cd73180ae5a88f2daf26cef58f2",
-    "declarationCount": 11382,
+    "hash": "e8472336735ad7c7bc239ea3e5d50bd1b7ce0c3027eec296c23f54f6123918a0",
+    "declarationCount": 11437,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -395,6 +395,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "declaration": "public static IMcpServerBuilder WithNewHeapPlatformAITools( this IMcpServerBuilder builder, Action<NhAiMcpExposureBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
         "declaration": "public NhAiMcpToolListChanges(IEnumerable<INhAiChangingToolCatalog> catalogs) {"
       },
       {
@@ -720,6 +724,218 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpDelegatedTokens.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiMcpDelegatedToken>> IssueAsync( NhAiMcpDelegatedTokenRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static class NhAiMcpProtectedResourceDefaults {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string AuthenticationScheme = \"NewHeap.AI.McpProtectedResource\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string AuthorizationPolicy = \"NewHeap.AI.McpProtectedResource\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string HttpClientName = \"newheap-ai-mcp-protected-resource\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string MetadataPath = \"/.well-known/oauth-protected-resource\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string BearerMethod = \"header\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const string InvalidTokenError = \"invalid_token\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static readonly TimeSpan DefaultClockSkew = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static string MetadataAddressOf(string resource) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public sealed class NhAiMcpProtectedResourceOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? Resource { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IList<string> AuthorizationServers { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IList<string> ScopesSupported { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? ResourceName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IList<string> AcceptHostSchemes { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public TimeSpan ClockSkew { get; set; } = NhAiMcpProtectedResourceDefaults.DefaultClockSkew;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public Func<NhAiMcpProtectedResourceTokenValidatedContext, Task>? OnTokenValidated { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public sealed class NhAiMcpProtectedResourceTokenValidatedContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public HttpContext HttpContext { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string Issuer { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? Subject { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public ClaimsPrincipal Principal { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? FailureReason { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public void Fail(string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public sealed class NhAiMcpExposureBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public NhAiMcpExposureBuilder UseProtectedResource(Action<NhAiMcpProtectedResourceOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static readonly TimeSpan MetadataTimeout = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string Resource { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IReadOnlyList<string> AuthorizationServers { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IReadOnlyList<string> ScopesSupported { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? ResourceName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public IReadOnlyList<string> AcceptHostSchemes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public TimeSpan ClockSkew { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public Func<NhAiMcpProtectedResourceTokenValidatedContext, Task>? OnTokenValidated { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string PathMetadata { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string MetadataAddress { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public byte[] MetadataDocument { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static NhAiMcpProtectedResource Create(NhAiMcpProtectedResourceOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static string Canonical(string url, string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public bool IsMetadataPath(PathString path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public bool IsResource(string? audience) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public bool Names(string? issuer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string Challenge(bool tokenSent) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string Issuer { get; } = issuer;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static bool Applies(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public async Task<bool> HandleRequestAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "protected override async Task<AuthenticateResult> HandleAuthenticateAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "protected override Task HandleChallengeAsync(AuthenticationProperties properties) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public NhAiMcpAccessTokenValidator( NhAiMcpProtectedResource resource, IHttpClientFactory httpClientFactory, ILogger<NhAiMcpAccessTokenValidator> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public async Task<TokenValidationResult> ValidateAsync(string token, string issuer, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public async Task<OpenIdConnectConfiguration> GetConfigurationAsync( string address, IDocumentRetriever retriever, CancellationToken cancel) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "protected override async Task ValidateAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiPersonInvocations.cs",
@@ -28567,6 +28783,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
+        "declaration": "public string IssueAccessToken(string subject, string resource, string scope, DateTimeOffset issuedAt, TimeSpan lifetime, string clientId = \"test-client\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
         "declaration": "public ClaimsPrincipal? ValidateAccessToken(string token, string resource) {"
       },
       {
@@ -49827,7 +50047,11 @@
       "NhAiToolHint",
       "NhAiToolJsonSerializerOptions",
       "INhAiChangingToolCatalog",
-      "NhAiToolCatalogViews"
+      "NhAiToolCatalogViews",
+      "NhAiMcpExposureBuilder",
+      "NhAiMcpProtectedResourceOptions",
+      "NhAiMcpProtectedResourceDefaults",
+      "NhAiMcpProtectedResourceTokenValidatedContext"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",

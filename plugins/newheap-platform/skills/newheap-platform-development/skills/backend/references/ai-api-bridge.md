@@ -34,6 +34,9 @@ authorization, model binding, validation and filters remain the authoritative
 boundary; the bridge adds governance, it never replaces it. The caller's bearer
 token comes from `INhAiCallerCredentialAccessor` and is forwarded only as the
 `Authorization` header; it never enters `NhAiInvocationContext`, audit or logs.
+A request signed in with an access token for the MCP exposure
+(`UseProtectedResource`, see `nh-ai-mcp-tools`) has none, because that token is for
+the MCP resource only, so a bridge call over it fails with `api-bridge-unauthenticated`.
 Only `Authorization`, `Accept-Language`, `Idempotency-Key` and
 `X-NewHeap-AI-Invocation` are forwarded. In an agent turn the request's token serves
 only the initiator's own request turn: a turn that runs in another person's request,

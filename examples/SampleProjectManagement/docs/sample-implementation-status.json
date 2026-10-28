@@ -346,7 +346,8 @@
     "SPM-351",
     "SPM-352",
     "SPM-353",
-    "SPM-355"
+    "SPM-355",
+    "SPM-370"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3674,6 +3675,19 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhMailServiceSmtpSecurityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MailpitTestServer.cs"
+    ],
+    "SPM-370": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleMcpSignInComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/McpSignInSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpProtectedResourceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpProtectedResourceHttpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
     ]
   }
 }
