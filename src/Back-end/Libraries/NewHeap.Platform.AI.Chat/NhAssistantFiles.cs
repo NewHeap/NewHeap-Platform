@@ -120,6 +120,15 @@ public sealed record NhAssistantFileActor(
     /// </summary>
     public NhAiSubjectRef? Subject { get; init; }
 
+    /// <summary>
+    /// The subject of the person's chat, when the chat is about one (FB25), as
+    /// <see cref="NhAiInvocationContext.ConversationSubject"/>: the person had a role on it when the turn
+    /// or the upload started. The file is still opened or stored for <see cref="ActorId"/>, with that
+    /// person's rights; <see langword="null"/> in a chat without a subject and in an agent's thread,
+    /// whose subject is <see cref="Subject"/>.
+    /// </summary>
+    public NhAiSubjectRef? ConversationSubject { get; init; }
+
     public Guid? RunId { get; init; }
 
     /// <summary>

@@ -161,6 +161,11 @@ internal sealed partial class NhAssistantTurnRunner(
             return Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable, "The assistant agent's instructions are not available.");
         }
         var agent = effectiveAgent.Definition;
+        var chatSubject = await CheckChatSubjectAsync(conversation, request.AgentTurn, effectiveAgent, request.CallerContext, cancellationToken);
+        if (!chatSubject.Success)
+        {
+            return TaskResult<NhAssistantTurnHandle>.Failed(chatSubject);
+        }
         if (!string.IsNullOrWhiteSpace(request.ClientMessageId)
             && await store.ClientMessageExistsAsync(conversation.Id, request.ClientMessageId, cancellationToken))
         {
@@ -193,7 +198,60 @@ internal sealed partial class NhAssistantTurnRunner(
             request.RequestAborted,
             request.CallerContext,
             request.Person,
-            (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, events, token));
+            (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, chatSubject.Data, events, token));
+    }
+
+    /// <summary>
+    /// The person's live access to the subject of their chat about one (FB25), checked before every turn
+    /// starts: the subject's resolver must describe it in the person's tenant and give them a role on it,
+    /// and the agent must still work on it (<see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/>).
+    /// <see langword="null"/> for a chat without a subject and for an agent's thread.
+    /// </summary>
+    private async Task<TaskResult<NhAiSubjectInfo?>> CheckChatSubjectAsync(
+        AssistantConversation conversation,
+        NhAssistantAgentTurnContext? agentTurn,
+        NhAssistantAgent effectiveAgent,
+        NhAiInvocationContext caller,
+        CancellationToken cancellationToken)
+    {
+        if (agentTurn is not null
+            || string.Equals(conversation.Kind, NhAssistantConversationKinds.Thread, StringComparison.Ordinal)
+            || NhAssistantChatSubjects.SubjectOf(conversation) is not { } subject)
+        {
+            return TaskResult<NhAiSubjectInfo?>.Succeeded(null);
+        }
+
+        var checkedSubject = await services.GetRequiredService<NhAssistantChatSubjects>()
+            .CheckAsync(conversation, caller.ActorId, caller.TenantId, cancellationToken);
+        if (!checkedSubject.Success)
+        {
+            return checkedSubject;
+        }
+
+        return NhAssistantChatSubjects.WorksOn(effectiveAgent, subject)
+            ? checkedSubject
+            : TaskResult<NhAiSubjectInfo?>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "The agent no longer works on the chat's subject.");
+    }
+
+    /// <summary>
+    /// The briefing of a person's message in their chat about a subject (FB25): what the chat is about,
+    /// then what the subject type's provider gives for <see cref="NhAssistantBriefingPurposes.Chat"/>.
+    /// </summary>
+    private async Task<string?> DescribeChatSubjectAsync(
+        NhAssistantAgent effectiveAgent,
+        NhAiSubjectInfo subject,
+        CancellationToken cancellationToken)
+    {
+        var briefings = services.GetRequiredService<NhAssistantBriefingService>();
+        var type = services.GetRequiredService<NhAssistantSubjectAccessService>().FindType(subject.Subject.Type);
+        var typeName = type?.NameIn(CultureInfo.InvariantCulture) ?? subject.Subject.Type;
+        var sections = await briefings.CollectAsync(
+            effectiveAgent.Id,
+            subject,
+            NhAssistantBriefingPurposes.Chat,
+            [],
+            cancellationToken);
+        return briefings.Compose(sections, NhAssistantBriefingService.ChatSubjectSection(subject, typeName));
     }
 
     public async Task<TaskResult<NhAssistantTurnHandle>> StartDecisionTurnAsync(
@@ -271,6 +329,12 @@ internal sealed partial class NhAssistantTurnRunner(
             // An agent identity can never decide about its own proposal.
             return Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "The approval decision is invalid.");
         }
+        // A decision continues the turn: the person needs the chat's subject now, as for a message.
+        var chatSubject = await CheckChatSubjectAsync(conversation, request.AgentTurn, effectiveAgent, request.CallerContext, cancellationToken);
+        if (!chatSubject.Success)
+        {
+            return TaskResult<NhAssistantTurnHandle>.Failed(chatSubject);
+        }
         if (request.Approve
             && !request.LeaveForApprovers
             && await RefuseStaleDecisionAsync(conversation, approval, askerDecision?.Thread ?? request.AgentTurn?.Thread, actorId, cancellationToken) is { } refusal)
@@ -315,7 +379,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 request.RequestAborted,
                 request.CallerContext,
                 request.Person,
-                (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, events, token));
+                (events, token) => RunAskerDecisionTurnAsync(access, effectiveAgent, askerDecision, waitingTurnId, request, movedTo, chatSubject.Data, events, token));
         }
 
         if (request.PolicyAuthorized
@@ -341,7 +405,7 @@ internal sealed partial class NhAssistantTurnRunner(
             request.RequestAborted,
             request.CallerContext,
             request.Person,
-            (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, request, events, token));
+            (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, request, events, token, chatSubject.Data));
     }
 
     public async Task<TaskResult> CancelAsync(
@@ -1276,7 +1340,7 @@ internal sealed partial class NhAssistantTurnRunner(
         return services.GetRequiredService<NhAssistantRetrievalService>()
             .RetrieveAsync(
                 state.Scope.Agent,
-                WithTurn(context, state.Scope.ConversationId, state.Scope.Channel),
+                WithTurn(context, state.Scope.ConversationId, state.Scope.Channel, state.ChatSubject?.Subject),
                 query,
                 state.Language,
                 cancellationToken);
@@ -1784,6 +1848,7 @@ internal sealed partial class NhAssistantTurnRunner(
         Guid turnId,
         NhAssistantMessageTurnRequest request,
         string text,
+        NhAiSubjectInfo? chatSubject,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
@@ -1815,7 +1880,7 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -1850,7 +1915,9 @@ internal sealed partial class NhAssistantTurnRunner(
                 null,
                 0,
                 cancellationToken)
-            : null;
+            : chatSubject is not null
+                ? await DescribeChatSubjectAsync(effectiveAgent, chatSubject, cancellationToken)
+                : null;
         // A person's turn in an agent thread retrieves within the thread's subject; a plain chat keeps
         // the person's own context.
         var retrievalContext = request.AgentTurn is null
@@ -1978,7 +2045,8 @@ internal sealed partial class NhAssistantTurnRunner(
         AssistantApproval approval,
         NhAssistantDecisionTurnRequest request,
         ChannelWriter<NhAssistantTurnEvent> events,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAiSubjectInfo? chatSubject = null)
     {
         var conversation = access.Conversation;
         var agent = effectiveAgent.Definition;
@@ -2000,7 +2068,7 @@ internal sealed partial class NhAssistantTurnRunner(
             ? CreateAgentCallerContext(continued, agent, conversation)
             : request.CallerContext;
         var speakers = await LoadSpeakersAsync(conversation, callerContext.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, callerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, callerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -3094,16 +3162,22 @@ internal sealed partial class NhAssistantTurnRunner(
     }
 
     /// <summary>
-    /// The context with the turn's conversation and the channel that started it, as tools, turn
-    /// context providers and retrieval sources read them (<see cref="NhAiInvocationContext.ConversationId"/>,
-    /// <see cref="NhAiInvocationContext.Channel"/>).
+    /// The context with the turn's conversation, the channel that started it and the subject of a chat
+    /// about one, as tools, turn context providers and retrieval sources read them
+    /// (<see cref="NhAiInvocationContext.ConversationId"/>, <see cref="NhAiInvocationContext.Channel"/>,
+    /// <see cref="NhAiInvocationContext.ConversationSubject"/>).
     /// </summary>
-    private static NhAiInvocationContext WithTurn(NhAiInvocationContext context, Guid conversationId, string? channel)
+    private static NhAiInvocationContext WithTurn(
+        NhAiInvocationContext context,
+        Guid conversationId,
+        string? channel,
+        NhAiSubjectRef? conversationSubject = null)
     {
         return context with
         {
             ConversationId = conversationId,
-            Channel = channel
+            Channel = channel,
+            ConversationSubject = conversationSubject
         };
     }
 
@@ -3122,6 +3196,7 @@ internal sealed partial class NhAssistantTurnRunner(
             AgentRunId = state.AgentTurn?.RunId,
             ConversationId = state.Scope.ConversationId,
             Channel = state.Scope.Channel,
+            ConversationSubject = state.ChatSubject?.Subject,
             AgentVersion = agent.Version.ToString(CultureInfo.InvariantCulture),
             ModelProfileName = agent.ProfileName,
             PromptVersion = state.Scope.PromptVersion,
@@ -3423,14 +3498,15 @@ internal sealed partial class NhAssistantTurnRunner(
         NhAssistantSpeakers? speakers,
         ChannelWriter<NhAssistantTurnEvent> events,
         NhAssistantAgentTurnContext? agentTurn = null,
-        string? channel = null)
+        string? channel = null,
+        NhAiSubjectInfo? chatSubject = null)
     {
         var agent = effectiveAgent.Definition;
-        // The turn context providers read the conversation and the channel from the context.
+        // The turn context providers read the conversation, the channel and a chat's subject from the context.
         var prompt = await ComposePromptAsync(
             agent,
             turnId,
-            WithTurn(callerContext, conversation.Id, channel),
+            WithTurn(callerContext, conversation.Id, channel, chatSubject?.Subject),
             language,
             clientContext,
             speakers);
@@ -3474,6 +3550,7 @@ internal sealed partial class NhAssistantTurnRunner(
             Conversation = conversation,
             EffectiveAgent = effectiveAgent,
             AgentTurn = agentTurn,
+            ChatSubject = agentTurn is null ? chatSubject : null,
             Language = language,
             ClientContext = clientContext,
             Speakers = speakers,

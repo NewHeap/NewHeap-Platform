@@ -77,6 +77,12 @@ internal sealed record NhAssistantAgent(
     public bool OfferedInChat { get; init; } = true;
 
     /// <summary>
+    /// Whether people's chats with the agent are about a subject only; see <c>RequireChatSubject()</c>.
+    /// Always <see langword="false"/> for an agent created in the administration.
+    /// </summary>
+    public bool RequiresChatSubject { get; init; }
+
+    /// <summary>
     /// What the agent works on: the statement in code for an agent in code, the stored one for an
     /// agent created in the administration.
     /// </summary>
@@ -277,6 +283,9 @@ internal sealed class NhAssistantAgentCatalog(
             OfferedInChat = row.Source == NhAssistantAgentSources.Code
                 ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions) && runOptions.HiddenFromChat)
                 : !row.HiddenFromChat,
+            RequiresChatSubject = row.Source == NhAssistantAgentSources.Code
+                && registration.CodeAgentRuns.TryGetValue(row.Id, out var subjectOptions)
+                && subjectOptions.RequiresChatSubject,
             WorksOn = row.Source == NhAssistantAgentSources.Code
                 ? registration.CodeAgentRuns.TryGetValue(row.Id, out var codeOptions) ? codeOptions.WorksOn : NhAssistantAgentWorksOn.Undeclared
                 : NhAssistantAgentWorksOn.FromRow(row),

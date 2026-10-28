@@ -395,6 +395,17 @@ public sealed record NhAiInvocationContext(
     public Guid? ConversationId { get; init; }
 
     /// <summary>
+    /// The subject of the person's chat the invocation belongs to, when the chat was started about one
+    /// (FB25), such as <c>project/7f3c…</c>: the assistant checked it with the subject's access resolver,
+    /// the tenant and what the agent works on before the turn started, so a tool may scope what it reads
+    /// or proposes to it. The tool still runs with the person's own rights and checks them itself.
+    /// <see langword="null"/> in a chat without a subject, in an agent's thread (whose subject is
+    /// <see cref="NhAiAgentInvocationScope.Subject"/>), in a consultation and outside an assistant turn.
+    /// Like <see cref="ConversationId"/> it takes part in no proposal hash or approval evidence.
+    /// </summary>
+    public NhAiSubjectRef? ConversationSubject { get; init; }
+
+    /// <summary>
     /// The application's channel that started the assistant turn through
     /// <c>INhAssistantConversationTurns</c>, a dash-case code such as <c>messaging-chat</c>, also in a
     /// consultation that turn started; <see langword="null"/> for a turn of the assistant's own

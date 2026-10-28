@@ -17,6 +17,7 @@ internal sealed class NhAssistantBriefingService(
 {
     internal const string RulesTitle = "What the agent's rules found";
     internal const string SkillTitle = "The skill of this run";
+    internal const string ChatSubjectTitle = "The subject of this chat";
 
     /// <summary>The most characters the rules' section of a briefing uses.</summary>
     internal const int MaxRulesSectionCharacters = 6_000;
@@ -153,6 +154,26 @@ internal sealed class NhAssistantBriefingService(
         }
 
         return new NhAssistantBriefingSection(SkillTitle, text);
+    }
+
+    /// <summary>
+    /// The section that tells the model what a person's chat is about (FB25): the subject's type, name and
+    /// id, so it reads "this project" right also without a briefing provider for the type.
+    /// </summary>
+    /// <param name="subject">The subject as its resolver described it.</param>
+    /// <param name="typeName">The name of the subject type, or its id when the application named none.</param>
+    public static NhAssistantBriefingSection ChatSubjectSection(NhAiSubjectInfo subject, string typeName)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeName);
+        var named = string.IsNullOrWhiteSpace(subject.DisplayName)
+            ? string.Empty
+            : " '" + Inline(subject.DisplayName, NhAiSubjectParent.MaxDisplayNameLength) + "'";
+        var text = "The person started this chat about the " + Inline(typeName, 100) + named
+            + " (" + Inline(subject.Subject.Type, NhAiSubjectRef.MaxTypeLength) + " " + Inline(subject.Subject.Id, NhAiSubjectRef.MaxIdLength) + ")."
+            + " Read their questions as questions about it unless they say otherwise. Your tools receive the subject"
+            + " and still run with the person's own rights.";
+        return new NhAssistantBriefingSection(ChatSubjectTitle, text);
     }
 
     /// <summary>

@@ -31,6 +31,14 @@ internal sealed class NhAssistantTurnState
     public NhAssistantAgentTurnContext? AgentTurn { get; init; }
 
     /// <summary>
+    /// The subject of a person's chat about one (FB25), as its resolver described it when the turn
+    /// started after the person's access was checked; <see langword="null"/> in a chat without a subject
+    /// and in an agent's thread, whose subject <see cref="AgentTurn"/> carries. Tools, the file source,
+    /// proposal guards and the briefing receive it; it never makes the chat the agent's thread.
+    /// </summary>
+    public NhAiSubjectInfo? ChatSubject { get; init; }
+
+    /// <summary>
     /// Proposals this turn recorded, inline or deferred.
     /// </summary>
     public int ProposalCount { get; set; }
@@ -1787,7 +1795,8 @@ internal sealed class NhAssistantToolCallInterceptor(
 
     /// <summary>
     /// The guard context of a proposal this call makes, with the call that proposes (FB26): its invocation
-    /// context, the conversation, the turn and the channel that started the turn. Only the proposal stage
+    /// context, the conversation, the turn, the channel that started the turn and the subject of a chat
+    /// about one (FB25). Only the proposal stage
     /// and the keys of the new proposal see them; the later stages read a stored proposal without them.
     /// They never enter the proposal or its hash.
     /// </summary>
@@ -1810,6 +1819,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             ConversationId = invocation.ConversationId ?? state.Scope.ConversationId,
             TurnId = state.Scope.TurnId,
             Channel = invocation.Channel ?? state.Scope.Channel,
+            ConversationSubject = invocation.ConversationSubject ?? state.ChatSubject?.Subject,
             Origin = invocation.Origin
         };
     }

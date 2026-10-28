@@ -3,7 +3,8 @@ namespace NewHeap.Platform.AI.Chat;
 /// <summary>
 /// Supplies a compact sketch of a subject at the start of every model turn of an agent about it:
 /// headless runs, the model part of a rule run that hands over, people's turns in the subject's
-/// thread and consultations. Register one provider per subject type with
+/// thread, consultations and people's messages in their own chat about the subject (FB25). Register one
+/// provider per subject type with
 /// <c>NhAssistantBuilder.AddSubjectBriefing</c>. It runs in the turn's service scope, without a
 /// person for headless runs, and reads the application's own data directly, like a rule handler.
 /// State facts with their dates and leave judgement to the model; a briefing reaches the model
@@ -50,6 +51,12 @@ public static class NhAssistantBriefingPurposes
 
     /// <summary>Another assistant consults the agent about the subject.</summary>
     public const string Consultation = "consultation";
+
+    /// <summary>
+    /// A person's message in their own chat about the subject (FB25). The turn runs with that person's
+    /// rights and the chat is theirs, not the agent's thread, so brief only what the person may read.
+    /// </summary>
+    public const string Chat = "chat";
 }
 
 /// <summary>

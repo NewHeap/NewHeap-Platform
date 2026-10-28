@@ -92,6 +92,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.TurnFailed,
             NhAssistantErrorCodes.PushSubscriptionInvalid,
             NhAssistantErrorCodes.SubjectInvalid,
+            NhAssistantErrorCodes.SubjectRequired,
             NhAssistantErrorCodes.RunTokenLimit,
             NhAssistantErrorCodes.ServiceAccountNotFound,
             NhAssistantErrorCodes.SkillVersionGone,

@@ -114,6 +114,15 @@ public sealed record NhAiProposalGuardContext(
     public string? Channel { get; init; }
 
     /// <summary>
+    /// The subject of the person's chat whose call proposes, as
+    /// <see cref="NhAiInvocationContext.ConversationSubject"/> (FB25): a guard may refuse a proposal about
+    /// another object than the chat is about. It is not where the proposal waits, which
+    /// <see cref="NhAiProposalGuardContext.Subject"/> names. Set only when a call proposes in a chat about
+    /// a subject; <see langword="null"/> otherwise and at the later stages.
+    /// </summary>
+    public NhAiSubjectRef? ConversationSubject { get; init; }
+
+    /// <summary>
     /// The composition or script whose step proposes, as <see cref="NhAiInvocationContext.Origin"/>: its
     /// kind, the composition's or script tool's id and the script's hash. A guard may refuse a proposal
     /// that a step of a composition or script makes, or check it more strictly. Set only when a step
