@@ -12,7 +12,9 @@ authoritative.
 
 Decided by Lars on 2026-10-29: FB56 to FB66, every one as advised (option (a)). FB56 was decided on its own,
 and the rest with "everything as advised". The decisions are summarized below; the sections under "Choices"
-keep the options that were weighed. Not built yet.
+keep the options that were weighed. Built on 2026-10-29 in train 31, with lanes AF (FB63), MY (FB64, FB65), PR (FB56 to
+FB58), TB (FB59), CA (FB60, FB62) and FU (FB61), and verified together. The choices each lane made are in the "Lane
+choices" table below, for Lars to review.
 
 ## Decisions
 
