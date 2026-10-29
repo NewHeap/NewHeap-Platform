@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
@@ -17,7 +18,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// Executable evidence for SPM-266: a reviewed research MCP tool receives the assistant context as
 /// request metadata over Streamable HTTP, while the same tool connected under another server id
-/// receives nothing.
+/// receives nothing. A research tool the API links in its stored links while it runs receives the
+/// context from the next read of those links, and nothing once the link is revoked (FB59).
 /// </summary>
 public sealed class AssistantMcpContextSamplesTests(AssistantResearchSampleHost host)
     : IClassFixture<AssistantResearchSampleHost>
@@ -76,6 +78,76 @@ public sealed class AssistantMcpContextSamplesTests(AssistantResearchSampleHost 
         Assert.Null(calls[1].Context);
     }
 
+    [Fact]
+    public async Task SPM_266_a_research_binding_the_api_stores_reaches_its_server_without_a_restart_and_stops_when_revoked()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        // A research service of its own, which an administrator connects under an id code does not bind.
+        await using var linked = await SampleResearchMcpServer.StartAsync();
+        using var admin = host.CreateClient("spm-266-link-admin", admin: true);
+        using var user = host.CreateClient("spm-266-link-user");
+        await ConnectAsync(admin, "research-linked", linked.Url);
+        using var agent = await admin.PostAsync("/api/assistant/admin/agents", AssistantSampleHost.Json(new
+        {
+            id = "linked-research-helper",
+            displayName = "Linked research helper",
+            description = "Hands questions to the linked research service.",
+            instructions = "Ask the research service when the user needs research.",
+            toolSelectors = new[] { "projects.search" },
+            mcpServerIds = new[] { "research-linked" },
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            isEnabled = true
+        }), cancellationToken);
+        Assert.Equal(HttpStatusCode.Created, agent.StatusCode);
+        var model = new NhAiScriptedChatClient();
+        for (var turn = 0; turn < 3; turn++)
+        {
+            model
+                .RespondWithFunctionCall("mcp_research-linked_research_ask", new { question = "Which risks block Alpha?" })
+                .RespondWithText("The research service is looking into it.");
+        }
+
+        host.Model.Use(model);
+        using var created = await user.PostAsync(
+            "/api/assistant/conversations",
+            AssistantSampleHost.Json(new { agentId = "linked-research-helper" }),
+            cancellationToken);
+        var conversationId = (await AssistantSampleHost.ReadJsonAsync(created)).GetProperty("id").GetGuid();
+        var configuration = host.Services.GetRequiredService<IConfiguration>();
+        var link = $"{SampleMcpLinks.Section}:{SampleMcpLinks.ContextBindingsKey}:0:";
+        try
+        {
+            // Not linked yet: the service receives the question only.
+            await host.SendAsync(user, conversationId, "Ask research which risks block Alpha.");
+
+            // An operator links the research tool while the API runs; this host reads the stored links
+            // on every use, so the next turn sends the assistant context.
+            configuration[link + "ServerId"] = "research-linked";
+            configuration[link + "ServerUrl"] = linked.Url;
+            configuration[link + "RemoteName"] = SampleAssistantResearch.ToolName;
+            var bound = await host.SendAsync(user, conversationId, "Ask again.");
+
+            // Revoked: the next turn sends the question only again.
+            configuration[link + SampleMcpLinks.RevokedKey] = "true";
+            await host.SendAsync(user, conversationId, "Ask a last time.");
+
+            Assert.Equal("succeeded", bound.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
+        }
+        finally
+        {
+            configuration[link + SampleMcpLinks.RevokedKey] = "true";
+        }
+
+        var calls = linked.Calls.ToArray();
+        Assert.Equal(3, calls.Length);
+        Assert.All(calls, call => Assert.Equal(["question"], call.Arguments.Keys));
+        Assert.Null(calls[0].Context);
+        Assert.Equal(conversationId.ToString(), calls[1].Context!["conversation"]!["id"]!.GetValue<string>());
+        Assert.Equal("spm-266-link-user", calls[1].Context!["invocation"]!["accountableOwnerId"]!.GetValue<string>());
+        Assert.Null(calls[2].Context);
+    }
+
     private static async Task ConnectAsync(HttpClient admin, string serverId, string url)
     {
         using var server = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
@@ -124,6 +196,9 @@ public sealed class AssistantResearchSampleHost(SamplePostgreSqlServer postgreSq
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
     {
         settings[SampleAssistantResearch.UrlSetting] = Research.Url;
+        // FB59: every turn reads the stored links, so the evidence needs no clock. The default is
+        // 30 seconds.
+        settings["NewHeap:AI:Assistant:Mcp:LinkCacheDuration"] = "00:00:00";
     }
 }
 
