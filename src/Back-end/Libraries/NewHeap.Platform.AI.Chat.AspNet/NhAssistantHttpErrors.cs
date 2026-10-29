@@ -10,20 +10,22 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// The one mapping of assistant failure codes to HTTP statuses, for every assistant endpoint: the
 /// chat, the administration, agent runs, subjects, run histories, boards, MCP connections and OAuth.
 /// Every code has exactly one status; an endpoint never chooses another status for a code. The
-/// error body carries the code, its localization key and the field errors of the result.
+/// error body carries the code, its localization key and the field errors of the result. Applications
+/// read the table through the public <see cref="NhAssistantHttpStatuses"/>, which the endpoints'
+/// responses use too.
 /// </summary>
 internal static class NhAssistantHttpErrors
 {
     private static readonly FrozenDictionary<string, int> Statuses = Build();
 
     /// <summary>
-    /// The HTTP status of <paramref name="code"/>; <c>400</c> for a code the table does not know,
-    /// such as one an application's resolver returned.
+    /// The HTTP status of <paramref name="code"/>; <see cref="NhAssistantHttpStatuses.UnknownCodeStatus"/>
+    /// for a code the table does not know, such as one an application's resolver returned.
     /// </summary>
     public static int StatusOf(string code)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        return Statuses.TryGetValue(code, out var status) ? status : StatusCodes.Status400BadRequest;
+        return Statuses.TryGetValue(code, out var status) ? status : NhAssistantHttpStatuses.UnknownCodeStatus;
     }
 
     /// <summary>
@@ -64,7 +66,7 @@ internal static class NhAssistantHttpErrors
         return TypedResults.Json(
             new NhAssistantErrorDto(code, NhAssistantErrorCodes.MessageKey(code), fieldErrors is { Count: > 0 } ? fieldErrors : null),
             NhAssistantJsonSerializerContext.Default.NhAssistantErrorDto,
-            statusCode: StatusOf(code));
+            statusCode: NhAssistantHttpStatuses.Of(code));
     }
 
     private static FrozenDictionary<string, int> Build()
