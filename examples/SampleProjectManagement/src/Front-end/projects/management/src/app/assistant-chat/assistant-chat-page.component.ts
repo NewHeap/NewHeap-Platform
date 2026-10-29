@@ -204,21 +204,18 @@ export class AssistantChatPageComponent {
 
     return { ...held, text };
   });
-  /** The person's latest conversation with the same agent, which the held question may continue. */
-  readonly latest = computed<ConversationSummary | null>(() => {
-    const agentId = this.held()?.agentId;
-    const candidates = this.store.conversations()
-      .filter(conversation => conversation.agentId === agentId && conversation.status !== 'archived');
-    return [...candidates].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
-  });
+  /** True while the choice shows; it changes only when the choice appears or goes. */
+  readonly choosing = computed(() => this.choice() !== null);
+  /** The person's latest conversation with the held message's agent, which the question may continue. */
+  readonly latest = computed(() => this.latestWith(this.held()?.agentId ?? null));
 
   /**
    * SPM-377: holds the first message of a new conversation, one that does not exist yet, while the
-   * person has earlier conversations with the agent; every other message goes at once.
+   * person has an earlier conversation with the agent that still takes messages; every other message
+   * goes at once.
    */
   readonly beforeSubmit: NhAssistantBeforeSubmit = message => {
-    const earlier = this.store.conversations().some(conversation => conversation.agentId === message.agentId);
-    if (message.conversationId !== null || !earlier) {
+    if (message.conversationId !== null || this.latestWith(message.agentId) === null) {
       this.held.set(null);
       return Promise.resolve(true);
     }
@@ -228,9 +225,9 @@ export class AssistantChatPageComponent {
   };
 
   constructor() {
-    // The choice takes the keyboard when it shows, so the person answers it first.
+    // The choice takes the keyboard when it appears, so the person answers it first.
     effect(() => {
-      if (this.choice() !== null) {
+      if (this.choosing()) {
         untracked(() => afterNextRender(() => this.firstChoice()?.nativeElement.focus(), { injector: this.injector }));
       }
     });
@@ -257,6 +254,7 @@ export class AssistantChatPageComponent {
       await this.store.submit(message.text);
     } finally {
       this.deciding.set(false);
+      this.focusComposer();
     }
   }
 
@@ -269,12 +267,27 @@ export class AssistantChatPageComponent {
       await this.store.submit(message.text, message.files);
     } finally {
       this.deciding.set(false);
+      this.focusComposer();
     }
   }
 
   /** Leaves the question in the composer for the person to change; sending it asks again. */
   change(): void {
     this.held.set(null);
-    this.host.nativeElement.querySelector<HTMLElement>('[data-nh-assistant-autofocus]')?.focus();
+    this.focusComposer();
+  }
+
+  /** The latest conversation with an agent that still takes messages, or `null` without one. */
+  private latestWith(agentId: string | null): ConversationSummary | null {
+    const candidates = this.store.conversations()
+      .filter(conversation => conversation.agentId === agentId && conversation.status !== 'archived');
+    return [...candidates].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
+  }
+
+  /** The keyboard returns to the panel's message box once the choice is gone. */
+  private focusComposer(): void {
+    afterNextRender(() => {
+      this.host.nativeElement.querySelector<HTMLElement>('[data-nh-assistant-autofocus]')?.focus();
+    }, { injector: this.injector });
   }
 }
