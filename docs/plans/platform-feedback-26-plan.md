@@ -253,3 +253,15 @@ grant parsing all follow the fixed flavor.
   train.
 - **(b) The small fixes first (FB60, FB62, FB64) as a fix of their own, then a train for the rest.**
   This ships the bugs sooner, but costs a second verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| FU1 | FB61 runs the chat's follow-up turn as the person whose turn made the proposal (`AssistantApproval.InitiatorActorId`), not as the chat's owner. In a chat only that person can decide, so the decider is the same person by construction; a recorded `DecidedByActorId` is never read, and in a shared chat a participant's own work continues as that participant, never with the owner's rights. | for Lars to review |
+| FU2 | Every outcome that `ReportExecutionAsync` reports continues the chat (completed, failed, needs-attention). A hand-off the executor refuses or that throws is told by the approving turn itself, a passed report deadline is no report, and a report the executor makes while the approving turn still runs is skipped as `running`: none of them starts a turn. | for Lars to review |
+| FU3 | Coalescing is an in-process debounce of two seconds on the application's clock, one waiting follow-up per chat that later reports join; at start the chat must be idle or failed and its newest message still the application's (else `chat-answered`). It is not durable: a host that stops during the wait starts nothing, and no background operation is used, which would make a chat-only host need `AddAssistantAgentRuns`. | for Lars to review |
+| FU4 | A busy or waiting chat is skipped, audited, and not retried later: the report waits in the chat for the person's next message, and a waiting proposal stays for the person to decide. | for Lars to review |
+| FU5 | Propose-only is the internal `NhAiPersonInvocation.RequireApprovalForEffects`, which the shared invoker honours as it does an agent scope's flag. Once the person approves a proposal of the follow-up, the continuation is their own decision turn under the normal chat rules, so an approval-free tool may run there; carrying propose-only past the decision would need a persisted flag on the turn. | for Lars to review |
+| FU6 | The person is rebuilt in the active division of the turn that made the proposal, read from the proposal's targets and checked live against the division policy; the turn retrieves nothing, starts without a skill and speaks in the approving turn's culture. | for Lars to review |
+| FU7 | Public surface: `ContinueChatAfterReport(bool)` (refused without `AlsoInline`), `NhAssistantAuditEventKind.ChatFollowUpStarted` (121) and `ChatFollowUpSkipped` (122), the channel `NhAssistantDecisionChannels.ExecutionReport` on the turn's context and audit, and `NhAssistantApplicationExecutionCodes.ChatAnswered`. No UI change: the panel shows the server's turn through the live turn events, as a turn of another session (read in the store, not checked in a browser). | for Lars to review |
