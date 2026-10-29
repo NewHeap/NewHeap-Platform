@@ -97,6 +97,23 @@
     </section>
   }
 
+  <!--
+    SPM-363: a chat about this project with the project chat, which is offered only for chats about a
+    project. The store makes the next new chat about the project; the server checks the person's role
+    on it when the chat is created and on every turn and read.
+  -->
+  @if (formData && assistantEnabled() && project(); as current) {
+    <section class="agent-suggestions" data-project-chat [attr.aria-label]="'project.project-chat-label' | translate">
+      <p class="agent-suggestions-note">
+        <i class="ph ph-chats-circle" aria-hidden="true"></i>{{ 'project.project-chat-description' | translate }}
+      </p>
+      <button type="button" class="secondary-button" (click)="chatAboutProject(current)">
+        <i class="ph ph-chat-circle-text" aria-hidden="true"></i>
+        {{ 'project.project-chat-start' | translate }}
+      </button>
+    </section>
+  }
+
   @if (formData) {
     <footer>
       <button type="button" class="secondary-button" (click)="closeDialog()">

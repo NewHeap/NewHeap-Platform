@@ -364,6 +364,8 @@ builder.Services.AddSampleAssistantFiles();
 builder.Services.AddSampleProjectDocumentReader();
 // SPM-359: the quick answers agent runs on a profile for internal data only, so it offers no uploads.
 builder.Services.AddSampleQuickAnswers();
+// SPM-363: the project chat answers in a person's chat about one project, checked on every turn.
+builder.Services.AddSampleProjectChat();
 // SPM-372: the project overview chains three reads of the project assistant into one tool.
 builder.Services.AddSampleProjectOverview();
 // SPM-362: the planning service's one reviewed MCP tool, offered as the API's own code-owned tool.

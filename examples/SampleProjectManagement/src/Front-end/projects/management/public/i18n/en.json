@@ -93,6 +93,9 @@
     "object-agents-description": "Run an agent now, read its latest result and see what it proposes for this project.",
     "object-agents-loading": "Loading the agents…",
     "object-agents-load-failed": "The agents could not be loaded. Reload the page and try again.",
+    "project-chat-label": "Chat about this project",
+    "project-chat-description": "Ask the project chat about this project. It answers with your own rights while you may read the project.",
+    "project-chat-start": "Chat about this project",
     "key": "Project key",
     "key-help": "Short, unique and recognizable, for example PORTAL.",
     "name": "Name",
@@ -588,6 +591,10 @@
       "sample-project-chat-helper": {
         "name": "Chat helper",
         "description": "Works in the chat only: takes meeting notes and asks you when it needs a choice."
+      },
+      "sample-project-chat": {
+        "name": "Project chat",
+        "description": "Answers your questions about one project, in a chat started from that project."
       },
       "sample-project-quick-answers": {
         "name": "Quick answers",
