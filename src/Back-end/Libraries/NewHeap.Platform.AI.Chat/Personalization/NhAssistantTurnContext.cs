@@ -47,6 +47,13 @@ internal sealed partial record NhAssistantClientContext(
     public const int MaxEntityTypeLength = 60;
     public const int MaxEntityLabelLength = 120;
 
+    /// <summary>
+    /// The characters the user message keeps for its stored context (<c>ClientContextJson</c>). The
+    /// stored JSON escapes text outside ASCII, so a context with such text in every field at its limit
+    /// can be longer.
+    /// </summary>
+    public const int MaxStorageLength = 4_000;
+
     private static readonly JsonSerializerOptions StorageOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
