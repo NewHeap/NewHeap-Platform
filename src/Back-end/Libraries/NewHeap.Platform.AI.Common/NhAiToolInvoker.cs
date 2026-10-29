@@ -987,13 +987,16 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     }
 
     /// <summary>
-    /// Inside an agent scope that requires approval for effects, a tool other than a read never runs
+    /// Inside an agent scope that requires approval for effects, and in a person's turn that does
+    /// (<see cref="NhAiPersonInvocation.RequireApprovalForEffects"/>), a tool other than a read never runs
     /// without an approval, whatever the registered effect policy decided. Tools that issue or
     /// authorize approvals themselves cannot run there at all.
     /// </summary>
     private static NhAiEffectDecision RequireApprovalInScope(NhAiToolDescriptor descriptor, NhAiEffectDecision decision)
     {
-        if (NhAiAgentInvocationScopes.Current is not { RequireApprovalForEffects: true }
+        var required = NhAiAgentInvocationScopes.Current is { RequireApprovalForEffects: true }
+            || NhAiPersonInvocationScopes.Current is { RequireApprovalForEffects: true };
+        if (!required
             || descriptor.Effect == NhAiToolEffect.ReadOnly
             || decision.Kind is NhAiEffectDecisionKind.Deny or NhAiEffectDecisionKind.RequireApproval)
         {

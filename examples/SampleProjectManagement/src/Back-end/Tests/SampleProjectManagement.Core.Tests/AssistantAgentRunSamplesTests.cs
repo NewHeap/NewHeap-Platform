@@ -4436,6 +4436,20 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.StartsWith("The application carried out the approved proposal", TextOf(message), StringComparison.Ordinal);
         Assert.Equal("Execution of an approved proposal", message.Application!.Title);
 
+        // FB61: ContinueChatAfterReport lets the desk's report continue the chat. One turn nobody typed, as
+        // the person who asked and with their rights, tells them what the report means; it could only
+        // propose a change for them to approve, and it names the channel of the report in the audit.
+        var continued = await WaitForAnswerAfterReportAsync(owner, chat);
+        Assert.Equal("The order desk placed your order. Ask me when you need more equipment for the project.", TextOf(continued));
+        Assert.DoesNotContain((await ReadConversationAsync(owner, chat)).Messages, item => item.Role == NhAssistantMessageRoles.User
+            && item.Sequence > message.Sequence);
+        var followUp = Assert.Single(
+            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+            evt => evt.Kind == NhAssistantAuditEventKind.ChatFollowUpStarted && evt.ConversationId == chat);
+        Assert.Equal(
+            (host.OwnerId.ToString(), (Guid?)order.HandOff.ApprovalId, (string?)NhAssistantDecisionChannels.ExecutionReport),
+            (followUp.ActorId, followUp.ApprovalId, followUp.Channel));
+
         // A person whose client reads Dutch approves an order in their chat: the desk's report reads
         // Dutch, title included.
         using var dutch = host.CreateClient(host.OwnerId.ToString());
@@ -4566,6 +4580,36 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
 
         throw new TimeoutException($"The chat approval {approvalId} stayed '{part?.Status ?? "missing"}' instead of reaching '{status}'.");
+    }
+
+    /// <summary>
+    /// SPM-328 (FB61): waits until a turn answered after the newest report of the order desk in a chat, and
+    /// returns that answer.
+    /// </summary>
+    private async Task<NhAssistantMessageDto> WaitForAnswerAfterReportAsync(HttpClient client, Guid conversationId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var messages = (await ReadConversationAsync(client, conversationId)).Messages;
+            var report = messages.LastOrDefault(item => item.Role == NhAssistantMessageRoles.Application);
+            var answer = messages.LastOrDefault();
+            if (report is not null
+                && answer is { Role: NhAssistantMessageRoles.Assistant }
+                && answer.Sequence > report.Sequence
+                && TextOf(answer).Length > 0)
+            {
+                return answer;
+            }
+
+            await NextPollAsync(null);
+        }
+
+        var audited = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events
+            .Where(evt => evt.ConversationId == conversationId
+                && evt.Kind is NhAssistantAuditEventKind.ChatFollowUpStarted or NhAssistantAuditEventKind.ChatFollowUpSkipped)
+            .Select(evt => evt.Kind + ":" + evt.ResultCode);
+        throw new TimeoutException($"No turn answered the report in chat {conversationId} ({string.Join(", ", audited)}).");
     }
 
     /// <summary>

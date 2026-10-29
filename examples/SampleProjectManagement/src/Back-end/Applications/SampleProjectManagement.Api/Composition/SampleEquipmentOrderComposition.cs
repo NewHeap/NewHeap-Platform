@@ -19,7 +19,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-328: with <c>AlsoInline</c> a person who approves an order in their own chat with the project
 /// assistant hands it to the order desk too, instead of running the tool's function; the chat goes on
 /// with "the order desk has it", and the desk's report is posted into that chat, in the language of the
-/// person's turn that approved it.
+/// person's turn that approved it. With <c>ContinueChatAfterReport</c> the assistant then continues that
+/// chat by itself (FB61): one turn, as the person who asked, tells them what the desk's report means and
+/// what comes next, and could only propose a change for them to approve.
 /// Both ways, the executor refuses an order for a project whose division the approver may not manage
 /// projects in (<see cref="SampleEquipmentOrderExecutor.ProjectOutOfScopeCode"/>), because a hand-off
 /// carries the approved arguments, not the division the call was authorized for.
@@ -44,8 +46,12 @@ public static class SampleEquipmentOrderComposition
 
         services.AddNewHeapAssistant(assistant => assistant
             // The application executes approved orders and reports within eight hours, also those a
-            // person approves in their own chat (SPM-328); every other tool keeps executing in its function.
-            .ExecuteInApplication(ProjectAiEquipmentTools.OrderEquipmentToolId, ReportWithin, execution => execution.AlsoInline())
+            // person approves in their own chat (SPM-328), whose chat the desk's report then continues;
+            // every other tool keeps executing in its function.
+            .ExecuteInApplication(
+                ProjectAiEquipmentTools.OrderEquipmentToolId,
+                ReportWithin,
+                execution => execution.AlsoInline().ContinueChatAfterReport())
             .UseProposalExecutor<SampleEquipmentOrderExecutor>()
             // SPM-339: one open order per item and project; the guard names the order and checks nothing.
             .AddProposalGuard<ProjectEquipmentProposalGuard>(ProjectAiEquipmentTools.OrderEquipmentToolId)

@@ -43,6 +43,18 @@ internal interface INhAssistantTurnRunner
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Claims a person's idle or failed chat and starts the turn that continues it after the application
+    /// reported the execution of a proposal approved there (FB61): a turn nobody typed, which stores no
+    /// message of the person, reads the chat's history with the report as the application's information
+    /// and works with <see cref="NhAssistantFollowUpTurnRequest.Person"/> ambient, whose every effect needs
+    /// an approval. Expected failures (unknown chat, agent, subject access, busy chat) are returned before
+    /// any event is produced.
+    /// </summary>
+    Task<TaskResult<NhAssistantTurnHandle>> StartFollowUpTurnAsync(
+        NhAssistantFollowUpTurnRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Cancels the running turn of a conversation in this process, or dismisses a pending approval.
     /// Only the owner or the participant who started the turn may do so.
     /// </summary>
@@ -154,6 +166,26 @@ internal sealed record NhAssistantDecisionTurnRequest(
     public NhAiPersonInvocation? Person { get; init; }
 
     /// <inheritdoc cref="NhAssistantMessageTurnRequest.Channel"/>
+    public string? Channel { get; init; }
+}
+
+/// <param name="ConversationId">The person's chat.</param>
+/// <param name="TurnId">The turn to start, which the caller audits.</param>
+/// <param name="CallerContext">The authorized invocation context of the person the turn runs as: the one
+/// whose turn made the reported proposal.</param>
+/// <param name="Person">That person, captured as their own request would carry them; the runner makes
+/// every tool effect of the turn need an approval.</param>
+/// <param name="Language">The language of the turn that approved the proposal.</param>
+internal sealed record NhAssistantFollowUpTurnRequest(
+    Guid ConversationId,
+    Guid TurnId,
+    NhAiInvocationContext CallerContext,
+    NhAiPersonInvocation Person,
+    string Language = "en")
+{
+    /// <summary>
+    /// The channel the turn's audit events record, which tells that nobody typed it.
+    /// </summary>
     public string? Channel { get; init; }
 }
 

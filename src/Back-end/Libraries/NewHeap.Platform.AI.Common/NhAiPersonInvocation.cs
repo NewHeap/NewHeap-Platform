@@ -20,7 +20,16 @@ namespace NewHeap.Platform.AI;
 internal sealed record NhAiPersonInvocation(
     ClaimsPrincipal User,
     NhAiInvocationContext Context,
-    object? AuthorizationResource);
+    object? AuthorizationResource)
+{
+    /// <summary>
+    /// Every tool effect other than a read needs an approval in this person's turn, whatever the effect
+    /// policy decides, as in an agent scope that requires approval for effects; tools that issue or
+    /// authorize approvals themselves are denied. Set for a turn that nobody typed, such as the turn an
+    /// application's execution report starts in the person's chat, so it can only propose.
+    /// </summary>
+    public bool RequireApprovalForEffects { get; init; }
+}
 
 /// <summary>
 /// The ambient <see cref="NhAiPersonInvocation"/> of the current asynchronous flow.

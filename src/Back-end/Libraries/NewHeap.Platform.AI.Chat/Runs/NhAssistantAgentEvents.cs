@@ -711,6 +711,44 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
+    /// Records whether the report of <paramref name="approval"/> started a follow-up turn in its person's chat
+    /// (FB61): <see cref="NhAssistantAuditEventKind.ChatFollowUpStarted"/> with the turn, or
+    /// <see cref="NhAssistantAuditEventKind.ChatFollowUpSkipped"/> with the reason in <c>ResultCode</c>.
+    /// </summary>
+    /// <param name="actorId">The person the turn runs, or would run, as.</param>
+    /// <param name="turnId">The turn that started; <see langword="null"/> for a skip.</param>
+    /// <param name="resultCode">The proposal's status for a start, the reason for a skip.</param>
+    public Task ChatFollowUpAsync(
+        AssistantApproval approval,
+        string agentId,
+        int agentVersion,
+        string actorId,
+        Guid? turnId,
+        string resultCode,
+        string channel,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                turnId is null ? NhAssistantAuditEventKind.ChatFollowUpSkipped : NhAssistantAuditEventKind.ChatFollowUpStarted,
+                approval.ConversationId,
+                turnId ?? Guid.Empty,
+                actorId,
+                agentId,
+                agentVersion,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = approval.ToolId,
+                ResultCode = resultCode,
+                ApprovalId = approval.Id,
+                ProposalId = approval.ProposalId,
+                InitiatorActorId = approval.InitiatorActorId,
+                Channel = channel
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Records that a guard closed a proposal as stale: the kind and reason code, and the stage in
     /// <c>ObjectId</c>. A proposal of a person's chat outside a subject thread has no thread.
     /// </summary>

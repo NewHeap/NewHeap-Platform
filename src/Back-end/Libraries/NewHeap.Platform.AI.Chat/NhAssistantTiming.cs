@@ -24,4 +24,11 @@ internal sealed class NhAssistantTiming
     /// before a read or a check of the run configuration asks the source again.
     /// </summary>
     internal TimeSpan InstructionAssetRetryInterval { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long a person's chat waits after an execution report before its follow-up turn starts
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>), so reports that
+    /// arrive together reach one turn. It is a debounce, so it runs on the application's clock.
+    /// </summary>
+    internal TimeSpan ChatFollowUpDelay { get; init; } = TimeSpan.FromSeconds(2);
 }
