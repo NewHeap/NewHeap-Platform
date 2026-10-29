@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -15,6 +17,10 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// </summary>
 internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFactory, TimeProvider? timeProvider = null)
 {
+    internal static readonly TimeSpan DefaultMemberLockTimeout = TimeSpan.FromSeconds(15);
+
+    internal TimeSpan MemberLockTimeout { get; init; } = DefaultMemberLockTimeout;
+
     /// <summary>
     /// The failure code of a queued run whose trigger never reached the background-operation
     /// store, for example because the application's transaction rolled back.
@@ -240,8 +246,12 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
-    /// Replaces the member snapshot of one subject.
+    /// Replaces the member snapshot of one subject under its transaction lock, so concurrent
+    /// refreshes never interleave their delete and insert operations.
     /// </summary>
+    /// <exception cref="TimeoutException">
+    /// The member snapshot lock stayed taken past <see cref="MemberLockTimeout"/>; no rows are changed.
+    /// </exception>
     public async Task ReplaceMembersAsync(
         string scopeKey,
         NhAiSubjectRef subject,
@@ -251,6 +261,16 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (!await contextFactory.TransactionLocks.TryAcquireAsync(
+            context,
+            MemberLockResource(context.Model.GetDefaultSchema(), scopeKey, subject),
+            MemberLockTimeout,
+            cancellationToken))
+        {
+            throw new TimeoutException(
+                $"An assistant subject's member snapshot waited {MemberLockTimeout} for its transaction lock and was not replaced.");
+        }
+
         await context.SubjectMembers
             .Where(member => member.ScopeKey == scopeKey
                 && member.SubjectType == subject.Type
@@ -285,6 +305,13 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 setters => setters.SetProperty(thread => thread.MembersRefreshedAt, snapshotAt),
                 cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal static string MemberLockResource(string? schema, string scopeKey, NhAiSubjectRef subject)
+    {
+        var identity = JsonSerializer.Serialize(new[] { schema, scopeKey, subject.Type, subject.Id });
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
+        return $"nhai:subject-members:{hash}";
     }
 
     public async Task<IReadOnlyList<AssistantSubjectMember>> GetMembersAsync(

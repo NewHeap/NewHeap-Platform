@@ -3,6 +3,19 @@ export const releaseVersionPaths = [
   'plugins/newheap-platform/.codex-plugin/plugin.json'
 ];
 
+export function validateLibraryChangeEvidence(changed, base) {
+  // verify-change-impact checks the current API snapshot against source independently.
+  // A behavioral fix can keep that verified snapshot byte-for-byte unchanged.
+  const requirements = [
+    ['executable SampleProjectManagement evidence', path => path.startsWith('examples/SampleProjectManagement/')],
+    ['an atomic guidance rule', path => path.startsWith('guidance/rules/')],
+    ['the canonical sample case registry', path => path === 'examples/SampleProjectManagement/docs/cases/sample-case-registry.json']
+  ];
+  return requirements
+    .filter(([, matches]) => !changed.some(matches))
+    .map(([label]) => `Library files changed relative to ${base}, but the diff contains no ${label}.`);
+}
+
 export function validateReleaseVersionPolicy({
   changed,
   releaseMode,

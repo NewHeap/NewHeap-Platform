@@ -76,7 +76,9 @@ change, which executes with the participant's rights. Project
 members and their roles decide who sees the project's agent thread, through
 `ProjectSubjectAccessResolver`; removing a member refreshes the thread's people, so the former
 member's participant row goes and no live update or notification of the thread reaches them
-(SPM-270), and deleting a person forgets their browsers, notification choice and conversation rows
+(SPM-270). Concurrent member refreshes replace one whole snapshot under a database transaction lock
+on SQL Server and PostgreSQL; a lock timeout changes no rows. Deleting a person forgets their browsers,
+notification choice and conversation rows
 (SPM-264). A participant can also start the intake reviewer to
 request a review (`projects.request-review`, SPM-274), a call that may run only once:
 when it fails without a result, the proposal waits as `execution-unknown` until an

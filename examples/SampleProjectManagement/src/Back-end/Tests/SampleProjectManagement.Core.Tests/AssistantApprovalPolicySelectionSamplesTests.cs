@@ -120,6 +120,15 @@ public sealed class AssistantApprovalPolicySelectionSamplesTests(AssistantApprov
         // recorded, finds that someone besides its creator may approve now and closes it at the decision, so
         // the creator never approves alone what a colleague can check.
         await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        // Membership changes and background work may refresh the same subject at once.
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(async _ =>
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            var refreshed = await scope.ServiceProvider.GetRequiredService<INhAiSubjectAccess>().RefreshAsync(
+                new NhAiSubjectRef("project", project.ToString()), cancellation);
+            Assert.True(refreshed.Success);
+        }));
+
         using var refused = await DecideAsync(owner, review);
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
         Assert.Contains(NhAssistantErrorCodes.ProposalStale, await refused.Content.ReadAsStringAsync(cancellation));
