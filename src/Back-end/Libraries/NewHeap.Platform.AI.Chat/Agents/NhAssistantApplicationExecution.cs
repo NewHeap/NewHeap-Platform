@@ -89,6 +89,22 @@ public sealed record NhAssistantProposalHandOff(
     public string? DecisionCulture { get; init; }
 
     /// <summary>
+    /// The id of the approval policy the proposal waited under, as the proposal recorded it (FB51): the
+    /// policy code resolved, or the one an approval policy selector chose instead, so the executor can
+    /// check that what decided that choice still holds before it starts the work. <see langword="null"/>
+    /// for a proposal in a person's own chat, which that person decides without an approval policy.
+    /// </summary>
+    public string? PolicyId { get; init; }
+
+    /// <summary>
+    /// How the proposal waited, as the proposal recorded it (FB51): <see cref="NhAiApprovalMode.Deferred"/>
+    /// when people decided it later, <see cref="NhAiApprovalMode.Inline"/> when it was decided in the
+    /// person's own conversation (<see cref="Inline"/>). The assistant always sets it; it is
+    /// <see langword="null"/> only in a hand-off an application builds itself, such as in a test.
+    /// </summary>
+    public NhAiApprovalMode? Mode { get; init; }
+
+    /// <summary>
     /// The proposal's id, as <see cref="NhAiProposal.ProposalId"/>.
     /// </summary>
     public Guid ProposalId => Proposal.ProposalId;

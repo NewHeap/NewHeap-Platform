@@ -122,9 +122,14 @@ Who approves a proposal of the assistant is a named approval policy that code re
 on the proposal itself, such as four eyes only while a second person may approve, choose among registered
 policies with an `INhAssistantApprovalPolicySelector` (`UseApprovalPolicySelector`, SPM-356) and count the
 people a policy admits with `INhAssistantApproverDirectory` (SPM-357); never relax the policy at the
-decision. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
-selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. See
-`nh-ai-agent-runs` for the selection and the directory.
+decision. A policy rule admits people outside the subject's members, so the directory calls such a count
+complete only when the application names them with an `INhAssistantApproverCandidates`
+(`UseApproverCandidates`, SPM-378), which grants nothing: each candidate is checked as a decision checks
+the person. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
+selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. Guards and
+the application's executor read that recorded policy (`PolicyId`, `Mode`) on their context and hand-off,
+and may close a proposal whose choice no longer holds (SPM-379). See `nh-ai-agent-runs` for the selection,
+the directory and the guards.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional

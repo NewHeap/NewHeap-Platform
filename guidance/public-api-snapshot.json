@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.92",
   "backEnd": {
-    "hash": "c8f9abb325728c630023764e47c57ed331443b077bb806a3ed17517ed722f15e",
-    "declarationCount": 12059,
+    "hash": "c8f22b068f7aa2376722f57a05d1e98f3cc8c3cadac96a6fd04e61f4023609ba",
+    "declarationCount": 12074,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12459,6 +12459,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public string? PolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+        "declaration": "public NhAiApprovalMode? Mode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
         "declaration": "public Guid ProposalId => Proposal.ProposalId;"
       },
       {
@@ -17480,6 +17488,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder UseApprovalPolicySelector<TSelector>(TimeSpan timeLimit) where TSelector : class, INhAssistantApprovalPolicySelector {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseApproverCandidates<TCandidates>() where TCandidates : class, INhAssistantApproverCandidates {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -23742,6 +23754,46 @@
         "declaration": "public NhAiToolCallOrigin? Origin { get; init; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public interface INhAssistantApproverCandidates {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public sealed record NhAssistantApproverCandidateQuery( string PolicyId, NhAiSubjectRef Subject, string? TenantId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public Guid? DivisionId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public IReadOnlyList<string> PolicyNames { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public bool SubjectRoleHolders { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public int MaxCandidates { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public sealed record NhAssistantApproverCandidateList( IReadOnlyList<NhAssistantApproverCandidate> Candidates, bool Complete) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public static NhAssistantApproverCandidateList Unknown { get; } = new([], Complete: false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public sealed record NhAssistantApproverCandidate(string ActorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+        "declaration": "public string? DisplayName { get; init; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantArtifacts.cs",
         "declaration": "public async Task<AssistantArtifact> AddVersionAsync(AssistantArtifact artifact, CancellationToken cancellationToken) {"
       },
@@ -28236,6 +28288,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
         "declaration": "public NhAiToolCallOrigin? Origin { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public string? PolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public NhAiApprovalMode? Mode { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
@@ -52238,6 +52298,11 @@
       "NhAssistantApproverList",
       "NhAssistantApprover",
       "NhAssistantApproverCount",
+      "INhAssistantApproverCandidates",
+      "NhAssistantApproverCandidateQuery",
+      "NhAssistantApproverCandidateList",
+      "NhAssistantApproverCandidate",
+      "UseApproverCandidates",
       "NhAssistantRequestAnswerRoute",
       "RequestsOnly",
       "AnswerRequests",
@@ -52695,7 +52760,8 @@
       "NhAiToolCallOrigin",
       "NhAiToolCallOriginKind",
       "INhAssistantApprovalPolicySelector",
-      "NhAssistantApprovalPolicySelection"
+      "NhAssistantApprovalPolicySelection",
+      "INhAssistantApproverCandidates"
     ],
     "nh-ai-scripting": [
       "AddNewHeapPlatformAIScripting",

@@ -55,6 +55,8 @@ public sealed class AssistantInlineApplicationExecutionTests(AssistantDatabaseFi
         Assert.Equal(
             (approval.ApprovalId, AssistantTestHost.UserId, conversation.AgentId, (string?)null, 1, Start.Add(ReportWithin), true),
             (handOff.ApprovalId, handOff.DecidedByActorId, handOff.AgentId, handOff.TenantId, handOff.Attempt, handOff.ReportDueAt, handOff.Inline));
+        // FB51: a person's own chat decides without an approval policy, inline.
+        Assert.Equal(((string?)null, (NhAiApprovalMode?)NhAiApprovalMode.Inline), (handOff.PolicyId, handOff.Mode));
         Assert.Equal(SubjectOf(stored), handOff.Subject);
         Assert.Empty(host.Tools.StatusChanges);
         Assert.Equal(

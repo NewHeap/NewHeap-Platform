@@ -141,7 +141,8 @@ internal sealed class NhAssistantProposalGuards(
 
     /// <summary>
     /// The guard context of a stored proposal, for revalidation, decision and execution: no call proposes
-    /// at those stages, so it names no invocation, conversation, turn or channel (FB26).
+    /// at those stages, so it names no invocation, conversation, turn or channel (FB26). It names the
+    /// approval policy and mode the proposal recorded (FB51), also a policy a selector chose.
     /// </summary>
     public static NhAiProposalGuardContext ContextOf(AssistantApproval approval, AssistantThread? thread)
     {
@@ -152,7 +153,11 @@ internal sealed class NhAssistantProposalGuards(
             proposal.Arguments,
             thread is null ? null : new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
             thread?.ScopeKey,
-            approval.CreatedAt);
+            approval.CreatedAt)
+        {
+            PolicyId = approval.PolicyId,
+            Mode = NhAssistantApprovalModes.ToMode(approval.Mode)
+        };
     }
 
     /// <summary>

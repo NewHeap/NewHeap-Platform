@@ -24,6 +24,7 @@
   <data name="StaleTaskDeleted" xml:space="preserve"><value>The task was deleted.</value></data>
   <data name="StaleProjectStatusSet" xml:space="preserve"><value>The project is already {0}.</value></data>
   <data name="StaleArchiveInPortal" xml:space="preserve"><value>Archive the project in the portal, where you choose what to keep.</value></data>
+  <data name="StaleIntakeSecondApprover" xml:space="preserve"><value>A second person may now approve this project, so the intake review needs four eyes again.</value></data>
   <data name="CloserNoTaskCompleted" xml:space="preserve"><value>No task was completed; nothing to check.</value></data>
   <data name="CloserProjectNotActive" xml:space="preserve"><value>The project is not active; only active projects are completed.</value></data>
   <data name="CloserTasksOpen" xml:space="preserve"><value>{0} of {1} tasks are still open; the project stays active.</value></data>
