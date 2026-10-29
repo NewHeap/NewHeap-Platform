@@ -58,6 +58,40 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
     }
 
     [Fact]
+    public async Task SPM_373_what_the_searches_allocate_does_not_count_as_the_scripts_memory()
+    {
+        // Each search allocates twice the script's memory budget (16 MiB by default) while it runs; the
+        // program keeps only two keys, so it completes.
+        const string script = """
+            const roadmap = await tools.projects_search_v1({ query: "roadmap", limit: 5 });
+            const launch = await tools.projects_search_v1({ query: "launch", limit: 5 });
+            return [roadmap.data[0].key, launch.data[0].key];
+            """;
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
+            .RespondWithText("Both are in PRJ-1.");
+        await SwitchScriptsOnAsync();
+        host.Model.Use(model);
+        host.Projects.SearchWorkBytes = 32 * 1024 * 1024;
+        try
+        {
+            using var client = host.CreateClient("spm-373-memory-user");
+            var conversationId = await host.CreateConversationAsync(client);
+
+            var events = await host.SendAsync(client, conversationId, "Which projects cover the roadmap and the launch?");
+
+            Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+            var result = JsonSerializer.SerializeToElement(Assert.Single(model.FunctionResults).Result);
+            Assert.True(result.GetProperty("success").GetBoolean(), result.GetRawText());
+            Assert.Equal("""["PRJ-1","PRJ-1"]""", result.GetProperty("data").GetProperty("value").GetRawText());
+        }
+        finally
+        {
+            host.Projects.SearchWorkBytes = 0;
+        }
+    }
+
+    [Fact]
     public async Task SPM_374_a_status_change_in_a_script_waits_for_the_persons_approval_as_it_does_on_its_own()
     {
         var projectId = Guid.NewGuid();

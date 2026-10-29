@@ -36,8 +36,9 @@ nothing, because each call is authorized on its own.
 
 Set the limits per agent with `ConfigureAgent(agentId, limits => ...)`, for MCP with `ConfigureMcp` and
 for every other agent with `ConfigureDefaults`. `NhAiScriptLimits` caps statements, wall-clock time
-with the tool calls included, allocated memory, recursion, tool calls (at most 64, the step runtime's
-ceiling), calls that change data (`MaxMutationsPerScript`) and the size of the returned value. Keep
+with the tool calls included, allocated memory (what the program itself allocates, the tool results it
+reads included, but not what a tool allocates while it runs), recursion, tool calls (at most 64, the
+step runtime's ceiling), calls that change data (`MaxMutationsPerScript`) and the size of the returned value. Keep
 `MaxMutationsPerScript` at 0, the default, unless the agent's scripts must change data: a read-only
 script is not offered such tools at all. A destructive tool runs in a script only after
 `AllowDestructive(toolId)`. Every script gets a fresh Jint engine in strict mode without .NET access,
@@ -81,7 +82,8 @@ case without a database; production hosts are the assistant's step sessions.
 
 Run engine tests on a host of your own: a chained program returns only its value and lists its calls in
 order; an infinite loop, a deep recursion, memory also after a call, the call after the tool-call limit
-and the mutation after the mutation limit stop with their codes; `typeof System`, `require`, `import`,
+and the mutation after the mutation limit stop with their codes, while a tool that allocates more than
+the memory budget does not stop a program that keeps little; `typeof System`, `require`, `import`,
 `eval` and `Function` reach nothing; an unknown tool and a refused tool are never called; a misspelled
 field returns the exact signature and the field; a deferred proposal lets the script go on and an inline
 one stops it with what it did. On SQL Server and PostgreSQL, run a script in a person's chat and in a

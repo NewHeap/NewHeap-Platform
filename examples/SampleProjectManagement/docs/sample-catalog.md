@@ -750,7 +750,8 @@ description lists the turn's tools as TypeScript-style signatures. Asked which p
 and the launch, the model searches both topics in one short program that runs on the server and returns
 only the distinct keys; each search runs as the person's own call would, and the model reads the value,
 not the search results. A call that does not match its signature stops the script with the exact
-signature and the field to correct, so the next script gets it right. A change inside a script gets the
+signature and the field to correct, so the next script gets it right. The script's memory budget counts
+only what the program allocates, not what the searches allocate while they run. A change inside a script gets the
 sample's approval exactly as the same call on its own (SPM-374): the status change stops the script, the
 person sees the usual approval card and nothing after the change runs until they decide. The agent's
 Activity lists a script call with its calls as it does a composition's.

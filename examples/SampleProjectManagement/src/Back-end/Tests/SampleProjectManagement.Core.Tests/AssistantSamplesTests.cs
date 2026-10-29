@@ -614,12 +614,24 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
             status));
     }
 
+    /// <summary>
+    /// What one search allocates while it runs, as a search over a large catalog does; none by default
+    /// (SPM-373).
+    /// </summary>
+    public int SearchWorkBytes { get; set; }
+
     public Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
         Guid divisionId,
         string? query,
         int limit,
         CancellationToken cancellationToken = default)
     {
+        if (SearchWorkBytes > 0)
+        {
+            var work = new byte[SearchWorkBytes];
+            work[^1] = 1;
+            GC.KeepAlive(work);
+        }
         SearchedDivisions.Enqueue(divisionId);
         IReadOnlyList<ProjectAiSearchItem> items = [new ProjectAiSearchItem(Guid.NewGuid(), "PRJ-1", "Roadmap")];
         return Task.FromResult(items);

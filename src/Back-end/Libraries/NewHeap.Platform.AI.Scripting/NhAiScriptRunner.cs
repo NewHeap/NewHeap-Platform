@@ -822,6 +822,11 @@ public sealed class NhAiScriptRunner
 
         private void Segment(Action action)
         {
+            // Jint's own memory limit measures the thread's allocations since its last reset, and a
+            // continuation is no entry that resets it. Rebased here, what a tool allocated between two
+            // segments is not charged to the script; the budget below already counts only the segments.
+            // The other constraints are cumulative and ignore a reset.
+            _engine.Constraints.Reset();
             _memory.BeginSegment();
             try
             {

@@ -133,6 +133,23 @@ public sealed class NhAiScriptRunnerTests
     }
 
     [Fact]
+    public async Task What_a_tool_allocates_does_not_count_as_the_scripts_memory()
+    {
+        // The tool allocates twice the script's budget and returns a small result; the program itself
+        // keeps almost nothing.
+        var host = new FakeScriptHost()
+            .Tool("reports_build_v1", _ => FakeScriptHost.Ok(Allocate(32 * 1024 * 1024)), inputSchema: "{}");
+
+        var result = await RunAsync(
+            "const first = await tools.reports_build_v1(); const second = await tools.reports_build_v1(); return first.data + second.data;",
+            host,
+            limits => limits.MaxMemoryBytes = 16 * 1024 * 1024);
+
+        Assert.True(result.Completed, result.Describe());
+        Assert.Equal(2, result.Calls.Count);
+    }
+
+    [Fact]
     public async Task Deep_recursion_stops_at_the_recursion_limit()
     {
         var result = await RunAsync(
@@ -497,6 +514,17 @@ public sealed class NhAiScriptRunnerTests
                     ? new[] { new { title = "Late supplier", owner = "Ada" } }
                     : []),
                 inputSchema: FakeScriptHost.RiskSchema);
+    }
+
+    /// <summary>
+    /// Allocates <paramref name="bytes"/> on the calling thread, as a tool that builds a large document
+    /// does, and keeps only its length.
+    /// </summary>
+    private static int Allocate(int bytes)
+    {
+        var buffer = new byte[bytes];
+        buffer[^1] = 1;
+        return buffer.Length - bytes + buffer[^1];
     }
 
     private static Task<NhAiScriptResult> RunAsync(string script, FakeScriptHost host, Action<NhAiScriptLimits>? configure = null)

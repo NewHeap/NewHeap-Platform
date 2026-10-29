@@ -3928,6 +3928,7 @@
     ],
     "SPM-373": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs",

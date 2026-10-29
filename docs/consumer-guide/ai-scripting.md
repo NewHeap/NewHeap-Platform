@@ -38,8 +38,9 @@ nothing, because each call is authorized on its own.
 
 Set the limits per agent with `ConfigureAgent(agentId, limits => ...)`, for MCP with `ConfigureMcp` and
 for every other agent with `ConfigureDefaults`. `NhAiScriptLimits` caps statements, wall-clock time
-with the tool calls included, allocated memory, recursion, tool calls (at most 64, the step runtime's
-ceiling), calls that change data (`MaxMutationsPerScript`) and the size of the returned value. Keep
+with the tool calls included, allocated memory (what the program itself allocates, the tool results it
+reads included, but not what a tool allocates while it runs), recursion, tool calls (at most 64, the
+step runtime's ceiling), calls that change data (`MaxMutationsPerScript`) and the size of the returned value. Keep
 `MaxMutationsPerScript` at 0, the default, unless the agent's scripts must change data: a read-only
 script is not offered such tools at all. A destructive tool runs in a script only after
 `AllowDestructive(toolId)`. Every script gets a fresh Jint engine in strict mode without .NET access,
@@ -83,7 +84,8 @@ case without a database; production hosts are the assistant's step sessions.
 
 Run engine tests on a host of your own: a chained program returns only its value and lists its calls in
 order; an infinite loop, a deep recursion, memory also after a call, the call after the tool-call limit
-and the mutation after the mutation limit stop with their codes; `typeof System`, `require`, `import`,
+and the mutation after the mutation limit stop with their codes, while a tool that allocates more than
+the memory budget does not stop a program that keeps little; `typeof System`, `require`, `import`,
 `eval` and `Function` reach nothing; an unknown tool and a refused tool are never called; a misspelled
 field returns the exact signature and the field; a deferred proposal lets the script go on and an inline
 one stops it with what it did. On SQL Server and PostgreSQL, run a script in a person's chat and in a
@@ -96,9 +98,9 @@ the switch has them on, and prove that a call while they are off is refused with
 
 - SPM-373 — The project assistant answers a chained question with one script that runs the turn's tools on the server
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs)
 - SPM-374 — A status change inside a script waits for the person's approval exactly as the same call on its own does
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
