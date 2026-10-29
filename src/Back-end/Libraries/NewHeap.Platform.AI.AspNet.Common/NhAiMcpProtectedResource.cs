@@ -569,20 +569,6 @@ internal sealed class NhAiMcpProtectedResource
 }
 
 /// <summary>
-/// Marks a request that signed in with an access token for the MCP exposure. That token is for the
-/// resource only, so nothing passes it on.
-/// </summary>
-internal sealed class NhAiMcpProtectedResourceSignIn(string issuer)
-{
-    public string Issuer { get; } = issuer;
-
-    public static bool Applies(HttpContext httpContext)
-    {
-        return httpContext.Features.Get<NhAiMcpProtectedResourceSignIn>() is not null;
-    }
-}
-
-/// <summary>
 /// Serves the metadata, validates tokens for the resource and answers the challenge. It authenticates
 /// only on endpoints that require <see cref="NhAiMcpProtectedResourceDefaults.AuthorizationPolicy"/>, so a
 /// token for the MCP exposure never signs in a request elsewhere on the host.
@@ -684,7 +670,8 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
             principal = context.Principal;
         }
 
-        Context.Features.Set(new NhAiMcpProtectedResourceSignIn(issuer));
+        // The token is for this resource only (RFC 8707), so nothing passes it on.
+        NhAiCallerCredentials.MarkNotForwardable(Context, issuer);
         return AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name));
     }
 

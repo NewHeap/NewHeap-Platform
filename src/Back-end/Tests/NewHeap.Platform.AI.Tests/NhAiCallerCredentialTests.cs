@@ -70,6 +70,33 @@ public sealed class NhAiCallerCredentialTests
     }
 
     [Fact]
+    public async Task Default_accessor_returns_no_token_for_a_request_the_application_marked_as_never_passed_on()
+    {
+        var httpContext = CreateHttpContext();
+        httpContext.Request.Headers.Authorization = "Bearer " + HeaderToken;
+        var services = CreateServices(httpContext);
+        services.AddLogging();
+        services.AddAuthentication("test")
+            .AddScheme<AuthenticationSchemeOptions, SavedTokenHandler>("test", _ => { });
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        httpContext.RequestServices = scope.ServiceProvider;
+        var accessor = scope.ServiceProvider.GetRequiredService<INhAiCallerCredentialAccessor>();
+
+        Assert.False(NhAiCallerCredentials.IsNotForwardable(httpContext));
+        Assert.Equal(SavedToken, await accessor.GetBearerTokenAsync());
+        NhAiCallerCredentials.MarkNotForwardable(httpContext, "https://partners.example.org");
+        // A second mark changes nothing, and nothing removes the first.
+        NhAiCallerCredentials.MarkNotForwardable(httpContext, "https://other.example.org");
+
+        Assert.True(NhAiCallerCredentials.IsNotForwardable(httpContext));
+        Assert.Null(await accessor.GetBearerTokenAsync());
+        Assert.Throws<ArgumentNullException>(() => NhAiCallerCredentials.MarkNotForwardable(null!, "https://partners.example.org"));
+        Assert.ThrowsAny<ArgumentException>(() => NhAiCallerCredentials.MarkNotForwardable(httpContext, " "));
+        Assert.Throws<ArgumentNullException>(() => NhAiCallerCredentials.IsNotForwardable(null!));
+    }
+
+    [Fact]
     public async Task Default_accessor_returns_null_without_a_request()
     {
         await using var provider = CreateServices(null).BuildServiceProvider();

@@ -146,6 +146,49 @@ public sealed class NhAiMcpProtectedResourceTests(NhAiMcpProtectedResourceTests.
     }
 
     [Fact]
+    public async Task A_token_that_the_applications_own_scheme_marks_is_never_passed_on_and_an_unmarked_one_is()
+    {
+        // An MCP entry that the application validates itself with a scheme of its own (FB58), next to the
+        // host scheme that keeps its token.
+        const string PartnerScheme = "partner-tokens";
+        await using var partners = await NhAiTestAuthorizationServer.StartAsync();
+        await using var app = await StartAsync(
+            exposure => exposure.UseProtectedResource(resource =>
+            {
+                resource.Resource = Resource;
+                resource.AuthorizationServers.Add(host.Authorization.Issuer);
+                resource.AcceptHostSchemes.Add(PartnerScheme);
+                resource.AcceptHostSchemes.Add(Host.HostScheme);
+            }),
+            services: services => services.AddAuthentication().AddJwtBearer(PartnerScheme, options =>
+            {
+                options.MapInboundClaims = false;
+                options.Authority = partners.Issuer;
+                options.RequireHttpsMetadata = false;
+                options.TokenValidationParameters.ValidAudience = "https://planning.example.org/partners";
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        NhAiCallerCredentials.MarkNotForwardable(context.HttpContext, context.SecurityToken.Issuer);
+                        return Task.CompletedTask;
+                    }
+                };
+            }));
+        using var client = Client(app);
+
+        using var marked = await client.SendAsync(Mcp(partners.IssueAccessToken("partner-app", "https://planning.example.org/partners", "partners.read")));
+        using var unmarked = await client.SendAsync(Mcp(Host.CreateHostToken("planner")));
+
+        Assert.Equal(HttpStatusCode.OK, marked.StatusCode);
+        var partner = await SignedInAsync(marked);
+        Assert.Equal("partner-app", partner.Subject);
+        Assert.False(partner.CallerToken);
+        Assert.Equal(HttpStatusCode.OK, unmarked.StatusCode);
+        Assert.True((await SignedInAsync(unmarked)).CallerToken);
+    }
+
+    [Fact]
     public async Task A_token_for_the_resource_signs_in_nowhere_else_on_the_host()
     {
         var token = host.Authorization.IssueAccessToken("planner", Resource, "planning.read");
