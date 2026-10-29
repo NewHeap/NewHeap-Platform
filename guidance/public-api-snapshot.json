@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "d07d7845c723ba963fb3c9e3265a662c65ca50a9a726115d47f48fa11ce50f2b",
-    "declarationCount": 12131,
+    "hash": "987c47f78784d6b00626267dc9b98972a09893b2122c6cf1ee443d966168576e",
+    "declarationCount": 12133,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5320,6 +5320,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
         "declaration": "public const string AlreadyProposed = \"already-proposed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public const string NewerProposed = \"newer-proposed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
@@ -14259,7 +14263,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
-        "declaration": "public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceProvider services) {"
+        "declaration": "public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceScopeFactory scopes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
@@ -14291,7 +14295,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
-        "declaration": "public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceProvider services) {"
+        "declaration": "public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceScopeFactory scopes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
@@ -22680,6 +22684,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddSkillVersionAsync( AssistantAgentSkillDefinition definition, int? expectedVersion, CancellationToken cancellationToken, bool candidate = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddAssetCandidateAsync( AssistantAgentSkillDefinition definition, int? expectedVersion, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",

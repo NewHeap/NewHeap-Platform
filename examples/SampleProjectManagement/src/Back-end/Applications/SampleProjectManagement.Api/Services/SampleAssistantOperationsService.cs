@@ -167,7 +167,10 @@ public sealed class SampleAssistantOperationsService(
     /// administrator compares with the live version and promotes or discards; nothing takes effect by
     /// itself. A skill whose instructions an agent package locks is reported <c>locked</c> and keeps its
     /// version. Agents created in the administration that name an older version are only listed: an
-    /// administrator saves each as its next version.
+    /// administrator saves each as its next version. A skill keeps its newest candidate: a newer version
+    /// replaces the candidate of an older one, and a version that arrives late, for example from a
+    /// publication job that ran after the next one, leaves a newer candidate as it is
+    /// (<c>newer-proposed</c>), also when both proposals run at once.
     /// </summary>
     public Task<TaskResult<NhAssistantInstructionAssetCandidatesDto>> ProposeRiskReviewVersionAsync(
         NhAiTextAsset version,

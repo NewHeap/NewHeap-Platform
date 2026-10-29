@@ -790,6 +790,13 @@ public sealed class NhAssistantBuilder
     /// <see cref="NhAiCompositionFeature.Compositions"/>: an agent's tool selectors select it where code
     /// allows compositions (<see cref="NhAssistantAgentContextBuilder.AllowCompositions"/>) and the
     /// application's switch has them on, and a turn offers it only with the tools its steps call.
+    /// <para>
+    /// The steps' tools are read once, at startup, from the tool catalogs of a scope of their own, so a
+    /// catalog may be registered as a scoped service. A step's tool must not depend on the request: a step
+    /// calls only a tool that a scope without a request has too, and a catalog whose descriptors change
+    /// while the host runs implements <see cref="INhAiChangingToolCatalog"/>, which no step calls. A step
+    /// runs with the tool of the turn's own services.
+    /// </para>
     /// </summary>
     /// <param name="compositionId">The composition's tool id, such as <c>projects.overview</c>.</param>
     /// <param name="configure">Declares the composition's steps and result.</param>

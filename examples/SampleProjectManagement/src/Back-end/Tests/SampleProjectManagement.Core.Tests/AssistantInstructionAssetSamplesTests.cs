@@ -42,7 +42,11 @@ public sealed class AssistantInstructionAssetSamplesTests(AssistantAgentRunSampl
             var list = (await administrator.GetFromJsonAsync<NhAssistantInstructionAssetListDto>("/api/assistant/admin/instruction-assets", Json))!;
             Assert.True(list.Supported);
             Assert.Equal(
-                [(SampleInstructionAssetComposition.RiskReviewAsset, 1, first.Manifest.ContentHash, true), (SampleInstructionAssetComposition.RiskReviewAsset, 2, second.Manifest.ContentHash, false)],
+                [
+                    (SampleInstructionAssetComposition.RiskReviewAsset, 1, first.Manifest.ContentHash, true),
+                    (SampleInstructionAssetComposition.RiskReviewAsset, 2, second.Manifest.ContentHash, false),
+                    (SampleInstructionAssetComposition.RiskReviewAsset, 3, SampleInstructionAssets.RiskReviewV3.Manifest.ContentHash, false)
+                ],
                 list.Assets.Select(asset => (asset.AssetId, asset.Version, asset.Hash, asset.DeprecatedAt is not null)).ToArray());
             var text = (await administrator.GetFromJsonAsync<NhAssistantInstructionAssetTextDto>(
                 $"/api/assistant/admin/instruction-assets/{SampleInstructionAssetComposition.RiskReviewAsset}/versions/2",

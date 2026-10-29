@@ -18,8 +18,10 @@ namespace NewHeap.Platform.AI.Chat;
 /// highest of its steps'. The descriptors are built from the steps' tools the first time the catalog is
 /// read, and a startup check reads them, so a step that names no tool, a tool of a catalog that changes
 /// at runtime, another composition, a consultation, or a tool not exposed where the composition is,
-/// stops the host. A composition runs no code of its own: its function runs every step through the step
-/// runtime, which runs it through the shared invoker.
+/// stops the host. The steps' tools are read once, from the catalogs of a scope of the catalog's own, as a
+/// startup check reads a scoped catalog, so a step's tool must not depend on the request. A composition
+/// runs no code of its own: its function runs every step through the step runtime, which runs it through
+/// the shared invoker with the tool of the turn's own services.
 /// </summary>
 internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatalog
 {
@@ -29,12 +31,12 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
 
     private readonly Lazy<Model> _model;
 
-    public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceProvider services)
+    public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceScopeFactory scopes)
     {
         ArgumentNullException.ThrowIfNull(registration);
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(scopes);
         _model = new Lazy<Model>(
-            () => Model.Create(registration.Compositions, services),
+            () => Model.Create(registration.Compositions, scopes),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -98,13 +100,9 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
         NhAiToolCatalogManifest Manifest,
         IReadOnlyDictionary<string, IReadOnlySet<string>> StepToolIds)
     {
-        public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceProvider services)
+        public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceScopeFactory scopes)
         {
-            // Steps call tools of catalogs whose descriptors stay as they are while the host runs.
-            var tools = services.GetServices<INhAiToolCatalog>()
-                .Where(catalog => catalog is not NhAssistantCompositionToolCatalog and not INhAiChangingToolCatalog)
-                .SelectMany(catalog => catalog.Descriptors)
-                .ToArray();
+            var tools = StepTools(scopes);
             var compositions = new List<Composition>();
             var stepToolIds = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
             foreach (var definition in definitions.OrderBy(definition => definition.Id, StringComparer.Ordinal))
@@ -132,6 +130,20 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
                     })
                     .ToArray());
             return new Model(compositions, descriptors, manifest, stepToolIds);
+        }
+
+        /// <summary>
+        /// The tools a step may call: those of the catalogs whose descriptors stay as they are while the
+        /// host runs. This catalog is a singleton and a catalog may be scoped, so they are read in a scope
+        /// of their own, never from the root provider; only their descriptors outlive it.
+        /// </summary>
+        private static NhAiToolDescriptor[] StepTools(IServiceScopeFactory scopes)
+        {
+            using var scope = scopes.CreateScope();
+            return scope.ServiceProvider.GetServices<INhAiToolCatalog>()
+                .Where(catalog => catalog is not NhAssistantCompositionToolCatalog and not INhAiChangingToolCatalog)
+                .SelectMany(catalog => catalog.Descriptors)
+                .ToArray();
         }
 
         private static NhAiToolDescriptor StepTool(

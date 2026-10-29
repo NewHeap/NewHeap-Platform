@@ -1067,12 +1067,21 @@ save as each one's next version; nothing follows it by itself (SPM-331). To put 
 trial, call `ProposeCandidatesAsync(assetId, assetVersion, actorId, reason)` (SPM-351): every live data
 skill that names an older version gets a candidate in shadow through its own save (apply `shadow` on its
 live version), with the live version's other fields, the new version and the hash the application's
-source gives, and the reason (by default `asset <id>@<version>`); an earlier candidate is discarded as
-every new version discards one. `NhAssistantInstructionAssetCandidatesDto` reports per skill
-(`NhAssistantInstructionAssetCandidateDto`) `proposed` with the candidate's version, `already-proposed`
-when its candidate names that version and hash already, `locked` (`assistant-package-locked` with the
-save's `instructions: locked`) when an agent package locks the skill's instructions and `refused` with
-the save's code and field errors; one skill never stops the others. Agents created in the administration
+source gives, and the reason (by default `asset <id>@<version>`). The skill keeps its newest candidate:
+a candidate of an older version of the asset, or one that names no asset or another one, is discarded as
+every new version discards one, while a candidate of a newer version stays. The store decides in the
+save's transaction (compare-and-set), so a version proposed late, such as by a delayed job, never
+replaces a newer candidate, and of two proposals at once the newer version stays. An application that
+replaced `INhAssistantAgentConfiguration`, for example with a decorator that adds its own checks or audit,
+is never bypassed: each candidate is saved through its replacement, as any save is. The check before the
+save still answers `newer-proposed` then, but the store no longer decides between two proposals at once,
+so run one proposal at a time there.
+`NhAssistantInstructionAssetCandidatesDto` reports per skill (`NhAssistantInstructionAssetCandidateDto`)
+`proposed` with the candidate's version, `already-proposed` when its candidate names that version and
+hash already, `newer-proposed` with the candidate's version when it names a newer version (nothing is
+saved or audited), `locked` (`assistant-package-locked` with the save's `instructions: locked`) when an
+agent package locks the skill's instructions and `refused` with the save's code and field errors; one
+skill never stops the others. Treat an outcome you do not know as nothing saved for that skill. Agents created in the administration
 that name an older version are listed only: an agent has no candidate, so an administrator saves it. It
 fails, saving nothing, with `assetId: invalid`, `assetVersion: invalid`, `reason: too-long`,
 `assistant-instructions-asset-not-found` without a source or that version,
@@ -2189,8 +2198,12 @@ instructions in full: call them for an administrator or process the application 
   over HTTP `POST admin/agent-packages/read` and `GET admin/agent-packages/{packageId}`.
 - Saving the skills and agents that name a text asset live automatically when the application publishes
   a new version, or saving a candidate per skill by hand: propose it with
-  `INhAssistantInstructionAssetUsage.ProposeCandidatesAsync`, which respects package locks, and let an
-  administrator compare and promote each candidate and save each listed agent.
+  `INhAssistantInstructionAssetUsage.ProposeCandidatesAsync`, which respects package locks and keeps
+  the newest candidate, and let an administrator compare and promote each candidate and save each listed
+  agent. Do not order or lock publication jobs to keep an older version from replacing a newer
+  candidate, and do not treat `newer-proposed` as a failure: the store already keeps the newer one,
+  unless the application replaced `INhAssistantAgentConfiguration`, which then receives the saves and
+  needs its proposals run one at a time.
 - Unlinking and relinking the live agent's parts by hand after a promotion as the package's version, or
   copying them into the variant only to keep them linked: promote with
   `UncarriedParts = NhAssistantUncarriedParts.Relink`.
@@ -2700,7 +2713,11 @@ nothing (SPM-353). For a promotion with `UncarriedParts = Relink`, assert that t
 their locks and the hash of their link, are reported `kept-linked` and are held by the new package version
 (SPM-352). For `ProposeCandidatesAsync`, assert a candidate per live skill on an older version, a skill a
 package locks reported `locked` while the others are proposed, `already-proposed` on a repeat and that a
-refused call saves and audits nothing (SPM-351).
+refused call saves and audits nothing (SPM-351). On both providers, assert that a newer version replaces
+the candidate of an older one, that an older version proposed after a newer one answers `newer-proposed`
+and saves and audits nothing, that two proposals at once leave the newer version as the only candidate,
+and that an application's replacement of `INhAssistantAgentConfiguration` receives every save of a
+proposal.
 For proposals on their way, on both providers, assert that `GET approvals/inbox` stays `pending` by
 default, that `awaiting-application` lists by report deadline only until the report falls due, flat and
 grouped, that `execution-unknown` lists by decision, that another status is `400`, that the initiator of

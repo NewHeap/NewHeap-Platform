@@ -1477,6 +1477,13 @@ assistant.AddComposition<ProjectOverviewInput>("projects.overview", composition 
   step's files are not opened: return what the model needs through `Returns`.
 - Over MCP, and for any caller outside a turn, a step runs through its governed function: a step that
   needs approval fails with `ai-tool-approval-required`, as the same call does there.
+- The steps' tools are read once, at startup, from the tool catalogs of a scope of their own, so a
+  catalog registered as a scoped service, such as one that holds the tools a run imported, works next to
+  compositions, also where the host validates scopes, as Development does. A step's tool must not depend
+  on the request: a step calls only a tool that a scope without a request has too, and a catalog whose
+  descriptors change while the host runs implements `INhAiChangingToolCatalog`, which compositions leave
+  out; a step that names another tool stops the host. When a step runs, its tool comes from the turn's
+  own services, never from that startup scope.
 
 The step runtime is public for the script tool and for an application's own chain tool: from inside
 the tool's governed function call `INhAssistantToolSteps.BeginAsync` with an
@@ -1810,4 +1817,6 @@ change applies from the next turn, that an approved call of a marked tool after 
 refused with `assistant-composition-off`, that `GET admin/agents/{id}/compositions` names every reason
 and answers only administrators, and that an agent created in the administration saves `scripts` only
 within `UseCompositionsAsData`, exports and imports it in a package and is offered the tool only when
-the ceiling, its setting and the switch all allow it (SPM-371).
+the ceiling, its setting and the switch all allow it (SPM-371). For a composition, start a host that
+validates scopes, as Development does, with a scoped catalog next to it, and assert that it starts and
+that a step's tool of that catalog runs with the turn's own services (SPM-372).

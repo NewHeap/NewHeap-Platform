@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -11,7 +12,9 @@ using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Models;
 using Xunit;
+using static NewHeap.Platform.AI.Chat.Tests.Infrastructure.ServerSentEventReader;
 
 namespace NewHeap.Platform.AI.Chat.Tests;
 
@@ -224,6 +227,65 @@ public sealed class AssistantCompositionTests(AssistantDatabaseFixture database)
         Assert.DoesNotContain(TestCompositions.OverviewFunction, offered);
     }
 
+    /// <summary>
+    /// FB60: a Development host validates scopes, so a scoped service resolved from the root provider
+    /// stops it. The composition catalog, a singleton, reads its steps' tools in a scope of its own, so
+    /// the host starts next to a scoped catalog whose tool a step calls, and the step runs with the tool of
+    /// the turn's own services, never with that of the disposed scope.
+    /// </summary>
+    [Fact]
+    public async Task A_composition_starts_and_runs_next_to_a_scoped_catalog_with_scope_validation()
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(TestScopedStatusCatalog.CompositionFunction, new { input = new { projectId } }, "call-status")
+            .RespondWithText("The project is on track.");
+        await using var app = await AssistantWebApplication.StartAsync(
+            database,
+            model,
+            configure: services =>
+            {
+                services.AddSingleton<TestRiskToolRecorder>();
+                services.AddSingleton(new TestCompositionSwitchState());
+                services.AddSingleton<TestScopedStatusRuns>();
+                services.AddScoped<TestScopedStatusRequest>();
+                services.AddScoped<INhAiToolCatalog, TestScopedStatusCatalog>();
+                services.AddNewHeapPlatformAI(ai => ai.AddGeneratedToolCatalog<TestRiskToolCatalog>());
+            },
+            assistantBuilder: assistant => assistant
+                .ConfigureAgentContext(AgentId, context => context.AllowCompositions())
+                .UseCompositionSwitch<TestCompositionSwitch>()
+                .AddComposition<ProjectRiskInput>(TestScopedStatusCatalog.CompositionId, composition => composition
+                    .Describe("Show one project with its status.")
+                    .Step("project", TestRiskToolCatalog.GetProject.Id, context => new { projectId = context.Input.ProjectId })
+                    .Step("status", TestScopedStatusCatalog.Status.Id, context => new
+                    {
+                        projectId = context.Result("project").GetProperty("id").GetString()
+                    })
+                    .Returns(context => new { project = context.Result("project"), status = context.Result("status") })));
+        using var client = app.CreateClient();
+        using var created = await client.PostAsync("/api/assistant/conversations", Json(new { agentId = AgentId }));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var conversation = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var conversationId = conversation.RootElement.GetProperty("id").GetString();
+
+        using var sent = await client.PostAsync(
+            $"/api/assistant/conversations/{conversationId}/messages",
+            Json(new { text = "How is the project doing?", clientMessageId = Guid.NewGuid().ToString("N") }));
+        Assert.Equal(HttpStatusCode.OK, sent.StatusCode);
+        await ReadAllAsync(sent);
+
+        Assert.Contains(TestScopedStatusCatalog.CompositionFunction, Offered(model, 0));
+        var result = JsonSerializer.SerializeToElement(Assert.Single(model.FunctionResults).Result);
+        Assert.True(result.GetProperty("success").GetBoolean(), result.GetRawText());
+        Assert.Equal("on-track", result.GetProperty("data").GetProperty("status").GetProperty("status").GetString());
+        Assert.Equal([TestRiskToolCatalog.GetProject.Id], app.Services.GetRequiredService<TestRiskToolRecorder>().RanTools);
+        // The step ran with the scoped catalog of the turn, whose scope was still open.
+        var run = Assert.Single(app.Services.GetRequiredService<TestScopedStatusRuns>().Ran);
+        Assert.Equal(projectId.ToString(), run.ProjectId);
+        Assert.False(run.ScopeDisposed);
+    }
+
     internal static NhAiToolDescriptor Composition(AssistantTestHost host, string id)
     {
         return host.Services.GetServices<INhAiToolCatalog>()
@@ -406,6 +468,96 @@ internal static class TestCompositions
                 .Step("project", TestRiskToolCatalog.GetProject.Id, context => new { projectId = context.Input.ProjectId })
                 .Step("secret", TestRiskToolCatalog.ReadSecret.Id, context => new { projectId = context.Input.ProjectId })
                 .Returns(context => new { project = context.Result("project"), secret = context.Result("secret") }));
+    }
+}
+
+/// <summary>
+/// FB60: what the scoped status tool ran, and whether the scope its catalog came from was disposed then.
+/// </summary>
+public sealed class TestScopedStatusRuns
+{
+    public ConcurrentQueue<(string? ProjectId, bool ScopeDisposed)> Ran { get; } = new();
+}
+
+/// <summary>
+/// FB60: a service of one scope, which the scoped catalog takes; it knows when its scope was disposed.
+/// </summary>
+public sealed class TestScopedStatusRequest : IDisposable
+{
+    public bool Disposed { get; private set; }
+
+    public void Dispose()
+    {
+        Disposed = true;
+    }
+}
+
+/// <summary>
+/// FB60: a catalog registered as a scoped service, as an application registers one that takes a scoped
+/// service. Its descriptors stay as they are while the host runs, so a composition step may call its
+/// tool; the tool records whether the scope of the catalog that created it was disposed.
+/// </summary>
+public sealed class TestScopedStatusCatalog(TestScopedStatusRequest request, TestScopedStatusRuns runs) : INhAiToolCatalog
+{
+    public const string CompositionId = "projects.scoped-status";
+    public const string CompositionFunction = "projects_scoped_status_v1";
+
+    public static readonly NhAiToolDescriptor Status = new(
+        "projects.status",
+        1,
+        "Test tool projects.status.",
+        typeof(JsonElement),
+        typeof(JsonElement),
+        NhAiToolEffect.ReadOnly,
+        NhAiToolExposure.Local | NhAiToolExposure.Agent,
+        true,
+        [TestProjectToolCatalog.ReadPolicy])
+    {
+        ExportName = "projects_status_v1",
+        CatalogId = "project-status",
+        ContractHash = new string('9', 64),
+        SchemaHash = new string('9', 64),
+        Approval = NhAiApprovalRequirement.PolicyControlled,
+        AllowAgentGrant = true
+    };
+
+    public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
+
+    public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; } = [Status];
+
+    public NhAiToolCatalogManifest Manifest { get; } = new(
+        "project-status",
+        1,
+        new string('8', 64),
+        [new NhAiToolManifestEntry(Status.Id, 1, Status.SchemaHash, Status.ContractHash) { ExportName = Status.ExportName }]);
+
+    public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
+    {
+        var invoker = services.GetRequiredService<INhAiToolInvoker>();
+        Func<JsonElement, CancellationToken, Task<TaskResult<JsonElement?>>> invoke =
+            (input, cancellationToken) => invoker.InvokeAsync(
+                Status,
+                input,
+                (_, _) =>
+                {
+                    var projectId = input.GetProperty("projectId").GetString();
+                    runs.Ran.Enqueue((projectId, request.Disposed));
+                    return Task.FromResult(TaskResult<JsonElement?>.Succeeded(JsonSerializer.SerializeToElement(new { projectId, status = "on-track" })));
+                },
+                cancellationToken);
+        return
+        [
+            NhAiGovernedAIFunction.Create(
+                Status,
+                AIFunctionFactory.Create(invoke, new AIFunctionFactoryOptions
+                {
+                    Name = Status.ExportName,
+                    Description = Status.Description,
+                    ExcludeResultSchema = true,
+                    MarshalResult = NhAiToolResult.CreateMarshaller<JsonElement?>()
+                }),
+                services)
+        ];
     }
 }
 

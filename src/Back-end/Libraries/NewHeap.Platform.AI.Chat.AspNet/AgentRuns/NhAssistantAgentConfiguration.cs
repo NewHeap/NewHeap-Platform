@@ -2336,32 +2336,69 @@ internal sealed class NhAssistantAgentConfiguration(
         string actorId,
         CancellationToken cancellationToken = default)
     {
+        var (saved, _) = await SaveSkillAsync(agentId, skillId, request, actorId, assetCandidate: false, cancellationToken);
+        return saved!;
+    }
+
+    /// <summary>
+    /// Saves the candidate of a live data skill that names a newer version of an asset (FB62), as
+    /// <see cref="SaveSkillAsync(string, string, NhAssistantDataSkillRequest, string, CancellationToken)"/>
+    /// does with apply <c>shadow</c>, unless the skill's candidate names a newer version of the asset, or
+    /// this version with its hash. Then nothing is saved or audited, and <c>Kept</c> is that candidate,
+    /// otherwise <c>Saved</c> is the save's result. The store decides in the save's transaction
+    /// (<see cref="NhAssistantRunConfigurationStore.AddAssetCandidateAsync"/>), so of two proposals at once
+    /// the newer version stays.
+    /// </summary>
+    internal async Task<(TaskResult<NhAssistantDataSkillDto>? Saved, AssistantAgentSkillDefinition? Kept)> SaveAssetCandidateAsync(
+        string agentId,
+        string skillId,
+        NhAssistantDataSkillRequest request,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Apply != NhAssistantSkillApplyModes.Shadow || request.InstructionsAsset is null)
+        {
+            throw new ArgumentException("A candidate of an asset version is saved in shadow and names the asset.", nameof(request));
+        }
+
+        return await SaveSkillAsync(agentId, skillId, request, actorId, assetCandidate: true, cancellationToken);
+    }
+
+    private async Task<(TaskResult<NhAssistantDataSkillDto>? Saved, AssistantAgentSkillDefinition? Kept)> SaveSkillAsync(
+        string agentId,
+        string skillId,
+        NhAssistantDataSkillRequest request,
+        string actorId,
+        bool assetCandidate,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
         ArgumentNullException.ThrowIfNull(request);
         var reason = request.Reason;
         if (ValidateChange(actorId, ref reason) is { } invalid)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(invalid);
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(invalid), null);
         }
         var (refused, runAgent) = await ResolveAgentAsync(agentId, cancellationToken);
         if (refused is not null)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(refused);
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(refused), null);
         }
         if (runAgent!.CodeSkillIds.Contains(skillId, StringComparer.Ordinal))
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code.");
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.SkillInCode, "The skill is declared in code."), null);
         }
 
         var (prepared, definition, tools) = await PrepareSkillAsync(agentId, skillId, request, actorId, cancellationToken);
         if (prepared is not null)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(prepared);
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(prepared), null);
         }
         if (validator.ValidateSkill(definition!, tools, runAgent) is { } problem)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(SkillFieldError(problem));
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(SkillFieldError(problem)), null);
         }
 
         var asCandidate = request.Apply == NhAssistantSkillApplyModes.Shadow;
@@ -2370,7 +2407,7 @@ internal sealed class NhAssistantAgentConfiguration(
             && !live.ContainsKey(skillId)
             && runAgent.CodeSkillIds.Count + live.Count >= NhAssistantAgentRunOptions.MaxSkills)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed.");
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantErrorCodes.ConfigurationLimit, "The agent has as many skills as allowed."), null);
         }
 
         // A package's locks hold on every version of the skill, a candidate included (PK9).
@@ -2382,13 +2419,19 @@ internal sealed class NhAssistantAgentConfiguration(
                 NhAssistantPackageFields.Of(definition!),
                 cancellationToken) is { } locked)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(locked);
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(locked), null);
         }
 
-        var saved = await store.AddSkillVersionAsync(definition!, request.ExpectedVersion, cancellationToken, asCandidate);
+        var saved = assetCandidate
+            ? await store.AddAssetCandidateAsync(definition!, request.ExpectedVersion, cancellationToken)
+            : await store.AddSkillVersionAsync(definition!, request.ExpectedVersion, cancellationToken, asCandidate);
+        if (saved.Outcome == NhAssistantStoreOutcome.Kept)
+        {
+            return (null, saved.Value);
+        }
         if (!saved.Succeeded)
         {
-            return TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime.");
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The skill changed in the meantime."), null);
         }
         if (request.StartsOff)
         {
@@ -2413,10 +2456,10 @@ internal sealed class NhAssistantAgentConfiguration(
         var dto = asCandidate
             ? ToDto(saved.Value, configurations.Problems, NhAssistantRunConfigurationProblems.CandidateKind)
             : ToDto(saved.Value, configurations.Problems);
-        return TaskResult<NhAssistantDataSkillDto>.Succeeded(dto with
+        return (TaskResult<NhAssistantDataSkillDto>.Succeeded(dto with
         {
             Warnings = await WarningsOfAsync(saved.Value, cancellationToken)
-        });
+        }), null);
     }
 
     /// <summary>

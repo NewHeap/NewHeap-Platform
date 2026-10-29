@@ -28,13 +28,20 @@ public interface INhAssistantInstructionAssetUsage
     /// names an older version of it: each gets a candidate in shadow through the data skill's own save
     /// (<see cref="INhAssistantAgentConfiguration.SaveSkillAsync"/> with apply <c>shadow</c> on its live
     /// version), the live version's fields with the new asset version and its hash, and
-    /// <paramref name="reason"/> (by default <c>asset {id}@{version}</c>); a candidate the skill had is
-    /// discarded, as every new version discards one. The candidate runs next to the live version until an
-    /// administrator promotes or discards it. The outcome is reported per skill
+    /// <paramref name="reason"/> (by default <c>asset {id}@{version}</c>). The skill keeps the newest
+    /// candidate (FB62): a candidate of an older version of the asset, or one that names no asset or
+    /// another one, is discarded, as every new version discards one, while a candidate of a newer version
+    /// stays and nothing is saved. The store decides in the save's transaction, so of two proposals at once
+    /// the newer version stays. Where the application replaced <see cref="INhAssistantAgentConfiguration"/>,
+    /// for example with a decorator that adds its own checks, each candidate is saved through that
+    /// replacement instead, as any save is: the check before the save still answers <c>newer-proposed</c>,
+    /// but two proposals at once are no longer decided by the store. The candidate runs next to the live
+    /// version until an administrator promotes or discards it. The outcome is reported per skill
     /// (<see cref="NhAssistantInstructionAssetCandidateOutcomes"/>): <c>proposed</c>,
-    /// <c>already-proposed</c> when its candidate already names the version and hash, <c>locked</c> when
-    /// an agent package locks the skill's instructions (<c>assistant-package-locked</c> with the save's
-    /// field errors) and <c>refused</c> with the save's code and field errors; one skill never stops the
+    /// <c>already-proposed</c> when its candidate already names the version and hash,
+    /// <c>newer-proposed</c> when its candidate names a newer version, <c>locked</c> when an agent
+    /// package locks the skill's instructions (<c>assistant-package-locked</c> with the save's field
+    /// errors) and <c>refused</c> with the save's code and field errors; one skill never stops the
     /// others. Agents created in the administration that name an older version are listed only: an agent
     /// has no candidate, so an administrator saves it as its next version. Fails, saving nothing, with
     /// the field errors <c>assetId: invalid</c>, <c>assetVersion: invalid</c> (below 1) and
@@ -121,7 +128,8 @@ public sealed record NhAssistantInstructionAssetCandidatesDto(
 /// <param name="LiveAssetVersion">The older version of the asset the live version names.</param>
 /// <param name="Outcome">One of <see cref="NhAssistantInstructionAssetCandidateOutcomes"/>.</param>
 /// <param name="CandidateVersion">For <c>proposed</c> and <c>already-proposed</c>: the skill's candidate
-/// version that names the new asset version; otherwise <see langword="null"/>.</param>
+/// version that names the new asset version; for <c>newer-proposed</c>: the skill's candidate version that
+/// names a newer one; otherwise <see langword="null"/>.</param>
 /// <param name="Code">For <c>locked</c> and <c>refused</c>: the failure code, such as
 /// <c>assistant-package-locked</c> or <c>assistant-version-conflict</c>; otherwise <see langword="null"/>.</param>
 /// <param name="Errors">For <c>locked</c> and <c>refused</c>: the save's field errors by field, such as
@@ -146,6 +154,13 @@ public static class NhAssistantInstructionAssetCandidateOutcomes
 
     /// <summary>The skill's candidate already named the new asset version with its hash; nothing was saved.</summary>
     public const string AlreadyProposed = "already-proposed";
+
+    /// <summary>
+    /// The skill's candidate names a newer version of the asset than the one proposed, and stays; nothing
+    /// was saved. An older version that is proposed late, for example by a delayed job, never replaces a
+    /// newer candidate.
+    /// </summary>
+    public const string NewerProposed = "newer-proposed";
 
     /// <summary>
     /// An agent package the skill was imported from locks its instructions; nothing was saved, until an
@@ -247,7 +262,12 @@ internal sealed class NhAssistantInstructionAssetUsageService(
 
     /// <summary>
     /// Saves the candidate of one live data skill: its live version's fields with the new asset version,
-    /// through the skill's own save, unless its candidate already names that version and hash.
+    /// through the skill's own save, unless its candidate already names that version and hash or a newer
+    /// version. The candidates read before are checked first, so a repeat runs no save. The built-in
+    /// configuration then saves through the store's compare-and-set, which checks again in the save's
+    /// transaction and decides when another proposal saved in the meantime. An application's replacement
+    /// of <see cref="INhAssistantAgentConfiguration"/> is never bypassed: it receives the save as any save,
+    /// and only the check before it keeps a newer candidate then.
     /// </summary>
     private async Task<NhAssistantInstructionAssetCandidateDto> ProposeAsync(
         AssistantAgentSkillDefinition live,
@@ -258,28 +278,33 @@ internal sealed class NhAssistantInstructionAssetUsageService(
         CancellationToken cancellationToken)
     {
         var liveAssetVersion = live.InstructionsAssetVersion!.Value;
-        var proposed = versions.FirstOrDefault(item => item.AgentId == live.AgentId
-                                                       && item.SkillId == live.SkillId
-                                                       && item.Status == NhAssistantSkillDefinitionStatuses.Candidate
-                                                       && item.InstructionsAssetVersion == reference.Version
-                                                       && string.Equals(item.InstructionsHash, reference.Hash, StringComparison.Ordinal));
-        if (proposed is not null)
+        var candidate = versions.FirstOrDefault(item => item.AgentId == live.AgentId
+                                                        && item.SkillId == live.SkillId
+                                                        && item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+        if (candidate is not null && KeptOutcome(candidate, reference) is { } outcome)
         {
-            return new NhAssistantInstructionAssetCandidateDto(
-                live.AgentId,
-                live.SkillId,
-                live.Version,
-                liveAssetVersion,
-                NhAssistantInstructionAssetCandidateOutcomes.AlreadyProposed,
-                proposed.Version,
-                null,
-                null);
+            return Kept(live, candidate, outcome);
         }
 
         var part = NhAssistantAgentPackageParts.SkillOf(live) with { InstructionsAsset = reference };
         var request = NhAssistantAgentPackageParts.RequestOf(part, live.Version, asCandidate: true, reason);
         // A save in shadow answers the candidate it stored.
-        var saved = await configuration.SaveSkillAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
+        TaskResult<NhAssistantDataSkillDto> saved;
+        if (configuration is NhAssistantAgentConfiguration builtIn)
+        {
+            var (stored, kept) = await builtIn.SaveAssetCandidateAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
+            if (kept is not null)
+            {
+                return Kept(live, kept, KeptOutcome(kept, reference) ?? NhAssistantInstructionAssetCandidateOutcomes.NewerProposed);
+            }
+
+            saved = stored!;
+        }
+        else
+        {
+            saved = await configuration.SaveSkillAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
+        }
+
         if (saved.Success)
         {
             return new NhAssistantInstructionAssetCandidateDto(
@@ -305,6 +330,44 @@ internal sealed class NhAssistantInstructionAssetUsageService(
             null,
             locked ? NhAssistantErrorCodes.PackageLocked : NhAssistantResults.CodeOf(saved),
             fields.Count == 0 ? null : fields.ToDictionary(item => item.Key, item => item.Value.ToArray(), StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Why the skill's <paramref name="candidate"/> stays: <c>newer-proposed</c> when it names a newer
+    /// version of the asset, <c>already-proposed</c> when it names the proposed version and hash;
+    /// <see langword="null"/> when the proposal replaces it.
+    /// </summary>
+    private static string? KeptOutcome(AssistantAgentSkillDefinition candidate, NhAssistantInstructionAssetReference reference)
+    {
+        if (!string.Equals(candidate.InstructionsAssetId, reference.AssetId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        if (candidate.InstructionsAssetVersion > reference.Version)
+        {
+            return NhAssistantInstructionAssetCandidateOutcomes.NewerProposed;
+        }
+
+        return candidate.InstructionsAssetVersion == reference.Version
+               && string.Equals(candidate.InstructionsHash, reference.Hash, StringComparison.Ordinal)
+            ? NhAssistantInstructionAssetCandidateOutcomes.AlreadyProposed
+            : null;
+    }
+
+    private static NhAssistantInstructionAssetCandidateDto Kept(
+        AssistantAgentSkillDefinition live,
+        AssistantAgentSkillDefinition candidate,
+        string outcome)
+    {
+        return new NhAssistantInstructionAssetCandidateDto(
+            live.AgentId,
+            live.SkillId,
+            live.Version,
+            live.InstructionsAssetVersion!.Value,
+            outcome,
+            candidate.Version,
+            null,
+            null);
     }
 
     /// <summary>
