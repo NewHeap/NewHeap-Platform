@@ -987,14 +987,14 @@ public sealed partial class AssistantMcpOAuthTests(AssistantDatabaseFixture data
         var cancellation = CancellationToken.None;
 
         // An administrator may type an intranet MCP server; a remote document may not point there.
-        Assert.Single(await open.ResolveAllowedAsync("10.1.2.3", cancellation));
-        Assert.Empty(await open.ResolveAllowedForOAuthAsync("10.1.2.3", cancellation));
-        Assert.Empty(await blocked.ResolveAllowedAsync("10.1.2.3", cancellation));
-        Assert.Single(await allowed.ResolveAllowedAsync("10.1.2.3", cancellation));
-        Assert.Single(await allowed.ResolveAllowedForOAuthAsync("10.1.2.3", cancellation));
-        Assert.Single(await blocked.ResolveAllowedForOAuthAsync("8.8.8.8", cancellation));
+        Assert.Single(await open.ResolveAllowedAsync("10.1.2.3", Uri.UriSchemeHttps, cancellation));
+        Assert.Empty(await open.ResolveAllowedForOAuthAsync("10.1.2.3", Uri.UriSchemeHttps, cancellation));
+        Assert.Empty(await blocked.ResolveAllowedAsync("10.1.2.3", Uri.UriSchemeHttps, cancellation));
+        Assert.Single(await allowed.ResolveAllowedAsync("10.1.2.3", Uri.UriSchemeHttps, cancellation));
+        Assert.Single(await allowed.ResolveAllowedForOAuthAsync("10.1.2.3", Uri.UriSchemeHttps, cancellation));
+        Assert.Single(await blocked.ResolveAllowedForOAuthAsync("8.8.8.8", Uri.UriSchemeHttps, cancellation));
         // Link-local and metadata addresses stay blocked for both.
-        Assert.Empty(await allowed.ResolveAllowedAsync("169.254.169.254", cancellation));
+        Assert.Empty(await allowed.ResolveAllowedAsync("169.254.169.254", Uri.UriSchemeHttps, cancellation));
 
         static NhAssistantMcpHostGuard Guard(bool blockPrivateNetworks, params string[] allowedHosts)
         {

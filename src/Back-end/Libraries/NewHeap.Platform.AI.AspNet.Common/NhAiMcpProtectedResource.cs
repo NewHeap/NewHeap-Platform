@@ -402,9 +402,7 @@ internal sealed class NhAiMcpProtectedResource
             throw Invalid($"{name} has no query or fragment.");
         }
 
-        var authority = uri.Scheme.ToLowerInvariant() + "://" + uri.IdnHost.TrimEnd('.').ToLowerInvariant()
-            + (uri.IsDefaultPort ? string.Empty : ":" + uri.Port.ToString(CultureInfo.InvariantCulture));
-        return authority + uri.AbsolutePath.TrimEnd('/');
+        return AuthorityOf(uri) + uri.AbsolutePath.TrimEnd('/');
     }
 
     /// <summary>Whether a request path is one of the addresses of the metadata.</summary>
@@ -427,9 +425,23 @@ internal sealed class NhAiMcpProtectedResource
             return false;
         }
 
-        var authority = uri.Scheme.ToLowerInvariant() + "://" + uri.IdnHost.TrimEnd('.').ToLowerInvariant()
+        return string.Equals(AuthorityOf(uri) + uri.AbsolutePath.TrimEnd('/'), Resource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The canonical scheme and authority of a URL: lowercase, without a trailing dot, an IPv6 literal in
+    /// brackets and the port only when it is not the scheme's default.
+    /// </summary>
+    private static string AuthorityOf(Uri uri)
+    {
+        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
+        if (uri.HostNameType == UriHostNameType.IPv6)
+        {
+            host = "[" + host + "]";
+        }
+
+        return uri.Scheme.ToLowerInvariant() + "://" + host
             + (uri.IsDefaultPort ? string.Empty : ":" + uri.Port.ToString(CultureInfo.InvariantCulture));
-        return string.Equals(authority + uri.AbsolutePath.TrimEnd('/'), Resource, StringComparison.Ordinal);
     }
 
     /// <summary>Whether the resource accepts tokens of <paramref name="issuer"/>.</summary>
@@ -540,18 +552,14 @@ internal sealed class NhAiMcpProtectedResource
         {
             throw Invalid($"{name} is an absolute https URL without credentials.");
         }
-        if (uri.Scheme == Uri.UriSchemeHttp && !IsLoopback(uri))
+        // localhost, a .localhost name (RFC 6761) or a loopback IP literal: the rule the assistant's
+        // options and its outbound guard follow too.
+        if (uri.Scheme == Uri.UriSchemeHttp && !NhAiLoopbackNames.IsLoopbackName(uri))
         {
             throw Invalid($"{name} uses https; plain http is only accepted for a loopback host.");
         }
 
         return uri;
-    }
-
-    private static bool IsLoopback(Uri uri)
-    {
-        return uri.IsLoopback
-            || uri.IdnHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
     }
 
     private static InvalidOperationException Invalid(string message)
