@@ -253,3 +253,11 @@ grant parsing all follow the fixed flavor.
   train.
 - **(b) The small fixes first (FB60, FB62, FB64) as a fix of their own, then a train for the rest.**
   This ships the bugs sooner, but costs a second verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| MY1 | FB64: the check reads `DbConnection.ServerVersion` (the handshake) and no longer runs `SELECT VERSION()`. MySqlConnector keeps MariaDB's `5.5.5-` prefix (checked: `mariadb:10.6` reports `5.5.5-10.6.28-MariaDB-ubu2204`, `mariadb:11.4` reports `11.4.13-MariaDB-ubu2404`), so the MariaDB version is read behind it; without that, a supported MariaDB 10.11 would have been refused. A proxy that answers the handshake with a version of its own (ProxySQL's `mysql-server_version`) must advertise the backend's flavor and version; ProxySQL answers `SELECT VERSION()` with the same configured value by default, so this changes nothing there. | for Lars to review |
+| MY2 | FB64: the check runs in both executors right after the connection opens, still at stage `connection-open`, and again (it runs no statement) at the start of the principal verification, so a caller that verifies directly cannot skip it. `provider-version-not-supported` keeps the shape of every profile error (exit code 3, no `stage` field); adding `stage` to profile errors would change that contract for all of them. SQL Server and PostgreSQL implement the new provider method as a no-op. | for Lars to review |
+| MY3 | FB64: `mysql:5.7` is a third process-shared server in `DatabaseReadMySqlTestServer` (`UnsupportedMySql`), started only by its one test, a single-case theory over `flavor: MySql` so the MySQL CI job (`DisplayName~flavor: MySql`) runs it; about 12 s on this machine with the image present. An old MariaDB is proved by handshake strings in a unit test, not by a fourth container. | for Lars to review |

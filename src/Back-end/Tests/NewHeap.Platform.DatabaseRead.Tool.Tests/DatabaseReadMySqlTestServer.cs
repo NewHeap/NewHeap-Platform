@@ -25,18 +25,21 @@ public enum DatabaseReadMySqlFlavor
 /// One MySQL and one MariaDB server for the whole test process, each started when a test first
 /// uses its flavor, as <c>RelationalTestServer</c> does for SQL Server and PostgreSQL. A test gets
 /// a database of its own; accounts and roles belong to the server, so their names start with the
-/// name of the test's database, and the test drops them when it ends.
+/// name of the test's database, and the test drops them when it ends. A MySQL 5.7 server, older
+/// than the tool supports, is started the same way for the test that proves it is refused.
 /// </summary>
 internal sealed partial class DatabaseReadMySqlTestServer
 {
     public const string MySqlImage = "mysql:8.4";
     public const string MariaDbImage = "mariadb:11.4";
+    public const string UnsupportedMySqlImage = "mysql:5.7";
 
     private const string RootCredential = "test-root-credential";
 
-    private static readonly DatabaseReadMySqlTestServer MySql = new(DatabaseReadMySqlFlavor.MySql);
-    private static readonly DatabaseReadMySqlTestServer MariaDb = new(DatabaseReadMySqlFlavor.MariaDb);
+    private static readonly DatabaseReadMySqlTestServer MySql = new(DatabaseReadMySqlFlavor.MySql, MySqlImage);
+    private static readonly DatabaseReadMySqlTestServer MariaDb = new(DatabaseReadMySqlFlavor.MariaDb, MariaDbImage);
 
+    private readonly string _image;
     private readonly Lazy<Task<string>> _connectionString;
 
     /// <summary>
@@ -46,11 +49,19 @@ internal sealed partial class DatabaseReadMySqlTestServer
 
     private int _databaseCount;
 
-    private DatabaseReadMySqlTestServer(DatabaseReadMySqlFlavor flavor)
+    private DatabaseReadMySqlTestServer(DatabaseReadMySqlFlavor flavor, string image)
     {
         Flavor = flavor;
+        _image = image;
         _connectionString = new Lazy<Task<string>>(StartAsync, LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <summary>
+    /// A MySQL 5.7 server, which has no roles and no <c>CURRENT_ROLE()</c>, so the tool must refuse
+    /// it before any statement. Only the test that proves this starts it.
+    /// </summary>
+    public static DatabaseReadMySqlTestServer UnsupportedMySql { get; } =
+        new(DatabaseReadMySqlFlavor.MySql, UnsupportedMySqlImage);
 
     public DatabaseReadMySqlFlavor Flavor { get; }
 
@@ -136,6 +147,17 @@ internal sealed partial class DatabaseReadMySqlTestServer
     /// </summary>
     private async Task<string> StartAsync()
     {
+        if (_image == UnsupportedMySqlImage)
+        {
+            var unsupported = new MySqlBuilder(UnsupportedMySqlImage)
+                .WithUsername("root")
+                .WithPassword(RootCredential)
+                .Build();
+            _container = unsupported;
+            await unsupported.StartAsync();
+            return WithoutDatabase(unsupported.GetConnectionString());
+        }
+
         if (Flavor == DatabaseReadMySqlFlavor.MySql)
         {
             var mySql = new MySqlBuilder(MySqlImage)

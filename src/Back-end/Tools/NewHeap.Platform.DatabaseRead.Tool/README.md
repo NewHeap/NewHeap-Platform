@@ -51,9 +51,12 @@ The `provider` is `sql-server`, `postgresql`, `mysql` or `mariadb`. MySQL and
 MariaDB are separate values, because their statement limits, roles and
 privileges differ: the tool checks that the server is the flavor the profile
 names, MySQL 8.0 or later or MariaDB 10.11 or later, and stops with
-`provider-flavor-mismatch` or `provider-version-not-supported` (exit code `3`)
-before it verifies the principal. Only this tool supports MySQL and MariaDB; the
-NewHeap EF Core libraries support SQL Server and PostgreSQL.
+`provider-flavor-mismatch` or `provider-version-not-supported` (exit code `3`).
+It reads the version the server reports while the connection opens, so it
+stops schema reads and queries alike before any statement runs, and an older
+server such as MySQL 5.7 is never reported as a permission or database failure.
+Only this tool supports MySQL and MariaDB; the NewHeap EF Core libraries support
+SQL Server and PostgreSQL.
 
 When the catalog contains exactly one profile, `newheap-db` selects it
 automatically. Use `--profile <name>` or the JSON `profile` property when a

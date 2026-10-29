@@ -100,11 +100,20 @@ public sealed class DatabaseReadToolSamplesTests
 
     /// <summary>
     /// SPM-367: a MySQL or MariaDB failure keeps its flavor and error number, and a profile that
-    /// names the other flavor gets a remedy instead of a retry.
+    /// names the other flavor or a server older than the tool supports, such as MySQL 5.7, which the
+    /// tool refuses before any statement, gets a remedy instead of a retry.
     /// </summary>
     [Fact]
     public void McpKeepsTheFlavorAndErrorNumberOfAMySqlFamilyFailure()
     {
+        using var version = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                code = "provider-version-not-supported",
+                message = "The tool reads the privileges of MySQL 8.0 or later."
+            }
+        }));
         using var timeout = JsonDocument.Parse(JsonSerializer.Serialize(new
         {
             error = new
@@ -137,6 +146,15 @@ public sealed class DatabaseReadToolSamplesTests
         Assert.DoesNotContain("private-canary", timeoutMessage);
         Assert.Equal("provider-flavor-mismatch", mismatchError.Name);
         Assert.Contains("Correct the profile's provider", Assert.Single(mismatchError.ErrorMessages).ToString(), StringComparison.Ordinal);
+
+        var versionError = Assert.Single(
+            NewHeapSampleDatabaseReadExecutor.SafeFailure(version.RootElement).GetResultItems());
+        Assert.Equal("provider-version-not-supported", versionError.Name);
+        Assert.Contains(
+            "MySQL 8.0 or MariaDB 10.11",
+            Assert.Single(versionError.ErrorMessages).ToString(),
+            StringComparison.Ordinal);
+        Assert.Contains("retrying does not help", Assert.Single(versionError.ErrorMessages).ToString(), StringComparison.Ordinal);
     }
 
     /// <summary>

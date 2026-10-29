@@ -10,9 +10,9 @@ namespace NewHeap.Platform.DatabaseRead;
 /// <summary>
 /// The MySQL and MariaDB provider. Both flavors speak the same protocol through MySqlConnector, but
 /// differ in their statement time limit, their roles and their privileges, so a profile names the
-/// flavor and the provider checks that the server is that flavor before it verifies the principal.
-/// Schema evidence comes from <c>information_schema</c>, which shows only what the principal holds a
-/// privilege on.
+/// flavor and the provider checks that the server is that flavor, and new enough, from the version
+/// the server reported while the connection opened, before any statement runs. Schema evidence
+/// comes from <c>information_schema</c>, which shows only what the principal holds a privilege on.
 /// </summary>
 internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
 {
@@ -28,7 +28,10 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     /// </summary>
     internal static readonly Version MinimumMariaDbVersion = new(10, 11);
 
-    private const string ServerSql = "SELECT VERSION(), CURRENT_ROLE();";
+    /// <summary>
+    /// <c>CURRENT_ROLE()</c> exists from MySQL 8.0, so it runs only after the server check.
+    /// </summary>
+    private const string CurrentRoleSql = "SELECT CURRENT_ROLE();";
 
     /// <summary>
     /// The roles granted directly to the MariaDB account. Roles granted to those roles are part of
@@ -89,6 +92,19 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     }
 
     /// <summary>
+    /// Checks the flavor and the minimum version from the version the server reported in its
+    /// handshake, so a server older than MySQL 8.0, which does not know <c>CURRENT_ROLE()</c> or
+    /// roles, stops with <c>provider-version-not-supported</c> before any statement runs instead of
+    /// failing the first statement as a permission problem.
+    /// </summary>
+    public void EnsureSupportedServer(DbConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        EnsureSupportedServer(connection.ServerVersion);
+    }
+
+    /// <summary>
     /// Verifies the server flavor and then the principal, denying by default. The verification
     /// reads <c>SHOW GRANTS</c> with every role the principal can use active: on MySQL all granted
     /// and mandatory roles at once (<c>SET ROLE ALL</c>), whose grants, also those of nested roles,
@@ -103,8 +119,8 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        var server = await ReadServerAsync(connection, limits, cancellationToken);
-        EnsureSupportedServer(server.Version);
+        EnsureSupportedServer(connection);
+        var currentRole = await ReadCurrentRoleAsync(connection, limits, cancellationToken);
 
         await ExecuteAsync(connection, null, LockTimeoutSql(limits), limits, cancellationToken);
 
@@ -113,7 +129,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         {
             await ExecuteAsync(connection, null, "SET ROLE ALL;", limits, cancellationToken);
             await CollectFailedChecksAsync(connection, limits, failedChecks, cancellationToken);
-            await ExecuteAsync(connection, null, RestoreMySqlRolesSql(server.CurrentRole), limits, cancellationToken);
+            await ExecuteAsync(connection, null, RestoreMySqlRolesSql(currentRole), limits, cancellationToken);
         }
         else
         {
@@ -130,9 +146,9 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
                 await CollectFailedChecksAsync(connection, limits, failedChecks, cancellationToken);
             }
 
-            var restoreSql = server.CurrentRole is null
+            var restoreSql = currentRole is null
                 ? "SET ROLE NONE;"
-                : $"SET ROLE {QuoteIdentifier(server.CurrentRole)};";
+                : $"SET ROLE {QuoteIdentifier(currentRole)};";
             await ExecuteAsync(connection, null, restoreSql, limits, cancellationToken);
         }
 
@@ -289,8 +305,9 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
 
     /// <summary>
     /// The flavor follows from the server's version: MariaDB names itself in it, MySQL does not.
-    /// A profile for one flavor never runs against the other, because their time limits, roles
-    /// and privileges differ.
+    /// MariaDB may put <c>5.5.5-</c> in front of its own version, such as
+    /// <c>5.5.5-10.11.9-MariaDB</c>, for clients that expect MySQL. A profile for one flavor never
+    /// runs against the other, because their time limits, roles and privileges differ.
     /// </summary>
     internal void EnsureSupportedServer(string version)
     {
@@ -303,7 +320,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
                 DatabaseReadExitCode.InvalidProfile);
         }
 
-        var match = VersionPrefix().Match(version);
+        var match = (isMariaDb ? MariaDbVersionPrefix() : VersionPrefix()).Match(version);
         var minimum = isMariaDb ? MinimumMariaDbVersion : MinimumMySqlVersion;
         if (!match.Success ||
             new Version(
@@ -365,23 +382,21 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         }
     }
 
-    private static async Task<MySqlServerState> ReadServerAsync(
+    private static async Task<string?> ReadCurrentRoleAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
-        command.CommandText = ServerSql;
+        command.CommandText = CurrentRoleSql;
         command.CommandTimeout = limits.TimeoutSeconds;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+        if (!await reader.ReadAsync(cancellationToken) || await reader.IsDBNullAsync(0, cancellationToken))
         {
-            return new MySqlServerState(string.Empty, null);
+            return null;
         }
 
-        return new MySqlServerState(
-            ReadString(reader, 0),
-            await reader.IsDBNullAsync(1, cancellationToken) ? null : ReadString(reader, 1));
+        return ReadString(reader, 0);
     }
 
     private static async Task<IReadOnlyList<string>> ReadMariaDbDirectRolesAsync(
@@ -1085,10 +1100,11 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     [GeneratedRegex(@"^(\d+)\.(\d+)", RegexOptions.CultureInvariant)]
     private static partial Regex VersionPrefix();
 
+    [GeneratedRegex(@"^(?:5\.5\.5-)?(\d+)\.(\d+)", RegexOptions.CultureInvariant)]
+    private static partial Regex MariaDbVersionPrefix();
+
     [GeneratedRegex(@"^`(?:[^`]|``)*`@`(?:[^`]|``)*`(?:,`(?:[^`]|``)*`@`(?:[^`]|``)*`)*$", RegexOptions.CultureInvariant)]
     private static partial Regex MySqlRoleList();
-
-    private sealed record MySqlServerState(string Version, string? CurrentRole);
 
     private sealed record MySqlObjectDescriptor(
         string Schema,

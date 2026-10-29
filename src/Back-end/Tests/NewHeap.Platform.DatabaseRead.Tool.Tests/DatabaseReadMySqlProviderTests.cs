@@ -407,14 +407,54 @@ public sealed class DatabaseReadMySqlProviderTests
             .Classification.Should().Be("permission-denied");
     }
 
+    /// <summary>
+    /// MySQL 5.7 has no roles and no <c>CURRENT_ROLE()</c>. The tool reads the version the server
+    /// reported while the connection opened and refuses the server before any statement, for
+    /// schema reads and queries alike, instead of failing the first statement as a permission
+    /// problem. A theory over the flavor, so the MySQL CI job, which selects its cases by the
+    /// flavor in the display name, runs it.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseReadMySqlFlavor.MySql)]
+    public async Task ServerOlderThanTheMinimumIsRefusedBeforeAnyStatement(DatabaseReadMySqlFlavor flavor)
+    {
+        var server = DatabaseReadMySqlTestServer.UnsupportedMySql;
+        server.Flavor.Should().Be(flavor);
+        var connectionString = await server.GetConnectionStringAsync();
+
+        foreach (var command in new[] { "schema", "query" })
+        {
+            using var workspace = new DatabaseReadTestWorkspace(server.ProviderName, connectionString);
+            using var input = command == "schema"
+                ? DatabaseReadTestWorkspace.SchemaRequest("search")
+                : DatabaseReadTestWorkspace.Request("SELECT 1 AS one");
+            using var output = new MemoryStream();
+
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                [command, "--profiles", workspace.ProfileCatalogPath],
+                input,
+                output);
+
+            exitCode.Should().Be(3, "{0} returned {1}", command, DatabaseReadTestWorkspace.OutputText(output));
+            using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+            response.RootElement.GetProperty("error").GetProperty("code").GetString()
+                .Should().Be("provider-version-not-supported");
+            response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+            response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+        }
+    }
+
     [Theory]
     [InlineData(DatabaseReadMySqlFlavor.MySql, "8.4.11", null)]
     [InlineData(DatabaseReadMySqlFlavor.MySql, "9.1.0", null)]
     [InlineData(DatabaseReadMySqlFlavor.MySql, "5.7.44-log", "provider-version-not-supported")]
     [InlineData(DatabaseReadMySqlFlavor.MySql, "11.4.13-MariaDB-ubu2404", "provider-flavor-mismatch")]
+    [InlineData(DatabaseReadMySqlFlavor.MySql, "5.5.5-10.11.9-MariaDB", "provider-flavor-mismatch")]
     [InlineData(DatabaseReadMySqlFlavor.MariaDb, "11.4.13-MariaDB-ubu2404", null)]
     [InlineData(DatabaseReadMySqlFlavor.MariaDb, "10.11.9-MariaDB", null)]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "5.5.5-10.11.9-MariaDB-ubu2204", null)]
     [InlineData(DatabaseReadMySqlFlavor.MariaDb, "10.6.18-MariaDB", "provider-version-not-supported")]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "5.5.5-10.6.28-MariaDB-ubu2204", "provider-version-not-supported")]
     [InlineData(DatabaseReadMySqlFlavor.MariaDb, "8.4.11", "provider-flavor-mismatch")]
     public void ServerVersionSelectsTheFlavor(DatabaseReadMySqlFlavor flavor, string version, string? expectedCode)
     {

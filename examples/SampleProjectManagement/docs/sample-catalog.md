@@ -1072,11 +1072,15 @@ can read but cannot update on real SQL Server and PostgreSQL instances while
 the diagnostic queries use provider-native `TOP` and `LIMIT` caps.
 
 A consumer whose diagnostic database is MySQL or MariaDB names a `mysql` or
-`mariadb` profile (SPM-367). The tool first checks that the server is that
-flavor, then verifies the principal from the server's own `SHOW GRANTS` with
-every role it can use active, including mandatory roles on MySQL and the grants
-to `PUBLIC` on MariaDB, and rejects anything beyond SELECT outside the system
-schemas, as well as a view that runs as another definer. The transaction starts
+`mariadb` profile (SPM-367). The tool first checks, from the version the server
+reports while the connection opens, that the server is that flavor and at least
+MySQL 8.0 or MariaDB 10.11, so a MySQL 5.7 server stops with
+`provider-version-not-supported` before any statement instead of failing as a
+permission problem. It then verifies the principal from the server's own
+`SHOW GRANTS` with every role it can use active, including mandatory roles on
+MySQL and the grants to `PUBLIC` on MariaDB, and rejects anything beyond SELECT
+outside the system schemas, as well as a view that runs as another definer. The
+transaction starts
 read only with the flavor's statement and lock limits, and schema evidence comes
 from `information_schema`. A SQL Server profile may opt in to SELECT on inline
 table-valued functions (SPM-368) with `sqlServerFunctionPolicy:
@@ -1086,7 +1090,8 @@ itself, which it reads with `VIEW DEFINITION` on the function. The sample's own
 database is PostgreSQL, so the sample MCP shows only how the new verification
 checks and a profile of the wrong flavor reach the agent, and its tests validate
 such profiles without a connection; the platform's provider tests prove both
-features on real MySQL 8.4, MariaDB 11.4 and SQL Server servers.
+features on real MySQL 8.4, MariaDB 11.4 and SQL Server servers, and the
+refusal of an older server on MySQL 5.7.
 
 ## Recommended deferred lazy dropdown
 

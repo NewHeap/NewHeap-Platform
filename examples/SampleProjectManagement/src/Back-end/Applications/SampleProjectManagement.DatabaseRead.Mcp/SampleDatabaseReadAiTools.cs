@@ -375,7 +375,7 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             _ when code == "provider-flavor-mismatch" =>
                 "The database server is not the MySQL or MariaDB flavor that the profile names. Correct the profile's provider; retrying does not help.",
             _ when code == "provider-version-not-supported" =>
-                "The database server's version is older than the read-only verification supports.",
+                "The database server's version is older than the read-only verification supports (MySQL 8.0 or MariaDB 10.11). Point the profile at a supported server; retrying does not help.",
             _ => "The NewHeap database read tool rejected the sample diagnostic request."
         };
         if (provider is not null && providerCode is not null)
