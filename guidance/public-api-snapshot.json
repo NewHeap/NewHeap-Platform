@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.92",
   "backEnd": {
-    "hash": "8bbcc923f06c052ede62cad595932f599502c6255c0441238d6d234fa8767d15",
-    "declarationCount": 12054,
+    "hash": "c8f9abb325728c630023764e47c57ed331443b077bb806a3ed17517ed722f15e",
+    "declarationCount": 12059,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7779,6 +7779,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public NhAssistantClientContextDto? ClientContext { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
         "declaration": "public sealed record NhAssistantConversationDecision( NhAssistantProposalDecision Decision, string ExpectedProposalHash) {"
       },
       {
@@ -7964,6 +7968,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
         "declaration": "public static IResult Error(string code, IReadOnlyDictionary<string, string[]>? fieldErrors) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpStatuses.cs",
+        "declaration": "public static class NhAssistantHttpStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpStatuses.cs",
+        "declaration": "public const int UnknownCodeStatus = StatusCodes.Status400BadRequest;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpStatuses.cs",
+        "declaration": "public static int Of(string code) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantImpersonation.cs",
@@ -23452,6 +23468,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
         "declaration": "public const int MaxEntityLabelLength = 120;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxStorageLength = 4_000;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
@@ -52517,7 +52537,9 @@
       "RequiresChatSubject",
       "NhAssistantConversationSubjectDto",
       "ConversationSubject",
-      "NhAssistantBriefingPurposes"
+      "NhAssistantBriefingPurposes",
+      "NhAssistantHttpStatuses",
+      "NhAssistantClientContextDto"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

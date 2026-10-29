@@ -162,7 +162,9 @@ dotted for nested input such as `oauth.clientSecretReference`), `assistant-forbi
 `assistant-context-unavailable` (`403`), the `*-not-found` codes (`404`), conflicts with the
 current state (`409`), remote MCP and OAuth failures (`502`) and a failing secret store or a run that
 could not be queued (`503`). `errors` carries field errors for any code, such as the parameters of an
-invalid run filter. Clients map the code, never the status, to a text.
+invalid run filter. Clients map the code, never the status, to a text. The table is public as
+`NhAssistantHttpStatuses.Of(code)`, which the endpoints' error responses use themselves; a code the
+assistant does not know answers `NhAssistantHttpStatuses.UnknownCodeStatus` (`400`).
 
 - **Agents.** Agents added with `AddAgent` are code agents: they are upserted into
   `AssistantAgent` at startup and stay the default. Administrators override, disable
@@ -521,7 +523,10 @@ Clients send the page they show as `clientContext` with `POST messages`: `route`
 characters), optional `title` (120) and at most five `entities` (`type` in dash-case, `id`
 of at most 64 characters, optional `label` of 120). The server validates again, cuts off
 long text and drops a value of the wrong shape without answering `400`. The context is
-stored with the user message and used again when the turn resumes after an approval.
+stored with the user message and used again when the turn resumes after an approval. An
+application's channel passes the same page as `NhAssistantConversationMessage.ClientContext`
+(`NhAssistantClientContextDto`) instead of a turn context provider of its own; see the channels
+section below.
 
 Both arrive as the "Situation" and "User's screen" blocks after the composed instructions,
 marked as data, not instructions. They are not part of the
@@ -825,6 +830,23 @@ if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval
   proposal hash, the question it waits for (`PendingQuestion`) and the usage. Expected refusals before
   the turn are failed results with the endpoint's codes; a repeated `ClientMessageId` is
   `assistant-message-duplicate`.
+- A channel that knows the page the person has open, such as a website widget, passes it as
+  `ClientContext` of the message, in the endpoint's `NhAssistantClientContextDto`:
+  `new NhAssistantConversationMessage(text) { ClientContext = new NhAssistantClientContextDto(route,
+  title, [new NhAssistantClientEntityDto("project", projectId, label)]) }`. The service reads it as the
+  endpoint reads `clientContext`, so the turn shows the same "User's screen", the message stores the
+  same context and a resumed turn shows it again. Unlike the endpoint, which ignores what it cannot
+  read so that a browser's message never fails for its page, the service refuses with
+  `assistant-message-invalid` a page the endpoint would not keep whole: a route without text, more
+  than five entities, an entity that is `null`, whose type is not dash-case or whose id is empty,
+  longer than 64 characters or holds a control character, and a page whose stored form exceeds the
+  4,000 characters the message keeps for it. Long text is cut off as the endpoint does. The page is
+  untrusted data for the model and grants nothing.
+- An application that serves its channel through its own API answers a failed result with the
+  status the endpoints give its code: map the application's own codes first, then
+  `NhAssistantHttpStatuses.Of(code)`, which answers `400` (`UnknownCodeStatus`) for a code the
+  assistant does not know. The endpoints use the same mapping, so a channel and the endpoints answer a
+  code alike.
 - `AnswerAsync(person, conversationId, questionId, new NhAssistantConversationAnswer(choice), options)`
   answers the question with the zero-based choice in the answer endpoint's order: an unknown question
   `assistant-question-not-found`, another person's `assistant-question-forbidden` (before the status),
@@ -908,6 +930,11 @@ expires with the presented link, and the agents with what the person may attach,
 provider's attachment to the linked chat with the upload endpoint's codes and statuses. SPM-342 names the
 turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
 from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
+SPM-380 lets the provider's web widget on a portal page send the page the person has open with the
+message, which reaches the model as the person's screen through `ClientContext`; a page the platform
+would not keep whole answers `400 assistant-message-invalid`. SPM-381 answers every refusal of the
+channel with `SampleAssistantMessagingChannel.StatusOf`: the channel's own codes first, then
+`NhAssistantHttpStatuses.Of`, so the messaging app keeps no table of its own.
 
 ## A chat about a subject
 
@@ -1456,6 +1483,11 @@ calls in a consultation store nothing and are not listed.
   upload a file from a channel; use `INhAssistantConversations` and
   `INhAssistantConversationTurns.AnswerAsync`. Implementing or mocking `INhAssistantConversations`
   outside the application's own tests: it grows with the endpoints.
+- Passing the page a person has open from a channel through a turn context provider of the channel's
+  own; pass it as `NhAssistantConversationMessage.ClientContext`, which the turn shows as the person's
+  screen and stores like the endpoint.
+- Keeping a channel's own table of assistant codes to HTTP statuses; map the application's own codes,
+  then `NhAssistantHttpStatuses.Of(code)`.
 - Passing a forward-only stream to `UploadAsync`, or logging the name of an upload in a scanner, file
   source or file retention.
 - Trusting remote MCP annotations such as `readOnlyHint`; they are hints for the
@@ -1572,6 +1604,12 @@ the endpoints and in a channel's turn (SPM-341, SPM-342). Assert on both provide
 content, name, agent, profile chain, scanner, file source, someone outside the chat, a participant
 without the agent's policy, the access policy, another person's principal), that the stream is read
 again from the caller's position and stays the caller's, and that no log names the file (SPM-358).
+Assert on both providers that a channel's `ClientContext` reaches the model, also when its turn resumes
+after an approval, and is stored as the same `clientContext` through the endpoint; that a page the
+endpoint would not keep whole is refused with `assistant-message-invalid` before the turn; and that a
+message without one changes nothing (SPM-380). Assert that every code keeps its status in
+`NhAssistantHttpStatuses.Of`, that the endpoints' error response uses it, and that an unknown code
+answers `400` (SPM-381).
 Assert that an archive and subject retention call `ForgetConversationAsync` once per conversation, a
 participant who leaves none, and that a failing or throwing retention only warns while the
 conversation stays gone; and that `GET agents` offers uploads only where the profile chain permits the

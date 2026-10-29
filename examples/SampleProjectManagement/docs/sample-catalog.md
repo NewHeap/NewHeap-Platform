@@ -582,6 +582,16 @@ platform reads the buffered file again for its content check, the sample's scann
 library, and answers with the reference that the person's next message carries in `files`. The file's
 name never reaches a log. `AssistantChannelFileSamplesTests` runs the case.
 
+The provider's web widget on a portal page sends the page the person has open with the message
+(SPM-380): `page` carries its route, title and the project it shows, and the channel passes it as
+`NhAssistantConversationMessage.ClientContext`, so the turn shows the assistant the person's screen,
+cleaned and stored as the portal's own messages are. A page the platform would not keep whole, such as
+one with more records than the five it shows, answers `400 assistant-message-invalid` and starts no
+turn. Every refusal of the channel answers the status the portal's endpoints give its code (SPM-381):
+`SampleAssistantMessagingChannel.StatusOf` maps the channel's own codes first and every other code
+through the platform's `NhAssistantHttpStatuses.Of`, so the channel keeps no table of its own.
+`AssistantMessagingChannelSamplesTests` and `AssistantChannelStatusSamplesTests` run the cases.
+
 People who chat with the planner reach its skills too (SPM-333). With `SkillsInChat` a chat turn starts
 without a skill, and the model loads the task follow-up skill with `use_skill` when the person asks
 which task comes next: no triage call, the skill's instructions and only the status tool it selects,

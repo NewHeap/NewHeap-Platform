@@ -6551,5 +6551,40 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
     ]
+  },
+  {
+    "id": "SPM-380",
+    "title": "A website widget shows the assistant the page a person has open through the application's channel",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantConversationMessage.ClientContext of INhAssistantConversationTurns.SendAsync with the endpoint's NhAssistantClientContextDto and NhAssistantClientEntityDto; the clientContext of POST conversations/{id}/messages, its limits and its storage with the user message; assistant-message-invalid",
+    "outcome": "The messaging provider's web widget runs on the portal's pages, and a message it delivers to `POST assistant-channel/messages` carries the page the person has open in `page`: its route, title and the project it shows. `SampleAssistantMessagingChannel` passes it as `ClientContext` of the person's message, and the turn shows it to the assistant as the person's screen, validated, cleaned and stored as the portal's own messages are, so the page's title reaches the model with its markup neutralized and a turn that resumes after an approval or a question shows the page again. A page the platform would not keep whole, here six records where it shows five, is refused with `400 assistant-message-invalid` and starts no turn, and a message from the messaging app itself carries no page. The library tests prove on SQL Server and PostgreSQL that a page through the service reaches the model, again when the turn resumes after the person's approval, and is stored exactly as the same `clientContext` through the endpoint; that a route without text, an entity whose type is not dash-case or whose id is empty, too long or holds a control character, a null entity, more than five entities and a page whose stored form would exceed its column are refused with `assistant-message-invalid` before the turn, with no message stored and the model not asked; that a page at the limits is kept whole; and that a message without a page shows no screen and stores none.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationClientContextTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-381",
+    "title": "An application's channel answers a refusal with the HTTP status the assistant's endpoints give its code",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantHttpStatuses.Of(code) and NhAssistantHttpStatuses.UnknownCodeStatus; the error responses of every assistant endpoint, which use the same mapping",
+    "outcome": "The messaging app answers every refusal of the platform's services with the status the portal's endpoints give its code. `SampleAssistantMessagingChannel.StatusOf` maps the channel's own codes first (`sample-assistant-channel-person-unavailable` is `403`, `sample-assistant-channel-delivery-invalid` `400`) and every other code through `NhAssistantHttpStatuses.Of`, and `AssistantChannelController` answers each refusal with that status and the code. The channel keeps no table of its own, so codes it never listed answer as the portal does: `assistant-disabled` is `404`, `assistant-file-forbidden` `403`, `assistant-agent-instructions-unavailable` `409` and `assistant-proposal-check-failed` `503`, where its own table answered `400`; the HTTP tests of SPM-332, SPM-341, SPM-358 and SPM-380 keep their statuses. A code the assistant does not know answers `400`. The library tests prove that every code the endpoints answered in 25.0.1 keeps its status, that the endpoints' error response of every such code carries the status of `NhAssistantHttpStatuses.Of`, that an unknown code, also in another casing, answers `400`, and that a missing code is the caller's mistake.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelStatusSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpStatuses.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHttpStatusTests.cs"
+    ]
   }
 ] as const;

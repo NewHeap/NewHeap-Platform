@@ -365,7 +365,9 @@
     "SPM-371",
     "SPM-372",
     "SPM-373",
-    "SPM-374"
+    "SPM-374",
+    "SPM-380",
+    "SPM-381"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3952,6 +3954,25 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
+    ],
+    "SPM-380": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/AssistantChannelModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConversationClientContextTests.cs"
+    ],
+    "SPM-381": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChannelStatusSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpStatuses.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHttpStatusTests.cs"
     ]
   }
 }
