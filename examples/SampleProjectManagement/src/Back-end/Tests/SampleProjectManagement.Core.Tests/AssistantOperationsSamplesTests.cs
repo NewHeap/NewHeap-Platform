@@ -410,6 +410,30 @@ public sealed class AssistantLoopbackSamplesTests(AssistantLoopbackSampleHost ho
         Assert.True((await servers.DeleteAsync(SampleAssistantOperationsService.MilestonesServerId, actor)).Success);
     }
 
+    [Fact]
+    public async Task SPM_331_plain_http_is_accepted_for_every_loopback_name_and_no_other_name()
+    {
+        const string actor = "spm-331-operator";
+        await using var scope = host.Services.CreateAsyncScope();
+        var servers = scope.ServiceProvider.GetRequiredService<INhAssistantMcpServers>();
+
+        // localhost, a .localhost name (RFC 6761) and a loopback IP literal are loopback names, as the
+        // MCP protected resource and the OAuth options count them. Plain http to such a name connects
+        // only when every address it resolves to is a loopback address.
+        foreach (var url in new[] { "http://milestones.dev.localhost:5299/mcp", "http://localhost:5299/mcp", "http://127.0.0.1:5299/mcp" })
+        {
+            var created = await servers.CreateAsync(Server(url) with { Id = "loopback-name" }, actor);
+            Assert.True(created.Success, url + ": " + string.Join("; ", created.GetResultItems().Select(item => item.Name)));
+            Assert.True((await servers.DeleteAsync("loopback-name", actor)).Success);
+        }
+        // A name that only looks like one needs https.
+        foreach (var url in new[] { "http://milestones.localhost.example.org/mcp", "http://mylocalhost:5299/mcp" })
+        {
+            var refused = await servers.CreateAsync(Server(url) with { Id = "lookalike" }, actor);
+            Assert.Contains(refused.GetResultItems(), item => item.Name == NhAssistantAdminErrorCodes.McpHostBlocked);
+        }
+    }
+
     private static NhAssistantMcpServerRequest Server(string url)
     {
         return new NhAssistantMcpServerRequest(

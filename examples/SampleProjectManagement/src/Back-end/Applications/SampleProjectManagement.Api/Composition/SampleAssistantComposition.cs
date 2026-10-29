@@ -158,7 +158,10 @@ public static class SampleAssistantComposition
             .ConfigureMcp(mcp =>
             {
                 // Administrators may connect any https host that is not blocked; plain http is only
-                // accepted for loopback in Development. SPM-331: a test host of another environment,
+                // accepted for loopback in Development: localhost, a .localhost name such as
+                // milestones.dev.localhost or a loopback IP literal, for MCP servers and the OAuth URLs
+                // of SPM-299 alike, and only when every address the name resolves to is a loopback
+                // address. SPM-331: a test host of another environment,
                 // such as Testing, reaches MCP servers on loopback only with
                 // NewHeap:AI:Assistant:Mcp:AllowLoopback, which Production refuses at start; the sample
                 // leaves it off. Only hosts in

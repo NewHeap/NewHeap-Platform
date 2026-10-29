@@ -379,6 +379,10 @@ if (builder.Environment.IsDevelopment())
 }
 // SPM-370: with SampleProjectManagement:McpSignIn, MCP clients outside the application sign in to
 // /mcp through the application's authorization server; its own clients keep their NewHeap token.
+// With :Applications, other applications sign in at /applications/mcp, a protected resource of its own.
+// As an alternative, :ServiceTokens adds the application's own scheme for tokens whose audience is /mcp,
+// which it marks as never passed on.
+builder.Services.AddAuthentication().AddSampleMcpServiceTokens(builder.Configuration);
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     // SPM-371: MCP clients may use the script tool where the portal's setting of the exposure has it on.
