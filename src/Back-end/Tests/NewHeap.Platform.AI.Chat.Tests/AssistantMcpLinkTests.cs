@@ -101,7 +101,7 @@ public sealed class AssistantMcpLinkTests
         [
             ResearchBinding,
             null!,
-            ResearchBinding with { ServerId = "research-user", ServerUrl = "https://user:secret@research.test/mcp" },
+            ResearchBinding with { ServerId = "research-user", ServerUrl = "https://reviewer@research.test/mcp" },
             ResearchBinding with { ServerId = "research-ftp", ServerUrl = "ftp://research.test/mcp" },
             ResearchBinding with { ServerId = "Research Two" },
             ResearchBinding with { ServerId = "research-blank", RemoteName = " " },
