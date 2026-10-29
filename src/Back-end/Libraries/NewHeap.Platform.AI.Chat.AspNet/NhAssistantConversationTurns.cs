@@ -153,8 +153,9 @@ public sealed record NhAssistantConversationMessage(string Text)
     /// ignore or only partly keep is refused with <c>assistant-message-invalid</c>: a route without text,
     /// more than five entities, an entity that is <see langword="null"/>, whose type is not dash-case of at
     /// most 60 characters, or whose id is empty, longer than 64 characters or holds a control character, and
-    /// a context whose stored form exceeds the 4,000 characters the message keeps for it, which text
-    /// outside ASCII in nearly every field at its limit does. <see langword="null"/> without one.
+    /// a context whose stored form exceeds the 4,000 characters the message keeps for it, which the
+    /// endpoint ignores: text in any language fits at every limit, but HTML-sensitive characters such as
+    /// <c>&amp;</c> or emoji in nearly every field at its limit do not. <see langword="null"/> without one.
     /// </summary>
     public NhAssistantClientContextDto? ClientContext { get; init; }
 }
@@ -592,15 +593,10 @@ internal sealed class NhAssistantConversationTurns(
             return true;
         }
 
+        // The reader also ignores a context the message could not store.
         var read = NhAssistantClientContext.From(
             JsonSerializer.SerializeToElement(value, NhAssistantJsonSerializerContext.Default.NhAssistantClientContextDto));
         if (read is null || read.Entities.Count != (value.Entities?.Count ?? 0))
-        {
-            return false;
-        }
-
-        // The message could not store it: the stored JSON escapes text outside ASCII.
-        if (read.ToStorage().Length > NhAssistantClientContext.MaxStorageLength)
         {
             return false;
         }
