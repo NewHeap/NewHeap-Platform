@@ -97,7 +97,7 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
         _mcpClient = CreateClient(guard.ResolveAllowedAsync);
     }
 
-    private static HttpClient CreateClient(Func<string, CancellationToken, Task<IReadOnlyList<IPAddress>>> resolve)
+    private static HttpClient CreateClient(Func<string, string, CancellationToken, Task<IReadOnlyList<IPAddress>>> resolve)
     {
         var handler = new SocketsHttpHandler
         {
@@ -105,7 +105,11 @@ internal sealed partial class NhAssistantMcpOAuthHttp : IDisposable
             UseCookies = false,
             ConnectCallback = async (context, token) =>
             {
-                var addresses = await resolve(context.DnsEndPoint.Host, token);
+                // The scheme decides whether a loopback name must resolve to loopback addresses only.
+                var addresses = await resolve(
+                    context.DnsEndPoint.Host,
+                    context.InitialRequestMessage.RequestUri?.Scheme ?? Uri.UriSchemeHttp,
+                    token);
                 if (addresses.Count == 0)
                 {
                     throw new NhAssistantMcpHostBlockedException();

@@ -97,12 +97,20 @@ internal sealed record NhAssistantMcpConnectionPlan(
 /// which come from remote documents, always need https (http only to loopback where loopback is
 /// allowed) and never reach a private network unless their host is in the allow-list. Loopback is
 /// allowed in Development and, with <see cref="NhAssistantMcpOptions.AllowLoopback"/>, in every other
-/// environment but Production.
+/// environment but Production. A loopback name is <c>localhost</c>, a <c>.localhost</c> name (RFC 6761)
+/// or a loopback IP literal, as the inbound protected resource and the assistant's options count it
+/// (<see cref="NhAiLoopbackNames"/>); plain http to such a name connects only when every address it
+/// resolves to is a loopback address.
 /// </summary>
 internal sealed class NhAssistantMcpHostGuard(
     IOptionsMonitor<NhAssistantOptions> options,
     IHostEnvironment environment)
 {
+    /// <summary>
+    /// Resolves a host name; DNS, or a stand-in in a test that needs a name to resolve to given addresses.
+    /// </summary>
+    internal Func<string, CancellationToken, Task<IPAddress[]>> Resolve { get; init; } = Dns.GetHostAddressesAsync;
+
     private static readonly string[] MetadataHosts =
     [
         "metadata",
@@ -144,7 +152,7 @@ internal sealed class NhAssistantMcpHostGuard(
             return NhAssistantAdminErrorCodes.McpHostBlocked;
         }
         var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
-        var loopbackName = host == "localhost" || (IPAddress.TryParse(host, out var literal) && IPAddress.IsLoopback(literal));
+        var loopbackName = NhAiLoopbackNames.IsLoopbackName(host);
         if (uri.Scheme == Uri.UriSchemeHttp && mcp.RequireHttps && !(loopbackName && AllowsLoopback))
         {
             return NhAssistantAdminErrorCodes.McpHostBlocked;
@@ -195,7 +203,7 @@ internal sealed class NhAssistantMcpHostGuard(
         {
             return true;
         }
-        if (IPAddress.IsLoopback(address))
+        if (NhAiLoopbackNames.IsLoopbackAddress(address))
         {
             return !AllowsLoopback;
         }
@@ -211,30 +219,48 @@ internal sealed class NhAssistantMcpHostGuard(
     /// <summary>
     /// Resolves the host and returns the addresses that may be contacted; empty when all are blocked.
     /// Private networks are blocked when <see cref="NhAssistantMcpOptions.BlockPrivateNetworks"/> is on
-    /// and the host is not in the allow-list.
+    /// and the host is not in the allow-list. Over plain http (<paramref name="scheme"/>) a loopback name
+    /// may only resolve to loopback addresses.
     /// </summary>
-    public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, string scheme, CancellationToken cancellationToken)
     {
-        return ResolveAllowedAsync(host, options.CurrentValue.Mcp.BlockPrivateNetworks && !IsExplicitlyAllowed(host), cancellationToken);
+        return ResolveAllowedAsync(
+            host,
+            scheme,
+            options.CurrentValue.Mcp.BlockPrivateNetworks && !IsExplicitlyAllowed(host),
+            cancellationToken);
     }
 
     /// <summary>
     /// Resolves the host of an OAuth URL: private networks are blocked unless the host is in the
-    /// allow-list.
+    /// allow-list. Over plain http (<paramref name="scheme"/>) a loopback name may only resolve to
+    /// loopback addresses.
     /// </summary>
-    public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, string scheme, CancellationToken cancellationToken)
     {
-        return ResolveAllowedAsync(host, !IsExplicitlyAllowed(host), cancellationToken);
+        return ResolveAllowedAsync(host, scheme, !IsExplicitlyAllowed(host), cancellationToken);
     }
 
-    private async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, bool blockPrivateNetworks, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(
+        string host,
+        string scheme,
+        bool blockPrivateNetworks,
+        CancellationToken cancellationToken)
     {
         var addresses = IPAddress.TryParse(host, out var literal)
             ? [literal]
-            : await Dns.GetHostAddressesAsync(host, cancellationToken);
+            : await Resolve(host, cancellationToken);
         if (addresses.Any(address => IsBlocked(address) || (blockPrivateNetworks && IsPrivate(address))))
         {
             // One blocked answer blocks the host, so DNS answers cannot mix in an internal target.
+            return [];
+        }
+        if (!string.Equals(scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            && NhAiLoopbackNames.IsLoopbackName(host)
+            && !addresses.All(NhAiLoopbackNames.IsLoopbackAddress))
+        {
+            // Plain http is allowed to a loopback name only because it stays on this machine; a
+            // .localhost name that DNS sends elsewhere would carry its token there in plain text.
             return [];
         }
         return addresses;
@@ -251,8 +277,7 @@ internal sealed class NhAssistantMcpHostGuard(
         {
             return NhAssistantAdminErrorCodes.McpHostBlocked;
         }
-        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
-        var loopbackName = host == "localhost" || (IPAddress.TryParse(host, out var literal) && IPAddress.IsLoopback(literal));
+        var loopbackName = NhAiLoopbackNames.IsLoopbackName(uri);
         if (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && loopbackName && AllowsLoopback))
         {
             return NhAssistantAdminErrorCodes.McpHostBlocked;
@@ -337,7 +362,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         }
         try
         {
-            if ((await guard.ResolveAllowedAsync(endpoint.IdnHost, cancellationToken)).Count == 0)
+            if ((await guard.ResolveAllowedAsync(endpoint.IdnHost, endpoint.Scheme, cancellationToken)).Count == 0)
             {
                 return Failed(NhAssistantAdminErrorCodes.McpHostBlocked);
             }
@@ -465,7 +490,10 @@ internal sealed class NhAssistantHttpMcpClientFactory(
             AllowAutoRedirect = false,
             ConnectCallback = async (context, token) =>
             {
-                var addresses = await guard.ResolveAllowedAsync(context.DnsEndPoint.Host, token);
+                var addresses = await guard.ResolveAllowedAsync(
+                    context.DnsEndPoint.Host,
+                    context.InitialRequestMessage.RequestUri?.Scheme ?? Uri.UriSchemeHttp,
+                    token);
                 if (addresses.Count == 0)
                 {
                     throw new NhAssistantMcpHostBlockedException();

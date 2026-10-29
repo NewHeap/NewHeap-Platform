@@ -35,8 +35,11 @@ boundary; the bridge adds governance, it never replaces it. The caller's bearer
 token comes from `INhAiCallerCredentialAccessor` and is forwarded only as the
 `Authorization` header; it never enters `NhAiInvocationContext`, audit or logs.
 A request signed in with an access token for the MCP exposure
-(`UseProtectedResource`, see `nh-ai-mcp-tools`) has none, because that token is for
-the MCP resource only, so a bridge call over it fails with `api-bridge-unauthenticated`.
+(`UseProtectedResource`, default or named, see `nh-ai-mcp-tools`) has none, because that token
+is for the MCP resource only, so a bridge call over it fails with `api-bridge-unauthenticated`.
+So does a request whose token a scheme of the application's own marked with
+`NhAiCallerCredentials.MarkNotForwardable`; an accessor of the application's own returns none
+when `NhAiCallerCredentials.IsNotForwardable` is true.
 Only `Authorization`, `Accept-Language`, `Idempotency-Key` and
 `X-NewHeap-AI-Invocation` are forwarded. In an agent turn the request's token serves
 only the initiator's own request turn: a turn that runs in another person's request,

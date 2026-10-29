@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
@@ -47,14 +48,99 @@ namespace SampleProjectManagement.Core.Tests;
 /// <see cref="SampleMcpSignInComposition"/>: it reads the challenge and the metadata, registers, signs the
 /// division editor in with PKCE and the resource, and lists and calls the project tools that the editor's
 /// account may use in Sample North. The viewer's account signs in too but gets no project tool, a subject
-/// linked to no account is refused, and the application's own NewHeap token keeps working.
+/// linked to no account is refused, and the application's own NewHeap token keeps working. Other
+/// applications sign in at <c>/applications/mcp</c>, a named protected resource whose tokens never sign in
+/// at <c>/mcp</c> and the other way round, and a token of the application's own scheme for service tokens
+/// is never passed on, like the tokens of both protected resources.
 /// </summary>
 public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
 {
     private const string Scope = "projects.read";
+    private const string ApplicationsScope = "projects.applications";
     private const string EditorSubject = "north-editor";
     private const string ViewerSubject = "north-viewer";
+    private const string ServiceSubject = "planning-service";
     private const string RedirectUri = "http://localhost:7071/callback";
+
+    [Fact]
+    public async Task OtherApplicationsSignInAtTheirOwnEndpointAndATokenForOneEndpointNeverSignsInAtTheOther()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        // One authorization server issues the tokens of both endpoints; only the audience keeps them apart.
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options =>
+            options.ScopesSupported = [Scope, ApplicationsScope]);
+        await using var host = await SampleMcpSignInHost.StartAsync(
+            await postgreSql.CreateMigratedDatabaseAsync("mcp_applications_sign_in"),
+            authorization.Issuer,
+            applicationsIssuer: authorization.Issuer);
+        await host.LinkAsync(SampleAuthorizationDefaults.DivisionEditorEmail, authorization.Issuer, EditorSubject);
+
+        // The endpoint of other applications has metadata of its own; the root address stays /mcp's.
+        using (var metadata = await host.Client.GetAsync("/.well-known/oauth-protected-resource/applications/mcp", cancellationToken))
+        using (var document = JsonDocument.Parse(await metadata.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.Equal(HttpStatusCode.OK, metadata.StatusCode);
+            Assert.Equal(host.ApplicationsMcpUrl, document.RootElement.GetProperty("resource").GetString());
+            Assert.Equal(ApplicationsScope, Assert.Single(document.RootElement.GetProperty("scopes_supported").EnumerateArray()).GetString());
+        }
+        using (var root = await host.Client.GetAsync("/.well-known/oauth-protected-resource", cancellationToken))
+        using (var document = JsonDocument.Parse(await root.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.Equal(host.McpUrl, document.RootElement.GetProperty("resource").GetString());
+        }
+
+        // An application signs in at its endpoint as its linked account and gets that account's tools.
+        var forApplications = authorization.IssueAccessToken(EditorSubject, host.ApplicationsMcpUrl, ApplicationsScope);
+        await using (var application = await ConnectAsync(host.ApplicationsMcpUrl, forApplications, cancellationToken))
+        {
+            Assert.Contains("projects_search_v1", (await application.ListToolsAsync(cancellationToken: cancellationToken)).Select(tool => tool.Name));
+        }
+
+        // A token for one endpoint never signs in at the other, though the same server issued it.
+        var forMcp = authorization.IssueAccessToken(EditorSubject, host.McpUrl, Scope);
+        foreach (var (path, token) in new[] { (SampleMcpSignInComposition.McpPath, forApplications), (SampleMcpSignInComposition.ApplicationsMcpPath, forMcp) })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await host.Client.SendAsync(request, cancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.EndsWith("error=\"invalid_token\"", Assert.Single(response.Headers.WwwAuthenticate).ToString(), StringComparison.Ordinal);
+        }
+
+        // Neither endpoint's token is ever passed on.
+        Assert.False(await host.HasCallerTokenAsync(SampleMcpSignInComposition.McpPath, forMcp));
+        Assert.False(await host.HasCallerTokenAsync(SampleMcpSignInComposition.ApplicationsMcpPath, forApplications));
+    }
+
+    [Fact]
+    public async Task AServiceTokenOfTheApplicationsOwnSchemeSignsInAtMcpAndIsNeverPassedOn()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var authorization = await NhAiTestAuthorizationServer.StartAsync(options => options.ScopesSupported = [Scope]);
+        // The organization's identity provider, whose tokens for /mcp the application validates itself.
+        await using var identityProvider = await NhAiTestAuthorizationServer.StartAsync(options => options.ScopesSupported = [Scope]);
+        await using var host = await SampleMcpSignInHost.StartAsync(
+            await postgreSql.CreateMigratedDatabaseAsync("mcp_service_tokens"),
+            authorization.Issuer,
+            serviceTokensAuthority: identityProvider.Issuer);
+        await host.LinkAsync(SampleAuthorizationDefaults.ManagerEmail, identityProvider.Issuer, ServiceSubject);
+
+        var serviceToken = identityProvider.IssueAccessToken(ServiceSubject, host.McpUrl, Scope);
+        await using (var service = await ConnectAsync(host.McpUrl, serviceToken, cancellationToken))
+        {
+            Assert.Contains("projects_search_v1", (await service.ListToolsAsync(cancellationToken: cancellationToken)).Select(tool => tool.Name));
+        }
+
+        // The service token is marked as never passed on; the application's own NewHeap token is not.
+        Assert.False(await host.HasCallerTokenAsync(SampleMcpSignInComposition.McpPath, serviceToken));
+        Assert.True(await host.HasCallerTokenAsync(SampleMcpSignInComposition.McpPath, await host.NewHeapTokenAsync(SampleAuthorizationDefaults.ManagerEmail)));
+
+        // A token of the identity provider for another audience is refused.
+        using var request = new HttpRequestMessage(HttpMethod.Post, SampleMcpSignInComposition.McpPath) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", identityProvider.IssueAccessToken(ServiceSubject, host.Origin + "/api", Scope));
+        using var refused = await host.Client.SendAsync(request, cancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+    }
 
     [Fact]
     public async Task AnExternalMcpClientSignsInThroughTheAuthorizationServerAndGetsTheLinkedAccountsTools()
@@ -180,14 +266,19 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
         };
     }
 
-    private static async Task<McpClient> ConnectAsync(SampleMcpSignInHost host, string token, CancellationToken cancellationToken)
+    private static Task<McpClient> ConnectAsync(SampleMcpSignInHost host, string token, CancellationToken cancellationToken)
+    {
+        return ConnectAsync(host.McpUrl, token, cancellationToken);
+    }
+
+    private static async Task<McpClient> ConnectAsync(string endpoint, string token, CancellationToken cancellationToken)
     {
         var headers = ActiveDivision();
         headers["Authorization"] = "Bearer " + token;
         return await McpClient.CreateAsync(
             new HttpClientTransport(new HttpClientTransportOptions
             {
-                Endpoint = new Uri(host.McpUrl),
+                Endpoint = new Uri(endpoint),
                 TransportMode = HttpTransportMode.StreamableHttp,
                 AdditionalHeaders = headers
             }),
@@ -197,10 +288,18 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
     /// <summary>
     /// The authentication and MCP part of the API's composition in Program.cs, with
     /// <c>SampleProjectManagement:McpSignIn</c> naming the host's own address and the authorization
-    /// server, on a database of its own with the development identities.
+    /// server, on a database of its own with the development identities. With an
+    /// <c>applicationsIssuer</c> it configures the endpoint of other applications, with a
+    /// <c>serviceTokensAuthority</c> the alternative scheme for service tokens.
     /// </summary>
     private sealed class SampleMcpSignInHost : IAsyncDisposable
     {
+        /// <summary>
+        /// A probe of the test, not of the sample: behind the policy of the endpoint it names, it answers
+        /// whether the caller-credentials accessor would pass the request's token on.
+        /// </summary>
+        private const string CallerTokenProbePath = "/test/caller-token";
+
         private readonly WebApplication _application;
 
         private SampleMcpSignInHost(WebApplication application, string origin)
@@ -214,9 +313,28 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
 
         public string McpUrl => Origin + SampleMcpSignInComposition.McpPath;
 
+        public string ApplicationsMcpUrl => Origin + SampleMcpSignInComposition.ApplicationsMcpPath;
+
         public HttpClient Client { get; }
 
-        public static async Task<SampleMcpSignInHost> StartAsync(string connectionString, string issuer)
+        /// <summary>
+        /// Whether a request signed in with <paramref name="token"/> at the endpoint of
+        /// <paramref name="mcpPath"/> has a caller token that a bridge or a forward-user-token server would get.
+        /// </summary>
+        public async Task<bool> HasCallerTokenAsync(string mcpPath, string token)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, CallerTokenProbePath + mcpPath);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await Client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return bool.Parse(await response.Content.ReadAsStringAsync());
+        }
+
+        public static async Task<SampleMcpSignInHost> StartAsync(
+            string connectionString,
+            string issuer,
+            string? applicationsIssuer = null,
+            string? serviceTokensAuthority = null)
         {
             // The resource names the host's own address, so the port is chosen before the host starts.
             var origin = "http://localhost:" + FreePort();
@@ -226,7 +344,7 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
             });
             builder.WebHost.UseUrls(origin);
             builder.Logging.ClearProviders();
-            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            var settings = new Dictionary<string, string?>
             {
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://sample-project-management.example.test",
                 ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"] = "https://sample-project-management.example.test",
@@ -234,7 +352,19 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
                 [SampleMcpSignInComposition.SectionName + ":Resource"] = origin + SampleMcpSignInComposition.McpPath,
                 [SampleMcpSignInComposition.SectionName + ":AuthorizationServers:0"] = issuer,
                 [SampleMcpSignInComposition.SectionName + ":ScopesSupported:0"] = Scope,
-            });
+            };
+            if (applicationsIssuer is not null)
+            {
+                settings[SampleMcpSignInComposition.ApplicationsSectionName + ":Resource"] = origin + SampleMcpSignInComposition.ApplicationsMcpPath;
+                settings[SampleMcpSignInComposition.ApplicationsSectionName + ":AuthorizationServers:0"] = applicationsIssuer;
+                settings[SampleMcpSignInComposition.ApplicationsSectionName + ":ScopesSupported:0"] = ApplicationsScope;
+            }
+            if (serviceTokensAuthority is not null)
+            {
+                settings[SampleMcpSignInComposition.ServiceTokensSectionName + ":Authority"] = serviceTokensAuthority;
+                settings[SampleMcpSignInComposition.ServiceTokensSectionName + ":Audience"] = origin + SampleMcpSignInComposition.McpPath;
+            }
+            builder.Configuration.AddInMemoryCollection(settings);
 
             builder.Services
                 .AddNewHeapPlatformAspNetCommon<
@@ -292,6 +422,7 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
                 .AddCapabilityGrant(ProjectAiTools.ReadCapability, ProjectAiTools.ViewPolicy)
                 .AddCapabilityGrant(ProjectAiTools.ManageCapability, ProjectAiTools.ManagePolicy));
             builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
+            builder.Services.AddAuthentication().AddSampleMcpServiceTokens(builder.Configuration);
             builder.Services.AddMcpServer()
                 .WithHttpTransport(options => options.Stateless = true)
                 .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration));
@@ -305,9 +436,22 @@ public sealed class McpSignInSamplesTests(SamplePostgreSqlServer postgreSql)
             application.UseAuthentication();
             application.UseAuthorization();
             application.MapSampleMcp(builder.Configuration);
+            application.MapPost(CallerTokenProbePath + SampleMcpSignInComposition.McpPath, ReportCallerTokenAsync)
+                .RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicy);
+            if (applicationsIssuer is not null)
+            {
+                application.MapPost(CallerTokenProbePath + SampleMcpSignInComposition.ApplicationsMcpPath, ReportCallerTokenAsync)
+                    .RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor(SampleMcpSignInComposition.ApplicationsResourceName));
+            }
             await application.StartAsync();
 
             return new SampleMcpSignInHost(application, origin);
+        }
+
+        private static async Task<string> ReportCallerTokenAsync(HttpContext context, INhAiCallerCredentialAccessor credentials)
+        {
+            var token = await credentials.GetBearerTokenAsync(context.RequestAborted);
+            return (token is not null).ToString();
         }
 
         /// <summary>Links an account to a person of the authorization server.</summary>

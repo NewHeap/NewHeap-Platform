@@ -391,16 +391,11 @@ public sealed class NhAssistantMcpOAuthOptions
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
             || uri.Fragment.Length > 0
             || !string.IsNullOrEmpty(uri.UserInfo)
-            || !(uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && allowLoopbackHttp && IsLoopback(uri))))
+            || !(uri.Scheme == Uri.UriSchemeHttps
+                || (uri.Scheme == Uri.UriSchemeHttp && allowLoopbackHttp && NhAiLoopbackNames.IsLoopbackName(uri))))
         {
             throw new InvalidOperationException(
                 $"NewHeap:AI:Assistant:Mcp:OAuth:{name} must be an absolute https URL without a fragment (http only on loopback, in Development or with Mcp:AllowLoopback).");
         }
-    }
-
-    /// <summary>A loopback address, <c>localhost</c> or a <c>.localhost</c> name (RFC 6761).</summary>
-    private static bool IsLoopback(Uri uri)
-    {
-        return uri.IsLoopback || uri.IdnHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -2821,7 +2821,9 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-servers.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-mcp-authorization.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackNameTests.cs"
     ],
     "SPM-300": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
@@ -3447,7 +3449,9 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpServerServiceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInstructionAssetUsageTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentPackageReadTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiLoopbackNames.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpLoopbackNameTests.cs"
     ],
     "SPM-332": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
@@ -3892,7 +3896,12 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpProtectedResourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpProtectedResourceHttpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpProtectedResourceTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/Infrastructure/ProtectedNewHeapMcpServer.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpNamedProtectedResourceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiCallerCredentialTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpNotForwardableTokenTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiLoopbackNames.cs"
     ],
     "SPM-371": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCompositionsComposition.cs",

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -72,6 +73,26 @@ public sealed class NhAiMvcBridgeExecutionTests
 
         Assert.Equal(NhAiBridgeFailureCodes.NotFound, Code(notFound));
         Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, Code(unauthenticated));
+    }
+
+    [Fact]
+    public async Task A_token_the_application_marked_as_never_passed_on_never_reaches_the_api_and_an_unmarked_one_does()
+    {
+        using var factory = new BridgeApiFactory();
+
+        var unmarked = await ExecuteAsync(factory, TestTokenHandler.Viewer, "test-api.order.get-by-id", new { id = 42 });
+        var marked = await factory.AsUserAsync(TestTokenHandler.Viewer, services =>
+        {
+            // As the application's own scheme does in OnTokenValidated for a token issued for another resource.
+            var httpContext = services.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+            NhAiCallerCredentials.MarkNotForwardable(httpContext, "https://partners.example.org");
+            return Execute(services, "test-api.order.get-by-id", new { id = 42 });
+        });
+
+        Assert.True(unmarked.Success, string.Join(", ", unmarked.AllErrorMessages));
+        Assert.Equal(42, unmarked.Data!.Body!.Value.GetProperty("id").GetInt32());
+        Assert.False(marked.Success);
+        Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, Code(marked));
     }
 
     [Fact]
@@ -295,17 +316,23 @@ public sealed class NhAiMvcBridgeExecutionTests
         object input,
         string? idempotencyKey = null)
     {
-        return factory.AsUserAsync(token, services =>
-        {
-            var catalog = services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
-            var descriptor = catalog.Descriptors.Single(item => item.Id == toolId);
-            Assert.True(catalog.TryGetAction(descriptor, out var action));
-            return services.GetRequiredService<INhAiMvcBridgeExecutor>().ExecuteAsync(
-                action,
-                descriptor,
-                JsonSerializer.SerializeToElement(input),
-                TestContexts.Create(idempotencyKey));
-        });
+        return factory.AsUserAsync(token, services => Execute(services, toolId, input, idempotencyKey));
+    }
+
+    private static Task<TaskResult<NhAiBridgeResponse>> Execute(
+        IServiceProvider services,
+        string toolId,
+        object input,
+        string? idempotencyKey = null)
+    {
+        var catalog = services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
+        var descriptor = catalog.Descriptors.Single(item => item.Id == toolId);
+        Assert.True(catalog.TryGetAction(descriptor, out var action));
+        return services.GetRequiredService<INhAiMvcBridgeExecutor>().ExecuteAsync(
+            action,
+            descriptor,
+            JsonSerializer.SerializeToElement(input),
+            TestContexts.Create(idempotencyKey));
     }
 
     private static string? McpCode(CallToolResult result)

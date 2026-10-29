@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "6e49c547cc39f37b88d1460ff9f9e1e3ae7bb026b69d37f4b3772d93769a25e6",
-    "declarationCount": 12077,
+    "hash": "c93ba250f41b0ff93d0c21ffa31890ed7e67b02a1ab44251ec68423d80a09a9c",
+    "declarationCount": 12095,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -523,6 +523,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
+        "declaration": "public static class NhAiCallerCredentials {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
+        "declaration": "public static void MarkNotForwardable(HttpContext httpContext, string issuer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
+        "declaration": "public static bool IsNotForwardable(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
+        "declaration": "public string Issuer { get; } = issuer;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs",
         "declaration": "public async ValueTask<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default)"
       },
       {
@@ -791,6 +807,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public const int MaxNameLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
         "declaration": "public const string HttpClientName = \"newheap-ai-mcp-protected-resource\";"
       },
       {
@@ -816,6 +836,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
         "declaration": "public static string MetadataAddressOf(string resource) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static string AuthenticationSchemeFor(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static string AuthorizationPolicyFor(string name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
@@ -887,6 +915,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public NhAiMcpExposureBuilder UseProtectedResource(string name, Action<NhAiMcpProtectedResourceOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
         "declaration": "public NhAiMcpExposureBuilder AllowCompositions(bool enabled = true)"
       },
       {
@@ -896,6 +928,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
         "declaration": "public static readonly TimeSpan MetadataTimeout = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string? Name { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string AuthenticationScheme { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string AuthorizationPolicy { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
@@ -939,7 +983,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
-        "declaration": "public static NhAiMcpProtectedResource Create(NhAiMcpProtectedResourceOptions options) {"
+        "declaration": "public IReadOnlyList<string> MetadataPaths => Name is null"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public string Label => Name is null ? \"the default protected resource\" : $\"the protected resource '{Name}'\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public static NhAiMcpProtectedResource Create(string? name, NhAiMcpProtectedResourceOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "public void EnsureDistinctFrom(NhAiMcpProtectedResource other) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
@@ -963,11 +1019,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
-        "declaration": "public string Issuer { get; } = issuer;"
+        "declaration": "public NhAiMcpProtectedResources( IEnumerable<NhAiMcpProtectedResource> resources, IHttpClientFactory httpClientFactory, ILogger<NhAiMcpAccessTokenValidator> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
-        "declaration": "public static bool Applies(HttpContext httpContext) {"
+        "declaration": "public (NhAiMcpProtectedResource Resource, NhAiMcpAccessTokenValidator Validator) Of(string scheme) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
+        "declaration": "protected override Task InitializeHandlerAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpProtectedResource.cs",
@@ -6151,11 +6211,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
-        "declaration": "public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, CancellationToken cancellationToken) {"
+        "declaration": "public Task<IReadOnlyList<IPAddress>> ResolveAllowedAsync(string host, string scheme, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
-        "declaration": "public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, CancellationToken cancellationToken) {"
+        "declaration": "public Task<IReadOnlyList<IPAddress>> ResolveAllowedForOAuthAsync(string host, string scheme, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
@@ -27748,6 +27808,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
         "declaration": "public async ValueTask<NhAiInvocationContext> CreateAsync( NhAiInvocationContextSeed seed, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiLoopbackNames.cs",
+        "declaration": "public static bool IsLoopbackName(Uri uri) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiLoopbackNames.cs",
+        "declaration": "public static bool IsLoopbackName(string? host) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiLoopbackNames.cs",
+        "declaration": "public static bool IsLoopbackAddress(IPAddress address) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelFiles.cs",
@@ -52339,6 +52411,7 @@
       "NhAiBridgeTrustedQueryBinding",
       "NhAiBridgeTrustedQueryBindingKind",
       "INhAiCallerCredentialAccessor",
+      "NhAiCallerCredentials",
       "INhAiMvcBridgeExecutor",
       "NhAiBridgeActionInfo",
       "NhAiBridgeFailureCodes",
@@ -52697,7 +52770,12 @@
       "NhAiMcpExposureBuilder",
       "NhAiMcpProtectedResourceOptions",
       "NhAiMcpProtectedResourceDefaults",
-      "NhAiMcpProtectedResourceTokenValidatedContext"
+      "NhAiMcpProtectedResourceTokenValidatedContext",
+      "AuthenticationSchemeFor",
+      "AuthorizationPolicyFor",
+      "NhAiCallerCredentials",
+      "MarkNotForwardable",
+      "IsNotForwardable"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",
