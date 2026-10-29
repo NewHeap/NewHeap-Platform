@@ -8,7 +8,9 @@ namespace NewHeap.Platform.AI.Chat;
 /// before it starts: triggers, schedules, webhooks, starts by hand, replays, runs, executions of approved
 /// proposals, consultations, hand-offs, follow-ups and the application's messages. A person's turn in a
 /// chat or in an agent's thread is no agent work and never asks it; it needs the assistant enabled only.
-/// The options are read on every call, so a reloaded configuration applies to the next piece of work.
+/// Neither is recording a proposal the application makes for a person without a run (FB21), whose
+/// execution once approved is agent work and asks it. The options are read on every call, so a reloaded
+/// configuration applies to the next piece of work.
 /// </summary>
 internal static class NhAssistantAgentWorkGate
 {

@@ -489,8 +489,9 @@ schedules, webhooks, starts by hand, requests, replays, hand-offs and follow-ups
 its inputs; consultations and `INhAssistantConversationMessages.PostAsync` (and so a request's answer in the asking
 chat) are refused with it; approved proposals of agent threads are held as for a stopped agent and queued by the
 maintenance job once agent work is on; resuming a paused agent or skill is refused with it. People keep chatting,
-deciding and being reminded, open proposals are still revalidated, and the report of an execution the application
-made is still posted. `GET status` reports `agentWork`, and `NhAssistantAgentState.AgentWork` and
+deciding and being reminded, open proposals are still revalidated, the report of an execution the application
+made is still posted, and `INhAssistantProposals.ProposeForAsync` still records a proposal for a person, whose
+execution once approved waits likewise. `GET status` reports `agentWork`, and `NhAssistantAgentState.AgentWork` and
 `NhAssistantAdminAgentDto.AgentWork` say it for every agent, whose `Active` is false meanwhile (SPM-365). With the
 default nothing changes; a host whose assistant is disabled no longer queues an orphaned run again only to cancel it,
 and keeps it queued until it is enabled.

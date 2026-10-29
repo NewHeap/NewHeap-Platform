@@ -418,8 +418,11 @@ internal sealed class NhAssistantProposals(
             }
 
             await services.GetRequiredService<NhAssistantRunConfigurations>().EnsureCurrentAsync(cancellationToken);
-            // A paused agent's proposals wait and execute as before; a stopped one takes none.
-            if (await services.GetRequiredService<NhAssistantAgentTriggers>().RefusalOfAsync(request.AgentId, refusePaused: false, cancellationToken) is { } stateRefusal)
+            // A paused agent's proposals wait and execute as before; a stopped one takes none. Recording the
+            // proposal is the application acting for the person, as in their chat, so agent work being off
+            // on the host does not refuse it; its execution once approved is agent work and waits until
+            // agents work again, as every approved proposal of an agent's thread does.
+            if (await services.GetRequiredService<NhAssistantAgentTriggers>().AgentRefusalOfAsync(request.AgentId, refusePaused: false, cancellationToken) is { } stateRefusal)
             {
                 return Refused(stateRefusal, "The agent takes no proposals now.");
             }
