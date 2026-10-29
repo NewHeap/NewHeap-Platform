@@ -115,6 +115,13 @@ public sealed class NhAiMvcBridgeGatewayCollectionTests
         Assert.Contains(description.GetProperty("filterFields").EnumerateArray(), field =>
             field.GetProperty("key").GetString() == "status"
             && field.GetProperty("type").GetString() == "enum");
+        // A DateOnly and a TimeOnly member are described as the date and time strings they filter by.
+        Assert.Contains(description.GetProperty("filterFields").EnumerateArray(), field =>
+            field.GetProperty("key").GetString() == "deliverOn"
+            && field.GetProperty("type").GetString() == "date");
+        Assert.Contains(description.GetProperty("filterFields").EnumerateArray(), field =>
+            field.GetProperty("key").GetString() == "deliverAfter"
+            && field.GetProperty("type").GetString() == "time");
         Assert.True(query.Success, query.Errors);
         Assert.Contains("filter=", Assert.Single(factory.Requests), StringComparison.Ordinal);
     }

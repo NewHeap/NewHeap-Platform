@@ -99,3 +99,15 @@ same signal.
 | `NhAssistantPanelService.open` acts on a shown page panel and keeps the drawer closed, and a page panel that shows closes an open drawer. | A chat page needs no change; to show the drawer, leave the page with the panel first. |
 | The conversation list beside the thread of a page panel has the class `nh-assistant-sidebar` instead of `sidebar`. | Rename `.sidebar` to `.nh-assistant-sidebar` in host styles that reach into the panel. |
 | `NhAssistantStore.setViewing` is the host's own surface: the panels no longer set or reset it, and `false` no longer hides a thread a panel shows. | Call `setViewing(false)` when your own surface stops showing the thread, or register it with `registerThreadSurface()`. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AI.AspNet.Mvc: DateOnly and TimeOnly collection fields
+
+`NhCollectionContractMetadata` classified a `DateOnly` or `TimeOnly` member as `NhCollectionFieldType.Object`, so the
+API bridge gateway's `describe-resource` called such a filter or result field `object` and a model did not know to
+send `2026-11-01` or `14:30:00`. `NhCollectionFieldType` gains `Date` (7) and `Time` (8), the contract classifies the
+two types as such (nullable ones too), and the gateway describes them as `date` and `time`. The collection runtime
+already filtered both on SQL Server and PostgreSQL; a provider test now pins equality and range filters.
+
+| Breaking change | Required action |
+|---|---|
+| `NhCollectionFieldType` gains `Date` and `Time`, and a `DateOnly` or `TimeOnly` member is no longer `Object`. | None, unless code switches over `NhCollectionFieldType` without a default; handle the two new values. |

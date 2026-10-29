@@ -13,7 +13,13 @@ public enum NhCollectionFieldType
     Number = 3,
     DateTime = 4,
     Enum = 5,
-    Object = 6
+    Object = 6,
+
+    /// <summary>A <see cref="DateOnly"/>, filtered and written as <c>yyyy-MM-dd</c>.</summary>
+    Date = 7,
+
+    /// <summary>A <see cref="TimeOnly"/>, filtered and written as <c>HH:mm:ss</c>.</summary>
+    Time = 8
 }
 
 /// <summary>One field that participates in a NewHeap collection contract.</summary>
@@ -184,6 +190,14 @@ public static class NhCollectionContractMetadata
         if (type == typeof(DateTime) || type == typeof(DateTimeOffset))
         {
             return NhCollectionFieldType.DateTime;
+        }
+        if (type == typeof(DateOnly))
+        {
+            return NhCollectionFieldType.Date;
+        }
+        if (type == typeof(TimeOnly))
+        {
+            return NhCollectionFieldType.Time;
         }
         if (type == typeof(bool))
         {

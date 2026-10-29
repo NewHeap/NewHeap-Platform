@@ -111,7 +111,10 @@ contracts. Canonical NewHeap endpoints need no consumer conventions. The built-i
 `NhAiNewHeapCollectionContractProvider` recognizes canonical collection request
 models and documented `CollectionResultModel<T>` or `SimpleCollectionResultModel<T>`
 responses, then derives bounded filter, order, search and result metadata from the
-same collection attributes and operator vocabulary used by the runtime. Ambiguous
+same collection attributes and operator vocabulary used by the runtime. Each field
+names its type as the runtime filters it: `string`, `boolean`, `integer`, `number`,
+`date-time` (`DateTime`, `DateTimeOffset`), `date` (`DateOnly`, `yyyy-MM-dd`), `time`
+(`TimeOnly`, `HH:mm:ss`), `enum` with its values, or `object`. Ambiguous
 canonical actions fail startup with an actionable response-metadata diagnostic.
 
 For a legacy/custom endpoint, implement `INhAiBridgeCollectionContractProvider`

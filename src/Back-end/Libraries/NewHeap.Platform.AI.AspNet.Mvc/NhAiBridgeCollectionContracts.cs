@@ -103,6 +103,8 @@ public sealed class NhAiNewHeapCollectionContractProvider : INhAiBridgeCollectio
             NhCollectionFieldType.Integer => "integer",
             NhCollectionFieldType.Number => "number",
             NhCollectionFieldType.DateTime => "date-time",
+            NhCollectionFieldType.Date => "date",
+            NhCollectionFieldType.Time => "time",
             NhCollectionFieldType.Enum => "enum",
             _ => "object"
         };

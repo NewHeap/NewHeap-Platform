@@ -62,7 +62,14 @@ public sealed record TestOrder(int Id, string Customer, TestOrderStatus Status);
 public sealed record TestCanonicalOrder(
     [property: Filterable, Orderable] int Id,
     [property: Filterable, Searchable, Orderable] string Customer,
-    [property: Filterable] TestOrderStatus Status);
+    [property: Filterable] TestOrderStatus Status)
+{
+    [Filterable]
+    public DateOnly? DeliverOn { get; init; }
+
+    [Filterable]
+    public TimeOnly? DeliverAfter { get; init; }
+}
 
 public sealed record TestEcho(
     string? Authorization,
