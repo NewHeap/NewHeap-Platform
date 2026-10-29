@@ -122,9 +122,14 @@ Who approves a proposal of the assistant is a named approval policy that code re
 on the proposal itself, such as four eyes only while a second person may approve, choose among registered
 policies with an `INhAssistantApprovalPolicySelector` (`UseApprovalPolicySelector`, SPM-356) and count the
 people a policy admits with `INhAssistantApproverDirectory` (SPM-357); never relax the policy at the
-decision. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
-selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. See
-`nh-ai-agent-runs` for the selection and the directory.
+decision. A policy rule admits people outside the subject's members, so the directory calls such a count
+complete only when the application names them with an `INhAssistantApproverCandidates`
+(`UseApproverCandidates`, SPM-378), which grants nothing: each candidate is checked as a decision checks
+the person. The proposal keeps the chosen policy in its copy, so the decision checks what was chosen, and a
+selector that chooses an unknown policy, throws or misses its time limit refuses the proposal. Guards and
+the application's executor read that recorded policy (`PolicyId`, `Mode`) on their context and hand-off,
+and may close a proposal whose choice no longer holds (SPM-379). See `nh-ai-agent-runs` for the selection,
+the directory and the guards.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
@@ -235,3 +240,13 @@ references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiOverviewReadService.cs)
+- SPM-378 — The application's project managers decide the intake review that the project's creator would approve alone, because the application names who passes the portfolio policy's rule
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-379 — A review that waits without four eyes closes at its decision once a second approver joined, because the guard reads the policy the review recorded
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs)

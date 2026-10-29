@@ -49,11 +49,19 @@ and the audit names the `messaging-reply` channel and the delivery. The review n
 only while a second person may approve it (SPM-356): on a project whose creator is its only approver,
 four eyes would keep it waiting for nobody, so the API's approval policy selector
 (`SampleIntakeApprovalPolicySelector`, registered with `UseApprovalPolicySelector`) asks the approver
-directory whether anyone else may approve under `project-intake` and only then lets it wait under
+directory whether anyone else may approve under `project-intake`. When nobody else on the project
+approves, the application's project managers decide the review, still four-eyes, under
+`project-intake-portfolio` (SPM-378): that policy admits them through the policy rule
+`app.project.manage`, which the directory counts completely because `SampleApproverCandidates`
+(registered with `UseApproverCandidates`) names everyone who passes it, each checked as a project member
+is. Only when the directory is sure nobody else may approve at all does the review wait under
 `project-intake-sole-approver`, the same policy without four eyes, which the creator decides. The
-proposal keeps the chosen policy, so the decision checks it and a colleague who joins later changes
-nothing; a selector that chooses an unknown policy, throws or answers too late refuses the proposal with
-its own code. The reply channel finds whom to ask through the same directory (SPM-357):
+proposal keeps the chosen policy, so the decision checks it and a colleague who joins later never changes
+it; but a review that waits without four eyes closes at its decision once a second approver joined
+(SPM-379): `SampleSoleApproverProposalGuard` reads the policy the review recorded
+(`NhAiProposalGuardContext.PolicyId`) and closes it as `not-applicable`, so the creator never approves
+alone what a colleague can check. A selector that chooses an unknown policy, throws or answers too late
+refuses the proposal with its own code. The reply channel finds whom to ask through the same directory (SPM-357):
 `OfferToApproversAsync` lists the people who may decide under the proposal's policy copy
 (`INhAssistantApproverDirectory.ListForProposalAsync`), the project's members and the initiator checked as
 the decision checks them, and says whether the list is complete. A participant may also ask on the

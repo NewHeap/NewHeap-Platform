@@ -365,7 +365,9 @@
     "SPM-371",
     "SPM-372",
     "SPM-373",
-    "SPM-374"
+    "SPM-374",
+    "SPM-378",
+    "SPM-379"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3952,6 +3954,30 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
+    ],
+    "SPM-378": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApproverCandidates.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApproverDirectory.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApproverDirectoryTests.cs"
+    ],
+    "SPM-379": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantApplicationExecutions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalRevalidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApplicationExecutionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantInlineApplicationExecutionTests.cs"
     ]
   }
 }

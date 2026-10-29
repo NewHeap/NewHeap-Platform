@@ -92,6 +92,25 @@ gives roles to people it does not list makes the list incomplete without the dir
 caller's tenant: another tenant's subject is `assistant-subject-not-found` and its proposal
 `assistant-approval-not-found`; an unknown policy is `assistant-approval-policy-unknown`.
 
+When the application knows who those people outside the members are, name them with an
+`INhAssistantApproverCandidates` registered with `UseApproverCandidates<TCandidates>()` (SPM-378), so the
+directory can answer `Complete: true` for a policy rule and for the whole application. The directory asks
+it only when people outside the members may approve and the members did not fill the limit, with an
+`NhAssistantApproverCandidateQuery`: the policy id, the subject, the subject's `TenantId` as its resolver
+described it (`null` without tenants and for the whole application), its `DivisionId`, the `PolicyNames` of
+the policy's rules, `SubjectRoleHolders` (true for a subject without listed members, such as the whole
+application, whose roles follow its approve policy) and `MaxCandidates`. Return an
+`NhAssistantApproverCandidateList` of `NhAssistantApproverCandidate` (actor id and `DisplayName`) with
+`Complete` true only when nobody else in that tenant may pass those policies at the subject, or
+`NhAssistantApproverCandidateList.Unknown` when the application cannot tell. A candidate is a name, never a
+right: the directory checks each one exactly as it checks a member (the resolver's role, the policy rules
+against the rebuilt principal, the tool's approve policies and four eyes for a proposal) and lists those who
+pass after the members, so naming too many lists nobody who may not approve. The list is complete when the
+application declared it complete and neither the limit nor `MaxCandidates` stopped the listing; a
+candidates service that throws leaves it incomplete and the log names its type and the exception's type.
+Without a registration nothing changes. `UseSystemSubject(s => s.Members<T>())` serves notifications only;
+the directory does not read it.
+
 When the application's own code asks for a change on a person's behalf, for example a project page
 where a participant asks for another status that a second person must approve, record it with
 `INhAssistantProposals.ProposeForAsync(NhAssistantProposalRequest)` (SPM-364) instead of starting a
@@ -137,8 +156,10 @@ consultation's proposal at its subject, the checks of every execution run (the s
 `RequireUnchangedSubject` and the proposal guards), the proposal becomes `awaiting-application` with
 `ExecutionReportDueAt`, and `ExecuteAsync` receives an `NhAssistantProposalHandOff`: the approval id,
 the approved `NhAiProposal` with its arguments and hash, the approver, the agent, the subject, the
-thread's tenant, the attempt and the report deadline. Accept the work and return; key it by the approval
-id, because an approver may hand the same proposal over again. The hand-off carries the approved
+thread's tenant, the attempt and the report deadline, and `PolicyId` and `Mode` as the proposal recorded
+them (FB51), also a policy a selector chose, so the executor can check that what decided that choice still
+holds; a person's own chat has no policy (`PolicyId` `null`, `Mode` `Inline`). Accept the work and return;
+key it by the approval id, because an approver may hand the same proposal over again. The hand-off carries the approved
 arguments, not the division or scope the call was authorized in, so bind an object the arguments name
 again before acting on it: read the object's division and refuse unless `DecidedByActorId` may act
 there (SPM-314 refuses an order for another division's project with `order-project-out-of-scope`). The
@@ -1842,6 +1863,16 @@ for a proposal an asker leaves for the subject's approvers, so register such a g
 They take no part in the proposal hash or the approval evidence, and the guard still runs without a
 signed-in person: the tool's policies keep authorizing the call.
 
+Know the policy a proposal waits under. At revalidation, decision and execution the context names the
+approval policy as the proposal recorded it: `PolicyId`, also one an approval policy selector chose, and
+`Mode` (`NhAiApprovalMode`), the mode the proposal got, which the route may set apart from the policy's.
+They are `null` when a call proposes and for the keys of a new proposal, because the policy is chosen after
+the guards ran, and `PolicyId` is `null` for a person's own chat, which has no approval policy. A guard can
+then check whether what decided a selector's choice still holds while the proposal waits: SPM-379 closes a
+review that waits without four eyes as `not-applicable` once a second approver joined the project. Register
+such a guard for `Revalidation | Decision`, and leave out `Execution` when an approved proposal should
+execute as approved. Read them from the context instead of the assistant's tables.
+
 Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
 `RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox
 consumer or after the commit (without a scope key it uses `global`), or declare it with
@@ -1979,6 +2010,9 @@ instructions in full: call them for an administrator or process the application 
   resolved when the answer is not certain.
 - Exposing `INhAssistantApproverDirectory` through an endpoint of its own; it lists people, so an
   application shows only what its own authorization allows.
+- Declaring an `INhAssistantApproverCandidates` list complete while people outside it may pass one of the
+  query's `PolicyNames` at the subject, or naming people of another tenant; answer
+  `NhAssistantApproverCandidateList.Unknown` for a policy whose people the application cannot list.
 - Starting a run with rules only to obtain a proposal for a person, or writing approvals yourself; record it
   with `INhAssistantProposals.ProposeForAsync`, which checks the person's own rights and keeps four eyes.
 - Passing an actor id to `ProposeForAsync` that the application did not authenticate, or presentations
@@ -2074,6 +2108,9 @@ instructions in full: call them for an administrator or process the application 
 - Deciding at revalidation, decision or execution on `NhAiProposalGuardContext.Invocation`,
   `ConversationId`, `TurnId` or `Channel`: only the proposal stage names the call that proposes, and
   the later stages read them as `null`. Register a guard that needs them for the proposal stage alone.
+- Reading `PolicyId` and `Mode` of a proposal from the assistant's tables in a guard or an executor; the
+  guard context (at revalidation, decision and execution) and the hand-off carry them. Deciding on them at
+  the proposal stage, where they are `null`.
 - Comparing whole `NhAiProposalGuardContext` or `NhAssistantExecutionReportReceipt` records, for example
   in a cache key or a test: their init-only properties take part in record equality. Compare the
   members you mean.
@@ -2719,6 +2756,13 @@ defaults, an unknown policy and subject, another tenant's subject and the whole 
 proposal, on both providers, the policy copy with four eyes, the initiator first, a placed proposal, a
 consultation the asker decides, the tool's approve policies and another tenant, and that the people it
 lists are exactly those the decision's check accepts. SPM-356 and SPM-357 are the executable references.
+With an `INhAssistantApproverCandidates`, on both providers, assert one and two candidates who pass a
+policy rule counted complete, a declared-incomplete list and a throwing service that stay incomplete,
+candidates who fail the rule (no permission, no principal, an agent) left out, the limit and
+`MaxCandidates`, the subject's tenant in the query and another tenant's subject unknown before it is asked,
+the whole application with `SubjectRoleHolders`, and four eyes for a proposal; for FB51, that a guard reads
+`PolicyId` and `Mode` at revalidation, decision and execution and `null` when the call proposes, and that the
+hand-off carries them. SPM-378 and SPM-379 are the executable references.
 SPM-268 to SPM-280, SPM-282 to SPM-288, SPM-290 to SPM-297, SPM-301 to SPM-304, SPM-310, SPM-314,
 SPM-316 and SPM-317 are the executable references.
 
@@ -3069,3 +3113,13 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs)
+- SPM-378 — The application's project managers decide the intake review that the project's creator would approve alone, because the application names who passes the portfolio policy's rule
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleSystemMembers.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-379 — A review that waits without four eyes closes at its decision once a second approver joined, because the guard reads the policy the review recorded
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleApprovalPolicySelectionComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs)

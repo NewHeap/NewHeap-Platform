@@ -45,7 +45,9 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   people in the thread and the approval inbox and execute later as their own operation.
   An `INhAssistantApprovalPolicySelector` (`UseApprovalPolicySelector`) may choose another
   registered policy per proposal, which the proposal keeps; `INhAssistantApproverDirectory` of
-  `NewHeap.Platform.AI.Chat.AspNet` lists who may approve.
+  `NewHeap.Platform.AI.Chat.AspNet` lists who may approve, completely also under a policy rule when an
+  `INhAssistantApproverCandidates` (`UseApproverCandidates`) names who passes it. Proposal guards and the
+  application's executor read the recorded `PolicyId` and `Mode`.
   Tools opt in to grants beyond the initiator's rights with `AllowAgentGrant`.
 - **Subject types for people** — `AddSubjectType<TResolver>(type => type.Named(...)
   .NamedPlural(...).ForEntity<T>().OpenAt("/path/{id}"))` names a subject type per language,
