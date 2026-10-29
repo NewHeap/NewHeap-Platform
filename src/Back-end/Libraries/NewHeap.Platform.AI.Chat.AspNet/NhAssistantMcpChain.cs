@@ -322,6 +322,11 @@ internal sealed class NhAssistantMcpChainReader(
         }
 
         var view = await links.GetAsync(cancellationToken);
+        if (!view.ContinuesChains)
+        {
+            return null;
+        }
+
         var caller = view.FindCaller(httpContextAccessor.HttpContext?.User);
         if (caller is null)
         {
