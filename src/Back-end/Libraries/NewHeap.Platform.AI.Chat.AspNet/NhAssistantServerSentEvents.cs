@@ -205,7 +205,9 @@ internal static class NhAssistantDtoMapper
         };
     }
 
-    public static NhAssistantConversationSummaryDto ToSummary(Persistence.NhAssistantConversationListItem item)
+    public static NhAssistantConversationSummaryDto ToSummary(
+        Persistence.NhAssistantConversationListItem item,
+        Runs.NhAssistantSubjectAccessService? subjects = null)
     {
         var conversation = item.Conversation;
         return new NhAssistantConversationSummaryDto(
@@ -219,7 +221,24 @@ internal static class NhAssistantDtoMapper
             item.ParticipantCount,
             item.LastMessageSequence,
             item.LastReadSequence,
-            conversation.ActiveTurnId is null ? null : conversation.ActiveActorId ?? conversation.OwnerActorId);
+            conversation.ActiveTurnId is null ? null : conversation.ActiveActorId ?? conversation.OwnerActorId)
+        {
+            Subject = ToDto(NhAssistantChatSubjectView.Of(conversation, subjects))
+        };
+    }
+
+    /// <summary>
+    /// The subject of a person's chat (FB25), or <see langword="null"/> for a chat without one.
+    /// </summary>
+    public static NhAssistantConversationSubjectDto? ToDto(NhAssistantChatSubjectView? subject)
+    {
+        return subject is null
+            ? null
+            : new NhAssistantConversationSubjectDto(subject.Subject.Type, subject.Subject.Id, subject.DisplayName)
+            {
+                SubjectTypeName = subject.TypeName,
+                SubjectLink = subject.Link
+            };
     }
 
     /// <param name="currentActorId">The caller.</param>
@@ -257,7 +276,8 @@ internal static class NhAssistantDtoMapper
             view.Kind,
             thread)
         {
-            PendingQuestion = view.PendingQuestion is null ? null : ToDto(view.PendingQuestion)
+            PendingQuestion = view.PendingQuestion is null ? null : ToDto(view.PendingQuestion),
+            Subject = ToDto(view.Subject)
         };
     }
 

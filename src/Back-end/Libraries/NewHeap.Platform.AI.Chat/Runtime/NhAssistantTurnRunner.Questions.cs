@@ -116,6 +116,13 @@ internal sealed partial class NhAssistantTurnRunner
             return Failed(NhAssistantErrorCodes.AgentInstructionsUnavailable, "The assistant agent's instructions are not available.");
         }
 
+        // An answer continues the turn: the person needs the chat's subject now, as for a message (FB25).
+        var chatSubject = await CheckChatSubjectAsync(conversation, null, effectiveAgent, request.CallerContext, cancellationToken);
+        if (!chatSubject.Success)
+        {
+            return TaskResult<NhAssistantTurnHandle>.Failed(chatSubject);
+        }
+
         // The person who answers claims the turn: it continues with their rights, as every turn runs
         // with the rights of the person whose request carries it.
         var claimed = await store.TryBeginTurnAsync(
@@ -136,7 +143,7 @@ internal sealed partial class NhAssistantTurnRunner
             request.RequestAborted,
             request.CallerContext,
             request.Person,
-            (events, token) => RunAnswerTurnAsync(access, effectiveAgent, invocation, part, waitingParts, request, events, token));
+            (events, token) => RunAnswerTurnAsync(access, effectiveAgent, invocation, part, waitingParts, request, chatSubject.Data, events, token));
     }
 
     /// <summary>
@@ -187,6 +194,7 @@ internal sealed partial class NhAssistantTurnRunner
         NhAssistantStoredPart part,
         IReadOnlyList<NhAssistantStoredPart> waitingParts,
         NhAssistantAnswerTurnRequest request,
+        NhAiSubjectInfo? chatSubject,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
@@ -203,7 +211,7 @@ internal sealed partial class NhAssistantTurnRunner
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, invocation.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, channel: request.Channel);
+        var state = await CreateStateAsync(conversation, effectiveAgent, invocation.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, channel: request.Channel, chatSubject: chatSubject);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(invocation.TurnId, userMessageId, state.AssistantMessageId));
 

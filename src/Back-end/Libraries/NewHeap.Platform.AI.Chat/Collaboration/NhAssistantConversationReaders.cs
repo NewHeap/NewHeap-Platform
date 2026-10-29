@@ -18,7 +18,14 @@ internal sealed record NhAssistantConversationReadRule(
     AssistantThread? Thread,
     bool AgentWorks,
     string? AgentPolicy,
-    IReadOnlyList<string?> Tenants);
+    IReadOnlyList<string?> Tenants)
+{
+    /// <summary>
+    /// The subject of a person's chat about one (FB25), which everyone who reads the chat, its owner
+    /// included, needs live access to; <see langword="null"/> for a chat without one and a thread.
+    /// </summary>
+    public NhAiSubjectRef? ChatSubject { get; init; }
+}
 
 /// <summary>
 /// Decides who may follow a conversation when something is delivered to them without a request of
@@ -27,7 +34,9 @@ internal sealed record NhAssistantConversationReadRule(
 /// endpoints do: a live role, or an invitation that is no subject join, and for the whole application
 /// the agent's view policy (<see cref="NhAssistantThreadService.ReadAccessAsync(AssistantThread, string, CancellationToken)"/>).
 /// A chat's owner always reads it; a participant reads it while the agent works and the person, as the
-/// principal factory rebuilds them, passes its policy. Agents never receive anything. The tenant rule
+/// principal factory rebuilds them, passes its policy. A chat about a subject (FB25) reaches its owner
+/// and participants only while the subject's resolver gives them a role on it in the chat's tenant
+/// (<see cref="NhAssistantChatSubjects"/>). Agents never receive anything. The tenant rule
 /// binds the delivery to the sign-ins of <see cref="NhAssistantConversationReadRule.Tenants"/> where a
 /// channel knows the sign-in, as the live hub does.
 /// </summary>
@@ -36,7 +45,8 @@ internal sealed class NhAssistantConversationReaders(
     NhAssistantThreadService threads,
     NhAssistantAgentCatalog agents,
     NhAssistantRegistrationState registration,
-    INhAssistantRecipientRules recipients)
+    INhAssistantRecipientRules recipients,
+    NhAssistantChatSubjects chatSubjects)
 {
     /// <summary>
     /// The read rule of <paramref name="conversation"/>, with its agent thread when it is one.
@@ -87,7 +97,10 @@ internal sealed class NhAssistantConversationReaders(
             null,
             agent is not null,
             agent?.Definition.RequiredPolicy,
-            [conversation.TenantId]);
+            [conversation.TenantId])
+        {
+            ChatSubject = NhAssistantChatSubjects.SubjectOf(conversation)
+        };
     }
 
     /// <summary>
@@ -110,6 +123,19 @@ internal sealed class NhAssistantConversationReaders(
             return await threads.ReadAccessAsync(thread, actorId, cancellationToken) is not null;
         }
 
+        var subject = ChatSubjectOf(rule);
+        if (rule.ChatSubject is { } chatSubject)
+        {
+            // The owner too: a chat about a subject is read only while the subject's resolver allows it.
+            var checkedSubject = await chatSubjects.CheckAsync(chatSubject, actorId, rule.TenantId, cancellationToken);
+            if (!checkedSubject.Success)
+            {
+                return false;
+            }
+
+            subject = checkedSubject.Data!;
+        }
+
         if (string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))
         {
             return true;
@@ -121,7 +147,7 @@ internal sealed class NhAssistantConversationReaders(
         }
 
         return rule.AgentPolicy is not { } policy
-            || await recipients.PassesPolicyAsync(actorId, ChatSubjectOf(rule), policy, cancellationToken);
+            || await recipients.PassesPolicyAsync(actorId, subject, policy, cancellationToken);
     }
 
     /// <summary>
@@ -184,7 +210,7 @@ internal sealed class NhAssistantConversationReaders(
 
     /// <summary>
     /// The subject the principal factory rebuilds a chat's participant for: the whole application in the
-    /// chat's tenant, since a chat has no subject.
+    /// chat's tenant for a chat without a subject; a chat about one rebuilds them for that subject.
     /// </summary>
     private static NhAiSubjectInfo ChatSubjectOf(NhAssistantConversationReadRule rule)
     {

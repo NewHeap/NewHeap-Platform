@@ -106,6 +106,14 @@ public sealed class NhAssistantAgentRunOptions
     public bool HiddenFromChat { get; internal set; }
 
     /// <summary>
+    /// The agent is offered only for people's chats about a subject it works on
+    /// (<see cref="NhAssistantAgentRunBuilder.RequireChatSubject"/>): it is left out of the agents of a
+    /// chat without a subject, and a new chat with it names one. Its runs, subject threads and
+    /// consultations are unaffected.
+    /// </summary>
+    public bool RequiresChatSubject { get; internal set; }
+
+    /// <summary>
     /// What the agent works on: in code from <c>WorksOn</c>, <c>WorksOnAllObjects</c>,
     /// <c>WorksOnApplication</c>, <c>PerDivision</c>, <c>RunPolicy</c> and <c>ViewPolicy</c>; for an
     /// agent created in the administration as its administrator stored it. Without a statement the
@@ -958,6 +966,22 @@ public sealed class NhAssistantAgentRunBuilder
     {
         _options.MarkRunSetting(nameof(HideFromChat));
         _options.HiddenFromChat = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Offers the agent only for people's chats about a subject (FB25): <c>GET agents</c> and
+    /// <c>GET status</c> leave it out, <c>GET agents?subjectType=&amp;subjectId=</c> lists it for a subject
+    /// it works on (<see cref="WorksOn"/>), and a new chat with it that names no subject is refused with
+    /// <c>assistant-subject-required</c>. A chat about a subject is checked with the subject's access
+    /// resolver, the tenant and what the agent works on when it is created, and again on every turn, read
+    /// and invitation. Chats that already exist without a subject keep working, and its runs, subject
+    /// threads and consultations work as before. The host refuses to start for a chat-only agent
+    /// (<see cref="ChatOnly"/>), which works on no subject, and next to <see cref="HideFromChat"/>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder RequireChatSubject()
+    {
+        _options.RequiresChatSubject = true;
         return this;
     }
 

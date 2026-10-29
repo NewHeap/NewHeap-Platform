@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -75,6 +76,8 @@ internal sealed class NhAssistantConversationUploads(
             AccountableOwnerId = thread?.Thread.AccountableOwnerId ?? access.ActorId,
             TenantId = conversation.TenantId,
             Subject = thread?.Subject,
+            // The caller checked the person's role on a chat's subject before (FB25).
+            ConversationSubject = thread is null ? NhAssistantChatSubjects.SubjectOf(conversation) : null,
             Origin = NhAssistantFileOrigins.Attachment
         };
         return TaskResult<NhAssistantUploadTarget>.Succeeded(new NhAssistantUploadTarget(conversation.Id, rules, actor));
@@ -118,11 +121,13 @@ internal static class NhAssistantPersonLists
 
     /// <summary>
     /// The chats <paramref name="caller"/> owns or takes part in, most recently updated first, with the
-    /// caller's read state; <c>assistant-message-invalid</c> for a page below 1 or a page size outside
-    /// 1 to <see cref="MaxItemsPerPage"/>.
+    /// caller's read state and the subject of a chat about one (FB25); <c>assistant-message-invalid</c> for
+    /// a page below 1 or a page size outside 1 to <see cref="MaxItemsPerPage"/>. The list asks no subject's
+    /// resolver: opening a chat does.
     /// </summary>
     public static async Task<TaskResult<NhAssistantConversationListDto>> ListConversationsAsync(
         INhAssistantStore store,
+        NhAssistantSubjectAccessService subjects,
         NhAiInvocationContext caller,
         int page,
         int itemsPerPage,
@@ -142,20 +147,55 @@ internal static class NhAssistantPersonLists
             itemsPerPage,
             cancellationToken);
         return TaskResult<NhAssistantConversationListDto>.Succeeded(
-            new NhAssistantConversationListDto(items.Select(NhAssistantDtoMapper.ToSummary).ToArray(), total));
+            new NhAssistantConversationListDto(items.Select(item => NhAssistantDtoMapper.ToSummary(item, subjects)).ToArray(), total));
     }
 
     /// <summary>
     /// The agents offered in the chat whose policy <paramref name="user"/> satisfies, each with what
-    /// people may attach to a message to it.
+    /// people may attach to a message to it: for a chat without a subject those that do not require one
+    /// (<c>RequireChatSubject()</c>), for a chat about <paramref name="subject"/> (FB25) those that work on
+    /// it. The caller checked the person's access to the subject.
     /// </summary>
     public static async Task<IReadOnlyList<NhAssistantAgentSummaryDto>> ListAgentsAsync(
         NhAssistantAgentAccess access,
         NhAssistantUploads uploads,
         ClaimsPrincipal user,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAiSubjectRef? subject = null)
     {
         var agents = await access.GetVisibleAsync(user, cancellationToken);
-        return agents.Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads)).ToArray();
+        return agents
+            .Where(agent => NhAssistantChatSubjects.IsOffered(agent, subject))
+            .Select(agent => NhAssistantDtoMapper.ToDto(agent, uploads))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The subject of <c>GET agents?subjectType=&amp;subjectId=</c> and of
+    /// <see cref="INhAssistantConversations.ListAgentsAsync(NhAssistantDecidingPerson, NhAiSubjectRef, NhAssistantConversationOptions?, CancellationToken)"/>
+    /// for <paramref name="caller"/>: an invalid one is <c>assistant-subject-invalid</c>, one of a type
+    /// without a resolver <c>assistant-subject-type-unknown</c>, and one the caller may not use a chat
+    /// about answers as <see cref="NhAssistantChatSubjects.CheckAsync(NhAiSubjectRef, string, string?, CancellationToken)"/>.
+    /// </summary>
+    public static async Task<TaskResult<NhAiSubjectRef>> CheckAgentsSubjectAsync(
+        NhAssistantSubjectAccessService subjects,
+        NhAssistantChatSubjects chatSubjects,
+        NhAiInvocationContext caller,
+        NhAiSubjectRef subject,
+        CancellationToken cancellationToken)
+    {
+        if (NhAiSubjectRef.IsReservedType(subject.Type))
+        {
+            return TaskResult<NhAiSubjectRef>.Failed(NhAssistantErrorCodes.SubjectInvalid, "The chat's subject is not valid.");
+        }
+        if (!subjects.IsKnownType(subject.Type))
+        {
+            return TaskResult<NhAiSubjectRef>.Failed(NhAssistantErrorCodes.SubjectTypeUnknown, "The chat's subject type is not registered.");
+        }
+
+        var checkedSubject = await chatSubjects.CheckAsync(subject, caller.ActorId, caller.TenantId, cancellationToken);
+        return checkedSubject.Success
+            ? TaskResult<NhAiSubjectRef>.Succeeded(subject)
+            : TaskResult<NhAiSubjectRef>.Failed(checkedSubject);
     }
 }

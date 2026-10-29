@@ -96,6 +96,23 @@ layout binds the composer's `unsent` input to `unsentMessage()` and passes its `
 `keepUnsentMessage`, as the panel does; a composer without `unsent` keeps its text itself, which ends
 with the composer. The assistant lab shows the kept message in its "Unsent message" card (SPM-369).
 
+A page about one object starts a chat about it: `await store.setChatSubject({ subjectType, subjectId,
+subjectDisplayName })` (`NhAssistantChatSubject`) loads the agents of a chat about the subject
+(`NhAssistantApiService.agents(subject)`, `GET agents?subjectType=&subjectId=`), keeps the chosen agent
+when it works on the subject or chooses the default or first one, and leaves the open conversation; then
+`NhAssistantPanelService.open({ agentId })` opens the new chat. The next message creates the chat with
+the subject (`subjectType` and `subjectId` of `CreateConversationRequest`), and the server checks the
+person's role on the subject then and on every later turn and read. The subject is for that one chat:
+`newChatSubject()` is `null` again once it exists. It resolves `false` and shows the server's refusal,
+such as `assistant-subject-access-denied`, when the person may not use a chat about it. The agent picker
+binds `store.chatAgents()`, the agents of the next new chat: those of its subject, including agents
+offered only for chats about a subject (`RequireChatSubject()` on the server), otherwise those of the
+status; `store.agents()` also knows those agents for lookups. `chatSubject()` names the subject of the
+open chat (`Conversation.subject`, `ConversationSubject` with its type name and link) or of the next new
+chat, and the panel shows it above the composer ("About {subject}", in English and Dutch). Call
+`setChatSubject(null)` when the person leaves the page before sending. SampleProjectManagement's project
+dialog starts the project chat this way (SPM-363).
+
 Select the assistant in the prompt bar below the message field. The panel shows the
 picker only when more than one assistant is available; a single assistant remains
 automatically selected without showing a disabled selector. In custom layouts,

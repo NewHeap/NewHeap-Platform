@@ -69,6 +69,7 @@ internal sealed partial class NhAssistantTurnRunner
         Guid turnId,
         NhAssistantDecisionTurnRequest request,
         AssistantApproval? movedTo,
+        NhAiSubjectInfo? chatSubject,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
@@ -84,7 +85,7 @@ internal sealed partial class NhAssistantTurnRunner
             .LastOrDefault(message => message.TurnId == turnId && message.Role == NhAssistantMessageRoles.User);
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage?.Id ?? Guid.Empty, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage?.Id ?? Guid.Empty, request.CallerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, state.UserMessageId, state.AssistantMessageId));
 

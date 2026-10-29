@@ -6900,6 +6900,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleStatusAdvisor();
         // SPM-343: the chat helper works in people's chats only, as in Program.cs.
         services.AddSampleChatHelper();
+        // SPM-363: the project chat works in people's chats about one project, as in Program.cs.
+        services.AddSampleProjectChat();
         // SPM-294: the closer answers to the technical account in configuration.
         services.AddSampleProjectCloser(TechnicalAccountId.ToString("D"));
         services.AddSampleProjectPlanner();

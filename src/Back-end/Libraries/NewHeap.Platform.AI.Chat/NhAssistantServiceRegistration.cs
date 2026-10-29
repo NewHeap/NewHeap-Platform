@@ -107,6 +107,8 @@ internal static class NhAssistantServiceRegistration
         // Who may follow a conversation when something is delivered without their request; the
         // ASP.NET package asks the application's principal factory.
         services.TryAddScoped<INhAssistantRecipientRules, NhAssistantEveryoneReceives>();
+        // A person's chat about a subject asks the subject's resolver on every turn, read and invitation (FB25).
+        services.TryAddScoped<NhAssistantChatSubjects>();
         services.TryAddScoped<NhAssistantConversationReaders>();
         services.TryAddScoped<NhAssistantLivePublisher>();
         // Forgetting a user removes their push subscriptions, notification choice, MCP connection

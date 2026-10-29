@@ -93,6 +93,9 @@
     "object-agents-description": "Voer een agent nu uit, lees het laatste resultaat en zie wat hij voor dit project voorstelt.",
     "object-agents-loading": "Agents laden…",
     "object-agents-load-failed": "De agents konden niet worden geladen. Laad de pagina opnieuw en probeer het nog eens.",
+    "project-chat-label": "Chatten over dit project",
+    "project-chat-description": "Vraag de projectchat iets over dit project. Hij antwoordt met jouw eigen rechten zolang je het project mag lezen.",
+    "project-chat-start": "Chatten over dit project",
     "key": "Projectsleutel",
     "key-help": "Kort, uniek en herkenbaar, bijvoorbeeld PORTAL.",
     "name": "Naam",
@@ -588,6 +591,10 @@
       "sample-project-chat-helper": {
         "name": "Chathulp",
         "description": "Werkt alleen in de chat: maakt vergadernotities en vraagt je om een keuze als dat nodig is."
+      },
+      "sample-project-chat": {
+        "name": "Projectchat",
+        "description": "Beantwoordt je vragen over één project, in een gesprek dat je vanaf dat project begint."
       },
       "sample-project-quick-answers": {
         "name": "Snelle antwoorden",

@@ -110,6 +110,33 @@ export interface ConversationSummary {
   lastReadSequence?: number;
   /** The owner or participant whose turn runs or waits for approval. */
   activeActorId?: string | null;
+  /**
+   * The subject a person's chat is about; missing for a chat without one, for an agent thread and on
+   * older servers. Everyone who reads or continues the chat needs a role on it now.
+   */
+  subject?: ConversationSubject | null;
+}
+
+/**
+ * A subject a person's chat is about, such as the project a person asks about from its page. The server
+ * checks the person's role on it on every turn, read and invitation; the chat is the person's, not the
+ * agent's thread about the subject.
+ */
+export interface ConversationSubjectRef {
+  /** The registered subject type, for example `project`. */
+  subjectType: string;
+  /** The subject's id within its type. */
+  subjectId: string;
+}
+
+/** The subject of a person's chat as the caller sees it. */
+export interface ConversationSubject extends ConversationSubjectRef {
+  /** The subject's name as its resolver described it when the chat was created. */
+  subjectDisplayName: string | null;
+  /** The name of the subject type in the caller's language, when the application named it. */
+  subjectTypeName?: string | null;
+  /** Where the application shows the subject, when the type has a link template. */
+  subjectLink?: string | null;
 }
 
 export interface Conversation extends ConversationSummary {
@@ -474,6 +501,10 @@ export interface ConversationPage {
 export interface CreateConversationRequest {
   agentId: string;
   title?: string;
+  /** The type of the subject the chat is about, with `subjectId`; both or neither. */
+  subjectType?: string;
+  /** The id of the subject the chat is about, with `subjectType`. */
+  subjectId?: string;
 }
 
 /** An entity the user has open, for example `{ type: 'project', id: 'AA09027', label: 'Project AA09027' }`. */

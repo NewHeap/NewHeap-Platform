@@ -403,9 +403,12 @@ internal sealed class NhAssistantLivePublisher(
         var recipients = new List<NhAssistantLiveRecipient>(actorIds.Count);
         foreach (var actorId in actorIds.Distinct(StringComparer.Ordinal))
         {
-            if (rule.Thread is null && string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))
+            if (rule.Thread is null
+                && rule.ChatSubject is null
+                && string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))
             {
-                // The owner of a chat reads it in every tenant, as its snapshot endpoint answers them.
+                // The owner of a chat reads it in every tenant, as its snapshot endpoint answers them; a
+                // chat about a subject reaches its owner as it reaches its other people, in its tenant.
                 recipients.Add(NhAssistantLiveRecipient.Everywhere(actorId));
                 continue;
             }

@@ -69,6 +69,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-subject-search-unavailable',
   'assistant-agent-does-not-work-on',
   'assistant-subject-access-denied',
+  'assistant-subject-required',
   'assistant-no-accountable-owner',
   'assistant-agent-disabled',
   'assistant-agent-stopped',

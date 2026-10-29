@@ -61,8 +61,11 @@ export class ProjectEditModalComponent
   readonly statusOptions = getProjectStatusOptions(inject(TranslateService), false);
   /** The agent whose conversation about the project the dialog offers. */
   readonly intakeReviewerId = 'sample-project-intake-reviewer';
+  /** SPM-363: the agent that answers in a person's chat about one project. */
+  readonly projectChatId = 'sample-project-chat';
+  private readonly assistant = inject(NhAssistantStore);
   /** Agent work shows only while the assistant is enabled and the access policy allows the user. */
-  readonly assistantEnabled = inject(NhAssistantStore).enabled;
+  readonly assistantEnabled = this.assistant.enabled;
   private readonly panel = inject(NhAssistantPanelService);
   /** The footer's save button sits outside the form and submits it by id. */
   readonly formId = `project-edit-form-${++nextProjectFormId}`;
@@ -103,6 +106,22 @@ export class ProjectEditModalComponent
     this.lifecycleReporter()('content event: agent conversation opened');
     this.closeDialog();
     this.panel.open(conversationId);
+  }
+
+  /**
+   * SPM-363: the next new chat is about this project, with the project chat. The server checks the
+   * person's role on the project when the first message creates the chat and on every later turn and
+   * read; when it refuses the project, the panel shows why and the next chat has no subject.
+   */
+  async chatAboutProject(project: ProjectViewModel): Promise<void> {
+    this.lifecycleReporter()('content event: project chat opened');
+    const started = await this.assistant.setChatSubject({
+      subjectType: 'project',
+      subjectId: project.id,
+      subjectDisplayName: `${project.key} — ${project.name}`
+    });
+    this.closeDialog();
+    this.panel.open(started ? { agentId: this.projectChatId } : undefined);
   }
 
   override async onNewFormData(

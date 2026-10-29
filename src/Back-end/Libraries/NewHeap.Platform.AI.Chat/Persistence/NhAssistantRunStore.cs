@@ -1207,6 +1207,45 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// People's chats about the subject (FB25), archived ones too, in <paramref name="scopeKey"/> or, with
+    /// <see langword="null"/>, in every scope; agents' threads are not chats.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantConversation>> FindChatsAboutSubjectAsync(
+        string? scopeKey,
+        NhAiSubjectRef subject,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        await using var context = contextFactory.CreateDbContext();
+        var chats = context.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.SubjectType == subject.Type
+                && conversation.SubjectId == subject.Id
+                && conversation.Kind == NhAssistantConversationKinds.Chat);
+        if (scopeKey is not null)
+        {
+            chats = chats.Where(conversation => conversation.SubjectScopeKey == scopeKey);
+        }
+
+        return await chats
+            .OrderBy(conversation => conversation.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes a person's chat with its messages, members, calls and proposals, as subject retention
+    /// deletes a thread.
+    /// </summary>
+    public async Task DeleteChatAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.Kind == NhAssistantConversationKinds.Chat)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Every agent thread about the subject, in every scope and of every agent.
     /// </summary>
     public async Task<IReadOnlyList<AssistantThread>> FindThreadsBySubjectAsync(NhAiSubjectRef subject, CancellationToken cancellationToken)

@@ -36,7 +36,8 @@
       "add-members": "Add people to the conversation",
       "notifications-on": "Turn notifications on",
       "notifications-off": "Turn notifications off",
-      "members": "People in this conversation"
+      "members": "People in this conversation",
+      "chat-subject": "About {{subject}}"
     },
     "agent-picker": {
       "label": "Agent",
@@ -402,6 +403,7 @@
       "assistant-subject-search-unavailable": "This kind of object cannot be searched; give its id.",
       "assistant-agent-does-not-work-on": "This agent does not work on this kind of object.",
       "assistant-subject-access-denied": "Your role on this subject does not allow this.",
+      "assistant-subject-required": "This agent only chats about a subject. Start the chat from the page of what you want to ask about.",
       "assistant-no-accountable-owner": "Nobody answers for this agent on this subject.",
       "assistant-agent-disabled": "This agent has been stopped.",
       "assistant-agent-configured-off": "This agent is disabled in the application's configuration.",

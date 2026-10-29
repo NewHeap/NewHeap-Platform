@@ -849,6 +849,12 @@ public static class NhAssistantErrorCodes
     public const string SubjectInvalid = "assistant-subject-invalid";
     public const string SubjectTypeUnknown = "assistant-subject-type-unknown";
     public const string SubjectAccessDenied = "assistant-subject-access-denied";
+
+    /// <summary>
+    /// The agent is offered only for people's chats about a subject (<c>RequireChatSubject()</c>), and
+    /// the new chat names none (FB25).
+    /// </summary>
+    public const string SubjectRequired = "assistant-subject-required";
     public const string NoAccountableOwner = "assistant-no-accountable-owner";
     public const string AgentDisabled = "assistant-agent-disabled";
 

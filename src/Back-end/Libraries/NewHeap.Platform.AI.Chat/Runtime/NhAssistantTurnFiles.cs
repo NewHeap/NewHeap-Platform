@@ -762,6 +762,7 @@ internal sealed class NhAssistantTurnFiles(
             InitiatorActorId = state.AgentTurn?.InitiatorActorId,
             TenantId = state.Conversation.TenantId,
             Subject = state.AgentTurn?.Subject.Subject,
+            ConversationSubject = state.ChatSubject?.Subject,
             RunId = state.AgentTurn?.RunId,
             Origin = origin,
             ToolId = toolId

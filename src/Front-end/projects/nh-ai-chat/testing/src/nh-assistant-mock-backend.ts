@@ -8,6 +8,7 @@ import {
   ClientContext,
   Conversation,
   ConversationMember,
+  ConversationSubject,
   ConversationSummary,
   CreateConversationRequest,
   DecideApprovalRequest,
@@ -425,7 +426,9 @@ export class NhAssistantMockBackend {
     }
 
     if (method === 'GET' && path === 'agents') {
-      return this.json(200, this.admin.chatAgents());
+      // The agents of a chat about a subject, which the caller must be able to read (FB25).
+      const subject = this.chatSubject(query.get('subjectType'), query.get('subjectId'), language);
+      return 'code' in subject ? this.error(subject.code) : this.json(200, this.admin.chatAgents());
     }
     if (path === 'preferences') {
       return this.result(this.admin.handlePreferences(method, body));
@@ -481,7 +484,7 @@ export class NhAssistantMockBackend {
         return this.json(200, this.list(query));
       }
       if (method === 'POST') {
-        return this.create(body as CreateConversationRequest);
+        return this.create(body as CreateConversationRequest, language);
       }
       return this.empty(405);
     }
@@ -565,10 +568,15 @@ export class NhAssistantMockBackend {
     return { items: all.slice((page - 1) * itemsPerPage, page * itemsPerPage), total: all.length };
   }
 
-  private create(request: CreateConversationRequest): Response {
+  private create(request: CreateConversationRequest, language: string | null = null): Response {
     const agent = this.admin.chatAgents().find(item => item.id === request?.agentId);
     if (!agent) {
       return this.empty(400);
+    }
+    // Like the server: a chat about a subject needs a subject the caller may read (FB25).
+    const subject = this.chatSubject(request.subjectType ?? null, request.subjectId ?? null, language);
+    if ('code' in subject) {
+      return this.error(subject.code);
     }
 
     const now = new Date().toISOString();
@@ -581,7 +589,8 @@ export class NhAssistantMockBackend {
       createdAt: now,
       updatedAt: now,
       messages: [],
-      pendingApproval: null
+      pendingApproval: null,
+      ...(subject.subject ? { subject: subject.subject } : {})
     };
     this.conversations.set(conversation.id, conversation);
     this.readPositions.set(conversation.id, 0);
@@ -1108,7 +1117,45 @@ export class NhAssistantMockBackend {
       participantCount: Math.max(0, members.length - 1),
       lastMessageSequence: latest,
       lastReadSequence: Math.min(this.readPositions.get(conversation.id) ?? latest, latest),
-      activeActorId: this.activeActors.get(conversation.id) ?? null
+      activeActorId: this.activeActors.get(conversation.id) ?? null,
+      ...(conversation.subject ? { subject: conversation.subject } : {})
+    };
+  }
+
+  /**
+   * The subject of a chat that `subjectType` and `subjectId` name, as the server checks it (FB25): none
+   * without either, `assistant-subject-invalid` with only one of them or a platform type,
+   * `assistant-subject-type-unknown` for a type the scenario does not register and
+   * `assistant-subject-not-found` for a subject the caller may not read.
+   */
+  private chatSubject(
+    subjectType: string | null,
+    subjectId: string | null,
+    language: string | null
+  ): { subject: ConversationSubject | null } | { code: string } {
+    if (!subjectType && !subjectId) {
+      return { subject: null };
+    }
+    if (!subjectType || !subjectId || subjectType.startsWith('nh-')) {
+      return { code: 'assistant-subject-invalid' };
+    }
+
+    const described = this.subjects.describe(subjectType, subjectId, language, this.admin.administers);
+    if (described === undefined) {
+      return { code: 'assistant-subject-type-unknown' };
+    }
+    if (described === null) {
+      return { code: 'assistant-subject-not-found' };
+    }
+
+    return {
+      subject: {
+        subjectType: described.subjectType,
+        subjectId: described.subjectId,
+        subjectDisplayName: described.displayName,
+        subjectTypeName: described.typeName,
+        subjectLink: described.link
+      }
     };
   }
 

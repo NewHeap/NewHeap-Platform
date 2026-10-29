@@ -1517,6 +1517,22 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("SubjectDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectScopeKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("TenantId")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -1531,6 +1547,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerActorId", "UpdatedAt");
+
+                    b.HasIndex("SubjectType", "SubjectId");
 
                     b.ToTable("AssistantConversation", "nhai");
                 });
