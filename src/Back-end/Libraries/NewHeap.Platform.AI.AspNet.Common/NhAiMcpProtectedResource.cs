@@ -23,23 +23,30 @@ using ModelContextProtocol.Authentication;
 namespace NewHeap.Platform.AI.AspNet;
 
 /// <summary>
-/// Names of the protected resource that <see cref="NhAiMcpExposureBuilder.UseProtectedResource"/> makes
-/// of the MCP exposure.
+/// Names of the protected resources that
+/// <see cref="NhAiMcpExposureBuilder.UseProtectedResource(Action{NhAiMcpProtectedResourceOptions})"/> and
+/// <see cref="NhAiMcpExposureBuilder.UseProtectedResource(string, Action{NhAiMcpProtectedResourceOptions})"/>
+/// make of the MCP exposure.
 /// </summary>
 public static class NhAiMcpProtectedResourceDefaults
 {
     /// <summary>
-    /// The authentication scheme that validates access tokens for the MCP exposure, answers its challenge
-    /// and serves its protected resource metadata.
+    /// The authentication scheme of the default protected resource: it validates access tokens for the
+    /// resource, answers its challenge and serves its protected resource metadata. A named resource has
+    /// a scheme of its own, <see cref="AuthenticationSchemeFor"/>.
     /// </summary>
     public const string AuthenticationScheme = "NewHeap.AI.McpProtectedResource";
 
     /// <summary>
-    /// The authorization policy of the MCP endpoint: a person signed in with an access token for the
-    /// resource, or with one of <see cref="NhAiMcpProtectedResourceOptions.AcceptHostSchemes"/>. Map the
-    /// endpoint with <c>MapMcp(...).RequireAuthorization(AuthorizationPolicy)</c>.
+    /// The authorization policy of the default resource's MCP endpoint: a person signed in with an access
+    /// token for the resource, or with one of <see cref="NhAiMcpProtectedResourceOptions.AcceptHostSchemes"/>.
+    /// Map the endpoint with <c>MapMcp(...).RequireAuthorization(AuthorizationPolicy)</c>. A named resource
+    /// has a policy of its own, <see cref="AuthorizationPolicyFor"/>.
     /// </summary>
     public const string AuthorizationPolicy = "NewHeap.AI.McpProtectedResource";
+
+    /// <summary>The longest name of a named protected resource.</summary>
+    public const int MaxNameLength = 64;
 
     /// <summary>
     /// The named <see cref="HttpClient"/> that reads the authorization servers' metadata and keys.
@@ -81,6 +88,52 @@ public static class NhAiMcpProtectedResourceDefaults
 
         var uri = new Uri(canonical, UriKind.Absolute);
         return uri.GetLeftPart(UriPartial.Authority) + MetadataPath + uri.AbsolutePath.TrimEnd('/');
+    }
+
+    /// <summary>
+    /// The authentication scheme of the protected resource named <paramref name="name"/>, for example
+    /// <c>NewHeap.AI.McpProtectedResource.partners</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is no valid resource name: lowercase
+    /// letters, digits and dashes, starting with a letter, at most <see cref="MaxNameLength"/>
+    /// characters.</exception>
+    public static string AuthenticationSchemeFor(string name)
+    {
+        return AuthenticationScheme + "." + CheckedName(name);
+    }
+
+    /// <summary>
+    /// The authorization policy of the MCP endpoint of the protected resource named
+    /// <paramref name="name"/>: map that endpoint with
+    /// <c>MapMcp(...).RequireAuthorization(AuthorizationPolicyFor(name))</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is no valid resource name.</exception>
+    public static string AuthorizationPolicyFor(string name)
+    {
+        return AuthorizationPolicy + "." + CheckedName(name);
+    }
+
+    /// <summary>Whether a scheme is the default or a named protected resource's.</summary>
+    internal static bool IsResourceScheme(string scheme)
+    {
+        return string.Equals(scheme, AuthenticationScheme, StringComparison.Ordinal)
+            || scheme.StartsWith(AuthenticationScheme + ".", StringComparison.Ordinal);
+    }
+
+    internal static string CheckedName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var valid = name.Length <= MaxNameLength
+            && name[0] is >= 'a' and <= 'z'
+            && name.All(character => character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-');
+        if (!valid)
+        {
+            throw new ArgumentException(
+                $"A protected resource's name has lowercase letters, digits and dashes, starts with a letter and has at most {MaxNameLength} characters, such as 'partners'.",
+                nameof(name));
+        }
+
+        return name;
     }
 }
 
@@ -124,7 +177,8 @@ public sealed class NhAiMcpProtectedResourceOptions
     /// Authentication schemes of the host that also sign a request in at the MCP endpoint, for example the
     /// application's own bearer scheme for its own clients. Only a request without a token of one of
     /// <see cref="AuthorizationServers"/> reaches them; a token of those servers is accepted for this
-    /// resource only and never handed to another scheme.
+    /// resource only and never handed to another scheme. The scheme of a protected resource, the default
+    /// one or a named one, is never a host scheme.
     /// </summary>
     public IList<string> AcceptHostSchemes { get; set; } = [];
 
@@ -211,39 +265,90 @@ public sealed class NhAiMcpExposureBuilder
     /// never passed on: <see cref="INhAiCallerCredentialAccessor"/> returns none for the request.</item>
     /// </list>
     /// Map the MCP endpoint with
-    /// <c>RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicy)</c>. Once per host.
+    /// <c>RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicy)</c>. This is the
+    /// default resource, once per host; add further resources, such as an MCP entry for other
+    /// applications, with <see cref="UseProtectedResource(string, Action{NhAiMcpProtectedResourceOptions})"/>.
     /// </summary>
-    /// <exception cref="InvalidOperationException">An option is invalid, or the exposure is a protected
-    /// resource already.</exception>
+    /// <exception cref="InvalidOperationException">An option is invalid, the exposure has a default
+    /// resource already, or another resource has the same resource URL or metadata address.</exception>
     public NhAiMcpExposureBuilder UseProtectedResource(Action<NhAiMcpProtectedResourceOptions> configure)
     {
+        return AddProtectedResource(name: null, configure);
+    }
+
+    /// <summary>
+    /// Adds a named protected resource next to the default one, for a second MCP endpoint of the same
+    /// exposure, for example <c>/partners/mcp</c> for other applications next to <c>/mcp</c> for AI
+    /// apps. It works as <see cref="UseProtectedResource(Action{NhAiMcpProtectedResourceOptions})"/> with
+    /// everything of its own:
+    /// <list type="bullet">
+    /// <item>the scheme <see cref="NhAiMcpProtectedResourceDefaults.AuthenticationSchemeFor"/> and the
+    /// policy <see cref="NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor"/>; map its endpoint with
+    /// <c>RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor(name))</c>;</item>
+    /// <item>its <see cref="NhAiMcpProtectedResourceOptions.Resource"/> as the only audience it accepts, so
+    /// a token for another resource of the host never signs in at its endpoint, even when the same
+    /// authorization server issued it;</item>
+    /// <item>its authorization servers, scopes, host schemes and <c>OnTokenValidated</c>;</item>
+    /// <item>its metadata at the well-known address of its own resource URL only
+    /// (<c>/.well-known/oauth-protected-resource/&lt;path&gt;</c>); the root address stays the default
+    /// resource's.</item>
+    /// </list>
+    /// Its tokens are never passed on either.
+    /// </summary>
+    /// <param name="name">The resource's name: lowercase letters, digits and dashes, starting with a
+    /// letter, at most <see cref="NhAiMcpProtectedResourceDefaults.MaxNameLength"/> characters.</param>
+    /// <param name="configure">Configures the resource.</param>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is no valid resource name.</exception>
+    /// <exception cref="InvalidOperationException">An option is invalid, a resource of that name exists
+    /// already, or another resource has the same resource URL or metadata address.</exception>
+    public NhAiMcpExposureBuilder UseProtectedResource(string name, Action<NhAiMcpProtectedResourceOptions> configure)
+    {
+        return AddProtectedResource(NhAiMcpProtectedResourceDefaults.CheckedName(name), configure);
+    }
+
+    private NhAiMcpExposureBuilder AddProtectedResource(string? name, Action<NhAiMcpProtectedResourceOptions> configure)
+    {
         ArgumentNullException.ThrowIfNull(configure);
-        if (_services.Any(descriptor => descriptor.ServiceType == typeof(NhAiMcpProtectedResource)))
+        var existing = _services
+            .Where(descriptor => descriptor.ServiceType == typeof(NhAiMcpProtectedResource) && !descriptor.IsKeyedService)
+            .Select(descriptor => descriptor.ImplementationInstance)
+            .OfType<NhAiMcpProtectedResource>()
+            .ToList();
+        if (existing.Any(resource => resource.Name == name))
         {
-            throw new InvalidOperationException(
-                "The MCP exposure is a protected resource already; call UseProtectedResource once per host.");
+            throw new InvalidOperationException(name is null
+                ? "The MCP exposure is a protected resource already; call UseProtectedResource once per host, and UseProtectedResource(name, configure) for every further resource."
+                : $"The MCP exposure has a protected resource named '{name}' already.");
         }
 
         var options = new NhAiMcpProtectedResourceOptions();
         configure(options);
-        var resource = NhAiMcpProtectedResource.Create(options);
+        var resource = NhAiMcpProtectedResource.Create(name, options);
+        foreach (var other in existing)
+        {
+            resource.EnsureDistinctFrom(other);
+        }
 
         _services.AddSingleton(resource);
-        _services.AddHttpClient(
-            NhAiMcpProtectedResourceDefaults.HttpClientName,
-            client => client.Timeout = NhAiMcpProtectedResource.MetadataTimeout);
-        _services.TryAddSingleton<NhAiMcpAccessTokenValidator>();
+        if (existing.Count == 0)
+        {
+            _services.AddHttpClient(
+                NhAiMcpProtectedResourceDefaults.HttpClientName,
+                client => client.Timeout = NhAiMcpProtectedResource.MetadataTimeout);
+            _services.TryAddSingleton<NhAiMcpProtectedResources>();
+            _services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiMcpProtectedResourceStartupCheck>());
+        }
+
         _services.AddAuthentication()
             .AddScheme<AuthenticationSchemeOptions, NhAiMcpProtectedResourceHandler>(
-                NhAiMcpProtectedResourceDefaults.AuthenticationScheme,
+                resource.AuthenticationScheme,
                 displayName: null,
                 configureOptions: null);
         _services.AddAuthorization(authorization => authorization.AddPolicy(
-            NhAiMcpProtectedResourceDefaults.AuthorizationPolicy,
+            resource.AuthorizationPolicy,
             policy => policy
-                .AddAuthenticationSchemes(NhAiMcpProtectedResourceDefaults.AuthenticationScheme)
+                .AddAuthenticationSchemes(resource.AuthenticationScheme)
                 .RequireAuthenticatedUser()));
-        _services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiMcpProtectedResourceStartupCheck>());
         return this;
     }
 
@@ -292,7 +397,8 @@ public sealed class NhAiMcpExposureBuilder
 }
 
 /// <summary>
-/// The validated settings of the protected resource and the documents it serves.
+/// The validated settings of a protected resource, the default one or a named one, and the documents it
+/// serves.
 /// </summary>
 internal sealed class NhAiMcpProtectedResource
 {
@@ -302,6 +408,7 @@ internal sealed class NhAiMcpProtectedResource
     private const int MaxResourceNameLength = 200;
 
     private NhAiMcpProtectedResource(
+        string? name,
         string resource,
         IReadOnlyList<string> authorizationServers,
         IReadOnlyList<string> scopesSupported,
@@ -310,6 +417,13 @@ internal sealed class NhAiMcpProtectedResource
         TimeSpan clockSkew,
         Func<NhAiMcpProtectedResourceTokenValidatedContext, Task>? onTokenValidated)
     {
+        Name = name;
+        AuthenticationScheme = name is null
+            ? NhAiMcpProtectedResourceDefaults.AuthenticationScheme
+            : NhAiMcpProtectedResourceDefaults.AuthenticationSchemeFor(name);
+        AuthorizationPolicy = name is null
+            ? NhAiMcpProtectedResourceDefaults.AuthorizationPolicy
+            : NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor(name);
         Resource = resource;
         AuthorizationServers = authorizationServers;
         ScopesSupported = scopesSupported;
@@ -334,6 +448,15 @@ internal sealed class NhAiMcpProtectedResource
             McpJsonUtilities.DefaultOptions);
     }
 
+    /// <summary>The name of a named resource; null for the default resource.</summary>
+    public string? Name { get; }
+
+    /// <summary>The scheme that validates the resource's tokens and serves its metadata.</summary>
+    public string AuthenticationScheme { get; }
+
+    /// <summary>The policy of the resource's MCP endpoint.</summary>
+    public string AuthorizationPolicy { get; }
+
     /// <summary>The canonical resource: lowercase scheme and host, no default port, no trailing slash.</summary>
     public string Resource { get; }
 
@@ -357,7 +480,20 @@ internal sealed class NhAiMcpProtectedResource
 
     public byte[] MetadataDocument { get; }
 
-    public static NhAiMcpProtectedResource Create(NhAiMcpProtectedResourceOptions options)
+    /// <summary>
+    /// The paths the resource serves its metadata at: its own well-known address and, for the default
+    /// resource, the root well-known address.
+    /// </summary>
+    public IReadOnlyList<string> MetadataPaths => Name is null
+        ? [PathMetadata, NhAiMcpProtectedResourceDefaults.MetadataPath]
+        : [PathMetadata];
+
+    /// <summary>A description for messages and logs: the default resource or the resource's name.</summary>
+    public string Label => Name is null ? "the default protected resource" : $"the protected resource '{Name}'";
+
+    /// <param name="name">The resource's name, already checked; null for the default resource.</param>
+    /// <param name="options">The resource's options.</param>
+    public static NhAiMcpProtectedResource Create(string? name, NhAiMcpProtectedResourceOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (string.IsNullOrWhiteSpace(options.Resource))
@@ -381,6 +517,7 @@ internal sealed class NhAiMcpProtectedResource
         }
 
         return new NhAiMcpProtectedResource(
+            name,
             resource,
             authorizationServers,
             scopes,
@@ -388,6 +525,24 @@ internal sealed class NhAiMcpProtectedResource
             hostSchemes,
             options.ClockSkew,
             options.OnTokenValidated);
+    }
+
+    /// <summary>
+    /// Refuses a resource that another resource of the host would shadow: the same resource URL, which
+    /// would make a token for one valid at the other, or a metadata address both would serve.
+    /// </summary>
+    public void EnsureDistinctFrom(NhAiMcpProtectedResource other)
+    {
+        if (string.Equals(Resource, other.Resource, StringComparison.Ordinal))
+        {
+            throw Invalid($"Resource of {Label} is the resource of {other.Label} already: {Resource}. Each resource has a URL of its own, so their audiences stay separate.");
+        }
+
+        var shared = MetadataPaths.Intersect(other.MetadataPaths, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        if (shared is not null)
+        {
+            throw Invalid($"Resource of {Label} has its metadata at {shared}, where {other.Label} serves its metadata already. Give it a resource URL with another path.");
+        }
     }
 
     /// <summary>
@@ -405,12 +560,11 @@ internal sealed class NhAiMcpProtectedResource
         return AuthorityOf(uri) + uri.AbsolutePath.TrimEnd('/');
     }
 
-    /// <summary>Whether a request path is one of the addresses of the metadata.</summary>
+    /// <summary>Whether a request path is one of the addresses of the resource's metadata.</summary>
     public bool IsMetadataPath(PathString path)
     {
         var value = (path.Value ?? string.Empty).TrimEnd('/');
-        return string.Equals(value, PathMetadata, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, NhAiMcpProtectedResourceDefaults.MetadataPath, StringComparison.OrdinalIgnoreCase);
+        return MetadataPaths.Contains(value, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Whether an audience names this resource.</summary>
@@ -531,9 +685,11 @@ internal sealed class NhAiMcpProtectedResource
             {
                 throw Invalid("AcceptHostSchemes has no empty scheme name.");
             }
-            if (string.Equals(scheme, NhAiMcpProtectedResourceDefaults.AuthenticationScheme, StringComparison.Ordinal))
+            if (NhAiMcpProtectedResourceDefaults.IsResourceScheme(scheme))
             {
-                throw Invalid("AcceptHostSchemes names the host's own schemes, not the protected resource's.");
+                // A token of another protected resource would then sign in here: its audience is not
+                // this resource.
+                throw Invalid("AcceptHostSchemes names the host's own schemes, not a protected resource's.");
             }
             if (!result.Contains(scheme, StringComparer.Ordinal))
             {
@@ -569,19 +725,59 @@ internal sealed class NhAiMcpProtectedResource
 }
 
 /// <summary>
-/// Serves the metadata, validates tokens for the resource and answers the challenge. It authenticates
-/// only on endpoints that require <see cref="NhAiMcpProtectedResourceDefaults.AuthorizationPolicy"/>, so a
-/// token for the MCP exposure never signs in a request elsewhere on the host.
+/// The protected resources of the host, each with the validator of its tokens, by authentication scheme.
+/// </summary>
+internal sealed class NhAiMcpProtectedResources
+{
+    private readonly Dictionary<string, (NhAiMcpProtectedResource Resource, NhAiMcpAccessTokenValidator Validator)> _bySchemes;
+
+    public NhAiMcpProtectedResources(
+        IEnumerable<NhAiMcpProtectedResource> resources,
+        IHttpClientFactory httpClientFactory,
+        ILogger<NhAiMcpAccessTokenValidator> logger)
+    {
+        _bySchemes = new Dictionary<string, (NhAiMcpProtectedResource, NhAiMcpAccessTokenValidator)>(StringComparer.Ordinal);
+        foreach (var resource in resources)
+        {
+            _bySchemes[resource.AuthenticationScheme] = (resource, new NhAiMcpAccessTokenValidator(resource, httpClientFactory, logger));
+        }
+    }
+
+    /// <summary>The resource of an authentication scheme and the validator of its tokens.</summary>
+    public (NhAiMcpProtectedResource Resource, NhAiMcpAccessTokenValidator Validator) Of(string scheme)
+    {
+        return _bySchemes.TryGetValue(scheme, out var entry)
+            ? entry
+            : throw new InvalidOperationException($"The authentication scheme '{scheme}' is no protected resource of the MCP exposure.");
+    }
+}
+
+/// <summary>
+/// Serves the metadata, validates tokens for one resource, the one of its scheme, and answers the
+/// challenge. It authenticates only on endpoints that require that resource's policy, so a token for the
+/// resource never signs in a request elsewhere on the host, also not at another resource's endpoint.
 /// </summary>
 internal sealed partial class NhAiMcpProtectedResourceHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory loggerFactory,
     UrlEncoder encoder,
-    NhAiMcpProtectedResource resource,
-    NhAiMcpAccessTokenValidator validator)
+    NhAiMcpProtectedResources resources)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, loggerFactory, encoder), IAuthenticationRequestHandler
 {
     private const string BearerPrefix = "Bearer ";
+
+    private NhAiMcpProtectedResource? _resource;
+    private NhAiMcpAccessTokenValidator? _validator;
+
+    private NhAiMcpProtectedResource Resource => _resource ?? throw new InvalidOperationException("The handler is not initialized.");
+
+    private NhAiMcpAccessTokenValidator Validator => _validator ?? throw new InvalidOperationException("The handler is not initialized.");
+
+    protected override Task InitializeHandlerAsync()
+    {
+        (_resource, _validator) = resources.Of(Scheme.Name);
+        return base.InitializeHandlerAsync();
+    }
 
     public async Task<bool> HandleRequestAsync()
     {
@@ -589,14 +785,14 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
         {
             return false;
         }
-        if (!resource.IsMetadataPath(Request.PathBase.Add(Request.Path)))
+        if (!Resource.IsMetadataPath(Request.PathBase.Add(Request.Path)))
         {
             return false;
         }
 
         Response.StatusCode = StatusCodes.Status200OK;
         Response.ContentType = "application/json";
-        Response.ContentLength = resource.MetadataDocument.Length;
+        Response.ContentLength = Resource.MetadataDocument.Length;
         // The document is public and carries no credentials, so a browser-based client may read it.
         if (!Response.Headers.ContainsKey(HeaderNames.AccessControlAllowOrigin))
         {
@@ -604,7 +800,7 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
         }
         if (HttpMethods.IsGet(Request.Method))
         {
-            await Response.Body.WriteAsync(resource.MetadataDocument, Context.RequestAborted);
+            await Response.Body.WriteAsync(Resource.MetadataDocument, Context.RequestAborted);
         }
 
         return true;
@@ -612,13 +808,13 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!RequiresResource(Context.GetEndpoint()))
+        if (!RequiresPolicy(Context.GetEndpoint(), Resource.AuthorizationPolicy))
         {
             return AuthenticateResult.NoResult();
         }
 
         var token = BearerToken(Request);
-        if (token is not null && IssuerOf(token) is { } issuer && resource.Names(issuer))
+        if (token is not null && IssuerOf(token) is { } issuer && Resource.Names(issuer))
         {
             return await AuthenticateResourceTokenAsync(token, issuer);
         }
@@ -629,41 +825,41 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         Response.StatusCode = StatusCodes.Status401Unauthorized;
-        Response.Headers.Append(HeaderNames.WWWAuthenticate, resource.Challenge(BearerToken(Request) is not null));
+        Response.Headers.Append(HeaderNames.WWWAuthenticate, Resource.Challenge(BearerToken(Request) is not null));
         return Task.CompletedTask;
     }
 
-    /// <summary>Whether the endpoint requires the policy of the protected resource.</summary>
-    internal static bool RequiresResource(Endpoint? endpoint)
+    /// <summary>Whether the endpoint requires the policy of a protected resource.</summary>
+    internal static bool RequiresPolicy(Endpoint? endpoint, string policy)
     {
         return endpoint?.Metadata
             .GetOrderedMetadata<IAuthorizeData>()
-            .Any(data => string.Equals(data.Policy, NhAiMcpProtectedResourceDefaults.AuthorizationPolicy, StringComparison.Ordinal))
+            .Any(data => string.Equals(data.Policy, policy, StringComparison.Ordinal))
             == true;
     }
 
     private async Task<AuthenticateResult> AuthenticateResourceTokenAsync(string token, string issuer)
     {
-        var validated = await validator.ValidateAsync(token, issuer, Context.RequestAborted);
+        var validated = await Validator.ValidateAsync(token, issuer, Context.RequestAborted);
         if (!validated.IsValid)
         {
-            LogTokenRefused(Logger, issuer, validated.Exception?.GetType().Name ?? "invalid");
+            LogTokenRefused(Logger, issuer, Resource.Label, validated.Exception?.GetType().Name ?? "invalid");
             return AuthenticateResult.Fail("The access token is not valid for this MCP resource.");
         }
 
         var principal = new ClaimsPrincipal(validated.ClaimsIdentity);
-        if (resource.OnTokenValidated is { } onTokenValidated)
+        if (Resource.OnTokenValidated is { } onTokenValidated)
         {
             var context = new NhAiMcpProtectedResourceTokenValidatedContext(Context, issuer, principal);
             await onTokenValidated(context);
             if (context.FailureReason is { } reason)
             {
-                LogTokenRefusedByHost(Logger, issuer, reason);
+                LogTokenRefusedByHost(Logger, issuer, Resource.Label, reason);
                 return AuthenticateResult.Fail("The host refused the access token.");
             }
             if (context.Principal.Identity?.IsAuthenticated != true)
             {
-                LogTokenRefusedByHost(Logger, issuer, "unauthenticated-principal");
+                LogTokenRefusedByHost(Logger, issuer, Resource.Label, "unauthenticated-principal");
                 return AuthenticateResult.Fail("The host refused the access token.");
             }
 
@@ -678,7 +874,7 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
     private async Task<AuthenticateResult> AuthenticateWithHostSchemesAsync(bool tokenSent)
     {
         Exception? failure = null;
-        foreach (var scheme in resource.AcceptHostSchemes)
+        foreach (var scheme in Resource.AcceptHostSchemes)
         {
             var result = await Context.AuthenticateAsync(scheme);
             if (result.Succeeded)
@@ -730,11 +926,11 @@ internal sealed partial class NhAiMcpProtectedResourceHandler(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "An access token of {Issuer} for the MCP resource was refused: {Reason}.")]
-    private static partial void LogTokenRefused(ILogger logger, string issuer, string reason);
+    [LoggerMessage(Level = LogLevel.Information, Message = "An access token of {Issuer} for {Resource} of the MCP exposure was refused: {Reason}.")]
+    private static partial void LogTokenRefused(ILogger logger, string issuer, string resource, string reason);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "The host refused an access token of {Issuer} for the MCP resource: {Reason}.")]
-    private static partial void LogTokenRefusedByHost(ILogger logger, string issuer, string reason);
+    [LoggerMessage(Level = LogLevel.Information, Message = "The host refused an access token of {Issuer} for {Resource} of the MCP exposure: {Reason}.")]
+    private static partial void LogTokenRefusedByHost(ILogger logger, string issuer, string resource, string reason);
 }
 
 /// <summary>
@@ -831,7 +1027,7 @@ internal sealed partial class NhAiMcpAccessTokenValidator
             ValidAlgorithms = AsymmetricAlgorithms,
             NameClaimType = JwtRegisteredClaimNames.Sub,
             RoleClaimType = "role",
-            AuthenticationType = NhAiMcpProtectedResourceDefaults.AuthenticationScheme
+            AuthenticationType = _resource.AuthenticationScheme
         });
     }
 
@@ -908,22 +1104,25 @@ internal sealed class NhAiAuthorizationServerMetadataRetriever : IConfigurationR
 
 /// <summary>
 /// Checks at startup that every scheme of <see cref="NhAiMcpProtectedResourceOptions.AcceptHostSchemes"/>
-/// is an authentication scheme of the host.
+/// of every protected resource is an authentication scheme of the host.
 /// </summary>
 internal sealed class NhAiMcpProtectedResourceStartupCheck(
     IServiceProvider hostServices,
     IAuthenticationSchemeProvider schemes,
-    NhAiMcpProtectedResource resource) : NhAiStartupCheck(hostServices)
+    IEnumerable<NhAiMcpProtectedResource> resources) : NhAiStartupCheck(hostServices)
 {
     protected override async Task ValidateAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        foreach (var name in resource.AcceptHostSchemes)
+        foreach (var resource in resources)
         {
-            if (await schemes.GetSchemeAsync(name) is null)
+            foreach (var name in resource.AcceptHostSchemes)
             {
-                throw new InvalidOperationException(
-                    $"NhAiMcpProtectedResourceOptions.AcceptHostSchemes names '{name}', which is no authentication scheme of the host.");
+                if (await schemes.GetSchemeAsync(name) is null)
+                {
+                    throw new InvalidOperationException(
+                        $"NhAiMcpProtectedResourceOptions.AcceptHostSchemes of {resource.Label} names '{name}', which is no authentication scheme of the host.");
+                }
             }
         }
     }
