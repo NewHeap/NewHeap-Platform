@@ -431,7 +431,8 @@ public interface INhAiArtifacts
 
 /// <summary>
 /// Removes what the AI packages keep about a subject when the application deletes or anonymizes
-/// it: agent threads with their messages, proposals, runs, working memory and member snapshot.
+/// it: agent threads with their messages, proposals, runs, working memory and member snapshot, and
+/// people's chats about it with their messages (FB25).
 /// Call it after the subject's own deletion committed, with the scope key its resolver described
 /// (<see cref="NhAiSubjectInfo.ScopeKey"/>), captured before the deletion.
 /// </summary>
@@ -449,7 +450,8 @@ public interface INhAiSubjectRetention
 
     /// <summary>
     /// Cancels the subject's active agent runs in <paramref name="scopeKey"/> and deletes its threads
-    /// there; threads of an equal subject id in another tenant or division stay, and their runs go on.
+    /// there, and people's chats about the subject in that scope; threads and chats of an equal subject
+    /// id in another tenant or division stay, and their runs go on.
     /// Returns the number of deleted threads.
     /// </summary>
     /// <param name="subject">The subject the application deleted.</param>

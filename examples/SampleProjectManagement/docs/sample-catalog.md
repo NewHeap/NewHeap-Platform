@@ -607,6 +607,19 @@ triggers it and it needs no background operations of its own; the administration
 The host would refuse to start if it also said what it works on, accepted hand-offs or worked in shadow.
 `AssistantChatSkillQuestionSamplesTests` runs the case.
 
+The project chat answers in a person's chat about one project (SPM-363). `SampleProjectChatComposition`
+says it works on projects and requires a subject for a chat (`RequireChatSubject()`), so `GET agents` and
+the panel's status leave it out and `GET agents?subjectType=project&subjectId=` lists it for a project the
+person may read. The project dialog's "Chat about this project" calls `NhAssistantStore.setChatSubject` with
+the project and opens the panel with the project chat; the first message creates the chat with the project
+as its subject, and the panel says what the chat is about. The project's access resolver decides when the
+chat is created and on every turn, read and invitation: a reader of the project chats and each message
+reads the project's briefing, someone of another division is refused with
+`403 assistant-subject-access-denied`, a chat with the project chat without a subject with
+`400 assistant-subject-required`, and a member removed from the project can no longer read or continue the
+chat while they still delete it. The chat stays the person's and its tools run with their own rights.
+`AssistantProjectChatSamplesTests` runs the case.
+
 The operations process also reads and changes agents through services (SPM-329).
 `SampleAgentDefinitionService` lists every agent that is no shadow variant as it is in effect with
 `INhAssistantAgentDirectory`, with its run state and cost center, and gives an agent a new description

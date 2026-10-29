@@ -448,3 +448,48 @@ step. Without the new calls nothing else changes.
 older servers keep working. `NH_ASSISTANT_PACKAGE_LOCK_FIELDS.consultation` names `requestsOnly`. The mock
 API saves and checks requests-only consultations as the server does, lists only their request tool and
 answers the ceiling's `answerRequestsInAskingConversation` from `admin.consultationsAsData`.
+
+## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: a subject for a person's chat
+
+A person's chat may be about one subject (FB25): `subjectType` and `subjectId` of `POST conversations`, or
+`NhAssistantNewConversation.Subject` of `INhAssistantConversations.CreateAsync`. Creating it checks the
+subject with its access resolver (at least `Reader`), the person's tenant and what the agent works on
+(`assistant-subject-invalid`, `assistant-subject-type-unknown`, `assistant-subject-not-found`,
+`assistant-subject-access-denied`, `assistant-agent-does-not-work-on`), and every turn, read, invitation,
+live update, notification and application message checks the person's role again, the owner's too, so
+revoked access takes effect at once; deleting, leaving and stopping a turn stay possible. The chat keeps
+the subject (`subject` of `NhAssistantConversationDto` and `NhAssistantConversationSummaryDto`,
+`NhAssistantConversationSubjectDto`) and offers it to tools, turn context providers and retrieval
+(`NhAiInvocationContext.ConversationSubject`), proposal guards at the proposal stage
+(`NhAiProposalGuardContext.ConversationSubject`), the file source (`NhAssistantFileActor.ConversationSubject`)
+and the briefing (`NhAssistantBriefingPurposes.Chat`, after a section that names the subject); it never
+becomes the agent's thread about the subject. `RequireChatSubject()` offers an agent only for chats about
+a subject: `GET agents` and the status leave it out, `GET agents?subjectType=&subjectId=` and
+`INhAssistantConversations.ListAgentsAsync(person, subject)` list the agents that work on a subject, and a
+chat with it without a subject answers `400 assistant-subject-required`; startup refuses it on a chat-only
+or hidden agent. `INhAiSubjectRetention.ForgetSubjectAsync` also deletes the chats about the subject in its
+scope and lets the file retention forget their uploads (SPM-363).
+
+The migration `ChatSubject` adds `SubjectType`, `SubjectId`, `SubjectDisplayName` and `SubjectScopeKey`
+with an index on `SubjectType` and `SubjectId` to `AssistantConversation` on SQL Server and PostgreSQL;
+hosts must apply the migration: hosts with `RunMigrations` apply it at start, others with their deployment
+step. Chats without a subject work as before.
+
+| Breaking change | Required action |
+|---|---|
+| `INhAssistantConversations` has the new member `ListAgentsAsync(NhAssistantDecidingPerson, NhAiSubjectRef, NhAssistantConversationOptions?, CancellationToken)`. | A class that implements or mocks the interface implements the member, or delegates to the registered service. |
+
+## @newheap/platform-ai-chat: chats about a subject
+
+`NhAssistantStore.setChatSubject({ subjectType, subjectId, subjectDisplayName })` (`NhAssistantChatSubject`)
+makes the next new chat a chat about a subject: it loads the agents of such a chat
+(`NhAssistantApiService.agents(subject)`, `GET agents?subjectType=&subjectId=`), chooses one of them and
+leaves the open conversation, and the next message creates the chat with `subjectType` and `subjectId`
+(`CreateConversationRequest`); it resolves `false` and shows the server's refusal when the person may not
+use a chat about the subject, and `null` clears it. `newChatSubject()`, `chatSubject()` and `chatAgents()`
+(which the panel's agent picker now binds; it equals the status's agents without a subject) describe it,
+`store.agents()` also knows the agents offered only for chats about a subject, and the panel shows what a
+chat is about ("About {subject}", English and Dutch). `Conversation.subject` and `ConversationSummary.subject`
+(`ConversationSubject`, `ConversationSubjectRef`) are optional, so older servers keep working;
+`assistant-subject-required` has English and Dutch texts. The mock API checks and keeps a chat's subject and
+checks the subject of `GET agents?subjectType=&subjectId=`.
