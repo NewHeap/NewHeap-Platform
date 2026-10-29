@@ -253,3 +253,12 @@ grant parsing all follow the fixed flavor.
   train.
 - **(b) The small fixes first (FB60, FB62, FB64) as a fix of their own, then a train for the rest.**
   This ships the bugs sooner, but costs a second verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| AF1 | FB63: the three switches are `bool` properties that default to `true`, named as in Agent Framework, rather than nullable values applied only when set. They read as the package's own, and a test pins them to the defaults of a new `ChatClientAgentOptions`, so an Agent Framework upgrade that changes a default fails that test instead of silently changing NewHeap's behaviour. | for Lars to review |
+| AF2 | FB63: the adapter still passes no logger factory to `ChatClientAgent`. The conflict warning goes, like the agent's other logging today, through the `ILoggerFactory` that the profile's model client offers through `GetService`, and is not written without one. Passing the host's `ILoggerFactory` would route all of Agent Framework's logging for the agent into the host's logs, which is a decision of its own. | for Lars to review |
+| AF3 | FB63: the adapter passes the switches through unconditionally, without requiring `ChatHistoryProviderFactory`. In Agent Framework 1.19 the throw switch also governs a history provider given for one run while the service keeps the conversation; warn and clear govern only the agent's own provider. | for Lars to review |
+| AF4 | FB63: SPM-225 is extended (`AiAgentHistorySamplesTests` shows the default error and a deployment that switches it off); SPM-386 stays unused. | for Lars to review |
