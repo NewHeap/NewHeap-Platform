@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,9 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// factory, the tool's approve policies, four eyes), never an agent, with <c>Complete</c> false at the limit
 /// and when people outside the members may approve, and another tenant's work unknown. The proposals of
 /// <see cref="INhAssistantApproverDirectory.ListForProposalAsync"/> persist, so that runs on both providers.
+/// FB50: with <see cref="INhAssistantApproverCandidates"/> the application names the people outside the
+/// members, per tenant and for the whole application; the directory checks each one as it checks a member
+/// and calls the list complete when the application did and no limit applied, on both providers.
 /// </summary>
 public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -28,6 +32,7 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
     private const string TenantA = "tenant-a";
     private const string TenantB = "tenant-b";
     private const string ManagePolicy = "app.project.manage";
+    private const string AuditPolicy = "app.project.audit";
     private static readonly NhAiSubjectRef ProjectA = new("project", "a-0001");
     private static readonly NhAiSubjectRef ProjectB = new("project", "b-0001");
 
@@ -162,7 +167,150 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
         }
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Application_candidates_let_a_policy_rule_say_who_approves_and_whether_that_is_everyone(AssistantTestProvider provider)
+    {
+        // FB50: the auditors pass the audit policy and are no members of the project.
+        var book = new CandidateBook();
+        await using var host = await CreateHostAsync(provider, book);
+        await using var scope = host.Services.CreateAsyncScope();
+        var directory = scope.ServiceProvider.GetRequiredService<INhAssistantApproverDirectory>();
+
+        // One candidate who passes the rule: exactly one person approves, and the list says so.
+        book.Name(TenantA, complete: true, "auditor-1");
+        var one = (await directory.ListAsync("auditors", ProjectA, TenantA)).Data!;
+        Assert.Equal(new NhAssistantApprover("auditor-1", NhAiSubjectRole.None) { DisplayName = "Named auditor-1" }, Assert.Single(one.Approvers));
+        Assert.True(one.Complete);
+        Assert.Equal(new NhAssistantApproverCount(1, true), (await directory.CountAsync("auditors", ProjectA, TenantA)).Data);
+        var query = book.Queries.Last();
+        Assert.Equal(
+            ("auditors", ProjectA, (string?)TenantA, (Guid?)null, false, NhAssistantApproverList.MaxCandidates),
+            (query.PolicyId, query.Subject, query.TenantId, query.DivisionId, query.SubjectRoleHolders, query.MaxCandidates));
+        Assert.Equal([AuditPolicy], query.PolicyNames);
+
+        // Two who pass, in the order the application names them; leaving one out counts the other.
+        book.Name(TenantA, complete: true, "auditor-1", "auditor-2");
+        var two = (await directory.ListAsync("auditors", ProjectA, TenantA)).Data!;
+        Assert.Equal(["auditor-1", "auditor-2"], Ids(two));
+        Assert.True(two.Complete);
+        Assert.Equal(new NhAssistantApproverCount(1, true), (await directory.CountAsync("auditors", ProjectA, TenantA, excludeActorId: "auditor-1")).Data);
+
+        // Candidates who fail the rule are not listed: a member without the permission, a person who may no
+        // longer sign in, an agent, a blank id; someone named twice is listed once.
+        book.Name(TenantA, complete: true, "member-1", "locked-1", "assistant-agent:helper", " ", "outsider-1", "auditor-1", "auditor-1");
+        var checkedList = (await directory.ListAsync("auditors", ProjectA, TenantA)).Data!;
+        Assert.Equal(["auditor-1"], Ids(checkedList));
+        Assert.True(checkedList.Complete);
+
+        // A list the application declares incomplete stays incomplete; so does one it cannot give.
+        book.Name(TenantA, complete: false, "auditor-1");
+        Assert.Equal(new NhAssistantApproverCount(1, false), (await directory.CountAsync("auditors", ProjectA, TenantA)).Data);
+        book.Throws = true;
+        Assert.Equal(new NhAssistantApproverCount(0, false), (await directory.CountAsync("auditors", ProjectA, TenantA)).Data);
+        book.Throws = false;
+
+        // The limit: the second auditor is left unchecked, unless the limit leaves nobody out.
+        book.Name(TenantA, complete: true, "auditor-1", "auditor-2");
+        var first = (await directory.ListAsync("auditors", ProjectA, TenantA, limit: 1)).Data!;
+        Assert.Equal(["auditor-1"], Ids(first));
+        Assert.False(first.Complete);
+        Assert.Equal(new NhAssistantApproverCount(2, true), (await directory.CountAsync("auditors", ProjectA, TenantA, limit: 2)).Data);
+
+        // At most MaxCandidates named people are checked: one more is never complete.
+        var many = Enumerable.Range(1, NhAssistantApproverList.MaxCandidates).Select(index => "outsider-" + index).ToArray();
+        book.Name(TenantA, complete: true, many);
+        Assert.Equal(new NhAssistantApproverCount(0, true), (await directory.CountAsync("auditors", ProjectA, TenantA)).Data);
+        book.Name(TenantA, complete: true, [.. many, "auditor-1"]);
+        Assert.Equal(new NhAssistantApproverCount(0, false), (await directory.CountAsync("auditors", ProjectA, TenantA)).Data);
+
+        // Members come first, then the candidates. The members filling the limit leave the application
+        // unasked; a policy without a rule outside the members never asks it.
+        book.Name(TenantA, complete: true, "auditor-1", "approver-2");
+        var mixed = (await directory.ListAsync("approvers-or-auditors", ProjectA, TenantA)).Data!;
+        Assert.Equal(["approver-1", "approver-2", "locked-1", "auditor-1"], Ids(mixed));
+        Assert.True(mixed.Complete);
+        var asked = book.Queries.Count;
+        Assert.Equal(new NhAssistantApproverCount(2, false), (await directory.CountAsync("approvers-or-auditors", ProjectA, TenantA, limit: 2)).Data);
+        Assert.Equal(new NhAssistantApproverCount(3, true), (await directory.CountAsync("approvers", ProjectA, TenantA)).Data);
+        Assert.Equal(asked, book.Queries.Count);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Application_candidates_are_asked_for_the_subjects_tenant_and_complete_the_whole_application(AssistantTestProvider provider)
+    {
+        var book = new CandidateBook();
+        book.Name(TenantA, complete: true, "auditor-1");
+        book.Name(TenantB, complete: true, "auditor-b");
+        await using var host = await CreateHostAsync(provider, book);
+        await using var scope = host.Services.CreateAsyncScope();
+        var directory = scope.ServiceProvider.GetRequiredService<INhAssistantApproverDirectory>();
+
+        // Each tenant's subject is asked with its own tenant and lists that tenant's people only.
+        Assert.Equal(["auditor-1"], Ids((await directory.ListAsync("auditors", ProjectA, TenantA)).Data!));
+        Assert.Equal(["auditor-b"], Ids((await directory.ListAsync("auditors", ProjectB, TenantB)).Data!));
+        Assert.Equal([TenantA, TenantB], book.Queries.Select(item => item.TenantId).ToArray());
+        // Another tenant's subject is unknown before the application is asked.
+        Assert.Equal(NhAssistantErrorCodes.SubjectNotFound, CodeOf(await directory.ListAsync("auditors", ProjectB, TenantA)));
+        Assert.Equal(2, book.Queries.Count);
+
+        // The whole application lists no members: its approvers are whom its approve policy admits, so the
+        // application names the people who hold a role there. Those who fail the approve policy are not
+        // listed, and the list the application declares complete is complete.
+        book.Name(null, complete: true, "auditor-1", "member-1", "locked-1");
+        var global = (await directory.ListAsync("approvers", NhAiSystemSubjects.Global, tenantId: null)).Data!;
+        Assert.Equal(new NhAssistantApprover("auditor-1", NhAiSubjectRole.Approver) { DisplayName = "Named auditor-1" }, Assert.Single(global.Approvers));
+        Assert.True(global.Complete);
+        var query = book.Queries.Last();
+        Assert.Equal((NhAiSystemSubjects.Global, (string?)null, true), (query.Subject, query.TenantId, query.SubjectRoleHolders));
+        Assert.Empty(query.PolicyNames);
+        // A policy rule there is named as well, and the initiator rule alone needs nobody.
+        Assert.Equal(new NhAssistantApproverCount(1, true), (await directory.CountAsync("auditors", NhAiSystemSubjects.Global, tenantId: null)).Data);
+        var asked = book.Queries.Count;
+        Assert.Equal(new NhAssistantApproverCount(0, true), (await directory.CountAsync("initiator-only", NhAiSystemSubjects.Global, tenantId: null)).Data);
+        Assert.Equal(asked, book.Queries.Count);
+        book.Name(null, complete: false, "auditor-1");
+        Assert.Equal(new NhAssistantApproverCount(1, false), (await directory.CountAsync("approvers", NhAiSystemSubjects.Global, tenantId: null)).Data);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_under_a_policy_rule_lists_the_candidates_its_decision_accepts(AssistantTestProvider provider)
+    {
+        var book = new CandidateBook();
+        book.Name(TenantA, complete: true, "auditor-1", "auditor-2", "member-1");
+        await using var host = await CreateHostAsync(provider, book);
+        var thread = await ThreadAsync(host, ProjectA);
+        var fourEyes = await SeedAsync(host, thread, Policy("auditors", fourEyes: true, subjectRole: false, policyRule: AuditPolicy), initiator: "auditor-1");
+        await using var scope = host.Services.CreateAsyncScope();
+        var directory = scope.ServiceProvider.GetRequiredService<INhAssistantApproverDirectory>();
+
+        // Four eyes leave the initiator out, also when the application names them: one person approves,
+        // and that is everyone.
+        var listed = (await directory.ListForProposalAsync(fourEyes.Id, TenantA)).Data!;
+        Assert.Equal(["auditor-2"], Ids(listed));
+        Assert.True(listed.Complete);
+        Assert.Equal("auditors", book.Queries.Last().PolicyId);
+
+        // Everyone listed passes the decision's check; everyone else who may sign in is refused by it.
+        var check = scope.ServiceProvider.GetRequiredService<NhAssistantApproverCheck>();
+        foreach (var actorId in new[] { "auditor-1", "auditor-2", "member-1", "approver-1", "manager-1", "outsider-1" })
+        {
+            var decision = await check.CheckAsync(fourEyes, thread, actorId, DirectoryPrincipals.For(actorId), CancellationToken.None);
+            Assert.Equal(listed.Approvers.Any(item => item.ActorId == actorId), decision.Success);
+        }
+    }
+
+    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
+    {
+        return CreateHostAsync(provider, candidates: null);
+    }
+
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, CandidateBook? candidates)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -171,17 +319,41 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
             configure: services =>
             {
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, DirectoryPrincipals>());
+                services.AddAuthorization(options => options.AddPolicy(AuditPolicy, policy => policy.RequireClaim("permission", AuditPolicy)));
+                if (candidates is not null)
+                {
+                    services.AddSingleton(candidates);
+                }
             },
-            assistantBuilder: assistant => assistant
-                .AddSubjectType<DirectorySubjectResolver>()
-                .AddApprovalPolicy("approvers", policy => policy.Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
-                .AddApprovalPolicy("leads", policy => policy.Approvers(NhAiApprovers.SubjectRole("lead")))
-                .AddApprovalPolicy("managers", policy => policy.Approvers(NhAiApprovers.Policy(ManagePolicy)))
-                .AddApprovalPolicy("initiator-only", policy => policy.Approvers(NhAiApprovers.Initiator))
-                .ConfigureAgent(AgentId, agent => agent.Grant("projects.*").UseApprovalPolicy("approvers")));
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddSubjectType<DirectorySubjectResolver>()
+                    .AddApprovalPolicy("approvers", policy => policy.Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
+                    .AddApprovalPolicy("leads", policy => policy.Approvers(NhAiApprovers.SubjectRole("lead")))
+                    .AddApprovalPolicy("managers", policy => policy.Approvers(NhAiApprovers.Policy(ManagePolicy)))
+                    .AddApprovalPolicy("auditors", policy => policy.Approvers(NhAiApprovers.Policy(AuditPolicy)))
+                    .AddApprovalPolicy("approvers-or-auditors", policy => policy.Approvers(
+                        NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver),
+                        NhAiApprovers.Policy(AuditPolicy)))
+                    .AddApprovalPolicy("initiator-only", policy => policy.Approvers(NhAiApprovers.Initiator))
+                    .ConfigureAgent(AgentId, agent => agent.Grant("projects.*").UseApprovalPolicy("approvers"));
+                if (candidates is not null)
+                {
+                    // FB50: the auditors approve the whole application too, and the application names them.
+                    assistant
+                        .UseSystemSubject(system => system.ApprovePolicy(AuditPolicy))
+                        .UseApproverCandidates<BookCandidates>();
+                }
+            });
     }
 
-    private static NhAiApprovalPolicy Policy(string id, bool fourEyes = false, bool initiator = false, bool subjectRole = true)
+    private static NhAiApprovalPolicy Policy(
+        string id,
+        bool fourEyes = false,
+        bool initiator = false,
+        bool subjectRole = true,
+        string? policyRule = null)
     {
         var approvers = new List<NhAiApproverRule>();
         if (initiator)
@@ -191,6 +363,10 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
         if (subjectRole)
         {
             approvers.Add(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver));
+        }
+        if (policyRule is not null)
+        {
+            approvers.Add(NhAiApprovers.Policy(policyRule));
         }
 
         return new NhAiApprovalPolicy(id)
@@ -317,8 +493,8 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
     }
 
     /// <summary>
-    /// People as headless work rebuilds them: the manager passes the manage policy, and the locked account
-    /// may no longer sign in.
+    /// People as headless work rebuilds them: the manager passes the manage policy, the auditors, who are
+    /// no members of any project, pass the audit policy, and the locked account may no longer sign in.
     /// </summary>
     private sealed class DirectoryPrincipals : INhAiPrincipalFactory
     {
@@ -329,6 +505,10 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
             {
                 claims.Add(new Claim("permission", ManagePolicy));
             }
+            if (actorId.StartsWith("auditor-", StringComparison.Ordinal))
+            {
+                claims.Add(new Claim("permission", AuditPolicy));
+            }
 
             return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
         }
@@ -336,6 +516,52 @@ public sealed class AssistantApproverDirectoryTests(AssistantDatabaseFixture dat
         public ValueTask<ClaimsPrincipal?> CreateAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(actorId == "locked-1" ? null : For(actorId));
+        }
+    }
+
+    /// <summary>
+    /// FB50: the people the application names per tenant (the whole application under no tenant), whether
+    /// it declares them complete, and the questions the directory asked.
+    /// </summary>
+    private sealed class CandidateBook
+    {
+        private readonly ConcurrentDictionary<string, (string[] ActorIds, bool Complete)> _named = new(StringComparer.Ordinal);
+
+        public ConcurrentQueue<NhAssistantApproverCandidateQuery> Queries { get; } = new();
+
+        public bool Throws { get; set; }
+
+        public void Name(string? tenantId, bool complete, params string[] actorIds)
+        {
+            _named[tenantId ?? string.Empty] = (actorIds, complete);
+        }
+
+        public NhAssistantApproverCandidateList List(NhAssistantApproverCandidateQuery query)
+        {
+            Queries.Enqueue(query);
+            if (Throws)
+            {
+                throw new InvalidOperationException("The people directory is unavailable.");
+            }
+            if (!_named.TryGetValue(query.TenantId ?? string.Empty, out var named))
+            {
+                return NhAssistantApproverCandidateList.Unknown;
+            }
+
+            var candidates = named.ActorIds
+                .Select(actorId => new NhAssistantApproverCandidate(actorId) { DisplayName = "Named " + actorId })
+                .ToArray();
+            return new NhAssistantApproverCandidateList(candidates, named.Complete);
+        }
+    }
+
+    private sealed class BookCandidates(CandidateBook book) : INhAssistantApproverCandidates
+    {
+        public ValueTask<NhAssistantApproverCandidateList> ListAsync(
+            NhAssistantApproverCandidateQuery query,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(book.List(query));
         }
     }
 }

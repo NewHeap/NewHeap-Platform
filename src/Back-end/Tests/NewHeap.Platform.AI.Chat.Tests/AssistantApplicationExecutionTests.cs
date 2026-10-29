@@ -66,6 +66,8 @@ public sealed class AssistantApplicationExecutionTests(AssistantDatabaseFixture 
         Assert.Equal(
             (approval.Id, approval.ProposalId, approval.ProposalHash, Approver, AgentId, projectId.ToString(), (string?)null, 1, Start.Add(ReportWithin)),
             (handOff.ApprovalId, handOff.ProposalId, handOff.ProposalHash, handOff.DecidedByActorId, handOff.AgentId, handOff.Subject.Id, handOff.TenantId, handOff.Attempt, handOff.ReportDueAt));
+        // FB51: the policy the proposal waited under and how, as the proposal recorded them.
+        Assert.Equal(("order-review", (NhAiApprovalMode?)NhAiApprovalMode.Deferred), (handOff.PolicyId, handOff.Mode));
         Assert.Equal(TestProjectToolCatalog.ChangeStatus.Id, handOff.ToolId);
         Assert.Equal("Active", handOff.Proposal.Arguments.GetProperty("status").GetString());
         Assert.Empty(host.Services.GetRequiredService<TestProjectToolRecorder>().StatusChanges);

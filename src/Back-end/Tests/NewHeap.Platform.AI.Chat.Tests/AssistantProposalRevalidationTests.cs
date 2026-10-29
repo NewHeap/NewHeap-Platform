@@ -461,12 +461,17 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
             configure: services =>
             {
                 services.AddSingleton<TestProjectStates>();
+                services.AddSingleton<RecordedGuardContexts>();
                 ConfigureCultures(services);
             },
-            assistantBuilder: assistant => assistant.AddProposalGuard<ProjectStatusGuard>("projects.change-status"));
+            assistantBuilder: assistant => assistant
+                .AddProposalGuard<PolicyRecordingGuard>("projects.change-status")
+                .AddProposalGuard<ProjectStatusGuard>("projects.change-status"));
         var conversation = await host.CreateConversationAsync();
         var paused = await host.SendAsync(conversation.Id, "Activate the project.");
         var approval = paused.Single<NhAssistantApprovalRequiredEvent>().Approval;
+        var recorded = host.Services.GetRequiredService<RecordedGuardContexts>();
+        var proposing = recorded.Checks.Count;
 
         // A chat proposal waits in the conversation, so it has no keys and revalidation leaves it alone.
         await using (var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
@@ -478,6 +483,9 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         var refused = await host.DecideAsync(conversation.Id, approval, approve: true);
 
         Assert.Equal(NhAssistantErrorCodes.ProposalStale, refused.StartCode);
+        // FB51: the person decides their own chat's proposal inline, without an approval policy.
+        var decision = Assert.Single(recorded.Checks.Skip(proposing));
+        Assert.Equal(((string?)null, (NhAiApprovalMode?)NhAiApprovalMode.Inline), (decision.PolicyId, decision.Mode));
         Assert.Empty(host.Tools.StatusChanges);
         Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(conversation.Id)).Status);
         var view = await host.ReadViewAsync(conversation.Id);
@@ -498,11 +506,51 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         Assert.Null((await host.SendAsync(conversation.Id, "Thanks.")).StartCode);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Guards_read_the_recorded_policy_at_revalidation_decision_and_execution_and_not_when_a_call_proposes(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, ProposeStatus(projectId, "Active"), recordPolicies: true);
+        var recorded = host.Services.GetRequiredService<RecordedGuardContexts>();
+        var run = await StartRunAsync(host, projectId);
+        await RunTurnAsync(host, run, "Project PRJ-1 was created.");
+        var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
+        Assert.Equal(("project-review", NhAssistantApprovalModes.Deferred), (approval.PolicyId, approval.Mode));
+
+        // FB51: when the call proposes, the policy is not chosen yet: the keys and the proposal check name
+        // the call, not a policy.
+        Assert.NotEmpty(recorded.Keys);
+        Assert.NotEmpty(recorded.Checks);
+        Assert.All(recorded.Keys.Concat(recorded.Checks), context =>
+        {
+            Assert.NotNull(context.Invocation);
+            Assert.Equal(((string?)null, (NhAiApprovalMode?)null), (context.PolicyId, context.Mode));
+        });
+
+        // At revalidation, decision and execution the guard reads the policy and mode the proposal recorded.
+        var proposing = recorded.Checks.Count;
+        Assert.Equal(1, (await RevalidateSubjectAsync(host, projectId)).Checked);
+        Assert.True((await DecideAsync(host, approval.Id, approve: true)).Success);
+        await ExecuteAsync(host, approval.Id);
+
+        var later = recorded.Checks.Skip(proposing).ToArray();
+        Assert.Equal(3, later.Length);
+        Assert.All(later, context =>
+        {
+            Assert.Null(context.Invocation);
+            Assert.Equal(("project-review", (NhAiApprovalMode?)NhAiApprovalMode.Deferred), (context.PolicyId, context.Mode));
+        });
+        Assert.Equal(NhAssistantApprovalStatuses.Executed, (await FindAsync(host, approval.Id)).Status);
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         NhAiScriptedChatClient model,
         NhAiApprovalMode mode = NhAiApprovalMode.Deferred,
-        NhAiProposalGuardStages stages = NhAiProposalGuardStages.All)
+        NhAiProposalGuardStages stages = NhAiProposalGuardStages.All,
+        bool recordPolicies = false)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -512,6 +560,7 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
             {
                 services.AddSingleton(new TestSubjects());
                 services.AddSingleton<TestProjectStates>();
+                services.AddSingleton<RecordedGuardContexts>();
                 services.AddSingleton<RecordingWaker>();
                 services.Replace(ServiceDescriptor.Scoped<INhAssistantInlineRunWaker>(
                     provider => provider.GetRequiredService<RecordingWaker>()));
@@ -523,23 +572,33 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, TestPrincipalFactory>());
                 ConfigureCultures(services);
             },
-            assistantBuilder: assistant => assistant
-                .AddSubjectType<TestSubjectResolver>()
-                .AddProposalGuard<ProjectStatusGuard>(["projects.change-status"], stages)
-                .AddProposalGuard<SecondProjectGuard>("projects.*")
-                .AddProposalGuard<OtherToolGuard>("billing.*")
-                .AddProposalRevalidation<ProjectStatusSet>(revalidation => revalidation
-                    .Subject(evt => Subject(evt.ProjectId))
-                    .Keys(evt => [new NhAiProposalKey(ProjectStatusGuard.KeyType, evt.ProjectId.ToString())])
-                    .ScopeKey(_ => NhAiSubjectInfo.CreateScopeKey(null, null)))
-                .AddApprovalPolicy("project-review", policy => policy
-                    .Lifetime(TimeSpan.FromDays(3))
-                    .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
-                    .Mode(mode)
-                    .BindTo(NhAiApprovalBinding.ToolContract))
-                .ConfigureAgent(AgentId, agent => agent
-                    .Grant("projects.*")
-                    .UseApprovalPolicy("project-review")));
+            assistantBuilder: assistant =>
+            {
+                assistant
+                    .AddSubjectType<TestSubjectResolver>()
+                    .AddProposalGuard<ProjectStatusGuard>(["projects.change-status"], stages)
+                    .AddProposalGuard<SecondProjectGuard>("projects.*")
+                    .AddProposalGuard<OtherToolGuard>("billing.*")
+                    .AddProposalRevalidation<ProjectStatusSet>(revalidation => revalidation
+                        .Subject(evt => Subject(evt.ProjectId))
+                        .Keys(evt => [new NhAiProposalKey(ProjectStatusGuard.KeyType, evt.ProjectId.ToString())])
+                        .ScopeKey(_ => NhAiSubjectInfo.CreateScopeKey(null, null)))
+                    .AddApprovalPolicy("project-review", policy => policy
+                        .Lifetime(TimeSpan.FromDays(3))
+                        .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver))
+                        .Mode(mode)
+                        .BindTo(NhAiApprovalBinding.ToolContract))
+                    .ConfigureAgent(AgentId, agent => agent
+                        .Grant("projects.*")
+                        .UseApprovalPolicy("project-review"));
+                if (recordPolicies)
+                {
+                    // FB51: a guard of every stage that keeps the contexts it was given.
+                    assistant.AddProposalGuard<PolicyRecordingGuard>(
+                        ["projects.change-status"],
+                        NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal);
+                }
+            });
     }
 
     private static void ConfigureCultures(IServiceCollection services)
@@ -777,6 +836,38 @@ public sealed class OtherToolGuard(TestProjectStates states) : INhAiProposalGuar
     {
         states.CountOtherToolGuardCall();
         return ValueTask.FromResult(NhAiPreconditionResult.NotApplicable("other-tool"));
+    }
+}
+
+/// <summary>
+/// FB51: the guard contexts a recording guard was given, for the keys of a new proposal and for its checks.
+/// </summary>
+public sealed class RecordedGuardContexts
+{
+    public ConcurrentQueue<NhAiProposalGuardContext> Keys { get; } = new();
+
+    public ConcurrentQueue<NhAiProposalGuardContext> Checks { get; } = new();
+}
+
+/// <summary>
+/// FB51: a guard that names no objects, never finds a proposal stale and keeps every context it is given.
+/// </summary>
+public sealed class PolicyRecordingGuard(RecordedGuardContexts recorded) : INhAiProposalGuard
+{
+    public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        recorded.Keys.Enqueue(context);
+        return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>([]);
+    }
+
+    public ValueTask<NhAiPreconditionResult> CheckAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        recorded.Checks.Enqueue(context);
+        return ValueTask.FromResult(NhAiPreconditionResult.Satisfied);
     }
 }
 

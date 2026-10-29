@@ -1135,7 +1135,10 @@ public sealed class NhAssistantSystemSubjectBuilder
     /// it, notifications consider the listed people next to them, at most
     /// <see cref="INhAssistantSystemMembers.MaxMembers"/>. Roles still come from the read and approve
     /// policies and the agent's view policy, evaluated for each person now: a listed person without the
-    /// approve policy hears nothing meant for approvers, and listing someone grants nothing.
+    /// approve policy hears nothing meant for approvers, and listing someone grants nothing. The approver
+    /// directory does not read this list; an application that names who may approve there, and says
+    /// whether that is everyone, registers <see cref="INhAssistantApproverCandidates"/>
+    /// (<see cref="NhAssistantBuilder.UseApproverCandidates{TCandidates}"/>).
     /// </summary>
     public NhAssistantSystemSubjectBuilder Members<TMembers>()
         where TMembers : class, INhAssistantSystemMembers
