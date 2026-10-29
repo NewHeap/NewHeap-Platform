@@ -53232,7 +53232,18 @@
       "chatSubject",
       "newChatSubject",
       "ConversationSubject",
-      "ConversationSubjectRef"
+      "ConversationSubjectRef",
+      "NhAssistantPanelConversationList",
+      "NhAssistantOutgoingMessage",
+      "NhAssistantBeforeSubmit",
+      "NhAssistantThreadSurface",
+      "registerThreadSurface",
+      "threadInView",
+      "registerPagePanel",
+      "pagePanelShown",
+      "conversationsOpen",
+      "nhAssistantAboveThread",
+      "nhAssistantAboveComposer"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
