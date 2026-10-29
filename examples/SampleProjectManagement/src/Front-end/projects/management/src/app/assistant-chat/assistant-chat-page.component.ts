@@ -54,6 +54,7 @@ import { TranslateModule } from '@ngx-translate/core';
             type="button"
             class="topic-action"
             [attr.aria-pressed]="listShown()"
+            [attr.aria-label]="'project.assistant-chat-list-toggle' | translate"
             [attr.title]="'project.assistant-chat-list-toggle-hint' | translate"
             (click)="toggleList()">
             <i class="ph ph-sidebar-simple" aria-hidden="true"></i>
