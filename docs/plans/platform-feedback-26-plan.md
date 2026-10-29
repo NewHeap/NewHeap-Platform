@@ -253,3 +253,17 @@ grant parsing all follow the fixed flavor.
   train.
 - **(b) The small fixes first (FB60, FB62, FB64) as a fix of their own, then a train for the rest.**
   This ships the bugs sooner, but costs a second verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| TB1 | FB59 built as `INhAssistantMcpLinks.ListAsync(CancellationToken)` returning `NhAssistantMcpLinkList(ChainCallers, ContextBindings)`, registered with `UseMcpLinks<TLinks>()` next to the other MCP registrations of the assistant builder: scoped, a later call replaces an earlier one, resolved in a scope of its own and never in a person's request. | for Lars to review |
+| TB2 | The cache is `NhAssistantMcpOptions.LinkCacheDuration` (`NewHeap:AI:Assistant:Mcp:LinkCacheDuration`): 30 seconds by default, from zero to 5 minutes, on the application's clock (`TimeProvider`), one read at a time; zero reads on every use. | for Lars to review |
+| TB3 | Fail closed: a source that throws or does not answer within `NhAssistantMcpLinkList.ReadTimeLimit` (10 seconds) counts as no stored links for one cache time, so a failing store is not asked on every request; the warning names the source type and the exception type, never the message. | for Lars to review |
+| TB4 | Stored bindings apply only to administrator-connected servers, where the server id and URL are checked; a code-owned import keeps needing `AddMcpContextBinding`. A stored entry that meets a code registration (`code-binding`, or `caller-conflict` for an issuer and client that code names as another application) is left out; two different stored bindings of one server id and tool are both left out (`binding-conflict`); identical duplicates count once. | for Lars to review |
+| TB5 | The assistant names its binder for a stored binding through an internal `HostInvocationBinders` on `NhAiMcpImportOptions`; `NewHeap.Platform.AI.Mcp` grants `InternalsVisibleTo` to `NewHeap.Platform.AI.Chat.AspNet` (same release unit), so AI.Mcp gets no public surface and a code-owned import cannot use the path. | for Lars to review |
+| TB6 | The binder looks the stored binding up again when the call is bound: a binding revoked between the import and the call stops that call with `ai-mcp-binding-failed` instead of sending it without the context. | for Lars to review |
+| TB7 | A left-out entry is logged when its reason first appears (by kind, position, name and reason), not on every read, and the warning shows only a valid application or server id. At most `NhAssistantMcpLinkList.MaxEntries` (1,000) entries per list count. The reasons are public constants (`NhAssistantMcpLinkProblems`). | for Lars to review |
+| TB8 | The sample keeps its reviewed links in configuration (`Sample:Assistant:McpLinks`, with `Revoked` per link) read on every call, instead of a sample table with migrations, which would collide with other lanes' sample migrations; `AddSampleMcpLinks` is always registered. | for Lars to review |
+| TB9 | No audit action was added (123 and 124 stay free): reading or applying a link is not a decision, and a left-out entry or failed read is logged. | for Lars to review |
