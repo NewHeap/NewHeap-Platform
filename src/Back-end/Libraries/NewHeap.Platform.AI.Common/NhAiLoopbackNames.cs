@@ -40,15 +40,6 @@ internal static class NhAiLoopbackNames
         return IPAddress.TryParse(name, out var address) && IsLoopbackAddress(address);
     }
 
-    /// <summary>
-    /// Whether a host name is <c>localhost</c> or a name under <c>.localhost</c>: a name that DNS
-    /// resolves, unlike an IP literal.
-    /// </summary>
-    public static bool IsLocalhostName(string? host)
-    {
-        return IsLoopbackName(host) && !IPAddress.TryParse(host!.Trim().TrimEnd('.'), out _);
-    }
-
     /// <summary>Whether an address is a loopback address, also as an IPv4-mapped IPv6 address.</summary>
     public static bool IsLoopbackAddress(IPAddress address)
     {
