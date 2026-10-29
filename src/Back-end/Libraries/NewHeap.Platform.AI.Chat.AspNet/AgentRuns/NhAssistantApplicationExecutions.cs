@@ -31,7 +31,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// is handed off the same way (LS17). In an agent thread everything above applies. In a person's chat,
 /// which belongs to no subject and has no approvers, the audit names no subject, nobody is notified, no
 /// follow-up run starts, and the conversation hears every close instead: the outcome with its code, and
-/// the summary of a report, as an application message without the trusted flag.
+/// the summary of a report, as an application message without the trusted flag. A report there asks for
+/// the chat's follow-up turn when the tool continues the chat
+/// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>, FB61).
 /// </para>
 /// </summary>
 internal sealed class NhAssistantApplicationExecutions(
@@ -50,7 +52,8 @@ internal sealed class NhAssistantApplicationExecutions(
     IOptions<RequestLocalizationOptions> localization,
     IServiceProvider services,
     ILogger<NhAssistantApplicationExecutions> logger,
-    NhAssistantTenancy tenancy) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
+    NhAssistantTenancy tenancy,
+    NhAssistantChatFollowUps chatFollowUps) : INhAssistantProposalExecutionReports, INhAssistantInlineHandOffs
 {
     /// <summary>
     /// The statuses an inline approval is handed off from: the person's decision just approved it.
@@ -299,7 +302,7 @@ internal sealed class NhAssistantApplicationExecutions(
         // as headless runs and executions do.
         using var culture = NhAssistantRunCulture.Use(localization.Value);
         if (approval.Status == NhAssistantApprovalStatuses.AwaitingApplication
-            && await CloseReportedAsync(approval, home, report.Outcome, report.Code, summary) is { } closed)
+            && await CloseReportedAsync(approval, home, report.Outcome, report.Code, summary, reported: true) is { } closed)
         {
             return TaskResult<NhAssistantExecutionReportReceipt>.Succeeded(ReceiptOf(closed, duplicate: false));
         }
@@ -446,7 +449,7 @@ internal sealed class NhAssistantApplicationExecutions(
                 current.Id,
                 current.ToolId,
                 code);
-            await CloseReportedAsync(current, home, NhAssistantExecutionOutcome.Failed, code, null);
+            await CloseReportedAsync(current, home, NhAssistantExecutionOutcome.Failed, code, null, reported: false);
             return new NhAssistantHandOffOutcome(NhAssistantApprovalStatuses.ExecutionFailed, code, dueAt);
         }
 
@@ -485,12 +488,15 @@ internal sealed class NhAssistantApplicationExecutions(
     /// Closes a waiting proposal with the application's report, once; <see langword="null"/> when it no
     /// longer waits.
     /// </summary>
+    /// <param name="reported">The application reported (<see cref="ReportExecutionAsync"/>); not for an
+    /// executor's refusal, which the person's own turn tells.</param>
     private async Task<AssistantApproval?> CloseReportedAsync(
         AssistantApproval approval,
         ExecutionHome home,
         NhAssistantExecutionOutcome outcome,
         string code,
-        string? summary)
+        string? summary,
+        bool reported)
     {
         var status = NhAssistantApplicationExecutionCodes.StatusOf(outcome);
         var closed = await runs.TryTransitionApprovalAsync(
@@ -527,6 +533,11 @@ internal sealed class NhAssistantApplicationExecutions(
             using (UseChatCulture(current))
             {
                 await PostAsync(current, home, ReportText(outcome, code, summary), "execution-report-");
+            }
+
+            if (reported)
+            {
+                await ContinueChatAsync(current, home);
             }
 
             return current;
@@ -674,6 +685,43 @@ internal sealed class NhAssistantApplicationExecutions(
                 approval.Id,
                 NhAssistantResults.CodeOf(posted, NhAssistantErrorCodes.MessageInvalid));
         }
+    }
+
+    /// <summary>
+    /// Asks for the follow-up turn of a person's chat after the application's report, when the tool
+    /// continues the chat (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>).
+    /// A chat that runs a turn or waits for a decision or an answer keeps it: nothing starts, the audit says
+    /// why, and the report waits there for the person's next message. That also holds for a report the
+    /// executor made while it took the hand-off, which the turn that approved tells itself.
+    /// </summary>
+    private async Task ContinueChatAsync(AssistantApproval approval, ExecutionHome home)
+    {
+        if (!registration.TryGetApplicationExecution(approval.ToolId, out var execution) || !execution.ContinueChatAfterReport)
+        {
+            return;
+        }
+
+        var conversation = await store.FindShareableConversationAsync(home.ConversationId, CancellationToken.None);
+        if (conversation is null)
+        {
+            return;
+        }
+
+        if (conversation.Status is NhAssistantConversationStatuses.Running or NhAssistantConversationStatuses.WaitingForApproval)
+        {
+            await events.ChatFollowUpAsync(
+                approval,
+                conversation.AgentId,
+                conversation.AgentVersion,
+                approval.InitiatorActorId ?? NhAssistantSpeakers.ApplicationActorId,
+                null,
+                conversation.Status,
+                NhAssistantDecisionChannels.ExecutionReport,
+                CancellationToken.None);
+            return;
+        }
+
+        chatFollowUps.Request(conversation.Id, approval.Id);
     }
 
     private async Task FollowUpAsync(AssistantApproval approval, AssistantThread thread)

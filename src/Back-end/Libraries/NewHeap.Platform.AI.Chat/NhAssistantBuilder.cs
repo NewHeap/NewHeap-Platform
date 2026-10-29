@@ -844,7 +844,9 @@ public sealed class NhAssistantBuilder
     /// Declares that the application executes the approved proposals of tool <paramref name="toolId"/>
     /// itself, as <see cref="ExecuteInApplication(string, TimeSpan)"/> does, with the options of
     /// <paramref name="configure"/>, such as <see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>,
-    /// which hands a person's inline approval in their own conversation to the application too.
+    /// which hands a person's inline approval in their own conversation to the application too, and
+    /// <see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>, which continues that
+    /// person's chat after the application's report.
     /// </summary>
     /// <param name="toolId">The tool's exact id, such as <c>projects.order-hardware</c>; no selector.</param>
     /// <param name="reportWithin">How long the application may take to report after a hand-off: longer
@@ -870,9 +872,17 @@ public sealed class NhAssistantBuilder
 
         var options = new NhAssistantApplicationExecutionBuilder();
         configure(options);
+        if (options.ContinuesChat && !options.HandsOffInline)
+        {
+            // A chat's approvals reach the application only with AlsoInline, so nothing would continue.
+            throw new InvalidOperationException(
+                $"Tool '{toolId}' continues a person's chat after a report, which needs AlsoInline: without it a chat's approval runs the tool's function.");
+        }
+
         _state.AddApplicationExecution(new NhAssistantApplicationExecution(toolId, reportWithin)
         {
-            AlsoInline = options.HandsOffInline
+            AlsoInline = options.HandsOffInline,
+            ContinueChatAfterReport = options.ContinuesChat
         });
         return this;
     }

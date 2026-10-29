@@ -186,6 +186,14 @@ public static partial class NhAssistantDecisionChannels
     public const string Web = "web";
 
     /// <summary>
+    /// The follow-up turn that the application's execution report starts in a person's chat
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>), which nobody typed:
+    /// every audit event of that turn records it, and its tools, policies and turn context providers find it
+    /// on <see cref="NhAiInvocationContext.Channel"/>.
+    /// </summary>
+    public const string ExecutionReport = "execution-report";
+
+    /// <summary>
     /// The most characters of a channel.
     /// </summary>
     public const int MaxLength = 50;

@@ -136,7 +136,10 @@ public interface INhAssistantProposalExecutionReports
     /// becomes the proposal's execution result; the content-free audit records the outcome and the code,
     /// never the summary. The subject's approvers are notified, the summary is posted into the agent's
     /// thread as an application message that the model reads as information, never as instructions, and
-    /// the follow-up run starts when the approval policy asks for one.
+    /// the follow-up run starts when the approval policy asks for one. In a person's chat
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>) the outcome is posted there, and a
+    /// tool declared with <see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/> then
+    /// continues the chat with one turn that can only propose; the call does not wait for that turn.
     /// <para>
     /// The application reports as application code, within one tenant: a report reaches a proposal of
     /// <see cref="NhAssistantExecutionReport.TenantId"/>, or of the whole application when that tenant
@@ -310,6 +313,14 @@ public static class NhAssistantApplicationExecutionCodes
     public const string ReportOverdue = "report-overdue";
 
     /// <summary>
+    /// The result of <see cref="NhAssistantAuditEventKind.ChatFollowUpSkipped"/> when a person's chat has a
+    /// newer message than the report by the time its follow-up turn would start
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>): a person or another
+    /// turn already went on, so nothing is left to continue.
+    /// </summary>
+    public const string ChatAnswered = "chat-answered";
+
+    /// <summary>
     /// The audit code of <paramref name="outcome"/>.
     /// </summary>
     public static string Of(NhAssistantExecutionOutcome outcome)
@@ -369,6 +380,43 @@ public sealed class NhAssistantApplicationExecutionBuilder
         HandsOffInline = enabled;
         return this;
     }
+
+    internal bool ContinuesChat { get; private set; }
+
+    /// <summary>
+    /// Continues a person's chat once the application reported the execution of a proposal approved there
+    /// (FB61), so the person picks the work up again without asking, for example after a publication that
+    /// took hours. Off by default: the report is only posted. It applies to a person's own chat; an agent
+    /// thread follows the approval policy's <c>StartFollowUpRun</c>, and a request in an agent thread gets
+    /// nothing more. It needs <see cref="AlsoInline"/>, which hands a chat's approvals to the application;
+    /// a declaration without it is refused.
+    /// <para>
+    /// After a report of any outcome (<see cref="INhAssistantProposalExecutionReports.ReportExecutionAsync"/>),
+    /// one service turn starts in the chat after a short wait, so reports that arrive together reach one turn.
+    /// It runs with the rights of the person whose turn made the proposal, never with another person's: their
+    /// principal is rebuilt with the application's <c>INhAiPrincipalFactory</c> and resolved with the
+    /// application's context resolver, in the active division that turn worked in, and must pass the
+    /// assistant's access policy and the agent's policy, as for a message of theirs. It can only propose: every
+    /// tool effect other than a read needs that person's approval in the chat, whatever the effect policy
+    /// says, and a proposal waits for their decision like any other. The report stays information for the
+    /// model, never instructions, and no turn can decide a proposal. The turn's audit events name the channel
+    /// <c>execution-report</c>, and <see cref="NhAssistantAuditEventKind.ChatFollowUpStarted"/> records the
+    /// start.
+    /// </para>
+    /// <para>
+    /// Nothing starts while the chat runs a turn or waits for a decision or an answer, or when it has a newer
+    /// message than the report: <see cref="NhAssistantAuditEventKind.ChatFollowUpSkipped"/> records why, the
+    /// report stays in the chat and the person's next message reads it. A hand-off the executor refuses or
+    /// that throws is told within the person's own turn, and a passed report deadline is no report, so
+    /// neither starts a turn. The wait is kept in the process: a host that stops before it ends starts
+    /// nothing.
+    /// </para>
+    /// </summary>
+    public NhAssistantApplicationExecutionBuilder ContinueChatAfterReport(bool enabled = true)
+    {
+        ContinuesChat = enabled;
+        return this;
+    }
 }
 
 /// <summary>
@@ -389,4 +437,10 @@ internal sealed record NhAssistantApplicationExecution(string ToolId, TimeSpan R
     /// (<see cref="NhAssistantApplicationExecutionBuilder.AlsoInline"/>), instead of running its function.
     /// </summary>
     public bool AlsoInline { get; init; }
+
+    /// <summary>
+    /// A report of a proposal approved in a person's chat starts one follow-up turn there
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>).
+    /// </summary>
+    public bool ContinueChatAfterReport { get; init; }
 }

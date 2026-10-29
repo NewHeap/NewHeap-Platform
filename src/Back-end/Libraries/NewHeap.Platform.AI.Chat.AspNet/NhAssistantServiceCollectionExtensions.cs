@@ -166,6 +166,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantProposalExecutionReports>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
             // A person's inline approval of a tool declared with AlsoInline is handed off the same way (LS17).
             services.TryAddScoped<Runs.INhAssistantInlineHandOffs>(provider => provider.GetRequiredService<NhAssistantApplicationExecutions>());
+            // The report of such an approval continues the person's chat with ContinueChatAfterReport (FB61).
+            services.TryAddSingleton<NhAssistantChatFollowUps>();
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();
             services.TryAddScoped<NhAssistantRunCancellation>();

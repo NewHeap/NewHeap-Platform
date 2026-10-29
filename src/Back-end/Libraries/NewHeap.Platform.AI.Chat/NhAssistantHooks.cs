@@ -470,7 +470,29 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>assistant-proposal-recorded</c>. Never the
     /// arguments or the presentations. A repeat with the same key records nothing.
     /// </summary>
-    AgentProposalRecordedForPerson = 120
+    AgentProposalRecordedForPerson = 120,
+
+    /// <summary>
+    /// The application's report of a proposal approved in a person's chat started a follow-up turn there
+    /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>), which nobody typed.
+    /// <see cref="NhAssistantAuditEvent.TurnId"/> is that turn; <see cref="NhAssistantAuditEvent.ActorId"/> and
+    /// <see cref="NhAssistantAuditEvent.InitiatorActorId"/> are the person whose rights it runs with, the one
+    /// whose turn made the proposal; <see cref="NhAssistantAuditEvent.ApprovalId"/> is the reported proposal,
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> its status after the report and
+    /// <see cref="NhAssistantAuditEvent.Channel"/> <c>execution-report</c>, which every event of the turn names.
+    /// </summary>
+    ChatFollowUpStarted = 121,
+
+    /// <summary>
+    /// A report of a proposal approved in a person's chat started no follow-up turn there.
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> says why: <c>running</c> or <c>waiting-for-approval</c>
+    /// for a chat that runs a turn or waits for a decision or an answer,
+    /// <see cref="NhAssistantApplicationExecutionCodes.ChatAnswered"/> for a chat with a newer message, or the
+    /// code a message of that person would get, such as <c>assistant-context-unavailable</c> when their
+    /// principal cannot be rebuilt or <c>assistant-agent-forbidden</c> when they fail the assistant's or the
+    /// agent's policy. <see cref="NhAssistantAuditEvent.TurnId"/> is empty.
+    /// </summary>
+    ChatFollowUpSkipped = 122
 }
 
 /// <summary>
