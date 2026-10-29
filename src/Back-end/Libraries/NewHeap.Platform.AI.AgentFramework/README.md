@@ -10,7 +10,11 @@ concurrency, and verification pipeline.
 `NhAiAgentCreateRequest.ChatHistoryProviderFactory` and `AIContextProvidersFactory` give the agent
 an Agent Framework `ChatHistoryProvider` and `AIContextProvider`s of the application's choice, such as
 an `InMemoryChatHistoryProvider` or memory and compaction. Every model call still crosses the governed
-client, and a context provider that adds a tool fails the run before the model is called. A failed
+client, and a context provider that adds a tool fails the run before the model is called. Next to such
+a history provider the run fails by default when the model service keeps the conversation itself, as
+the OpenAI Responses API does; `ThrowOnChatHistoryProviderConflict`, `WarnOnChatHistoryProviderConflict`
+and `ClearOnChatHistoryProviderConflict` set Agent Framework's switches of the same names, with its
+defaults. Switch the error off only where conversation data may live at the model provider. A failed
 governed call throws `NhAiAgentModelCallException`, whose `Code` keeps the failure code, such as
 `ai-model-timeout`; the caller's own cancellation still throws `OperationCanceledException`.
 

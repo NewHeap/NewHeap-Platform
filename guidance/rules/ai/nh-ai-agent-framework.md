@@ -5,7 +5,7 @@ area: backend
 reference: ai-agent-framework
 summary: "Adapt named NewHeap model profiles and generated tool catalogs to Microsoft Agent Framework without moving identity, authorization, approval, or provider ownership into the framework layer."
 sample-cases: ["SPM-225", "SPM-236"]
-public-symbols: ["INhAiAgentFrameworkAdapter", "INhAiAgentFrameworkWorkflowCheckpointAdapter", "NhAiAgentCreateRequest", "NhAiAgentDescriptor", "NhAiAgentFrameworkServiceCollectionExtensions", "NhAiAgentInstance", "NhAiAgentModelCallException", "NhAiAutonomyLevel", "ChatHistoryProviderFactory", "AIContextProvidersFactory"]
+public-symbols: ["INhAiAgentFrameworkAdapter", "INhAiAgentFrameworkWorkflowCheckpointAdapter", "NhAiAgentCreateRequest", "NhAiAgentDescriptor", "NhAiAgentFrameworkServiceCollectionExtensions", "NhAiAgentInstance", "NhAiAgentModelCallException", "NhAiAutonomyLevel", "ChatHistoryProviderFactory", "AIContextProvidersFactory", "ThrowOnChatHistoryProviderConflict", "WarnOnChatHistoryProviderConflict", "ClearOnChatHistoryProviderConflict"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["provider-neutral"]
 risk: high
@@ -54,6 +54,21 @@ the governed client, and a context provider that adds a tool fails the run with
 `InvalidOperationException` before the model is called, because such a tool would bypass discovery,
 autonomy and the invoker. Without a factory the agent keeps Agent Framework's default.
 
+A model service may keep the conversation itself, as the OpenAI Responses API does: its answer
+carries a conversation id. Next to a history provider from `ChatHistoryProviderFactory`, Agent
+Framework then fails the run after the model call with "Only ConversationId or ChatHistoryProvider".
+History the service keeps lives at the model provider, outside the application's retention and
+forgetting, so keep that error unless the deployment's conversation data may live there. Such a
+deployment sets `NhAiAgentCreateRequest.ThrowOnChatHistoryProviderConflict` to `false`; the session
+then follows the service's conversation id, and after that first answer the provider is neither read
+nor written for it. `WarnOnChatHistoryProviderConflict` logs a warning on each such run, through the
+logger factory the model client offers, and `ClearOnChatHistoryProviderConflict` removes the provider
+from the agent instance, so that its later sessions do not use it either. The three switches map one
+to one onto Agent Framework's `ChatClientAgentOptions` and keep its defaults, all `true`. An agent
+without a history provider of its own needs no switch. The model call still crosses the governed
+client, but the input estimate of its budget reservation counts only the messages sent, not the
+history the service keeps.
+
 The agent's chat client can only answer or throw, so a failed governed call, a stream that could not
 start and a failed stream completion throw `NhAiAgentModelCallException`, an
 `InvalidOperationException` whose `Code` keeps the result's failure code, such as
@@ -81,6 +96,7 @@ upgrade starts a new lineage rather than coercing old state.
 - Passing locally visible tools to Agent Framework without `Agent` discovery.
 - Passing a raw catalog function or raw keyed model client around NewHeap governance.
 - Publishing tools through an AI context provider instead of a governed tool catalog.
+- Switching off `ThrowOnChatHistoryProviderConflict` where conversation data may not live at the model provider.
 - Telling a model timeout from cancellation by the exception type; read `NhAiAgentModelCallException.Code`.
 - Adding Microsoft Agent Framework or provider dependencies to AI Common.
 - Persisting authoritative run state only in conversation history.
@@ -97,7 +113,9 @@ telemetry contains versions and outcomes only. Invoke the constructed agent and
 prove a budget reservation and usage record occur. With a supplied history provider, prove the
 model receives its history through the governed client and the provider stores the run's messages;
 with a context provider, prove a governed tool still runs through the governed client and that a
-provider which adds a tool fails the run before the model is called. Let a call pass a short profile
+provider which adds a tool fails the run before the model is called. Let a deterministic client answer
+with a conversation id next to a history provider: the run fails by default, and with
+`ThrowOnChatHistoryProviderConflict` off the next question reaches the model alone with that id. Let a call pass a short profile
 timeout and assert `NhAiAgentModelCallException.Code` `ai-model-timeout` for a run and a stream. Reject an ungoverned catalog
 and return a failed creation result for expected profile resolution failure.
 Verify workflow references retain
