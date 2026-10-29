@@ -758,6 +758,15 @@ Activity lists a script call with its calls as it does a composition's.
 `AssistantScriptSamplesTests` switches scripts on in the portal's setting and runs both on the sample's
 host.
 
+A date and a time of day are strings in every tool contract (SPM-375). `projects.due-by`
+(`ProjectDeadlineAiTools`) lists the open projects due on or before a day, optionally before a time on
+it, in UTC; its input has a `DateOnly` and a `TimeOnly`, and the generated schema writes them as strings
+with the formats `date` and `time`, exactly as System.Text.Json reads and writes them. A script sees
+`dueBy: string /* date */` and `before?: string /* time */ | null`, passes `"2026-11-01"` and `"12:00"`,
+and the tool receives the date and time it meant; a date in another form, such as `"1 November 2026"`,
+stops the script at `dueBy` before the tool runs. `AssistantScriptSamplesTests` seeds deadlines in the
+host's PostgreSQL database and runs both scripts.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports

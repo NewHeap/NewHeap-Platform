@@ -6551,5 +6551,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
     ]
+  },
+  {
+    "id": "SPM-375",
+    "title": "A script passes a due date and a time of day to a generated tool as the strings the tool reads",
+    "category": "AI tools and generated catalogs",
+    "surface": "The generated schema of DateOnly ({\"type\":\"string\",\"format\":\"date\"}) and TimeOnly ({\"type\":\"string\",\"format\":\"time\"}), nullable and in lists, of NewHeap.Platform.AI.Generators; the script signatures string /* date */ and string /* time */ of NhAiScriptSignatures and its call check, which accepts yyyy-MM-dd and HH:mm[:ss[.fffffff]] and otherwise stops with ai-script-call-invalid and the field error; the same formats from the MVC bridge's JsonSchemaExporter and from AIJsonUtilities for composed tools",
+    "outcome": "The sample's `projects.due-by` tool (`ProjectDeadlineAiTools`, registered with `AddSampleProjectDeadlines`) lists the open projects of the active division whose deadline falls on or before a day, optionally before a time of day on it, both in UTC. Its input has a `DateOnly` and a nullable `TimeOnly`, its output a `DateOnly` and a `TimeOnly` per project, and the generated schema describes them as the strings System.Text.Json reads and writes, so the project assistant's script sees `projects_due_by_v1(input: { before?: string /* time */ | null; dueBy: string /* date */; limit: number })` with `dueDate: string /* date */; dueTime: string /* time */` in its result. A script that passes `\"2026-11-01\"` and `\"12:00\"` reaches the tool, which reads them as a `DateOnly` and a `TimeOnly` and queries PostgreSQL with them: the project due at noon, a completed project and another division's project stay out, and the script returns `DUE-1 2026-10-30 15:00:00` and `DUE-2 2026-11-01 09:30:00`. A script that passes `\"1 November 2026\"` stops with `ai-script-call-invalid` at `dueBy` with `expected a date string yyyy-MM-dd` and the exact signature, and the tool never runs. Before the fix the generator described both types as objects of their public properties, all required, which no script or model could pass. The library tests prove the generated schema with and without a serializer context, that it equals what System.Text.Json's schema exporter and `AIJsonUtilities` write and what the MVC bridge publishes, that a generated function binds `\"14:30\"` and `\"16:45:30.5\"` and writes them back as `\"14:30:00\"` and `\"16:45:30.5000000\"`, every accepted and refused date and time string of the call check, and that a generated tool receives the date and time a script passed.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDeadlineAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDeadlinesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolDateSchemaTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptDateTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeSchemaTests.cs"
+    ]
   }
 ] as const;
