@@ -168,7 +168,12 @@ internal sealed partial class DatabaseReadMySqlTestServer
                 .Build();
             _container = unsupported;
             await unsupported.StartAsync();
-            return WithoutDatabase(unsupported.GetConnectionString());
+            // This fixture proves version rejection, not TLS compatibility. The legacy server's
+            // TLS handshake fails with current Linux clients before the provider can read its version.
+            return new MySqlConnectionStringBuilder(WithoutDatabase(unsupported.GetConnectionString()))
+            {
+                SslMode = MySqlSslMode.None
+            }.ConnectionString;
         }
 
         if (Flavor == DatabaseReadMySqlFlavor.MySql)
