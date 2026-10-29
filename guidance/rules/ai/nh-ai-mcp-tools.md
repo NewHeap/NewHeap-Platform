@@ -5,7 +5,7 @@ area: backend
 reference: ai-mcp-tools
 summary: "Adapt an explicitly MCP-exposed generated NewHeap catalog through the official SDK without duplicating domain code or bypassing discovery and invocation authorization."
 sample-cases: ["SPM-222", "SPM-240", "SPM-362", "SPM-370", "SPM-371"]
-public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions", "INhAiChangingToolCatalog", "NhAiToolCatalogViews", "NhAiMcpExposureBuilder", "NhAiMcpProtectedResourceOptions", "NhAiMcpProtectedResourceDefaults", "NhAiMcpProtectedResourceTokenValidatedContext"]
+public-symbols: ["INhAiMcpToolAdapter", "WithNewHeapPlatformAITools", "CallNewHeapToolAsync", "CallNewHeapFlatToolAsync", "NhAiMcpToolException", "NhAiMcpResultMetadata", "NhAiToolAnnotationHints", "NhAiToolExportSchema", "NhAiToolHint", "NhAiToolJsonSerializerOptions", "INhAiChangingToolCatalog", "NhAiToolCatalogViews", "NhAiMcpExposureBuilder", "NhAiMcpProtectedResourceOptions", "NhAiMcpProtectedResourceDefaults", "NhAiMcpProtectedResourceTokenValidatedContext", "AuthenticationSchemeFor", "AuthorizationPolicyFor", "NhAiCallerCredentials", "MarkNotForwardable", "IsNotForwardable"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -45,7 +45,27 @@ resource's path) and at the root. It answers an MCP request without a valid toke
 `error="invalid_token"` when the request sent a token, and accepts only JWT access tokens
 of those servers whose audience is the resource (RFC 8707), validated with the keys their
 metadata publishes. The authorization server, the registration of clients and the consent
-stay the host's; NewHeap is not an authorization server.
+stay the host's; NewHeap is not an authorization server. `Resource` and every authorization
+server use https, except a loopback name: `localhost`, a `.localhost` name (RFC 6761) or a
+loopback IP literal, the same rule the assistant's OAuth options and its outbound guard follow
+(`nh-ai-assistant`). An authorization server on such a name may publish its metadata and keys
+over http.
+
+A host with more than one MCP entry, for example `/mcp` for AI apps and `/partners/mcp` for
+other applications, gives each further entry a named protected resource:
+`exposure.UseProtectedResource("partners", resource => ...)` next to the default
+`UseProtectedResource(...)`. A named resource has everything of its own: the scheme
+`NhAiMcpProtectedResourceDefaults.AuthenticationSchemeFor(name)`, the policy
+`AuthorizationPolicyFor(name)` to map its endpoint with
+(`MapMcp("/partners/mcp").RequireAuthorization(NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor("partners"))`),
+its `Resource` as the only audience it accepts, its authorization servers, scopes, host schemes and
+`OnTokenValidated`, and its metadata at the well-known address of its own resource URL. Each
+resource authenticates only on endpoints that require its own policy and accepts only tokens for
+its own resource, so a token for one entry never signs in at another, even when the same
+authorization server issued both. The default resource keeps the root metadata address; a name has
+lowercase letters, digits and dashes and starts with a letter (at most 64 characters). Registration
+refuses a second resource with the same name, resource URL or metadata address, and a host scheme
+that is a protected resource's scheme.
 
 Compositions and the script tool, tools whose descriptor names a
 `CompositionFeature`, are part of the exposure only when it opts in:
@@ -75,7 +95,15 @@ A token for the resource is never passed on. `INhAiCallerCredentialAccessor` ret
 token for such a request, so an API bridge tool, which calls the application's own API with
 the caller's token, fails with `api-bridge-unauthenticated` over it; expose generated or
 code-owned tools to these clients. The token signs in nowhere else either: the scheme
-authenticates only on endpoints that require the policy.
+authenticates only on endpoints that require the policy. The same holds for every named
+resource. When an MCP entry's tokens are validated by a scheme of the application's own
+instead, for example one named in `AcceptHostSchemes` for an identity provider whose tokens name
+the entry as their audience, call `NhAiCallerCredentials.MarkNotForwardable(context.HttpContext, issuer)`
+from that scheme's `OnTokenValidated`: the accessor then returns no token for the request, as it
+does for a protected resource's token, so neither the API bridge nor a `forward-user-token` MCP
+server gets it. The mark lasts for the request and cannot be removed; an accessor of the
+application's own checks `NhAiCallerCredentials.IsNotForwardable(httpContext)`. Prefer a named
+protected resource, which marks its tokens itself.
 
 Behind a reverse proxy, `Resource` is the public URL, which may differ from the app's own
 route. The metadata is served at the well-known address of the public path, matched against
@@ -248,7 +276,11 @@ from a stale list fails with `ai-tool-not-authorized` and runs nothing.
 - Returning credentials, internal exception text, prompts, or raw audit content over MCP.
 - Using MCP Tasks as NewHeap's authoritative durable-operation store.
 - Passing an MCP client's access token on to the application's own API or another
-  server; it is for the MCP resource only.
+  server; it is for the MCP resource only. A scheme of the application's own that validates
+  tokens for an MCP entry marks them with `NhAiCallerCredentials.MarkNotForwardable`.
+- Giving a second MCP entry the same protected resource, or a resource with several resource
+  identifiers, so that a token for one entry is valid at the other; give it a named protected
+  resource with an audience of its own.
 - Accepting a token at the MCP endpoint whose audience is not the resource, for example
   through a host scheme that trusts the same authorization server without an audience.
 - Building an authorization server, client registration or consent into the MCP
@@ -288,7 +320,14 @@ token and `error="invalid_token"` with an invalid, expired (`NhAiTestAuthorizati
 with an issue time) or foreign-audience token, that a token for the resource signs in while a
 token of the same server for another audience never reaches a host scheme, that the token is
 never passed on, that a person without rights meets the tools' own refusals, and that a host
-without the option serves no metadata and keeps its own challenge. Prove a round trip in
+without the option serves no metadata and keeps its own challenge. With a named resource next to
+the default one, assert per resource that its metadata and challenge are its own, that the root
+address stays the default resource's, that a token for one resource never signs in at the other
+although the same authorization server issued both, and that a second resource with the same
+name, resource URL or metadata address is refused. Assert that a token an application's own scheme
+marked with `MarkNotForwardable` reaches neither the API bridge nor a `forward-user-token` server
+while an unmarked token still does, and that `localhost`, `.localhost` names and loopback IP
+literals are the only names for which the resource accepts http. Prove a round trip in
 which a client that follows the MCP authorization flow, such as the MCP SDK client or the
 assistant's own client, discovers the exposure, registers and signs in at
 `NhAiTestAuthorizationServer`. For an exposure with `AllowCompositions` or `AllowScripts`, assert

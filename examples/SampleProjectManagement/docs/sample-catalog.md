@@ -536,8 +536,11 @@ version of the advisor, audited as `AdminMcpServerAssignmentChanged`. With
 SPM-320 and which version each uses, and with `GetPackageAsync` and `ReadAsync` of
 `INhAssistantAgentPackages` it compares a shipped package with the host's agents without exporting them.
 A test host of the environment `Testing` reaches the milestones server on loopback only with
-`NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. `AssistantOperationsSamplesTests`
-runs the case.
+`NewHeap:AI:Assistant:Mcp:AllowLoopback`, which Production refuses. Loopback means one thing
+throughout: `localhost`, a `.localhost` name such as `milestones.dev.localhost`, or a loopback IP
+literal, for MCP servers, OAuth URLs and the OAuth options alike, and plain http to such a name only
+when every address it resolves to is a loopback address; a look-alike such as
+`milestones.localhost.example.org` needs https. `AssistantOperationsSamplesTests` runs the case.
 
 Once the application publishes version 2 of the risk review's text, the operations code proposes it to
 every live data skill that still names version 1 (SPM-351). `ProposeRiskReviewVersionAsync` calls
@@ -748,6 +751,15 @@ on to the API's own endpoints. The API's own clients keep calling `/mcp` with th
 without the section `/mcp` stays as it was. `McpSignInSamplesTests` runs the official MCP SDK
 client through the whole flow against a stand-in authorization server; the authorization server, the
 registration of clients and the consent stay the application's.
+Other applications get an MCP endpoint of their own, `/applications/mcp`, with
+`SampleProjectManagement:McpSignIn:Applications`: a named protected resource
+(`UseProtectedResource("applications", ...)`) with its own audience, scopes and metadata, mapped behind
+`NhAiMcpProtectedResourceDefaults.AuthorizationPolicyFor("applications")`. The same authorization server
+issues the tokens of both endpoints, but a token for one never signs in at the other, and the root
+metadata address stays the one of `/mcp`. As an alternative for an identity provider whose tokens for
+`/mcp` the application validates with a scheme of its own, `:ServiceTokens` adds that scheme next to the
+NewHeap token; it marks each token with `NhAiCallerCredentials.MarkNotForwardable`, so the service works
+as its linked account while its token, like the tokens of both protected resources, is never passed on.
 
 Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
 assistant settings page stores it per environment and agent in the portal's table

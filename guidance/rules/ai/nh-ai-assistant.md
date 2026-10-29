@@ -200,7 +200,9 @@ assistant does not know answers `NhAssistantHttpStatuses.UnknownCodeStatus` (`40
   a change of the URL's origin (scheme, host or port), of the authentication mode or of the `api-key`
   header clears the stored secret and the `secretReference`, and the save needs one of them again
   (`secret: required`); a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
-  allow-listed hosts. Synced tools start disabled as approval-required mutations;
+  allow-listed hosts, and never gets a token marked as never passed on: the token of an MCP protected
+  resource, or one an application's own scheme marked with `NhAiCallerCredentials.MarkNotForwardable`
+  (`nh-ai-mcp-tools`). Synced tools start disabled as approval-required mutations;
   administrators activate them and may mark them read-only, and a changed input
   schema disables a tool again. The reviewed settings of a tool that no sync has seen yet, such as
   a tool of a server the host cannot reach yet, are stored with `PUT admin/mcp-servers/{id}/tools/{remoteName}`
@@ -252,12 +254,18 @@ assistant does not know answers `NhAssistantHttpStatuses.UnknownCodeStatus` (`40
   the server's spelling when only the case differs, makes it `available` with its settings and audits
   `AdminMcpToolSeenAfterReview` (`enabled` when its agents are offered it from now on); a sync that
   does not see it leaves it waiting (SPM-346).
-- **Loopback MCP servers in tests.** Loopback (`localhost`, `127.0.0.0/8`, `::1`) is allowed in
-  Development. A test host of another environment, such as `Testing`, that runs an MCP server on
+- **Loopback MCP servers in tests.** Loopback is allowed in Development. A loopback name is
+  `localhost`, a `.localhost` name (RFC 6761) such as `auth.dev.localhost`, or a loopback IP literal
+  (`127.0.0.0/8`, `::1`): the same rule as the MCP protected resource's (`nh-ai-mcp-tools`), for MCP
+  servers, the OAuth URLs that discovery, registration and the token endpoint use, and the OAuth
+  options alike. Plain http to a loopback name connects only when every address the name resolves to
+  is a loopback address, so a `.localhost` name that DNS sends elsewhere is blocked
+  (`assistant-mcp-host-blocked`); where loopback is not allowed, a loopback name is blocked over https
+  too. A test host of another environment, such as `Testing`, that runs an MCP server on
   `127.0.0.1` sets `NhAssistantMcpOptions.AllowLoopback` (`NewHeap:AI:Assistant:Mcp:AllowLoopback`,
   off by default); a Production host with it on does not start. Link-local addresses and cloud
   metadata hosts stay blocked with it, and the OAuth `RedirectUri`, `ClientUri` and `ReturnOrigins`
-  may then be http on loopback too.
+  may then be http on loopback too (SPM-331).
 - **MCP credentials.** Besides `none`, `bearer`, `api-key` and `forward-user-token`,
   a server can use `basic` (`userName` plus the write-only secret as password). A
   secret is stored with Data Protection or named by `secretReference`:
