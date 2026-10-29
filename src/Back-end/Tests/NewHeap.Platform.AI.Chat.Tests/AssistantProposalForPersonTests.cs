@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -27,7 +29,9 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// and the policy copy, the guards and their keys, duplicates and the rejection cooldown, presentations the
 /// application prepared (refused, never dropped, over the limits) and an idempotency key. The proposal waits
 /// in the agent's thread at the subject, four eyes keep the person out, the audit records a kind of its own,
-/// and it executes with the person's rights only. Both relational providers, because the proposals persist.
+/// and it executes with the person's rights only. Agent work being off on the host does not refuse recording
+/// it, while its execution waits until agents work again. Both relational providers, because the proposals
+/// persist.
 /// </summary>
 public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -268,7 +272,61 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
         Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalRecordedForPerson);
     }
 
-    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, bool guard = false)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_recorded_while_agent_work_is_off_is_held_after_approval_and_executes_with_the_persons_rights_once_it_is_on(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var clock = new AssistantTestClock(DateTimeOffset.UtcNow);
+        await using var host = await CreateHostAsync(provider, clock: clock);
+        var work = host.Services.GetRequiredService<AgentWorkSwitch>();
+        var operations = host.Services.GetRequiredService<RecordingOperations>();
+
+        // Recording the proposal is the application acting for the person, as in their chat: agent work
+        // being off does not refuse it.
+        work.AgentWork = false;
+        var proposed = await ProposeAsync(host, Request(Proposer, projectId, "OnHold"));
+        Assert.True(proposed.Success, CodeOf(proposed));
+        Assert.Equal(
+            (NhAssistantProposeOutcome.Created, NhAssistantApprovalStatuses.Pending),
+            (proposed.Data!.Outcome, proposed.Data.Status));
+        var approval = await FindAsync(host, proposed.Data.ApprovalId!.Value);
+        Assert.True(NhAssistantPersonProposals.IsPersonProposal(approval));
+        Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalRecordedForPerson);
+
+        // Its execution is agent work: people decide, the approval queues nothing, and an execution that
+        // runs anyway holds the proposal, as for any approved proposal of an agent's thread. The
+        // application's clock moves past the proposal's contract, which was generated on the system clock.
+        clock.Advance(TimeSpan.FromMinutes(1));
+        var decided = await DecideAsync(host, approval, SecondApprover);
+        Assert.True(decided.Success, CodeOf(decided));
+        Assert.DoesNotContain(approval.Id, operations.Executions);
+        await ExecuteAsync(host, approval.Id);
+        var held = await FindAsync(host, approval.Id);
+        Assert.Equal((NhAssistantApprovalStatuses.Approved, (Guid?)null), (held.Status, held.ExecutionOperationId));
+        Assert.Empty(host.Tools.StatusChanges);
+
+        // The maintenance job queues nothing while agent work is off, and the held proposal once it is on.
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var maintenance = host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
+        await maintenance.RunOnceAsync(CancellationToken.None);
+        Assert.DoesNotContain(approval.Id, operations.Executions);
+
+        work.AgentWork = true;
+        await maintenance.RunOnceAsync(CancellationToken.None);
+        Assert.Contains(approval.Id, operations.Executions);
+
+        // It executes with the person's rights only, once.
+        await ExecuteAsync(host, approval.Id);
+        var executed = await FindAsync(host, approval.Id);
+        Assert.Equal((NhAssistantApprovalStatuses.Executed, (string?)null), (executed.Status, executed.ExecutionResultCode));
+        var change = Assert.Single(host.Tools.StatusChanges);
+        Assert.Equal((projectId, "OnHold"), (change.ProjectId, change.Status));
+        Assert.Equal(NhAiGrantSource.Delegated, host.Tools.Contexts.Last().GrantSource);
+    }
+
+    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, bool guard = false, AssistantTestClock? clock = null)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -276,6 +334,14 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
             new NewHeap.Platform.AI.Test.NhAiScriptedChatClient(),
             configure: services =>
             {
+                // Agent work can be switched off at runtime, as a reloaded configuration does; it is on by default.
+                services.AddSingleton<AgentWorkSwitch>();
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<NhAssistantOptions>>(provider =>
+                    provider.GetRequiredService<AgentWorkSwitch>()));
+                if (clock is not null)
+                {
+                    services.AddSingleton<TimeProvider>(clock);
+                }
                 var subjects = new TestSubjects();
                 subjects.Roles[SecondApprover] = NhAiSubjectRole.Approver;
                 services.AddSingleton(subjects);

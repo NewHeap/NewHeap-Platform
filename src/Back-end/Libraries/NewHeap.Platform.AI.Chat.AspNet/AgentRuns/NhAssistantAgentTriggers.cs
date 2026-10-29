@@ -706,6 +706,24 @@ internal sealed class NhAssistantAgentTriggers(
         {
             return refusal;
         }
+
+        return await AgentRefusalOfAsync(agentId, refusePaused, cancellationToken, refuseOff);
+    }
+
+    /// <summary>
+    /// Why the agent itself takes nothing now, whatever this host allows: the agent is not configured,
+    /// disabled in code or stopped, with <paramref name="refusePaused"/> paused, or with
+    /// <paramref name="refuseOff"/> switched off. <see cref="RefusalOfAsync"/> asks the gate of agent
+    /// work first; what is no agent work, such as a proposal the application records for a person
+    /// (<see cref="INhAssistantProposals"/>), checks that the assistant is enabled and then asks this
+    /// alone.
+    /// </summary>
+    internal async Task<string?> AgentRefusalOfAsync(
+        string agentId,
+        bool refusePaused,
+        CancellationToken cancellationToken,
+        bool refuseOff = false)
+    {
         if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions))
         {
             return NhAssistantErrorCodes.AgentNotConfigured;
