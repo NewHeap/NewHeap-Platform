@@ -12,6 +12,8 @@
 //   npm run test:affected -- --all-providers run SQL Server and PostgreSQL variants, side by side
 //   npm run test:affected -- --all           every test project, provider and library
 //   npm run test:affected -- --max-parallel <n>  test projects at a time (default 3); 1 runs every job in turn
+//   npm run test:affected -- --hang-timeout <d>  stop and name a .NET test that runs longer (default 10m; 0 off;
+//                                            30s, 15m, 1h; also NH_TEST_HANG_TIMEOUT)
 //   npm run test:affected -- --dry-run       print the plan only
 //   npm run test:affected -- --files a,b     plan and run for these files instead of the git changes
 import { readdir, readFile } from 'node:fs/promises';
@@ -30,6 +32,7 @@ import {
   needsAllProviders,
   normalizePath,
   outcomeSummary,
+  parseHangTimeout,
   parseMaxParallel,
   parseProjectReferences,
   providerRuns,
@@ -190,6 +193,13 @@ if (maxParallel === null) {
   console.error('--max-parallel needs a whole number of at least 1.');
   process.exit(2);
 }
+const hangTimeoutSeconds = parseHangTimeout(option('--hang-timeout')
+  ? valueOf('--hang-timeout') ?? ''
+  : process.env.NH_TEST_HANG_TIMEOUT || undefined);
+if (hangTimeoutSeconds === null) {
+  console.error('--hang-timeout and NH_TEST_HANG_TIMEOUT need a whole number with s, m or h (minutes without a unit), or 0 to turn the hang detection off.');
+  process.exit(2);
+}
 const everything = option('--all');
 const explicitFiles = valueOf('--files')?.split(',').map(file => normalizePath(file.trim())).filter(Boolean);
 const base = everything || explicitFiles ? null : comparisonBase();
@@ -220,7 +230,8 @@ const plan = testPlan({
   maxParallel,
   solutionPath: join(runFolder ?? join(tmpdir(), 'newheap-test-affected-<run>'), solutionFileName),
   previousSeconds,
-  windowsShell
+  windowsShell,
+  hangTimeoutSeconds
 });
 const sequential = plan.limits.total === 1;
 
@@ -243,6 +254,11 @@ console.log(`.NET test projects: ${testProjects.length === 0
   : sequential
     ? 'slowest first, one at a time (--max-parallel 1)'
     : `slowest first, up to ${maxParallel} at a time (--max-parallel <n>)`}`);
+if (testProjects.length > 0) {
+  console.log(hangTimeoutSeconds > 0
+    ? `Hang detection: a .NET test that runs longer than ${hangTimeoutSeconds}s stops its test process and is named (--hang-timeout <duration>; 0 turns it off).`
+    : 'Hang detection: off (--hang-timeout 0).');
+}
 plan.jobs
   .filter(job => job.lane === 'dotnet')
   .forEach(job => console.log(`  ${job.name}${previousSeconds[job.name] === undefined ? '' : ` (last run ${previousSeconds[job.name]}s)`}`));

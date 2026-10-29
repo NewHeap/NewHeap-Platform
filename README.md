@@ -116,7 +116,8 @@ the complete Aspire environment.
 
 While developing, `npm run test:affected` runs only the tests your changes reach,
 built once and several test projects at a time (`--dry-run` shows the plan,
-`--max-parallel 1` runs one job at a time). Run the complete backend verification from the
+`--max-parallel 1` runs one job at a time; a .NET test that runs longer than ten minutes is
+stopped and named, and `--hang-timeout <duration>` changes that). Run the complete backend verification from the
 repository root before merging:
 
 ```text

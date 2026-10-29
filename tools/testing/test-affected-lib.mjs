@@ -12,16 +12,19 @@ import {
   angularTestArguments,
   buildsThroughSolution,
   checkoutKey,
+  defaultHangTimeoutSeconds,
   defaultMaxParallel,
   dotnetTestArguments,
   durationsFilePath,
   failedSpecs,
+  hungTests,
   isTestProject,
   jobReport,
   needsAllProviders,
   normalizePath,
   outcomeSummary,
   ownerProject,
+  parseHangTimeout,
   parseMaxParallel,
   parseProjectReferences,
   providerRuns,
@@ -135,6 +138,23 @@ assert.deepEqual(
 assert.deepEqual(
   dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { windowsShell: true }),
   ['test', chatTests, '-v', 'q', '-nologo', '--logger', '"console;verbosity=minimal"', '--filter', '"DisplayName!~SqlServer"']);
+// With a hang timeout the test platform stops a test process whose test runs longer, without a dump.
+assert.deepEqual(
+  dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { noBuild: true, hangTimeoutSeconds: 600 }).slice(-6),
+  ['DisplayName!~SqlServer', '--blame-hang', '--blame-hang-dump-type', 'none', '--blame-hang-timeout', '600s']);
+assert.ok(!dotnetTestArguments(chatTests, 'DisplayName!~SqlServer', { hangTimeoutSeconds: 0 }).includes('--blame-hang'));
+
+// --hang-timeout and NH_TEST_HANG_TIMEOUT take a whole number with s, m or h (minutes without a unit); 0 is off.
+assert.equal(parseHangTimeout(undefined), defaultHangTimeoutSeconds);
+assert.equal(defaultHangTimeoutSeconds, 600);
+assert.equal(parseHangTimeout('30s'), 30);
+assert.equal(parseHangTimeout('15'), 900);
+assert.equal(parseHangTimeout('15m'), 900);
+assert.equal(parseHangTimeout('1h'), 3600);
+assert.equal(parseHangTimeout('0'), 0);
+for (const invalid of ['', '-1', '1.5m', '10 min', 'never', '5d']) {
+  assert.equal(parseHangTimeout(invalid), null, invalid);
+}
 
 // --max-parallel takes a whole number of at least 1; without it three test projects run at a time.
 assert.equal(parseMaxParallel(undefined), defaultMaxParallel);
@@ -167,7 +187,7 @@ const planOptions = {
   solutionPath: '/tmp/affected-tests.slnx',
   previousSeconds: { [manyTests[4]]: 300, [manyTests[2]]: 200, [manyTests[0]]: 1 }
 };
-const plan = testPlan(planOptions);
+const plan = testPlan({ ...planOptions, hangTimeoutSeconds: 600 });
 
 // The test projects are built once, by the first job, through a generated solution; every test process uses that build.
 assert.equal(plan.jobs[0], plan.build);
@@ -181,6 +201,8 @@ assert.equal(processes.filter(step => step.args[0] === 'build').length, 1);
 const testProcesses = processes.filter(step => step.command === 'dotnet' && step.args[0] !== 'build');
 assert.equal(testProcesses.length, manyTests.length * 2);
 assert.ok(testProcesses.every(step => step.args[0] === 'test' && step.args.includes('--no-build')));
+// Every test process carries the hang timeout.
+assert.ok(testProcesses.every(step => step.args.at(-1) === '600s' && step.args.includes('--blame-hang')));
 assert.ok(plan.jobs.filter(job => job.lane === 'dotnet').every(job => job.needs === plan.build.name));
 assert.ok(plan.jobs.filter(job => job.lane !== 'dotnet').every(job => job.needs === undefined));
 // One test project builds without a generated solution; nothing to test builds nothing.
@@ -351,6 +373,34 @@ assert.deepEqual(summaryLines([dotnetFailing], 300).slice(-3), [
   '    NewHeap.Tests.Steps.A_step_fails(provider: SqlServer, level: Root)'
 ]);
 
+// A test process the hang detection stopped names the test that still ran, in its job block and in the
+// summary; a process that crashed for another reason names no hang.
+const hungOutput = [
+  'A total of 1 test files matched the specified pattern.',
+  'The active test run was aborted. Reason: Test host process crashed',
+  "Data collector 'Blame' message: The specified inactivity time of 600 seconds has elapsed. Collecting hang dumps from testhost and its child processes.",
+  'Passed!  - Failed:     0, Passed:    67, Skipped:     0, Total:    67, Duration: 4 sTest Run Aborted.',
+  'The active Test Run was aborted because the host process exited unexpectedly.',
+  'The test running when the crash occurred: ',
+  'NewHeap.Tests.Leases.A_lease_waits_forever(provider: PostgreSql)',
+  '',
+  'This test may, or may not be the source of the crash.'
+].join('\r\n');
+assert.deepEqual(hungTests(hungOutput), ['NewHeap.Tests.Leases.A_lease_waits_forever(provider: PostgreSql)']);
+assert.deepEqual(hungTests(hungOutput.replace('The specified inactivity time of 600 seconds has elapsed.', 'The test host exited.')), []);
+assert.deepEqual(
+  hungTests(hungOutput
+    .replace('The test running', 'The tests running')
+    .replace('(provider: PostgreSql)\r\n', '(provider: PostgreSql)\r\nNewHeap.Tests.Steps.A_step_waits\r\n')),
+  ['NewHeap.Tests.Leases.A_lease_waits_forever(provider: PostgreSql)', 'NewHeap.Tests.Steps.A_step_waits']);
+assert.equal(outcomeSummary('The active test run was aborted.\nTest Run Aborted.'), 'Test Run Aborted.');
+const hungFailing = { label: `${chatTests} [PostgreSQL]`, passed: false, seconds: 610, output: hungOutput };
+assert.ok(jobReport([hungFailing]).includes('NewHeap.Tests.Leases.A_lease_waits_forever(provider: PostgreSql)'));
+assert.deepEqual(summaryLines([hungFailing], 615).slice(-2), [
+  `  ${chatTests} [PostgreSQL]`,
+  '    NewHeap.Tests.Leases.A_lease_waits_forever(provider: PostgreSql) (hung: stopped by the hang detection)'
+]);
+
 // A provider flag named after SQL Server would send both of its cases to the SQL Server process.
 assert.deepEqual(sqlServerFlagParameters('public void Translates(bool sqlServer)'), ['sqlServer']);
 assert.deepEqual(sqlServerFlagParameters('public void Translates(string query,\n        bool useSqlServer = false)'), ['useSqlServer']);
@@ -467,4 +517,4 @@ try {
   await rm(sandbox, { recursive: true, force: true });
 }
 
-console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers, their test processes, provider names in tests, the single build, the bounded slowest-first schedule, its reports, and run state kept in private run folders and the user\'s cache.');
+console.log('Verified affected test selection: project graph, shared build files, front-end libraries, their headless test run, providers, their test processes, provider names in tests, the single build, the bounded slowest-first schedule, the hang detection, its reports, and run state kept in private run folders and the user\'s cache.');

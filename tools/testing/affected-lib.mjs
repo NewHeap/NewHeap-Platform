@@ -217,12 +217,38 @@ export function providerRuns(allProviders) {
 export const dotnetConsoleLogger = 'console;verbosity=minimal';
 
 /**
+ * How long one .NET test may run before the hang detection stops its test process and names it,
+ * unless `--hang-timeout <duration>` or `NH_TEST_HANG_TIMEOUT` says otherwise. It lies well above the
+ * slowest single test under the full matrix's load, the five minutes a test database may take to
+ * prepare included, and far below a run that waits forever.
+ */
+export const defaultHangTimeoutSeconds = 10 * 60;
+
+/**
+ * The value of `--hang-timeout` or `NH_TEST_HANG_TIMEOUT` in seconds: a whole number with `s`, `m` or
+ * `h`, minutes without a unit, `0` to turn the hang detection off; the default when it is absent, null
+ * when it is not such a value.
+ */
+export function parseHangTimeout(value) {
+  if (value === undefined) {
+    return defaultHangTimeoutSeconds;
+  }
+  const match = /^(\d+)([smh]?)$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+  const amount = Number(match[1]);
+  return match[2] === 's' ? amount : match[2] === 'h' ? amount * 3600 : amount * 60;
+}
+
+/**
  * The arguments of `dotnet test` for one provider process. Processes that run at the same time test
  * the one build made beforehand (`noBuild`): building in each would write the same files. Through the
  * Windows shell the filter and the logger, whose `;` the shell would split on, need quotes; spawned
- * directly they do not.
+ * directly they do not. With `hangTimeoutSeconds` the test platform's hang detection stops the test
+ * process once one test runs longer, without a dump, and the output names the test (`hungTests`).
  */
-export function dotnetTestArguments(project, filter, { noBuild = false, windowsShell = false } = {}) {
+export function dotnetTestArguments(project, filter, { noBuild = false, windowsShell = false, hangTimeoutSeconds = 0 } = {}) {
   const quoted = value => windowsShell ? `"${value}"` : value;
   return [
     'test',
@@ -234,7 +260,10 @@ export function dotnetTestArguments(project, filter, { noBuild = false, windowsS
     '--logger',
     quoted(dotnetConsoleLogger),
     '--filter',
-    quoted(filter)
+    quoted(filter),
+    ...(hangTimeoutSeconds > 0
+      ? ['--blame-hang', '--blame-hang-dump-type', 'none', '--blame-hang-timeout', `${hangTimeoutSeconds}s`]
+      : [])
   ];
 }
 
@@ -360,6 +389,7 @@ export function validDurations(parsed) {
  * @param {string} options.solutionPath where the solution of several test projects is written
  * @param {Record<string, number>} [options.previousSeconds]
  * @param {boolean} [options.windowsShell]
+ * @param {number} [options.hangTimeoutSeconds] how long one .NET test may run; 0 turns the hang detection off
  */
 export function testPlan({
   repositoryRoot,
@@ -370,7 +400,8 @@ export function testPlan({
   maxParallel,
   solutionPath,
   previousSeconds = {},
-  windowsShell = false
+  windowsShell = false,
+  hangTimeoutSeconds = 0
 }) {
   const throughSolution = buildsThroughSolution(testProjects);
   const root = normalizePath(repositoryRoot).replace(/\/$/, '');
@@ -397,7 +428,7 @@ export function testPlan({
       processes: runs.map(providerRun => ({
         label: runs.length === 1 ? project : `${project} [${providerRun.label}]`,
         command: 'dotnet',
-        args: dotnetTestArguments(project, providerRun.filter, { noBuild: true, windowsShell }),
+        args: dotnetTestArguments(project, providerRun.filter, { noBuild: true, windowsShell, hangTimeoutSeconds }),
         cwd: '.'
       }))
     })),
@@ -469,9 +500,37 @@ export function withoutAnsi(text) {
   return text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
 }
 
-/** The count line a test run ends with, such as `Passed! - Failed: 0, ...` or Karma's `TOTAL: 12 SUCCESS`, without colours. */
+/**
+ * The count line a test run ends with, such as `Passed! - Failed: 0, ...` or Karma's `TOTAL: 12 SUCCESS`,
+ * without colours; for a .NET run that the hang detection stopped, `Test Run Aborted.`
+ */
 export function outcomeSummary(output) {
-  return withoutAnsi(output).split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of/.test(line))?.trim();
+  return withoutAnsi(output).split(/\r?\n/).reverse().find(line => /Passed!|Failed!|TOTAL:|Executed .* of|Test Run Aborted\./.test(line))?.trim();
+}
+
+/**
+ * The tests the hang detection of `dotnet test` found still running when it stopped the test process:
+ * the lines below `The test running when the crash occurred:` (or `The tests running ...`) up to the
+ * next empty line. Only a run whose output says the inactivity time elapsed counts, so a test process
+ * that crashed for another reason is not reported as a hang.
+ */
+export function hungTests(output) {
+  const lines = withoutAnsi(output).split(/\r?\n/);
+  if (!lines.some(line => /The specified inactivity time of .+ has elapsed/.test(line))) {
+    return [];
+  }
+  const start = lines.findIndex(line => /^The tests? running when the crash occurred:/.test(line.trim()));
+  if (start < 0) {
+    return [];
+  }
+  const names = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.trim() === '') {
+      break;
+    }
+    names.push(line.trim());
+  }
+  return names;
 }
 
 /** Karma's line for a failed spec, `<browser> (<platform>) <suites> <spec> FAILED`, as the full spec name. */
@@ -544,7 +603,11 @@ export function summaryLines(results, wallSeconds) {
       ? ['All affected tests passed. Run the validators AGENTS.md lists for the files you changed.']
       : [
         `Affected tests failed: ${failed.length} of ${results.length}.`,
-        ...failed.flatMap(result => [`  ${result.label}`, ...failedSpecs(result.output ?? '').map(spec => `    ${spec}`)])
+        ...failed.flatMap(result => [
+          `  ${result.label}`,
+          ...failedSpecs(result.output ?? '').map(spec => `    ${spec}`),
+          ...hungTests(result.output ?? '').map(test => `    ${test} (hung: stopped by the hang detection)`)
+        ])
       ])
   ];
 }

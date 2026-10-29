@@ -403,7 +403,10 @@ checks need no build and run alongside from the start. Each job's output is prin
 in one block when it ends, and a summary lists every process with its duration and
 the failures; a failed `ng test` job shows each failed spec, and a failed .NET test
 process each failed test, with its message and stack, and the summary names them
-under the job, so do not rerun the suite to find them. `--max-parallel <n>` changes
+under the job, so do not rerun the suite to find them. A .NET test that runs longer than
+ten minutes stops its test process and is named in the job and the summary as hung, so a
+hang never stalls the run; `--hang-timeout <duration>` (or `NH_TEST_HANG_TIMEOUT`) changes
+that bound, for example `30s` or `15m`, and `0` turns it off. `--max-parallel <n>` changes
 the bound; `--max-parallel 1` runs one job after the other. Use
 `--dry-run` to see the plan, `--files a,b` to plan for files before changing them,
 `--all-providers` to add SQL Server and `--all` for everything. Do not rerun suites
