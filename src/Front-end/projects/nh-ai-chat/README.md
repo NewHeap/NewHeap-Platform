@@ -113,6 +113,32 @@ inject(NhAssistantPanelService).open(conversationId);
 The drawer is 420 px wide on the right and fills the screen below 600 px. Escape
 closes it and focus returns to the element that opened it.
 
+For long sessions, a page of the application can show the same chat in place; keep the
+one drawer panel in the layout:
+
+```html
+<nh-assistant-panel
+  mode="page"
+  conversationList="panel"
+  [(conversationsOpen)]="conversationsOpen"
+  [beforeSubmit]="beforeSubmit">
+  <app-topic-bar nhAssistantAboveThread />
+  <app-choice-bar nhAssistantAboveComposer />
+</nh-assistant-panel>
+```
+
+While a page panel shows, `NhAssistantPanelService.open(conversationId)`, `{ agentId }` and
+`{ draft }` act on it and the drawer stays closed (`pagePanelShown()`); an open drawer closes
+when the page shows. Each panel tells the store whether it shows the open thread
+(`NhAssistantStore.registerThreadSurface`, `threadInView()`), so the conversation is marked as
+read while any of them shows it. `conversationsOpen` opens the conversation list from the
+host, two-way; `conversationList="none"` leaves the list and its button out for a host that
+lists the conversations itself. Content with `nhAssistantAboveThread` or
+`nhAssistantAboveComposer` shows above the thread or the composer, in a page and in the
+drawer. `beforeSubmit` receives each message (`NhAssistantOutgoingMessage`) before it goes:
+`true` sends it, `false` keeps it in the composer for the host, which then sends or changes it
+through the store. The list beside the thread has the class `nh-assistant-sidebar`.
+
 The panel's composer stays editable while a turn runs or waits for approval. Enter
 adds follow-ups to a visible FIFO queue; they send after the current turn finishes.
 Queued messages can be edited or removed without replacing the current draft.

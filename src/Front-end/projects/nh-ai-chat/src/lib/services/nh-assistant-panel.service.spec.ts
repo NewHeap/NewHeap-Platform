@@ -1,6 +1,6 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { Component, TemplateRef, ViewContainerRef, inject, viewChild } from '@angular/core';
+import { ApplicationRef, Component, TemplateRef, ViewContainerRef, inject, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AgentThreadLookup } from '../models/assistant-agent-run.models';
@@ -285,6 +285,107 @@ describe('NhAssistantPanelService', () => {
       await settle();
 
       expect(store.pendingDraft()).toBeNull();
+    });
+  });
+
+  /** FB45: while a panel in a page shows, `open` acts on it and the drawer stays closed. */
+  describe('with a panel in a page', () => {
+    let store: NhAssistantStore;
+    let page: HTMLElement;
+
+    beforeEach(() => {
+      store = TestBed.inject(NhAssistantStore);
+      page = document.createElement('section');
+      page.innerHTML = '<textarea data-nh-assistant-autofocus></textarea>';
+      document.body.appendChild(page);
+    });
+
+    afterEach(() => {
+      service.unregisterPagePanel(page);
+      page.remove();
+    });
+
+    it('opens a conversation in the page and keeps the drawer closed', async () => {
+      service.registerPagePanel(page);
+      expect(service.pagePanelShown()).toBeTrue();
+
+      service.open('c2');
+      await settle();
+
+      expect(store.activeConversation()?.id).toBe('c2');
+      expect(service.isOpen()).toBeFalse();
+      expect(overlayElement.querySelector('.drawer')).toBeNull();
+      // The persisted drawer state stays closed.
+      expect(store.restorePanelOpen()).toBeFalse();
+    });
+
+    it('starts a new chat with an agent and shows a draft in the page', async () => {
+      service.registerPagePanel(page);
+      service.open('c1');
+      await settle();
+
+      service.open({ agentId: 'projects', draft: 'Plan the next milestone.' });
+      await settle();
+
+      expect(store.activeConversation()).toBeNull();
+      expect(store.selectedAgentId()).toBe('projects');
+      expect(store.pendingDraft()).toEqual({ text: 'Plan the next milestone.', replace: false });
+      expect(service.isOpen()).toBeFalse();
+
+      store.consumeRestoredDraft();
+      service.open({ draft: 'Only a draft' });
+      await settle();
+      expect(store.pendingDraft()).toEqual({ text: 'Only a draft', replace: false });
+      expect(service.isOpen()).toBeFalse();
+      expect(api.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('moves the focus to the page\'s composer when opened without a target, also from toggle', async () => {
+      service.registerPagePanel(page);
+      const opener = document.getElementById('opener') as HTMLButtonElement;
+      opener.focus();
+
+      service.toggle();
+      TestBed.inject(ApplicationRef).tick();
+      await settle();
+
+      expect(document.activeElement).toBe(page.querySelector('textarea'));
+      expect(service.isOpen()).toBeFalse();
+    });
+
+    it('closes an open drawer when a page panel shows, and does not open it while the page shows', async () => {
+      service.open();
+      expect(service.isOpen()).toBeTrue();
+
+      service.registerPagePanel(page);
+
+      expect(service.isOpen()).toBeFalse();
+      expect(overlayElement.querySelector('.drawer')).toBeNull();
+      service.open();
+      expect(service.isOpen()).toBeFalse();
+    });
+
+    it('drops a draft when the page left before the assistant was ready', async () => {
+      service.registerPagePanel(page);
+      service.open({ draft: 'Too late' });
+      service.unregisterPagePanel(page);
+      await settle();
+
+      expect(store.pendingDraft()).toBeNull();
+      expect(service.isOpen()).toBeFalse();
+    });
+
+    it('opens the drawer as before once the page panel left', async () => {
+      service.registerPagePanel(page);
+      service.unregisterPagePanel(page);
+      expect(service.pagePanelShown()).toBeFalse();
+
+      service.open('c1');
+      await settle();
+
+      expect(service.isOpen()).toBeTrue();
+      expect(overlayElement.querySelector('.drawer')).not.toBeNull();
+      expect(store.activeConversation()?.id).toBe('c1');
     });
   });
 });

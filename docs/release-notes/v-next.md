@@ -76,3 +76,26 @@ selector's choice still holds (SPM-379). No migration: the approval already stor
 | Breaking change | Required action |
 |---|---|
 | `NhAiProposalGuardContext` and `NhAssistantProposalHandOff` record equality now also compares `PolicyId` and `Mode`, which revalidation, decision, execution and every hand-off fill. | Compare the members you mean, such as `ProposalId` or `ApprovalId`, instead of whole records in a cache key or a test, or set `PolicyId` and `Mode` in the expected record. |
+
+## @newheap/platform-ai-chat: the panel's page mode
+
+A panel in a page (`mode="page"`) that shows registers with `NhAssistantPanelService`
+(`pagePanelShown()`): `open(conversationId)`, `open({ agentId })` and `open({ draft })` act on that
+panel and keep the drawer closed, `open()` moves the focus to its composer, and an open drawer closes
+when the page shows. Without a page panel nothing changes. The store counts the surfaces that show the
+open thread: each panel registers with `NhAssistantStore.registerThreadSurface()`
+(`NhAssistantThreadSurface`), `threadInView()` is true while any of them shows it, and the conversation
+is marked as read then, whichever panel was created or closed last. `nh-assistant-panel` places the
+host's content with `nhAssistantAboveThread` above the thread and `nhAssistantAboveComposer` above the
+composer, in a page and in the drawer, and takes `beforeSubmit` (`NhAssistantBeforeSubmit`), which
+receives each message (`NhAssistantOutgoingMessage`) before it goes: `false` keeps it in the composer for
+the host's decision through the store. `[(conversationsOpen)]` opens and closes the conversation list
+from the host, two-way, and `conversationList="none"` (`NhAssistantPanelConversationList`) leaves the
+list and its button out. `showConversations` is deprecated in favour of `conversationsOpen`, which is the
+same signal.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantPanelService.open` acts on a shown page panel and keeps the drawer closed, and a page panel that shows closes an open drawer. | A chat page needs no change; to show the drawer, leave the page with the panel first. |
+| The conversation list beside the thread of a page panel has the class `nh-assistant-sidebar` instead of `sidebar`. | Rename `.sidebar` to `.nh-assistant-sidebar` in host styles that reach into the panel. |
+| `NhAssistantStore.setViewing` is the host's own surface: the panels no longer set or reset it, and `false` no longer hides a thread a panel shows. | Call `setViewing(false)` when your own surface stops showing the thread, or register it with `registerThreadSurface()`. |

@@ -625,6 +625,22 @@ conversation shows its own text. The store keeps it in this tab's memory only, t
 on a page of its own show the same text, sending forgets it and switching the access permission off, as
 signing out does, forgets every unsent message. A prepared brief treats the kept text as typed text.
 
+While the portal's Chat page shows, the assistant opens there (SPM-376). The page's panel
+(`mode="page"`) registers with `NhAssistantPanelService`, so the launcher moves the focus to the page's
+message box, a clicked notification and every `open(conversationId)`, `open({ agentId })` or
+`open({ draft })` act on the page, and an open drawer closes when the person opens the page. Each panel
+tells the store whether it shows the open thread (`registerThreadSurface`), so the conversation is
+marked as read while the page shows it, whichever panel was created or closed last. The topic bar's
+"Conversations" button switches the panel's own list off for a wide thread (`conversationList="none"`)
+and on again; a host can also open the list itself with `[(conversationsOpen)]`, and the list beside the
+thread has the class `nh-assistant-sidebar`. The same page shows the host's own content in the panel
+(SPM-377): a topic bar above the thread (`nhAssistantAboveThread`) names the open conversation, and
+`beforeSubmit` holds the first message of a new conversation while the person has an earlier
+conversation with the assistant. A choice above the message box (`nhAssistantAboveComposer`) asks the
+question in the latest conversation, starts the new conversation with it or leaves it for the person to
+change, each through the store; every other message goes at once. The library specs prove both cases in
+the drawer and in a page.
+
 The chat helper works in people's chats only (SPM-343). `SampleChatHelperComposition` configures it with
 `ChatOnly()`: it keeps its meeting notes skill, offered with `use_skill`, structured questions and a
 limit on the consultations of the intake reviewer it starts in one turn, but it works on no subject. No

@@ -70,11 +70,12 @@ trimmed and capped at the server's `maxMessageChars` without splitting a charact
 person already typed unless `replaceDraft` is set, gives way when the person did not change an
 earlier draft, and never takes the place of a message the server refused. A conversation that does
 not open, an agent the person may not use (check `store.agents()` to explain why) and a drawer
-closed before the assistant was ready leave the composer as it is. On a page of its own
-(`mode="page"`), call `NhAssistantStore.setDraft(text, { replace })` (`NhAssistantDraftOptions`)
-after `initialize()`, with `startNewConversation` and then `selectAgent` for another agent; it
-returns `false` while the assistant is not available and when the person's own unsent text keeps its
-place. The drawer and the page share the store's draft, `pendingDraft()` (`NhAssistantComposerDraft`):
+closed before the assistant was ready leave the composer as it is. While a panel in a page
+(`mode="page"`) shows, the same `open` puts the draft in that page's composer and the drawer stays
+closed (SPM-376). Without the panel service, call `NhAssistantStore.setDraft(text, { replace })`
+(`NhAssistantDraftOptions`) after `initialize()`, with `startNewConversation` and then `selectAgent`
+for another agent; it returns `false` while the assistant is not available and when the person's own
+unsent text keeps its place. The drawer and the page share the store's draft, `pendingDraft()` (`NhAssistantComposerDraft`):
 a custom layout binds it to the composer's `restore` input and calls `consumeRestoredDraft` on its
 `restored` output, while `restoredDraft()` keeps naming only a refused message. SampleProjectManagement's assistant lab drafts a status brief
 about its open project page this way (SPM-350).
@@ -222,9 +223,39 @@ editor (`sections`: `profile`, `tools`, `access`) and the run configuration (`se
 To show the chat in a page instead of the drawer, for example on a "Chat" item of the application's
 menu for long sessions, place `<nh-assistant-panel mode="page" />` in that page and give it the
 height it fills; keep the one drawer panel in the layout. On a page the chat is a region with
-nothing to close, the conversations stay listed beside the thread from 900 px wide and behind the
-list button below that, and invitation links and clicked notifications stay with the layout's drawer.
-Both share the conversations and the open conversation of the assistant's scope (SPM-253).
+nothing to close, and the conversations stay listed beside the thread from 900 px wide and behind the
+list button below that. Both share the conversations and the open conversation of the assistant's
+scope (SPM-253).
+
+While a page panel shows, it is where the assistant opens: `NhAssistantPanelService.open(conversationId)`,
+`open({ agentId })` and `open({ draft })` open the conversation, start the new chat or show the draft
+there and keep the drawer closed, `open()` moves the focus to the page's composer, and an open drawer
+closes when the page shows (`pagePanelShown()`). Invitation links and clicked notifications, which the
+layout's drawer handles, therefore open their conversation in the page; without a page panel nothing
+changes. Each panel registers with the store as a surface that shows the open thread
+(`NhAssistantStore.registerThreadSurface()`, `NhAssistantThreadSurface`), so the conversation is marked
+as read while any of them shows it (`threadInView()`), whichever panel was created or closed last. A
+custom layout without the panel registers its own surfaces the same way, or reports its one surface
+with `setViewing(viewing)`, which counts as one more surface and never hides what a panel shows.
+
+The panel takes the host's own content and decisions, in a page and in the drawer. An element with
+`nhAssistantAboveThread` shows above the thread, for example a bar with the open topic, and one with
+`nhAssistantAboveComposer` above the composer. `[beforeSubmit]` (`NhAssistantBeforeSubmit`) receives each
+message the person sends (`NhAssistantOutgoingMessage`: `text`, `files`, `conversationId` or `null` for
+a new conversation, `firstMessage`, `agentId`) before it goes; the composer keeps showing it and cannot
+send meanwhile. `true` sends it; `false` holds it in the composer as the person's unsent text, and the
+host decides through the store: `keepUnsentMessage(null)` and `submit(text, files)` to send it as it
+is, `setDraft(text, { replace: true })` to change it, or `keepUnsentMessage(null)`,
+`openConversation(id)` and `submit(text)` to continue an existing conversation with it. A message the
+person changed, or whose conversation they left, while the host decided stays unsent, and a failing
+function holds the message and reports to Angular's `ErrorHandler`. `[(conversationsOpen)]` opens and
+closes the conversation list from the host, two-way, for example from a button of its own on a narrow
+screen; `conversationList="none"` (`NhAssistantPanelConversationList`) leaves the list and its button
+out, in a page and in the drawer, for a host that lists the conversations itself and opens them with
+`open(conversationId)`. The list beside the thread has the class `nh-assistant-sidebar`, so style it
+under that name and not as `.sidebar`. SampleProjectManagement's Chat page opens conversations from
+elsewhere in place (SPM-376) and shows a topic bar and a choice for the first message of a new
+conversation (SPM-377).
 
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
 a region, such as `nl-NL`, receives the texts of its base language, so do not merge the

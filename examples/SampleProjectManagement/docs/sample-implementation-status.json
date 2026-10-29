@@ -367,6 +367,8 @@
     "SPM-373",
     "SPM-374",
     "SPM-375",
+    "SPM-376",
+    "SPM-377",
     "SPM-378",
     "SPM-379",
     "SPM-380",
@@ -3968,6 +3970,27 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolDateSchemaTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptDateTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeSchemaTests.cs"
+    ],
+    "SPM-376": [
+      "src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page-mode.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page.spec.ts"
+    ],
+    "SPM-377": [
+      "src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/projects/management/public/i18n/nl.json",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.scss",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page-mode.spec.ts"
     ],
     "SPM-378": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApproverCandidates.cs",

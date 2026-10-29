@@ -2,7 +2,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, Injector, Signal, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, Injector, Signal, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { AgentThreadLookup } from '../models/assistant-agent-run.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
@@ -38,6 +38,9 @@ export interface NhAssistantPanelOpenOptions {
  * `nh-assistant-panel` registers its content once; any component can then open the panel,
  * optionally on a specific conversation, in a new conversation with an agent, or with a prepared
  * draft in the composer. Escape closes the panel and focus returns to the element that opened it.
+ *
+ * A panel in a page (`mode="page"`) registers as well while it shows (`pagePanelShown()`): `open` then
+ * acts on that panel and the drawer stays closed, so the chat is never on screen twice.
  */
 @Injectable()
 export class NhAssistantPanelService {
@@ -49,12 +52,20 @@ export class NhAssistantPanelService {
   private readonly breakpoints = inject(BreakpointObserver);
 
   private readonly openState = signal(false);
+  /** The panels in a page that show now, in the order they registered; the last one is the target. */
+  private readonly pagePanelsState = signal<readonly HTMLElement[]>([]);
   private overlayRef?: OverlayRef;
   private portal?: TemplatePortal;
   private subscriptions = new Subscription();
   private returnFocusTo: HTMLElement | null = null;
 
+  /** True while the drawer is open. */
   readonly isOpen: Signal<boolean> = this.openState.asReadonly();
+  /**
+   * True while a panel in a page (`mode="page"`) shows. `open` then acts on that panel, and the drawer
+   * stays closed and does not restore.
+   */
+  readonly pagePanelShown: Signal<boolean> = computed(() => this.pagePanelsState().length > 0);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.dispose());
@@ -76,19 +87,28 @@ export class NhAssistantPanelService {
    * assistant's status is loaded. A draft never sends and keeps what the person already typed unless
    * `replaceDraft` is set; it is dropped when the conversation does not open, when the person may not
    * use the agent and when the drawer was closed in the meantime. A new chat with `agentId` leaves the
-   * open conversation's unsent message with that conversation. A panel in a page (`mode="page"`)
-   * shares the store, so a host shows a draft there with `NhAssistantStore.setDraft`.
+   * open conversation's unsent message with that conversation.
+   *
+   * While a panel in a page (`mode="page"`) shows (`pagePanelShown()`), the same targets apply to that
+   * panel instead and the drawer stays closed: it opens the conversation, starts the new chat or shows
+   * the draft, which is dropped when the page panel left in the meantime, and the focus moves to its
+   * composer. Without a page panel nothing changes.
    */
   open(target?: string | NhAssistantPanelOpenOptions): void {
     const options: NhAssistantPanelOpenOptions = typeof target === 'string' ? { conversationId: target } : target ?? {};
     const conversationId = options.conversationId || undefined;
     const agentId = conversationId ? undefined : options.agentId || undefined;
     const draft = options.draft;
-    if (this.openState() && !conversationId && !agentId && draft === undefined) {
+    const page = this.pagePanel();
+    if (page) {
+      // The chat shows in a page already: the target opens there and the drawer stays closed.
+      this.focusPagePanel(page);
+    } else if (this.openState() && !conversationId && !agentId && draft === undefined) {
       return;
+    } else {
+      this.showPanel();
     }
 
-    this.showPanel();
     void this.store.initialize().then(() => this.store.reloadStatus()).then(async () => {
       if (this.openState()) {
         this.store.setPanelOpen(true);
@@ -110,7 +130,9 @@ export class NhAssistantPanelService {
         this.store.selectAgent(agentId);
       }
 
-      if (draft !== undefined && this.openState()) {
+      // A draft is for the panel it opened: dropped when that panel closed or left in the meantime.
+      const shown = page ? this.pagePanelsState().includes(page) : this.openState();
+      if (draft !== undefined && shown) {
         this.store.setDraft(draft, { replace: options.replaceDraft === true });
       }
     });
@@ -139,7 +161,8 @@ export class NhAssistantPanelService {
   }
 
   private showPanel(): void {
-    if (this.openState()) {
+    // A panel in a page shows the chat: the drawer neither opens nor restores over it.
+    if (this.openState() || this.pagePanel()) {
       return;
     }
 
@@ -194,6 +217,36 @@ export class NhAssistantPanelService {
 
     this.overlayRef?.detach();
     this.portal = undefined;
+  }
+
+  /**
+   * Called by `nh-assistant-panel` with `mode="page"` while it shows, with its host element; hosts place
+   * that component instead. `open` acts on the last page panel that registered, and an open drawer
+   * closes, because the page shows the same chat.
+   */
+  registerPagePanel(element: HTMLElement): void {
+    this.pagePanelsState.update(panels => [...panels.filter(panel => panel !== element), element]);
+    this.close();
+  }
+
+  /** Called by `nh-assistant-panel` with `mode="page"` when it is destroyed. */
+  unregisterPagePanel(element: HTMLElement): void {
+    this.pagePanelsState.update(panels => panels.filter(panel => panel !== element));
+  }
+
+  /** The page panel that `open` acts on, or `null` while none shows. */
+  private pagePanel(): HTMLElement | null {
+    const panels = this.pagePanelsState();
+    return panels.length > 0 ? panels[panels.length - 1] : null;
+  }
+
+  /** Moves the focus to the composer of a page panel once it rendered, as opening the drawer does. */
+  private focusPagePanel(page: HTMLElement): void {
+    afterNextRender(() => {
+      if (page.isConnected) {
+        page.querySelector<HTMLElement>('[data-nh-assistant-autofocus]')?.focus();
+      }
+    }, { injector: this.injector });
   }
 
   private attach(): void {

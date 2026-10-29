@@ -6633,6 +6633,43 @@
       ]
     },
     {
+      "id": "SPM-376",
+      "categoryId": "18",
+      "title": "The Chat page is where the assistant opens while it shows, and its conversation counts as read while any panel shows it",
+      "surface": "`@newheap/platform-ai-chat`: `NhAssistantPanelService.open(target?)` acting on a shown page panel, `registerPagePanel`, `unregisterPagePanel` and `pagePanelShown`; `NhAssistantStore.registerThreadSurface()` with `NhAssistantThreadSurface` (`setShowing`, `unregister`), `threadInView` and `setViewing` as the host's own surface; the `nh-assistant-panel` inputs `conversationsOpen` (two-way, a `model()`) and `conversationList` with `NhAssistantPanelConversationList` (`panel`, `none`); the class `nh-assistant-sidebar` of the list beside the thread",
+      "outcome": "While the portal's Chat page shows, its panel (`mode=\"page\"`) is where the assistant opens: the launcher moves the focus to the page's message box, a clicked notification opens its conversation in the page, and `NhAssistantPanelService.open(conversationId)`, `open({ agentId })` and `open({ draft })` open the conversation, start the new chat or show the draft there while the drawer stays closed; an open drawer closes when the person opens the page, and once the page is left the drawer opens as before. Each panel registers with the store as a surface that shows the open thread, so the conversation is marked as read while any panel shows it: a drawer created after the page, or closed as the page shows, leaves the page's thread in view, the page's own list over the thread hides it, and a destroyed page no longer counts; a host's `setViewing` is one more surface and never hides what a panel shows. The topic bar's \"Conversations\" button switches the panel's own list off (`conversationList=\"none\"`), which leaves the list and its button out, and on again. The library specs prove the store's surfaces, the panel service with and without a page panel, the drawer and the page together, `conversationsOpen` opened and closed by the host and by the panel with the host hearing each change, `conversationList=\"none\"` in a page and in the drawer, and the prefixed list class.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts",
+        "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page-mode.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-377",
+      "categoryId": "18",
+      "title": "The Chat page shows a topic bar in the panel and holds the first message of a new conversation for a choice",
+      "surface": "`@newheap/platform-ai-chat`: the content slots `nhAssistantAboveThread` and `nhAssistantAboveComposer` of `nh-assistant-panel`, in a page and in the drawer; the input `beforeSubmit` with `NhAssistantBeforeSubmit` and `NhAssistantOutgoingMessage` (`text`, `files`, `conversationId`, `firstMessage`, `agentId`); the host's decision through `NhAssistantStore.keepUnsentMessage`, `openConversation`, `submit` and `setDraft`",
+      "outcome": "On the portal's Chat page a topic bar above the thread names the open conversation, or says that a new one starts, in English and Dutch. The page's `beforeSubmit` holds the first message of a new conversation while the person has an earlier conversation with the assistant: nothing is sent, the question stays in the message box as the person's own text, and a choice above the message box takes the keyboard. \"Continue in\" asks the question in the latest conversation with that assistant, \"Start a new conversation\" sends it as the first message of the new one, and \"Change the question\" leaves it for the person to change; each decision goes through the store, and every other message goes at once. The library specs prove both places in the page and in the drawer, empty places that show nothing, a held first message of a new conversation that the host continues in an existing conversation or sends as it is, the composer that keeps the message and cannot send while the host decides and sends it on `true`, a message that stays unsent when the person changed it or opened another conversation meanwhile, and a failing function that holds the message and reports to Angular's `ErrorHandler`.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts",
+        "src/Front-end/projects/management/public/i18n/en.json",
+        "src/Front-end/projects/management/public/i18n/nl.json",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.scss",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-panel-page-mode.spec.ts"
+      ]
+    },
+    {
       "id": "SPM-378",
       "categoryId": "18",
       "title": "The application's project managers decide the intake review that the project's creator would approve alone, because the application names who passes the portfolio policy's rule",

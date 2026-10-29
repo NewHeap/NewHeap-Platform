@@ -5,13 +5,17 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  ErrorHandler,
   OnDestroy,
   TemplateRef,
   ViewContainerRef,
+  WritableSignal,
   computed,
   effect,
   inject,
   input,
+  model,
   signal,
   untracked,
   viewChild
@@ -51,19 +55,55 @@ let nextId = 0;
 export type NhAssistantPanelMode = 'drawer' | 'page';
 
 /**
+ * Whether the panel lists the conversations: `panel`, its own list, or `none` for a host that lists them
+ * itself and opens them through `NhAssistantPanelService.open` or the store.
+ */
+export type NhAssistantPanelConversationList = 'panel' | 'none';
+
+/** A message the person sends from the panel's composer, as `beforeSubmit` receives it before it goes. */
+export interface NhAssistantOutgoingMessage {
+  /** The text, trimmed. */
+  readonly text: string;
+  /** The uploaded files that go with it, such as `NhAssistantStore.attachedFiles()`. */
+  readonly files: readonly FileReference[];
+  /** The conversation it goes to; `null` for a new conversation, which the message creates. */
+  readonly conversationId: string | null;
+  /**
+   * True for the first message of its conversation: a new one, or one that was created for the files
+   * attached to it and has no messages yet.
+   */
+  readonly firstMessage: boolean;
+  /** The agent that answers it: the conversation's agent, or the agent chosen for a new conversation. */
+  readonly agentId: string | null;
+}
+
+/**
+ * The panel's `beforeSubmit` input: resolves `true` to send the message and `false` to hold it for the
+ * host's decision.
+ */
+export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => Promise<boolean>;
+
+/**
  * The assistant drawer. Place it once in the application layout; it renders nothing in
  * place and appears as an overlay when `NhAssistantPanelService.open()` is called. It opens
  * by itself for an invitation link (`#nh-assistant-join=...`) and for a clicked notification.
  *
  * With `mode="page"` the same chat renders in place instead, filling the element the host gives it,
  * for example on a "Chat" page of the application's menu for long sessions: the conversations stay
- * listed beside the thread on wide screens, there is nothing to close, and invitation links and
- * clicked notifications stay with the drawer of the layout. Both share the conversations of the
- * assistant's scope, and the composer of either shows a draft from `NhAssistantStore.setDraft` or
- * `NhAssistantPanelService.open({ draft })` without sending it. What the person typed and did not send
- * stays with its conversation in the store (`NhAssistantStore.unsentMessage()`): closing the drawer,
- * leaving the page or opening another conversation keeps it, and the drawer and the page show the same
- * text.
+ * listed beside the thread on wide screens and there is nothing to close. While it shows, the panel
+ * service opens conversations, new chats and drafts there and keeps the drawer closed: an invitation
+ * link or a clicked notification that the layout's drawer handles opens its conversation in the page.
+ * Both share the conversations of the assistant's scope, and the composer of either shows a draft from
+ * `NhAssistantStore.setDraft` or `NhAssistantPanelService.open({ draft })` without sending it. What the
+ * person typed and did not send stays with its conversation in the store
+ * (`NhAssistantStore.unsentMessage()`): closing the drawer, leaving the page or opening another
+ * conversation keeps it, and the drawer and the page show the same text. Each panel tells the store
+ * whether it shows the open thread (`NhAssistantStore.registerThreadSurface`), so the conversation is
+ * marked as read while any of them shows it.
+ *
+ * In both modes the host can place its own content above the thread (`nhAssistantAboveThread`) and
+ * above the composer (`nhAssistantAboveComposer`), hold a message before it is sent (`beforeSubmit`),
+ * open the conversation list (`[(conversationsOpen)]`) or leave the list out (`conversationList="none"`).
  */
 @Component({
   selector: 'nh-assistant-panel',
@@ -93,18 +133,60 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly push = inject(NhAssistantPushService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly viewContainerRef = inject(ViewContainerRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly errorHandler = inject(ErrorHandler);
   private readonly router = inject(Router, { optional: true });
   private readonly drawer = viewChild.required<TemplateRef<unknown>>('drawer');
+  private readonly threadSurface = this.store.registerThreadSurface();
   private portal?: TemplatePortal;
+  private pageRegistered = false;
+  /** The conversation the panel showed last, so only a change of it returns from the list. */
+  private shownConversationId: string | null | undefined = undefined;
 
   /** `drawer` by default; `page` renders the chat in place. */
   readonly mode = input<NhAssistantPanelMode>('drawer');
   /** The chat renders in a page of its own instead of the drawer. */
   readonly page = computed(() => this.mode() === 'page');
+  /**
+   * `panel` (the default) lists the conversations: beside the thread in a page from 900 px wide, and
+   * behind the list button otherwise. `none` leaves the list and its button out, in a page and in the
+   * drawer alike, for a host that lists the conversations itself and opens them with
+   * `NhAssistantPanelService.open(conversationId)` or `NhAssistantStore.openConversation`.
+   */
+  readonly conversationList = input<NhAssistantPanelConversationList>('panel');
+  /**
+   * Whether the conversation list shows over the thread, two-way: `[(conversationsOpen)]="open"`, for
+   * example from a button of the host on a narrow screen. The list button, choosing or starting a
+   * conversation, and opening the preferences or the share view change it too, and the host hears each
+   * change. In a page from 900 px wide the conversations are listed beside the thread as well. With
+   * `conversationList="none"` no list shows, whatever it says.
+   */
+  readonly conversationsOpen = model(false);
+  /** @deprecated Bind `conversationsOpen` instead; this is the same signal. */
+  readonly showConversations: WritableSignal<boolean> = this.conversationsOpen;
+  /**
+   * Lets the host decide on each message the person sends from this panel's composer before it goes,
+   * for example to hold the first message of a new conversation (`firstMessage`) and offer to continue
+   * an existing conversation instead. The panel passes the message (`NhAssistantOutgoingMessage`) and
+   * waits; meanwhile the composer keeps showing the message and cannot send. `true` sends it. `false`
+   * holds it: it stays in the composer as the person's unsent text, with its files, and the host decides
+   * through the store, for example `keepUnsentMessage(null)` and then `submit(text, files)` to send it as
+   * it is, `setDraft(text, { replace: true })` to change it, or `keepUnsentMessage(null)`,
+   * `openConversation` and `submit(text)` to ask it in another conversation. A message also stays unsent
+   * when the person changed it or another conversation opened while the host decided, and when the
+   * function fails, which goes to Angular's `ErrorHandler`. Messages that the host sends through the
+   * store do not pass it. Left unset, every message goes at once.
+   */
+  readonly beforeSubmit = input<NhAssistantBeforeSubmit | null>(null);
+  /** True while the conversation list shows over the thread. */
+  readonly listOpen = computed(() => this.conversationsOpen() && this.conversationList() === 'panel');
+  /** True while the conversations are listed beside the thread: in a page with its own list. */
+  readonly sidebar = computed(() => this.page() && this.conversationList() === 'panel' && this.store.enabled());
+  /** True while `beforeSubmit` decides on a message; the composer keeps showing it and cannot send. */
+  readonly holding = signal(false);
 
   readonly titleId = `nh-assistant-panel-title-${nextId++}`;
   readonly markdown = this.config.markdown?.enabled ?? true;
-  readonly showConversations = signal(false);
   readonly showPreferences = signal(false);
   readonly showShare = signal(false);
   readonly shareSection = signal<'all' | 'link' | 'members'>('all');
@@ -179,22 +261,28 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
-    // Opening, creating or leaving a conversation returns from the list to the thread.
+    // Opening, creating or leaving a conversation returns from the list to the thread. The first
+    // conversation the panel shows changes nothing, so a host's `conversationsOpen` stays as bound.
     effect(() => {
-      if (this.conversationId() !== undefined) {
-        untracked(() => {
-          this.showConversations.set(false);
+      const conversationId = this.conversationId();
+      untracked(() => {
+        const changed = this.shownConversationId !== undefined && this.shownConversationId !== conversationId;
+        this.shownConversationId = conversationId;
+        if (changed) {
+          this.conversationsOpen.set(false);
           this.showPreferences.set(false);
           this.showShare.set(false);
-        });
-      }
+        }
+      });
     });
 
-    // The open thread counts as seen only while the drawer, or the page, shows it.
+    // This panel shows the open thread while the drawer is open, or in a page, and nothing covers it.
+    // The store counts every panel, so the thread is seen while any of them shows it.
     effect(() => {
-      const viewing = (this.page() || this.panel.isOpen()) && !this.showConversations() && !this.showPreferences() && !this.showShare();
-      untracked(() => this.store.setViewing(viewing));
+      const showing = (this.page() || this.panel.isOpen()) && !this.listOpen() && !this.showPreferences() && !this.showShare();
+      untracked(() => this.threadSurface.setShowing(showing));
     });
+    inject(DestroyRef).onDestroy(() => this.threadSurface.unregister());
 
     // A clicked notification opens its conversation in this window, in the drawer of the layout.
     const notifications = this.push.openConversation$.subscribe(conversationId => {
@@ -223,8 +311,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    // A page renders the chat in place; only the drawer registers with the panel service.
+    // A page renders the chat in place and registers as the place `open` acts on; the drawer
+    // registers its content for the overlay.
     if (this.page()) {
+      this.pageRegistered = true;
+      this.panel.registerPagePanel(this.host.nativeElement);
       return;
     }
 
@@ -234,6 +325,9 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.pageRegistered) {
+      this.panel.unregisterPagePanel(this.host.nativeElement);
+    }
     if (this.portal) {
       this.panel.unregisterPanel(this.portal);
     }
@@ -250,17 +344,17 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   toggleConversations(): void {
     this.showPreferences.set(false);
     this.showShare.set(false);
-    this.showConversations.update(show => !show);
+    this.conversationsOpen.update(show => !show);
   }
 
   togglePreferences(): void {
-    this.showConversations.set(false);
+    this.conversationsOpen.set(false);
     this.showShare.set(false);
     this.showPreferences.update(show => !show);
   }
 
   toggleShare(section: 'all' | 'link' | 'members' = 'all'): void {
-    this.showConversations.set(false);
+    this.conversationsOpen.set(false);
     this.showPreferences.set(false);
     const close = this.showShare() && this.shareSection() === section;
     this.shareSection.set(section);
@@ -282,23 +376,72 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
   newConversation(): void {
     this.store.startNewConversation();
-    this.showConversations.set(false);
+    this.conversationsOpen.set(false);
   }
 
   openConversation(conversationId: string): void {
     void this.store.openConversation(conversationId);
-    this.showConversations.set(false);
+    this.conversationsOpen.set(false);
   }
 
   deleteConversation(conversationId: string): void {
     void this.store.deleteConversation(conversationId);
   }
 
+  /** Sends what the composer sent, after the host's `beforeSubmit` when it has one. */
   send(text: string): void {
-    this.showConversations.set(false);
+    this.conversationsOpen.set(false);
     this.showPreferences.set(false);
     this.showShare.set(false);
-    void this.store.submit(text, this.store.attachedFiles());
+
+    const files = this.store.attachedFiles();
+    const beforeSubmit = this.beforeSubmit();
+    if (!beforeSubmit) {
+      void this.store.submit(text, files);
+      return;
+    }
+
+    void this.submitAfterHost(beforeSubmit, text, files);
+  }
+
+  /**
+   * Asks the host's `beforeSubmit` about a message and sends it on `true`. Until the host decides, and
+   * after it holds the message, the message stays in the composer as the person's unsent text of its
+   * conversation, with its files.
+   */
+  private async submitAfterHost(beforeSubmit: NhAssistantBeforeSubmit, text: string, files: FileReference[]): Promise<void> {
+    const conversation = this.conversation();
+    const message: NhAssistantOutgoingMessage = {
+      text,
+      files: [...files],
+      conversationId: conversation?.id ?? null,
+      firstMessage: (conversation?.messages.length ?? 0) === 0,
+      agentId: conversation?.agentId ?? this.store.selectedAgentId()
+    };
+
+    this.store.keepUnsentMessage({ text, prepared: false });
+    this.holding.set(true);
+    let send = false;
+    try {
+      send = await beforeSubmit(message) === true;
+    } catch (error) {
+      // The host's function failed: the message stays unsent and the application learns why.
+      this.errorHandler.handleError(error);
+    } finally {
+      this.holding.set(false);
+    }
+
+    if (!send) {
+      return;
+    }
+    if ((this.conversation()?.id ?? null) !== message.conversationId || this.store.unsentMessage()?.text !== text) {
+      // Another conversation opened, or the person changed the message, while the host decided: it
+      // stays unsent, as the composer shows it.
+      return;
+    }
+
+    this.store.keepUnsentMessage(null);
+    await this.store.submit(text, files);
   }
 
   /** Uploads the files the person attached to the next message. */
