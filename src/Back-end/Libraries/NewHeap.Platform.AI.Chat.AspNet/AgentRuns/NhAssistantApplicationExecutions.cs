@@ -410,7 +410,10 @@ internal sealed class NhAssistantApplicationExecutions(
             dueAt)
         {
             Inline = inline,
-            DecisionCulture = current.DecisionCulture
+            DecisionCulture = current.DecisionCulture,
+            // FB51: the policy the proposal waited under, also one a selector chose, as it was recorded.
+            PolicyId = current.PolicyId,
+            Mode = NhAssistantApprovalModes.ToMode(current.Mode)
         };
         TaskResult result;
         try

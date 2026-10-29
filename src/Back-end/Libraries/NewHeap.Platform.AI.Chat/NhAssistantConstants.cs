@@ -268,6 +268,14 @@ public static class NhAssistantApprovalModes
     {
         return mode == NhAiApprovalMode.Deferred ? Deferred : Inline;
     }
+
+    /// <summary>
+    /// The mode a proposal recorded, as <see cref="From"/> stored it.
+    /// </summary>
+    internal static NhAiApprovalMode ToMode(string? mode)
+    {
+        return string.Equals(mode, Deferred, StringComparison.Ordinal) ? NhAiApprovalMode.Deferred : NhAiApprovalMode.Inline;
+    }
 }
 
 /// <summary>

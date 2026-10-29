@@ -65,6 +65,13 @@ public enum NhAiProposalGuardStages
 /// they are <see langword="null"/>, as they are for a proposal that a person leaves for the subject's
 /// approvers: a guard must not authorize, or refuse, at those stages on them. None of them takes part in
 /// the proposal hash or the approval evidence.
+/// <para>
+/// At revalidation, decision and execution it names the approval policy the proposal waits under as the
+/// proposal recorded it (<see cref="PolicyId"/> and <see cref="Mode"/>, FB51), also a policy that an
+/// application's approval policy selector chose, so a guard can check whether what decided that choice
+/// still holds. They are <see langword="null"/> when a call proposes and for the keys of a new proposal:
+/// the policy is chosen only after the guards ran.
+/// </para>
 /// </summary>
 /// <param name="ProposalId">The proposal.</param>
 /// <param name="ToolId">The tool the proposal would run.</param>
@@ -129,6 +136,24 @@ public sealed record NhAiProposalGuardContext(
     /// proposes; <see langword="null"/> for a call the model made itself and at the later stages.
     /// </summary>
     public NhAiToolCallOrigin? Origin { get; init; }
+
+    /// <summary>
+    /// The id of the approval policy the proposal waits under, as the proposal recorded it: the policy
+    /// code resolved, or the one an approval policy selector chose instead. Set at revalidation, decision
+    /// and execution. <see langword="null"/> when a call proposes and for the keys of a new proposal,
+    /// because the policy is chosen after the guards ran, and for a proposal in a person's own chat,
+    /// which that person decides without an approval policy.
+    /// </summary>
+    public string? PolicyId { get; init; }
+
+    /// <summary>
+    /// How the proposal waits, as the proposal recorded it: <see cref="NhAiApprovalMode.Inline"/> while a
+    /// turn or run waits for the decision, <see cref="NhAiApprovalMode.Deferred"/> when people decide it
+    /// later. It is the mode the proposal got, which the call's route may set apart from the policy's own
+    /// mode, such as a person's message in an agent's thread, decided inline. Set at revalidation, decision
+    /// and execution; <see langword="null"/> when a call proposes and for the keys of a new proposal.
+    /// </summary>
+    public NhAiApprovalMode? Mode { get; init; }
 }
 
 /// <summary>
