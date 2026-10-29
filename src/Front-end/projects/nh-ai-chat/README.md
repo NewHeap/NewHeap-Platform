@@ -124,6 +124,7 @@ one drawer panel in the layout:
   [beforeSubmit]="beforeSubmit">
   <app-topic-bar nhAssistantAboveThread />
   <app-choice-bar nhAssistantAboveComposer />
+  <app-chat-start nhAssistantEmptyState />
 </nh-assistant-panel>
 ```
 
@@ -135,7 +136,8 @@ read while any of them shows it. `conversationsOpen` opens the conversation list
 host, two-way; `conversationList="none"` leaves the list and its button out for a host that
 lists the conversations itself. Content with `nhAssistantAboveThread` or
 `nhAssistantAboveComposer` shows above the thread or the composer, in a page and in the
-drawer. `beforeSubmit` receives each message (`NhAssistantOutgoingMessage`) before it goes:
+drawer, and content with `nhAssistantEmptyState` takes the place of the panel's own empty
+state while the conversation has no messages. `beforeSubmit` receives each message (`NhAssistantOutgoingMessage`) before it goes:
 `true` sends it, `false` keeps it in the composer for the host, which then sends or changes it
 through the store. The list beside the thread has the class `nh-assistant-sidebar`.
 

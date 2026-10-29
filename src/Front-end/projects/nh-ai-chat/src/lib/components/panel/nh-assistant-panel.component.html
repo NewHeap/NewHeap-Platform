@@ -138,6 +138,7 @@
             <p class="state-title">{{ 'nh-assistant.thread.loading' | translate }}</p>
           </div>
         } @else if (messages().length === 0 && !store.streaming()) {
+          <div class="slot slot-empty-state"><ng-content select="[nhAssistantEmptyState]" /></div>
           <div class="state">
             <nh-assistant-icon class="state-icon" name="assistant" />
             <p class="state-title">{{ 'nh-assistant.panel.empty-title' | translate }}</p>

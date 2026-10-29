@@ -101,8 +101,9 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
  * whether it shows the open thread (`NhAssistantStore.registerThreadSurface`), so the conversation is
  * marked as read while any of them shows it.
  *
- * In both modes the host can place its own content above the thread (`nhAssistantAboveThread`) and
- * above the composer (`nhAssistantAboveComposer`), hold a message before it is sent (`beforeSubmit`),
+ * In both modes the host can place its own content above the thread (`nhAssistantAboveThread`), above
+ * the composer (`nhAssistantAboveComposer`) and in place of the empty state of a conversation without
+ * messages (`nhAssistantEmptyState`), hold a message before it is sent (`beforeSubmit`),
  * open the conversation list (`[(conversationsOpen)]`) or leave the list out (`conversationList="none"`).
  */
 @Component({

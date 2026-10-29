@@ -19,7 +19,7 @@ import {
   NhAssistantPanelConversationList,
   NhAssistantStore
 } from '@newheap/platform-ai-chat';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 /**
  * SPM-253: the assistant's chat on a page of its own, for long sessions. The same panel as the
@@ -35,7 +35,9 @@ import { TranslateModule } from '@ngx-translate/core';
  * conversation (`nhAssistantAboveThread`), and `beforeSubmit` holds the first message of a new
  * conversation while earlier conversations exist: a choice above the composer
  * (`nhAssistantAboveComposer`) continues the latest conversation with it, starts the new conversation
- * or lets the person change the question, through the store.
+ * or lets the person change the question, through the store. The page's own empty state
+ * (`nhAssistantEmptyState`) takes the place of the panel's while the conversation has no messages, and
+ * its opening questions put a prepared draft in the composer (`NhAssistantStore.setDraft`).
  */
 @Component({
   selector: 'app-assistant-chat-page',
@@ -60,6 +62,19 @@ import { TranslateModule } from '@ngx-translate/core';
             <i class="ph ph-sidebar-simple" aria-hidden="true"></i>
             <span>{{ 'project.assistant-chat-list-toggle' | translate }}</span>
           </button>
+        </div>
+        <div nhAssistantEmptyState class="empty-start">
+          <i class="ph ph-kanban empty-icon" aria-hidden="true"></i>
+          <p class="empty-title">{{ 'project.assistant-chat-empty-title' | translate }}</p>
+          <p class="empty-text">{{ 'project.assistant-chat-empty-text' | translate }}</p>
+          <div class="empty-starts" role="group" [attr.aria-label]="'project.assistant-chat-empty-starts' | translate">
+            @for (start of starts; track start) {
+              <button type="button" class="choice" (click)="startWith(start)">
+                <i class="ph ph-chat-circle-text" aria-hidden="true"></i>
+                <span>{{ start | translate }}</span>
+              </button>
+            }
+          </div>
         </div>
         @if (choice(); as message) {
           <div nhAssistantAboveComposer class="choice-bar" role="group" aria-labelledby="assistant-chat-choice-question">
@@ -172,6 +187,39 @@ import { TranslateModule } from '@ngx-translate/core';
     .choice.primary:hover:not(:disabled) { background: var(--brand-strong); }
     .choice.quiet { border-color: transparent; color: var(--muted); }
     .choice:disabled { opacity: .6; }
+    .empty-start {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      max-width: 52ch;
+      margin: auto;
+      padding: 24px 16px;
+      text-align: center;
+    }
+    .empty-icon {
+      margin-bottom: 4px;
+      color: var(--brand);
+      font-size: 28px;
+    }
+    .empty-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .empty-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-starts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+    }
     @media (max-width: 760px) {
       .assistant-chat-page { height: max(420px, calc(100dvh - 64px - 56px)); margin-top: 16px; }
       .topic-action span { display: none; }
@@ -180,12 +228,15 @@ import { TranslateModule } from '@ngx-translate/core';
 })
 export class AssistantChatPageComponent {
   private readonly store = inject(NhAssistantStore);
+  private readonly translate = inject(TranslateService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly firstChoice = viewChild<ElementRef<HTMLButtonElement>>('firstChoice');
 
   /** SPM-376: the panel's own conversation list, which the topic bar switches off for a wide thread. */
   readonly conversationList = signal<NhAssistantPanelConversationList>('panel');
+  /** The opening questions of the page's empty state, as translation keys. */
+  readonly starts = ['project.assistant-chat-empty-late', 'project.assistant-chat-empty-week'];
   readonly listShown = computed(() => this.conversationList() === 'panel');
   /** The open conversation's title; `null` for a new conversation. */
   readonly topic = computed(() => this.store.activeConversation()?.title?.trim() || null);
@@ -232,6 +283,12 @@ export class AssistantChatPageComponent {
         untracked(() => afterNextRender(() => this.firstChoice()?.nativeElement.focus(), { injector: this.injector }));
       }
     });
+  }
+
+  /** Puts an opening question in the composer as a prepared draft; the person's own text stays. */
+  startWith(start: string): void {
+    this.store.setDraft(this.translate.instant(start));
+    this.focusComposer();
   }
 
   toggleList(): void {

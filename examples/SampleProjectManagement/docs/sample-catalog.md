@@ -622,7 +622,8 @@ What the person types and does not send stays with its conversation (SPM-369). T
 message" card shows what `NhAssistantStore.unsentMessage()` keeps for the open conversation: close the
 drawer with a question in the message box and it is there when the drawer opens again, while another
 conversation shows its own text. The store keeps it in this tab's memory only, the drawer and the chat
-on a page of its own show the same text, sending forgets it and switching the access permission off, as
+on a page of its own show the same text, sending forgets it and empties the message box, also when fast
+automated typing types and sends between two renders, and switching the access permission off, as
 signing out does, forgets every unsent message. A prepared brief treats the kept text as typed text.
 
 While the portal's Chat page shows, the assistant opens there (SPM-376). The page's panel
@@ -638,8 +639,10 @@ thread has the class `nh-assistant-sidebar`. The same page shows the host's own 
 `beforeSubmit` holds the first message of a new conversation while the person has an earlier
 conversation with the assistant. A choice above the message box (`nhAssistantAboveComposer`) asks the
 question in the latest conversation, starts the new conversation with it or leaves it for the person to
-change, each through the store; every other message goes at once. The library specs prove both cases in
-the drawer and in a page.
+change, each through the store; every other message goes at once. While the conversation has no
+messages, the page's own empty state (`nhAssistantEmptyState`) takes the place of the panel's, with its
+own words and two opening questions that put a prepared draft in the message box. The library specs
+prove both cases in the drawer and in a page.
 
 The chat helper works in people's chats only (SPM-343). `SampleChatHelperComposition` configures it with
 `ChatOnly()`: it keeps its meeting notes skill, offered with `use_skill`, structured questions and a

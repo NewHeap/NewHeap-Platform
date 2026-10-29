@@ -320,9 +320,23 @@ h2 {
   font-size: 12px;
 }
 
-// The host's own content (`nhAssistantAboveThread`, `nhAssistantAboveComposer`); nothing shows without it.
+// The host's own content (`nhAssistantAboveThread`, `nhAssistantAboveComposer`, `nhAssistantEmptyState`);
+// nothing shows without it.
 .slot:empty {
   display: none;
+}
+
+// The host's empty state fills the place of the panel's own, which it hides.
+.slot-empty-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+
+  &:not(:empty) + .state {
+    display: none;
+  }
 }
 
 .slot-above-thread {

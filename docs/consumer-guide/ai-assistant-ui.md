@@ -240,7 +240,10 @@ with `setViewing(viewing)`, which counts as one more surface and never hides wha
 
 The panel takes the host's own content and decisions, in a page and in the drawer. An element with
 `nhAssistantAboveThread` shows above the thread, for example a bar with the open topic, and one with
-`nhAssistantAboveComposer` above the composer. `[beforeSubmit]` (`NhAssistantBeforeSubmit`) receives each
+`nhAssistantAboveComposer` above the composer. One with `nhAssistantEmptyState` takes the place of the
+panel's own empty state ("How can I help?") while the conversation has no messages, for example the
+host's own words and opening questions that call `NhAssistantStore.setDraft`; without it the panel's
+own empty state shows. `[beforeSubmit]` (`NhAssistantBeforeSubmit`) receives each
 message the person sends (`NhAssistantOutgoingMessage`: `text`, `files`, `conversationId` or `null` for
 a new conversation, `firstMessage`, `agentId`) before it goes; the composer keeps showing it and cannot
 send meanwhile. `true` sends it; `false` holds it in the composer as the person's unsent text, and the
@@ -255,7 +258,7 @@ out, in a page and in the drawer, for a host that lists the conversations itself
 `open(conversationId)`. The list beside the thread has the class `nh-assistant-sidebar`, so style it
 under that name and not as `.sidebar`. SampleProjectManagement's Chat page opens conversations from
 elsewhere in place (SPM-376) and shows a topic bar and a choice for the first message of a new
-conversation (SPM-377).
+conversation and its own empty state (SPM-377).
 
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`); a host language with
 a region, such as `nl-NL`, receives the texts of its base language, so do not merge the
@@ -1466,7 +1469,7 @@ shows its source with the reason (SPM-336).
   - [src/Front-end/projects/management/src/app/management-layout/management-layout.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/management-layout/management-layout.component.html)
   - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts)
   - [../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.spec.ts)
-- SPM-377 — The Chat page shows a topic bar in the panel and holds the first message of a new conversation for a choice
+- SPM-377 — The Chat page shows a topic bar and its own empty state in the panel and holds the first message of a new conversation for a choice
   - [src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-chat/assistant-chat-page.component.ts)
   - [src/Front-end/projects/management/public/i18n/en.json](../../examples/SampleProjectManagement/src/Front-end/projects/management/public/i18n/en.json)
   - [src/Front-end/projects/management/public/i18n/nl.json](../../examples/SampleProjectManagement/src/Front-end/projects/management/public/i18n/nl.json)

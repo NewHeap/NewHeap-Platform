@@ -16,7 +16,8 @@ import { NhAssistantStore } from '../services/nh-assistant.store';
 
 /**
  * The application layout with its drawer, and a chat page the person can open and leave. Both panels
- * carry the host's own content above the thread and above the composer, and the same `beforeSubmit`.
+ * carry the host's own content above the thread, above the composer and in place of the empty state,
+ * and the same `beforeSubmit`.
  */
 @Component({
   standalone: true,
@@ -26,6 +27,7 @@ import { NhAssistantStore } from '../services/nh-assistant.store';
       <nh-assistant-panel [beforeSubmit]="beforeSubmit()" [conversationList]="drawerList()">
         <div nhAssistantAboveThread class="drawer-topic">Drawer topic</div>
         <div nhAssistantAboveComposer class="drawer-choice">Drawer choice</div>
+        <div nhAssistantEmptyState class="drawer-empty">Ask the drawer</div>
       </nh-assistant-panel>
     }
     @if (chatPage()) {
@@ -37,6 +39,7 @@ import { NhAssistantStore } from '../services/nh-assistant.store';
           [(conversationsOpen)]="conversationsOpen">
           <div nhAssistantAboveThread class="page-topic">Topic: planning</div>
           <div nhAssistantAboveComposer class="page-choice">Continue or start apart</div>
+          <div nhAssistantEmptyState class="page-empty">What shall we plan today?</div>
         </nh-assistant-panel>
       </div>
     }
@@ -273,10 +276,40 @@ describe('NhAssistantPanelComponent page mode with the drawer (FB44-FB49)', () =
       await settle(plain);
 
       const slots = Array.from((plain.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.slot'));
-      expect(slots.length).toBe(2);
+      expect(slots.length).toBe(3);
       for (const slot of slots) {
         expect(getComputedStyle(slot).display).toBe('none');
       }
+      // The panel's own empty state shows in the place the host left empty.
+      const empty = (plain.nativeElement as HTMLElement).querySelector('.slot-empty-state + .state') as HTMLElement;
+      expect(getComputedStyle(empty).display).not.toBe('none');
+      expect(empty.textContent).toContain('How can I help?');
+    });
+
+    it('shows the host\'s empty state in place of the panel\'s own, in the page and in the drawer, while the conversation has no messages', async () => {
+      await render(layout => layout.chatPage.set(true));
+
+      const empty = page().querySelector('.slot-empty-state') as HTMLElement;
+      expect(empty.querySelector('.page-empty')?.textContent).toBe('What shall we plan today?');
+      expect(getComputedStyle(empty).display).not.toBe('none');
+      expect(getComputedStyle(empty.nextElementSibling as HTMLElement).display).toBe('none');
+
+      panel.open('c1');
+      await settle(fixture);
+      expect(page().querySelector('.slot-empty-state')).toBeNull();
+      expect(page().querySelector('.page-empty')).toBeNull();
+
+      panel.open({ agentId: 'projects' });
+      await settle(fixture);
+      expect(page().querySelector('.slot-empty-state .page-empty')).not.toBeNull();
+
+      layout.chatPage.set(false);
+      await settle(fixture);
+      panel.open();
+      await settle(fixture);
+      const drawerEmpty = overlay().querySelector('.slot-empty-state') as HTMLElement;
+      expect(drawerEmpty.querySelector('.drawer-empty')?.textContent).toBe('Ask the drawer');
+      expect(getComputedStyle(drawerEmpty.nextElementSibling as HTMLElement).display).toBe('none');
     });
 
     it('holds the first message of a new conversation for the host, which then continues an existing conversation with it', async () => {
