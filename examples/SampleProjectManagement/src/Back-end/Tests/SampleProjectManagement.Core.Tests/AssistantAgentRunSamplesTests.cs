@@ -4792,7 +4792,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 || RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
         try
         {
-            var created = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+            // Other tests may add a trigger of their own on a new project; this one follows the reviewer's.
+            var created = Assert.Single(
+                await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId),
+                receipt => receipt.TriggerId == SampleIntakeReviewerComposition.TriggerId);
             var conversationId = created.ConversationId!.Value;
             await WaitForRunAsync(owner, conversationId, NhAssistantRunStatuses.Completed);
             var messagesBefore = (await ReadConversationAsync(owner, conversationId)).Messages.Count;
