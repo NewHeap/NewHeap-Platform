@@ -856,7 +856,9 @@ code without claiming its inputs, and a run that works finishes its turn but tak
 consultations and the application's messages (`INhAssistantConversationMessages.PostAsync`, which
 includes a request's answer in the asking chat) are refused with it; approved proposals of agent
 threads are held as for a stopped agent, and the first maintenance pass once agent work is on queues
-their execution, as it queues a run that lost its operation. Resuming a paused agent or a paused skill
+their execution, as it queues a run that lost its operation. `INhAssistantProposals.ProposeForAsync`
+still records a proposal for a person, because the application acts for that person as in their chat,
+and its execution once approved waits likewise. Resuming a paused agent or a paused skill
 of an active agent is refused with it too, because the events that waited would start no run; pausing,
 stopping, switching off and resuming a stopped or switched-off agent serve as usual. People keep
 chatting, in a chat and in an agent's thread, decide proposals, are reminded of them, and open
