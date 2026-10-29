@@ -365,7 +365,8 @@
     "SPM-371",
     "SPM-372",
     "SPM-373",
-    "SPM-374"
+    "SPM-374",
+    "SPM-375"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -3952,6 +3953,17 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptResult.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantScriptToolTests.cs"
+    ],
+    "SPM-375": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectDeadlineAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectDeadlinesComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantScriptSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptSignatures.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolDateSchemaTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiScriptDateTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeSchemaTests.cs"
     ]
   }
 }

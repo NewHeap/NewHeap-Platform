@@ -370,6 +370,8 @@ builder.Services.AddSampleProjectChat();
 builder.Services.AddSampleProjectOverview();
 // SPM-362: the planning service's one reviewed MCP tool, offered as the API's own code-owned tool.
 builder.Services.AddSamplePlanningMilestones(builder.Configuration);
+// SPM-375: a project tool with a due date and a time of day, which a script passes as strings.
+builder.Services.AddSampleProjectDeadlines();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.

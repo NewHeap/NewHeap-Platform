@@ -60,6 +60,16 @@ names honor `JsonPropertyName`, and `JsonIgnore` conditions keep or remove
 properties per direction. Keep the schema and the wire in agreement through these
 serializer attributes rather than by editing the generated schema.
 
+Values that System.Text.Json writes as strings are strings with a `format` in the
+schema: `Guid` is `uuid`, `DateTime` and `DateTimeOffset` are `date-time`, `TimeSpan`
+is `duration`, `DateOnly` is `date` (`"2026-11-01"`) and `TimeOnly` is `time`
+(`"14:30:00"`), nullable and in lists like every other value type. Use `DateOnly` for
+a day and `TimeOnly` for a time of day without a zone, and say in the tool's
+description which zone they are in. The MVC bridge and composed tools describe both
+types the same way. A changed schema changes the contract hash: a pending proposal of
+the tool can no longer be approved, and an application that imported the tool over MCP
+reviews it again.
+
 When the input names an application object, such as the project a status change concerns, mark that
 one property with `[NhAiSubject("project")]`, or the parameter of a positional record
 (`record ChangeStatusInput([NhAiSubject("project")] Guid ProjectId, ProjectStatus Status)`). The
@@ -158,6 +168,7 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Returning a raw serialized `TaskResult` from a hand-written governed function; the model then receives no code or message.
 - Declaring `NhAiSubject` on a property that does not name the object the call changes, or more than one; the platform checks and places proposals by it.
 - Restricting a tool with `Roles`, `AuthenticationSchemes` or an `AuthorizeAttribute` subclass; the gate only evaluates policy names, so the generator refuses them (`NHAI018`).
+- Passing a day or a time of day as a `DateTime` at midnight or as separate numbers when the input means a `DateOnly` or a `TimeOnly`.
 
 ## Verification
 
@@ -176,7 +187,9 @@ returns its own `code` and `message`. Assert that a declared subject appears in 
 descriptor with its JSON name, changes the contract hash only when declared, and that
 invalid declarations report `NHAI015` to `NHAI017`. Assert that positional and
 inherited `[Authorize]` policies reach the descriptor, that a caller failing one of
-them is denied, and that roles, schemes and attribute subclasses report `NHAI018`. Build and
+them is denied, and that roles, schemes and attribute subclasses report `NHAI018`. Assert
+that a `DateOnly` or `TimeOnly` property is a string with format `date` or `time` and
+that the function binds `"2026-11-01"` and `"14:30"`. Build and
 start the host in the Development environment, where the container validates
 scopes and registrations on build; a run-scoped catalog must be validated at
 startup and released with its validation scope. SPM-228 registers such a catalog
@@ -184,7 +197,8 @@ per agent run. SPM-234
 publishes the generated catalog through a trimmed Native AOT smoke executable
 and invokes a generated function so reflection-free descriptors, schemas,
 manifests, argument binding, and result serialization remain rooted.
-SPM-219, SPM-221, SPM-224, SPM-228, SPM-234, and the `NewHeap.Platform.AI.Tests`
+SPM-375 passes a due date and a time of day to a generated tool from a script.
+SPM-219, SPM-221, SPM-224, SPM-228, SPM-234, SPM-375 and the `NewHeap.Platform.AI.Tests`
 project are the executable references.
 
 ## Optional source evidence

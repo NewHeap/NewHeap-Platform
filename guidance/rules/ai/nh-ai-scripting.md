@@ -4,7 +4,7 @@ title: "Let a model chain the tools of its turn with one sandboxed script"
 area: backend
 reference: ai-scripting
 summary: "Offer the opt-in script tool where an agent or MCP exposure allows scripts, keep its limits tight and let every call it makes get the decision the same call gets on its own."
-sample-cases: ["SPM-373", "SPM-374"]
+sample-cases: ["SPM-373", "SPM-374", "SPM-375"]
 public-symbols: ["AddNewHeapPlatformAIScripting", "NhAiScriptingBuilder", "NhAiScriptingOptions", "NhAiScriptLimits", "NhAiScriptTool", "NhAiScriptRunner", "NhAiScriptSignatures", "NhAiScriptFieldError", "NhAiScriptResult", "NhAiScriptCallRecord", "NhAiScriptStop", "NhAiScriptCodes", "NhAiScriptCallOutcomes", "NhAiScriptStatuses", "INhAiScriptHost", "NhAiScriptToolOffer", "NhAiScriptToolCall", "NhAiScriptCallOutcome", "NhAiScriptCallOutcomeKind", "NhAiScriptRunInput", "INhAiMcpToolContributor", "NhAiMcpToolContribution", "NhAiMcpExportedTool", "AddNewHeapPlatformAIMcpToolContributor", "NhAssistantToolStepTurn"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
@@ -62,8 +62,12 @@ The description lists the tools as TypeScript-style declarations generated from 
 (`NhAiScriptSignatures`), within `MaxDescriptionLength`: beyond it, tools are listed with their argument
 names and then by name. A call that does not match its signature stops the script with
 `ai-script-call-invalid`, the exact signature and the field error, so the model corrects the script in
-one step. Every other stop has a precise code in `NhAiScriptCodes`: a syntax error with its line and
-column, a limit, an unknown tool, a refused tool or a call the turn refused.
+one step. A string with a format is checked as the tool reads it: `uuid`, an ISO 8601 `date-time`, a
+`date` only as `yyyy-MM-dd` and a `time` only as `HH:mm[:ss[.fffffff]]` without an offset, which is
+what System.Text.Json reads for a `DateOnly` and a `TimeOnly`; the signature shows them as
+`string /* date */` and `string /* time */`. Every other stop has a precise code in `NhAiScriptCodes`:
+a syntax error with its line and column, a limit, an unknown tool, a refused tool or a call the turn
+refused.
 
 `NhAiScriptRunner` runs a script against any `INhAiScriptHost`, which a test uses to prove an engine
 case without a database; production hosts are the assistant's step sessions.
@@ -85,9 +89,10 @@ order; an infinite loop, a deep recursion, memory also after a call, the call af
 and the mutation after the mutation limit stop with their codes, while a tool that allocates more than
 the memory budget does not stop a program that keeps little; `typeof System`, `require`, `import`,
 `eval` and `Function` reach nothing; an unknown tool and a refused tool are never called; a misspelled
-field returns the exact signature and the field; a deferred proposal lets the script go on and an inline
-one stops it with what it did. On SQL Server and PostgreSQL, run a script in a person's chat and in a
+field returns the exact signature and the field; a date or time in another form than the tool reads
+stops at its field before the tool runs, and a generated tool receives the `DateOnly` and `TimeOnly` a
+script passed; a deferred proposal lets the script go on and an inline one stops it with what it did. On SQL Server and PostgreSQL, run a script in a person's chat and in a
 triggered run: its calls are step rows of the script call with the script's hash, and with scripts
 switched off the tool is not offered. Over MCP, list the tool only where the exposure allows scripts and
 the switch has them on, and prove that a call while they are off is refused with
-`assistant-scripting-off`. SPM-373 and SPM-374 are the executable reference.
+`assistant-scripting-off`. SPM-373, SPM-374 and SPM-375 are the executable reference.

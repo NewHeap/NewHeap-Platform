@@ -1466,6 +1466,16 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 return "{\"type\":\"string\",\"format\":\"duration\"}";
             }
+            // System.Text.Json reads and writes a DateOnly as "2026-11-01" and a TimeOnly as
+            // "14:30:00", never as an object of their public properties.
+            if (displayName == "System.DateOnly")
+            {
+                return "{\"type\":\"string\",\"format\":\"date\"}";
+            }
+            if (displayName == "System.TimeOnly")
+            {
+                return "{\"type\":\"string\",\"format\":\"time\"}";
+            }
             if (type.TypeKind == TypeKind.Enum)
             {
                 var serializesAsString = stringEnumConverter

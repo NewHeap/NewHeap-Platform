@@ -46,6 +46,20 @@ public sealed class NhAiMvcBridgeSchemaTests
     }
 
     [Fact]
+    public void Date_only_and_time_only_values_are_strings_with_the_date_and_time_formats_as_generated_tools_write_them()
+    {
+        var conventions = new TypeSchemaConventions();
+
+        Assert.Equal("{\"type\":\"string\",\"format\":\"date\"}", conventions.Schema(typeof(DateOnly)));
+        Assert.Equal("{\"type\":[\"string\",\"null\"],\"format\":\"date\"}", conventions.Schema(typeof(DateOnly?)));
+        Assert.Equal("{\"type\":\"string\",\"format\":\"time\"}", conventions.Schema(typeof(TimeOnly)));
+        Assert.Equal("{\"type\":[\"string\",\"null\"],\"format\":\"time\"}", conventions.Schema(typeof(TimeOnly?)));
+        Assert.Equal(
+            "{\"type\":\"array\",\"items\":{\"type\":\"string\",\"format\":\"date\"}}",
+            conventions.Schema(typeof(DateOnly[])));
+    }
+
+    [Fact]
     public void Collection_action_publishes_the_collection_fragment_and_extra_query_values()
     {
         var schema = JsonNode.Parse(InputSchema("test-api.order.get"))!.AsObject();
@@ -226,6 +240,15 @@ public sealed class NhAiMvcBridgeSchemaTests
             var input = Assert.IsType<TestOrderInput>(body);
             input.Customer = input.Customer.ToUpperInvariant();
             return base.SerializeBody(input);
+        }
+    }
+
+    /// <summary>The default conventions' schema of one parameter or body type.</summary>
+    private sealed class TypeSchemaConventions : NhAiMvcBridgeDefaultConventions
+    {
+        public string Schema(Type type)
+        {
+            return CreateTypeSchema(type, "#/properties/value").ToJsonString();
         }
     }
 
