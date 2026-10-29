@@ -26,6 +26,31 @@ public static class NhAiScriptSignatures
     private const int MaxCheckedItems = 1_000;
 
     /// <summary>
+    /// The one form of a <c>date</c> string: what System.Text.Json reads and writes for a
+    /// <see cref="DateOnly"/>.
+    /// </summary>
+    private const string DateFormat = "yyyy-MM-dd";
+
+    /// <summary>
+    /// The forms of a <c>time</c> string: a time of day without an offset, with minutes and optional
+    /// seconds and up to seven digits of a fraction, as System.Text.Json writes a <see cref="TimeOnly"/>
+    /// and reads it back. An offset such as <c>Z</c> is refused, because a <see cref="TimeOnly"/> cannot
+    /// hold it.
+    /// </summary>
+    private static readonly string[] TimeFormats =
+    [
+        "HH:mm",
+        "HH:mm:ss",
+        "HH:mm:ss.f",
+        "HH:mm:ss.ff",
+        "HH:mm:ss.fff",
+        "HH:mm:ss.ffff",
+        "HH:mm:ss.fffff",
+        "HH:mm:ss.ffffff",
+        "HH:mm:ss.fffffff"
+    ];
+
+    /// <summary>
     /// The declaration of one tool, for example
     /// <c>projects_search_v1(input: { limit?: number; query?: string | null }): Promise&lt;Result&lt;Array&lt;{ id: string /* uuid */; key: string; name: string }&gt;&gt;&gt;;</c>,
     /// after a comment with its description and, for a tool that changes something, how a call may end.
@@ -675,6 +700,10 @@ public static class NhAiScriptSignatures
                 "uuid" when !Guid.TryParse(text, out _) => Error(path, "expected a uuid string"),
                 "date-time" when !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _) =>
                     Error(path, "expected an ISO 8601 date-time string"),
+                "date" when !DateOnly.TryParseExact(text, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) =>
+                    Error(path, "expected a date string yyyy-MM-dd"),
+                "time" when !TimeOnly.TryParseExact(text, TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) =>
+                    Error(path, "expected a time string HH:mm[:ss[.fffffff]]"),
                 _ => null
             };
         }
