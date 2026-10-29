@@ -618,7 +618,8 @@ The host would refuse to start if it also said what it works on, accepted hand-o
 The project chat answers in a person's chat about one project (SPM-363). `SampleProjectChatComposition`
 says it works on projects and requires a subject for a chat (`RequireChatSubject()`), so `GET agents` and
 the panel's status leave it out and `GET agents?subjectType=project&subjectId=` lists it for a project the
-person may read. The project dialog's "Chat about this project" calls `NhAssistantStore.setChatSubject` with
+person may read. The planner's shadow variant (SPM-288) works on projects too, but a shadow variant is
+never offered in the chat, so neither list names it. The project dialog's "Chat about this project" calls `NhAssistantStore.setChatSubject` with
 the project and opens the panel with the project chat; the first message creates the chat with the project
 as its subject, and the panel says what the chat is about. The project's access resolver decides when the
 chat is created and on every turn, read and invitation: a reader of the project chats and each message

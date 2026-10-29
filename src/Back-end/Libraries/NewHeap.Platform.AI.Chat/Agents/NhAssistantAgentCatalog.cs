@@ -72,7 +72,8 @@ internal sealed record NhAssistantAgent(
     public string? ConsultationRoutesReason { get; init; }
 
     /// <summary>
-    /// Whether people can choose the agent in the chat; see <c>HideFromChat()</c>.
+    /// Whether people can choose the agent in the chat; see <c>HideFromChat()</c>. Never for a shadow
+    /// variant (<c>ShadowOf</c>), in code or as data.
     /// </summary>
     public bool OfferedInChat { get; init; } = true;
 
@@ -280,8 +281,10 @@ internal sealed class NhAssistantAgentCatalog(
             ConsultationRoutesChangedAt = row.ConsultRoutesChangedAt,
             ConsultationRoutesChangedBy = row.ConsultRoutesChangedBy,
             ConsultationRoutesReason = row.ConsultRoutesReason,
+            // A shadow variant in code is never offered in the chat, as one created as data is not.
             OfferedInChat = row.Source == NhAssistantAgentSources.Code
-                ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions) && runOptions.HiddenFromChat)
+                ? !(registration.AgentRuns.TryGetValue(row.Id, out var runOptions)
+                    && (runOptions.HiddenFromChat || runOptions.ShadowOfAgentId is not null))
                 : !row.HiddenFromChat,
             RequiresChatSubject = row.Source == NhAssistantAgentSources.Code
                 && registration.CodeAgentRuns.TryGetValue(row.Id, out var subjectOptions)

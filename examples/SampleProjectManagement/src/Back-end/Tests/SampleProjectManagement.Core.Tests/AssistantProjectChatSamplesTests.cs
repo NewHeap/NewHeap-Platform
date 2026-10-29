@@ -33,9 +33,12 @@ public sealed class AssistantProjectChatSamplesTests(AssistantAgentRunSampleHost
         using var outsider = host.CreateClient(host.OutsiderId.ToString());
         var subjectQuery = $"subjectType={ProjectSubjects.Type}&subjectId={project:D}";
 
-        // The project chat is offered only for a chat about a project the person may read.
+        // The project chat is offered only for a chat about a project the person may read. The planner's
+        // shadow variant (SPM-288) works on projects too, but a shadow variant is never offered in the chat.
         Assert.DoesNotContain(SampleProjectChatComposition.AgentId, await AgentIdsAsync(reader, "/api/assistant/agents"));
-        Assert.Contains(SampleProjectChatComposition.AgentId, await AgentIdsAsync(reader, "/api/assistant/agents?" + subjectQuery));
+        var aboutProject = await AgentIdsAsync(reader, "/api/assistant/agents?" + subjectQuery);
+        Assert.Contains(SampleProjectChatComposition.AgentId, aboutProject);
+        Assert.DoesNotContain(SampleProjectPlannerVariantComposition.AgentId, aboutProject);
         using (var refusedAgents = await outsider.GetAsync("/api/assistant/agents?" + subjectQuery, TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.Forbidden, refusedAgents.StatusCode);

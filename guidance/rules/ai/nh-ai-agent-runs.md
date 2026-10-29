@@ -1391,7 +1391,8 @@ shadow variant: register the changed agent with its own id and `ConfigureAgent(v
 agent.ShadowOf(liveAgentId))`. Every event, scheduled and webhook trigger of the live agent then
 fires for the variant too, with the same subject, message, dedupe key and payload; publishers read
 the live receipt. The variant keeps what shadow mode guarantees (threads for administrators only, no
-notifications, nothing executes) and its own budget and state. `GET admin/agents/{id}/evaluation?
+notifications, nothing executes) and its own budget and state, and like a variant created as data it
+is never offered in the chat. `GET admin/agents/{id}/evaluation?
 variant=...` pairs the runs that handled the same event or that a replay repeated and returns, per
 tool, the proposals both made (same arguments or same objects), only one made, and what people
 decided about the live ones, with cost and routing of both; counts, ids and thread links only.

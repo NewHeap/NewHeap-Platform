@@ -567,3 +567,14 @@ chat is about ("About {subject}", English and Dutch). `Conversation.subject` and
 (`ConversationSubject`, `ConversationSubjectRef`) are optional, so older servers keep working;
 `assistant-subject-required` has English and Dutch texts. The mock API checks and keeps a chat's subject and
 checks the subject of `GET agents?subjectType=&subjectId=`.
+
+## NewHeap.Platform.AI.Chat: a shadow variant in code stays out of the chat
+
+A shadow variant in code (`ShadowOf`) is no longer offered in the chat, as a variant created as data was
+not: `GET agents`, `GET status` and the agents of a chat about a subject leave it out, and a new chat with
+it is refused with `assistant-agent-not-found` (404). Its triggers, shadow threads, evaluation and replays
+work as before. A chat with a variant broke what shadow mode guarantees: a person saw what it answered.
+
+| Breaking change | Required action |
+|---|---|
+| A variant in code (`ShadowOf`) is no longer in the chat's agent list, and `POST conversations` with it answers 404 `assistant-agent-not-found`. | Chat with the live agent; to try a variant's instructions in a chat, register them as an agent of its own without `ShadowOf`. |

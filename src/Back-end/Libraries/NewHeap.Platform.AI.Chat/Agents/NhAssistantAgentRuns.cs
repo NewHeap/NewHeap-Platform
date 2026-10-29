@@ -877,7 +877,8 @@ public sealed class NhAssistantAgentRunBuilder
     /// webhook trigger of the live agent also fires for the variant, with the same subject, message,
     /// dedupe key and payload, and a trigger's skill when the variant declares it. The variant keeps
     /// what shadow mode guarantees: administrators alone see its threads, it notifies nobody, nothing
-    /// it proposes executes, and its usage counts against its own budget. It may have triggers of its
+    /// it proposes executes, and its usage counts against its own budget. Like a variant created as data
+    /// it is never offered in the chat, as with <see cref="HideFromChat"/>. It may have triggers of its
     /// own; the states of the live agent and the variant are independent. Implies <see cref="Shadow"/>.
     /// </summary>
     public NhAssistantAgentRunBuilder ShadowOf(string liveAgentId)

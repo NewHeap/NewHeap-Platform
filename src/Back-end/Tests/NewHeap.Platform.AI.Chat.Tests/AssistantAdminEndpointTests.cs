@@ -506,7 +506,10 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NewHeap.Platform.AI.Chat.AspNet.NhAssistantStartupValidator))),
             assistantBuilder: assistant => assistant
                 .AddAgent(AssistantTestData.Agent("background-worker"))
-                .ConfigureAgent("background-worker", agent => agent.HideFromChat()));
+                .ConfigureAgent("background-worker", agent => agent.HideFromChat())
+                // A shadow variant in code stays out of the chat as one created as data does.
+                .AddAgent(AssistantTestData.Agent("project-assistant-next"))
+                .ConfigureAgent("project-assistant-next", agent => agent.ShadowOf("project-assistant")));
         using var admin = app.CreateClient(admin: true);
         using var user = app.CreateClient();
         var input = new
@@ -532,6 +535,10 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         var picker = await ReadJsonAsync(await user.GetAsync("/api/assistant/status"));
         using var hiddenChat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "intake-helper" }));
         using var codeHiddenChat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "background-worker" }));
+        using var variantChat = await user.PostAsync("/api/assistant/conversations", Json(new { agentId = "project-assistant-next" }));
+        var agents = (await ReadJsonAsync(await user.GetAsync("/api/assistant/agents"))).EnumerateArray()
+            .Select(agent => agent.GetProperty("id").GetString())
+            .ToArray();
         var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
             .ToDictionary(agent => agent.GetProperty("id").GetString()!, agent => agent.GetProperty("offeredInChat").GetBoolean());
         using var offered = await admin.PutAsync("/api/assistant/admin/agents/intake-helper", Json(new
@@ -549,10 +556,16 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Contains("project-assistant", shown);
         Assert.DoesNotContain("intake-helper", shown);
         Assert.DoesNotContain("background-worker", shown);
+        Assert.DoesNotContain("project-assistant-next", shown);
+        Assert.Contains("project-assistant", agents);
+        Assert.DoesNotContain("project-assistant-next", agents);
         Assert.Equal(HttpStatusCode.NotFound, hiddenChat.StatusCode);
         Assert.Equal("assistant-agent-not-found", (await ReadJsonAsync(hiddenChat)).GetProperty("code").GetString());
         Assert.Equal(HttpStatusCode.NotFound, codeHiddenChat.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, variantChat.StatusCode);
+        Assert.Equal("assistant-agent-not-found", (await ReadJsonAsync(variantChat)).GetProperty("code").GetString());
         Assert.False(listed["background-worker"]);
+        Assert.False(listed["project-assistant-next"]);
         Assert.False(listed["intake-helper"]);
         Assert.True(listed["project-assistant"]);
         Assert.True((await ReadJsonAsync(offered)).GetProperty("offeredInChat").GetBoolean());
