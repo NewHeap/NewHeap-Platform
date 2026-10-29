@@ -3,7 +3,10 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
@@ -13,7 +16,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// Executable evidence for SPM-373 and SPM-374: the project assistant answers a chained question with
 /// one script that runs the turn's tools on the server and returns only what the answer needs, and a
 /// status change inside a script gets the sample's approval exactly as the same call on its own does.
-/// The portal's own setting of the environment and agent switches scripts on (SPM-371).
+/// The portal's own setting of the environment and agent switches scripts on (SPM-371). SPM-375: a
+/// script passes a due date and a time of day to <c>projects.due-by</c> as strings, and the tool reads
+/// them on PostgreSQL as the date and time the script meant.
 /// </summary>
 public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) : IClassFixture<AssistantScriptSampleHost>
 {
@@ -131,6 +136,67 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
             stopped.GetProperty("data").GetProperty("calls").EnumerateArray().Select(call => call.GetProperty("outcome").GetString()!).ToArray());
     }
 
+    [Fact]
+    public async Task SPM_375_a_script_passes_a_due_date_and_a_time_of_day_that_the_tool_reads()
+    {
+        const string script = """
+            const due = await tools.projects_due_by_v1({ dueBy: "2026-11-01", before: "12:00", limit: 10 });
+            if (!due.success) { return due.code; }
+            return due.data.map(project => project.key + " " + project.dueDate + " " + project.dueTime);
+            """;
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
+            .RespondWithText("DUE-1 and DUE-2 are due by 1 November at noon.");
+        await SwitchScriptsOnAsync();
+        host.Model.Use(model);
+        using var client = host.CreateClient("spm-375-user");
+        var conversationId = await host.CreateConversationAsync(client);
+
+        var events = await host.SendAsync(client, conversationId, "Which projects are due by 1 November at noon UTC?");
+
+        Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+        Assert.Contains(ProjectDeadlineAiTools.DueByToolName, model.Requests[0].Options!.Tools!.Select(tool => tool.Name));
+        var result = JsonSerializer.SerializeToElement(Assert.Single(model.FunctionResults).Result);
+        Assert.True(result.GetProperty("success").GetBoolean(), result.GetRawText());
+        // The tool read "2026-11-01" and "12:00" as a DateOnly and a TimeOnly and queried PostgreSQL with
+        // them: the deadline at noon and the completed and other division's projects stay out, and the
+        // deadlines come back as the strings a script reads.
+        Assert.Equal(
+            """["DUE-1 2026-10-30 15:00:00","DUE-2 2026-11-01 09:30:00"]""",
+            result.GetProperty("data").GetProperty("value").GetRawText());
+    }
+
+    [Fact]
+    public async Task SPM_375_a_date_in_another_form_stops_the_script_at_the_field_before_the_tool_runs()
+    {
+        const string script = """
+            return await tools.projects_due_by_v1({ dueBy: "1 November 2026", limit: 10 });
+            """;
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
+            .RespondWithText("I need the date as 2026-11-01.");
+        await SwitchScriptsOnAsync();
+        host.Model.Use(model);
+        using var client = host.CreateClient("spm-375-invalid-user");
+        var conversationId = await host.CreateConversationAsync(client);
+
+        var events = await host.SendAsync(client, conversationId, "Which projects are due by 1 November?");
+
+        Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+        var result = JsonSerializer.SerializeToElement(Assert.Single(model.FunctionResults).Result);
+        Assert.Equal(NhAiScriptCodes.CallInvalid, result.GetProperty("code").GetString());
+        var stoppedAt = result.GetProperty("data").GetProperty("stoppedAt");
+        Assert.Equal("dueBy", stoppedAt.GetProperty("field").GetString());
+        Assert.Equal("expected a date string yyyy-MM-dd", stoppedAt.GetProperty("error").GetString());
+        // The model sees the date and the time as strings with their format, never as objects.
+        Assert.Equal(
+            "projects_due_by_v1(input: { before?: string /* time */ | null; dueBy: string /* date */; limit: number }): "
+            + "Promise<Result<Array<{ dueDate: string /* date */; dueTime: string /* time */; id: string /* uuid */; key: string; name: string }>>>;",
+            stoppedAt.GetProperty("signature").GetString());
+        // The tool never ran.
+        Assert.Empty(result.GetProperty("data").GetProperty("calls").EnumerateArray());
+    }
+
     /// <summary>
     /// The portal's own setting switches scripts on for the project assistant in this environment
     /// (SPM-371); compositions stay off.
@@ -145,12 +211,45 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
 
 /// <summary>
 /// The assistant sample with the portal's composition switch, as Program.cs composes it after
-/// <c>AddSampleAssistant</c>, which registers the script tool.
+/// <c>AddSampleAssistant</c>, which registers the script tool, and the deadline tool of SPM-375 with
+/// projects of the host's division in its database.
 /// </summary>
 public sealed class AssistantScriptSampleHost(SamplePostgreSqlServer postgreSql) : AssistantSampleHost(postgreSql)
 {
+    public override async ValueTask InitializeAsync()
+    {
+        await base.InitializeAsync();
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var otherDivisionId = Guid.NewGuid();
+        dbContext.Set<NhDivision>().AddRange(
+            new NhDivision { Id = DivisionId, Name = "Script sample division", TimeZoneId = "Europe/Amsterdam" },
+            new NhDivision { Id = otherDivisionId, Name = "Other division", TimeZoneId = "Europe/Amsterdam" });
+        dbContext.Projects.AddRange(
+            Due(DivisionId, "DUE-1", ProjectStatus.Active, new DateTimeOffset(2026, 10, 30, 15, 0, 0, TimeSpan.Zero)),
+            Due(DivisionId, "DUE-2", ProjectStatus.Draft, new DateTimeOffset(2026, 11, 1, 9, 30, 0, TimeSpan.Zero)),
+            Due(DivisionId, "DUE-3", ProjectStatus.Active, new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.Zero)),
+            Due(DivisionId, "DUE-4", ProjectStatus.Completed, new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero)),
+            Due(otherDivisionId, "OTHER-1", ProjectStatus.Active, new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero)));
+        await dbContext.SaveChangesAsync();
+    }
+
     protected override void ConfigureAssistant(IServiceCollection services)
     {
         services.AddSampleAssistantCompositions();
+        services.AddSampleProjectDeadlines();
+    }
+
+    private static Project Due(Guid divisionId, string key, ProjectStatus status, DateTimeOffset deadline)
+    {
+        return new Project
+        {
+            Id = Guid.NewGuid(),
+            DivisionId = divisionId,
+            Key = key,
+            Name = "Project " + key,
+            Status = status,
+            Deadline = deadline
+        };
     }
 }
