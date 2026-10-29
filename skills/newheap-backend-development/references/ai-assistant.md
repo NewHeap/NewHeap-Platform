@@ -1288,7 +1288,9 @@ Code that needs the snapshot elsewhere inside a tool call uses
 `INhAssistantConversationSnapshotProvider` with the call's invocation context. It
 verifies the running call, the run, the accountable actor's access and the active turn
 itself, and never returns instructions, tool calls or results, approvals, page context
-or output of the running turn, also not text written before an approval pause.
+or output of the running turn, also not text written before an approval pause. A binding that
+the application reviews and stores while it runs, instead of in code, follows "Links the
+application stores" below.
 
 ## Consultation chains across applications
 
@@ -1334,6 +1336,56 @@ The chain is loop protection between cooperating applications, not authorization
 person still needs the consultation's policy and a role on the subject, and the consulted agent's
 daily `Budget`, `MaxConsultationsPerActorPerDay` and the call's deadline bound a caller that sends
 no chain or a forged one: a forged shallow chain costs budget, never correctness.
+
+## Links the application stores
+
+`ContinueMcpChain` and `AddMcpContextBinding` are reviewed with the code and count from the next
+start. When the application links applications while it runs, for example on an administrator screen
+behind a permission and a review of its own, register an `INhAssistantMcpLinks` with
+`UseMcpLinks<TLinks>()` next to the code registrations (FB59; SPM-266 and SPM-366). Its `ListAsync`
+returns an `NhAssistantMcpLinkList`: the `ChainCallers` whose chains this application continues and
+the `ContextBindings` of tools on administrator-connected servers, as the application reviewed and
+stores them now. It is a scoped service that the assistant resolves in a scope of its own, never in a
+person's request, so answer with the application's links and nothing that depends on the request. The
+application owns who may create a link, as it owns approver candidates; NewHeap owns what a link may
+do.
+
+The assistant reads the source when a turn imports the tools of an administrator-connected server
+that code does not bind, when it binds such a tool's call, and when an MCP call that carries a chain
+starts a consultation. It reuses an answer for `NhAssistantMcpOptions.LinkCacheDuration`
+(`NewHeap:AI:Assistant:Mcp:LinkCacheDuration`, 30 seconds by default, from zero to 5 minutes) on the
+application's clock, so a link the application adds or revokes counts within that time without a
+restart; zero reads on every use. Code registrations never depend on the source and behave as
+before.
+
+NewHeap checks every stored entry exactly as it checks the same registration in code at startup and
+leaves out an entry that registration would refuse. It logs a warning with the kind of entry, its
+position, its application or server id when that is valid, and the reason
+(`NhAssistantMcpLinkProblems`) when the reason first appears, not on every read: `entry-missing`,
+`too-many-entries` (more than `NhAssistantMcpLinkList.MaxEntries` in a list), `application-id-invalid`,
+`issuer-invalid`, `client-invalid`, `chain-application-missing` (a caller, or a binding with
+`IncludeChain`, while the application has no name in chains), `own-application-name`,
+`caller-conflict` (an issuer and client that code or another stored entry names as another
+application), `server-url-invalid`, `tool-invalid`, `snapshot-invalid`, `code-binding` (code binds the
+same server id and tool, and its binding applies) and `binding-conflict` (two different stored
+bindings of one server id and tool, of which neither applies). A stored entry never grants more than
+a registration could:
+
+- A stored binding applies only to a tool of an administrator-connected server while the server keeps
+  the binding's id and URL. A code-owned import (`INhAiMcpClientToolImporter`) still needs
+  `AddMcpContextBinding`, and a consultation turn, which offers no administrator-connected tools, never
+  uses a stored binding.
+- A stored caller is believed only for a request whose authenticated principal carries exactly its
+  issuer and, when it names one, its client. It is loop protection, as a registered caller is, never
+  authorization.
+
+A source that throws, or does not answer within `NhAssistantMcpLinkList.ReadTimeLimit` (10 seconds),
+is logged with its type and the exception's type, never the message. Until the next read only the code
+registrations count: stored links fail closed. The binder is part of a tool's contract, so adding or
+revoking a stored binding changes the contract of that tool: a proposal of it that waits for a
+decision no longer runs, and the model proposes it again. A call whose import applied a stored binding
+that was revoked before the call is bound stops with `ai-mcp-binding-failed` instead of going out
+without the context.
 
 ## Compositions and scripts: a switch the application owns
 
@@ -1452,6 +1504,12 @@ calls in a consultation store nothing and are not listed.
 - Giving two applications of a chain the same name, or reviewing a caller under this application's
   own name: agents of the same id would refuse each other, and startup refuses the second. A binding
   with `IncludeChain` or a reviewed caller without `UseMcpChainApplication` fails startup too.
+- Answering `INhAssistantMcpLinks` with anything of the person or request in scope, or letting anyone
+  store a link without the application's own permission and review: the assistant reads it in a scope
+  of its own and shares the answer with every request for `LinkCacheDuration`.
+- Expecting a stored binding to bind a code-owned import, or a stored entry to replace a code
+  registration: code-owned imports keep their code binding, and a server id and tool or an issuer and
+  client that code registers keep their code registration.
 - Registering or replacing `INhAiToolDiscoveryPolicy` for the assistant; discovery
   stays owned by the application or the API bridge.
 - Offering a composition or the script tool as an extra function outside a tool catalog, or reading
@@ -1646,6 +1704,14 @@ caller that was not reviewed is a direct call at depth 1; two applications with 
 same id answer each other; a reviewed caller that sends a shallow chain on every call is refused by
 `MaxConsultationsPerActorPerDay`; and a malformed chain of a reviewed caller is ignored, not
 refused. Pin the JSON names of `chain` and the shape of the context without it (SPM-366).
+With `UseMcpLinks`, assert on a test clock that a stored caller and a stored binding count once
+`LinkCacheDuration` has passed and stop once revoked; that every entry a registration would refuse
+is left out with its `NhAssistantMcpLinkProblems` reason, logged once; that a source that throws
+leaves out every stored entry and keeps the code registrations; that a caller of another issuer or
+client and a binding of another server id, URL or tool stay unreviewed; and, over MCP, that a stored
+binding reaches an administrator-connected server, that a call whose stored binding was revoked after
+its import stops with `ai-mcp-binding-failed`, and that a stored caller's loop is refused and ignored
+again once revoked (SPM-266, SPM-366).
 For a tool that no sync has seen, assert that it is stored `missing` without a schema and never
 offered, that a sync that cannot reach the server or does not see it leaves it waiting, that the first
 sync that sees it keeps its settings and a later schema change disables it, and that refused names and

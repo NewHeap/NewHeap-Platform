@@ -1724,7 +1724,8 @@ bounds the consultations one turn starts, and the asking agent's `MaxConsultatio
 counts, also one refused later, and the next one is refused first with `assistant-consult-turn-limit`
 before the consulted agent runs (SPM-278). A consultation outside a turn, such as one through MCP, has no
 turn to count; it starts at depth 1 without an asking agent, unless a reviewed caller of another
-application sent its consultation chain (`ContinueMcpChain`, SPM-366): it then continues that chain,
+application sent its consultation chain (`ContinueMcpChain`, or a caller the application stores with
+`UseMcpLinks`, SPM-366): it then continues that chain,
 its agents count as askers and the depth limit bounds the whole path, as the assistant rule describes.
 Make `INhAiSubjectAccessResolver` accept only the canonical id of a
 subject, because the asking model types the id. Unknown subjects and subjects the asker

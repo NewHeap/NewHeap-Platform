@@ -91,7 +91,10 @@ and remote name, and a code-owned import opts in with `InvocationBinderId =
 NhAssistantMcpContext.BinderId`. A consultation turn offers no administrator-connected MCP tools,
 so this is how a consulted agent consults another application's agent; with `IncludeChain` the call
 also carries the consultation chain that the other application continues (SPM-366, see the
-assistant rule).
+assistant rule). A binding the application stores while it runs (`UseMcpLinks`, SPM-266) binds only a
+tool of an administrator-connected server, whose import the assistant makes itself; a code-owned
+import keeps needing `AddMcpContextBinding`, and a policy that names the binder without one still
+fails the import.
 
 Imported tools accept no agent grants by default. Set `AllowAgentGrant` on the
 import policy only when the server's credential belongs to the organization, not
