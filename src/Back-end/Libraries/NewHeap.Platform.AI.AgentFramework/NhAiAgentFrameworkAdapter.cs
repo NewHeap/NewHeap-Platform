@@ -40,6 +40,41 @@ public sealed record NhAiAgentCreateRequest(
     public Func<IServiceProvider, ChatHistoryProvider>? ChatHistoryProviderFactory { get; init; }
 
     /// <summary>
+    /// Whether a run fails with <see cref="InvalidOperationException"/> when the model service keeps the
+    /// conversation itself, which it shows by returning a conversation id (as the OpenAI Responses API
+    /// does), while the agent has a history provider from <see cref="ChatHistoryProviderFactory"/>. Sets
+    /// Agent Framework's <see cref="ChatClientAgentOptions.ThrowOnChatHistoryProviderConflict"/> and keeps
+    /// its default, <see langword="true"/>; the run fails after the governed model call, and the switch
+    /// also governs a history provider given for one run while the service keeps the conversation.
+    /// History the service keeps lives at the model provider, outside the application's retention and
+    /// forgetting, so switch the error off only in a deployment whose conversation data may live there.
+    /// Without the error, the session follows the service's conversation id: the run that received it
+    /// has read the history provider but stores nothing in it, and later runs of that session neither
+    /// read nor write it.
+    /// </summary>
+    public bool ThrowOnChatHistoryProviderConflict { get; init; } = true;
+
+    /// <summary>
+    /// Whether the conflict that <see cref="ThrowOnChatHistoryProviderConflict"/> describes logs a
+    /// warning, on every run whose answer carries a conversation id. Sets Agent Framework's
+    /// <see cref="ChatClientAgentOptions.WarnOnChatHistoryProviderConflict"/> and keeps its default,
+    /// <see langword="true"/>. The agent logs through the
+    /// <c>ILoggerFactory</c> that the profile's model client offers through
+    /// <see cref="IChatClient.GetService"/>; without one the warning is not written.
+    /// </summary>
+    public bool WarnOnChatHistoryProviderConflict { get; init; } = true;
+
+    /// <summary>
+    /// Whether the conflict that <see cref="ThrowOnChatHistoryProviderConflict"/> describes removes the
+    /// history provider from the agent, so that no later session of this agent instance reads or
+    /// writes it. Sets Agent Framework's <see cref="ChatClientAgentOptions.ClearOnChatHistoryProviderConflict"/>
+    /// and keeps its default, <see langword="true"/>. It takes effect only while the error is off. When
+    /// it is off as well, the agent keeps the provider for sessions whose conversation the service does
+    /// not keep.
+    /// </summary>
+    public bool ClearOnChatHistoryProviderConflict { get; init; } = true;
+
+    /// <summary>
     /// Creates the agent's <see cref="AIContextProvider"/>s, which add instructions and messages before
     /// each run and see its result after it, such as memory or compaction of the conversation. The
     /// adapter calls it once per created agent with the service provider passed to
@@ -279,7 +314,12 @@ internal sealed class NhAiAgentFrameworkAdapter(
             {
                 Instructions = request.Instructions,
                 Tools = functions
-            }
+            },
+            // A service that keeps the conversation and a history provider of the application's:
+            // the request's switches map one to one onto Agent Framework's.
+            ThrowOnChatHistoryProviderConflict = request.ThrowOnChatHistoryProviderConflict,
+            WarnOnChatHistoryProviderConflict = request.WarnOnChatHistoryProviderConflict,
+            ClearOnChatHistoryProviderConflict = request.ClearOnChatHistoryProviderConflict
         };
         if (request.ChatHistoryProviderFactory is { } historyFactory)
         {

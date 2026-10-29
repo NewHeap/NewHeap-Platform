@@ -943,7 +943,12 @@ strict mode does, and accepts the normalized one. A digest whose call passes the
 returns the failed result `ai-model-timeout` instead of throwing. `AiAgentHistorySamplesTests`
 extends SPM-225: the project agent keeps its session in the `InMemoryChatHistoryProvider` that its
 request's `ChatHistoryProviderFactory` creates, and its second question reaches the model with the
-first exchange through the governed client.
+first exchange through the governed client. When the model service keeps the conversation itself,
+as the OpenAI Responses API does, its answers carry a conversation id. Next to the history provider
+the run then fails by default, because that history would live at the model provider, outside the
+application's retention and forgetting. A deployment whose conversation data may live there sets
+`ThrowOnChatHistoryProviderConflict` to `false`, and the second question reaches the model alone,
+with the service's conversation id.
 
 ## Filtering
 

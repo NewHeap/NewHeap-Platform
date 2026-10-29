@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.AgentFramework;
 using NewHeap.Platform.AI.Test;
@@ -11,13 +12,15 @@ using Xunit;
 namespace NewHeap.Platform.AI.AgentFramework.Tests;
 
 /// <summary>
-/// The chat history and AI context provider slots of <see cref="NhAiAgentCreateRequest"/> (LS40), and
+/// The chat history and AI context provider slots of <see cref="NhAiAgentCreateRequest"/> (LS40), the
+/// switches for a model service that keeps the conversation next to a history provider (FB63), and
 /// the failure code of a governed model call that the agent's chat client throws (LS39).
 /// </summary>
 public sealed class NhAiAgentFrameworkProviderTests
 {
     private const string EarlierMessage = "Earlier: the roadmap project is late.";
     private const string ContextInstructions = "The roadmap project is the current focus.";
+    private const string ConflictMessage = "Only ConversationId or ChatHistoryProvider may be used, but not both.";
 
     [Fact]
     public async Task A_supplied_history_provider_supplies_and_stores_the_session_history()
@@ -169,6 +172,163 @@ public sealed class NhAiAgentFrameworkProviderTests
         Assert.Equal(NhAiModelFinishReasons.Cancelled, usage.FinishReason);
     }
 
+    [Fact]
+    public void A_request_keeps_the_agent_framework_defaults_of_the_conflict_switches()
+    {
+        var request = Request();
+        var defaults = new ChatClientAgentOptions();
+
+        Assert.Equal(defaults.ThrowOnChatHistoryProviderConflict, request.ThrowOnChatHistoryProviderConflict);
+        Assert.Equal(defaults.WarnOnChatHistoryProviderConflict, request.WarnOnChatHistoryProviderConflict);
+        Assert.Equal(defaults.ClearOnChatHistoryProviderConflict, request.ClearOnChatHistoryProviderConflict);
+        Assert.True(request.ThrowOnChatHistoryProviderConflict);
+        Assert.True(request.WarnOnChatHistoryProviderConflict);
+        Assert.True(request.ClearOnChatHistoryProviderConflict);
+    }
+
+    [Fact]
+    public async Task By_default_a_run_fails_when_the_service_keeps_the_conversation_next_to_a_history_provider()
+    {
+        var client = new ConversationKeepingChatClient("conversation-1");
+        await using var provider = CreateServices(client).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var history = new RecordingHistoryProvider();
+
+        var creation = await scope.ServiceProvider
+            .GetRequiredService<INhAiAgentFrameworkAdapter>()
+            .CreateAsync(Request() with { ChatHistoryProviderFactory = _ => history }, scope.ServiceProvider);
+        Assert.True(creation.Success);
+        var agent = Assert.IsType<ChatClientAgent>(creation.Data.Agent);
+        var session = await agent.CreateSessionAsync();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            agent.RunAsync("How is the roadmap project?", session));
+
+        // Today's behaviour: the run fails after the governed model call, which already had the history.
+        Assert.StartsWith(ConflictMessage, failure.Message, StringComparison.Ordinal);
+        var sent = Assert.Single(client.Requests);
+        Assert.Equal([EarlierMessage, "How is the roadmap project?"], sent.Messages.Select(message => message.Text));
+        Assert.Single(scope.ServiceProvider.GetRequiredService<NhAiCapturedUsageSink>().Records);
+        Assert.Empty(history.Stored);
+        // The error comes before the provider is cleared, and the warning is logged.
+        Assert.Same(history, agent.ChatHistoryProvider);
+        Assert.Single(client.Logs.Warnings(ConflictMessage));
+    }
+
+    [Fact]
+    public async Task With_the_error_off_the_service_keeps_the_conversation_and_the_agent_drops_the_history_provider()
+    {
+        var client = new ConversationKeepingChatClient("conversation-1", "conversation-2", null);
+        await using var provider = CreateServices(client).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var history = new RecordingHistoryProvider();
+
+        var creation = await scope.ServiceProvider
+            .GetRequiredService<INhAiAgentFrameworkAdapter>()
+            .CreateAsync(
+                Request() with
+                {
+                    ChatHistoryProviderFactory = _ => history,
+                    ThrowOnChatHistoryProviderConflict = false
+                },
+                scope.ServiceProvider);
+        Assert.True(creation.Success);
+        var agent = Assert.IsType<ChatClientAgent>(creation.Data.Agent);
+        var session = Assert.IsType<ChatClientAgentSession>(await agent.CreateSessionAsync());
+
+        var first = await agent.RunAsync("How is the roadmap project?", session);
+        var updates = new List<AgentResponseUpdate>();
+        await foreach (var update in agent.RunStreamingAsync("Which of them is mine?", session))
+        {
+            updates.Add(update);
+        }
+        var other = await agent.RunAsync("Which projects are late?", await agent.CreateSessionAsync());
+
+        Assert.Equal("Answer 1.", first.Text);
+        Assert.Equal("Answer 2.", string.Concat(updates.Select(update => update.Text)));
+        Assert.Equal("Answer 3.", other.Text);
+        // The session follows the conversation the service keeps; the second question goes alone,
+        // with the conversation id, through the governed client and its usage records.
+        Assert.Equal("conversation-2", session.ConversationId);
+        var requests = client.Requests;
+        Assert.Equal([EarlierMessage, "How is the roadmap project?"], requests[0].Messages.Select(message => message.Text));
+        Assert.Null(requests[0].Options?.ConversationId);
+        Assert.Equal(["Which of them is mine?"], requests[1].Messages.Select(message => message.Text));
+        Assert.Equal("conversation-1", requests[1].Options?.ConversationId);
+        Assert.Equal(3, scope.ServiceProvider.GetRequiredService<NhAiCapturedUsageSink>().Records.Count);
+        // Each run whose answer carried a conversation id warned, and the first one cleared the provider,
+        // so no later session of this agent uses it.
+        Assert.Equal(2, client.Logs.Warnings(ConflictMessage).Count);
+        Assert.Null(agent.ChatHistoryProvider);
+        Assert.Equal(["Which projects are late?"], requests[2].Messages.Select(message => message.Text));
+        Assert.Equal(1, history.Provided);
+        Assert.Empty(history.Stored);
+    }
+
+    [Fact]
+    public async Task With_the_error_and_clearing_off_the_agent_keeps_its_history_provider_for_other_sessions()
+    {
+        var client = new ConversationKeepingChatClient("conversation-1", "conversation-2", null);
+        await using var provider = CreateServices(client).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var history = new RecordingHistoryProvider();
+
+        var creation = await scope.ServiceProvider
+            .GetRequiredService<INhAiAgentFrameworkAdapter>()
+            .CreateAsync(
+                Request() with
+                {
+                    ChatHistoryProviderFactory = _ => history,
+                    ThrowOnChatHistoryProviderConflict = false,
+                    WarnOnChatHistoryProviderConflict = false,
+                    ClearOnChatHistoryProviderConflict = false
+                },
+                scope.ServiceProvider);
+        Assert.True(creation.Success);
+        var agent = Assert.IsType<ChatClientAgent>(creation.Data.Agent);
+        var session = await agent.CreateSessionAsync();
+
+        await agent.RunAsync("How is the roadmap project?", session);
+        await agent.RunAsync("Which of them is mine?", session);
+        var other = await agent.RunAsync("Which projects are late?", await agent.CreateSessionAsync());
+
+        Assert.Equal("Answer 3.", other.Text);
+        var requests = client.Requests;
+        // The session whose conversation the service keeps leaves the provider out ...
+        Assert.Equal(["Which of them is mine?"], requests[1].Messages.Select(message => message.Text));
+        Assert.Equal("conversation-1", requests[1].Options?.ConversationId);
+        // ... and a session whose conversation the service does not keep still uses it, without a warning.
+        Assert.Same(history, agent.ChatHistoryProvider);
+        Assert.Equal([EarlierMessage, "Which projects are late?"], requests[2].Messages.Select(message => message.Text));
+        Assert.Equal(2, history.Provided);
+        Assert.Equal(["Which projects are late?", "Answer 3."], history.Stored.Select(message => message.Text));
+        Assert.Empty(client.Logs.Warnings(ConflictMessage));
+    }
+
+    [Fact]
+    public async Task Without_a_history_provider_the_service_keeps_the_conversation_as_before()
+    {
+        var client = new ConversationKeepingChatClient("conversation-1", "conversation-2");
+        await using var provider = CreateServices(client).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+
+        var creation = await scope.ServiceProvider
+            .GetRequiredService<INhAiAgentFrameworkAdapter>()
+            .CreateAsync(Request(), scope.ServiceProvider);
+        Assert.True(creation.Success);
+        var agent = creation.Data.Agent;
+        var session = Assert.IsType<ChatClientAgentSession>(await agent.CreateSessionAsync());
+
+        await agent.RunAsync("How is the roadmap project?", session);
+        var second = await agent.RunAsync("Which of them is mine?", session);
+
+        Assert.Equal("Answer 2.", second.Text);
+        Assert.Equal("conversation-2", session.ConversationId);
+        Assert.Equal(["Which of them is mine?"], client.Requests[1].Messages.Select(message => message.Text));
+        Assert.Equal("conversation-1", client.Requests[1].Options?.ConversationId);
+        Assert.Empty(client.Logs.Warnings(ConflictMessage));
+    }
+
     private const string SearchFunction = "projects_search";
 
     private static NhAiAgentCreateRequest Request()
@@ -292,13 +452,17 @@ public sealed class NhAiAgentFrameworkProviderTests
     private sealed class RecordingHistoryProvider : ChatHistoryProvider
     {
         private readonly ConcurrentQueue<ChatMessage> _stored = new();
+        private int _provided;
 
         public IReadOnlyList<ChatMessage> Stored => _stored.ToArray();
+
+        public int Provided => Volatile.Read(ref _provided);
 
         protected override ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
             InvokingContext context,
             CancellationToken cancellationToken)
         {
+            Interlocked.Increment(ref _provided);
             return ValueTask.FromResult<IEnumerable<ChatMessage>>([new ChatMessage(ChatRole.User, EarlierMessage)]);
         }
 
@@ -340,6 +504,135 @@ public sealed class NhAiAgentFrameworkProviderTests
         {
             Interlocked.Increment(ref _invoked);
             return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// A model service that keeps the conversation itself, as the OpenAI Responses API does: each answer
+    /// carries the next queued conversation id, or none. It offers a logger factory that captures what the
+    /// agent logs.
+    /// </summary>
+    private sealed class ConversationKeepingChatClient(params string?[] conversationIds) : IChatClient
+    {
+        private readonly object _sync = new();
+        private readonly Queue<string?> _conversationIds = new(conversationIds);
+        private readonly List<NhAiRecordedChatRequest> _requests = [];
+
+        public CapturingLoggerFactory Logs { get; } = new();
+
+        public IReadOnlyList<NhAiRecordedChatRequest> Requests
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _requests.ToArray();
+                }
+            }
+        }
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Answer(messages, options));
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            foreach (var update in Answer(messages, options).ToChatResponseUpdates())
+            {
+                await Task.Yield();
+                yield return update;
+            }
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            if (serviceKey is null && serviceType == typeof(ILoggerFactory))
+            {
+                return Logs;
+            }
+            return serviceKey is null && serviceType.IsInstanceOfType(this)
+                ? this
+                : null;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        private ChatResponse Answer(IEnumerable<ChatMessage> messages, ChatOptions? options)
+        {
+            lock (_sync)
+            {
+                _requests.Add(new NhAiRecordedChatRequest(messages.ToArray(), options));
+                var conversationId = _conversationIds.Count > 0
+                    ? _conversationIds.Dequeue()
+                    : throw new InvalidOperationException("No conversation id is queued.");
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, $"Answer {_requests.Count}."))
+                {
+                    ConversationId = conversationId
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Captures every log entry of every logger it creates.
+    /// </summary>
+    private sealed class CapturingLoggerFactory : ILoggerFactory
+    {
+        private readonly ConcurrentQueue<(LogLevel Level, string Message)> _entries = new();
+
+        public IReadOnlyList<string> Warnings(string start)
+        {
+            return _entries
+                .Where(entry => entry.Level == LogLevel.Warning)
+                .Select(entry => entry.Message)
+                .Where(message => message.Contains(start, StringComparison.Ordinal))
+                .ToArray();
+        }
+
+        public ILogger CreateLogger(string categoryName)
+        {
+            return new CapturingLogger(_entries);
+        }
+
+        public void AddProvider(ILoggerProvider provider)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class CapturingLogger(ConcurrentQueue<(LogLevel Level, string Message)> entries) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull
+            {
+                return null;
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                entries.Enqueue((logLevel, formatter(state, exception)));
+            }
         }
     }
 

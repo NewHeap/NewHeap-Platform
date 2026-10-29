@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "76a5fe1314a75566a37da15306906fb21fb9fc4a1a20e653c922b881b12cc803",
-    "declarationCount": 12074,
+    "hash": "6e49c547cc39f37b88d1460ff9f9e1e3ae7bb026b69d37f4b3772d93769a25e6",
+    "declarationCount": 12077,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -20,6 +20,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public Func<IServiceProvider, ChatHistoryProvider>? ChatHistoryProviderFactory { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public bool ThrowOnChatHistoryProviderConflict { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public bool WarnOnChatHistoryProviderConflict { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public bool ClearOnChatHistoryProviderConflict { get; init; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -51804,7 +51816,10 @@
       "NhAiAgentModelCallException",
       "NhAiAutonomyLevel",
       "ChatHistoryProviderFactory",
-      "AIContextProvidersFactory"
+      "AIContextProvidersFactory",
+      "ThrowOnChatHistoryProviderConflict",
+      "WarnOnChatHistoryProviderConflict",
+      "ClearOnChatHistoryProviderConflict"
     ],
     "nh-ai-agent-runs": [
       "ConfigureAgent",
