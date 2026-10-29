@@ -224,6 +224,32 @@ records `AgentProposalResolved`; the answer is the conversation, whose approval 
 only to that person (`NhAssistantApprovalPartDto.ExecutionResultCode`, `ExecutionReportDueAt`,
 `CanResolve`). The maintenance job also expires these deadlines in a host without agent runs.
 
+When the person should not have to pick the work up again after a slow execution, such as a publication
+that takes hours, add `ContinueChatAfterReport()` to the declaration
+(`execution => execution.AlsoInline().ContinueChatAfterReport()`, SPM-328, FB61); without `AlsoInline`
+the declaration is refused, because a chat's approvals would never reach the application. It is off by
+default, and an agent thread keeps the approval policy's `StartFollowUpRun`. After a report of any
+outcome in a person's chat the assistant starts one turn there that nobody typed, after a two-second
+debounce on the application's clock, so that reports that arrive together reach one turn. The turn runs as the person whose turn made the
+proposal, never as another participant, the chat's owner or whoever a decision names: the application's
+`INhAiPrincipalFactory` rebuilds that person in the active division of that turn, the application's
+context resolver resolves them, and they must still be in the chat and pass the assistant's access policy
+and the agent's policy, as for a message of theirs. It can only propose: every tool effect other than a
+read needs that person's approval in the chat, whatever the effect policy allows, a tool that issues or
+authorizes approvals is denied, and a proposal waits for their decision like any other; no turn decides
+a proposal. The report stays the application's information for the model, which reads it with a fixed
+instruction to continue from there. The turn's tools see the channel `execution-report`
+(`NhAssistantDecisionChannels.ExecutionReport`) on the invocation context, every audit event of the turn
+records it, and `ChatFollowUpStarted` records the start with the person and the proposal. Nothing starts,
+and `ChatFollowUpSkipped` records why, while the chat runs a turn (`running`, also a report the executor
+makes while it takes the hand-off, which that turn tells itself) or waits for a decision or an answer
+(`waiting-for-approval`), when it has a newer message than the report (`chat-answered`), or when the
+person fails a check (`assistant-context-unavailable`, `assistant-agent-forbidden`,
+`assistant-conversation-not-found`); the report then waits in the chat for the person's next message. A
+hand-off the executor refuses or that throws is told within the approving turn, and a passed deadline is
+no report, so neither starts a turn. The wait lives in the process: a host that stops before it ends
+starts nothing, and the report stays. The panel shows the turn as it shows a turn of another session.
+
 A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
 happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with
 `assistant-approval-expired` and the failure class `policy`, and notifies like any failed

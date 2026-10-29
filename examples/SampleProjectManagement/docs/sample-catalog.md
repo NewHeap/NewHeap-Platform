@@ -426,7 +426,10 @@ English, although the application defaults to Dutch, and Dutch for one whose cli
 approval handed off before the culture was recorded reads in the default culture, and agent threads
 keep it. An order the supplier does not confirm in time becomes uncertain, and its card in the chat
 offers the person who approved it to hand it to the order desk again or to mark it done. An order for a
-project of another division is refused by the executor in the chat too.
+project of another division is refused by the executor in the chat too. The order tool also continues
+the chat after the desk's report (`ContinueChatAfterReport`): shortly after the report, the project
+assistant tells the person by itself that the desk placed the order, in a turn nobody typed. That turn
+runs as the person who asked, with their rights, and could only propose a change for them to approve.
 
 In shadow the project closer proposes an unchanged finding once (SPM-324). A shadow proposal never
 waits for a decision, but within its seven-day lifetime it counts as open, as the live rules would see

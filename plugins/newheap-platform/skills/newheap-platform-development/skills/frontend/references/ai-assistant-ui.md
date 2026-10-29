@@ -483,7 +483,11 @@ outcome (`ApprovalPart.canResolve`, SPM-328) shows "Hand to the application agai
 on its card: the card emits `resolve` (`ApprovalResolution`), the thread `approvalResolution`
 (`NhAssistantApprovalResolutionChoice`), and the panel calls `NhAssistantStore.resolveApproval`, which
 posts `NhAssistantApiService.resolveApproval` (`ResolveApprovalRequest`) and shows the conversation the
-server returns. The mock API resolves it as the server does. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
+server returns. The mock API resolves it as the server does. When the tool also continues the chat after
+the application's report (`ContinueChatAfterReport`, SPM-328), the turn the server starts there needs
+nothing of the panel: it arrives live as a turn of another session does, with `turn.started`, the
+answer and the proposal it waits for, and the panel reloads the conversation when it ends; it has no
+message of the person. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
 a participant. A message the application posted (`role: 'application'`, SPM-312) reads as the
 application's in chats and threads alike: a card with the application's mark, the sender with an
 "Application" tag, the title, the text as Markdown and the link (`Message.application`,
