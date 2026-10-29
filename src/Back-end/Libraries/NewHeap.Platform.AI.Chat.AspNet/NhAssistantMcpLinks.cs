@@ -416,10 +416,11 @@ internal sealed partial class NhAssistantMcpLinkCache
     /// </summary>
     private void Report(HashSet<string> problems, string kind, int index, string? name, string problem)
     {
-        var fingerprint = string.Join('|', kind, name ?? index.ToString(System.Globalization.CultureInfo.InvariantCulture), problem);
+        var shown = name ?? "-";
+        var fingerprint = string.Join('|', kind, index.ToString(System.Globalization.CultureInfo.InvariantCulture), shown, problem);
         if (problems.Add(fingerprint) && !_reported.Contains(fingerprint))
         {
-            LogEntryLeftOut(kind, index, name, problem);
+            LogEntryLeftOut(kind, index, shown, problem);
         }
     }
 
@@ -445,7 +446,7 @@ internal sealed partial class NhAssistantMcpLinkCache
     private partial void LogReadFailed(string source, string exceptionType);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "A stored MCP link was left out: {Kind} {Index} ({Name}): {Problem}.")]
-    private partial void LogEntryLeftOut(string kind, int index, string? name, string problem);
+    private partial void LogEntryLeftOut(string kind, int index, string name, string problem);
 
     private sealed record Cached(NhAssistantMcpLinkView View, DateTimeOffset ExpiresAt);
 }

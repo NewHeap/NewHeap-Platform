@@ -397,11 +397,108 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
         }
     }
 
+    [Fact]
+    public async Task A_binding_the_application_stores_applies_after_the_cache_time_and_stops_when_revoked()
+    {
+        var model = new NhAiScriptedChatClient();
+        for (var turn = 1; turn <= 4; turn++)
+        {
+            model
+                .RespondWithFunctionCall(ResearchFunction, new { question = $"Which risks block Alpha ({turn})?" })
+                .RespondWithText("Research is queued.");
+        }
+
+        var research = new ResearchServer();
+        var stored = new StoredLinks();
+        await using var host = await CreateHostAsync(model, research, codeBinding: false, stored: stored);
+        await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly);
+        var conversation = await host.CreateConversationAsync();
+
+        // No binding yet; the one the application stores next counts once the cache time has passed.
+        await host.SendAsync(conversation.Id, "Ask research which risks block Alpha.");
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask"));
+        await host.SendAsync(conversation.Id, "Ask research again.");
+        stored.Clock.Advance(TimeSpan.FromSeconds(30));
+        var bound = await host.SendAsync(conversation.Id, "Ask research once more.");
+        // A revoked binding stops in the same way, without a restart.
+        stored.Bindings.Clear();
+        stored.Clock.Advance(TimeSpan.FromSeconds(30));
+        var revoked = await host.SendAsync(conversation.Id, "Ask research a last time.");
+
+        Assert.Equal(NhAssistantToolCallStatuses.Succeeded, bound.Single<NhAssistantToolCompletedEvent>().Status);
+        Assert.Equal(NhAssistantToolCallStatuses.Succeeded, revoked.Single<NhAssistantToolCompletedEvent>().Status);
+        var calls = research.Calls.ToArray();
+        Assert.Equal(4, calls.Length);
+        Assert.Null(calls[0].Context);
+        Assert.Null(calls[1].Context);
+        Assert.Null(calls[3].Context);
+        var context = calls[2].Context!;
+        Assert.Equal(conversation.Id.ToString(), context["conversation"]!["id"]!.GetValue<string>());
+        Assert.Equal(bound.Single<NhAssistantTurnStartedEvent>().TurnId.ToString(), context["conversation"]!["turnId"]!.GetValue<string>());
+        Assert.Equal(AgentActorId, context["invocation"]!["actor"]!["id"]!.GetValue<string>());
+        Assert.Equal("Ask research which risks block Alpha.", context["snapshot"]!["firstQuestion"]!["text"]!.GetValue<string>());
+        // Every model call saw only the remote schema.
+        Assert.All(calls, call => Assert.Equal(["question"], call.Arguments.Keys));
+    }
+
+    [Fact]
+    public async Task A_stored_binding_for_another_server_id_or_url_sends_no_context()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ResearchFunction, new { question = "Which risks block Alpha?" })
+            .RespondWithText("Research is queued.");
+        var research = new ResearchServer();
+        var stored = new StoredLinks();
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research", "http://localhost/elsewhere/mcp", "research-ask"));
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research-copy", ResearchUrl, "research-ask"));
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-publish"));
+        await using var host = await CreateHostAsync(model, research, codeBinding: false, stored: stored);
+        await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly);
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "Ask research which risks block Alpha.");
+
+        Assert.Equal(NhAssistantToolCallStatuses.Succeeded, turn.Single<NhAssistantToolCompletedEvent>().Status);
+        Assert.Null(Assert.Single(research.Calls).Context);
+    }
+
+    [Fact]
+    public async Task A_failing_source_of_stored_links_leaves_out_the_stored_binding_and_keeps_the_code_binding()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ResearchFunction, new { question = "Which risks block Alpha?" })
+            .RespondWithFunctionCall("mcp_research-copy_research_ask", new { question = "Which risks block Beta?" })
+            .RespondWithText("Research is queued.");
+        var research = new ResearchServer();
+        var stored = new StoredLinks { Failure = new InvalidOperationException("The link table is not reachable.") };
+        // The copy's binding is stored, the research server's is in code.
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research-copy", ResearchUrl, "research-ask"));
+        await using var host = await CreateHostAsync(model, research, stored: stored);
+        await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly, "research", "research-copy");
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "Ask research and its copy which risks block Alpha and Beta.");
+
+        Assert.All(turn.Events.OfType<NhAssistantToolCompletedEvent>(), completed => Assert.Equal(NhAssistantToolCallStatuses.Succeeded, completed.Status));
+        var calls = research.Calls.ToArray();
+        Assert.Equal(2, calls.Length);
+        Assert.Equal(conversation.Id.ToString(), calls[0].Context!["conversation"]!["id"]!.GetValue<string>());
+        // Stored links fail closed: the copy, whose binding could not be read, receives nothing.
+        Assert.Null(calls[1].Context);
+        Assert.Contains(host.Logs.Entries, entry =>
+            entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+            && entry.Message.Contains(nameof(StoredLinkSource), StringComparison.Ordinal)
+            && entry.Message.Contains(nameof(InvalidOperationException), StringComparison.Ordinal)
+            && !entry.Message.Contains("not reachable", StringComparison.Ordinal));
+    }
+
     private Task<AssistantTestHost> CreateHostAsync(
         NhAiScriptedChatClient model,
         ResearchServer research,
         string serverUrl = ResearchUrl,
-        bool includeChain = false)
+        bool includeChain = false,
+        bool codeBinding = true,
+        StoredLinks? stored = null)
     {
         var servers = new InMemoryMcpServers();
         servers.Register(serverUrl, research.Handlers);
@@ -409,16 +506,32 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
             database,
             AssistantTestProvider.PostgreSql,
             model,
-            configure: services => services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers)),
+            configure: services =>
+            {
+                services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(servers));
+                if (stored is not null)
+                {
+                    services.AddSingleton(stored);
+                    services.AddSingleton<TimeProvider>(stored.Clock);
+                }
+            },
             assistantBuilder: assistant =>
             {
-                assistant
-                    .ConfigureMcp(mcp => mcp.RequireHttps = true)
-                    .AddMcpContextBinding(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask")
+                assistant.ConfigureMcp(mcp => mcp.RequireHttps = true);
+                if (codeBinding)
+                {
+                    assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask")
                     {
                         Snapshot = new NhAssistantConversationSnapshotRequest { MaxRecentMessages = 4, MaxBytes = 2_048, MaxMessageBytes = 512 },
                         IncludeChain = includeChain
                     });
+                }
+
+                if (stored is not null)
+                {
+                    assistant.UseMcpLinks<StoredLinkSource>();
+                }
+
                 if (includeChain)
                 {
                     assistant.UseMcpChainApplication("https://projects.test");
@@ -426,18 +539,52 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
             });
     }
 
-    private static async Task ConnectResearchServerAsync(AssistantTestHost host, string url, string effect)
+    /// <summary>
+    /// The context bindings the application reviewed and stores, which it changes while the host runs,
+    /// and the application's clock the test moves past the cache time.
+    /// </summary>
+    private sealed class StoredLinks
     {
+        public List<NhAssistantMcpContextBinding> Bindings { get; } = [];
+
+        public Exception? Failure { get; init; }
+
+        public AssistantTestClock Clock { get; } = new(DateTimeOffset.UtcNow);
+    }
+
+    private sealed class StoredLinkSource(StoredLinks stored) : INhAssistantMcpLinks
+    {
+        public ValueTask<NhAssistantMcpLinkList> ListAsync(CancellationToken cancellationToken)
+        {
+            if (stored.Failure is not null)
+            {
+                throw stored.Failure;
+            }
+
+            return ValueTask.FromResult(new NhAssistantMcpLinkList([], stored.Bindings.ToArray()));
+        }
+    }
+
+    /// <summary>
+    /// Connects the research server under each of <paramref name="serverIds"/> (only <c>research</c> when
+    /// none is named), enables its tool and assigns the servers to the project assistant.
+    /// </summary>
+    private static async Task ConnectResearchServerAsync(AssistantTestHost host, string url, string effect, params string[] serverIds)
+    {
+        serverIds = serverIds.Length == 0 ? ["research"] : serverIds;
         await using (var scope = host.Services.CreateAsyncScope())
         {
             AssistantTestHost.EnterUser(scope.ServiceProvider, "admin-1");
             var administration = scope.ServiceProvider.GetRequiredService<NhAssistantMcpAdministration>();
-            Assert.True((await administration.CreateAsync(
-                new NhAssistantMcpServerInput("research", "Research", url, NhAssistantMcpAuthModes.None, null, null, null, true),
-                "admin-1",
-                CancellationToken.None)).Success);
-            Assert.True((await administration.SyncAsync("research", "admin-1", CancellationToken.None)).Success);
-            Assert.True((await administration.UpdateToolAsync("research", "research-ask", true, effect, null, "admin-1", CancellationToken.None)).Success);
+            foreach (var serverId in serverIds)
+            {
+                Assert.True((await administration.CreateAsync(
+                    new NhAssistantMcpServerInput(serverId, "Research", url, NhAssistantMcpAuthModes.None, null, null, null, true),
+                    "admin-1",
+                    CancellationToken.None)).Success);
+                Assert.True((await administration.SyncAsync(serverId, "admin-1", CancellationToken.None)).Success);
+                Assert.True((await administration.UpdateToolAsync(serverId, "research-ask", true, effect, null, "admin-1", CancellationToken.None)).Success);
+            }
         }
         await using var agentScope = host.Services.CreateAsyncScope();
         var agents = agentScope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
@@ -450,7 +597,7 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
                 agent.Definition.DescriptionKey,
                 agent.Definition.Instructions.Content,
                 agent.Definition.ToolSelectors,
-                ["research"],
+                serverIds,
                 agent.Definition.RequiredPolicy,
                 agent.Definition.Autonomy),
             agent.Definition.Version,

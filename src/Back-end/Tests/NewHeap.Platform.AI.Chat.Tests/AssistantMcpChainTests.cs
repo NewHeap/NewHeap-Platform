@@ -271,6 +271,49 @@ public sealed class AssistantMcpChainTests(AssistantMcpChainHosts hosts) : IClas
         Assert.False(await context.Runs.AnyAsync());
     }
 
+    [Fact]
+    public async Task A_caller_the_application_stores_is_continued_and_a_revoked_one_is_ignored_again()
+    {
+        const string project = "project-0109";
+        hosts.Reset();
+        hosts.A.Model.Consulted
+            .RespondWithText("Answered while C was not reviewed.")
+            .RespondWithText("Answered once C was revoked.");
+        // C asks A's intake back from a consultation of A's intake: a loop, if A believed C's chain.
+        var loop = Meta(Chain(1, (hosts.A, "intake"), (hosts.C, "planner")));
+        var consult = await ToolAsync(await hosts.A.ConnectAsync(AssistantMcpChainHosts.Member, hosts.C.Application), AssistantMcpChainHosts.ConsultTool("intake"));
+
+        try
+        {
+            // A reviewed only B in code, so C's chain is ignored.
+            var ignored = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop });
+            Assert.NotEqual(true, ignored.IsError);
+
+            // A link to C that A stores while it runs counts without a restart (A has no cache time) and
+            // refuses the loop before the intake runs.
+            hosts.A.StoredCallers.Add(new NhAssistantMcpChainCaller(hosts.C.Application, hosts.C.Application));
+            var refused = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop });
+            Assert.True(refused.IsError);
+            Assert.Equal(NhAssistantErrorCodes.ConsultDepthExceeded, CodeOf(refused));
+
+            // Revoked, and replaced by a link that names C under another issuer: C's own calls are no
+            // reviewed caller's, so its chain is ignored again.
+            hosts.A.StoredCallers.Clear();
+            hosts.A.StoredCallers.Add(new NhAssistantMcpChainCaller(hosts.C.Application, AssistantMcpChainHosts.Unknown));
+            var revoked = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop });
+            Assert.NotEqual(true, revoked.IsError);
+        }
+        finally
+        {
+            hosts.A.StoredCallers.Clear();
+        }
+
+        var consultations = await hosts.A.ConsultationsAsync(project);
+        Assert.Equal(2, consultations.Count);
+        Assert.All(consultations, consultation => Assert.Equal(1, consultation.Depth));
+        Assert.Equal(2, hosts.A.Model.Consulted.Requests.Count);
+    }
+
     private static object Consult(string project, string question)
     {
         return new { input = new { subjectId = project, question } };
@@ -330,9 +373,10 @@ public sealed class AssistantMcpChainTests(AssistantMcpChainHosts hosts) : IClas
 }
 
 /// <summary>
-/// Four applications for <see cref="AssistantMcpChainTests"/>, started once. A reviews B; B reviews A and
-/// C; C reviews A and B; D reviews A and allows two consultations per person and day. Each imports the
-/// consult tools of its peers once all of them run, so applications can import each other.
+/// Four applications for <see cref="AssistantMcpChainTests"/>, started once. A reviews B in code and keeps
+/// stored links (<see cref="ChainHost.StoredCallers"/>, empty unless a test adds one, read on every use);
+/// B reviews A and C; C reviews A and B; D reviews A and allows two consultations per person and day. Each
+/// imports the consult tools of its peers once all of them run, so applications can import each other.
 /// </summary>
 public sealed class AssistantMcpChainHosts : IAsyncLifetime
 {
@@ -364,7 +408,7 @@ public sealed class AssistantMcpChainHosts : IAsyncLifetime
     public async Task InitializeAsync()
     {
         var started = await Task.WhenAll(
-            ChainHost.StartAsync(_database, "a", ["intake", "reviewer"], [("b", "reviewer"), ("c", "planner")], ["b"]),
+            ChainHost.StartAsync(_database, "a", ["intake", "reviewer"], [("b", "reviewer"), ("c", "planner")], ["b"], storesLinks: true),
             ChainHost.StartAsync(_database, "b", ["reviewer"], [("a", "intake"), ("c", "planner")], ["a", "c"]),
             ChainHost.StartAsync(_database, "c", ["planner"], [("a", "intake"), ("b", "reviewer")], ["a", "b"]),
             ChainHost.StartAsync(_database, "d", ["reviewer"], [], ["a"], dailyLimit: 2));
@@ -409,14 +453,26 @@ internal sealed class ChainHost : IAsyncDisposable
     private readonly Dictionary<string, DeferredMcpCatalog> _imports;
     private readonly ConcurrentBag<McpClient> _clients = new();
 
-    private ChainHost(string name, AssistantWebApplication web, ChainModel model, Dictionary<string, DeferredMcpCatalog> imports, ConcurrentQueue<InboundCall> inbound)
+    private ChainHost(
+        string name,
+        AssistantWebApplication web,
+        ChainModel model,
+        Dictionary<string, DeferredMcpCatalog> imports,
+        ConcurrentQueue<InboundCall> inbound,
+        ChainLinkBook links)
     {
         Name = name;
         Web = web;
         Model = model;
         _imports = imports;
         Inbound = inbound;
+        StoredCallers = links.Callers;
     }
+
+    /// <summary>
+    /// The chain callers the application stores, for a host started with stored links.
+    /// </summary>
+    public ConcurrentBag<NhAssistantMcpChainCaller> StoredCallers { get; }
 
     public string Name { get; }
 
@@ -444,10 +500,12 @@ internal sealed class ChainHost : IAsyncDisposable
         string[] agents,
         (string Peer, string AgentId)[] peers,
         string[] reviewed,
-        int dailyLimit = 50)
+        int dailyLimit = 50,
+        bool storesLinks = false)
     {
         var model = new ChainModel();
         var inbound = new ConcurrentQueue<InboundCall>();
+        var links = new ChainLinkBook();
         var imports = peers
             .GroupBy(peer => peer.Peer)
             .ToDictionary(group => group.Key, group => new DeferredMcpCatalog(group.Key, group.Select(peer => peer.AgentId).ToArray()));
@@ -466,6 +524,7 @@ internal sealed class ChainHost : IAsyncDisposable
                 services.AddSingleton(subjects);
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, ConsultationPrincipals>());
                 services.AddMcpServer().WithHttpTransport().WithNewHeapPlatformAITools();
+                services.AddSingleton(links);
                 foreach (var import in imports.Values)
                 {
                     services.AddSingleton<INhAiToolCatalog>(import);
@@ -504,13 +563,21 @@ internal sealed class ChainHost : IAsyncDisposable
                 {
                     assistant.ContinueMcpChain(new NhAssistantMcpChainCaller(ApplicationOf(caller), ApplicationOf(caller)));
                 }
+
+                if (storesLinks)
+                {
+                    // Read on every use, so a test sees a stored link at once.
+                    assistant
+                        .UseMcpLinks<ChainLinks>()
+                        .ConfigureMcp(mcp => mcp.LinkCacheDuration = TimeSpan.Zero);
+                }
             },
             map: app =>
             {
                 app.Use((context, next) => RecordAsync(context, next, inbound));
                 app.MapMcp("/mcp");
             });
-        return new ChainHost(name, web, model, imports, inbound);
+        return new ChainHost(name, web, model, imports, inbound, links);
     }
 
     /// <summary>
@@ -644,6 +711,25 @@ internal sealed class ChainHost : IAsyncDisposable
 }
 
 internal sealed record InboundCall(string Tool, JsonObject? Context);
+
+/// <summary>
+/// The chain callers a host's application reviewed and stores, which a test changes while the host runs.
+/// </summary>
+internal sealed class ChainLinkBook
+{
+    public ConcurrentBag<NhAssistantMcpChainCaller> Callers { get; } = [];
+}
+
+/// <summary>
+/// The host's stored links (<see cref="INhAssistantMcpLinks"/>) over its <see cref="ChainLinkBook"/>.
+/// </summary>
+internal sealed class ChainLinks(ChainLinkBook book) : INhAssistantMcpLinks
+{
+    public ValueTask<NhAssistantMcpLinkList> ListAsync(CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(new NhAssistantMcpLinkList(book.Callers.ToArray(), []));
+    }
+}
 
 /// <summary>
 /// A host's model with a script for chat turns and one for consultation turns, which can run inside a
