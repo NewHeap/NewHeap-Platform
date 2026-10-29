@@ -582,8 +582,8 @@ internal sealed class NhAssistantConversationTurns(
     /// fails for its page; a channel's code passes the page as a typed value, so what the endpoint would
     /// lose is refused instead of going missing unnoticed.
     /// </summary>
-    /// <returns><see langword="false"/> when the endpoint would ignore the context or keep only part of
-    /// it.</returns>
+    /// <returns><see langword="false"/> when the endpoint would ignore the context, keep only part of it
+    /// or could not store it.</returns>
     private static bool TryReadClientContext(NhAssistantClientContextDto? value, out NhAssistantClientContext? context)
     {
         context = null;
