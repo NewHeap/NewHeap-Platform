@@ -184,8 +184,9 @@ describe('The unsent message in the assistant panel (FB41)', () => {
     await settle(fixture);
     await type(pageComposer()!, 'Started on the chat page');
 
-    // The person leaves the page and opens the drawer elsewhere.
+    // The person leaves the page and opens the drawer elsewhere: while the page showed, `open` acted on it.
     fixture.componentInstance.chatPage.set(false);
+    await settle(fixture);
     panel.open();
     await settle(fixture);
     expect(drawerComposer()!.value).toBe('Started on the chat page');

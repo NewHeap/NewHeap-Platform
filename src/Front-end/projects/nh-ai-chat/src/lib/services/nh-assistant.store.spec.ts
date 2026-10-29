@@ -507,6 +507,53 @@ describe('NhAssistantStore', () => {
     expect(store.pendingDraft()).toEqual({ text: 'A'.repeat(99), replace: false });
   });
 
+  /** FB44: the thread is in view while any surface shows it, whichever reported last. */
+  describe('the surfaces that show the thread', () => {
+    it('keeps the thread in view while any registered surface shows it', () => {
+      const store = setup();
+      const page = store.registerThreadSurface();
+      const drawer = store.registerThreadSurface();
+      expect(store.threadInView()).toBeFalse();
+
+      page.setShowing(true);
+      // A drawer that opens and closes over the page leaves the page's thread in view.
+      drawer.setShowing(true);
+      drawer.setShowing(false);
+      expect(store.threadInView()).toBeTrue();
+
+      page.setShowing(false);
+      expect(store.threadInView()).toBeFalse();
+    });
+
+    it('stops counting a surface once it unregisters, also when it reports again afterwards', () => {
+      const store = setup();
+      const page = store.registerThreadSurface();
+      page.setShowing(true);
+
+      page.unregister();
+      expect(store.threadInView()).toBeFalse();
+
+      page.setShowing(true);
+      page.unregister();
+      expect(store.threadInView()).toBeFalse();
+    });
+
+    it('counts the host\'s setViewing as one more surface, which never hides what a panel shows', () => {
+      const store = setup();
+      const panel = store.registerThreadSurface();
+
+      store.setViewing(true);
+      expect(store.threadInView()).toBeTrue();
+
+      panel.setShowing(true);
+      store.setViewing(false);
+      expect(store.threadInView()).toBeTrue();
+
+      panel.setShowing(false);
+      expect(store.threadInView()).toBeFalse();
+    });
+  });
+
   /** FB41: what the composer holds and has not sent stays with its conversation, in this tab's memory. */
   describe('the unsent message', () => {
     function browserStorage(): string {

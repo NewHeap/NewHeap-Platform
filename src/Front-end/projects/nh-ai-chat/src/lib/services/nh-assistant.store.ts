@@ -139,6 +139,21 @@ export interface NhAssistantUnsentMessage {
   readonly prepared: boolean;
 }
 
+/**
+ * One place that can show the open thread, such as `nh-assistant-panel` in the drawer or in a page, as
+ * `NhAssistantStore.registerThreadSurface()` returns it. The open conversation counts as seen while any
+ * surface shows it, or while the host says so with `NhAssistantStore.setViewing(true)`.
+ */
+export interface NhAssistantThreadSurface {
+  /**
+   * Says whether this surface shows the open thread now: it is on screen and no list, preferences or
+   * share view covers the thread.
+   */
+  setShowing(showing: boolean): void;
+  /** The surface is gone, for example destroyed, and no longer counts. Calling it again does nothing. */
+  unregister(): void;
+}
+
 interface QueuedMessage extends NhAssistantQueuedMessage {
   clientContext?: ClientContext | null;
 }
@@ -315,7 +330,10 @@ export class NhAssistantStore {
   private readonly pageContextState = signal<ClientContext | null>(null);
   private readonly pageContextExcludedState = signal(false);
   private readonly restorePanelOpenState = signal(false);
+  /** The host's own surface, as `setViewing` reports it. */
   private readonly viewingState = signal(false);
+  /** The registered surfaces that show the open thread now, such as the drawer and a page panel. */
+  private readonly showingSurfacesState = signal<ReadonlySet<object>>(new Set());
   private readonly pageVisibleState = signal(true);
   private readonly queuedState = signal<QueuedMessage[]>([]);
   private readonly pausedQueuesState = signal<ReadonlySet<string>>(new Set());
@@ -453,6 +471,12 @@ export class NhAssistantStore {
   readonly pageContextExcluded = this.pageContextExcludedState.asReadonly();
   /** Whether the drawer was open when this account last left the application. */
   readonly restorePanelOpen = this.restorePanelOpenState.asReadonly();
+  /**
+   * True while a surface shows the open thread: a registered surface (`registerThreadSurface`), such as
+   * the drawer or a panel in a page, or the host's own surface (`setViewing`). The open conversation is
+   * marked as read only then, and only while the browser tab is visible and focused.
+   */
+  readonly threadInView = computed(() => this.viewingState() || this.showingSurfacesState().size > 0);
   /**
    * True while the user can send: enabled, an agent is chosen and no turn runs or waits. A
    * conversation whose last turn failed accepts a new message; an archived one does not.
@@ -724,7 +748,7 @@ export class NhAssistantStore {
     // Marks the open conversation as read while the user looks at it.
     effect(() => {
       this.activeIdState();
-      this.viewingState();
+      this.threadInView();
       this.pageVisibleState();
       this.conversationsState();
       this.sessionsState();
@@ -892,9 +916,56 @@ export class NhAssistantStore {
     await this.loadConversation(conversationId, false);
   }
 
-  /** Tells the store whether the user can see the open thread, so it can mark it as read. */
+  /**
+   * Tells the store whether the host's own surface shows the open thread, for a layout of its own
+   * without `nh-assistant-panel`. It is one surface among the registered ones: the thread is in view
+   * (`threadInView`) while it or any of them shows it, so `false` never hides what a panel shows. Call
+   * it with `false` when that surface stops showing the thread, for example when it is destroyed. A
+   * layout with several surfaces of its own registers each with `registerThreadSurface` instead.
+   */
   setViewing(viewing: boolean): void {
     this.viewingState.set(viewing);
+  }
+
+  /**
+   * Registers one surface that can show the open thread; `nh-assistant-panel` registers itself, in the
+   * drawer and in a page. The surface reports with `setShowing` whether it shows the thread and calls
+   * `unregister` when it is destroyed. The thread is in view (`threadInView`) while any surface shows
+   * it, so a drawer that opens and closes over a page that shows the thread, or one created after it,
+   * leaves the page's thread in view, and a destroyed page no longer counts.
+   */
+  registerThreadSurface(): NhAssistantThreadSurface {
+    const surface = {};
+    let registered = true;
+    const setShowing = (showing: boolean) => {
+      this.showingSurfacesState.update(surfaces => {
+        if (surfaces.has(surface) === showing) {
+          return surfaces;
+        }
+
+        const next = new Set(surfaces);
+        if (showing) {
+          next.add(surface);
+        } else {
+          next.delete(surface);
+        }
+        return next;
+      });
+    };
+
+    return {
+      setShowing: showing => {
+        if (registered) {
+          setShowing(showing);
+        }
+      },
+      unregister: () => {
+        if (registered) {
+          registered = false;
+          setShowing(false);
+        }
+      }
+    };
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
@@ -2160,7 +2231,7 @@ export class NhAssistantStore {
 
   private markActiveReadWhenSeen(): void {
     const conversationId = this.activeIdState();
-    if (!conversationId || !this.viewingState() || !this.pageVisibleState() || this.markingRead.has(conversationId)) {
+    if (!conversationId || !this.threadInView() || !this.pageVisibleState() || this.markingRead.has(conversationId)) {
       return;
     }
     const session = this.sessionsState().get(conversationId);

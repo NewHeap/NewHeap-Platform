@@ -88,7 +88,9 @@ describe('NhAssistantPanelComponent in a page (mode="page")', () => {
     const { fixture, element } = await render();
     const store = TestBed.inject(NhAssistantStore);
 
-    const sidebar = element.querySelector('nh-assistant-conversation-list.sidebar') as HTMLElement;
+    // The list's class is prefixed (FB48), so an application's own `.sidebar` rule does not hit it.
+    const sidebar = element.querySelector('nh-assistant-conversation-list.nh-assistant-sidebar') as HTMLElement;
+    expect(element.querySelector('.sidebar')).toBeNull();
     expect(sidebar).not.toBeNull();
     const titles = Array.from(sidebar.querySelectorAll('.item .title')).map(title => title.textContent?.trim());
     expect(titles).toEqual(jasmine.arrayContaining(['Weekly planning', 'Budget review']));

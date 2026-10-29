@@ -2,6 +2,7 @@
   <section
     class="drawer"
     [class.page]="page()"
+    [class.with-sidebar]="sidebar()"
     [attr.role]="page() ? 'region' : 'dialog'"
     [attr.aria-modal]="page() ? null : 'false'"
     [attr.aria-labelledby]="titleId">
@@ -26,16 +27,18 @@
               <nh-assistant-icon name="bell" />
             </button>
           }
-          <button
-            class="icon-button conversations-toggle"
-            type="button"
-            [class.active]="showConversations()"
-            [attr.aria-expanded]="showConversations()"
-            [attr.aria-label]="(showConversations() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
-            [attr.title]="(showConversations() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
-            (click)="toggleConversations()">
-            <nh-assistant-icon name="list" />
-          </button>
+          @if (conversationList() === 'panel') {
+            <button
+              class="icon-button conversations-toggle"
+              type="button"
+              [class.active]="listOpen()"
+              [attr.aria-expanded]="listOpen()"
+              [attr.aria-label]="(listOpen() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
+              [attr.title]="(listOpen() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
+              (click)="toggleConversations()">
+              <nh-assistant-icon name="list" />
+            </button>
+          }
           <button
             class="icon-button"
             type="button"
@@ -82,10 +85,10 @@
       <nh-assistant-activity [items]="store.activity()" (conversationSelect)="openConversation($event)" />
     }
 
-    @if (page() && store.enabled()) {
+    @if (sidebar()) {
       <!-- On a page the conversations stay listed beside the thread, for long sessions. -->
       <nh-assistant-conversation-list
-        class="sidebar"
+        class="nh-assistant-sidebar"
         [conversations]="store.conversations()"
         [total]="store.conversationsTotal()"
         [activeConversationId]="conversation()?.id ?? null"
@@ -94,6 +97,9 @@
         (conversationDelete)="deleteConversation($event)"
         (conversationCreate)="newConversation()" />
     }
+
+    <!-- The host's own content above the thread, such as a bar about the open topic. -->
+    <div class="slot slot-above-thread"><ng-content select="[nhAssistantAboveThread]" /></div>
 
     <div class="body">
       @if (store.statusLoading() && !store.enabled()) {
@@ -115,7 +121,7 @@
           <nh-assistant-share class="overlay-view" [section]="shareSection()" (closed)="showShare.set(false)" />
         }
 
-        @if (showConversations()) {
+        @if (listOpen()) {
           <nh-assistant-conversation-list
             class="overlay-view"
             [conversations]="store.conversations()"
@@ -140,7 +146,7 @@
         } @else {
           <nh-assistant-thread
             class="thread"
-            [attr.inert]="showPreferences() || showShare() || showConversations() ? '' : null"
+            [attr.inert]="showPreferences() || showShare() || listOpen() ? '' : null"
             [messages]="messages()"
             [streaming]="busy()"
             [deciding]="store.deciding()"
@@ -287,9 +293,11 @@
             </ol>
           </section>
         }
+        <!-- The host's own content above the composer, such as a choice about a held message. -->
+        <div class="slot slot-above-composer"><ng-content select="[nhAssistantAboveComposer]" /></div>
         <nh-assistant-composer
           [disabled]="closed()"
-          [sendDisabled]="composerDisabled()"
+          [sendDisabled]="composerDisabled() || holding()"
           [busy]="busy()"
           [queueWhileBusy]="true"
           [status]="composerStatus()"
