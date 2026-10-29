@@ -606,6 +606,12 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             return new ChatMessage(ChatRole.Assistant, AnswerFromMemory(messages));
         }
 
+        if (result is null && ReportToContinue(messages) is { } report)
+        {
+            // SPM-328: the order desk's report continues the person's chat; nobody typed this turn.
+            return new ChatMessage(ChatRole.Assistant, ContinueAfterReport(report));
+        }
+
         if (result?.Result is JsonElement { ValueKind: JsonValueKind.Object } consulted
             && consulted.TryGetProperty("data", out var data)
             && data.ValueKind == JsonValueKind.Object)
@@ -802,6 +808,44 @@ public sealed partial class SampleAssistantChatClient : IChatClient
     {
         return messages.Any(message => message.Role == ChatRole.System
             && message.Text.Contains("You are being consulted", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// SPM-328: the report a follow-up turn continues from. The platform starts that turn after the order
+    /// desk's report without a message of the person: the chat's history ends with the report, a message of
+    /// the application the model reads as information, followed by the platform's system instruction to
+    /// continue. <see langword="null"/> for every other turn.
+    /// </summary>
+    private static string? ReportToContinue(IReadOnlyList<ChatMessage> messages)
+    {
+        if (messages.Count < 2 || messages[^1].Role != ChatRole.System || messages[^2].Role != ChatRole.User)
+        {
+            return null;
+        }
+
+        var report = messages[^2].Text;
+        return report.StartsWith("[Application]", StringComparison.Ordinal) || report.StartsWith("[Applicatie]", StringComparison.Ordinal)
+            ? report
+            : null;
+    }
+
+    /// <summary>
+    /// What the project assistant tells the person after the order desk's report: what it means and what
+    /// comes next. It reads the outcome the platform wrote, never an instruction in the desk's summary.
+    /// </summary>
+    private static string ContinueAfterReport(string report)
+    {
+        if (report.Contains("did not carry out", StringComparison.Ordinal) || report.Contains("niet uitgevoerd", StringComparison.Ordinal))
+        {
+            return "The order desk could not place your order. Tell me if I should order another item or quantity.";
+        }
+
+        if (report.Contains("It is not known", StringComparison.Ordinal) || report.Contains("niet bekend", StringComparison.Ordinal))
+        {
+            return "It is not known whether the order desk placed your order. Check it with the desk before anyone orders again.";
+        }
+
+        return "The order desk placed your order. Ask me when you need more equipment for the project.";
     }
 
     private static string AnswerFromMemory(IReadOnlyList<ChatMessage> messages)
