@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
@@ -46,6 +47,13 @@ namespace SampleProjectManagement.Api.Services;
 /// stamp, so changing the password or revoking the person's sessions ends it, and a new chat's link
 /// expires with the link that started it.
 /// </para>
+/// <para>
+/// SPM-380: the provider's web widget on a portal page delivers the page the person has open with the
+/// message, which <see cref="NhAssistantConversationMessage.ClientContext"/> carries to the turn as the
+/// person's screen, validated and stored as the portal's own messages are. SPM-381: every refusal answers
+/// the HTTP status the portal's endpoints give its code (<see cref="StatusOf"/>), through the platform's
+/// <see cref="NhAssistantHttpStatuses"/> instead of a table of the channel's own.
+/// </para>
 /// </summary>
 public sealed class SampleAssistantMessagingChannel(
     INhAssistantConversationTurns turns,
@@ -70,6 +78,22 @@ public sealed class SampleAssistantMessagingChannel(
     /// The refusal of a person who may no longer sign in, or who does not exist.
     /// </summary>
     public const string PersonUnavailableCode = "sample-assistant-channel-person-unavailable";
+
+    /// <summary>
+    /// SPM-381: the HTTP status of a refusal with <paramref name="code"/>: the channel's own codes first,
+    /// then the status the portal's endpoints give a platform code, so the messaging app and the portal
+    /// answer a refusal alike. A code the platform does not know answers <c>400</c>.
+    /// </summary>
+    public static int StatusOf(string code)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        return code switch
+        {
+            PersonUnavailableCode => StatusCodes.Status403Forbidden,
+            DeliveryInvalidCode => StatusCodes.Status400BadRequest,
+            _ => NhAssistantHttpStatuses.Of(code)
+        };
+    }
 
     /// <summary>
     /// SPM-358: the chats of one page of <see cref="ListChatsAsync"/>.
@@ -139,8 +163,14 @@ public sealed class SampleAssistantMessagingChannel(
         var sent = await turns.SendAsync(
             person,
             link.ConversationId,
-            // SPM-358: the attachments the messaging app uploaded to the chat before.
-            new NhAssistantConversationMessage(message.Text) { ClientMessageId = message.DeliveryId, Files = message.Files },
+            new NhAssistantConversationMessage(message.Text)
+            {
+                ClientMessageId = message.DeliveryId,
+                // SPM-358: the attachments the messaging app uploaded to the chat before.
+                Files = message.Files,
+                // SPM-380: the page the person has open around the provider's web widget, if any.
+                ClientContext = message.Page
+            },
             OptionsOf(link),
             cancellationToken);
         return sent.Success
@@ -622,6 +652,12 @@ public sealed record SampleAssistantChannelMessage(string DeliveryId, string Tok
     /// <see cref="SampleAssistantMessagingChannel.UploadAsync"/>, as their references.
     /// </summary>
     public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
+
+    /// <summary>
+    /// SPM-380: the portal page the person has open when the provider's web widget on it delivers the
+    /// message, in the platform's own shape; <see langword="null"/> from the messaging app itself.
+    /// </summary>
+    public NhAssistantClientContextDto? Page { get; init; }
 }
 
 /// <summary>

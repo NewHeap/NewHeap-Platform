@@ -27,7 +27,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <c>AnswerAsync</c>. SPM-342: the turn's situation names the person and the channel, and the status
 /// change names the conversation and the channel of the turn that made it. SPM-349: a proposal guard
 /// reads the channel of the call that proposes and keeps the messaging app from proposing to archive a
-/// project before any card.
+/// project before any card. SPM-380: the provider's web widget sends the page the person has open, which
+/// the turn shows as the person's screen.
 /// </summary>
 public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChannelSampleHost host)
     : IClassFixture<AssistantMessagingChannelSampleHost>
@@ -218,6 +219,54 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
     }
 
     [Fact]
+    public async Task SPM_380_the_web_widget_shows_the_assistant_the_page_the_person_has_open()
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("You are looking at the roadmap project.")
+            .RespondWithText("Nothing else is open.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(owner);
+        var token = await LinkAsync(owner, conversationId);
+        var page = new
+        {
+            route = $"/projects/{projectId}",
+            title = "Roadmap <draft>",
+            entities = new[] { new { type = "project", id = projectId.ToString(), label = "Roadmap" } }
+        };
+
+        var answer = await AnswerOfAsync(await SendAsync(messaging, "delivery-380", token, "What am I looking at?", page));
+
+        Assert.Equal(("completed", "You are looking at the roadmap project."), (answer.Status, answer.Text));
+        // The turn shows the page as the person's screen, cleaned as the portal's own messages are.
+        Assert.Contains(
+            $"<page-data>\n- Route: /projects/{projectId}\n- Title: Roadmap ‹draft›\n- Entity: project {projectId} (Roadmap)\n</page-data>",
+            model.Requests[0].Options!.Instructions,
+            StringComparison.Ordinal);
+
+        // A page the platform would not keep whole, here more records than the five it shows, is refused
+        // with the portal endpoint's code and status, and starts no turn.
+        var crowded = new
+        {
+            route = "/projects",
+            title = (string?)null,
+            entities = Enumerable.Range(1, 6).Select(index => new { type = "project", id = index.ToString(), label = (string?)null }).ToArray()
+        };
+        using (var refused = await SendAsync(messaging, "delivery-380-crowded", token, "And these?", crowded))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.MessageInvalid, (await ErrorOfAsync(refused)).Code);
+        }
+        Assert.Single(model.Requests);
+
+        // A message from the messaging app itself carries no page.
+        await AnswerOfAsync(await SendAsync(messaging, "delivery-380-app", token, "Anything else?"));
+        Assert.DoesNotContain("<page-data>", model.Requests[1].Options!.Instructions, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SPM_349_the_messaging_app_does_not_propose_to_archive_a_project_and_reads_why_before_any_card()
     {
         var projectId = Guid.NewGuid();
@@ -329,6 +378,17 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         return client.PostAsync(
             "/assistant-channel/messages",
             AssistantSampleHost.Json(new { deliveryId, token, text }),
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// SPM-380: a message the provider's web widget delivers with the page the person has open.
+    /// </summary>
+    private static Task<HttpResponseMessage> SendAsync(HttpClient client, string deliveryId, string token, string text, object page)
+    {
+        return client.PostAsync(
+            "/assistant-channel/messages",
+            AssistantSampleHost.Json(new { deliveryId, token, text, page }),
             TestContext.Current.CancellationToken);
     }
 

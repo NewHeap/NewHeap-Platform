@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -49,7 +50,8 @@ public interface INhAssistantConversationTurns
     /// person names; <c>assistant-conversation-not-found</c> for a conversation the person does not take
     /// part in, of another tenant, or an agent's thread; <c>assistant-agent-not-found</c>;
     /// <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy or the agent's
-    /// policy; <c>assistant-conversation-busy</c>, <c>assistant-message-invalid</c>,
+    /// policy; <c>assistant-conversation-busy</c>, <c>assistant-message-invalid</c> (also for a
+    /// <see cref="NhAssistantConversationMessage.ClientContext"/> the endpoint would not keep whole),
     /// <c>assistant-message-too-long</c>, <c>assistant-message-duplicate</c> (the same
     /// <see cref="NhAssistantConversationMessage.ClientMessageId"/> again, such as a delivery the channel
     /// repeats) and the attachment codes. A turn that started and then failed is a result with status
@@ -140,6 +142,22 @@ public sealed record NhAssistantConversationMessage(string Text)
     /// with the person's rights, as for a message of the endpoint.
     /// </summary>
     public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
+
+    /// <summary>
+    /// The page the person has open, such as the page around a website widget (FB52): the
+    /// <c>clientContext</c> of <c>POST conversations/{id}/messages</c>, with its route, title and at most
+    /// five entities. The turn shows it to the model as the person's screen, untrusted data that grants
+    /// nothing, and the message stores it, so a turn that resumes after an approval or a question shows it
+    /// again. The endpoint's reading validates it: text is cleaned and cut off at the endpoint's limits, and
+    /// the same context gives the same screen and the same stored context. A context the endpoint would
+    /// ignore or only partly keep is refused with <c>assistant-message-invalid</c>: a route without text,
+    /// more than five entities, an entity that is <see langword="null"/>, whose type is not dash-case of at
+    /// most 60 characters, or whose id is empty, longer than 64 characters or holds a control character, and
+    /// a context whose stored form exceeds the 4,000 characters the message keeps for it, which the
+    /// endpoint ignores: text in any language fits at every limit, but HTML-sensitive characters such as
+    /// <c>&amp;</c> or emoji in nearly every field at its limit do not. <see langword="null"/> without one.
+    /// </summary>
+    public NhAssistantClientContextDto? ClientContext { get; init; }
 }
 
 /// <summary>
@@ -248,6 +266,7 @@ internal sealed class NhAssistantConversationTurns(
         NhAssistantPersonCalls.ValidatePerson(person);
         ArgumentNullException.ThrowIfNull(message);
         ValidateOptions(options);
+        var clientContextValid = TryReadClientContext(message.ClientContext, out var clientContext);
 
         return RunAsync(
             person,
@@ -255,6 +274,14 @@ internal sealed class NhAssistantConversationTurns(
             options,
             async (turn, token) =>
             {
+                // Refused with the message's other checks, after the person and the chat.
+                if (!clientContextValid)
+                {
+                    return TaskResult<NhAssistantTurnHandle>.Failed(
+                        NhAssistantErrorCodes.MessageInvalid,
+                        "The page the person has open is invalid.");
+                }
+
                 var services = turn.Services;
                 // Other people in a shared conversation see the sender's current name.
                 await services.GetRequiredService<NhAssistantCollaboration>().RefreshDisplayNameAsync(
@@ -270,7 +297,8 @@ internal sealed class NhAssistantConversationTurns(
                         message.Text ?? string.Empty,
                         message.ClientMessageId,
                         turn.TurnCancellation,
-                        turn.Language)
+                        turn.Language,
+                        clientContext)
                     {
                         Files = message.Files ?? [],
                         Person = turn.Person,
@@ -546,6 +574,35 @@ internal sealed class NhAssistantConversationTurns(
         {
             PendingQuestion = question
         };
+    }
+
+    /// <summary>
+    /// Reads the page of a channel's message as the endpoint reads <c>clientContext</c>: from the same
+    /// JSON, so the turn shows the same screen and the message stores the same context. The endpoint
+    /// ignores a context it cannot read and drops entities it cannot keep, so a browser's message never
+    /// fails for its page; a channel's code passes the page as a typed value, so what the endpoint would
+    /// lose is refused instead of going missing unnoticed.
+    /// </summary>
+    /// <returns><see langword="false"/> when the endpoint would ignore the context, keep only part of it
+    /// or could not store it.</returns>
+    private static bool TryReadClientContext(NhAssistantClientContextDto? value, out NhAssistantClientContext? context)
+    {
+        context = null;
+        if (value is null)
+        {
+            return true;
+        }
+
+        // The reader also ignores a context the message could not store.
+        var read = NhAssistantClientContext.From(
+            JsonSerializer.SerializeToElement(value, NhAssistantJsonSerializerContext.Default.NhAssistantClientContextDto));
+        if (read is null || read.Entities.Count != (value.Entities?.Count ?? 0))
+        {
+            return false;
+        }
+
+        context = read;
+        return true;
     }
 
     private static void ValidateOptions(NhAssistantConversationTurnOptions turnOptions)

@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -47,11 +49,26 @@ internal sealed partial record NhAssistantClientContext(
     public const int MaxEntityTypeLength = 60;
     public const int MaxEntityLabelLength = 120;
 
-    private static readonly JsonSerializerOptions StorageOptions = new(JsonSerializerDefaults.Web);
+    /// <summary>
+    /// The characters the user message keeps for its stored context (<c>ClientContextJson</c>). The
+    /// stored JSON keeps text outside ASCII as it is, so a context at every limit in any language fits;
+    /// it still escapes HTML-sensitive characters such as <c>&amp;</c> and characters outside the Basic
+    /// Multilingual Plane such as emoji, six characters each, so a context full of those can be longer.
+    /// </summary>
+    public const int MaxStorageLength = 4_000;
+
+    // Text outside ASCII stays as it is; HTML-sensitive characters stay escaped. Any JSON reader reads
+    // both forms back alike, so contexts stored before read as they did.
+    private static readonly JsonSerializerOptions StorageOptions = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+    };
 
     /// <summary>
     /// Validates and bounds a client context. A value of the wrong shape (no object, no route string)
-    /// yields <see langword="null"/>; entities of the wrong shape are dropped; long text is cut off.
+    /// yields <see langword="null"/>; entities of the wrong shape are dropped; long text is cut off. A
+    /// context whose stored form would exceed <see cref="MaxStorageLength"/> also yields
+    /// <see langword="null"/>, so the message is stored without it rather than failing.
     /// </summary>
     public static NhAssistantClientContext? From(JsonElement? value)
     {
@@ -100,7 +117,15 @@ internal sealed partial record NhAssistantClientContext(
                 return null;
             }
         }
-        return new NhAssistantClientContext(route, title, entities);
+
+        // The user message could not store it: ignored as a context that cannot be read.
+        var context = new NhAssistantClientContext(route, title, entities);
+        if (context.ToStorage().Length > MaxStorageLength)
+        {
+            return null;
+        }
+
+        return context;
     }
 
     /// <summary>
