@@ -906,6 +906,72 @@ provider's attachment to the linked chat with the upload endpoint's codes and st
 turn's person in the situation from `INhAiTurnPerson`, tells the model it answers in the messaging app
 from `Channel`, and stamps `ConversationId` and `Channel` on the status event a tool publishes.
 
+## A chat about a subject
+
+A person may start a chat about one subject, such as the project whose page they have open. Name it
+when the chat is created: `subjectType` and `subjectId` of `POST conversations`, or
+`NhAssistantNewConversation.Subject` of `INhAssistantConversations.CreateAsync`. An agent that only
+makes sense about a subject says so with `RequireChatSubject()`:
+
+```csharp
+services.AddNewHeapAssistant(assistant => assistant
+    .AddAgent(projectChat)
+    .ConfigureAgent("project-chat", run => run
+        // The chat's subject must be something the agent works on.
+        .WorksOn("project")
+        // Left out of GET agents and the status; offered for chats about a project only.
+        .RequireChatSubject()));
+
+var subject = new NhAiSubjectRef("project", projectId.ToString("D"));
+var agents = await conversations.ListAgentsAsync(person, subject, options, cancellationToken);
+var created = await conversations.CreateAsync(
+    person,
+    new NhAssistantNewConversation("project-chat") { Subject = subject },
+    options,
+    cancellationToken);
+```
+
+- Creating checks the subject with its access resolver, the tenant and what the agent works on:
+  `assistant-subject-invalid` (400) for one of `subjectType` and `subjectId` without the other, an
+  invalid id or a type of the platform (a chat without a subject is already about the whole
+  application), `assistant-subject-type-unknown` (404) for a type without a resolver,
+  `assistant-subject-not-found` (404) when the resolver does not describe it or the person's tenant
+  does not reach it, `assistant-subject-access-denied` (403) when the resolver gives the person no
+  role on it (`Reader` is enough: the chat's tools run with the person's own rights), and
+  `assistant-agent-does-not-work-on` (409) when the agent's `WorksOn` does not cover it. An agent with
+  `RequireChatSubject()` refuses a chat without a subject with `assistant-subject-required` (400).
+- The resolver is asked again on every turn (a message, a decision and an answer, through the
+  endpoints and `INhAssistantConversationTurns` alike, which also check that the agent still works on
+  the subject), read (`GET conversations/{id}`, marking read, uploads, `GetAsync` and `UploadAsync`),
+  invitation (joining through a link, inviting from the directory, whose candidates list only people
+  with a role) and delivery without a request (live updates, Web Push, in-app notifications and an
+  application message `ReadableBy` the person), for the owner as for the participants and in the
+  chat's tenant. Revoked access takes effect at once; deleting, leaving, stopping a turn, revoking the
+  link and removing people stay possible. The conversation list shows `subject` with the name stored
+  when the chat was created and asks no resolver.
+- The turn offers the subject without making the chat the agent's thread: tools, turn context
+  providers and retrieval read `NhAiInvocationContext.ConversationSubject`; a proposal guard reads
+  `NhAiProposalGuardContext.ConversationSubject` at the proposal stage, while `Subject` keeps naming
+  where a proposal waits (none in a chat); the file source reads `NhAssistantFileActor.ConversationSubject`
+  for uploads and opened files, and still opens them for the person; the subject type's briefing
+  provider is asked with `NhAssistantBriefingPurposes.Chat`, after a section that names the subject. The
+  chat shares no memory, run, proposal or member with the agent's thread about the subject, and the
+  subject's approvers do not decide its proposals; the person does, inline.
+- `GET agents` and the status leave out agents that require a subject; `GET agents?subjectType=&subjectId=`
+  and `ListAgentsAsync(person, subject)` list the agents that work on the subject, those that require
+  one included, after the same checks as creating. `RequireChatSubject()` is a setting in code; the host
+  refuses to start for a chat-only agent (`ChatOnly()`) and next to `HideFromChat()`. Chats that exist
+  without a subject keep working.
+- `INhAiSubjectRetention.ForgetSubjectAsync(subject, scopeKey)` deletes the chats about the subject in
+  that scope with their messages, and the application's file retention forgets their uploads with the
+  reason `subject-forgotten`. The subject's columns and index on `AssistantConversation` come with the
+  migration `ChatSubject` on SQL Server and PostgreSQL; hosts must apply it.
+
+SampleProjectManagement's project chat (SPM-363, `SampleProjectChatComposition`) works on projects and
+requires a subject; the project dialog starts it with `NhAssistantStore.setChatSubject`. A reader of the
+project chats with the project's briefing, someone of another division is refused, and a member removed
+from the project can no longer read or continue the chat but still deletes it.
+
 ## Files in model turns
 
 Let turns read the application's files with `UseFileSource<T>()`, where `T` implements
@@ -1341,6 +1407,10 @@ calls in a consultation store nothing and are not listed.
 
 ## Avoid
 
+- Treating a chat about a subject as the agent's thread, or authorizing a tool on
+  `ConversationSubject` alone: it names what the person asked about, and the tool still checks the
+  person's own rights. Do not cache a person's role on the chat's subject; the assistant asks the
+  resolver on every turn, read and invitation so that a revoked role takes effect at once.
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
   invocation gate, budget, idempotency or evidence manager afterwards; startup fails.
 - Believing a consultation chain from a caller you did not review with `ContinueMcpChain`, or
@@ -1449,6 +1519,13 @@ calls in a consultation store nothing and are not listed.
   people's data into an application message's Markdown without `NhAssistantMarkdown.Escape`.
 
 ## Verification
+
+For a chat about a subject, assert on SQL Server and PostgreSQL that creating it checks the subject's
+form, type, existence, tenant, the person's role and what the agent works on, that `RequireChatSubject`
+refuses a chat without one and leaves the agent out of `GET agents`, that the owner and a participant
+lose reads, turns, joins and live delivery once the resolver gives them no role while deleting and
+stopping stay possible, that tools, the proposal guard, the file source and the briefing receive the
+subject, and that subject retention deletes the chats about it in its scope only.
 
 With an impersonation principal (the person's claims plus `ImpersonateOriginUserId`), assert on
 SQL Server and PostgreSQL that consent, starting and completing a personal OAuth connection and a

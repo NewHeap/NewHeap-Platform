@@ -6279,6 +6279,32 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-363",
+    "title": "A project member chats with the project chat about one project and loses the chat once removed from it",
+    "category": "AI tools and generated catalogs",
+    "surface": "subjectType and subjectId of POST conversations (NhAssistantCreateConversationRequest) and NhAssistantNewConversation.Subject of INhAssistantConversations.CreateAsync, subject of NhAssistantConversationDto and NhAssistantConversationSummaryDto (NhAssistantConversationSubjectDto), NhAssistantAgentRunBuilder.RequireChatSubject with assistant-subject-required, GET agents?subjectType=&subjectId= and INhAssistantConversations.ListAgentsAsync(person, subject), NhAiInvocationContext.ConversationSubject, NhAiProposalGuardContext.ConversationSubject, NhAssistantFileActor.ConversationSubject, NhAssistantBriefingPurposes.Chat, the subject columns of AssistantConversation (migration ChatSubject on SQL Server and PostgreSQL), and NhAssistantStore.setChatSubject, newChatSubject, chatAgents and chatSubject in Angular",
+    "outcome": "The project dialog offers a chat about the project: `setChatSubject` loads the agents of a chat about it and the panel opens the project chat, which works on projects and is offered only for chats about one (`RequireChatSubject()`), so `GET agents` without a subject and the status leave it out. The first message creates the chat with the project as its subject; the panel says what the chat is about. The project's access resolver decides when the chat is created, with the tenant and what the agent works on, and again on every turn, read, invitation and live update: a reader of the project chats, someone of another division is refused with `403 assistant-subject-access-denied`, and a chat with the project chat without a subject with `400 assistant-subject-required`. Each message reads the project's briefing with the purpose `chat`, after a section that names the project. Once the reader is removed from the project they can neither read nor continue the chat (`403 assistant-subject-access-denied`), while they still delete it. The chat stays the person's: it is not the agents' thread about the project, and its tools run with the person's own rights. The library tests prove on SQL Server and PostgreSQL that a chat keeps its subject, name and scope and lists it; that the subject's form, type, existence, tenant, the person's role and what the agent works on are checked when it is created, through the endpoint and the service alike; that `GET agents` and `ListAgentsAsync` list the agents of a subject and refuse one the person may not use; that a participant and the owner lose reads, turns, joins and live delivery once their role ends, while stopping and deleting stay possible, and that invitations and the directory's candidates offer only people with a role; that tools, the proposal guard, the file source and the briefing receive the subject while a chat without one has none; that subject retention deletes the chats about the subject in its scope only; and that startup refuses `RequireChatSubject` on a chat-only or hidden agent. Hosts must apply the migration.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectChatComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectBriefing.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantProjectChatSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028231715_ChatSubject.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028231724_ChatSubject.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantChatSubjectTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-chat-subject.spec.ts"
+    ]
+  },
+  {
     "id": "SPM-366",
     "title": "A partner application consults the intake reviewer over MCP and the API continues its consultation chain, refusing a loop before the reviewer runs",
     "category": "AI tools and generated catalogs",

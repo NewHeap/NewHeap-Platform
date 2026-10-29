@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.90",
   "backEnd": {
-    "hash": "9d42cd4b0452199cca097e2c4397d445f327a6a873b71101760716131ae2990b",
-    "declarationCount": 11970,
+    "hash": "5a89b0c1d303dceb109e7d668ccbdfa87bf2589fb0ea5eae8b023eece2918e02",
+    "declarationCount": 12021,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7007,7 +7007,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantConversationSummaryDto( Guid Id, string AgentId, string? Title, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string Role = NhAssistantParticipantRoles.Owner, int ParticipantCount = 0, int LastMessageSequence = 0, int LastReadSequence = 0, string? ActiveActorId = null);"
+        "declaration": "public sealed record NhAssistantConversationSummaryDto( Guid Id, string AgentId, string? Title, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string Role = NhAssistantParticipantRoles.Owner, int ParticipantCount = 0, int LastMessageSequence = 0, int LastReadSequence = 0, string? ActiveActorId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantConversationSubjectDto? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantConversationSubjectDto( string SubjectType, string SubjectId, string? SubjectDisplayName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectTypeName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectLink { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7020,6 +7036,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantMessagePartDto? PendingQuestion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantConversationSubjectDto? Subject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7231,7 +7251,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantCreateConversationRequest( string? AgentId, string? Title);"
+        "declaration": "public sealed record NhAssistantCreateConversationRequest( string? AgentId, string? Title) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7723,11 +7751,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
-        "declaration": "public static async Task<TaskResult<NhAssistantConversationListDto>> ListConversationsAsync( INhAssistantStore store, NhAiInvocationContext caller, int page, int itemsPerPage, CancellationToken cancellationToken) {"
+        "declaration": "public static async Task<TaskResult<NhAssistantConversationListDto>> ListConversationsAsync( INhAssistantStore store, NhAssistantSubjectAccessService subjects, NhAiInvocationContext caller, int page, int itemsPerPage, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
-        "declaration": "public static async Task<IReadOnlyList<NhAssistantAgentSummaryDto>> ListAgentsAsync( NhAssistantAgentAccess access, NhAssistantUploads uploads, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+        "declaration": "public static async Task<IReadOnlyList<NhAssistantAgentSummaryDto>> ListAgentsAsync( NhAssistantAgentAccess access, NhAssistantUploads uploads, ClaimsPrincipal user, CancellationToken cancellationToken, NhAiSubjectRef? subject = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
+        "declaration": "public static async Task<TaskResult<NhAiSubjectRef>> CheckAgentsSubjectAsync( NhAssistantSubjectAccessService subjects, NhAssistantChatSubjects chatSubjects, NhAiInvocationContext caller, NhAiSubjectRef subject, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
@@ -7748,6 +7780,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
         "declaration": "public string? Title { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public NhAiSubjectRef? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public const int MaxTitleLength = 200;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public static async Task<TaskResult<NhAiSubjectInfo?>> CheckSubjectAsync( IServiceProvider services, NhAssistantAgent agent, NhAiSubjectRef? subject, NhAiInvocationContext caller, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public static AssistantConversation Create( NhAiInvocationContext caller, string ownerName, NhAssistantAgentDefinition agent, string? title, NhAiSubjectInfo? subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
@@ -7780,6 +7828,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
         "declaration": "public Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync( NhAssistantDecidingPerson person, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
+        "declaration": "public Task<TaskResult<IReadOnlyList<NhAssistantAgentSummaryDto>>> ListAgentsAsync( NhAssistantDecidingPerson person, NhAiSubjectRef subject, NhAssistantConversationOptions? options = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversations.cs",
@@ -8067,7 +8119,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
-        "declaration": "public static NhAssistantConversationSummaryDto ToSummary(Persistence.NhAssistantConversationListItem item) {"
+        "declaration": "public static NhAssistantConversationSummaryDto ToSummary( Persistence.NhAssistantConversationListItem item, Runs.NhAssistantSubjectAccessService? subjects = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static NhAssistantConversationSubjectDto? ToDto(NhAssistantChatSubjectView? subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
@@ -9170,6 +9226,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028231724_ChatSubject.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028231724_ChatSubject.cs",
+        "declaration": "public partial class ChatSubject : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028231724_ChatSubject.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261028231724_ChatSubject.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -10070,6 +10142,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028231715_ChatSubject.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028231715_ChatSubject.cs",
+        "declaration": "public partial class ChatSubject : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028231715_ChatSubject.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261028231715_ChatSubject.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -10220,6 +10308,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public bool OfferedInChat { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public bool RequiresChatSubject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
@@ -11379,6 +11471,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool RequiresChatSubject { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentWorksOn WorksOn { get; internal set; } = NhAssistantAgentWorksOn.Undeclared;"
       },
       {
@@ -11600,6 +11696,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder HideFromChat() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder RequireChatSubject() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -13394,6 +13494,42 @@
         "declaration": "public static NhAiTextAsset LoadEmbeddedResource( Assembly assembly, string resourceName, string id, int version) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public const NhAiSubjectRole MinimumRole = NhAiSubjectRole.Reader;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public static NhAiSubjectRef? SubjectOf(AssistantConversation conversation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public static TaskResult<NhAiSubjectRef?> Parse(string? subjectType, string? subjectId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public async Task<TaskResult<NhAiSubjectInfo>> CheckNewAsync( NhAiSubjectRef subject, NhAssistantAgent agent, string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public async Task<TaskResult<NhAiSubjectInfo?>> CheckAsync( AssistantConversation conversation, string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public async Task<TaskResult<NhAiSubjectInfo>> CheckAsync( NhAiSubjectRef subject, string actorId, string? tenantId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public async ValueTask<bool> MayReadAsync( AssistantConversation conversation, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public static bool WorksOn(NhAssistantAgent agent, NhAiSubjectRef subject) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
+        "declaration": "public static bool IsOffered(NhAssistantAgent agent, NhAiSubjectRef? subject) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs",
         "declaration": "public async Task<TaskResult<string>> CreateShareLinkAsync( NhAssistantConversationAccess access, CancellationToken cancellationToken) {"
       },
@@ -13468,6 +13604,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationMessages.cs",
         "declaration": "public async Task<TaskResult<NhAssistantApplicationMessageReceipt>> PostAsync( Guid conversationId, NhAssistantApplicationMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public NhAiSubjectRef? ChatSubject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
@@ -15700,6 +15840,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public string? Title { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? SubjectType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? SubjectId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? SubjectDisplayName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? SubjectScopeKey { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
@@ -18575,6 +18731,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string SubjectRequired = \"assistant-subject-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string NoAccountableOwner = \"assistant-no-accountable-owner\";"
       },
       {
@@ -19731,6 +19891,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
+        "declaration": "public NhAiSubjectRef? ConversationSubject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantFiles.cs",
         "declaration": "public Guid? RunId { get; init; }"
       },
       {
@@ -20612,6 +20776,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
         "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
+        "declaration": "public const string Chat = \"chat\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantSubjectBriefings.cs",
@@ -22415,6 +22583,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantConversation>> FindChatsAboutSubjectAsync( string? scopeKey, NhAiSubjectRef subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task DeleteChatAsync(Guid conversationId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<AssistantThread>> FindThreadsBySubjectAsync(NhAiSubjectRef subject, CancellationToken cancellationToken) {"
       },
       {
@@ -23470,6 +23646,10 @@
         "declaration": "public static NhAssistantBriefingSection SkillSection(NhAssistantSkillOptions skill, string chosenBy, string? reason) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantBriefingService.cs",
+        "declaration": "public static NhAssistantBriefingSection ChatSubjectSection(NhAiSubjectInfo subject, string typeName) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultationProposals.cs",
         "declaration": "public string? RefusalReason { get; init; }"
       },
@@ -24479,6 +24659,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public NhAiSubjectRef? ConversationSubject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public NhAssistantAuditEvent WithPromptIdentity(NhAssistantAuditEvent evt) {"
       },
       {
@@ -24748,6 +24932,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantAgentTurnContext? AgentTurn { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public NhAiSubjectInfo? ChatSubject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -25324,6 +25512,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public NhAssistantQuestionView? PendingQuestion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public NhAssistantChatSubjectView? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public static NhAssistantChatSubjectView? Of( AssistantConversation conversation, Runs.NhAssistantSubjectAccessService? subjects) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -27883,6 +28079,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+        "declaration": "public NhAiSubjectRef? ConversationSubject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
         "declaration": "public NhAiToolCallOrigin? Origin { get; init; }"
       },
       {
@@ -28592,6 +28792,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public Guid? ConversationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiSubjectRef? ConversationSubject { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -52171,7 +52375,12 @@
       "NhAssistantCompositionStepDto",
       "getAgentCompositionActivity",
       "AgentCompositionActivity",
-      "NhAssistantAgentCompositionActivityComponent"
+      "NhAssistantAgentCompositionActivityComponent",
+      "RequireChatSubject",
+      "RequiresChatSubject",
+      "NhAssistantConversationSubjectDto",
+      "ConversationSubject",
+      "NhAssistantBriefingPurposes"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -52879,7 +53088,14 @@
       "AgentCompositionChannel",
       "AgentCompositionReason",
       "CompositionCeiling",
-      "NhAssistantMockCompositions"
+      "NhAssistantMockCompositions",
+      "setChatSubject",
+      "NhAssistantChatSubject",
+      "chatAgents",
+      "chatSubject",
+      "newChatSubject",
+      "ConversationSubject",
+      "ConversationSubjectRef"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
