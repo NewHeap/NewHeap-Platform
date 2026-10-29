@@ -34,7 +34,8 @@ public sealed class AssistantConversationClientContextTests(AssistantDatabaseFix
     public async Task A_channels_page_reaches_the_model_and_is_stored_as_the_endpoint_stores_it(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
-            .RespondWithText("Project 7 is open.")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = Guid.NewGuid(), status = "Active" } })
+            .RespondWithText("Project 7 is active.")
             .RespondWithText("Project 7 is still open.");
         await using var app = await AssistantWebApplication.StartAsync(database, model, provider: provider);
         using var client = app.CreateClient();
@@ -45,7 +46,11 @@ public sealed class AssistantConversationClientContextTests(AssistantDatabaseFix
             "<b>Project 7</b>",
             [new NhAssistantClientEntityDto("project", " 7 ", LongLabel)]);
 
-        var sent = await SendAsync(app, id, new NhAssistantConversationMessage("What is open?") { ClientContext = page });
+        var sent = await SendAsync(app, id, new NhAssistantConversationMessage("Activate this project.") { ClientContext = page });
+        // The turn resumes after the person's approval with the page of its message.
+        Assert.True(sent.Success);
+        var approval = Assert.Single(sent.Data!.PendingApprovals);
+        var decided = await DecideAsync(app, id, approval.ApprovalId, approval.ProposalHash);
         using (var endpoint = await client.PostAsync(
             $"/api/assistant/conversations/{id}/messages",
             Json(new
@@ -59,12 +64,12 @@ public sealed class AssistantConversationClientContextTests(AssistantDatabaseFix
             await ReadAllAsync(endpoint);
         }
 
-        Assert.True(sent.Success);
-        Assert.Equal(NhAssistantTurnStatuses.Completed, sent.Data!.Status);
+        Assert.Equal(NhAssistantTurnStatuses.WaitingForApproval, sent.Data.Status);
+        Assert.Equal(NhAssistantTurnStatuses.Completed, decided.Data!.Status);
         var screen = "<page-data>\n- Route: /projects/7\n- Title: ‹b›Project 7‹/b›\n- Entity: project 7 ("
             + LongLabel[..NhAssistantClientContext.MaxEntityLabelLength] + ")\n</page-data>";
-        Assert.Contains(screen, model.Requests[0].Options!.Instructions);
-        Assert.Contains(screen, model.Requests[1].Options!.Instructions);
+        Assert.Equal(3, model.Requests.Count);
+        Assert.All(model.Requests, request => Assert.Contains(screen, request.Options!.Instructions, StringComparison.Ordinal));
         var stored = await UserMessagesAsync(app, id);
         Assert.Equal(2, stored.Count);
         Assert.NotNull(stored[0].ClientContextJson);
@@ -160,6 +165,21 @@ public sealed class AssistantConversationClientContextTests(AssistantDatabaseFix
             Person("user-1"),
             conversationId,
             message,
+            new NhAssistantConversationTurnOptions(ChannelCode));
+    }
+
+    private static async Task<TaskResult<NhAssistantConversationTurnResult>> DecideAsync(
+        AssistantWebApplication app,
+        Guid conversationId,
+        Guid approvalId,
+        string proposalHash)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantConversationTurns>().DecideAsync(
+            Person("user-1"),
+            conversationId,
+            approvalId,
+            new NhAssistantConversationDecision(NhAssistantProposalDecision.Approve, proposalHash),
             new NhAssistantConversationTurnOptions(ChannelCode));
     }
 
