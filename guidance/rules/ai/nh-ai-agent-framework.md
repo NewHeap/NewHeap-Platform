@@ -62,7 +62,9 @@ forgetting, so keep that error unless the deployment's conversation data may liv
 deployment sets `NhAiAgentCreateRequest.ThrowOnChatHistoryProviderConflict` to `false`; the session
 then follows the service's conversation id, and after that first answer the provider is neither read
 nor written for it. `WarnOnChatHistoryProviderConflict` logs a warning on each such run, through the
-logger factory the model client offers, and `ClearOnChatHistoryProviderConflict` removes the provider
+logger factory the model client offers, which many clients, such as OpenAI's, do not; NewHeap therefore
+also logs one content-free warning per created agent through the host's `ILoggerFactory`, naming only the
+agent and its version. `ClearOnChatHistoryProviderConflict` removes the provider
 from the agent instance, so that its later sessions do not use it either. The three switches map one
 to one onto Agent Framework's `ChatClientAgentOptions` and keep its defaults, all `true`. An agent
 without a history provider of its own needs no switch. The model call still crosses the governed

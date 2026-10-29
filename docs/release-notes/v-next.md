@@ -12,7 +12,9 @@ History the service keeps lives at the model provider, outside the application's
 forgetting, so switch the error off only in a deployment whose conversation data may live there. The
 session then follows the service's conversation id, and the provider is not used for it after that
 first answer. `WarnOnChatHistoryProviderConflict` logs through the logger factory the model client
-offers, and `ClearOnChatHistoryProviderConflict` removes the provider from the agent instance.
+offers; because many clients, such as OpenAI's, offer none, NewHeap also logs one content-free warning
+per created agent through the host's `ILoggerFactory`, naming only the agent and its version.
+`ClearOnChatHistoryProviderConflict` removes the provider from the agent instance.
 
 | Breaking change | Required action |
 |---|---|
@@ -153,8 +155,10 @@ channel `execution-report` (`NhAssistantDecisionChannels.ExecutionReport`), and 
 `ChatFollowUpStarted`, or `ChatFollowUpSkipped` with the reason when the chat runs a turn or waits for a
 decision or an answer, has a newer message than the report (`NhAssistantApplicationExecutionCodes.ChatAnswered`)
 or the person fails a check; the report then waits for the person's next message. A refused or failed
-hand-off and a passed report deadline start no turn. The debounce lives in the process. Off by default;
-a declaration with the switch and without `AlsoInline` is refused.
+hand-off and a passed report deadline start no turn. The debounce lives in the process. Propose-only
+lasts until the person decides: once they approve a proposal of the follow-up, the turn that continues is
+their own decision turn under the normal chat rules, so a tool that needs no approval may run there, as
+after any approval. Off by default; a declaration with the switch and without `AlsoInline` is refused.
 
 | Breaking change | Required action |
 |---|---|

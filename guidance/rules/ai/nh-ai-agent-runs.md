@@ -247,6 +247,10 @@ person fails a check (`assistant-context-unavailable`, `assistant-agent-forbidde
 hand-off the executor refuses or that throws is told within the approving turn, and a passed deadline is
 no report, so neither starts a turn. The wait lives in the process: a host that stops before it ends
 starts nothing, and the report stays. The panel shows the turn as it shows a turn of another session.
+Propose-only lasts until the person decides: once they approve a proposal of the follow-up, the turn that
+continues is their own decision turn under the normal chat rules, so a tool that needs no approval may
+run there, as after any approval in a chat. Declare an effect as needing approval when it must never run
+without one; do not rely on the follow-up to hold it back.
 
 A proposal that nobody decided in time expires, and the policy's `OnExpiry` says what
 happens to its run. `NhAiApprovalExpiryAction.FailRun` fails the run with

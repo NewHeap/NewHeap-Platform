@@ -3,6 +3,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.AgentFramework;
@@ -58,9 +59,11 @@ public sealed record NhAiAgentCreateRequest(
     /// Whether the conflict that <see cref="ThrowOnChatHistoryProviderConflict"/> describes logs a
     /// warning, on every run whose answer carries a conversation id. Sets Agent Framework's
     /// <see cref="ChatClientAgentOptions.WarnOnChatHistoryProviderConflict"/> and keeps its default,
-    /// <see langword="true"/>. The agent logs through the
-    /// <c>ILoggerFactory</c> that the profile's model client offers through
-    /// <see cref="IChatClient.GetService"/>; without one the warning is not written.
+    /// <see langword="true"/>. Agent Framework logs through the <c>ILoggerFactory</c> that the profile's
+    /// model client offers through <see cref="IChatClient.GetService"/>, and many clients, such as
+    /// OpenAI's, offer none. While the error is off, NewHeap therefore also logs one content-free warning
+    /// of its own per created agent through the host's <c>ILoggerFactory</c>, naming only the agent and
+    /// its version, the first time the service returns a conversation id.
     /// </summary>
     public bool WarnOnChatHistoryProviderConflict { get; init; } = true;
 
@@ -221,7 +224,8 @@ internal sealed class NhAiAgentFrameworkAdapter(
     INhAiModelProfileResolver profileResolver,
     INhAiChatExecutor chatExecutor,
     INhAiToolDiscoveryService discoveryService,
-    IEnumerable<INhAiToolCatalog> catalogs) : INhAiAgentFrameworkAdapter
+    IEnumerable<INhAiToolCatalog> catalogs,
+    ILoggerFactory? loggerFactory = null) : INhAiAgentFrameworkAdapter
 {
     public async Task<TaskResult<NhAiAgentInstance>> CreateAsync(
         NhAiAgentCreateRequest request,
@@ -355,13 +359,21 @@ internal sealed class NhAiAgentFrameworkAdapter(
                 request.Context.RemainingBudget,
                 request.Descriptor.Budget)
         };
+        // Agent Framework warns only through a logger factory the model client offers, so NewHeap warns
+        // through the host's as well when the service keeps the conversation next to the provider.
+        var conflictLogger = options.ChatHistoryProvider is not null
+                             && !request.ThrowOnChatHistoryProviderConflict
+                             && request.WarnOnChatHistoryProviderConflict
+            ? loggerFactory?.CreateLogger<NhAiAgentFrameworkAdapter>()
+            : null;
         var governedClient = new NhAiAgentFrameworkChatClient(
             chatExecutor,
             resolution.Data.Client,
             request.Descriptor,
             effectiveContext,
             request.DataClassification,
-            request.ExecutionRegion);
+            request.ExecutionRegion,
+            conflictLogger);
         var agent = new ChatClientAgent(
             governedClient,
             options,
@@ -506,8 +518,11 @@ internal sealed class NhAiAgentFrameworkChatClient(
     NhAiAgentDescriptor descriptor,
     NhAiInvocationContext context,
     NhAiDataClassification dataClassification,
-    string executionRegion) : IChatClient
+    string executionRegion,
+    ILogger? conflictLogger = null) : IChatClient
 {
+    private int _conflictWarned;
+
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
@@ -522,6 +537,7 @@ internal sealed class NhAiAgentFrameworkChatClient(
                 result,
                 "The governed AI agent model call did not complete successfully.");
         }
+        WarnIfTheServiceKeepsTheConversation(result.Data.Response.ConversationId);
         return result.Data.Response;
     }
 
@@ -542,6 +558,7 @@ internal sealed class NhAiAgentFrameworkChatClient(
 
         await foreach (var update in start.Data.Updates.WithCancellation(cancellationToken))
         {
+            WarnIfTheServiceKeepsTheConversation(update.ConversationId);
             yield return update;
         }
         var completion = await start.Data.Completion;
@@ -564,6 +581,26 @@ internal sealed class NhAiAgentFrameworkChatClient(
 
     public void Dispose()
     {
+    }
+
+    /// <summary>
+    /// Logs once per agent that the model service keeps the conversation, so the agent's history provider
+    /// is not used for that session. The warning names the agent and its version, never the conversation
+    /// id or a message.
+    /// </summary>
+    private void WarnIfTheServiceKeepsTheConversation(string? conversationId)
+    {
+        if (conflictLogger is null
+            || conversationId is null
+            || Interlocked.Exchange(ref _conflictWarned, 1) == 1)
+        {
+            return;
+        }
+
+        conflictLogger.LogWarning(
+            "AI agent {AgentId} version {AgentVersion}: the model service keeps the conversation, so the agent's chat history provider is not used for a session the service keeps.",
+            descriptor.Id,
+            descriptor.Version);
     }
 
     private NhAiChatRequest CreateRequest(
