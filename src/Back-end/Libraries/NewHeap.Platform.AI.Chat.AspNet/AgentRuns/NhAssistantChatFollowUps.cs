@@ -18,7 +18,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// Continues a person's chat after the application reported the execution of a proposal approved there,
 /// for a tool declared with <see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>
 /// (FB61). A report asks for one follow-up turn of the chat; the turn starts after
-/// <see cref="NhAssistantTiming.ChatFollowUpDelay"/>, so reports that arrive together reach one turn. When it
+/// <see cref="NhAssistantTiming.ChatFollowUpDelay"/> on the application's clock, so reports that arrive
+/// together reach one turn. When it
 /// starts, the chat must be idle or failed and its newest message must still be the application's, and the
 /// person whose turn made the proposal must still use the chat and the agent: their principal is rebuilt
 /// with the application's <see cref="INhAiPrincipalFactory"/>, resolved with its context resolver in the
@@ -38,6 +39,13 @@ internal sealed class NhAssistantChatFollowUps(
     private readonly Dictionary<Guid, Pending> _pending = [];
     private readonly HashSet<Task> _work = [];
     private readonly TimeSpan _delay = (services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default).ChatFollowUpDelay;
+
+    /// <summary>
+    /// The application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock), which
+    /// the wait follows as every debounce does.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = services.GetService<TimeProvider>() ?? TimeProvider.System;
+
     private bool _stopped;
 
     /// <summary>
@@ -127,7 +135,7 @@ internal sealed class NhAssistantChatFollowUps(
     {
         try
         {
-            await Task.Delay(_delay, pending.Release.Token);
+            await Task.Delay(_delay, _applicationClock, pending.Release.Token);
         }
         catch (OperationCanceledException)
         {

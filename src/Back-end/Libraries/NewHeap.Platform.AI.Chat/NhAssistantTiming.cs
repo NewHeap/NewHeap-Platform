@@ -28,8 +28,7 @@ internal sealed class NhAssistantTiming
     /// <summary>
     /// How long a person's chat waits after an execution report before its follow-up turn starts
     /// (<see cref="NhAssistantApplicationExecutionBuilder.ContinueChatAfterReport"/>), so reports that
-    /// arrive together reach one turn. It gathers work in the process, as the retry above waits for the
-    /// provider, and is no deadline of the application, so it keeps the system clock.
+    /// arrive together reach one turn. It is a debounce, so it runs on the application's clock.
     /// </summary>
     internal TimeSpan ChatFollowUpDelay { get; init; } = TimeSpan.FromSeconds(2);
 }
