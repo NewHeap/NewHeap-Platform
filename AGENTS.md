@@ -124,7 +124,8 @@ For each such change, before considering the work complete:
    generated plan, status, consumer-guide, skill-reference, manifest or
    `sample-cases.ts` files by hand.
 7. Refresh `guidance/public-api-snapshot.json` for an intentional public-surface
-   change and run the guidance, skill-eval and sample evidence validators.
+   change (an enum is recorded with its members, so a new value counts too)
+   and run the guidance, skill-eval and sample evidence validators.
 8. Do not mark a case implemented when it only
    has documentation or non-executable pseudocode.
 

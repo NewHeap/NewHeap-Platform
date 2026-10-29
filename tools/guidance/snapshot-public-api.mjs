@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, relative, resolve } from 'node:path';
 import { loadRules, readJson, repositoryRoot } from './lib.mjs';
+import { backEndDeclarations, frontEndDeclarations } from './public-api-declarations.mjs';
 
 const outputPath = resolve(repositoryRoot, 'guidance', 'public-api-snapshot.json');
 const checkOnly = process.argv.includes('--check');
@@ -33,32 +34,8 @@ function hash(entries) {
 const backEndRoot = resolve(repositoryRoot, 'src', 'Back-end', 'Libraries');
 const backEndEntries = [];
 for (const path of (await walk(backEndRoot)).filter(path => extname(path) === '.cs').sort()) {
-  const lines = (await readFile(path, 'utf8')).split(/\r?\n/);
-  let attributes = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index].trim();
-    if (line.startsWith('[')) {
-      attributes.push(line.replace(/\s+/g, ' '));
-      continue;
-    }
-    if (!/^(public|protected)\b/.test(line)) {
-      if (line && !line.startsWith('//')) attributes = [];
-      continue;
-    }
-    const declaration = [line];
-    let parentheses = (line.match(/\(/g) ?? []).length - (line.match(/\)/g) ?? []).length;
-    while (index + 1 < lines.length && (parentheses > 0 || !/[{;=]|=>/.test(declaration.at(-1)))) {
-      index += 1;
-      const continuation = lines[index].trim();
-      declaration.push(continuation);
-      parentheses += (continuation.match(/\(/g) ?? []).length - (continuation.match(/\)/g) ?? []).length;
-      if (declaration.length > 30) break;
-    }
-    backEndEntries.push({
-      path: normalizedPath(path),
-      declaration: [...attributes, ...declaration].join(' ').replace(/\s+/g, ' ').trim()
-    });
-    attributes = [];
+  for (const declaration of backEndDeclarations(await readFile(path, 'utf8'))) {
+    backEndEntries.push({ path: normalizedPath(path), declaration });
   }
 }
 
@@ -68,12 +45,8 @@ const frontEndEntries = [];
 for (const path of (await Promise.all(frontEndRoots.map(root => walk(root)))).flat()
   .filter(path => extname(path) === '.ts' && !path.endsWith('.spec.ts'))
   .sort()) {
-  const lines = (await readFile(path, 'utf8')).split(/\r?\n/);
-  for (const line of lines) {
-    const declaration = line.trim().replace(/\s+/g, ' ');
-    if (/^(export|public|protected)\b/.test(declaration) || /^@(Input|Output|Directive|Component|Injectable)\b/.test(declaration)) {
-      frontEndEntries.push({ path: normalizedPath(path), declaration });
-    }
+  for (const declaration of frontEndDeclarations(await readFile(path, 'utf8'))) {
+    frontEndEntries.push({ path: normalizedPath(path), declaration });
   }
 }
 

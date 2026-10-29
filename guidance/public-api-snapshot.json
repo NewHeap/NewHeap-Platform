@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.92",
   "backEnd": {
-    "hash": "c8f22b068f7aa2376722f57a05d1e98f3cc8c3cadac96a6fd04e61f4023609ba",
+    "hash": "76a5fe1314a75566a37da15306906fb21fb9fc4a1a20e653c922b881b12cc803",
     "declarationCount": 12074,
     "declarations": [
       {
@@ -1015,7 +1015,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
-        "declaration": "public enum NhAiBridgeParameterSource {"
+        "declaration": "public enum NhAiBridgeParameterSource { Route = 0, Query = 1, Body = 2, Form = 3, FormFile = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
@@ -1443,7 +1443,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeTrustedQueryBindings.cs",
-        "declaration": "public enum NhAiBridgeTrustedQueryBindingKind {"
+        "declaration": "public enum NhAiBridgeTrustedQueryBindingKind { QueryValue = 0, CollectionFilter = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeTrustedQueryBindings.cs",
@@ -3127,7 +3127,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
-        "declaration": "public enum NhAssistantUncarriedParts {"
+        "declaration": "public enum NhAssistantUncarriedParts { Unlink = 0, Relink = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentDefinitions.cs",
@@ -5335,7 +5335,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
-        "declaration": "public enum NhAssistantProposalDecision {"
+        "declaration": "public enum NhAssistantProposalDecision { Approve = 0, Reject = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
@@ -6247,7 +6247,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
-        "declaration": "public enum NhAssistantMcpCredentialOwnership {"
+        "declaration": "public enum NhAssistantMcpCredentialOwnership { Organization = 0, Person = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentialProviders.cs",
@@ -10599,7 +10599,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
-        "declaration": "public enum NhAssistantRequestAnswerRoute {"
+        "declaration": "public enum NhAssistantRequestAnswerRoute { AgentThread = 0, AskingConversation = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
@@ -10663,7 +10663,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
-        "declaration": "public enum NhAssistantConsultationRights {"
+        "declaration": "public enum NhAssistantConsultationRights { Asker = 0, Agent = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentConsultation.cs",
@@ -11339,7 +11339,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
-        "declaration": "public enum NhAssistantAgentNotificationKind {"
+        "declaration": "public enum NhAssistantAgentNotificationKind { RunEndedWithProposals = 0, ProposalExpiring = 1, ProposalEscalated = 2, ExecutionUnknown = 3, RunFailed = 4, RequestAnswered = 5, McpConnectionMissing = 6, ConsultationProposalDecided = 7, RunProposalsWaiting = 8, RunProposalsExpiring = 9, RunProposalsEscalated = 10, ExecutionReported = 11 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
@@ -11515,7 +11515,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
-        "declaration": "public enum NhAssistantTriggerConflict {"
+        "declaration": "public enum NhAssistantTriggerConflict { Coalesce = 0, Queue = 1, Supersede = 2, Ignore = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -12483,7 +12483,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
-        "declaration": "public enum NhAssistantExecutionOutcome {"
+        "declaration": "public enum NhAssistantExecutionOutcome { Completed = 0, NeedsAttention = 1, Failed = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantApplicationExecution.cs",
@@ -14019,7 +14019,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
-        "declaration": "public enum NhAssistantCompositionChannel {"
+        "declaration": "public enum NhAssistantCompositionChannel { Chat = 0, Run = 1, Consultation = 2, HandOff = 3, Mcp = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionSwitch.cs",
@@ -17279,7 +17279,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
-        "declaration": "public enum NhAssistantProposeOutcome {"
+        "declaration": "public enum NhAssistantProposeOutcome { Created = 0, AlreadyOpen = 1, RecentlyRejected = 2, Refused = 3, NotNeeded = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
@@ -20123,7 +20123,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public enum NhAssistantAuditEventKind {"
+        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -21311,7 +21311,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
-        "declaration": "public enum NhAssistantToolStepStatus {"
+        "declaration": "public enum NhAssistantToolStepStatus { Succeeded = 0, Proposed = 1, NotNeeded = 2, AwaitingApproval = 3, Failed = 4, Refused = 5 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
@@ -23711,7 +23711,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicySelector.cs",
-        "declaration": "public enum NhAssistantApprovalPolicySource {"
+        "declaration": "public enum NhAssistantApprovalPolicySource { Run = 0, Request = 1, Consultation = 2, Application = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicySelector.cs",
@@ -26135,7 +26135,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
-        "declaration": "public enum NhAiAutonomyLevel {"
+        "declaration": "public enum NhAiAutonomyLevel { Observe = 0, Explain = 1, Propose = 2, Simulate = 3, Execute = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
@@ -26159,11 +26159,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiGrantSource {"
+        "declaration": "public enum NhAiGrantSource { None = 0, Agent = 1, Delegated = 2, DelegatedRead = 3, Accountable = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiAgentAccountability {"
+        "declaration": "public enum NhAiAgentAccountability { Agent = 0, SubjectResponsible = 1, ServiceAccount = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26243,7 +26243,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiSubjectRole {"
+        "declaration": "public enum NhAiSubjectRole { None = 0, Reader = 10, Participant = 20, Approver = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26363,11 +26363,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiPreconditionOutcome {"
+        "declaration": "public enum NhAiPreconditionOutcome { Satisfied = 0, Stale = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiStaleKind {"
+        "declaration": "public enum NhAiStaleKind { Changed = 0, AlreadyDone = 1, NotApplicable = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26415,15 +26415,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiApprovalMode {"
+        "declaration": "public enum NhAiApprovalMode { Inline = 0, Deferred = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiApprovalExpiryAction {"
+        "declaration": "public enum NhAiApprovalExpiryAction { Withdraw = 0, Escalate = 1, FailRun = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiApprovalBinding {"
+        "declaration": "public enum NhAiApprovalBinding { ToolContractAndPrompt = 0, ToolContract = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26463,7 +26463,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiDuplicateProposals {"
+        "declaration": "public enum NhAiDuplicateProposals { Supersede = 0, Skip = 1, Allow = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26599,7 +26599,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
-        "declaration": "public enum NhAiElevatedReads {"
+        "declaration": "public enum NhAiElevatedReads { Restricted = 0, Deny = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -26779,7 +26779,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
-        "declaration": "public enum NhAiAssetRole {"
+        "declaration": "public enum NhAiAssetRole { SystemInstructions = 0, DeveloperInstructions = 1, AgentDefinition = 2, EvaluationFixture = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
@@ -26959,7 +26959,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCompositionFeatures.cs",
-        "declaration": "public enum NhAiCompositionFeature {"
+        "declaration": "public enum NhAiCompositionFeature { None = 0, Compositions = 1, Scripts = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCompositionFeatures.cs",
@@ -27003,7 +27003,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
-        "declaration": "public enum NhAiToolConcurrencyPartition {"
+        "declaration": "public enum NhAiToolConcurrencyPartition { ToolAndTenant = 0, Tool = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
@@ -27043,7 +27043,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
-        "declaration": "public enum NhAiContextTrust {"
+        "declaration": "public enum NhAiContextTrust { TrustedApplication = 0, VerifiedExternal = 1, UntrustedRetrieved = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
@@ -27159,7 +27159,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
-        "declaration": "public enum NhAiPromptBlockRole {"
+        "declaration": "public enum NhAiPromptBlockRole { SystemInstructions = 0, TrustedPolicyMetadata = 10, RetrievedData = 20 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
@@ -27239,7 +27239,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
-        "declaration": "public enum NhAiEffectDecisionKind {"
+        "declaration": "public enum NhAiEffectDecisionKind { Allow = 0, Deny = 1, RequireApproval = 2, ConsumerAuthoritativeApproval = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
@@ -27255,7 +27255,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
-        "declaration": "public enum NhAiIdempotencyDecisionKind {"
+        "declaration": "public enum NhAiIdempotencyDecisionKind { Acquired = 0, Duplicate = 1, Conflict = 2, Denied = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
@@ -27547,7 +27547,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
-        "declaration": "public enum NhAiIngestionVersionDecisionKind {"
+        "declaration": "public enum NhAiIngestionVersionDecisionKind { Acquired = 0, Duplicate = 1, Conflict = 2, Denied = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
@@ -27839,15 +27839,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
-        "declaration": "[Flags] public enum NhAiModelCapability {"
+        "declaration": "[Flags] public enum NhAiModelCapability { None = 0, Chat = 1, FunctionCalling = 2, StructuredOutput = 4, Streaming = 8, Vision = 16, Embeddings = 32 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
-        "declaration": "public enum NhAiDataClassification {"
+        "declaration": "public enum NhAiDataClassification { Public = 0, Internal = 1, Confidential = 2, Restricted = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
-        "declaration": "public enum NhAiStreamingPolicy {"
+        "declaration": "public enum NhAiStreamingPolicy { Disabled = 0, Allowed = 1, Required = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
@@ -27939,7 +27939,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
-        "declaration": "public enum NhAiOutcomeKind {"
+        "declaration": "public enum NhAiOutcomeKind { Succeeded = 0, ValidationFailed = 1, NotFound = 2, AuthorizationDenied = 3, Conflict = 4, ApprovalRequired = 5, BudgetExhausted = 6, DependencyUnavailable = 7, TerminalFailure = 8, TimedOut = 9 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -27963,7 +27963,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
-        "declaration": "public enum NhAiRetentionCategory {"
+        "declaration": "public enum NhAiRetentionCategory { Transient = 0, Operational = 1, Audit = 2, Evaluation = 3, EphemeralRequestContent = 10, ConversationContent = 20, ContextTraceMetadata = 30, ProposalApprovalEvidence = 40, ToolActionAudit = 50, OperationalTelemetry = 60, EvaluationArtifact = 70, UsageAggregate = 80 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -28259,7 +28259,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
-        "declaration": "[Flags] public enum NhAiProposalGuardStages {"
+        "declaration": "[Flags] public enum NhAiProposalGuardStages { None = 0, Revalidation = 1, Decision = 2, Execution = 4, All = Revalidation | Decision | Execution, Proposal = 8 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
@@ -28303,7 +28303,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
-        "declaration": "public enum NhAiActorKind {"
+        "declaration": "public enum NhAiActorKind { Human = 0, Service = 1, Agent = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
@@ -28611,7 +28611,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
-        "declaration": "public enum NhAiToolCallOriginKind {"
+        "declaration": "public enum NhAiToolCallOriginKind { Composition = 1, Script = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
@@ -28663,35 +28663,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiToolEffect {"
+        "declaration": "public enum NhAiToolEffect { ReadOnly = 0, IdempotentMutation = 1, Mutation = 2, ExternalSideEffect = 3, Destructive = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiApprovalRequirement {"
+        "declaration": "public enum NhAiApprovalRequirement { PolicyControlled = 0, Required = 1, NotRequired = 2, ConsumerAuthoritative = 3, Issuer = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiApprovalRole {"
+        "declaration": "public enum NhAiApprovalRole { None = 0, Consumer = 1, Issuer = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiToolHint {"
+        "declaration": "public enum NhAiToolHint { Inherit = 0, True = 1, False = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiIdempotencySupport {"
+        "declaration": "public enum NhAiIdempotencySupport { None = 0, Supported = 1, Required = 2, ConsumerAuthoritative = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiToolExportSchema {"
+        "declaration": "public enum NhAiToolExportSchema { Enveloped = 0, Flat = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "public enum NhAiToolCatalogGovernance {"
+        "declaration": "public enum NhAiToolCatalogGovernance { None = 0, SharedInvoker = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "[Flags] public enum NhAiToolExposure {"
+        "declaration": "[Flags] public enum NhAiToolExposure { None = 0, Local = 1, Mcp = 2, Agent = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -30431,7 +30431,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
-        "declaration": "public enum NhAiScriptCallOutcomeKind {"
+        "declaration": "public enum NhAiScriptCallOutcomeKind { Completed = 0, Proposed = 1, AwaitingApproval = 2, Refused = 3, NotNeeded = 4 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
@@ -31199,7 +31199,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
-        "declaration": "public enum NhAiTestAuthorizationOutcome {"
+        "declaration": "public enum NhAiTestAuthorizationOutcome { Approve, Deny }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestAuthorizationServer.cs",
@@ -32879,11 +32879,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
-        "declaration": "public enum NhTwoFactorSecurityEvent {"
+        "declaration": "public enum NhTwoFactorSecurityEvent { Enabled = 0, Disabled = 10, AuthenticatorChanged = 20, RecoveryCodesRegenerated = 30, RecoveryCodeUsed = 40, EmailFactorEnabled = 50, LockedOut = 60, ResetByAdministrator = 70, DevicesForgotten = 80, EnrollmentReminder = 90, PasskeyAdded = 100, PasskeyRemoved = 110 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
-        "declaration": "public enum NhTwoFactorEmailCodePurpose {"
+        "declaration": "public enum NhTwoFactorEmailCodePurpose { SignIn = 0, Confirmation = 10 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
@@ -33799,7 +33799,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
-        "declaration": "public enum HttpMethod {"
+        "declaration": "public enum HttpMethod { Get, Post, Put, Delete, Patch }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhEventConfigurationBuilder.cs",
@@ -34735,7 +34735,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
-        "declaration": "public enum DatabaseProvider {"
+        "declaration": "public enum DatabaseProvider { SqlServer, PostgreSql }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
@@ -34755,31 +34755,31 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationStatus {"
+        "declaration": "public enum NhBackgroundOperationStatus { PendingDispatch = 0, Queued = 10, Running = 20, WaitingForChildren = 25, WaitingForSignal = 27, CancelRequested = 30, RetryScheduled = 40, Succeeded = 100, Failed = 110, Cancelled = 120, TimedOut = 130 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationAttemptStatus {"
+        "declaration": "public enum NhBackgroundOperationAttemptStatus { Queued = 0, Running = 10, Suspended = 20, Succeeded = 100, Failed = 110, Cancelled = 120, Abandoned = 130 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationStepStatus {"
+        "declaration": "public enum NhBackgroundOperationStepStatus { Pending = 0, Running = 10, Succeeded = 100, Failed = 110, Skipped = 120, Cancelled = 130, Indeterminate = 140 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationAggregationMode {"
+        "declaration": "public enum NhBackgroundOperationAggregationMode { Manual = 0, WeightedChildren = 10, ItemCount = 20, Indeterminate = 30, ChildOperations = 40 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationEventType {"
+        "declaration": "public enum NhBackgroundOperationEventType { StateChanged = 0, StepStarted = 10, StepProgressed = 20, StepCompleted = 30, BatchChanged = 40, RetryScheduled = 50, CancellationRequested = 60, Message = 70, CheckpointChanged = 80, ResultAvailable = 90, ChildrenCreated = 100, ChildrenCompleted = 110, SignalWaitStarted = 120, SignalReceived = 130 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationMessageSeverity {"
+        "declaration": "public enum NhBackgroundOperationMessageSeverity { Information = 0, Success = 10, Warning = 20, Error = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public enum NhBackgroundOperationOwnerKind {"
+        "declaration": "public enum NhBackgroundOperationOwnerKind { User = 0, Agent = 10 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -35583,15 +35583,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhLog.cs",
-        "declaration": "public enum LogSource {"
+        "declaration": "public enum LogSource { Unknown = 0, Internal = 1000, External = 2000 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhLog.cs",
-        "declaration": "public enum LogType {"
+        "declaration": "public enum LogType { Unknown = 0, Information = 1000, Warning = 2000, Error = 3000 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhLog.cs",
-        "declaration": "public enum LogAction {"
+        "declaration": "public enum LogAction { Unknown = 0, Read = 1000, Create = 2000, Update = 3000, Delete = 4000 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhLog.cs",
@@ -35787,7 +35787,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhNotification.cs",
-        "declaration": "public enum NhNotificationPriority {"
+        "declaration": "public enum NhNotificationPriority { Unknown = 0, Low = 10, Normal = 20, High = 30, Critical = 40 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhNotification.cs",
@@ -35891,7 +35891,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhNotificationDelivery.cs",
-        "declaration": "public enum NotificationDeliveryStatus {"
+        "declaration": "public enum NotificationDeliveryStatus { Queued = 0, Processing = 10, Failed = 20, Succeeded = 30, Cancelled = 90 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUser.cs",
@@ -36019,7 +36019,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
-        "declaration": "public enum NhUserNotificationSeverity {"
+        "declaration": "public enum NhUserNotificationSeverity { Information = 0, Success = 10, Warning = 20, Error = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
@@ -38975,7 +38975,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
-        "declaration": "public enum NhBackgroundOperationAccessAction {"
+        "declaration": "public enum NhBackgroundOperationAccessAction { View = 0, Cancel = 10, Retry = 20, Signal = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -39159,7 +39159,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
-        "declaration": "public enum NhBackgroundOperationSignalWaitStatus {"
+        "declaration": "public enum NhBackgroundOperationSignalWaitStatus { Signaled = 0, Expired = 10 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -39167,7 +39167,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
-        "declaration": "public enum NhBackgroundOperationSignalWriteStatus {"
+        "declaration": "public enum NhBackgroundOperationSignalWriteStatus { Accepted = 0, Duplicate = 10 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -39191,7 +39191,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
-        "declaration": "public enum NhBackgroundOperationFanOutFailureMode {"
+        "declaration": "public enum NhBackgroundOperationFanOutFailureMode { FailParent = 0, Continue = 10 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -39267,11 +39267,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
-        "declaration": "public enum NhBackgroundOperationConflictBehavior {"
+        "declaration": "public enum NhBackgroundOperationConflictBehavior { Queue = 0, ReturnExisting = 10, Reject = 20, Reschedule = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
-        "declaration": "public enum NhBackgroundOperationIdempotency {"
+        "declaration": "public enum NhBackgroundOperationIdempotency { NaturallyIdempotent = 0, IdempotentWithKey = 10, NonIdempotent = 20 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
@@ -41827,7 +41827,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
-        "declaration": "public enum NhProxyLoginOutcome {"
+        "declaration": "public enum NhProxyLoginOutcome { Success, InvalidCredentials, IpDenied, Throttled }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
@@ -41995,7 +41995,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyChangeAudit.cs",
-        "declaration": "public enum NhProxyChangeAuditAction {"
+        "declaration": "public enum NhProxyChangeAuditAction { ConfigurationSaved, ActivationRequested }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyChangeAudit.cs",
@@ -42071,7 +42071,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
-        "declaration": "public enum NhProxyEngine {"
+        "declaration": "public enum NhProxyEngine { Rewrite, Redirect }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
@@ -42127,7 +42127,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
-        "declaration": "public enum NhProxyActivationState {"
+        "declaration": "public enum NhProxyActivationState { NotInitialized, Pending, Active, Failed, Unconfirmed }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
@@ -42303,7 +42303,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
-        "declaration": "public enum NhProxyTestOutcome {"
+        "declaration": "public enum NhProxyTestOutcome { NoMatch, Rewrite, Redirect, ReservedAdministrationPath }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
@@ -42679,15 +42679,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
-        "declaration": "public enum NhProxyRedirectPathMatchMode {"
+        "declaration": "public enum NhProxyRedirectPathMatchMode { Exact, Prefix, RouteTemplate, Regex }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
-        "declaration": "public enum NhProxyRedirectStatus {"
+        "declaration": "public enum NhProxyRedirectStatus { MovedPermanently = 301, Found = 302, SeeOther = 303, TemporaryRedirect = 307, PermanentRedirect = 308 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
-        "declaration": "public enum NhProxyRedirectQueryMode {"
+        "declaration": "public enum NhProxyRedirectQueryMode { Preserve, Discard, Replace }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
@@ -42803,7 +42803,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
-        "declaration": "public enum NhProxyHeaderMatchMode {"
+        "declaration": "public enum NhProxyHeaderMatchMode { Exact, HeaderPrefix, Exists, Contains, NotContains, NotExists }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
@@ -42811,7 +42811,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
-        "declaration": "public enum NhProxyQueryMatchMode {"
+        "declaration": "public enum NhProxyQueryMatchMode { Exact, Prefix, Exists, Contains, NotContains }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
@@ -42935,7 +42935,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyPathTransformKind {"
+        "declaration": "public enum NhProxyPathTransformKind { AddPrefix, RemovePrefix, Set, Pattern }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
@@ -42943,11 +42943,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyValueOperation {"
+        "declaration": "public enum NhProxyValueOperation { Set, Append, Remove }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyValueSource {"
+        "declaration": "public enum NhProxyValueSource { Literal, RouteValue }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
@@ -42955,11 +42955,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyHeaderDirection {"
+        "declaration": "public enum NhProxyHeaderDirection { Request, Response }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyResponseHeaderCondition {"
+        "declaration": "public enum NhProxyResponseHeaderCondition { Success, Always }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
@@ -42971,7 +42971,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
-        "declaration": "public enum NhProxyForwardedHeaderAction {"
+        "declaration": "public enum NhProxyForwardedHeaderAction { Set, Append, Remove, Off }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
@@ -43291,7 +43291,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
-        "declaration": "public enum NhUserNotificationLevel {"
+        "declaration": "public enum NhUserNotificationLevel { Information = 0, Success = 10, Warning = 20, Error = 30 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
@@ -43427,7 +43427,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Constants.cs",
-        "declaration": "public enum CRUDActionType {"
+        "declaration": "public enum CRUDActionType { Unknown = 0, Create = 1, Update = 2, Delete = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Constants.cs",
@@ -44087,7 +44087,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/CollectionProcessingModels.cs",
-        "declaration": "public enum OrderByMethod {"
+        "declaration": "public enum OrderByMethod { Default = 0, Natural = 1 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/CollectionProcessingModels.cs",
@@ -44671,7 +44671,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
-        "declaration": "public enum NhCollectionFieldType {"
+        "declaration": "public enum NhCollectionFieldType { String = 0, Boolean = 1, Integer = 2, Number = 3, DateTime = 4, Enum = 5, Object = 6, Date = 7, Time = 8 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
@@ -44955,7 +44955,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
-        "declaration": "public enum NewHeapOtlpExporterMode {"
+        "declaration": "public enum NewHeapOtlpExporterMode { Auto, Enabled, Disabled }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
@@ -45051,7 +45051,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhSmtpSecurityMode.cs",
-        "declaration": "public enum NhSmtpSecurityMode {"
+        "declaration": "public enum NhSmtpSecurityMode { StartTlsRequired = 0, ImplicitTls = 1, None = 2 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeapPlatformCommonConfigurator.cs",
@@ -46275,7 +46275,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhConsumerSelector.cs",
-        "declaration": "public enum MessageProcessingType {"
+        "declaration": "public enum MessageProcessingType { PerApplication, PerInstance, PerDevice }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventConfigurationBuilderExtensions.cs",
@@ -46787,11 +46787,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/EventHandlers/IHandleMediaLibraryEvent.cs",
-        "declaration": "public enum MediaLibraryFileEventType {"
+        "declaration": "public enum MediaLibraryFileEventType { Adding, Removing, Updating, Added, Removed, Updated, BinaryUpdated }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/EventHandlers/IHandleMediaLibraryEvent.cs",
-        "declaration": "public enum MediaLibraryFolderEventType {"
+        "declaration": "public enum MediaLibraryFolderEventType { Adding, Removing, Updating, Added, Removed, Updated }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Attributes.cs",
@@ -47231,7 +47231,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/FileGetOptions.cs",
-        "declaration": "public enum Direction {"
+        "declaration": "public enum Direction { Ascending, Descending }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Models/ILocalizedEntity.cs",
@@ -47375,7 +47375,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Modules/IAuthorizationModule.cs",
-        "declaration": "public enum ActionType {"
+        "declaration": "public enum ActionType { Read, Create, Update, Delete }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/Modules/IFileStructureStorage.cs",
@@ -48304,7 +48304,7 @@
     ]
   },
   "frontEnd": {
-    "hash": "a8b6fb9f3de3ca97b6b2d2212b820cec7ff5fcf38b52fc0a3e7dd9490e865801",
+    "hash": "ddd4aba42e8cfc22c0db309d60144bf23b12f1101ba08c738b1b32286f51b77c",
     "declarationCount": 871,
     "declarations": [
       {
@@ -48681,7 +48681,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
-        "declaration": "export enum MutationType {"
+        "declaration": "export enum MutationType { Create = 0, Update = 1 }"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-mutate-base-component/component.ts",
@@ -49285,7 +49285,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
-        "declaration": "export enum ClaimTypes {"
+        "declaration": "export enum ClaimTypes { Name = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name', Email = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress', NameIdentifier = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier', Country = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/country', Role = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role', Permission = 'nh.platform.permission', DivisionRole = 'nh.platform.division.role', DivisionPermission = 'nh.platform.division.permission', ImpersonateOriginUserId = 'nh.platform.auth.impersonate.origin-user-id' }"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
@@ -49325,7 +49325,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
-        "declaration": "export enum NhTwoFactorFailureCodes {"
+        "declaration": "export enum NhTwoFactorFailureCodes { Required = 'two-factor-required', EnrollmentRequired = 'two-factor-enrollment-required', InvalidCode = 'two-factor-invalid-code', ChallengeExpired = 'two-factor-challenge-expired', LockedOut = 'two-factor-locked-out', MethodNotAllowed = 'two-factor-method-not-allowed', NotEnabled = 'two-factor-not-enabled', AlreadyEnabled = 'two-factor-already-enabled', SetupNotStarted = 'two-factor-setup-not-started', ReauthenticationRequired = 'two-factor-reauthentication-required', ReauthenticationFailed = 'two-factor-reauthentication-failed', RequiredByPolicy = 'two-factor-required-by-policy', NotAllowedWhileImpersonating = 'two-factor-not-allowed-while-impersonating', ConfigurationInvalid = 'two-factor-configuration-invalid', EmailCooldown = 'two-factor-email-cooldown', EmailUnavailable = 'two-factor-email-unavailable', UserNotFound = 'two-factor-user-not-found', PasskeyInvalid = 'two-factor-passkey-invalid', PasskeyNotFound = 'two-factor-passkey-not-found', /** The browser does not support passkeys or the user cancelled the passkey prompt. */ PasskeyUnavailable = 'two-factor-passkey-unavailable' }"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
@@ -49857,7 +49857,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/misc.models.ts",
-        "declaration": "export enum ListSortDirection {"
+        "declaration": "export enum ListSortDirection { Ascending = 'Ascending', Descending = 'Descending' }"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/misc.models.ts",
