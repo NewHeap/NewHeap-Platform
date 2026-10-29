@@ -267,8 +267,9 @@ and mutate models where applicable.
   tests as theories over `RelationalTestProvider`, so `test:affected` can run the
   SQL Server cases in a process of their own. The database read tool, the only
   NewHeap code that supports MySQL and MariaDB, shares one container of each per
-  process through its own `DatabaseReadMySqlTestServer` and writes those cases
-  as theories over the tool-local `DatabaseReadMySqlFlavor`; tests that change
+  process through its own `DatabaseReadMySqlTestServer`, plus one `mysql:5.7`
+  server started only by the test that proves the minimum version, and writes
+  those cases as theories over the tool-local `DatabaseReadMySqlFlavor`; tests that change
   every account of such a server run in a non-parallel collection. The sample's
   tests share one PostgreSQL container through the `SamplePostgreSqlServer`
   assembly fixture; a
