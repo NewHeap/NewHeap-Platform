@@ -11,7 +11,9 @@ guidance rules, the release notes and the sample cases are authoritative once it
 
 Decided by Lars on 2026-10-29: FB43 to FB55, every one as advised (option (a)); FB43 to FB45 one by one, the
 rest with "everything as advised". The decisions are summarized below; the sections under "Choices" keep the
-options that were weighed. Not built yet: FB43 lands first as a fix of its own, then train 30 (FB44 to FB53).
+options that were weighed. Built on 2026-10-29: FB43 as a fix of its own (lane TD), then train 30 with lanes CC (FB52,
+FB53, plus a fix for a stored page context that did not fit its column), AV (FB50, FB51) and PM (FB44 to FB49).
+The lanes' own choices in the "Lane choices" table are for Lars to review.
 
 ## Decisions
 
