@@ -1069,7 +1069,11 @@ source gives, and the reason (by default `asset <id>@<version>`). The skill keep
 a candidate of an older version of the asset, or one that names no asset or another one, is discarded as
 every new version discards one, while a candidate of a newer version stays. The store decides in the
 save's transaction (compare-and-set), so a version proposed late, such as by a delayed job, never
-replaces a newer candidate, and of two proposals at once the newer version stays.
+replaces a newer candidate, and of two proposals at once the newer version stays. An application that
+replaced `INhAssistantAgentConfiguration`, for example with a decorator that adds its own checks or audit,
+is never bypassed: each candidate is saved through its replacement, as any save is. The check before the
+save still answers `newer-proposed` then, but the store no longer decides between two proposals at once,
+so run one proposal at a time there.
 `NhAssistantInstructionAssetCandidatesDto` reports per skill (`NhAssistantInstructionAssetCandidateDto`)
 `proposed` with the candidate's version, `already-proposed` when its candidate names that version and
 hash already, `newer-proposed` with the candidate's version when it names a newer version (nothing is
@@ -2194,7 +2198,9 @@ instructions in full: call them for an administrator or process the application 
   `INhAssistantInstructionAssetUsage.ProposeCandidatesAsync`, which respects package locks and keeps
   the newest candidate, and let an administrator compare and promote each candidate and save each listed
   agent. Do not order or lock publication jobs to keep an older version from replacing a newer
-  candidate, and do not treat `newer-proposed` as a failure: the store already keeps the newer one.
+  candidate, and do not treat `newer-proposed` as a failure: the store already keeps the newer one,
+  unless the application replaced `INhAssistantAgentConfiguration`, which then receives the saves and
+  needs its proposals run one at a time.
 - Unlinking and relinking the live agent's parts by hand after a promotion as the package's version, or
   copying them into the variant only to keep them linked: promote with
   `UncarriedParts = NhAssistantUncarriedParts.Relink`.
@@ -2706,8 +2712,9 @@ their locks and the hash of their link, are reported `kept-linked` and are held 
 package locks reported `locked` while the others are proposed, `already-proposed` on a repeat and that a
 refused call saves and audits nothing (SPM-351). On both providers, assert that a newer version replaces
 the candidate of an older one, that an older version proposed after a newer one answers `newer-proposed`
-and saves and audits nothing, and that two proposals at once leave the newer version as the only
-candidate.
+and saves and audits nothing, that two proposals at once leave the newer version as the only candidate,
+and that an application's replacement of `INhAssistantAgentConfiguration` receives every save of a
+proposal.
 For proposals on their way, on both providers, assert that `GET approvals/inbox` stays `pending` by
 default, that `awaiting-application` lists by report deadline only until the report falls due, flat and
 grouped, that `execution-unknown` lists by decision, that another status is `400`, that the initiator of

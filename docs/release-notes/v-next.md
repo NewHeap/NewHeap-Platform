@@ -22,7 +22,10 @@ or another one, is discarded as before, while a candidate of a newer version sta
 answers the new outcome `NhAssistantInstructionAssetCandidateOutcomes.NewerProposed`
 (`newer-proposed`) with the candidate's version, and saves and audits nothing for that skill. Of two
 proposals at once, the newer version stays. An administrator's own save of a skill still replaces its
-candidate. SPM-351 shows it in the sample.
+candidate. An application that replaced `INhAssistantAgentConfiguration`, for example with a decorator,
+still receives every save of a proposal; there the check before the save answers `newer-proposed`, but
+two proposals at once are not decided by the store, so run them one at a time. SPM-351 shows it in the
+sample.
 
 | Breaking change | Required action |
 |---|---|

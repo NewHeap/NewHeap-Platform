@@ -32,8 +32,11 @@ public interface INhAssistantInstructionAssetUsage
     /// candidate (FB62): a candidate of an older version of the asset, or one that names no asset or
     /// another one, is discarded, as every new version discards one, while a candidate of a newer version
     /// stays and nothing is saved. The store decides in the save's transaction, so of two proposals at once
-    /// the newer version stays. The candidate runs next to the live version until an administrator
-    /// promotes or discards it. The outcome is reported per skill
+    /// the newer version stays. Where the application replaced <see cref="INhAssistantAgentConfiguration"/>,
+    /// for example with a decorator that adds its own checks, each candidate is saved through that
+    /// replacement instead, as any save is: the check before the save still answers <c>newer-proposed</c>,
+    /// but two proposals at once are no longer decided by the store. The candidate runs next to the live
+    /// version until an administrator promotes or discards it. The outcome is reported per skill
     /// (<see cref="NhAssistantInstructionAssetCandidateOutcomes"/>): <c>proposed</c>,
     /// <c>already-proposed</c> when its candidate already names the version and hash,
     /// <c>newer-proposed</c> when its candidate names a newer version, <c>locked</c> when an agent
@@ -174,7 +177,7 @@ internal sealed class NhAssistantInstructionAssetUsageService(
     NhAssistantRunConfigurationStore runConfiguration,
     NhAssistantAdminStore admin,
     NhAssistantInstructionAssets instructionAssets,
-    NhAssistantAgentConfiguration configuration) : INhAssistantInstructionAssetUsage
+    INhAssistantAgentConfiguration configuration) : INhAssistantInstructionAssetUsage
 {
     private const int MaxActorIdLength = 256;
     private const int MaxReasonLength = 500;
@@ -260,8 +263,11 @@ internal sealed class NhAssistantInstructionAssetUsageService(
     /// <summary>
     /// Saves the candidate of one live data skill: its live version's fields with the new asset version,
     /// through the skill's own save, unless its candidate already names that version and hash or a newer
-    /// version. The candidates read before are checked first, so a repeat runs no save; the store checks
-    /// again in the save's transaction, which decides when another proposal saved in the meantime.
+    /// version. The candidates read before are checked first, so a repeat runs no save. The built-in
+    /// configuration then saves through the store's compare-and-set, which checks again in the save's
+    /// transaction and decides when another proposal saved in the meantime. An application's replacement
+    /// of <see cref="INhAssistantAgentConfiguration"/> is never bypassed: it receives the save as any save,
+    /// and only the check before it keeps a newer candidate then.
     /// </summary>
     private async Task<NhAssistantInstructionAssetCandidateDto> ProposeAsync(
         AssistantAgentSkillDefinition live,
@@ -283,12 +289,23 @@ internal sealed class NhAssistantInstructionAssetUsageService(
         var part = NhAssistantAgentPackageParts.SkillOf(live) with { InstructionsAsset = reference };
         var request = NhAssistantAgentPackageParts.RequestOf(part, live.Version, asCandidate: true, reason);
         // A save in shadow answers the candidate it stored.
-        var (saved, kept) = await configuration.SaveAssetCandidateAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
-        if (kept is not null)
+        TaskResult<NhAssistantDataSkillDto> saved;
+        if (configuration is NhAssistantAgentConfiguration builtIn)
         {
-            return Kept(live, kept, KeptOutcome(kept, reference) ?? NhAssistantInstructionAssetCandidateOutcomes.NewerProposed);
+            var (stored, kept) = await builtIn.SaveAssetCandidateAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
+            if (kept is not null)
+            {
+                return Kept(live, kept, KeptOutcome(kept, reference) ?? NhAssistantInstructionAssetCandidateOutcomes.NewerProposed);
+            }
+
+            saved = stored!;
         }
-        if (saved!.Success)
+        else
+        {
+            saved = await configuration.SaveSkillAsync(live.AgentId, live.SkillId, request, actorId, cancellationToken);
+        }
+
+        if (saved.Success)
         {
             return new NhAssistantInstructionAssetCandidateDto(
                 live.AgentId,

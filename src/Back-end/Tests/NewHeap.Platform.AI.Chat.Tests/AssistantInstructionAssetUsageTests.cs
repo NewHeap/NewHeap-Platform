@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
@@ -255,6 +257,39 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
         Assert.Single((await UsageAsync(host, Asset)).Data!.Skills, item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
     }
 
+    /// <summary>
+    /// FB62: an application that replaced <see cref="INhAssistantAgentConfiguration"/>, here with a
+    /// decorator, sees every candidate a proposal saves; the check before the save still keeps a newer
+    /// candidate, and that check saves nothing through the replacement.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_saves_through_the_applications_replacement_of_the_agent_configuration(AssistantTestProvider provider)
+    {
+        var saves = new ConcurrentQueue<(string SkillId, string? Apply, int? AssetVersion)>();
+        await using var host = await CreateHostAsync(provider, services => services.Replace(
+            ServiceDescriptor.Scoped<INhAssistantAgentConfiguration>(scoped => RecordingAgentConfiguration.Wrap(
+                scoped.GetRequiredService<NhAssistantAgentConfiguration>(),
+                saves))));
+        var assets = host.Services.GetRequiredService<TestTextAssets>();
+        var first = assets.Put(Asset, 1, "Name the task that comes next and why.");
+        Assert.True((await SaveSkillAsync(host, FollowUp, Request(Reference(first)))).Success);
+        assets.Put(Asset, 2, "Name the two tasks that come next and why.");
+        assets.Put(Asset, 3, "Name the three tasks that come next and why.");
+        saves.Clear();
+
+        Assert.Equal((NhAssistantInstructionAssetCandidateOutcomes.Proposed, (int?)2), OutcomeOf(await ProposeAsync(host, Asset, 3)));
+
+        Assert.Equal([(FollowUp, (string?)NhAssistantSkillApplyModes.Shadow, (int?)3)], saves.ToArray());
+
+        // Version 2, late: the check before the save keeps the candidate of version 3 and saves nothing.
+        Assert.Equal((NhAssistantInstructionAssetCandidateOutcomes.NewerProposed, (int?)2), OutcomeOf(await ProposeAsync(host, Asset, 2)));
+        Assert.Single(saves);
+        var candidate = (await ConfigurationAsync(host, service => service.GetAsync(AgentId)))!.DataSkills.Single().Candidate!;
+        Assert.Equal((2, 3), (candidate.Version, candidate.InstructionsAsset!.Version));
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -306,7 +341,7 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
         Assert.True(imported.Success, string.Join(", ", imported.AllErrorMessages));
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, Action<IServiceCollection>? configure = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -319,6 +354,7 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
                 services.AddSingleton<RecordingOperations>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 services.Replace(ServiceDescriptor.Singleton<INhAiPrincipalFactory, KnownAccountPrincipalFactory>());
+                configure?.Invoke(services);
             },
             assistantBuilder: assistant => assistant
                 .UseTextAssetSource<TestTextAssets>()
@@ -424,5 +460,46 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
             .SelectMany(field => field.Value.Select(error => field.Key + ":" + error))
             .Order(StringComparer.Ordinal)
             .ToArray();
+    }
+}
+
+/// <summary>
+/// FB62: an application's decorator of <see cref="INhAssistantAgentConfiguration"/> that records the
+/// skills it saves and passes every call on to the configuration it wraps.
+/// </summary>
+public class RecordingAgentConfiguration : DispatchProxy
+{
+    private INhAssistantAgentConfiguration _inner = null!;
+    private ConcurrentQueue<(string SkillId, string? Apply, int? AssetVersion)> _saves = null!;
+
+    public static INhAssistantAgentConfiguration Wrap(
+        INhAssistantAgentConfiguration inner,
+        ConcurrentQueue<(string SkillId, string? Apply, int? AssetVersion)> saves)
+    {
+        var decorator = Create<INhAssistantAgentConfiguration, RecordingAgentConfiguration>();
+        var recording = (RecordingAgentConfiguration)(object)decorator;
+        recording._inner = inner;
+        recording._saves = saves;
+        return decorator;
+    }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        ArgumentNullException.ThrowIfNull(targetMethod);
+        if (targetMethod.Name == nameof(INhAssistantAgentConfiguration.SaveSkillAsync)
+            && args is [_, string skillId, NhAssistantDataSkillRequest request, ..])
+        {
+            _saves.Enqueue((skillId, request.Apply, request.InstructionsAsset?.Version));
+        }
+
+        try
+        {
+            return targetMethod.Invoke(_inner, args);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
     }
 }
