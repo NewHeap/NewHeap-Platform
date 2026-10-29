@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Models;
@@ -155,6 +157,104 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
         Assert.Equal(audited + 1, host.Business.Events.Count);
     }
 
+    /// <summary>
+    /// FB62: the skill keeps the newest candidate. A newer version of the asset replaces the candidate of
+    /// an older one, and an older version that is proposed late leaves the newer candidate as it is
+    /// (<c>newer-proposed</c>), also when the check before the save did not see it.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_older_asset_version_never_replaces_a_newer_candidate_and_a_newer_one_replaces_an_older_one(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var assets = host.Services.GetRequiredService<TestTextAssets>();
+        var first = assets.Put(Asset, 1, "Name the task that comes next and why.");
+        Assert.True((await SaveSkillAsync(host, FollowUp, Request(Reference(first)))).Success);
+        var second = assets.Put(Asset, 2, "Name the two tasks that come next and why.");
+        var third = assets.Put(Asset, 3, "Name the three tasks that come next and why.");
+
+        // Version 2 and then version 3: the newer version replaces the candidate.
+        Assert.Equal((NhAssistantInstructionAssetCandidateOutcomes.Proposed, (int?)2), OutcomeOf(await ProposeAsync(host, Asset, 2)));
+        Assert.Equal((NhAssistantInstructionAssetCandidateOutcomes.Proposed, (int?)3), OutcomeOf(await ProposeAsync(host, Asset, 3)));
+        var audited = host.Business.Events.Count;
+
+        // Version 2 again, late: the candidate of version 3 stays, and nothing is saved or audited.
+        var late = await ProposeAsync(host, Asset, 2);
+
+        Assert.True(late.Success, string.Join(", ", late.AllErrorMessages));
+        var skill = Assert.Single(late.Data!.Skills);
+        Assert.Equal(
+            (FollowUp, 1, 1, NhAssistantInstructionAssetCandidateOutcomes.NewerProposed, (int?)3, (string?)null),
+            (skill.SkillId, skill.LiveVersion, skill.LiveAssetVersion, skill.Outcome, skill.CandidateVersion, skill.Code));
+        Assert.Equal(audited, host.Business.Events.Count);
+        var candidate = (await ConfigurationAsync(host, service => service.GetAsync(AgentId)))!.DataSkills.Single().Candidate!;
+        Assert.Equal((3, 3, third.Manifest.ContentHash), (candidate.Version, candidate.InstructionsAsset!.Version, candidate.InstructionsAsset.Hash));
+        Assert.Equal(
+            [
+                (3, NhAssistantSkillDefinitionStatuses.Candidate, 3),
+                (2, NhAssistantSkillDefinitionStatuses.Discarded, 2),
+                (1, NhAssistantSkillDefinitionStatuses.Live, 1)
+            ],
+            (await UsageAsync(host, Asset)).Data!.Skills.Select(item => (item.Version, item.Status, item.AssetVersion)).ToArray());
+
+        // The store decides in the save's transaction, so a save that missed the newer candidate in the
+        // check before it keeps it too.
+        var store = host.Services.GetRequiredService<NhAssistantRunConfigurationStore>();
+        var stale = await store.AddAssetCandidateAsync(AssetCandidate(Reference(second)), 1, CancellationToken.None);
+        Assert.Equal((NhAssistantStoreOutcome.Kept, 3), (stale.Outcome, stale.Value!.Version));
+        var same = await store.AddAssetCandidateAsync(AssetCandidate(Reference(third)), 1, CancellationToken.None);
+        Assert.Equal((NhAssistantStoreOutcome.Kept, 3), (same.Outcome, same.Value!.Version));
+        Assert.Equal(3, (await UsageAsync(host, Asset)).Data!.Skills.Count);
+    }
+
+    /// <summary>
+    /// FB62: two proposals of the same skill at once, version 2 and version 3, both pass the check before
+    /// the save; the store's compare-and-set leaves version 3 as the only candidate, whichever saves first.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Two_proposals_at_once_leave_the_newer_asset_version_as_the_candidate(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        var assets = host.Services.GetRequiredService<TestTextAssets>();
+        var first = assets.Put(Asset, 1, "Name the task that comes next and why.");
+        Assert.True((await SaveSkillAsync(host, FollowUp, Request(Reference(first)))).Success);
+        assets.Put(Asset, 2, "Name the two tasks that come next and why.");
+        var third = assets.Put(Asset, 3, "Name the three tasks that come next and why.");
+        // A proposal reads its version once to learn the hash and once more in the save, after it checked
+        // the skill's candidates; that second read waits until the other proposal reached it too.
+        var reads = new ConcurrentDictionary<int, int>();
+        var arrived = 0;
+        var both = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        assets.BeforeGet = async (assetId, version) =>
+        {
+            if (version >= 2 && reads.AddOrUpdate(version, 1, (key, count) => count + 1) == 2)
+            {
+                if (Interlocked.Increment(ref arrived) == 2)
+                {
+                    both.SetResult();
+                }
+
+                await both.Task.WaitAsync(TimeSpan.FromMinutes(1));
+            }
+        };
+
+        var proposals = await Task.WhenAll(ProposeAsync(host, Asset, 2), ProposeAsync(host, Asset, 3));
+        assets.BeforeGet = null;
+
+        Assert.All(proposals, proposal => Assert.True(proposal.Success, string.Join(", ", proposal.AllErrorMessages)));
+        var (newer, newerCandidate) = OutcomeOf(proposals[1]);
+        Assert.Equal(NhAssistantInstructionAssetCandidateOutcomes.Proposed, newer);
+        Assert.Contains(
+            OutcomeOf(proposals[0]).Outcome,
+            new[] { NhAssistantInstructionAssetCandidateOutcomes.Proposed, NhAssistantInstructionAssetCandidateOutcomes.NewerProposed });
+        var candidate = (await ConfigurationAsync(host, service => service.GetAsync(AgentId)))!.DataSkills.Single().Candidate!;
+        Assert.Equal((newerCandidate, 3, third.Manifest.ContentHash), ((int?)candidate.Version, candidate.InstructionsAsset!.Version, candidate.InstructionsAsset.Hash));
+        Assert.Single((await UsageAsync(host, Asset)).Data!.Skills, item => item.Status == NhAssistantSkillDefinitionStatuses.Candidate);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -234,6 +334,34 @@ public sealed class AssistantInstructionAssetUsageTests(AssistantDatabaseFixture
     private static NhAssistantDataSkillRequest Request(NhAssistantInstructionAssetReference reference)
     {
         return new NhAssistantDataSkillRequest("Follows up changed projects.") { InstructionsAsset = reference };
+    }
+
+    /// <summary>
+    /// A candidate of the follow-up skill as the store receives it from a proposal of the asset version.
+    /// </summary>
+    private static AssistantAgentSkillDefinition AssetCandidate(NhAssistantInstructionAssetReference reference)
+    {
+        return new AssistantAgentSkillDefinition
+        {
+            AgentId = AgentId,
+            SkillId = FollowUp,
+            Description = "Follows up changed projects.",
+            InstructionsAssetId = reference.AssetId,
+            InstructionsAssetVersion = reference.Version,
+            InstructionsHash = reference.Hash,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedBy = Admin
+        };
+    }
+
+    /// <summary>
+    /// The outcome of the proposal's only skill and the candidate version it names.
+    /// </summary>
+    private static (string Outcome, int? CandidateVersion) OutcomeOf(TaskResult<NhAssistantInstructionAssetCandidatesDto> proposed)
+    {
+        Assert.True(proposed.Success, string.Join(", ", proposed.AllErrorMessages));
+        var skill = Assert.Single(proposed.Data!.Skills);
+        return (skill.Outcome, skill.CandidateVersion);
     }
 
     private static NhAssistantAgentInput Input(string id, NhAssistantInstructionAssetReference? reference, string instructions = "")

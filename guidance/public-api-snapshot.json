@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "8d0cd7e4e05f2bf13ee3fb67a8692da924f636643f99f3f71d25214bb2736011",
-    "declarationCount": 12074,
+    "hash": "990cad279f69003cdf6f41e31a472d8068223169c68ea3b2cbc9a6632056af15",
+    "declarationCount": 12076,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5248,6 +5248,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
         "declaration": "public const string AlreadyProposed = \"already-proposed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
+        "declaration": "public const string NewerProposed = \"newer-proposed\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInstructionAssetUsage.cs",
@@ -22464,6 +22468,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
         "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddSkillVersionAsync( AssistantAgentSkillDefinition definition, int? expectedVersion, CancellationToken cancellationToken, bool candidate = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",
+        "declaration": "public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddAssetCandidateAsync( AssistantAgentSkillDefinition definition, int? expectedVersion, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.cs",

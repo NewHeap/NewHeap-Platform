@@ -463,6 +463,11 @@ public sealed class TestTextAssets : INhAiTextAssetSource
     /// </summary>
     public bool Fail { get; set; }
 
+    /// <summary>
+    /// Runs before the source answers a read, for a test that holds a read until other work arrives.
+    /// </summary>
+    public Func<string, int, Task>? BeforeGet { get; set; }
+
     public NhAiTextAsset Put(string id, int version, string content, NhAiContextTrust trust = NhAiContextTrust.TrustedApplication)
     {
         var asset = NhAiTextAssetFactory.Create(
@@ -487,14 +492,18 @@ public sealed class TestTextAssets : INhAiTextAssetSource
         _assets.TryRemove((id, version), out _);
     }
 
-    public ValueTask<NhAiTextAsset?> GetAsync(string id, int version, CancellationToken cancellationToken = default)
+    public async ValueTask<NhAiTextAsset?> GetAsync(string id, int version, CancellationToken cancellationToken = default)
     {
+        if (BeforeGet is { } before)
+        {
+            await before(id, version);
+        }
         if (Fail)
         {
             throw new InvalidOperationException("The asset store is offline.");
         }
 
-        return ValueTask.FromResult(_assets.GetValueOrDefault((id, version)));
+        return _assets.GetValueOrDefault((id, version));
     }
 
     public ValueTask<IReadOnlyList<NhAiAssetManifest>> ListAsync(CancellationToken cancellationToken = default)

@@ -8,7 +8,13 @@ internal enum NhAssistantStoreOutcome
     Succeeded = 0,
     NotFound = 1,
     Conflict = 2,
-    Rejected = 3
+    Rejected = 3,
+
+    /// <summary>
+    /// Nothing was saved because what is stored wins over the change, such as a newer candidate; the
+    /// result's value is what was kept.
+    /// </summary>
+    Kept = 4
 }
 
 /// <summary>

@@ -205,11 +205,39 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             Assert.Equal(
                 (NhAssistantInstructionAssetCandidateOutcomes.AlreadyProposed, skill.CandidateVersion),
                 (Assert.Single(again.Data!.Skills).Outcome, again.Data.Skills[0].CandidateVersion));
+
+            // Version 3 replaces the candidate of version 2. The job that proposes version 2 runs once more,
+            // late: the newer candidate stays (newer-proposed), and nothing is saved or audited.
+            var third = SampleInstructionAssets.RiskReviewV3;
+            var newer = await OperationsAsync(operations => operations.ProposeRiskReviewVersionAsync(third, host.OwnerId, CancellationToken.None));
+            var replaced = Assert.Single(newer.Data!.Skills);
+            Assert.Equal(NhAssistantInstructionAssetCandidateOutcomes.Proposed, replaced.Outcome);
+            var audited = SkillSaves();
+            var late = await OperationsAsync(operations => operations.ProposeRiskReviewVersionAsync(second, host.OwnerId, CancellationToken.None));
+            Assert.Equal(
+                (NhAssistantInstructionAssetCandidateOutcomes.NewerProposed, replaced.CandidateVersion),
+                (Assert.Single(late.Data!.Skills).Outcome, late.Data.Skills[0].CandidateVersion));
+            Assert.Equal(audited, SkillSaves());
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(SampleProjectPlannerComposition.AgentId))!;
+                var candidate = configuration.DataSkills.Single(item => item.SkillId == SampleInstructionAssetService.RiskReviewSkill).Candidate!;
+                Assert.Equal(
+                    (replaced.CandidateVersion, 3, third.Manifest.ContentHash, "Version 3 of the risk review"),
+                    (candidate.Version, candidate.InstructionsAsset!.Version, candidate.InstructionsAsset.Hash, candidate.Reason));
+            }
         }
         finally
         {
             using var deleted = await administrator.DeleteAsync($"/api/assistant/admin/agents/{RiskDesk}");
             Assert.True((await ConfigureAsync(service => service.RemoveRiskReviewAsync(host.OwnerId, CancellationToken.None))).Success);
+        }
+
+        int SkillSaves()
+        {
+            return host.Services.GetRequiredService<SampleAssistantAuditLog>().Events.Count(evt =>
+                evt.Kind == NhAssistantAuditEventKind.AdminAgentSkillDefinitionChanged
+                && evt.SkillId == SampleInstructionAssetService.RiskReviewSkill);
         }
     }
 

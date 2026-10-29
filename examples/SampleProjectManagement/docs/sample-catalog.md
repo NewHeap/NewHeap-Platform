@@ -517,7 +517,7 @@ runs the case.
 
 A skill defined as data may take its instructions from the application's own text assets instead of
 text an administrator writes (SPM-320). `SampleInstructionAssetComposition` registers
-`SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in two published
+`SampleInstructionAssets` with `UseTextAssetSource`: the planner's risk review in three published
 versions, fixed in code. `SampleInstructionAssetService` adds the risk review to the project planner
 naming version 1 of the asset by its id, version and hash; the skill stores that reference, never the
 text, and the assistant checks the hash whenever it loads the text, so a changed or missing text takes
@@ -545,7 +545,9 @@ every live data skill that still names version 1 (SPM-351). `ProposeRiskReviewVe
 shadow through its own save, with the live version's other fields and version 2 with its hash, while the
 live version keeps version 1 until an administrator promotes or discards the candidate. The risk desk,
 an agent created in the administration, is listed for an administrator to save; proposed again, the
-candidate stays as it is. An administrator also compares a shipped package with the host over HTTP
+candidate stays as it is. Version 3 replaces the candidate of version 2, and when the job that proposes
+version 2 runs once more, late, the candidate of version 3 stays (`newer-proposed`): the store keeps the
+newest candidate in the save's transaction, also when two proposals run at once. An administrator also compares a shipped package with the host over HTTP
 (SPM-353): `POST admin/agent-packages/read` answers the desk's parts with a hash per part as an export
 builds them and `GET admin/agent-packages/{packageId}` the installed package with the link of every part,
 so the description changed on this host shows as the part `agent`, changed locally, without an export

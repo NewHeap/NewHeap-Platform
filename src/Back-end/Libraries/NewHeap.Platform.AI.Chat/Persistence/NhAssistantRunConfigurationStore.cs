@@ -378,9 +378,57 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
         CancellationToken cancellationToken,
         bool candidate = false)
     {
+        return await SaveSkillVersionAsync(definition, expectedVersion, candidate, keepNewerAssetCandidate: false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds <paramref name="definition"/>, a version that takes its instructions from a version of an
+    /// asset, as the candidate of its skill on the live version <paramref name="expectedVersion"/>
+    /// (FB62), unless the skill's candidate names a newer version of the same asset, or the same version
+    /// with the same hash: then nothing is saved, and the result is
+    /// <see cref="NhAssistantStoreOutcome.Kept"/> with that candidate. Any other candidate, such as one
+    /// of an older version of the asset, is discarded as every new version discards one. The check runs
+    /// in the save's transaction, after the save has read the skill's latest version, so a proposal of
+    /// the same skill that saved first is either seen by the check or takes the same version number and
+    /// makes this save a conflict. A conflict is tried again, at most <see cref="MaxAssetCandidateAttempts"/>
+    /// times in all, so of two proposals at once the newer version of the asset stays the candidate.
+    /// </summary>
+    public async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddAssetCandidateAsync(
+        AssistantAgentSkillDefinition definition,
+        int? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (definition.InstructionsAssetId is null || definition.InstructionsAssetVersion is null)
+        {
+            throw new ArgumentException("A candidate of an asset version names the asset and its version.", nameof(definition));
+        }
+
+        for (var attempt = 1; ; attempt++)
+        {
+            var saved = await SaveSkillVersionAsync(definition, expectedVersion, candidate: true, keepNewerAssetCandidate: true, cancellationToken);
+            if (saved.Outcome != NhAssistantStoreOutcome.Conflict || attempt == MaxAssetCandidateAttempts)
+            {
+                return saved;
+            }
+        }
+    }
+
+    /// <summary>
+    /// How often <see cref="AddAssetCandidateAsync"/> saves before it answers a conflict.
+    /// </summary>
+    internal const int MaxAssetCandidateAttempts = 3;
+
+    private async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> SaveSkillVersionAsync(
+        AssistantAgentSkillDefinition definition,
+        int? expectedVersion,
+        bool candidate,
+        bool keepNewerAssetCandidate,
+        CancellationToken cancellationToken)
+    {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        var saved = await AddSkillVersionAsync(context, definition, expectedVersion, candidate, cancellationToken);
+        var saved = await AddSkillVersionAsync(context, definition, expectedVersion, candidate, cancellationToken, keepNewerAssetCandidate);
         if (!saved.Succeeded)
         {
             return saved;
@@ -398,13 +446,18 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
     /// <summary>
     /// The transactional path of <see cref="AddSkillVersionAsync(AssistantAgentSkillDefinition, int?, CancellationToken, bool)"/>:
     /// saves in <paramref name="context"/>, inside the caller's transaction, without changing the stamp.
+    /// With <paramref name="keepNewerAssetCandidate"/>, it saves nothing and answers
+    /// <see cref="NhAssistantStoreOutcome.Kept"/> when the skill's candidate names a newer version of the
+    /// definition's asset, or the same version with the same hash
+    /// (<see cref="AddAssetCandidateAsync"/>).
     /// </summary>
     internal static async Task<NhAssistantStoreResult<AssistantAgentSkillDefinition>> AddSkillVersionAsync(
         NhAssistantDbContext context,
         AssistantAgentSkillDefinition definition,
         int? expectedVersion,
         bool candidate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool keepNewerAssetCandidate = false)
     {
         var live = await context.AgentSkillDefinitions
             .Where(item => item.AgentId == definition.AgentId
@@ -424,12 +477,25 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
         var latest = await context.AgentSkillDefinitions
             .Where(item => item.AgentId == definition.AgentId && item.SkillId == definition.SkillId)
             .MaxAsync(item => (int?)item.Version, cancellationToken) ?? 0;
+
+        // Read after the latest version: a save of the same skill that committed before that read is
+        // seen here, and one that commits later took the same version number and fails this save.
+        var candidates = await CandidatesAsync(context, definition.AgentId, definition.SkillId, cancellationToken);
+        if (keepNewerAssetCandidate && candidates.FirstOrDefault(item => NamesNewerOrSameAsset(item, definition)) is { } kept)
+        {
+            return new NhAssistantStoreResult<AssistantAgentSkillDefinition>(NhAssistantStoreOutcome.Kept, kept);
+        }
+
         if (live is not null && !candidate)
         {
             live.Status = NhAssistantSkillDefinitionStatuses.Superseded;
         }
 
-        await DiscardCandidatesAsync(context, definition.AgentId, definition.SkillId, cancellationToken);
+        foreach (var earlier in candidates)
+        {
+            earlier.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+        }
+
         definition.Id = Guid.NewGuid();
         definition.Version = latest + 1;
         definition.Status = candidate ? NhAssistantSkillDefinitionStatuses.Candidate : NhAssistantSkillDefinitionStatuses.Live;
@@ -576,15 +642,44 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
         string skillId,
         CancellationToken cancellationToken)
     {
-        var candidates = await context.AgentSkillDefinitions
+        foreach (var earlier in await CandidatesAsync(context, agentId, skillId, cancellationToken))
+        {
+            earlier.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+        }
+    }
+
+    /// <summary>
+    /// The skill's candidates, tracked; a skill has at most one.
+    /// </summary>
+    private static async Task<List<AssistantAgentSkillDefinition>> CandidatesAsync(
+        NhAssistantDbContext context,
+        string agentId,
+        string skillId,
+        CancellationToken cancellationToken)
+    {
+        return await context.AgentSkillDefinitions
             .Where(item => item.AgentId == agentId
                            && item.SkillId == skillId
                            && item.Status == NhAssistantSkillDefinitionStatuses.Candidate)
             .ToListAsync(cancellationToken);
-        foreach (var earlier in candidates)
+    }
+
+    /// <summary>
+    /// Whether <paramref name="candidate"/> names a newer version of the asset <paramref name="proposed"/>
+    /// names, or the same version with the same hash, so that the proposal leaves it as it is.
+    /// </summary>
+    private static bool NamesNewerOrSameAsset(AssistantAgentSkillDefinition candidate, AssistantAgentSkillDefinition proposed)
+    {
+        if (!string.Equals(candidate.InstructionsAssetId, proposed.InstructionsAssetId, StringComparison.Ordinal)
+            || candidate.InstructionsAssetVersion is not { } candidateVersion
+            || proposed.InstructionsAssetVersion is not { } proposedVersion)
         {
-            earlier.Status = NhAssistantSkillDefinitionStatuses.Discarded;
+            return false;
         }
+
+        return candidateVersion > proposedVersion
+               || (candidateVersion == proposedVersion
+                   && string.Equals(candidate.InstructionsHash, proposed.InstructionsHash, StringComparison.Ordinal));
     }
 
     /// <summary>
