@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -32,6 +33,15 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// resolver that gives a role to people it does not list, for example through a permission, makes the list
 /// incomplete without the directory knowing. An application that must not decide on an incomplete list
 /// keeps its strictest choice then.
+/// </para>
+/// <para>
+/// An application that knows who those people outside the members are names them with an
+/// <see cref="INhAssistantApproverCandidates"/> (<c>UseApproverCandidates</c>, FB50). The directory then
+/// asks it for the policy, the subject and the subject's tenant, checks each person it names exactly as it
+/// checks a member, lists those who pass after the members, and answers
+/// <see cref="NhAssistantApproverList.Complete"/> <see langword="true"/> when the application declared its
+/// list complete and neither the limit nor <see cref="NhAssistantApproverList.MaxCandidates"/> stopped the
+/// listing. Without one nothing changes.
 /// </para>
 /// <para>
 /// A subject or proposal of another tenant reads as unknown, as for a decision
@@ -122,7 +132,8 @@ public sealed record NhAssistantApprover(string ActorId, NhAiSubjectRole Role)
 /// <param name="Approvers">The people, at most the asked limit.</param>
 /// <param name="Complete">Whether nobody else may approve: <see langword="false"/> at the limit with
 /// candidates left, for a subject with more than <see cref="MaxCandidates"/> members, and when people
-/// outside the members may approve.</param>
+/// outside the members may approve, unless the application named them all
+/// (<see cref="INhAssistantApproverCandidates"/>).</param>
 public sealed record NhAssistantApproverList(IReadOnlyList<NhAssistantApprover> Approvers, bool Complete)
 {
     /// <summary>The limit of a listing that names none.</summary>
@@ -131,7 +142,10 @@ public sealed record NhAssistantApproverList(IReadOnlyList<NhAssistantApprover> 
     /// <summary>The highest limit of one listing.</summary>
     public const int MaxLimit = 200;
 
-    /// <summary>The most members of one subject that one listing checks.</summary>
+    /// <summary>
+    /// The most members of one subject that one listing checks, and the most people an
+    /// <see cref="INhAssistantApproverCandidates"/> names that it checks.
+    /// </summary>
     public const int MaxCandidates = 1_000;
 }
 
@@ -151,7 +165,8 @@ internal sealed class NhAssistantApproverDirectory(
     NhAssistantTenancy tenancy,
     INhAssistantStore store,
     NhAssistantRunStore runs,
-    IServiceProvider services) : INhAssistantApproverDirectory
+    IServiceProvider services,
+    ILogger<NhAssistantApproverDirectory> logger) : INhAssistantApproverDirectory
 {
     public async Task<TaskResult<NhAssistantApproverList>> ListAsync(
         string policyId,
@@ -273,9 +288,17 @@ internal sealed class NhAssistantApproverDirectory(
         var policy = candidates.Policy;
         var subject = candidates.Subject.Subject;
         // People outside the members may approve: anyone who passes a policy rule, and anyone with a role
-        // on a subject whose resolver lists no members, such as the whole application.
-        var complete = !policy.Approvers.Any(rule => rule is NhAiPolicyApproverRule)
-            && (subjects.ListsMembers(subject.Type) || policy.Approvers.All(rule => rule is NhAiInitiatorApproverRule));
+        // on a subject whose resolver lists no members, such as the whole application. Only the
+        // application can name them (FB50).
+        var policyNames = policy.Approvers
+            .OfType<NhAiPolicyApproverRule>()
+            .Select(rule => rule.PolicyName)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var roleHolders = !subjects.ListsMembers(subject.Type)
+            && !policy.Approvers.All(rule => rule is NhAiInitiatorApproverRule or NhAiPolicyApproverRule);
+        var outsiders = policyNames.Length > 0 || roleHolders;
+        var complete = !outsiders;
 
         var found = new List<NhAssistantApprover>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -288,6 +311,7 @@ internal sealed class NhAssistantApproverDirectory(
         }
 
         var checkedMembers = 0;
+        var stopped = false;
         await foreach (var member in subjects.ListMembersAsync(subject, cancellationToken))
         {
             if (!seen.Add(member.ActorId))
@@ -308,6 +332,7 @@ internal sealed class NhAssistantApproverDirectory(
             {
                 // Someone is left unchecked.
                 complete = false;
+                stopped = true;
                 break;
             }
 
@@ -318,7 +343,68 @@ internal sealed class NhAssistantApproverDirectory(
             }
         }
 
+        if (outsiders && !stopped && services.GetService<INhAssistantApproverCandidates>() is { } application)
+        {
+            var info = candidates.Subject;
+            var query = new NhAssistantApproverCandidateQuery(policy.Id, subject, info.TenantId)
+            {
+                DivisionId = info.DivisionId,
+                PolicyNames = policyNames,
+                SubjectRoleHolders = roleHolders,
+                MaxCandidates = NhAssistantApproverList.MaxCandidates
+            };
+            var named = await AskAsync(application, query, cancellationToken);
+            // The application's word decides whether the people outside the members are everyone; the
+            // limits below can still make the list incomplete.
+            complete = named.Complete;
+
+            var checkedNamed = 0;
+            foreach (var candidate in named.Candidates ?? [])
+            {
+                if (candidate is null || string.IsNullOrWhiteSpace(candidate.ActorId) || !seen.Add(candidate.ActorId))
+                {
+                    continue;
+                }
+                if (found.Count >= limit || checkedNamed >= NhAssistantApproverList.MaxCandidates)
+                {
+                    // Someone the application named is left unchecked.
+                    complete = false;
+                    break;
+                }
+
+                checkedNamed++;
+                if (await CheckAsync(candidates, candidate.ActorId, candidate.DisplayName, cancellationToken) is { } approver)
+                {
+                    found.Add(approver);
+                }
+            }
+        }
+
         return new NhAssistantApproverList(found.ToArray(), complete);
+    }
+
+    /// <summary>
+    /// The people the application names outside the members (FB50). A candidates service that throws
+    /// leaves the list incomplete; the log names its type and the exception's type only.
+    /// </summary>
+    private async Task<NhAssistantApproverCandidateList> AskAsync(
+        INhAssistantApproverCandidates application,
+        NhAssistantApproverCandidateQuery query,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await application.ListAsync(query, cancellationToken) ?? NhAssistantApproverCandidateList.Unknown;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "Approver candidates {CandidatesType} failed to name the approvers of policy {PolicyId} with {ExceptionType}; the list is not complete.",
+                application.GetType().FullName,
+                query.PolicyId,
+                exception.GetType().Name);
+            return NhAssistantApproverCandidateList.Unknown;
+        }
     }
 
     /// <summary>

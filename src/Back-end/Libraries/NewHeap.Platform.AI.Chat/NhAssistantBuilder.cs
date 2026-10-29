@@ -143,6 +143,21 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets the application name the people outside a subject's members who may approve
+    /// (<see cref="INhAssistantApproverCandidates"/>, FB50): whom a policy rule admits, and whom the roles of a
+    /// subject without listed members admit, such as the whole application. The approver directory checks
+    /// each of them as it checks a member and can then call its list complete. One candidates service serves
+    /// the host; a later call replaces an earlier one. It is a scoped service. Without one nothing changes:
+    /// such lists stay incomplete.
+    /// </summary>
+    public NhAssistantBuilder UseApproverCandidates<TCandidates>()
+        where TCandidates : class, INhAssistantApproverCandidates
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantApproverCandidates, TCandidates>());
+        return this;
+    }
+
+    /// <summary>
     /// Configures turn limits, approval lifetime and durable daily budgets.
     /// </summary>
     public NhAssistantBuilder WithLimits(Action<NhAssistantLimits> configure)
