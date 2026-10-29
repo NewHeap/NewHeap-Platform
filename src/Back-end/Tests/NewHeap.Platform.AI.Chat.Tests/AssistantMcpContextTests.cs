@@ -442,6 +442,29 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
     }
 
     [Fact]
+    public async Task A_stored_binding_revoked_between_the_import_and_the_call_stops_the_call()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ResearchFunction, new { question = "Which risks block Alpha?" })
+            .RespondWithText("Research could not be asked.");
+        var research = new ResearchServer();
+        // The import reads the binding; the link is revoked before the call is bound.
+        var stored = new StoredLinks { ReadsBeforeRevocation = 1 };
+        stored.Bindings.Add(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask"));
+        await using var host = await CreateHostAsync(model, research, codeBinding: false, stored: stored, linkCacheDuration: TimeSpan.Zero);
+        await ConnectResearchServerAsync(host, ResearchUrl, NhAssistantMcpToolEffects.ReadOnly);
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "Ask research which risks block Alpha.");
+
+        // The tool's contract names the binder, so it never goes out without the context.
+        var completed = turn.Single<NhAssistantToolCompletedEvent>();
+        Assert.NotEqual(NhAssistantToolCallStatuses.Succeeded, completed.Status);
+        Assert.Equal(NewHeap.Platform.AI.Mcp.NhAiMcpInvocationBindingCodes.BindingFailed, completed.ResultCode);
+        Assert.Empty(research.Calls);
+    }
+
+    [Fact]
     public async Task A_stored_binding_for_another_server_id_or_url_sends_no_context()
     {
         var model = new NhAiScriptedChatClient()
@@ -498,7 +521,8 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
         string serverUrl = ResearchUrl,
         bool includeChain = false,
         bool codeBinding = true,
-        StoredLinks? stored = null)
+        StoredLinks? stored = null,
+        TimeSpan? linkCacheDuration = null)
     {
         var servers = new InMemoryMcpServers();
         servers.Register(serverUrl, research.Handlers);
@@ -517,7 +541,14 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
             },
             assistantBuilder: assistant =>
             {
-                assistant.ConfigureMcp(mcp => mcp.RequireHttps = true);
+                assistant.ConfigureMcp(mcp =>
+                {
+                    mcp.RequireHttps = true;
+                    if (linkCacheDuration is { } duration)
+                    {
+                        mcp.LinkCacheDuration = duration;
+                    }
+                });
                 if (codeBinding)
                 {
                     assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding("research", ResearchUrl, "research-ask")
@@ -545,23 +576,38 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database) 
     /// </summary>
     private sealed class StoredLinks
     {
+        private int _reads;
+
         public List<NhAssistantMcpContextBinding> Bindings { get; } = [];
 
         public Exception? Failure { get; init; }
 
+        /// <summary>
+        /// When set, the bindings are revoked once the source has answered this many reads.
+        /// </summary>
+        public int? ReadsBeforeRevocation { get; init; }
+
         public AssistantTestClock Clock { get; } = new(DateTimeOffset.UtcNow);
+
+        public NhAssistantMcpLinkList Read()
+        {
+            if (Failure is not null)
+            {
+                throw Failure;
+            }
+
+            var read = Interlocked.Increment(ref _reads);
+            return read > ReadsBeforeRevocation
+                ? NhAssistantMcpLinkList.Empty
+                : new NhAssistantMcpLinkList([], Bindings.ToArray());
+        }
     }
 
     private sealed class StoredLinkSource(StoredLinks stored) : INhAssistantMcpLinks
     {
         public ValueTask<NhAssistantMcpLinkList> ListAsync(CancellationToken cancellationToken)
         {
-            if (stored.Failure is not null)
-            {
-                throw stored.Failure;
-            }
-
-            return ValueTask.FromResult(new NhAssistantMcpLinkList([], stored.Bindings.ToArray()));
+            return ValueTask.FromResult(stored.Read());
         }
     }
 
