@@ -19,6 +19,7 @@ internal static class DatabaseSchemaReader
             requestId,
             limits,
             cancellationToken);
+        provider.EnsureSupportedServer(connection);
 
         executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
         var verification = await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken);

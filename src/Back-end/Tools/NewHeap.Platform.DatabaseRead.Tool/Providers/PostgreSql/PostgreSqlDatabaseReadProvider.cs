@@ -187,6 +187,13 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         return new NpgsqlConnection(builder.ConnectionString);
     }
 
+    /// <summary>
+    /// The PostgreSQL verification has no minimum server version of its own.
+    /// </summary>
+    public void EnsureSupportedServer(DbConnection connection)
+    {
+    }
+
     public async Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,

@@ -113,7 +113,7 @@ internal static class SqlReadOnlyPolicy
         var forbiddenFunctions = provider switch
         {
             DatabaseProviderKind.PostgreSql => PostgreSqlForbiddenFunctions,
-            DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb => MySqlForbiddenFunctions,
+            _ when mySqlFamily => MySqlForbiddenFunctions,
             _ => null
         };
         foreach (var identifier in quotedIdentifiers)
@@ -125,15 +125,20 @@ internal static class SqlReadOnlyPolicy
         }
     }
 
+    /// <summary>
+    /// The MySQL family policy is the same for both flavors, so a <c>mysql-compatible</c> profile
+    /// gets it before the tool knows which flavor the server is.
+    /// </summary>
     private static bool IsMySqlFamily(DatabaseProviderKind provider) =>
-        provider is DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb;
+        provider is DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb or DatabaseProviderKind.MySqlCompatible;
 
     private static string ProviderName(DatabaseProviderKind provider) => provider switch
     {
         DatabaseProviderKind.SqlServer => "SQL Server",
         DatabaseProviderKind.PostgreSql => "PostgreSQL",
         DatabaseProviderKind.MySql => "MySQL",
-        _ => "MariaDB"
+        DatabaseProviderKind.MariaDb => "MariaDB",
+        _ => "MySQL or MariaDB"
     };
 
     /// <summary>

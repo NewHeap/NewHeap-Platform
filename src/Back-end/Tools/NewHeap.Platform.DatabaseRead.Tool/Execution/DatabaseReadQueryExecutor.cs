@@ -23,6 +23,7 @@ internal static class DatabaseReadQueryExecutor
             requestId,
             limits,
             cancellationToken);
+        provider.EnsureSupportedServer(connection);
 
         executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
         var verification = await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken);

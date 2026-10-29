@@ -537,6 +537,13 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     }
 
     /// <summary>
+    /// The SQL Server verification has no minimum server version of its own.
+    /// </summary>
+    public void EnsureSupportedServer(DbConnection connection)
+    {
+    }
+
+    /// <summary>
     /// Verifies the principal. The catalog reads take shared locks on catalog rows and metadata
     /// locks on the securables they report, so a concurrent change of logins, users or grants can
     /// block them or choose them as deadlock victim. The session therefore runs with

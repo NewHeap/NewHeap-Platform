@@ -111,7 +111,14 @@ internal enum DatabaseProviderKind
     SqlServer,
     PostgreSql,
     MySql,
-    MariaDb
+    MariaDb,
+
+    /// <summary>
+    /// The profile value <c>mysql-compatible</c>: one profile for a MySQL or a MariaDB server. The
+    /// flavor comes from the server's version when the connection opens, each flavor keeps its own
+    /// minimum, and the statement limit, role activation and grant reading follow that flavor.
+    /// </summary>
+    MySqlCompatible
 }
 
 /// <summary>

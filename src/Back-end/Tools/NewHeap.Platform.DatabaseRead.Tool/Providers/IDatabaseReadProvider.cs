@@ -12,6 +12,13 @@ internal interface IDatabaseReadProvider
         string requestId,
         DatabaseReadLimits limits);
 
+    /// <summary>
+    /// Checks the server right after the connection opened, from what the server reported while
+    /// the connection opened and before any statement runs, so that a server the verification
+    /// cannot read stops with a profile error instead of failing on a statement it does not know.
+    /// </summary>
+    void EnsureSupportedServer(DbConnection connection);
+
     Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
@@ -64,6 +71,7 @@ internal static class DatabaseReadProviderFactory
             DatabaseProviderKind.PostgreSql => new PostgreSqlDatabaseReadProvider(),
             DatabaseProviderKind.MySql => new MySqlDatabaseReadProvider(DatabaseProviderKind.MySql),
             DatabaseProviderKind.MariaDb => new MySqlDatabaseReadProvider(DatabaseProviderKind.MariaDb),
+            DatabaseProviderKind.MySqlCompatible => new MySqlDatabaseReadProvider(DatabaseProviderKind.MySqlCompatible),
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null)
         };
     }

@@ -175,7 +175,7 @@ public sealed class SqlReadOnlyPolicyTests
     [InlineData("SELECT 1; SELECT 2", "multiple-statements-not-allowed")]
     public void UnsafeMySqlFamilySqlIsRejected(string sql, string expectedCode)
     {
-        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb, DatabaseProviderKind.MySqlCompatible })
         {
             var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
 
@@ -197,7 +197,7 @@ public sealed class SqlReadOnlyPolicyTests
     [InlineData("SELECT name FROM items WHERE name LIKE 'a\\_%' LIMIT 1")]
     public void MySqlFamilyBackslashesInQuotedValuesAreRejected(string sql)
     {
-        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb, DatabaseProviderKind.MySqlCompatible })
         {
             var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
 
@@ -216,7 +216,7 @@ public sealed class SqlReadOnlyPolicyTests
     [InlineData("SELECT `a``b` FROM items LIMIT 1;")]
     public void MySqlFamilyReadsAreAllowed(string sql)
     {
-        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        foreach (var provider in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb, DatabaseProviderKind.MySqlCompatible })
         {
             var action = () => SqlReadOnlyPolicy.Validate(sql, provider);
 
