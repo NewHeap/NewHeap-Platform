@@ -28,6 +28,12 @@ public sealed record SampleProjectOverviewInput(Guid ProjectId);
 /// <see cref="SampleAssistantCompositionSwitch"/>), and only with the tools its steps call. Call it after
 /// <c>AddSampleAssistant</c>.
 /// </para>
+/// <para>
+/// The steps call tools whose descriptors do not depend on the request: the assistant reads them once, at
+/// startup, in a scope of its own, so a tool catalog the application registers per scope, such as one
+/// over the tools a run imported, does not stop a host that validates scopes, as Development does. Each
+/// step runs with the tool of the turn's own services.
+/// </para>
 /// </summary>
 public static class SampleProjectOverviewComposition
 {

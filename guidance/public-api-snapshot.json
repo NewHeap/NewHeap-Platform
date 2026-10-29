@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "76a5fe1314a75566a37da15306906fb21fb9fc4a1a20e653c922b881b12cc803",
+    "hash": "8d0cd7e4e05f2bf13ee3fb67a8692da924f636643f99f3f71d25214bb2736011",
     "declarationCount": 12074,
     "declarations": [
       {
@@ -14047,7 +14047,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
-        "declaration": "public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceProvider services) {"
+        "declaration": "public NhAssistantCompositionToolCatalog(NhAssistantRegistrationState registration, IServiceScopeFactory scopes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
@@ -14079,7 +14079,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",
-        "declaration": "public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceProvider services) {"
+        "declaration": "public static Model Create(IEnumerable<NhAssistantCompositionDefinition> definitions, IServiceScopeFactory scopes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Compositions/NhAssistantCompositionToolCatalog.cs",

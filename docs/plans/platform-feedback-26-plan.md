@@ -253,3 +253,9 @@ grant parsing all follow the fixed flavor.
   train.
 - **(b) The small fixes first (FB60, FB62, FB64) as a fix of their own, then a train for the rest.**
   This ships the bugs sooner, but costs a second verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| CA1 | FB60's sample evidence is the SPM-372 sample host, which runs in Development (scope validation on) and now registers a catalog per scope over the tools a run imported next to the overview. The sample API has no catalog that is scoped by nature, so no scoped catalog was added to `Program.cs`; the library test proves that a step's tool of a scoped catalog runs with the turn's own services. | for Lars to review |
