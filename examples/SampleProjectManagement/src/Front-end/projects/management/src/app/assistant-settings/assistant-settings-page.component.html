@@ -23,7 +23,7 @@
       @for (row of rows(); track row.agentId) {
         <li [attr.data-agent-setting]="row.agentId">
           <div class="agent">
-            <strong>{{ isMcp(row) ? ('assistant-settings.mcp' | translate) : row.name }}</strong>
+            <strong>{{ isMcp(row) ? ('assistant-settings.mcp' | translate) : row.nameIsKey ? (row.name | translate) : row.name }}</strong>
             <small>{{ isMcp(row) ? ('assistant-settings.mcp-hint' | translate) : row.agentId }}</small>
           </div>
           @for (feature of features; track feature) {

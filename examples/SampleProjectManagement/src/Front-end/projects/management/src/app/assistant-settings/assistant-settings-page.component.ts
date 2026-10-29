@@ -19,6 +19,8 @@ import {
 interface SettingRow {
   agentId: string;
   name: string;
+  /** An agent in code names itself with a translation key; other agents show the name as typed. */
+  nameIsKey: boolean;
   /** Created in the administration: only the features the application's ceiling allows such agents. */
   createdHere: boolean;
   setting: AssistantCompositionSettingViewModel;
@@ -74,6 +76,7 @@ export class AssistantSettingsPageComponent implements OnInit {
         rows.push({
           agentId: ASSISTANT_COMPOSITION_MCP_AGENT_ID,
           name: '',
+          nameIsKey: false,
           createdHere: false,
           setting: settingOf(ASSISTANT_COMPOSITION_MCP_AGENT_ID, settings),
           status: null
@@ -128,6 +131,7 @@ export class AssistantSettingsPageComponent implements OnInit {
     return {
       agentId: agent.id,
       name: agent.displayName,
+      nameIsKey: agent.source === 'code',
       createdHere: agent.source === 'admin',
       setting: settingOf(agent.id, settings),
       status: null
