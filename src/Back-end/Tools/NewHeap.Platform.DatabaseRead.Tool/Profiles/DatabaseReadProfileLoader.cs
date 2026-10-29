@@ -135,9 +135,10 @@ internal static partial class DatabaseReadProfileLoader
             "postgresql" => DatabaseProviderKind.PostgreSql,
             "mysql" => DatabaseProviderKind.MySql,
             "mariadb" => DatabaseProviderKind.MariaDb,
+            "mysql-compatible" => DatabaseProviderKind.MySqlCompatible,
             _ => throw InvalidProfile(
                 "unsupported-provider",
-                "The profile provider must be 'sql-server', 'postgresql', 'mysql' or 'mariadb'.")
+                "The profile provider must be 'sql-server', 'postgresql', 'mysql', 'mariadb' or 'mysql-compatible'.")
         };
     }
 

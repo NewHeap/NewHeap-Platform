@@ -10,9 +10,11 @@ namespace NewHeap.Platform.DatabaseRead;
 /// <summary>
 /// The MySQL and MariaDB provider. Both flavors speak the same protocol through MySqlConnector, but
 /// differ in their statement time limit, their roles and their privileges, so a profile names the
-/// flavor and the provider checks that the server is that flavor, and new enough, from the version
-/// the server reported while the connection opened, before any statement runs. Schema evidence
-/// comes from <c>information_schema</c>, which shows only what the principal holds a privilege on.
+/// flavor, or <c>mysql-compatible</c> for either, and the provider checks the server's flavor and
+/// minimum version from the version the server reported while the connection opened, before any
+/// statement runs. Every flavor-dependent statement follows the flavor of its own connection.
+/// Schema evidence comes from <c>information_schema</c>, which shows only what the principal holds a
+/// privilege on.
 /// </summary>
 internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
 {
@@ -58,21 +60,41 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         WHERE SECURITY_TYPE = 'DEFINER' AND DEFINER <> CURRENT_USER();
         """;
 
-    private readonly DatabaseProviderKind _flavor;
+    /// <summary>
+    /// The profile's value: <see cref="DatabaseProviderKind.MySql"/> or
+    /// <see cref="DatabaseProviderKind.MariaDb"/>, which accept only that flavor, or
+    /// <see cref="DatabaseProviderKind.MySqlCompatible"/>, which accepts either.
+    /// </summary>
+    private readonly DatabaseProviderKind _profileProvider;
 
-    public MySqlDatabaseReadProvider(DatabaseProviderKind flavor)
+    /// <summary>
+    /// The flavor of the last server that passed the check, which <see cref="Name"/> reports.
+    /// </summary>
+    private DatabaseProviderKind? _detectedFlavor;
+
+    public MySqlDatabaseReadProvider(DatabaseProviderKind profileProvider)
     {
-        if (flavor is not (DatabaseProviderKind.MySql or DatabaseProviderKind.MariaDb))
+        if (profileProvider is not (DatabaseProviderKind.MySql
+            or DatabaseProviderKind.MariaDb
+            or DatabaseProviderKind.MySqlCompatible))
         {
-            throw new ArgumentOutOfRangeException(nameof(flavor), flavor, null);
+            throw new ArgumentOutOfRangeException(nameof(profileProvider), profileProvider, null);
         }
 
-        _flavor = flavor;
+        _profileProvider = profileProvider;
     }
 
-    public string Name => _flavor == DatabaseProviderKind.MySql ? "mysql" : "mariadb";
-
-    private string FlavorName => _flavor == DatabaseProviderKind.MySql ? "MySQL" : "MariaDB";
+    /// <summary>
+    /// <c>mysql</c> or <c>mariadb</c>. A <c>mysql-compatible</c> profile reports the flavor of its
+    /// server once a connection passed the check, and <c>mysql-compatible</c> before, such as for
+    /// <c>validate</c> or a connection that could not be opened.
+    /// </summary>
+    public string Name => (_detectedFlavor ?? _profileProvider) switch
+    {
+        DatabaseProviderKind.MySql => "mysql",
+        DatabaseProviderKind.MariaDb => "mariadb",
+        _ => "mysql-compatible"
+    };
 
     public DbConnection CreateConnection(
         string connectionString,
@@ -99,9 +121,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     /// </summary>
     public void EnsureSupportedServer(DbConnection connection)
     {
-        ArgumentNullException.ThrowIfNull(connection);
-
-        EnsureSupportedServer(connection.ServerVersion);
+        FlavorOf(connection);
     }
 
     /// <summary>
@@ -119,16 +139,16 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        EnsureSupportedServer(connection);
+        var flavor = FlavorOf(connection);
         var currentRole = await ReadCurrentRoleAsync(connection, limits, cancellationToken);
 
         await ExecuteAsync(connection, null, LockTimeoutSql(limits), limits, cancellationToken);
 
         var failedChecks = new List<string>();
-        if (_flavor == DatabaseProviderKind.MySql)
+        if (flavor == DatabaseProviderKind.MySql)
         {
             await ExecuteAsync(connection, null, "SET ROLE ALL;", limits, cancellationToken);
-            await CollectFailedChecksAsync(connection, limits, failedChecks, cancellationToken);
+            await CollectFailedChecksAsync(connection, flavor, limits, failedChecks, cancellationToken);
             await ExecuteAsync(connection, null, RestoreMySqlRolesSql(currentRole), limits, cancellationToken);
         }
         else
@@ -137,13 +157,13 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
             if (roles.Count == 0)
             {
                 await ExecuteAsync(connection, null, "SET ROLE NONE;", limits, cancellationToken);
-                await CollectFailedChecksAsync(connection, limits, failedChecks, cancellationToken);
+                await CollectFailedChecksAsync(connection, flavor, limits, failedChecks, cancellationToken);
             }
 
             foreach (var role in roles)
             {
                 await ExecuteAsync(connection, null, $"SET ROLE {QuoteIdentifier(role)};", limits, cancellationToken);
-                await CollectFailedChecksAsync(connection, limits, failedChecks, cancellationToken);
+                await CollectFailedChecksAsync(connection, flavor, limits, failedChecks, cancellationToken);
             }
 
             var restoreSql = currentRole is null
@@ -184,7 +204,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        var statementLimit = _flavor == DatabaseProviderKind.MySql
+        var statementLimit = FlavorOf(connection) == DatabaseProviderKind.MySql
             ? FormattableString.Invariant($"SESSION max_execution_time = {limits.TimeoutSeconds * 1000}")
             : FormattableString.Invariant($"SESSION max_statement_time = {limits.TimeoutSeconds}");
         var lockSeconds = LockTimeoutSeconds(limits);
@@ -306,20 +326,25 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     /// <summary>
     /// The flavor follows from the server's version: MariaDB names itself in it, MySQL does not.
     /// MariaDB may put <c>5.5.5-</c> in front of its own version, such as
-    /// <c>5.5.5-10.11.9-MariaDB</c>, for clients that expect MySQL. A profile for one flavor never
-    /// runs against the other, because their time limits, roles and privileges differ.
+    /// <c>5.5.5-10.11.9-MariaDB</c>, for clients that expect MySQL. A <c>mysql</c> or
+    /// <c>mariadb</c> profile never runs against the other flavor, because their time limits, roles
+    /// and privileges differ; a <c>mysql-compatible</c> profile takes the flavor of the server. Each
+    /// flavor keeps its own minimum version.
     /// </summary>
-    internal void EnsureSupportedServer(string version)
+    internal DatabaseProviderKind SupportedFlavorOf(string version)
     {
-        var isMariaDb = version.Contains("MariaDB", StringComparison.OrdinalIgnoreCase);
-        if (isMariaDb != (_flavor == DatabaseProviderKind.MariaDb))
+        var flavor = version.Contains("MariaDB", StringComparison.OrdinalIgnoreCase)
+            ? DatabaseProviderKind.MariaDb
+            : DatabaseProviderKind.MySql;
+        if (_profileProvider != DatabaseProviderKind.MySqlCompatible && flavor != _profileProvider)
         {
             throw new DatabaseReadExpectedException(
                 "provider-flavor-mismatch",
-                $"The database server is not {FlavorName}, which the profile names as its provider.",
+                $"The database server is not {FlavorName(_profileProvider)}, which the profile names as its provider.",
                 DatabaseReadExitCode.InvalidProfile);
         }
 
+        var isMariaDb = flavor == DatabaseProviderKind.MariaDb;
         var match = (isMariaDb ? MariaDbVersionPrefix() : VersionPrefix()).Match(version);
         var minimum = isMariaDb ? MinimumMariaDbVersion : MinimumMySqlVersion;
         if (!match.Success ||
@@ -329,9 +354,11 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         {
             throw new DatabaseReadExpectedException(
                 "provider-version-not-supported",
-                $"The tool reads the privileges of {FlavorName} {minimum} or later.",
+                $"The tool reads the privileges of {FlavorName(flavor)} {minimum} or later.",
                 DatabaseReadExitCode.InvalidProfile);
         }
+
+        return flavor;
     }
 
     /// <summary>
@@ -351,8 +378,29 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
             : "SET ROLE DEFAULT;";
     }
 
-    private async Task CollectFailedChecksAsync(
+    /// <summary>
+    /// The flavor of the server the connection is open to, checked against the profile and the
+    /// flavor's minimum version. It is read from the connection each time, so every statement
+    /// follows the flavor of its own connection; it runs no statement.
+    /// </summary>
+    private DatabaseProviderKind FlavorOf(DbConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var flavor = SupportedFlavorOf(connection.ServerVersion);
+        _detectedFlavor = flavor;
+
+        return flavor;
+    }
+
+    private static string FlavorName(DatabaseProviderKind flavor)
+    {
+        return flavor == DatabaseProviderKind.MySql ? "MySQL" : "MariaDB";
+    }
+
+    private static async Task CollectFailedChecksAsync(
         DbConnection connection,
+        DatabaseProviderKind flavor,
         DatabaseReadLimits limits,
         List<string> failedChecks,
         CancellationToken cancellationToken)
@@ -364,7 +412,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
             await using var reader = await grants.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                var failedCheck = MySqlGrantPolicy.Classify(ReadString(reader, 0), _flavor);
+                var failedCheck = MySqlGrantPolicy.Classify(ReadString(reader, 0), flavor);
                 if (failedCheck is not null)
                 {
                     failedChecks.Add(failedCheck);
@@ -717,7 +765,7 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandTimeout = limits.TimeoutSeconds;
-        command.CommandText = _flavor == DatabaseProviderKind.MySql
+        command.CommandText = FlavorOf(connection) == DatabaseProviderKind.MySql
             ? """
               SELECT candidate.INDEX_NAME,
                      LOWER(candidate.INDEX_TYPE),

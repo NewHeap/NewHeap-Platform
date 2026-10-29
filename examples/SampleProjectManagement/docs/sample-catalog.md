@@ -1080,9 +1080,13 @@ permission problem. It then verifies the principal from the server's own
 `SHOW GRANTS` with every role it can use active, including mandatory roles on
 MySQL and the grants to `PUBLIC` on MariaDB, and rejects anything beyond SELECT
 outside the system schemas, as well as a view that runs as another definer. The
-transaction starts
-read only with the flavor's statement and lock limits, and schema evidence comes
-from `information_schema`. A SQL Server profile may opt in to SELECT on inline
+transaction starts read only with the flavor's statement and lock limits, and
+schema evidence comes from `information_schema`. A profile that must reach a
+MySQL server in one environment and a MariaDB server in another names
+`mysql-compatible` instead: the tool takes the flavor from the same server
+version, keeps each flavor's minimum, follows that flavor for limits, roles,
+grants and indexes, and reports the detected `mysql` or `mariadb` as the
+response's `provider`. A SQL Server profile may opt in to SELECT on inline
 table-valued functions (SPM-368) with `sqlServerFunctionPolicy:
 inline-table-valued-select`; the tool then accepts a function only when it is
 schema-bound and depends on tables and views that the principal may select

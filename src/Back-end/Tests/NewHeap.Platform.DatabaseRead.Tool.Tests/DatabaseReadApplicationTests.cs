@@ -605,9 +605,14 @@ public sealed class DatabaseReadApplicationTests
             .Should().Be("too-many-parameters");
     }
 
+    /// <summary>
+    /// <c>validate</c> opens no connection, so a <c>mysql-compatible</c> profile reports its own
+    /// value: the flavor is known only once a server answered.
+    /// </summary>
     [Theory]
     [InlineData("mysql")]
     [InlineData("mariadb")]
+    [InlineData("mysql-compatible")]
     public async Task MySqlFamilyProfilesValidateWithoutOpeningTheDatabase(string provider)
     {
         using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
@@ -630,6 +635,8 @@ public sealed class DatabaseReadApplicationTests
     [InlineData("mysql", "SELECT SLEEP(1)", "function-not-allowed")]
     [InlineData("mariadb", "SELECT 'a\\'' AS a", "backslash-escape-not-allowed")]
     [InlineData("mysql", "SELECT 1 # comment", "comments-not-allowed")]
+    [InlineData("mysql-compatible", "SELECT `sleep`(1)", "function-not-allowed")]
+    [InlineData("mysql-compatible", "SELECT id FROM items FOR SHARE", "locking-read-not-allowed")]
     public async Task MySqlFamilyQueryPolicyRejectsBeforeConnecting(string provider, string sql, string expectedCode)
     {
         using var workspace = new DatabaseReadTestWorkspace(provider, "unused");
@@ -653,6 +660,7 @@ public sealed class DatabaseReadApplicationTests
     [InlineData("postgresql", "inline-table-valued-select", 3, "invalid-profile-value")]
     [InlineData("mysql", "strict", 3, "invalid-profile-value")]
     [InlineData("mariadb", "inline-table-valued-select", 3, "invalid-profile-value")]
+    [InlineData("mysql-compatible", "strict", 3, "invalid-profile-value")]
     public async Task FunctionPolicyIsAcceptedOnlyForItsProvider(
         string provider,
         string policy,

@@ -233,6 +233,131 @@ public sealed class DatabaseReadMySqlProviderTests
     }
 
     /// <summary>
+    /// One <c>mysql-compatible</c> profile reads both flavors: the tool takes the flavor from the
+    /// server, reports it as the provider, and follows it for the role activation, the grant
+    /// reading, the statement limit and the index evidence. Each of these uses statements or
+    /// columns that only its own flavor knows, so the wrong flavor would fail instead of passing.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseReadMySqlFlavor.MySql)]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb)]
+    public async Task CompatibleProfileFollowsTheFlavorOfTheServer(DatabaseReadMySqlFlavor flavor)
+    {
+        var server = DatabaseReadMySqlTestServer.For(flavor);
+        var admin = new MySqlConnectionStringBuilder(await server.CreateDatabaseAsync("compat"));
+        var database = admin.Database;
+        var reader = $"`{database}_reader`@`%`";
+        var writer = $"`{database}_writer`";
+        var mySql = flavor == DatabaseReadMySqlFlavor.MySql;
+        await DatabaseReadMySqlTestServer.ExecuteAsync(
+            admin.ConnectionString,
+            $"""
+            CREATE TABLE items (
+                id int NOT NULL PRIMARY KEY,
+                name varchar(100) NOT NULL,
+                status varchar(32) NOT NULL,
+                KEY ix_items_name (name),
+                KEY ix_items_hidden (status) {(mySql ? "INVISIBLE" : "IGNORED")}
+            );
+            INSERT INTO items (id, name, status) VALUES (1, 'Compatible', 'active');
+            CREATE USER {reader} IDENTIFIED BY '{ReaderPassword}';
+            CREATE ROLE {writer};
+            GRANT DELETE ON `{database}`.items TO {writer};
+            GRANT SELECT ON `{database}`.items TO {reader};
+            """);
+        var readerConnectionString = DatabaseReadMySqlTestServer.AccountConnectionString(
+            admin.ConnectionString,
+            database + "_reader",
+            ReaderPassword);
+        var (serverPrivilege, serverPrivilegeCheck) = mySql
+            ? ("BACKUP_ADMIN", "dynamic-privilege")
+            : ("BINLOG MONITOR", "global-privilege");
+
+        try
+        {
+            using (var query = await RunQueryAsync(
+                       "mysql-compatible",
+                       readerConnectionString,
+                       "SELECT id, name FROM items WHERE id = 1 LIMIT 1",
+                       0))
+            {
+                query.RootElement.GetProperty("target").GetProperty("provider").GetString()
+                    .Should().Be(server.ProviderName);
+                query.RootElement.GetProperty("result").GetProperty("rows")[0][1].GetString()
+                    .Should().Be("Compatible");
+            }
+
+            using (var failure = await RunQueryAsync(
+                       "mysql-compatible",
+                       readerConnectionString,
+                       "SELECT missing_column FROM items LIMIT 1",
+                       5))
+            {
+                var error = failure.RootElement.GetProperty("error");
+                error.GetProperty("classification").GetString().Should().Be("column-not-found");
+                error.GetProperty("provider").GetString().Should().Be(server.ProviderName);
+            }
+
+            using (var workspace = new DatabaseReadTestWorkspace("mysql-compatible", readerConnectionString))
+            using (var indexes = await RunSchemaAsync(
+                       workspace,
+                       DatabaseReadTestWorkspace.SchemaRequest("indexes", database, "items")))
+            {
+                indexes.RootElement.GetProperty("target").GetProperty("provider").GetString()
+                    .Should().Be(server.ProviderName);
+                indexes.RootElement.GetProperty("schema").GetProperty("indexes").GetProperty("items")
+                    .EnumerateArray()
+                    .Select(index => index.GetProperty("name").GetString())
+                    .Should().Equal("PRIMARY", "ix_items_name");
+            }
+
+            var provider = new MySqlDatabaseReadProvider(DatabaseProviderKind.MySqlCompatible);
+            provider.Name.Should().Be("mysql-compatible");
+            (await DatabaseReadMySqlPrincipalVerificationTests.VerifyAsync(provider, readerConnectionString))
+                .Should().Be(new DatabaseReadPrincipalVerification(true));
+            provider.Name.Should().Be(server.ProviderName);
+
+            await DatabaseReadMySqlTestServer.ExecuteAsync(admin.ConnectionString, $"GRANT {writer} TO {reader}");
+            (await DatabaseReadMySqlPrincipalVerificationTests.VerifyAsync(provider, readerConnectionString))
+                .Should().Be(
+                    new DatabaseReadPrincipalVerification(false, "table-privilege-not-allowlisted"),
+                    "the role is activated the way the flavor activates roles");
+            await DatabaseReadMySqlTestServer.ExecuteAsync(admin.ConnectionString, $"REVOKE {writer} FROM {reader}");
+
+            await DatabaseReadMySqlTestServer.ExecuteAsync(
+                admin.ConnectionString,
+                $"GRANT {serverPrivilege} ON *.* TO {reader}");
+            (await DatabaseReadMySqlPrincipalVerificationTests.VerifyAsync(provider, readerConnectionString))
+                .Should().Be(
+                    new DatabaseReadPrincipalVerification(false, serverPrivilegeCheck),
+                    "the grants are read the way the flavor writes them");
+            await DatabaseReadMySqlTestServer.ExecuteAsync(
+                admin.ConnectionString,
+                $"REVOKE {serverPrivilege} ON *.* FROM {reader}");
+
+            var limits = new DatabaseReadLimits(10, 7, 2_500, 65_536, 4_096, 8_192);
+            await using var connection = provider.CreateConnection(readerConnectionString, Guid.NewGuid().ToString("N"), limits);
+            await connection.OpenAsync();
+            provider.EnsureSupportedServer(connection);
+            await using var transaction = await provider.BeginReadOnlyTransactionAsync(connection, CancellationToken.None);
+            await provider.ConfigureReadOnlyTransactionAsync(connection, transaction, limits, CancellationToken.None);
+            await using var settings = connection.CreateCommand();
+            settings.Transaction = transaction;
+            settings.CommandText = mySql
+                ? "SELECT @@SESSION.max_execution_time"
+                : "SELECT @@SESSION.max_statement_time";
+
+            Convert.ToDecimal(await settings.ExecuteScalarAsync()).Should().Be(mySql ? 7_000 : 7);
+        }
+        finally
+        {
+            await DatabaseReadMySqlTestServer.ExecuteAsync(
+                admin.ConnectionString,
+                $"DROP USER IF EXISTS {reader}; DROP ROLE IF EXISTS {writer};");
+        }
+    }
+
+    /// <summary>
     /// The diagnostic transaction starts read only, so not even an administrator writes in it, and
     /// carries the flavor's statement limit, <c>max_execution_time</c> in milliseconds on MySQL and
     /// <c>max_statement_time</c> in seconds on MariaDB, and the lock limits in whole seconds, the
@@ -379,7 +504,7 @@ public sealed class DatabaseReadMySqlProviderTests
     [InlineData(1792, "database-failure", false)]
     public void ErrorNumbersKeepTheirSafeClassification(int number, string classification, bool transient)
     {
-        foreach (var flavor in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb })
+        foreach (var flavor in new[] { DatabaseProviderKind.MySql, DatabaseProviderKind.MariaDb, DatabaseProviderKind.MySqlCompatible })
         {
             var provider = new MySqlDatabaseReadProvider(flavor);
 
@@ -410,9 +535,9 @@ public sealed class DatabaseReadMySqlProviderTests
     /// <summary>
     /// MySQL 5.7 has no roles and no <c>CURRENT_ROLE()</c>. The tool reads the version the server
     /// reported while the connection opened and refuses the server before any statement, for
-    /// schema reads and queries alike, instead of failing the first statement as a permission
-    /// problem. A theory over the flavor, so the MySQL CI job, which selects its cases by the
-    /// flavor in the display name, runs it.
+    /// schema reads and queries alike and for a <c>mysql-compatible</c> profile too, instead of
+    /// failing the first statement as a permission problem. A theory over the flavor, so the MySQL
+    /// CI job, which selects its cases by the flavor in the display name, runs it.
     /// </summary>
     [Theory]
     [InlineData(DatabaseReadMySqlFlavor.MySql)]
@@ -422,25 +547,67 @@ public sealed class DatabaseReadMySqlProviderTests
         server.Flavor.Should().Be(flavor);
         var connectionString = await server.GetConnectionStringAsync();
 
-        foreach (var command in new[] { "schema", "query" })
+        foreach (var profileProvider in new[] { server.ProviderName, "mysql-compatible" })
         {
-            using var workspace = new DatabaseReadTestWorkspace(server.ProviderName, connectionString);
-            using var input = command == "schema"
-                ? DatabaseReadTestWorkspace.SchemaRequest("search")
-                : DatabaseReadTestWorkspace.Request("SELECT 1 AS one");
-            using var output = new MemoryStream();
+            foreach (var command in new[] { "schema", "query" })
+            {
+                using var workspace = new DatabaseReadTestWorkspace(profileProvider, connectionString);
+                using var input = command == "schema"
+                    ? DatabaseReadTestWorkspace.SchemaRequest("search")
+                    : DatabaseReadTestWorkspace.Request("SELECT 1 AS one");
+                using var output = new MemoryStream();
 
-            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
-                [command, "--profiles", workspace.ProfileCatalogPath],
-                input,
-                output);
+                var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                    [command, "--profiles", workspace.ProfileCatalogPath],
+                    input,
+                    output);
 
-            exitCode.Should().Be(3, "{0} returned {1}", command, DatabaseReadTestWorkspace.OutputText(output));
-            using var response = DatabaseReadTestWorkspace.ParseOutput(output);
-            response.RootElement.GetProperty("error").GetProperty("code").GetString()
-                .Should().Be("provider-version-not-supported");
-            response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
-            response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+                exitCode.Should().Be(
+                    3,
+                    "{0} with a {1} profile returned {2}",
+                    command,
+                    profileProvider,
+                    DatabaseReadTestWorkspace.OutputText(output));
+                using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+                var error = response.RootElement.GetProperty("error");
+                error.GetProperty("code").GetString().Should().Be("provider-version-not-supported");
+                error.GetProperty("message").GetString().Should().Contain("MySQL 8.0");
+                response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+                response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+            }
+        }
+    }
+
+    /// <summary>
+    /// A <c>mysql-compatible</c> profile takes the flavor the server's version names and keeps that
+    /// flavor's minimum: MySQL 8.0 and MariaDB 10.11, also behind MariaDB's <c>5.5.5-</c> prefix.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseReadMySqlFlavor.MySql, "8.4.13", null)]
+    [InlineData(DatabaseReadMySqlFlavor.MySql, "8.0.40-log", null)]
+    [InlineData(DatabaseReadMySqlFlavor.MySql, "5.7.44-log", "MySQL 8.0")]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "11.4.13-MariaDB-ubu2404", null)]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "5.5.5-10.11.9-MariaDB-ubu2204", null)]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "5.5.5-10.6.28-MariaDB-ubu2204", "MariaDB 10.11")]
+    [InlineData(DatabaseReadMySqlFlavor.MariaDb, "10.6.28-MariaDB", "MariaDB 10.11")]
+    public void CompatibleProfileKeepsEachFlavorsMinimum(
+        DatabaseReadMySqlFlavor flavor,
+        string version,
+        string? expectedMinimum)
+    {
+        var provider = new MySqlDatabaseReadProvider(DatabaseProviderKind.MySqlCompatible);
+        var check = () => provider.SupportedFlavorOf(version);
+
+        if (expectedMinimum is null)
+        {
+            check.Should().NotThrow().Which.Should().Be(DatabaseReadMySqlTestServer.For(flavor).Kind);
+        }
+        else
+        {
+            var exception = check.Should().Throw<DatabaseReadExpectedException>().Which;
+            exception.Code.Should().Be("provider-version-not-supported");
+            exception.ExitCode.Should().Be(DatabaseReadExitCode.InvalidProfile);
+            exception.Message.Should().Contain(expectedMinimum);
         }
     }
 
@@ -459,11 +626,11 @@ public sealed class DatabaseReadMySqlProviderTests
     public void ServerVersionSelectsTheFlavor(DatabaseReadMySqlFlavor flavor, string version, string? expectedCode)
     {
         var provider = new MySqlDatabaseReadProvider(DatabaseReadMySqlTestServer.For(flavor).Kind);
-        var check = () => provider.EnsureSupportedServer(version);
+        var check = () => provider.SupportedFlavorOf(version);
 
         if (expectedCode is null)
         {
-            check.Should().NotThrow();
+            check.Should().NotThrow().Which.Should().Be(DatabaseReadMySqlTestServer.For(flavor).Kind);
         }
         else
         {

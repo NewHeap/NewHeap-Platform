@@ -71,6 +71,7 @@ internal static class DatabaseReadProviderFactory
             DatabaseProviderKind.PostgreSql => new PostgreSqlDatabaseReadProvider(),
             DatabaseProviderKind.MySql => new MySqlDatabaseReadProvider(DatabaseProviderKind.MySql),
             DatabaseProviderKind.MariaDb => new MySqlDatabaseReadProvider(DatabaseProviderKind.MariaDb),
+            DatabaseProviderKind.MySqlCompatible => new MySqlDatabaseReadProvider(DatabaseProviderKind.MySqlCompatible),
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, null)
         };
     }

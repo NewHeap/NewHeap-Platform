@@ -146,6 +146,7 @@ public sealed class DatabaseReadToolSamplesTests
         Assert.DoesNotContain("private-canary", timeoutMessage);
         Assert.Equal("provider-flavor-mismatch", mismatchError.Name);
         Assert.Contains("Correct the profile's provider", Assert.Single(mismatchError.ErrorMessages).ToString(), StringComparison.Ordinal);
+        Assert.Contains("mysql-compatible", Assert.Single(mismatchError.ErrorMessages).ToString(), StringComparison.Ordinal);
 
         var versionError = Assert.Single(
             NewHeapSampleDatabaseReadExecutor.SafeFailure(version.RootElement).GetResultItems());
@@ -158,18 +159,21 @@ public sealed class DatabaseReadToolSamplesTests
     }
 
     /// <summary>
-    /// SPM-367 and SPM-368: a consumer catalog can name a MySQL or MariaDB profile, and a SQL Server
-    /// profile can opt in to inline table-valued functions; the tool validates their requests
-    /// without a connection and refuses the SQL Server opt-in on another provider. The sample's own
-    /// database is PostgreSQL, so the platform's provider tests prove these profiles on real
-    /// MySQL 8.4, MariaDB 11.4 and SQL Server.
+    /// SPM-367 and SPM-368: a consumer catalog can name a MySQL or MariaDB profile, one
+    /// <c>mysql-compatible</c> profile for both flavors, and a SQL Server profile can opt in to
+    /// inline table-valued functions; the tool validates their requests without a connection and
+    /// refuses the SQL Server opt-in on another provider. The sample's own database is PostgreSQL,
+    /// so the platform's provider tests prove these profiles on real MySQL 8.4, MariaDB 11.4 and
+    /// SQL Server, and the refusal of MySQL 5.7.
     /// </summary>
     [Theory]
     [InlineData("mysql", null, "SELECT id FROM projects WHERE id = @id LIMIT 10", 0)]
     [InlineData("mariadb", null, "SELECT id FROM projects WHERE id = @id LIMIT 10", 0)]
+    [InlineData("mysql-compatible", null, "SELECT id FROM projects WHERE id = @id LIMIT 10", 0)]
     [InlineData("sql-server", "inline-table-valued-select", "SELECT TOP (10) Id FROM dbo.ReadProject(@id)", 0)]
     [InlineData("mariadb", "inline-table-valued-select", "SELECT id FROM projects WHERE id = @id LIMIT 10", 3)]
     [InlineData("mysql", null, "SELECT SLEEP(1) FROM projects WHERE id = @id", 4)]
+    [InlineData("mysql-compatible", null, "SELECT SLEEP(1) FROM projects WHERE id = @id", 4)]
     public async Task ConsumerProfilesForMoreProvidersValidateLocally(
         string provider,
         string? sqlServerFunctionPolicy,
