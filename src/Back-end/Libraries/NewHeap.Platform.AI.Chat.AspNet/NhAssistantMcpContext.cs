@@ -92,10 +92,7 @@ public static class NhAssistantMcpContext
         }
         binding.Snapshot.Validate();
         builder.Services.AddNewHeapPlatformAIMcpInvocationBinder<NhAssistantMcpContextBinder>(
-            new NhAiMcpInvocationBinding(binding.ServerId, binding.RemoteName, BinderId)
-            {
-                Version = Version
-            });
+            NhAssistantMcpContextBinder.InvocationBindingOf(binding.ServerId, binding.RemoteName));
         builder.Services.AddSingleton(new NhAssistantMcpContextBindingRegistration(binding));
         builder.Services.TryAddSingleton<NhAssistantMcpContextBindings>();
         AddChains(builder.Services);
@@ -152,29 +149,41 @@ public static class NhAssistantMcpContext
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(caller);
-        if (!IsApplicationId(caller.ApplicationId))
+        switch (CallerProblem(caller))
         {
-            throw new ArgumentException(
-                $"The caller's name in consultation chains needs 1 to {MaxApplicationIdLength} characters without spaces or control characters.",
-                nameof(caller));
-        }
-
-        if (string.IsNullOrWhiteSpace(caller.Issuer)
-            || caller.Issuer.Length > 256
-            || string.IsNullOrWhiteSpace(caller.IssuerClaimType)
-            || caller.IssuerClaimType.Length > 256)
-        {
-            throw new ArgumentException("A reviewed MCP caller needs an issuer and an issuer claim type.", nameof(caller));
-        }
-
-        if ((caller.ClientId is null) != (caller.ClientClaimType is null)
-            || caller.ClientId is { Length: 0 or > 256 }
-            || caller.ClientClaimType is { Length: 0 or > 256 })
-        {
-            throw new ArgumentException("A reviewed MCP caller names its client with both a claim type and a client id, or neither.", nameof(caller));
+            case NhAssistantMcpLinkProblems.ApplicationIdInvalid:
+                throw new ArgumentException(
+                    $"The caller's name in consultation chains needs 1 to {MaxApplicationIdLength} characters without spaces or control characters.",
+                    nameof(caller));
+            case NhAssistantMcpLinkProblems.IssuerInvalid:
+                throw new ArgumentException("A reviewed MCP caller needs an issuer and an issuer claim type.", nameof(caller));
+            case NhAssistantMcpLinkProblems.ClientInvalid:
+                throw new ArgumentException("A reviewed MCP caller names its client with both a claim type and a client id, or neither.", nameof(caller));
         }
 
         builder.Services.AddSingleton(new NhAssistantMcpChainCallerRegistration(caller));
+        AddChains(builder.Services);
+        return builder;
+    }
+
+    /// <summary>
+    /// Lets the application store the chain callers and context bindings it reviewed
+    /// (<see cref="INhAssistantMcpLinks"/>, FB59), next to those registered in code: a link it creates or
+    /// revokes while the host runs counts within <see cref="NhAssistantMcpOptions.LinkCacheDuration"/>,
+    /// without a restart. Each stored entry is checked as the same registration in code is checked at
+    /// startup; an entry such a registration would refuse is left out with a warning. One source serves
+    /// the host; a later call replaces an earlier one. It is a scoped service, resolved in a scope of its
+    /// own. Without one nothing changes: only the code registrations count.
+    /// </summary>
+    public static NhAssistantBuilder UseMcpLinks<TLinks>(this NhAssistantBuilder builder)
+        where TLinks : class, INhAssistantMcpLinks
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        builder.Services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpLinks, TLinks>());
+        // A stored binding binds with the assistant context binder, also where code binds no tool.
+        builder.Services.AddNewHeapPlatformAIMcp();
+        builder.Services.TryAddScoped<NhAssistantMcpContextBinder>();
+        builder.Services.TryAddSingleton<NhAssistantMcpContextBindings>();
         AddChains(builder.Services);
         return builder;
     }
@@ -190,10 +199,79 @@ public static class NhAssistantMcpContext
                && !value.Any(character => char.IsWhiteSpace(character) || char.IsControl(character));
     }
 
+    /// <summary>
+    /// Why <see cref="ContinueMcpChain"/> refuses <paramref name="caller"/>, as a
+    /// <see cref="NhAssistantMcpLinkProblems"/> code, or <see langword="null"/> when it accepts it.
+    /// </summary>
+    internal static string? CallerProblem(NhAssistantMcpChainCaller caller)
+    {
+        if (!IsApplicationId(caller.ApplicationId))
+        {
+            return NhAssistantMcpLinkProblems.ApplicationIdInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(caller.Issuer)
+            || caller.Issuer.Length > 256
+            || string.IsNullOrWhiteSpace(caller.IssuerClaimType)
+            || caller.IssuerClaimType.Length > 256)
+        {
+            return NhAssistantMcpLinkProblems.IssuerInvalid;
+        }
+
+        if ((caller.ClientId is null) != (caller.ClientClaimType is null)
+            || caller.ClientId is { Length: 0 or > 256 }
+            || caller.ClientClaimType is { Length: 0 or > 256 })
+        {
+            return NhAssistantMcpLinkProblems.ClientInvalid;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Why <see cref="AddMcpContextBinding"/> refuses <paramref name="binding"/>, as a
+    /// <see cref="NhAssistantMcpLinkProblems"/> code, or <see langword="null"/> when it accepts it: the
+    /// same checks of the server URL, the snapshot bounds and the invocation binding.
+    /// </summary>
+    internal static string? BindingProblem(NhAssistantMcpContextBinding binding)
+    {
+        if (binding.Snapshot is null)
+        {
+            return NhAssistantMcpLinkProblems.SnapshotInvalid;
+        }
+
+        if (NhAssistantMcpContextBindings.Normalize(binding.ServerUrl) is null)
+        {
+            return NhAssistantMcpLinkProblems.ServerUrlInvalid;
+        }
+
+        try
+        {
+            binding.Snapshot.Validate();
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return NhAssistantMcpLinkProblems.SnapshotInvalid;
+        }
+
+        try
+        {
+            NhAiMcpInvocationBinderRegistry.Validate(NhAssistantMcpContextBinder.InvocationBindingOf(binding.ServerId, binding.RemoteName));
+        }
+        catch (ArgumentException)
+        {
+            return NhAssistantMcpLinkProblems.ToolInvalid;
+        }
+
+        return null;
+    }
+
     private static void AddChains(IServiceCollection services)
     {
         services.TryAddSingleton<NhAssistantMcpChains>();
         services.TryAddScoped<NhAssistantMcpChainReader>();
+        services.TryAddSingleton<NhAssistantMcpContextBindings>();
+        services.TryAddSingleton<NhAssistantMcpLinkCache>();
     }
 }
 
@@ -214,18 +292,38 @@ internal sealed class NhAssistantMcpContextBindings(IEnumerable<NhAssistantMcpCo
     /// </summary>
     public NhAssistantMcpContextBinding? Find(AssistantMcpServer server, string remoteName)
     {
+        return Find(_bindings, server, remoteName);
+    }
+
+    public NhAssistantMcpContextBinding? Find(string serverId, string remoteName)
+    {
+        return Find(_bindings, serverId, remoteName);
+    }
+
+    /// <summary>
+    /// The binding among <paramref name="bindings"/> of a tool on an administrator-connected server, when
+    /// its id, URL and tool name all match.
+    /// </summary>
+    public static NhAssistantMcpContextBinding? Find(
+        IEnumerable<NhAssistantMcpContextBinding> bindings,
+        AssistantMcpServer server,
+        string remoteName)
+    {
         var url = Normalize(server.Url);
         return url is null
             ? null
-            : _bindings.FirstOrDefault(binding =>
+            : bindings.FirstOrDefault(binding =>
                 string.Equals(binding.ServerId, server.Id, StringComparison.Ordinal)
                 && string.Equals(binding.RemoteName, remoteName, StringComparison.Ordinal)
                 && string.Equals(Normalize(binding.ServerUrl), url, StringComparison.Ordinal));
     }
 
-    public NhAssistantMcpContextBinding? Find(string serverId, string remoteName)
+    public static NhAssistantMcpContextBinding? Find(
+        IEnumerable<NhAssistantMcpContextBinding> bindings,
+        string serverId,
+        string remoteName)
     {
-        return _bindings.FirstOrDefault(binding =>
+        return bindings.FirstOrDefault(binding =>
             string.Equals(binding.ServerId, serverId, StringComparison.Ordinal)
             && string.Equals(binding.RemoteName, remoteName, StringComparison.Ordinal));
     }
@@ -248,20 +346,44 @@ internal sealed class NhAssistantMcpContextBindings(IEnumerable<NhAssistantMcpCo
 /// Binds the assistant context to a reviewed MCP call. The snapshot provider verifies the call,
 /// the turn and the accountable actor's access, so a stale or foreign call fails before sending. A
 /// call from a consultation turn, which only a binding with the chain binds, is verified against the
-/// running call and carries no snapshot.
+/// running call and carries no snapshot. A tool of an administrator-connected server that a stored
+/// binding bound when the turn imported it fails to bind once that binding is revoked.
 /// </summary>
 internal sealed class NhAssistantMcpContextBinder(
     NhAssistantMcpContextBindings bindings,
     INhAssistantConversationSnapshotProvider snapshots,
-    NhAssistantMcpChains chains) : INhAiMcpInvocationBinder
+    NhAssistantMcpChains chains,
+    NhAssistantMcpLinkCache links) : INhAiMcpInvocationBinder
 {
     public const string BinderId = NhAssistantMcpContext.BinderId;
+
+    /// <summary>
+    /// The invocation binding of the assistant context for a server id and tool: what
+    /// <see cref="NhAssistantMcpContext.AddMcpContextBinding"/> registers, and what an import of an
+    /// administrator-connected server names for a stored binding.
+    /// </summary>
+    public static NhAiMcpInvocationBinding InvocationBindingOf(string serverId, string remoteName)
+    {
+        return new NhAiMcpInvocationBinding(serverId, remoteName, BinderId)
+        {
+            Version = NhAssistantMcpContext.Version
+        };
+    }
+
+    /// <summary>
+    /// The binder of a stored binding, which the importing tool source checked for this server and tool.
+    /// </summary>
+    public static NhAiMcpInvocationBinderRegistration RegistrationOf(string serverId, string remoteName)
+    {
+        return new NhAiMcpInvocationBinderRegistration(InvocationBindingOf(serverId, remoteName), typeof(NhAssistantMcpContextBinder));
+    }
 
     public async ValueTask<TaskResult<NhAiMcpRequestMetadata>> BindAsync(
         NhAiMcpInvocationBindingContext context,
         CancellationToken cancellationToken = default)
     {
-        var binding = bindings.Find(context.ServerId, context.RemoteName);
+        var binding = bindings.Find(context.ServerId, context.RemoteName)
+            ?? (await links.GetAsync(cancellationToken)).FindStoredBinding(context.ServerId, context.RemoteName);
         if (binding is null)
         {
             return TaskResult<NhAiMcpRequestMetadata>.Failed(

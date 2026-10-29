@@ -665,6 +665,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     NhAssistantMcpConnectionCache cache,
     INhAiMcpClientToolImporter importer,
     NhAssistantMcpContextBindings contextBindings,
+    NhAssistantMcpLinkCache links,
     NhAssistantMcpAuthModeCatalog modes,
     NhAssistantRegistrationState state,
     IOptionsMonitor<NhAssistantOptions> options,
@@ -1005,6 +1006,8 @@ internal sealed partial class NhAssistantMcpToolSource(
             .ToHashSet(StringComparer.Ordinal);
         var policies = new List<NhAiMcpImportedToolPolicy>();
         var remotes = new List<McpClientTool>();
+        var storedBinders = new List<NhAiMcpInvocationBinderRegistration>();
+        NhAssistantMcpLinkView? stored = null;
         var allowAgentGrant = AllowsHeadlessUse(server);
         foreach (var (tool, remote, localName) in candidates)
         {
@@ -1013,6 +1016,19 @@ internal sealed partial class NhAssistantMcpToolSource(
                 skippedTools[LocalId(server.Id, tool.RemoteName)] = NhAssistantAdminErrorCodes.McpToolNameConflict;
                 LogToolNameConflict(server.Id);
                 continue;
+            }
+
+            // Only a host-reviewed server, URL and tool receives the assistant context: reviewed in code,
+            // or in a binding the application stores (FB59), read when the turn imports the tool.
+            var bound = contextBindings.Find(server, tool.RemoteName) is not null;
+            if (!bound)
+            {
+                stored ??= await links.GetAsync(cancellationToken);
+                if (stored.FindStoredBinding(server, tool.RemoteName) is not null)
+                {
+                    bound = true;
+                    storedBinders.Add(NhAssistantMcpContextBinder.RegistrationOf(server.Id, tool.RemoteName));
+                }
             }
 
             var readOnly = tool.Effect == NhAssistantMcpToolEffects.ReadOnly;
@@ -1032,8 +1048,7 @@ internal sealed partial class NhAssistantMcpToolSource(
                 Approval = readOnly ? NhAiApprovalRequirement.PolicyControlled : NhAiApprovalRequirement.Required,
                 Idempotency = readOnly ? NhAiIdempotencySupport.None : NhAiIdempotencySupport.Required,
                 DataClassification = NhAiDataClassification.Internal,
-                // Only a host-reviewed server, URL and tool receives the assistant context.
-                InvocationBinderId = contextBindings.Find(server, tool.RemoteName) is null ? null : NhAssistantMcpContextBinder.BinderId,
+                InvocationBinderId = bound ? NhAssistantMcpContextBinder.BinderId : null,
                 // An organization credential that an administrator allowed in headless turns may serve
                 // an agent through a code grant; a person's credential never does.
                 AllowAgentGrant = allowAgentGrant
@@ -1044,7 +1059,10 @@ internal sealed partial class NhAssistantMcpToolSource(
         {
             return [];
         }
-        var catalog = importer.Import(remotes, new NhAiMcpImportOptions(server.Id, server.Id, policies));
+        var catalog = importer.Import(remotes, new NhAiMcpImportOptions(server.Id, server.Id, policies)
+        {
+            HostInvocationBinders = storedBinders
+        });
         return catalog.CreateFunctions(services);
     }
 

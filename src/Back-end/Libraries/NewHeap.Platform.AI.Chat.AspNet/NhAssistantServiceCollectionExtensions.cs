@@ -55,6 +55,8 @@ public static class NhAssistantServiceCollectionExtensions
             // The consultation chain across applications: the application's name and reviewed callers (FB28).
             services.TryAddSingleton<NhAssistantMcpChains>();
             services.TryAddScoped<NhAssistantMcpChainReader>();
+            // Chain callers and context bindings the application stores, next to those in code (FB59).
+            services.TryAddSingleton<NhAssistantMcpLinkCache>();
             services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
             services.TryAddSingleton<NhAssistantMcpConnectionCache>();
             services.TryAddSingleton<NhAssistantMcpSecretSource>();

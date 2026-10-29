@@ -570,6 +570,7 @@ internal sealed class NhAssistantConsultationToolHandler(
         }
 
         var requestPrincipal = await RequestPrincipalOfAsync(asker, cancellationToken);
+        var inherited = await InheritedChainAsync(cancellationToken);
         return await consultations.ConsultAsync(
             new NhAssistantConsultationRequest(
                 options,
@@ -581,20 +582,25 @@ internal sealed class NhAssistantConsultationToolHandler(
                 new NhAssistantConsultationViewer(services, registration, options, request.SubjectId.Trim(), asker, requestPrincipal),
                 AskerTenantOf(context))
             {
-                Inherited = InheritedChain()
+                Inherited = inherited
             },
             cancellationToken);
     }
 
     /// <summary>
     /// The consultation chain of another application that the MCP caller of a call outside a turn sent,
-    /// when this application reviewed that caller (FB28); <see langword="null"/> for every other call.
+    /// when this application reviewed that caller, in code or in its stored links (FB28, FB59);
+    /// <see langword="null"/> for every other call.
     /// </summary>
-    private NhAssistantInheritedChain? InheritedChain()
+    private async ValueTask<NhAssistantInheritedChain?> InheritedChainAsync(CancellationToken cancellationToken)
     {
-        return NhAssistantExecutionScope.CurrentTurn is null
-            ? services.GetService<NhAssistantMcpChainReader>()?.Read()
-            : null;
+        if (NhAssistantExecutionScope.CurrentTurn is not null
+            || services.GetService<NhAssistantMcpChainReader>() is not { } reader)
+        {
+            return null;
+        }
+
+        return await reader.ReadAsync(cancellationToken);
     }
 
     public async Task<TaskResult<NhAssistantAgentRequestReceipt>> RequestAsync(
@@ -634,7 +640,7 @@ internal sealed class NhAssistantConsultationToolHandler(
         }
         // A consulted agent is never offered a request (MayOffer), and a reviewed caller of another
         // application whose chain says it asks from a consultation is refused as one host would (FB28).
-        if (InheritedChain() is { ConsultationDepth: > 0 })
+        if (await InheritedChainAsync(cancellationToken) is { ConsultationDepth: > 0 })
         {
             return await RefuseRequestAsync(options, subject, asker, askingAgentId, NhAssistantErrorCodes.ConsultDepthExceeded);
         }

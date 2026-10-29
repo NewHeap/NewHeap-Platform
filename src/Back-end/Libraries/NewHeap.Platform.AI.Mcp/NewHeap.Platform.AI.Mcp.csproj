@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Common" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Tests" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
   </ItemGroup>

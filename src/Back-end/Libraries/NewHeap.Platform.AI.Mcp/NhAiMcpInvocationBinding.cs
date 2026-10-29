@@ -260,15 +260,34 @@ internal sealed class NhAiMcpInvocationBinderRegistry
         }
     }
 
-    public NhAiMcpInvocationBinderRegistration Resolve(string serverId, string remoteName, string binderId)
+    /// <summary>
+    /// The binder of a server and tool pair: its registration, or else one that the importing host
+    /// checked for exactly this pair and binder itself (<paramref name="checkedByHost"/>).
+    /// </summary>
+    public NhAiMcpInvocationBinderRegistration Resolve(
+        string serverId,
+        string remoteName,
+        string binderId,
+        IReadOnlyList<NhAiMcpInvocationBinderRegistration>? checkedByHost = null)
     {
-        if (!_registrations.TryGetValue((serverId, remoteName), out var registration)
-            || !string.Equals(registration.Binding.BinderId, binderId, StringComparison.Ordinal))
+        if (_registrations.TryGetValue((serverId, remoteName), out var registration)
+            && string.Equals(registration.Binding.BinderId, binderId, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                $"MCP tool '{remoteName}' of server '{serverId}' names invocation binder '{binderId}', which is not registered for this server and tool.");
+            return registration;
         }
-        return registration;
+
+        var hostChecked = checkedByHost?.FirstOrDefault(item =>
+            string.Equals(item.Binding.ServerId, serverId, StringComparison.Ordinal)
+            && string.Equals(item.Binding.RemoteName, remoteName, StringComparison.Ordinal)
+            && string.Equals(item.Binding.BinderId, binderId, StringComparison.Ordinal));
+        if (hostChecked is not null)
+        {
+            Validate(hostChecked.Binding);
+            return hostChecked;
+        }
+
+        throw new InvalidOperationException(
+            $"MCP tool '{remoteName}' of server '{serverId}' names invocation binder '{binderId}', which is not registered for this server and tool.");
     }
 
     public static void Validate(NhAiMcpInvocationBinding binding)

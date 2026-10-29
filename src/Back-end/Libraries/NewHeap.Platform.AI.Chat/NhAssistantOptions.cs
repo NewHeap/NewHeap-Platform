@@ -142,6 +142,19 @@ public sealed class NhAssistantMcpOptions
     /// </summary>
     public TimeSpan ToolListCacheDuration { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>The longest <see cref="LinkCacheDuration"/>.</summary>
+    internal static readonly TimeSpan MaxLinkCacheDuration = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// How long the assistant reuses the chain callers and context bindings that the application stores
+    /// (<c>INhAssistantMcpLinks</c> of <c>NewHeap.Platform.AI.Chat.AspNet</c>, registered with
+    /// <c>UseMcpLinks</c>): 30 seconds by default, from zero to 5 minutes
+    /// (<c>NewHeap:AI:Assistant:Mcp:LinkCacheDuration</c>). A link the application adds or revokes counts
+    /// once this time has passed on the application's clock; zero asks the application on every use.
+    /// Code registrations do not depend on it.
+    /// </summary>
+    public TimeSpan LinkCacheDuration { get; set; } = TimeSpan.FromSeconds(30);
+
     /// <summary>
     /// Maximum time to connect to a server, and maximum time to list its tools once connected.
     /// </summary>
@@ -256,6 +269,23 @@ public sealed class NhAssistantMcpOptions
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:MaxTools must be from 1 to 10,000.");
         }
+        if (LinkCacheDuration < TimeSpan.Zero || LinkCacheDuration > MaxLinkCacheDuration)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:LinkCacheDuration must be from zero to 5 minutes.");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="LinkCacheDuration"/> within its range, also after a change at runtime.
+    /// </summary>
+    internal TimeSpan BoundedLinkCacheDuration()
+    {
+        return LinkCacheDuration < TimeSpan.Zero
+            ? TimeSpan.Zero
+            : LinkCacheDuration > MaxLinkCacheDuration
+                ? MaxLinkCacheDuration
+                : LinkCacheDuration;
     }
 
     /// <summary>
