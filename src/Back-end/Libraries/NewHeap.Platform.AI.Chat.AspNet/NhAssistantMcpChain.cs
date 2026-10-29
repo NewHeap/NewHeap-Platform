@@ -155,12 +155,21 @@ internal sealed class NhAssistantMcpChains
     /// </summary>
     public NhAssistantMcpChainCaller? FindCaller(ClaimsPrincipal? principal)
     {
+        return FindCaller(_callers, principal);
+    }
+
+    /// <summary>
+    /// The first of <paramref name="callers"/> that the request's principal is, in their order, or
+    /// <see langword="null"/> when the principal is not authenticated or none matches it.
+    /// </summary>
+    public static NhAssistantMcpChainCaller? FindCaller(IEnumerable<NhAssistantMcpChainCaller> callers, ClaimsPrincipal? principal)
+    {
         if (principal?.Identity?.IsAuthenticated != true)
         {
             return null;
         }
 
-        return _callers.FirstOrDefault(caller =>
+        return callers.FirstOrDefault(caller =>
             HasSingleClaim(principal, caller.IssuerClaimType, caller.Issuer)
             && (caller.ClientId is null || HasSingleClaim(principal, caller.ClientClaimType!, caller.ClientId)));
     }
@@ -293,24 +302,32 @@ internal sealed class NhAssistantMcpChains
 
 /// <summary>
 /// Reads the chain that the MCP caller of the running call sent with the assistant context. Only a
-/// caller this application reviewed is believed; the chain of any other caller is dropped, never
-/// refused, so an ordinary MCP client keeps working. Nothing of the payload is logged.
+/// caller this application reviewed, in code or in its stored links (<see cref="INhAssistantMcpLinks"/>),
+/// is believed; the chain of any other caller is dropped, never refused, so an ordinary MCP client keeps
+/// working. Nothing of the payload is logged.
 /// </summary>
 internal sealed class NhAssistantMcpChainReader(
     NhAssistantMcpChains chains,
+    NhAssistantMcpLinkCache links,
     IHttpContextAccessor httpContextAccessor,
     ILogger<NhAssistantMcpChainReader> logger)
 {
-    public NhAssistantInheritedChain? Read()
+    public async ValueTask<NhAssistantInheritedChain?> ReadAsync(CancellationToken cancellationToken)
     {
-        if (!chains.ContinuesChains
+        if (chains.ApplicationId is null
             || NhAiMcpInboundCall.Meta?[NhAssistantMcpContext.MetaKey] is not JsonObject context
             || !context.ContainsKey(NhAssistantMcpChains.ChainKey))
         {
             return null;
         }
 
-        var caller = chains.FindCaller(httpContextAccessor.HttpContext?.User);
+        var view = await links.GetAsync(cancellationToken);
+        if (!view.ContinuesChains)
+        {
+            return null;
+        }
+
+        var caller = view.FindCaller(httpContextAccessor.HttpContext?.User);
         if (caller is null)
         {
             logger.LogDebug("The consultation chain of an MCP caller that is not reviewed was ignored.");

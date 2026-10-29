@@ -53,6 +53,16 @@ public sealed record NhAiMcpImportOptions(
 {
     public int MaxInputSchemaBytes { get; init; } = 65_536;
     public int MaxOutputSchemaBytes { get; init; } = 65_536;
+
+    /// <summary>
+    /// Invocation binders that the importing NewHeap host checked for a server and tool pair of this
+    /// import itself, at run time, next to the registrations of
+    /// <see cref="NhAiMcpInvocationBinderServiceCollectionExtensions.AddNewHeapPlatformAIMcpInvocationBinder{TBinder}"/>:
+    /// the assistant's context binder for an administrator-connected server whose binding the application
+    /// stores. A policy still opts in with <see cref="NhAiMcpImportedToolPolicy.InvocationBinderId"/>, and
+    /// a pair this list does not name still needs a registration.
+    /// </summary>
+    internal IReadOnlyList<NhAiMcpInvocationBinderRegistration> HostInvocationBinders { get; init; } = [];
 }
 
 /// <summary>
@@ -141,7 +151,7 @@ internal sealed partial class NhAiMcpClientToolImporter(
                     "output")
                 : "{}";
             var binder = policy.InvocationBinderId is { } binderId
-                ? binders.Resolve(options.ServerId, policy.RemoteName, binderId)
+                ? binders.Resolve(options.ServerId, policy.RemoteName, binderId, options.HostInvocationBinders)
                 : null;
             imported.Add(new NhAiImportedMcpTool(
                 options.ServerId,

@@ -259,6 +259,9 @@ public static class SampleAssistantComposition
             // SPM-366: the API's name in consultation chains across applications and the reviewed
             // partner whose chain a consultation over MCP continues.
             .AddSampleConsultationChain(configuration)
+            // FB59: partners and research tools the API reviewed and stores count next to those in
+            // code, and a link added or revoked while the API runs counts without a restart.
+            .AddSampleMcpLinks()
             .WithLimits(limits =>
             {
                 limits.MaxToolCallsPerTurn = 4;

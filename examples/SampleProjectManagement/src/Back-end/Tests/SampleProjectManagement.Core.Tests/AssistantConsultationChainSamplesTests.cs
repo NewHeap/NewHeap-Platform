@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
@@ -22,7 +23,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// Executable evidence for SPM-366: a reviewed partner application consults the intake reviewer over
 /// MCP and the API continues the partner's consultation chain, so a loop between the two applications
-/// is refused before the reviewer runs, while the same chain from any other MCP caller is ignored.
+/// is refused before the reviewer runs, while the same chain from any other MCP caller is ignored. A
+/// partner the API links in its stored links while it runs is continued in the same way once the cache
+/// time has passed, and ignored again once revoked (FB59).
 /// </summary>
 public sealed class AssistantConsultationChainSamplesTests(ConsultationChainSampleHost host)
     : IClassFixture<ConsultationChainSampleHost>
@@ -99,6 +102,58 @@ public sealed class AssistantConsultationChainSamplesTests(ConsultationChainSamp
         }
     }
 
+    [Fact]
+    public async Task SPM_366_a_partner_the_api_links_while_it_runs_has_its_chain_continued_and_a_revoked_one_is_ignored_again()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var project = await host.CreateProjectAsync("LINKED", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        var reviewer = new NhAiScriptedChatClient()
+            .RespondWithText("The owner is set.")
+            .RespondWithText("The review board has answered.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), reviewer)));
+        var configuration = host.Services.GetRequiredService<IConfiguration>();
+        var link = $"{SampleMcpLinks.Section}:{SampleMcpLinks.ChainCallersKey}:0:";
+        try
+        {
+            // The second partner's desk asks the reviewer back from a consultation of the reviewer.
+            await using var partner = await ConnectAsync(ConsultationChainSampleHost.LinkedPartnerIssuer, cancellationToken);
+            var consult = Assert.Single(await partner.ListToolsAsync(cancellationToken: cancellationToken), tool => tool.Name == ConsultTool);
+            var loop = Context(Chain(
+                1,
+                (ConsultationChainSampleHost.Application, SampleIntakeReviewerComposition.AgentId),
+                (ConsultationChainSampleHost.LinkedPartner, PartnerDesk)));
+
+            // Not linked yet: its chain is ignored and it consults as any MCP client does.
+            var ignored = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop }, cancellationToken: cancellationToken);
+            Assert.NotEqual(true, ignored.IsError);
+
+            // An operator links the partner while the API runs. Once the cache time has passed, the API
+            // continues its chain and refuses the loop before the reviewer runs.
+            configuration[link + "ApplicationId"] = ConsultationChainSampleHost.LinkedPartner;
+            configuration[link + "Issuer"] = ConsultationChainSampleHost.LinkedPartnerIssuer;
+            host.Clock.Advance(TimeSpan.FromSeconds(30));
+            var refused = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop }, cancellationToken: cancellationToken);
+            Assert.True(refused.IsError);
+            Assert.Equal(NhAssistantErrorCodes.ConsultDepthExceeded, refused.Meta![NhAiMcpResultMetadata.CodeKey]!.GetValue<string>());
+            Assert.Single(reviewer.Requests);
+
+            // Revoked: its chain is ignored again, without a restart.
+            configuration[link + SampleMcpLinks.RevokedKey] = "true";
+            host.Clock.Advance(TimeSpan.FromSeconds(30));
+            var answered = await consult.CallAsync(Question(project), options: new RequestOptions { Meta = loop }, cancellationToken: cancellationToken);
+            Assert.NotEqual(true, answered.IsError);
+            Assert.Equal(2, reviewer.Requests.Count);
+        }
+        finally
+        {
+            configuration[link + SampleMcpLinks.RevokedKey] = "true";
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
     /// <summary>
     /// An MCP client of the API for the project participant, whose token carries <paramref name="issuer"/>.
     /// </summary>
@@ -162,13 +217,16 @@ public sealed class AssistantConsultationChainSamplesTests(ConsultationChainSamp
 
 /// <summary>
 /// The agent-run sample host with the API's MCP endpoint, as Program.cs maps it, named in consultation
-/// chains and reviewing the partner application's issuer (SampleConsultationChain).
+/// chains and reviewing the partner application's issuer in code (SampleConsultationChain); a second
+/// partner is linked through the API's stored links (SampleMcpLinks) while the host runs.
 /// </summary>
 public sealed class ConsultationChainSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
 {
     public const string Application = "https://projects.sample.test";
     public const string Partner = "https://partner-desk.sample.test";
     public const string PartnerIssuer = "https://login.partner-desk.sample.test";
+    public const string LinkedPartner = "https://linked-desk.sample.test";
+    public const string LinkedPartnerIssuer = "https://login.linked-desk.sample.test";
 
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
     {

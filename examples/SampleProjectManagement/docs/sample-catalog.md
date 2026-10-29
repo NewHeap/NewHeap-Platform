@@ -231,7 +231,14 @@ refused with `assistant-consult-depth-exceeded` before the reviewer runs. The sa
 client of another issuer is ignored, not refused. Once the API has a name in chains, the research
 binding sends the chain of the calling turn too (`IncludeChain`). The chain is loop protection
 between cooperating applications, not authorization: the policy, the project role, the budgets, the
-daily consultation limit and the call's deadline still decide every call.
+daily consultation limit and the call's deadline still decide every call. Partners and research tools
+that an operator links while the API runs count without a restart (FB59): `SampleMcpLinks` registers
+the API's reviewed links (`UseMcpLinks`), which the sample keeps under `Sample:Assistant:McpLinks`
+where an application with a review screen keeps a table. A second partner linked there has its chain
+continued once the cache time has passed and ignored again once its link is revoked, and a research
+tool of an administrator-connected server linked there receives the assistant context until its link
+is revoked (SPM-266). NewHeap checks every stored link as it checks the same registration in code and
+leaves out one it would refuse.
 After rejecting a proposal, an approver may say what was wrong (SPM-279): a category such
 as `not-now` and a short text, never required and never asked before the decision. The
 next run of the reviewer on that project starts from the rejection and the approver's

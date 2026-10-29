@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.94",
   "backEnd": {
-    "hash": "c93ba250f41b0ff93d0c21ffa31890ed7e67b02a1ab44251ec68423d80a09a9c",
-    "declarationCount": 12095,
+    "hash": "d07d7845c723ba963fb3c9e3265a662c65ca50a9a726115d47f48fa11ce50f2b",
+    "declarationCount": 12131,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8139,6 +8139,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
+        "declaration": "public static NhAssistantMcpChainCaller? FindCaller(IEnumerable<NhAssistantMcpChainCaller> callers, ClaimsPrincipal? principal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
         "declaration": "public JsonObject ChainOf(NhAssistantTurnScope turn) {"
       },
       {
@@ -8147,7 +8151,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
-        "declaration": "public NhAssistantInheritedChain? Read() {"
+        "declaration": "public async ValueTask<NhAssistantInheritedChain?> ReadAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpConnectionEndpoints.cs",
@@ -8207,6 +8211,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAssistantBuilder UseMcpLinks<TLinks>(this NhAssistantBuilder builder) where TLinks : class, INhAssistantMcpLinks {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
         "declaration": "public static bool IsApplicationId(string? value) {"
       },
       {
@@ -8223,6 +8231,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAssistantMcpContextBinding? Find( IEnumerable<NhAssistantMcpContextBinding> bindings, AssistantMcpServer server, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAssistantMcpContextBinding? Find( IEnumerable<NhAssistantMcpContextBinding> bindings, string serverId, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
         "declaration": "public static string? Normalize(string? url) {"
       },
       {
@@ -8231,7 +8247,131 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAiMcpInvocationBinding InvocationBindingOf(string serverId, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+        "declaration": "public static NhAiMcpInvocationBinderRegistration RegistrationOf(string serverId, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiMcpRequestMetadata>> BindAsync( NhAiMcpInvocationBindingContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public interface INhAssistantMcpLinks {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public sealed record NhAssistantMcpLinkList( IReadOnlyList<NhAssistantMcpChainCaller> ChainCallers, IReadOnlyList<NhAssistantMcpContextBinding> ContextBindings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const int MaxEntries = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public static readonly TimeSpan ReadTimeLimit = TimeSpan.FromSeconds(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public static NhAssistantMcpLinkList Empty { get; } = new([], []);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public static class NhAssistantMcpLinkProblems {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string Missing = \"entry-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string TooMany = \"too-many-entries\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string ApplicationIdInvalid = \"application-id-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string IssuerInvalid = \"issuer-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string ClientInvalid = \"client-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string ChainApplicationMissing = \"chain-application-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string OwnApplicationName = \"own-application-name\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string CallerConflict = \"caller-conflict\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string ServerUrlInvalid = \"server-url-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string ToolInvalid = \"tool-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string SnapshotInvalid = \"snapshot-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string CodeBinding = \"code-binding\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public const string BindingConflict = \"binding-conflict\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public NhAssistantMcpLinkView( string? applicationId, IEnumerable<NhAssistantMcpChainCaller> callers, IEnumerable<NhAssistantMcpContextBinding> storedBindings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public string? ApplicationId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpChainCaller> Callers => _callers;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public IReadOnlyList<NhAssistantMcpContextBinding> StoredBindings => _storedBindings;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public bool ContinuesChains => ApplicationId is not null && _callers.Length > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public NhAssistantMcpChainCaller? FindCaller(ClaimsPrincipal? principal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public NhAssistantMcpContextBinding? FindStoredBinding(AssistantMcpServer server, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public NhAssistantMcpContextBinding? FindStoredBinding(string serverId, string remoteName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public NhAssistantMcpLinkCache( IServiceProvider services, IServiceScopeFactory scopes, NhAssistantMcpChains chains, NhAssistantMcpContextBindings codeBindings, IOptionsMonitor<NhAssistantOptions> options, ILogger<NhAssistantMcpLinkCache> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpLinks.cs",
+        "declaration": "public async ValueTask<NhAssistantMcpLinkView> GetAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpOAuthEndpoints.cs",
@@ -20831,6 +20971,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public TimeSpan LinkCacheDuration { get; set; } = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);"
       },
       {
@@ -30231,7 +30375,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpInvocationBinding.cs",
-        "declaration": "public NhAiMcpInvocationBinderRegistration Resolve(string serverId, string remoteName, string binderId) {"
+        "declaration": "public NhAiMcpInvocationBinderRegistration Resolve( string serverId, string remoteName, string binderId, IReadOnlyList<NhAiMcpInvocationBinderRegistration>? checkedByHost = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpInvocationBinding.cs",
@@ -52646,6 +52790,11 @@
       "MaxChainAgents",
       "MaxApplicationIdLength",
       "IsApplicationId",
+      "UseMcpLinks",
+      "INhAssistantMcpLinks",
+      "NhAssistantMcpLinkList",
+      "NhAssistantMcpLinkProblems",
+      "LinkCacheDuration",
       "INhAssistantCompositionSwitch",
       "NhAssistantCompositionSwitchContext",
       "NhAssistantCompositionChannel",

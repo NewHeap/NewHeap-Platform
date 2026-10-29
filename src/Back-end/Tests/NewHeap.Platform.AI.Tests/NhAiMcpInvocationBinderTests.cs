@@ -82,6 +82,37 @@ public sealed class NhAiMcpInvocationBinderTests
     }
 
     [Fact]
+    public void A_binder_the_importing_host_checked_applies_only_to_the_server_tool_and_binder_it_names()
+    {
+        var registry = new NhAiMcpInvocationBinderRegistry();
+        var hostChecked = new NhAiMcpInvocationBinderRegistration(
+            new NhAiMcpInvocationBinding("research", "research-ask", "research-context"),
+            typeof(ProbeBinder));
+
+        Assert.Same(hostChecked, registry.Resolve("research", "research-ask", "research-context", [hostChecked]));
+        // Another server, tool or binder, and an import that names no host-checked binder, need a registration.
+        foreach (var (serverId, remoteName, binderId, checkedByHost) in new[]
+                 {
+                     ("elsewhere", "research-ask", "research-context", new[] { hostChecked }),
+                     ("research", "research-publish", "research-context", new[] { hostChecked }),
+                     ("research", "research-ask", "other-context", new[] { hostChecked }),
+                     ("research", "research-ask", "research-context", Array.Empty<NhAiMcpInvocationBinderRegistration>())
+                 })
+        {
+            var refused = Assert.Throws<InvalidOperationException>(() => registry.Resolve(serverId, remoteName, binderId, checkedByHost));
+            Assert.Contains("not registered for this server and tool", refused.Message, StringComparison.Ordinal);
+        }
+
+        // A registration of the pair applies before a host-checked binder, and an invalid one is refused.
+        var registered = new NhAiMcpInvocationBinderRegistration(
+            new NhAiMcpInvocationBinding("research", "research-ask", "research-context"),
+            typeof(ProbeBinder));
+        Assert.Same(registered, new NhAiMcpInvocationBinderRegistry([registered]).Resolve("research", "research-ask", "research-context", [hostChecked]));
+        var invalid = hostChecked with { Binding = hostChecked.Binding with { Version = 0 } };
+        Assert.Throws<ArgumentException>(() => registry.Resolve("research", "research-ask", "research-context", [invalid]));
+    }
+
+    [Fact]
     public async Task Denied_authorization_runs_neither_the_binder_nor_the_remote_call()
     {
         await using var probe = await Probe.StartAsync(
