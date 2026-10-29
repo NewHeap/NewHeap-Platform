@@ -46,6 +46,67 @@ public sealed class AssistantChannelMessageMutateModel
     /// </summary>
     [MaxLength(5)]
     public List<AssistantChannelFileViewModel> Files { get; set; } = [];
+
+    /// <summary>
+    /// SPM-380: the portal page the person has open, when the provider's web widget on that page delivers
+    /// the message; <see langword="null"/> from the messaging app itself. The turn shows it to the
+    /// assistant as the person's screen.
+    /// </summary>
+    public AssistantChannelPageMutateModel? Page { get; set; }
+}
+
+/// <summary>
+/// SPM-380: the portal page a person has open while they write in the provider's web widget on it. The
+/// platform keeps a route of 200 characters, a title of 120 and at most five entities, cuts longer text
+/// off and refuses a page it would not keep whole with <c>assistant-message-invalid</c>; the limits here
+/// only bound the request.
+/// </summary>
+public sealed class AssistantChannelPageMutateModel
+{
+    /// <summary>
+    /// The page's route in the portal, such as <c>/projects/7</c>.
+    /// </summary>
+    [Required]
+    [MaxLength(2_000)]
+    public string Route { get; set; } = "";
+
+    /// <summary>
+    /// The page's title.
+    /// </summary>
+    [MaxLength(2_000)]
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// The records the page shows, such as the project it opens.
+    /// </summary>
+    [MaxLength(20)]
+    public List<AssistantChannelPageEntityMutateModel> Entities { get; set; } = [];
+}
+
+/// <summary>
+/// SPM-380: a record on the page a person has open: its dash-case type, its id and its label.
+/// </summary>
+public sealed class AssistantChannelPageEntityMutateModel
+{
+    /// <summary>
+    /// The record's type in dash-case, such as <c>project</c>.
+    /// </summary>
+    [Required]
+    [MaxLength(200)]
+    public string Type { get; set; } = "";
+
+    /// <summary>
+    /// The record's id, at most 64 characters.
+    /// </summary>
+    [Required]
+    [MaxLength(200)]
+    public string Id { get; set; } = "";
+
+    /// <summary>
+    /// The record's label as the page shows it.
+    /// </summary>
+    [MaxLength(2_000)]
+    public string? Label { get; set; }
 }
 
 /// <summary>
