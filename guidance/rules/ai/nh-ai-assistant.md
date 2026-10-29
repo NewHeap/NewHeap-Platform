@@ -521,6 +521,9 @@ Clients send the page they show as `clientContext` with `POST messages`: `route`
 characters), optional `title` (120) and at most five `entities` (`type` in dash-case, `id`
 of at most 64 characters, optional `label` of 120). The server validates again, cuts off
 long text and drops a value of the wrong shape without answering `400`. The context is
+stored as JSON that keeps text in any language as it is, so a page at every limit fits the 4,000
+characters the message keeps for it; one that still would not fit, such as `&` or emoji in nearly
+every field at its limit, is ignored like a value of the wrong shape. The context is
 stored with the user message and used again when the turn resumes after an approval. An
 application's channel passes the same page as `NhAssistantConversationMessage.ClientContext`
 (`NhAssistantClientContextDto`) instead of a turn context provider of its own; see the channels
@@ -838,7 +841,7 @@ if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval
   `assistant-message-invalid` a page the endpoint would not keep whole: a route without text, more
   than five entities, an entity that is `null`, whose type is not dash-case or whose id is empty,
   longer than 64 characters or holds a control character, and a page whose stored form exceeds the
-  4,000 characters the message keeps for it. Long text is cut off as the endpoint does. The page is
+  4,000 characters the message keeps for it, which the endpoint ignores. Long text is cut off as the endpoint does. The page is
   untrusted data for the model and grants nothing.
 - An application that serves its channel through its own API answers a failed result with the
   status the endpoints give its code: map the application's own codes first, then
@@ -1604,8 +1607,10 @@ without the agent's policy, the access policy, another person's principal), that
 again from the caller's position and stays the caller's, and that no log names the file (SPM-358).
 Assert on both providers that a channel's `ClientContext` reaches the model, also when its turn resumes
 after an approval, and is stored as the same `clientContext` through the endpoint; that a page the
-endpoint would not keep whole is refused with `assistant-message-invalid` before the turn; and that a
-message without one changes nothing (SPM-380). Assert that every code keeps its status in
+endpoint would not keep whole is refused with `assistant-message-invalid` before the turn; that a page
+at every limit in text outside ASCII is stored by the endpoint and the service within 4,000 characters
+and reads back unchanged, while one that still would not fit is ignored by the endpoint and refused
+by the service; and that a message without one changes nothing (SPM-380). Assert that every code keeps its status in
 `NhAssistantHttpStatuses.Of`, that the endpoints' error response uses it, and that an unknown code
 answers `400` (SPM-381).
 Assert that an archive and subject retention call `ForgetConversationAsync` once per conversation, a
