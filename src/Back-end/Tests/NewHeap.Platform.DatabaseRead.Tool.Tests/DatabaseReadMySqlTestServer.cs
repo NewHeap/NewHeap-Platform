@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using MySqlConnector;
 using Testcontainers.MariaDb;
@@ -149,9 +150,21 @@ internal sealed partial class DatabaseReadMySqlTestServer
     {
         if (_image == UnsupportedMySqlImage)
         {
+            // The initialization server accepts socket queries before the networked server starts.
+            // Wait for authenticated TCP, which the tool uses when it connects from the host.
             var unsupported = new MySqlBuilder(UnsupportedMySqlImage)
                 .WithUsername("root")
                 .WithPassword(RootCredential)
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted(
+                    [
+                        "mysql",
+                        "--protocol=TCP",
+                        "--host=127.0.0.1",
+                        "--user=root",
+                        $"--password={RootCredential}",
+                        "--execute=SELECT 1;"
+                    ],
+                    wait => wait.WithTimeout(TimeSpan.FromMinutes(1))))
                 .Build();
             _container = unsupported;
             await unsupported.StartAsync();

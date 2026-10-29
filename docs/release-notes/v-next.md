@@ -1,5 +1,13 @@
 # v-next
 
+## NewHeap.Platform.AI.Chat: concurrent subject membership refreshes
+
+Concurrent refreshes of one subject's member snapshot now hold the same database transaction lock
+through the deletion, insertion and thread timestamp update. They no longer interleave rows or fail
+with a duplicate member key. The lock is scoped to the storage schema, scope, subject type and id on
+SQL Server and PostgreSQL; a lock timeout leaves the previous snapshot unchanged. SPM-270 and SPM-379
+exercise the refresh path. No API or schema changes are required.
+
 ## NewHeap.Platform.AI.AgentFramework: a model service that keeps the conversation next to a history provider
 
 `NhAiAgentCreateRequest` takes three init-only switches that set Agent Framework's

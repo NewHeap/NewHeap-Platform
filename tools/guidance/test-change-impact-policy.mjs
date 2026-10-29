@@ -1,9 +1,25 @@
 import assert from 'node:assert/strict';
-import { validateReleaseVersionPolicy } from './change-impact-policy.mjs';
+import { validateLibraryChangeEvidence, validateReleaseVersionPolicy } from './change-impact-policy.mjs';
 
 const guidancePath = 'guidance/rules/backend-modules/nh-backend-controller-contracts.md';
 const guidanceVersionPath = 'guidance/version.json';
 const pluginVersionPath = 'plugins/newheap-platform/.codex-plugin/plugin.json';
+
+const behavioralFix = [
+  'src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs',
+  'examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs',
+  'guidance/rules/ai/nh-ai-agent-runs.md',
+  'examples/SampleProjectManagement/docs/cases/sample-case-registry.json'
+];
+assert.deepEqual(validateLibraryChangeEvidence(behavioralFix, 'origin/main'), []);
+for (const missing of behavioralFix.slice(2)) {
+  const failures = validateLibraryChangeEvidence(behavioralFix.filter(path => path !== missing), 'origin/main');
+  assert.equal(failures.length, 1);
+}
+assert.equal(validateLibraryChangeEvidence([behavioralFix[0]], 'origin/main').length, 3);
+assert.match(validateLibraryChangeEvidence(
+  behavioralFix.filter(path => !path.startsWith('examples/')), 'origin/main'
+).join('\n'), /executable SampleProjectManagement evidence/);
 
 assert.deepEqual(validateReleaseVersionPolicy({
   changed: [guidancePath],

@@ -398,7 +398,10 @@ background operations, for notifications and live updates, so keep them free of
 request-only state. Call `INhAiSubjectAccess.RefreshAsync` after the people on a
 subject change: it replaces the member snapshot and removes the participant rows that a role
 created for people it no longer lists and the resolver, asked again, gives no role on the agent's
-thread; invitations stay. Live updates and notifications ask the resolver when they are sent
+thread; invitations stay. Concurrent refreshes replace each snapshot under a database transaction
+lock for its storage schema, scope, subject type and id, on SQL Server and PostgreSQL. A refresh
+that cannot acquire that lock fails without changing the snapshot; never suppress that failure.
+Live updates and notifications ask the resolver when they are sent
 either way, so a stale row reaches nobody. A parent is a label for grouping: the platform never resolves it or grants access
 through it, its type needs no resolver (a registered type adds its name and link), and everyone who sees
 the subject's proposals reads its name, so give only a name the subject's readers may read. A subject is

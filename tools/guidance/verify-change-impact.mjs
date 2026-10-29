@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { repositoryRoot } from './lib.mjs';
-import { validateReleaseVersionPolicy } from './change-impact-policy.mjs';
+import { validateLibraryChangeEvidence, validateReleaseVersionPolicy } from './change-impact-policy.mjs';
 
 const baseIndex = process.argv.indexOf('--base');
 const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : undefined;
@@ -32,15 +32,7 @@ if (base) {
         changedLibraryPaths.every(path => item.pathPrefixes?.some(prefix => path.startsWith(prefix)))
       );
       if (!activeException) {
-        const requirements = [
-          ['executable SampleProjectManagement evidence', path => path.startsWith('examples/SampleProjectManagement/')],
-          ['an atomic guidance rule', path => path.startsWith('guidance/rules/')],
-          ['the canonical sample case registry', path => path === 'examples/SampleProjectManagement/docs/cases/sample-case-registry.json'],
-          ['the reviewed public API snapshot', path => path === 'guidance/public-api-snapshot.json']
-        ];
-        for (const [label, matches] of requirements) {
-          if (!changed.some(matches)) failures.push(`Library files changed relative to ${base}, but the diff contains no ${label}.`);
-        }
+        failures.push(...validateLibraryChangeEvidence(changed, base));
       }
     }
     const distributableGuidanceChanged = changed.some(path =>
