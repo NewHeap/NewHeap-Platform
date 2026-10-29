@@ -334,6 +334,28 @@ describe('NhAssistantComposerComponent unsent message', () => {
     expect(textarea().value).toBe('');
   });
 
+  it('empties the input after a message typed and sent between two renders', () => {
+    // Fast automated typing sends before the input rendered what was typed; the input still empties.
+    textarea().value = 'Typed and sent at once';
+    textarea().dispatchEvent(new Event('input'));
+    textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    fixture.detectChanges();
+
+    expect(events).toEqual(['unsent: Typed and sent at once', 'unsent: none', 'send: Typed and sent at once']);
+    expect(textarea().value).toBe('');
+  });
+
+  it('shows a replacing draft over text typed since the last render', () => {
+    fixture.componentRef.setInput('restore', { text: 'A brief', replace: false });
+    fixture.detectChanges();
+    textarea().value = 'A brief, longer';
+    textarea().dispatchEvent(new Event('input'));
+    fixture.componentRef.setInput('restore', { text: 'A brief', replace: true });
+    fixture.detectChanges();
+
+    expect(textarea().value).toBe('A brief');
+  });
+
   it('shows another conversation\'s message, or an empty input, when the host keeps another one', () => {
     fixture.componentRef.setInput('unsent', { text: 'About planning', prepared: false });
     fixture.detectChanges();

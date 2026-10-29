@@ -225,7 +225,7 @@ export class NhAssistantComposerComponent {
     }
 
     const text = this.text().trim();
-    this.text.set('');
+    this.show('');
     this.ownText = false;
     // The host forgets the unsent message before it learns of the message, which may be refused and come back.
     this.reportUnsent();
@@ -238,10 +238,10 @@ export class NhAssistantComposerComponent {
    */
   private takeRestore(draft: string | NhAssistantComposerDraft): void {
     if (typeof draft === 'string') {
-      this.text.set(draft);
+      this.show(draft);
       this.ownText = draft.trim().length > 0;
     } else if (draft.replace || !this.ownText) {
-      this.text.set(draft.text);
+      this.show(draft.text);
       this.ownText = false;
     }
     this.reportUnsent();
@@ -251,8 +251,21 @@ export class NhAssistantComposerComponent {
   /** Shows the message the host kept, such as the one of the conversation that opened. */
   private showUnsent(message: NhAssistantUnsentMessage | null): void {
     const text = message?.text ?? '';
-    this.text.set(text);
+    this.show(text);
     this.ownText = message !== null && !message.prepared && text.trim().length > 0;
+  }
+
+  /**
+   * Puts `text` in the input. The `[value]` binding writes the input only when `text` differs from what
+   * it rendered last, so text typed and sent between two renders, as fast automated typing does, would
+   * stay in the input after the empty text it rendered before.
+   */
+  private show(text: string): void {
+    this.text.set(text);
+    const input = this.textarea().nativeElement;
+    if (input.value !== text) {
+      input.value = text;
+    }
   }
 
   /** Tells the host what the input holds now, so it keeps the text beyond this composer. */
