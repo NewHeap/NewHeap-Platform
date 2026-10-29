@@ -113,7 +113,7 @@ internal sealed class NhAssistantChatSubjects(
         var checkedSubject = await CheckAsync(subject, actorId, tenantId, cancellationToken);
         return checkedSubject.Success
             ? TaskResult<NhAiSubjectInfo?>.Succeeded(checkedSubject.Data)
-            : TaskResult<NhAiSubjectInfo?>.Failed(checkedSubject);
+            : TaskResult<NhAiSubjectInfo?>.Failed((TaskResult)checkedSubject);
     }
 
     /// <summary>

@@ -209,7 +209,7 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
         subject.Roles["user-3"] = NhAiSubjectRole.Reader;
         using (var candidates = JsonDocument.Parse(await owner.GetStringAsync($"/api/assistant/conversations/{chat}/participant-candidates?query=Ca")))
         {
-            Assert.Equal(["user-3"], candidates.RootElement.EnumerateArray().Select(entry => entry.GetProperty("actorId").GetString()).ToArray());
+            Assert.Equal(["user-3"], candidates.RootElement.EnumerateArray().Select(entry => entry.GetProperty("actorId").GetString()!).ToArray());
         }
         using (var invited = await owner.PostAsync($"/api/assistant/conversations/{chat}/participants", Json(new { actorId = "user-3" })))
         {

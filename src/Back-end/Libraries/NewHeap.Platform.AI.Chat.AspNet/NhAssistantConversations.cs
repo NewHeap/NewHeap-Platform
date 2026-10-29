@@ -257,7 +257,7 @@ internal static class NhAssistantNewChats
             .CheckNewAsync(subject, agent, caller.ActorId, caller.TenantId, cancellationToken);
         return checkedSubject.Success
             ? TaskResult<NhAiSubjectInfo?>.Succeeded(checkedSubject.Data)
-            : TaskResult<NhAiSubjectInfo?>.Failed(checkedSubject);
+            : TaskResult<NhAiSubjectInfo?>.Failed((TaskResult)checkedSubject);
     }
 
     /// <summary>
