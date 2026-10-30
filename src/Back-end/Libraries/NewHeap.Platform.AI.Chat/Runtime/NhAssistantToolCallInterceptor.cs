@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Globalization;
 using System.Threading.Channels;
@@ -469,21 +470,29 @@ internal sealed class NhAssistantToolCallInterceptor(
             ?? throw new InvalidOperationException(
                 "The assistant only executes governed NewHeap AI functions.");
 
-        var outcome = await InvokeCallAsync(
-            new NhAssistantCallRequest(
-                descriptor,
-                context.Function,
-                context.CallContent.CallId,
-                context.Function.Name,
-                context.Arguments,
-                token => next(context, token)),
-            cancellationToken);
-        if (outcome.Terminate)
+        var startedAt = Stopwatch.GetTimestamp();
+        try
         {
-            context.Terminate = true;
-        }
+            var outcome = await InvokeCallAsync(
+                new NhAssistantCallRequest(
+                    descriptor,
+                    context.Function,
+                    context.CallContent.CallId,
+                    context.Function.Name,
+                    context.Arguments,
+                    token => next(context, token)),
+                cancellationToken);
+            if (outcome.Terminate)
+            {
+                context.Terminate = true;
+            }
 
-        return outcome.Result;
+            return outcome.Result;
+        }
+        finally
+        {
+            state.Scope.Clock.AddTool(Stopwatch.GetElapsedTime(startedAt));
+        }
     }
 
     /// <summary>

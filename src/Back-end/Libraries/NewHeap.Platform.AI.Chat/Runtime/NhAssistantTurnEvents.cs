@@ -65,7 +65,13 @@ internal sealed record NhAssistantTurnCompletedEvent(
     Guid TurnId,
     string Status,
     NhAssistantTurnUsage Usage,
-    string? ErrorCode) : NhAssistantTurnEvent;
+    string? ErrorCode) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// Where the time of the turn went. It stays on the server, in the log and a channel's result.
+    /// </summary>
+    public NhAssistantTurnTimings? Timings { get; init; }
+}
 
 internal sealed record NhAssistantErrorEvent(
     string Code) : NhAssistantTurnEvent

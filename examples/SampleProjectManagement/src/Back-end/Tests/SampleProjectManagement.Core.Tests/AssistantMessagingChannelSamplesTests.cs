@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
@@ -28,7 +30,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// change names the conversation and the channel of the turn that made it. SPM-349: a proposal guard
 /// reads the channel of the call that proposes and keeps the messaging app from proposing to archive a
 /// project before any card. SPM-380: the provider's web widget sends the page the person has open, which
-/// the turn shows as the person's screen.
+/// the turn shows as the person's screen. SPM-383: a turn reports the tools it uses and how long it took,
+/// and a turn the provider's webhook gave up on is waited for without polling.
 /// </summary>
 public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChannelSampleHost host)
     : IClassFixture<AssistantMessagingChannelSampleHost>
@@ -94,6 +97,69 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         var conversation = await host.GetJsonAsync(owner, $"/api/assistant/conversations/{conversationId}");
         Assert.Equal("idle", conversation.GetProperty("status").GetString());
         Assert.Contains("The project is active now.", conversation.GetProperty("messages").ToString());
+    }
+
+    [Fact]
+    public async Task SPM_383_a_channel_shows_the_tools_of_a_turn_and_waits_for_one_its_webhook_gave_up_on()
+    {
+        var model = new HeldChatClient(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap", limit = 5 } })
+            .RespondWithText("One roadmap project is visible in your division."));
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(owner);
+        var token = await LinkAsync(owner, conversationId);
+
+        // The provider's webhook gives up while the model is still thinking; the turn goes on.
+        using var gaveUp = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var delivery = messaging.PostAsync(
+            "/assistant-channel/messages",
+            AssistantSampleHost.Json(new { deliveryId = "delivery-wait", token, text = "Which roadmap projects exist?" }),
+            gaveUp.Token);
+        await model.WaitForCallAsync();
+        await gaveUp.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => delivery);
+
+        var running = await AnswerOfAsync(await WaitAsync(messaging, token, seconds: 0));
+        Assert.Equal(("running", null), (running.Status, running.Text));
+
+        // A later delivery waits for the same turn, without the channel reading the chat over and over.
+        var waiting = WaitAsync(messaging, token, seconds: SampleAssistantMessagingChannel.MaxWaitSeconds);
+        model.Release();
+        var answer = await AnswerOfAsync(await waiting);
+
+        Assert.Equal(("completed", "One roadmap project is visible in your division."), (answer.Status, answer.Text));
+
+        // The next turn runs while the channel holds it, so it reports its tools and its time.
+        host.Model.Use(new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "launch", limit = 5 } })
+            .RespondWithText("No launch project is visible."));
+        var followed = await AnswerOfAsync(await SendAsync(messaging, "delivery-followed", token, "And the launch?"));
+        Assert.Equal("completed", followed.Status);
+        Assert.Single(followed.Tools);
+        Assert.True(followed.Milliseconds > 0);
+
+        // A link of nobody and a wait outside its bound are refused.
+        using var forged = await WaitAsync(messaging, "not-a-token", seconds: 0);
+        Assert.Equal(HttpStatusCode.BadRequest, forged.StatusCode);
+        using var tooLong = await WaitAsync(messaging, token, seconds: SampleAssistantMessagingChannel.MaxWaitSeconds + 1);
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+    }
+
+    [Fact]
+    public async Task SPM_382_the_chat_profile_sets_how_hard_its_model_thinks()
+    {
+        var model = new NhAiScriptedChatClient().RespondWithText("Done.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var messaging = host.CreateAnonymousClient();
+        var conversationId = await host.CreateConversationAsync(owner);
+        var token = await LinkAsync(owner, conversationId);
+
+        await AnswerOfAsync(await SendAsync(messaging, "delivery-reasoning", token, "Say done."));
+
+        Assert.Equal(Microsoft.Extensions.AI.ReasoningEffort.Low, model.Requests.Single().Options!.Reasoning!.Effort);
     }
 
     [Fact]
@@ -417,6 +483,14 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
         }
     }
 
+    private static Task<HttpResponseMessage> WaitAsync(HttpClient client, string token, int seconds)
+    {
+        return client.PostAsync(
+            "/assistant-channel/waits",
+            AssistantSampleHost.Json(new { token, seconds }),
+            TestContext.Current.CancellationToken);
+    }
+
     private static async Task<AssistantChannelAnswerViewModel> AnswerOfAsync(HttpResponseMessage response)
     {
         using (response)
@@ -429,6 +503,62 @@ public sealed class AssistantMessagingChannelSamplesTests(AssistantMessagingChan
     private static async Task<AssistantChannelErrorViewModel> ErrorOfAsync(HttpResponseMessage response)
     {
         return (await response.Content.ReadFromJsonAsync<AssistantChannelErrorViewModel>(Json, TestContext.Current.CancellationToken))!;
+    }
+}
+
+/// <summary>
+/// SPM-383: holds the first model call until the test releases it, as a model that takes its time.
+/// </summary>
+internal sealed class HeldChatClient(IChatClient inner) : IChatClient
+{
+    private readonly SemaphoreSlim _called = new(0);
+    private readonly SemaphoreSlim _released = new(0);
+    private int _calls;
+
+    public Task WaitForCallAsync()
+    {
+        return _called.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+    }
+
+    public void Release()
+    {
+        _released.Release();
+    }
+
+    public Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        return inner.GetResponseAsync(messages, options, cancellationToken);
+    }
+
+    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (Interlocked.Increment(ref _calls) == 1)
+        {
+            _called.Release();
+            await _released.WaitAsync(cancellationToken);
+        }
+
+        await foreach (var update in inner.GetStreamingResponseAsync(messages, options, cancellationToken))
+        {
+            yield return update;
+        }
+    }
+
+    public object? GetService(Type serviceType, object? serviceKey = null)
+    {
+        return inner.GetService(serviceType, serviceKey);
+    }
+
+    public void Dispose()
+    {
+        _called.Dispose();
+        _released.Dispose();
     }
 }
 

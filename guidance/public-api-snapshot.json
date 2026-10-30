@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.95",
   "backEnd": {
-    "hash": "f519dc69549909a3abfeb4dfe755ac75786ed39051f3d8510debbc41f3e5bcbd",
-    "declarationCount": 12146,
+    "hash": "06c552f8af1546b04f77b67b59dc61690fc0af674c575668b549170130c42636",
+    "declarationCount": 12196,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -6443,11 +6443,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
-        "declaration": "public ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
-        "declaration": "public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(NhAssistantMcpChallenge challenge, CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(NhAssistantMcpChallenge challenge, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
@@ -7867,6 +7867,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public sealed record NhAssistantTurnWait(TimeSpan Timeout) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public static readonly TimeSpan MaxTimeout = TimeSpan.FromMinutes(15);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public string Language { get; init; } = \"en\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Guid? ActiveDivisionId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public IProgress<NhAssistantTurnProgress>? Progress { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
         "declaration": "public sealed record NhAssistantConversationMessage(string Text) {"
       },
       {
@@ -7911,11 +7931,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public IProgress<NhAssistantTurnProgress>? Progress { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
         "declaration": "public sealed record NhAssistantConversationTurnResult( Guid ConversationId, Guid TurnId, string Status, string? ErrorCode, NhAssistantMessageDto? Message, IReadOnlyList<NhAssistantApprovalPartDto> PendingApprovals, NhAssistantUsageDto Usage) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
         "declaration": "public NhAssistantQuestionPartDto? PendingQuestion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public NhAssistantTurnTimings? Timings { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
@@ -7928,6 +7956,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
         "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> AnswerAsync( NhAssistantDecidingPerson person, Guid conversationId, Guid questionId, NhAssistantConversationAnswer answer, NhAssistantConversationTurnOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "declaration": "public Task<TaskResult<NhAssistantConversationTurnResult>> WaitAsync( NhAssistantDecidingPerson person, Guid conversationId, NhAssistantTurnWait wait, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationUploads.cs",
@@ -8548,6 +8580,70 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantShareTokenProtector.cs",
         "declaration": "public string? Unprotect(string protectedToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public static class NhAssistantTurnProgressKinds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public const string Started = \"started\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public const string Text = \"text\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public const string ToolStarted = \"tool-started\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public const string ToolCompleted = \"tool-completed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public const string Ended = \"ended\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public sealed record NhAssistantTurnProgress(string Kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public Guid TurnId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public string? Text { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public NhAssistantTurnProgressTool? Tool { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public string? Status { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public string? ErrorCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public sealed record NhAssistantTurnProgressTool(Guid InvocationId, string ToolId, string DisplayName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public string? Status { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public string? ResultCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "declaration": "public void Report(NhAssistantTurnEvent evt, Guid turnId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantUploadEndpoints.cs",
@@ -18871,6 +18967,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Running = \"running\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantLeaseStatuses {"
       },
       {
@@ -21019,6 +21119,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public TimeSpan UnreachableRetryDelay { get; set; } = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public TimeSpan ReaderCallTimeout { get; set; } = TimeSpan.FromSeconds(60);"
       },
       {
@@ -21648,6 +21752,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolSteps.cs",
         "declaration": "public async Task<NhAssistantToolStepActivity> CompleteAsync( JsonElement result, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "declaration": "public sealed record NhAssistantTurnTimings( TimeSpan Total, TimeSpan Preparation, TimeSpan Model, int ModelCalls, TimeSpan Tools) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "declaration": "public TimeSpan McpTools { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "declaration": "public TimeSpan Retrieval { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "declaration": "public TimeSpan Files { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "declaration": "public TimeSpan? FirstText { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
@@ -25059,6 +25183,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public NhAssistantTurnClock Clock { get; init; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public required NhAssistantAgentDefinition Agent { get; set; }"
       },
       {
@@ -25950,6 +26078,46 @@
         "declaration": "public async ValueTask CompleteAsync(NhAssistantToolStepSession session, JsonElement result, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void ModelStarting() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void TextReceived() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void AddMcpTools(TimeSpan elapsed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void AddRetrieval(TimeSpan elapsed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void AddFiles(TimeSpan elapsed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void AddTool(TimeSpan elapsed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public void AddModelCall(TimeSpan elapsed) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public NhAssistantTurnTimings Snapshot() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "declaration": "public ValueTask WriteAsync(NhAiUsageRecord record, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public NhAssistantTurnTimings? Timings { get; init; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public string MessageKey => NhAssistantErrorCodes.MessageKey(Code);"
       },
@@ -26248,6 +26416,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
         "declaration": "public object? GetService(Type serviceType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "declaration": "public NhAssistantTurnWatch Watch(Guid conversationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "declaration": "public void Publish(Guid conversationId, NhAssistantTurnEvent evt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "declaration": "public Guid ConversationId { get; } = conversationId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "declaration": "public ChannelReader<NhAssistantTurnEvent> Events => _events.Reader;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantUploads.cs",
@@ -28095,6 +28283,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithReasoning(ReasoningEffort effort, ReasoningOutput? output = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
         "declaration": "public static bool IsSegment(string? value) {"
       },
       {
@@ -28196,6 +28388,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
         "declaration": "public IReadOnlySet<string> AcceptedMediaTypes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public ReasoningEffort? ReasoningEffort { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public ReasoningOutput? ReasoningOutput { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
@@ -52902,7 +53102,12 @@
       "ConversationSubject",
       "NhAssistantBriefingPurposes",
       "NhAssistantHttpStatuses",
-      "NhAssistantClientContextDto"
+      "NhAssistantClientContextDto",
+      "NhAssistantTurnWait",
+      "NhAssistantTurnProgress",
+      "NhAssistantTurnProgressKinds",
+      "NhAssistantTurnProgressTool",
+      "NhAssistantTurnTimings"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
@@ -53009,7 +53214,8 @@
       "NhAiServiceCollectionExtensions",
       "NhAiStreamingPolicy",
       "AcceptMediaTypes",
-      "AcceptsMediaType"
+      "AcceptsMediaType",
+      "NhAiModelProfileBuilder.WithReasoning"
     ],
     "nh-ai-observability-evaluation": [
       "INhAiChatExecutor",

@@ -6773,6 +6773,55 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantHttpErrors.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHttpStatusTests.cs"
       ]
+    },
+    {
+      "id": "SPM-382",
+      "categoryId": "18",
+      "title": "The chat profile sets how hard its model thinks",
+      "surface": "`NhAiModelProfileBuilder.WithReasoning(ReasoningEffort, ReasoningOutput?)`, `NhAiModelProfile.ReasoningEffort` and `ReasoningOutput`; `NhAiChatExecutor` applies them to `ChatOptions.Reasoning`",
+      "outcome": "`SampleAssistantComposition` sets `ReasoningEffort.Low` on the chat profiles of the deterministic model, and a real model gets the `ReasoningEffort` its settings name, since not every OpenAI-compatible model takes one. A turn through the messaging channel reaches the model with that effort, without a wrapper around the client. The library tests prove that a call and a stream carry the profile's reasoning, that a caller's own `ChatOptions.Reasoning` wins and the caller's options stay as they are, that a fallback profile answers with its own, that a profile without it leaves the call as it was, that two registrations of one name must agree on it, and that a value outside the enum is refused.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiModelProfileReasoningTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-383",
+      "categoryId": "18",
+      "title": "A channel follows a turn, waits for one its webhook gave up on, and sees where the time went",
+      "surface": "`INhAssistantConversationTurns.WaitAsync`, `NhAssistantTurnWait`, `NhAssistantConversationTurnOptions.Progress`, `NhAssistantTurnProgress`, `NhAssistantTurnProgressKinds`, `NhAssistantTurnProgressTool`, `NhAssistantTurnStatuses.Running`, `NhAssistantConversationTurnResult.Timings` and `NhAssistantTurnTimings`",
+      "outcome": "`SampleAssistantMessagingChannel` passes `Progress` to a turn and answers with the tools it used and how long it took. When the provider's webhook gives up, the turn goes on with `KeepTurnAfterCallerLeaves`, and `POST assistant-channel/waits` waits for the same turn through `WaitAsync`: status `running` when the bound passes first, and the answer once the turn ended, without reading the chat over and over. A forged link and a wait outside the bound are refused. The library tests prove that progress reports a turn's steps in order without its arguments or results, that a handler that throws stops nothing and is asked no further, that a wait follows a turn its caller gave up on, answers from the conversation for a chat without a running turn, shows the approval a turn ended at, sees the end of a turn on another host, ends when access ends, leaves the turn alone when the caller leaves and is refused as a turn is, and that the timings and the log line of a turn hold numbers only.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantTurnProgress.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantTurnTimings.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnClock.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnWaitTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-384",
+      "categoryId": "18",
+      "title": "An agent's MCP servers connect at the same time and an unreachable one costs one turn its timeout",
+      "surface": "`NhAssistantMcpOptions.UnreachableRetryDelay` (`NewHeap:AI:Assistant:Mcp:UnreachableRetryDelay`); the connection of an agent's MCP servers when a turn starts",
+      "outcome": "An agent's MCP servers connect at the same time, so a slow server holds up only itself, and their tools keep one order, so the list a model reads stays the same from turn to turn. A server that could not be reached is left out of turns for `UnreachableRetryDelay`, so one turn pays its timeout instead of every turn, and the agent answers with its other servers meanwhile. An administrator's test tries it at once and a change to the server lets the next turn try. A refused credential is never remembered, because it belongs to one person, and zero tries the server on every turn. Calls to the credential providers of one scope run one at a time, so a provider with a scoped `DbContext` needs no change. The behavior is library-owned and proven by its tests; the sample registers MCP servers as data and adds no surface of its own.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs"
+      ]
     }
   ]
 }

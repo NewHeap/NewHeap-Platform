@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Collaboration;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
@@ -35,6 +36,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// <para>
 /// Only chats are served; an agent's thread answers <c>assistant-conversation-not-found</c>, as an agent
 /// kept out of the chat reads as unknown. The audit records the channel on the turn's events.
+/// </para>
+/// <para>
+/// The interface grows with the endpoints, so implement or mock it only in the application's own tests.
 /// </para>
 /// </summary>
 public interface INhAssistantConversationTurns
@@ -122,6 +126,64 @@ public interface INhAssistantConversationTurns
         NhAssistantConversationAnswer answer,
         NhAssistantConversationTurnOptions options,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Waits for the turn of the person's chat, whoever started it and from wherever, and returns its
+    /// result once it ended or waits for an approval or a question, so a channel whose caller gave up on
+    /// <see cref="SendAsync"/>, such as a tool call with a time limit, can read the answer later without
+    /// polling. A chat without a running turn answers at once. The wait reads and changes nothing of the
+    /// turn: it neither cancels it nor keeps it alive.
+    /// <para>
+    /// When <see cref="NhAssistantTurnWait.Timeout"/> passes first, the result has status
+    /// <see cref="NhAssistantTurnStatuses.Running"/> and no message. A turn that ended while the wait ran
+    /// on this host gives the status, code, usage and timings of its end. A turn that ended earlier, or on
+    /// another host, is read from the conversation, which keeps no outcome per turn: its result has
+    /// status <c>completed</c>, <c>waiting-for-approval</c> or <c>failed</c>, a cancelled turn reads as
+    /// <c>completed</c>, a failed one has no code, and neither has timings.
+    /// </para>
+    /// <para>
+    /// Fails with the codes of <see cref="SendAsync"/> for the person and the conversation, also when the
+    /// person loses access to the chat during the wait. When the caller's
+    /// <paramref name="cancellationToken"/> fires, the call throws
+    /// <see cref="OperationCanceledException"/>; the turn goes on.
+    /// </para>
+    /// </summary>
+    /// <param name="wait">How long to wait, the language of the result and the progress to report.</param>
+    Task<TaskResult<NhAssistantConversationTurnResult>> WaitAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantTurnWait wait,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// How <see cref="INhAssistantConversationTurns.WaitAsync"/> waits.
+/// </summary>
+/// <param name="Timeout">How long to wait at most, from zero, which only reads the turn's state, to
+/// <see cref="MaxTimeout"/>.</param>
+public sealed record NhAssistantTurnWait(TimeSpan Timeout)
+{
+    /// <summary>
+    /// The longest <see cref="Timeout"/>: the longest a model call may take.
+    /// </summary>
+    public static readonly TimeSpan MaxTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// The language of the result: <c>nl</c> for Dutch and <c>en</c> otherwise, as
+    /// <see cref="NhAssistantConversationTurnOptions.Language"/>.
+    /// </summary>
+    public string Language { get; init; } = "en";
+
+    /// <summary>
+    /// The person's active division, as <see cref="NhAssistantConversationTurnOptions.ActiveDivisionId"/>.
+    /// </summary>
+    public Guid? ActiveDivisionId { get; init; }
+
+    /// <summary>
+    /// Receives what the turn does from here on, while it runs on this host; a turn on another host
+    /// reports nothing here, and the wait still sees its end. <see langword="null"/> without one.
+    /// </summary>
+    public IProgress<NhAssistantTurnProgress>? Progress { get; init; }
 }
 
 /// <summary>
@@ -213,6 +275,13 @@ public sealed record NhAssistantConversationTurnOptions(string Channel)
     /// <see cref="NhAssistantOptions.KeepTurnsAfterDisconnect"/>.
     /// </summary>
     public bool? KeepTurnAfterCallerLeaves { get; init; }
+
+    /// <summary>
+    /// Receives what the turn does while it runs, so a channel can show activity instead of silence:
+    /// the caller's own thread does not wait for it, and a handler that throws is logged and asked no
+    /// further, so it never stops the turn. <see langword="null"/> without one.
+    /// </summary>
+    public IProgress<NhAssistantTurnProgress>? Progress { get; init; }
 }
 
 /// <summary>
@@ -245,6 +314,12 @@ public sealed record NhAssistantConversationTurnResult(
     /// status is then <c>waiting-for-approval</c>. <see langword="null"/> when it waits for none.
     /// </summary>
     public NhAssistantQuestionPartDto? PendingQuestion { get; init; }
+
+    /// <summary>
+    /// Where the time of the turn went; <see langword="null"/> for a turn that ended before its model or
+    /// that <see cref="INhAssistantConversationTurns.WaitAsync"/> read from the conversation.
+    /// </summary>
+    public NhAssistantTurnTimings? Timings { get; init; }
 }
 
 /// <summary>
@@ -439,7 +514,7 @@ internal sealed class NhAssistantConversationTurns(
         Func<PreparedTurn, CancellationToken, Task<TaskResult<NhAssistantTurnHandle>>> start,
         CancellationToken cancellationToken)
     {
-        var prepared = await PrepareAsync(services, person, conversationId, turnOptions, cancellationToken);
+        var prepared = await PrepareAsync(services, person, conversationId, turnOptions.ActiveDivisionId, cancellationToken);
         if (!prepared.Success)
         {
             return TaskResult<NhAssistantConversationTurnResult>.Failed(prepared);
@@ -457,7 +532,7 @@ internal sealed class NhAssistantConversationTurns(
         try
         {
             return TaskResult<NhAssistantConversationTurnResult>.Succeeded(
-                await CollectAsync(services, personInvocation.Context, conversationId, started.Data));
+                await CollectAsync(services, personInvocation.Context, conversationId, started.Data, turnOptions.Progress));
         }
         catch (Exception exception) when (cancellationToken.IsCancellationRequested && exception is not OperationCanceledException)
         {
@@ -478,10 +553,10 @@ internal sealed class NhAssistantConversationTurns(
         IServiceProvider services,
         NhAssistantDecidingPerson person,
         Guid conversationId,
-        NhAssistantConversationTurnOptions turnOptions,
+        Guid? activeDivisionId,
         CancellationToken cancellationToken)
     {
-        var resolved = await NhAssistantPersonCalls.ResolveAsync(services, person, turnOptions.ActiveDivisionId, cancellationToken);
+        var resolved = await NhAssistantPersonCalls.ResolveAsync(services, person, activeDivisionId, cancellationToken);
         if (!resolved.Success)
         {
             return TaskResult<(NhAiPersonInvocation, NhAssistantConversationAccess)>.Failed(resolved);
@@ -516,17 +591,20 @@ internal sealed class NhAssistantConversationTurns(
     /// Reads the turn's events until it ends, as the stream of the endpoint would carry them, and returns
     /// what the conversation stored.
     /// </summary>
-    private static async Task<NhAssistantConversationTurnResult> CollectAsync(
+    private async Task<NhAssistantConversationTurnResult> CollectAsync(
         IServiceProvider services,
         NhAiInvocationContext caller,
         Guid conversationId,
-        NhAssistantTurnHandle handle)
+        NhAssistantTurnHandle handle,
+        IProgress<NhAssistantTurnProgress>? progress)
     {
+        var reporter = new NhAssistantTurnProgressReporter(progress, logger);
         var turnId = Guid.Empty;
         Guid? messageId = null;
         var status = NhAssistantTurnStatuses.Failed;
         string? errorCode = null;
         var usage = new NhAssistantTurnUsage(0, 0, 0);
+        NhAssistantTurnTimings? timings = null;
         await foreach (var evt in handle.Events.ReadAllAsync(CancellationToken.None))
         {
             switch (evt)
@@ -539,16 +617,34 @@ internal sealed class NhAssistantConversationTurns(
                     status = completed.Status;
                     errorCode = completed.ErrorCode;
                     usage = completed.Usage;
+                    timings = completed.Timings;
                     break;
                 case NhAssistantErrorEvent failed:
                     status = NhAssistantTurnStatuses.Failed;
                     errorCode = failed.Code;
                     break;
             }
+            reporter.Report(evt, turnId);
         }
         await handle.Completion;
 
-        // The conversation as it stands after the turn, as the person reads it.
+        return await ReadResultAsync(services, caller, conversationId, turnId, messageId, status, errorCode, usage, timings);
+    }
+
+    /// <summary>
+    /// The result of a turn with the conversation as it stands after it, as the person reads it.
+    /// </summary>
+    private static async Task<NhAssistantConversationTurnResult> ReadResultAsync(
+        IServiceProvider services,
+        NhAiInvocationContext caller,
+        Guid conversationId,
+        Guid turnId,
+        Guid? messageId,
+        string status,
+        string? errorCode,
+        NhAssistantTurnUsage usage,
+        NhAssistantTurnTimings? timings)
+    {
         var access = await services.GetRequiredService<INhAssistantStore>()
             .FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, CancellationToken.None);
         NhAssistantMessageDto? message = null;
@@ -572,8 +668,197 @@ internal sealed class NhAssistantConversationTurns(
             pending,
             new NhAssistantUsageDto(usage.InputTokens, usage.OutputTokens, usage.ToolCalls))
         {
-            PendingQuestion = question
+            PendingQuestion = question,
+            Timings = timings
         };
+    }
+
+    public Task<TaskResult<NhAssistantConversationTurnResult>> WaitAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantTurnWait wait,
+        CancellationToken cancellationToken = default)
+    {
+        NhAssistantPersonCalls.ValidatePerson(person);
+        ArgumentNullException.ThrowIfNull(wait);
+        if (wait.Timeout < TimeSpan.Zero || wait.Timeout > NhAssistantTurnWait.MaxTimeout)
+        {
+            throw new ArgumentOutOfRangeException(nameof(wait), wait.Timeout, "A wait lasts from zero to 15 minutes.");
+        }
+
+        return RunWaitAsync(person, conversationId, wait, cancellationToken);
+    }
+
+    private async Task<TaskResult<NhAssistantConversationTurnResult>> RunWaitAsync(
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantTurnWait wait,
+        CancellationToken cancellationToken)
+    {
+        if (!options.CurrentValue.Enabled)
+        {
+            return TaskResult<NhAssistantConversationTurnResult>.Failed(
+                NhAssistantErrorCodes.Disabled,
+                "The assistant is disabled.");
+        }
+
+        return await NhAssistantPersonCalls.RunWithoutCallerAsync(
+            scopeFactory,
+            wait.Language,
+            (services, _) => WaitInScopeAsync(services, person, conversationId, wait, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Follows the chat until its turn stopped running. The turn's events bring its end at once on this
+    /// host; the conversation is read as well, at an interval, for a turn on another host and for access
+    /// that ended. The watch starts before the first read, so a turn that ends in between is not missed.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantConversationTurnResult>> WaitInScopeAsync(
+        IServiceProvider services,
+        NhAssistantDecidingPerson person,
+        Guid conversationId,
+        NhAssistantTurnWait wait,
+        CancellationToken cancellationToken)
+    {
+        var prepared = await PrepareAsync(services, person, conversationId, wait.ActiveDivisionId, cancellationToken);
+        if (!prepared.Success)
+        {
+            return TaskResult<NhAssistantConversationTurnResult>.Failed(prepared);
+        }
+
+        var caller = prepared.Data.Person.Context;
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var timing = services.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default;
+        var reporter = new NhAssistantTurnProgressReporter(wait.Progress, logger);
+        using var watch = services.GetRequiredService<NhAssistantTurnWatchers>().Watch(conversationId);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(wait.Timeout);
+        while (true)
+        {
+            var access = await store.FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, cancellationToken);
+            if (access is null)
+            {
+                return TaskResult<NhAssistantConversationTurnResult>.Failed(
+                    NhAssistantErrorCodes.ConversationNotFound,
+                    "The assistant conversation was not found.");
+            }
+
+            var conversation = access.Conversation;
+            if (conversation.Status != NhAssistantConversationStatuses.Running)
+            {
+                return TaskResult<NhAssistantConversationTurnResult>.Succeeded(
+                    await ReadEndedTurnAsync(services, caller, conversation));
+            }
+
+            var turnId = conversation.ActiveTurnId ?? Guid.Empty;
+            if (deadline.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return TaskResult<NhAssistantConversationTurnResult>.Succeeded(
+                    new NhAssistantConversationTurnResult(
+                        conversationId,
+                        turnId,
+                        NhAssistantTurnStatuses.Running,
+                        null,
+                        null,
+                        [],
+                        new NhAssistantUsageDto(0, 0, 0)));
+            }
+
+            var end = await FollowAsync(watch, turnId, reporter, timing.TurnWaitCheckInterval, deadline.Token);
+            if (end is not null)
+            {
+                return TaskResult<NhAssistantConversationTurnResult>.Succeeded(
+                    await ReadResultAsync(
+                        services,
+                        caller,
+                        conversationId,
+                        end.TurnId == Guid.Empty ? turnId : end.TurnId,
+                        await FindAnswerAsync(store, conversationId, turnId),
+                        end.Status,
+                        end.ErrorCode,
+                        end.Usage,
+                        end.Timings));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reports the turn's events for one interval. Returns how the turn ended, or
+    /// <see langword="null"/> when the interval or the wait passed first.
+    /// </summary>
+    private static async Task<NhAssistantTurnCompletedEvent?> FollowAsync(
+        NhAssistantTurnWatch watch,
+        Guid turnId,
+        NhAssistantTurnProgressReporter reporter,
+        TimeSpan interval,
+        CancellationToken cancellationToken)
+    {
+        using var nextRead = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        nextRead.CancelAfter(interval);
+        try
+        {
+            while (await watch.Events.WaitToReadAsync(nextRead.Token))
+            {
+                while (watch.Events.TryRead(out var evt))
+                {
+                    reporter.Report(evt, turnId);
+                    switch (evt)
+                    {
+                        case NhAssistantTurnCompletedEvent completed:
+                            return completed;
+                        case NhAssistantErrorEvent failed:
+                            return new NhAssistantTurnCompletedEvent(turnId, NhAssistantTurnStatuses.Failed, new NhAssistantTurnUsage(0, 0, 0), failed.Code);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (nextRead.IsCancellationRequested)
+        {
+            // Time to read the conversation again; the caller's own cancellation surfaces there.
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The result of a turn that no longer runs, as the conversation shows it: it keeps no outcome per
+    /// turn, so the status comes from the conversation and the usage from the turn's message.
+    /// </summary>
+    private static async Task<NhAssistantConversationTurnResult> ReadEndedTurnAsync(
+        IServiceProvider services,
+        NhAiInvocationContext caller,
+        AssistantConversation conversation)
+    {
+        var messages = await services.GetRequiredService<INhAssistantStore>()
+            .GetMessagesAsync(conversation.Id, NhAssistantConversationReader.MaxMessages, CancellationToken.None);
+        var answer = messages.LastOrDefault(message => message.Role == NhAssistantMessageRoles.Assistant);
+        var status = conversation.Status switch
+        {
+            NhAssistantConversationStatuses.WaitingForApproval => NhAssistantTurnStatuses.WaitingForApproval,
+            NhAssistantConversationStatuses.Failed => NhAssistantTurnStatuses.Failed,
+            _ => NhAssistantTurnStatuses.Completed
+        };
+        return await ReadResultAsync(
+            services,
+            caller,
+            conversation.Id,
+            answer?.TurnId ?? Guid.Empty,
+            answer?.Id,
+            status,
+            null,
+            new NhAssistantTurnUsage(answer?.InputTokens ?? 0, answer?.OutputTokens ?? 0, answer?.ToolCalls ?? 0),
+            null);
+    }
+
+    /// <summary>
+    /// The assistant's message of a turn the wait followed from its middle, so it never saw its start.
+    /// </summary>
+    private static async Task<Guid?> FindAnswerAsync(INhAssistantStore store, Guid conversationId, Guid turnId)
+    {
+        var messages = await store.GetMessagesAsync(conversationId, NhAssistantConversationReader.MaxMessages, CancellationToken.None);
+        return messages.LastOrDefault(message => message.Role == NhAssistantMessageRoles.Assistant && message.TurnId == turnId)?.Id;
     }
 
     /// <summary>

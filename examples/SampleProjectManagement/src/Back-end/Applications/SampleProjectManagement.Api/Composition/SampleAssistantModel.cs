@@ -44,7 +44,8 @@ public sealed class SampleAssistantModel
         int maxInputTokens,
         int maxOutputTokens,
         TimeSpan timeout,
-        IReadOnlyList<string> mediaTypes)
+        IReadOnlyList<string> mediaTypes,
+        ReasoningEffort? reasoningEffort)
     {
         Model = model;
         _apiKey = apiKey;
@@ -54,6 +55,7 @@ public sealed class SampleAssistantModel
         MaxOutputTokens = maxOutputTokens;
         Timeout = timeout;
         MediaTypes = mediaTypes;
+        ReasoningEffort = reasoningEffort;
     }
 
     /// <summary>The model or deployment name the endpoint serves.</summary>
@@ -81,6 +83,12 @@ public sealed class SampleAssistantModel
     /// Word and Excel documents reach it as text through the sample's reading tool either way.
     /// </summary>
     public IReadOnlyList<string> MediaTypes { get; }
+
+    /// <summary>
+    /// SPM-382: how hard the real model thinks before it answers, such as <c>Low</c>; the model's own
+    /// default unless <c>ReasoningEffort</c> names it, because not every OpenAI-compatible model takes it.
+    /// </summary>
+    public ReasoningEffort? ReasoningEffort { get; }
 
     /// <summary>
     /// Reads and validates the real model. Returns <see langword="null"/> when no provider is
@@ -120,6 +128,7 @@ public sealed class SampleAssistantModel
         var maxOutputTokens = ReadNumber(configuration, "MaxOutputTokens", 2_000, 1, 100_000);
         var timeoutSeconds = ReadNumber(configuration, "TimeoutSeconds", 60, 1, 900);
         var mediaTypes = ReadMediaTypes(configuration);
+        var reasoningEffort = ReadReasoningEffort(configuration);
 
         return new SampleAssistantModel(
             model,
@@ -129,7 +138,21 @@ public sealed class SampleAssistantModel
             maxInputTokens,
             maxOutputTokens,
             TimeSpan.FromSeconds(timeoutSeconds),
-            mediaTypes);
+            mediaTypes,
+            reasoningEffort);
+    }
+
+    private static ReasoningEffort? ReadReasoningEffort(IConfiguration configuration)
+    {
+        var value = Read(configuration, "ReasoningEffort");
+        if (value is null)
+        {
+            return null;
+        }
+
+        return Enum.TryParse<ReasoningEffort>(value, ignoreCase: true, out var effort) && Enum.IsDefined(effort)
+            ? effort
+            : throw Invalid($"{SectionName}:ReasoningEffort must be None, Low, Medium, High or ExtraHigh.");
     }
 
     /// <summary>

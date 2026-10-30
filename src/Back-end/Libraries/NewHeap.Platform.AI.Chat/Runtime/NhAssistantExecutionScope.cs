@@ -17,6 +17,11 @@ internal sealed class NhAssistantTurnScope
     public required Guid TurnId { get; init; }
 
     /// <summary>
+    /// Where the time of this turn goes.
+    /// </summary>
+    public NhAssistantTurnClock Clock { get; init; } = new();
+
+    /// <summary>
     /// The agent as it works in this turn: with the instructions, tools and profile of the skill it
     /// works in, if any.
     /// </summary>

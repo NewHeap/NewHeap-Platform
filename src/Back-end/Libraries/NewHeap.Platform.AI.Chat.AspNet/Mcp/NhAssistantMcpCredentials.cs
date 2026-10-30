@@ -114,14 +114,20 @@ public interface INhAssistantMcpCredentialProvider
 /// connection's first request that belongs to no tool call, so planning mints no credential that is
 /// never sent.
 /// </summary>
+/// <param name="providerGate">
+/// Serializes the calls to the providers of one scope: a turn connects to its servers at the same time,
+/// and an application's provider may use a scoped <c>DbContext</c>.
+/// </param>
 internal sealed class NhAssistantMcpCredentialSource(
     INhAssistantMcpCredentialProvider provider,
     AssistantMcpServer server,
-    NhAssistantMcpCredentialSubject subject)
+    NhAssistantMcpCredentialSubject subject,
+    SemaphoreSlim? providerGate = null)
 {
     /// <summary>A primed credential is not used when it expires sooner than this.</summary>
     internal static readonly TimeSpan PrimedValidity = TimeSpan.FromSeconds(30);
 
+    private readonly SemaphoreSlim _providerGate = providerGate ?? new SemaphoreSlim(1, 1);
     private NhAssistantMcpCredential? _primed;
 
     public string ServerId => server.Id;
@@ -136,7 +142,7 @@ internal sealed class NhAssistantMcpCredentialSource(
         Volatile.Write(ref _primed, credential);
     }
 
-    public ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(CancellationToken cancellationToken)
+    public async ValueTask<TaskResult<NhAssistantMcpCredential>> GetAsync(CancellationToken cancellationToken)
     {
         // A tool call always gets its own credential, which a delegated token binds to the invocation.
         if (NhAiMcpCallContext.Current is not { } call || !string.Equals(call.ServerId, server.Id, StringComparison.Ordinal))
@@ -144,15 +150,32 @@ internal sealed class NhAssistantMcpCredentialSource(
             var primed = Interlocked.Exchange(ref _primed, null);
             if (primed is not null && (primed.ExpiresAt is null || primed.ExpiresAt > DateTimeOffset.UtcNow + PrimedValidity))
             {
-                return ValueTask.FromResult(TaskResult<NhAssistantMcpCredential>.Succeeded(primed));
+                return TaskResult<NhAssistantMcpCredential>.Succeeded(primed);
             }
         }
-        return provider.GetAsync(server, subject, cancellationToken);
+
+        await _providerGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await provider.GetAsync(server, subject, cancellationToken);
+        }
+        finally
+        {
+            _providerGate.Release();
+        }
     }
 
-    public ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(NhAssistantMcpChallenge challenge, CancellationToken cancellationToken)
+    public async ValueTask<TaskResult<NhAssistantMcpCredential>> RenewAsync(NhAssistantMcpChallenge challenge, CancellationToken cancellationToken)
     {
-        return provider.RenewAsync(server, subject, challenge, cancellationToken);
+        await _providerGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await provider.RenewAsync(server, subject, challenge, cancellationToken);
+        }
+        finally
+        {
+            _providerGate.Release();
+        }
     }
 
     public TaskResult AuthorizeCall(NhAiMcpCallContext call)

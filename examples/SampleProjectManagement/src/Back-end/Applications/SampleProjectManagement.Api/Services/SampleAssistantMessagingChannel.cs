@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -53,6 +54,11 @@ namespace SampleProjectManagement.Api.Services;
 /// person's screen, validated and stored as the portal's own messages are. SPM-381: every refusal answers
 /// the HTTP status the portal's endpoints give its code (<see cref="StatusOf"/>), through the platform's
 /// <see cref="NhAssistantHttpStatuses"/> instead of a table of the channel's own.
+/// </para>
+/// <para>
+/// SPM-383: a turn reports the tools it uses (<see cref="NhAssistantConversationTurnOptions.Progress"/>)
+/// and how long it took (<see cref="NhAssistantConversationTurnResult.Timings"/>), and when the provider's
+/// webhook gave up, <see cref="WaitAsync"/> waits for the same turn instead of polling the chat.
 /// </para>
 /// </summary>
 public sealed class SampleAssistantMessagingChannel(
@@ -111,6 +117,11 @@ public sealed class SampleAssistantMessagingChannel(
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// SPM-383: the longest a delivery of <see cref="WaitAsync"/> waits; a webhook does not stay open longer.
+    /// </summary>
+    public const int MaxWaitSeconds = 60;
+
     private readonly ITimeLimitedDataProtector _tokens = dataProtection.CreateProtector(Purpose).ToTimeLimitedDataProtector();
 
     /// <summary>
@@ -160,6 +171,7 @@ public sealed class SampleAssistantMessagingChannel(
         }
 
         var (link, _, person) = linked.Data;
+        var activity = new SampleAssistantChannelActivity();
         var sent = await turns.SendAsync(
             person,
             link.ConversationId,
@@ -171,11 +183,49 @@ public sealed class SampleAssistantMessagingChannel(
                 // SPM-380: the page the person has open around the provider's web widget, if any.
                 ClientContext = message.Page
             },
-            OptionsOf(link),
+            OptionsOf(link) with { Progress = activity },
             cancellationToken);
         return sent.Success
-            ? TaskResult<SampleAssistantChannelAnswer>.Succeeded(AnswerOf(sent.Data!))
+            ? TaskResult<SampleAssistantChannelAnswer>.Succeeded(AnswerOf(sent.Data!) with { Tools = activity.Tools })
             : TaskResult<SampleAssistantChannelAnswer>.Failed(sent);
+    }
+
+    /// <summary>
+    /// SPM-383: waits for the linked chat's turn, which the provider's webhook may have given up on, at
+    /// most <paramref name="seconds"/>: the answer of a turn that ended, or status <c>running</c>. Nothing
+    /// polls: the platform's <see cref="INhAssistantConversationTurns.WaitAsync"/> follows the turn itself,
+    /// with the checks of a turn, and leaves it alone when the delivery leaves.
+    /// </summary>
+    public async Task<TaskResult<SampleAssistantChannelAnswer>> WaitAsync(
+        string token,
+        int seconds,
+        CancellationToken cancellationToken)
+    {
+        if (seconds is < 0 or > MaxWaitSeconds)
+        {
+            return TaskResult<SampleAssistantChannelAnswer>.Failed(DeliveryInvalidCode, "A wait lasts from zero to a minute.");
+        }
+
+        var linked = await LinkedPersonAsync(token, cancellationToken);
+        if (!linked.Success)
+        {
+            return TaskResult<SampleAssistantChannelAnswer>.Failed(linked);
+        }
+
+        var (link, _, person) = linked.Data;
+        var activity = new SampleAssistantChannelActivity();
+        var waited = await turns.WaitAsync(
+            person,
+            link.ConversationId,
+            new NhAssistantTurnWait(TimeSpan.FromSeconds(seconds))
+            {
+                ActiveDivisionId = link.DivisionId,
+                Progress = activity
+            },
+            cancellationToken);
+        return waited.Success
+            ? TaskResult<SampleAssistantChannelAnswer>.Succeeded(AnswerOf(waited.Data!) with { Tools = activity.Tools })
+            : TaskResult<SampleAssistantChannelAnswer>.Failed(waited);
     }
 
     /// <summary>
@@ -462,7 +512,8 @@ public sealed class SampleAssistantMessagingChannel(
             TextOf(result.Message),
             approval is null ? null : new SampleAssistantChannelApproval(approval.ApprovalId, approval.ProposalHash, approval.Summary))
         {
-            Question = QuestionOf(result.PendingQuestion)
+            Question = QuestionOf(result.PendingQuestion),
+            Milliseconds = result.Timings is { } timings ? (long)timings.Total.TotalMilliseconds : null
         };
     }
 
@@ -720,6 +771,39 @@ public sealed record SampleAssistantChannelAnswer(
     SampleAssistantChannelApproval? Approval)
 {
     public SampleAssistantChannelQuestion? Question { get; init; }
+
+    /// <summary>
+    /// SPM-383: the names of the tools the turn used while the channel followed it, in order.
+    /// </summary>
+    public IReadOnlyList<string> Tools { get; init; } = [];
+
+    /// <summary>
+    /// SPM-383: how long the turn took, when the channel saw its end.
+    /// </summary>
+    public long? Milliseconds { get; init; }
+}
+
+/// <summary>
+/// SPM-383: what a turn does, as a channel keeps it. A channel with a live connection, such as an MCP tool
+/// with a progress token, passes each step on at once, so its client shows activity instead of silence.
+/// </summary>
+public sealed class SampleAssistantChannelActivity : IProgress<NhAssistantTurnProgress>
+{
+    private readonly ConcurrentQueue<string> _tools = new();
+
+    /// <summary>
+    /// The names of the tools the turn started, in order.
+    /// </summary>
+    public IReadOnlyList<string> Tools => _tools.ToArray();
+
+    public void Report(NhAssistantTurnProgress value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value is { Kind: NhAssistantTurnProgressKinds.ToolStarted, Tool: { } tool })
+        {
+            _tools.Enqueue(tool.DisplayName);
+        }
+    }
 }
 
 /// <summary>

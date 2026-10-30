@@ -313,6 +313,13 @@ public static class SampleAssistantComposition
         string[] mediaTypes,
         string[] regions)
     {
+        // SPM-382: a chat answers sooner with less reasoning. The deterministic model takes any setting;
+        // a real model gets one only when its settings name it, since not every model accepts it.
+        if ((model is null ? ReasoningEffort.Low : model.ReasoningEffort) is { } effort)
+        {
+            profile.WithReasoning(effort);
+        }
+
         return profile
             .UseKeyedClient(ModelKey)
             .RequireCapabilities(NhAiModelCapability.FunctionCalling)

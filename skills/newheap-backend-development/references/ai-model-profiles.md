@@ -29,6 +29,14 @@ model call takes the classification of the most sensitive file it carries and co
 estimated tokens against the profile budget, so a fallback that serves confidential files must
 declare the types it reads as well.
 
+Set how hard the model thinks with `WithReasoning(ReasoningEffort.Low)` instead of wrapping the
+client. `NhAiChatExecutor` applies it to every governed call of that profile, with the profile that
+answers the call, so a fallback keeps its own setting, and a caller's own `ChatOptions.Reasoning` wins.
+Lower effort answers sooner and costs less, which suits a chat or a routing step: a reasoning model at
+its default effort is usually the largest controllable part of a short answer's wait. Declare only
+what the model behind the keyed client accepts, and set the optional `ReasoningOutput` only when the
+application uses the reasoning a model returns.
+
 Use `RequireProfile` for profiles and capabilities the host must have at
 startup. Resolve a client through `INhAiModelProfileResolver` with an explicit
 purpose, required capabilities, classification, and execution region. Treat the
@@ -75,6 +83,7 @@ opt-in and require their own credentials, data policy, and budget controls.
 - Logging request or response content in a profile decision, audit record, or usage record.
 - Making a live-provider call part of deterministic unit or sample tests.
 - Treating `NhAiInMemoryBudgetManager` as durable or cluster-wide enforcement.
+- Wrapping a keyed client to set `ChatOptions.Reasoning`; use `WithReasoning` on its profile.
 
 ## Verification
 
@@ -85,8 +94,10 @@ and registrations are validated on build.
 Resolve the named profile for allowed and denied classifications, capabilities,
 and regions. Prove repeated identical registration is idempotent and conflicting
 registration is rejected. For the in-memory budget, prove per-actor isolation,
-the exact exhaustion boundary and fail-closed behavior without an actor.
-SPM-220 and `NewHeap.Platform.AI.Tests` provide the
+the exact exhaustion boundary and fail-closed behavior without an actor. For reasoning, assert that
+a call and a stream of the profile carry it, that a caller's own reasoning wins and its options stay as
+they are, that a fallback answers with its own, and that a profile without it leaves the call alone.
+SPM-220, SPM-382 and `NewHeap.Platform.AI.Tests` provide the
 executable deterministic references.
 
 ## Optional source evidence

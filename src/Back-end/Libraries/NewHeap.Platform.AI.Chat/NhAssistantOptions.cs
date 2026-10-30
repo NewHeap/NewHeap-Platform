@@ -160,6 +160,19 @@ public sealed class NhAssistantMcpOptions
     /// </summary>
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>The longest <see cref="UnreachableRetryDelay"/>.</summary>
+    internal static readonly TimeSpan MaxUnreachableRetryDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// How long a server that could not be reached is left out of turns before one tries it again: 30
+    /// seconds by default, from zero to 5 minutes (<c>NewHeap:AI:Assistant:Mcp:UnreachableRetryDelay</c>).
+    /// One turn then pays <see cref="ConnectTimeout"/> instead of every turn, and its agent answers without
+    /// that server's tools in the meantime. A refused credential is never remembered, because it belongs
+    /// to one person, and a change to the server or an administrator's test tries it at once. Zero tries
+    /// the server on every turn.
+    /// </summary>
+    public TimeSpan UnreachableRetryDelay { get; set; } = TimeSpan.FromSeconds(30);
+
     /// <summary>
     /// The shortest <see cref="ReaderCallTimeout"/>.
     /// </summary>
@@ -268,6 +281,11 @@ public sealed class NhAssistantMcpOptions
         {
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:MaxTools must be from 1 to 10,000.");
+        }
+        if (UnreachableRetryDelay < TimeSpan.Zero || UnreachableRetryDelay > MaxUnreachableRetryDelay)
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:UnreachableRetryDelay must be from zero to 5 minutes.");
         }
         if (LinkCacheDuration < TimeSpan.Zero || LinkCacheDuration > MaxLinkCacheDuration)
         {

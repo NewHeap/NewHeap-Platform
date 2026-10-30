@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Buffers;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -233,12 +234,14 @@ internal sealed class NhAssistantTurnFiles(
             return references.Select(reference => Refused(reference, origin, toolId, batchCode)).ToArray();
         }
 
+        var startedAt = Stopwatch.GetTimestamp();
         var outcomes = new List<NhAssistantFileOutcome>(references.Count);
         foreach (var reference in references)
         {
             outcomes.Add(await OpenOneAsync(state, reference, origin, toolId, limits!, state.Files, cancellationToken, authorActorId));
         }
 
+        state.Scope.Clock.AddFiles(Stopwatch.GetElapsedTime(startedAt));
         return outcomes;
     }
 

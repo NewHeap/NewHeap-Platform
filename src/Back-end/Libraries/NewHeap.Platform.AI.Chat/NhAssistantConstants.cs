@@ -649,6 +649,12 @@ public static class NhAssistantTurnStatuses
     public const string WaitingForApproval = "waiting-for-approval";
     public const string Cancelled = "cancelled";
     public const string Failed = "failed";
+
+    /// <summary>
+    /// The turn still runs: only the result of <c>INhAssistantConversationTurns.WaitAsync</c> says so,
+    /// when its bound passed first. It is never a <c>turn.completed</c> status.
+    /// </summary>
+    public const string Running = "running";
 }
 
 /// <summary>

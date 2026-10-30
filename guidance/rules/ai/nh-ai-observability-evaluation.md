@@ -4,7 +4,7 @@ title: "Keep AI telemetry content-free and gate changes with evaluations"
 area: backend
 reference: ai-observability-evaluation
 summary: "Execute model calls through bounded profile and budget policy, separate usage from audit, and compare versioned Microsoft AI Evaluation datasets before changing production defaults."
-sample-cases: ["SPM-232", "SPM-233", "SPM-335"]
+sample-cases: ["SPM-232", "SPM-233", "SPM-335", "SPM-383"]
 public-symbols: ["INhAiChatExecutor", "NhAiChatRequest", "NhAiChatResult", "NhAiChatStream", "NhAiChatStreamCompletion", "NhAiModelFailureCodes", "NhAiModelFinishReasons", "NhAiOutcomeKind", "NhAiStrictStructuredOutput", "NhAiStrictSchemaViolation", "INhAiUsageSink", "NhAiUsageRecord", "NhAiEvaluationDataset", "NhAiEvaluationRunner", "NhAiEvaluationReport"]
 skills: ["newheap-backend-development", "newheap-testing"]
 providers: ["provider-neutral"]
@@ -20,6 +20,11 @@ enumeration preserves cancellation and always records cleanup and time to first
 token. After enumeration, await `NhAiChatStream.Completion`: successful end and
 provider dependency failure are explicit `TaskResult` outcomes, while caller
 cancellation remains cancellation.
+
+A slow assistant turn explains itself: its log line and `NhAssistantConversationTurnResult.Timings`
+(`NhAssistantTurnTimings`) give the total, preparation with its MCP, retrieval and file parts, model time
+and calls, tool time and the time to the first text, as numbers without content (SPM-383). The model
+part adds up the same `NhAiUsageRecord` durations a usage sink receives.
 
 A governed deadline is an expected outcome, not an exception. When the profile's timeout or the
 invocation context's `Deadline` passes before the model answers, after any retry the profile

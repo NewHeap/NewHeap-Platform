@@ -171,7 +171,7 @@ internal sealed class NhAiChatExecutor(
             {
                 var response = await state.Client.GetResponseAsync(
                     state.Messages,
-                    request.Options,
+                    state.Options,
                     timeout.Token);
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
                 await RecordCompletionAsync(
@@ -306,7 +306,7 @@ internal sealed class NhAiChatExecutor(
         using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
         var enumerator = state.Client.GetStreamingResponseAsync(
             state.Messages,
-            request.Options,
+            state.Options,
             timeout.Token).GetAsyncEnumerator(timeout.Token);
         var received = false;
         var attempt = 0;
@@ -382,7 +382,7 @@ internal sealed class NhAiChatExecutor(
                     attempt++;
                     enumerator = state.Client.GetStreamingResponseAsync(
                         state.Messages,
-                        request.Options,
+                        state.Options,
                         timeout.Token).GetAsyncEnumerator(timeout.Token);
                     continue;
                 }
@@ -551,7 +551,29 @@ internal sealed class NhAiChatExecutor(
             profile,
             resolution.Data.Client,
             resolution.Data.DecisionTrace,
-            messages));
+            messages,
+            WithReasoning(request.Options, profile)));
+    }
+
+    /// <summary>
+    /// The options of a call with the reasoning of the profile that answers it, so a fallback profile
+    /// keeps its own. The caller's own reasoning wins, and the caller's options stay as they are.
+    /// </summary>
+    private static ChatOptions? WithReasoning(ChatOptions? options, NhAiModelProfile profile)
+    {
+        if (options?.Reasoning is not null
+            || (profile.ReasoningEffort is null && profile.ReasoningOutput is null))
+        {
+            return options;
+        }
+
+        var applied = options?.Clone() ?? new ChatOptions();
+        applied.Reasoning = new ReasoningOptions
+        {
+            Effort = profile.ReasoningEffort,
+            Output = profile.ReasoningOutput
+        };
+        return applied;
     }
 
     private async ValueTask RecordCompletionAsync(
@@ -755,5 +777,6 @@ internal sealed class NhAiChatExecutor(
         NhAiModelProfile Profile,
         IChatClient Client,
         IReadOnlyList<string> DecisionTrace,
-        IReadOnlyList<ChatMessage> Messages);
+        IReadOnlyList<ChatMessage> Messages,
+        ChatOptions? Options);
 }

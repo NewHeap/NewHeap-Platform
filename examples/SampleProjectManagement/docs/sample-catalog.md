@@ -617,6 +617,14 @@ turn. Every refusal of the channel answers the status the portal's endpoints giv
 through the platform's `NhAssistantHttpStatuses.Of`, so the channel keeps no table of its own.
 `AssistantMessagingChannelSamplesTests` and `AssistantChannelStatusSamplesTests` run the cases.
 
+The chat profile sets how hard its model thinks (SPM-382): the deterministic model runs at
+`ReasoningEffort.Low`, and a real model gets the `ReasoningEffort` its settings name. A turn through the
+channel reports the tools it uses and how long it took, and when the provider's webhook gives up,
+`POST assistant-channel/waits` waits for the same turn instead of reading the chat over and over (SPM-383):
+`running` when the bound passes first, and the answer once the turn ended. An agent's MCP servers connect at the
+same time and an unreachable one costs one turn its timeout (SPM-384), which the library's
+`AssistantMcpConnectionSpeedTests` prove.
+
 People who chat with the planner reach its skills too (SPM-333). With `SkillsInChat` a chat turn starts
 without a skill, and the model loads the task follow-up skill with `use_skill` when the person asks
 which task comes next: no triage call, the skill's instructions and only the status tool it selects,

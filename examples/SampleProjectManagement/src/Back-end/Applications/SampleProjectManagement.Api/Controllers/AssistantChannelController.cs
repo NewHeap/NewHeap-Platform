@@ -214,6 +214,20 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
         return read.Success ? Ok(ToViewModel(read.Data!)) : Refusal(read);
     }
 
+    [HttpPost("waits")]
+    [AllowAnonymous]
+    [EndpointSummary("Wait for the linked chat's turn from the messaging app")]
+    [EndpointDescription("SPM-383: when the provider's webhook gave up on a turn, the provider delivers this with the chat's link token and waits at most the given seconds for the same turn: the answer of a turn that ended, or status running. Nothing polls, and leaving does not stop the turn.")]
+    [ProducesResponseType<AssistantChannelAnswerViewModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AssistantChannelErrorViewModel>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Wait([FromBody] AssistantChannelWaitMutateModel model, CancellationToken cancellationToken)
+    {
+        var waited = await channel.WaitAsync(model.Token, model.Seconds, cancellationToken);
+        return waited.Success ? Ok(ToViewModel(waited.Data!)) : Refusal(waited);
+    }
+
     [HttpPost("answers")]
     [AllowAnonymous]
     [EndpointSummary("Answer a question card from the messaging app")]
@@ -252,7 +266,11 @@ public sealed class AssistantChannelController(SampleAssistantMessagingChannel c
             answer.Code,
             answer.Text,
             ToViewModel(answer.Approval),
-            ToViewModel(answer.Question));
+            ToViewModel(answer.Question))
+        {
+            Tools = answer.Tools,
+            Milliseconds = answer.Milliseconds
+        };
     }
 
     private static AssistantChannelChatStateViewModel ToViewModel(SampleAssistantChannelState chat)

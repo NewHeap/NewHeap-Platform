@@ -1,3 +1,5 @@
+using Microsoft.Extensions.AI;
+
 namespace NewHeap.Platform.AI;
 
 public sealed class NhAiModelProfileBuilder
@@ -16,6 +18,8 @@ public sealed class NhAiModelProfileBuilder
     private string? _evaluationBaselineId;
     private readonly HashSet<string> _routingTags = new(StringComparer.Ordinal);
     private readonly HashSet<string> _mediaTypes = new(StringComparer.Ordinal);
+    private ReasoningEffort? _reasoningEffort;
+    private ReasoningOutput? _reasoningOutput;
 
     internal NhAiModelProfileBuilder(string name)
     {
@@ -166,6 +170,31 @@ public sealed class NhAiModelProfileBuilder
         return this;
     }
 
+    /// <summary>
+    /// Sets how hard the model thinks before it answers, on every governed call of this profile.
+    /// Lower effort answers sooner and costs less, which suits a chat or a routing step; a profile of a
+    /// fallback chain keeps its own setting. A caller's own <see cref="ChatOptions.Reasoning"/> wins.
+    /// Declare only what the model behind the keyed client accepts: a model that does not reason may
+    /// refuse the setting or ignore it, depending on its provider.
+    /// </summary>
+    /// <param name="effort">The effort, such as <see cref="ReasoningEffort.Low"/>.</param>
+    /// <param name="output">How much of its reasoning the model returns, or <see langword="null"/>
+    /// for the model's own default.</param>
+    public NhAiModelProfileBuilder WithReasoning(ReasoningEffort effort, ReasoningOutput? output = null)
+    {
+        if (!Enum.IsDefined(effort))
+        {
+            throw new ArgumentOutOfRangeException(nameof(effort));
+        }
+        if (output is { } value && !Enum.IsDefined(value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(output));
+        }
+        _reasoningEffort = effort;
+        _reasoningOutput = output;
+        return this;
+    }
+
     internal NhAiModelProfile Build()
     {
         if (_keyedClientKey is null)
@@ -186,7 +215,9 @@ public sealed class NhAiModelProfileBuilder
             _fallbackProfiles.ToArray(),
             _evaluationBaselineId,
             _routingTags.ToHashSet(StringComparer.Ordinal),
-            _mediaTypes.ToHashSet(StringComparer.Ordinal));
+            _mediaTypes.ToHashSet(StringComparer.Ordinal),
+            _reasoningEffort,
+            _reasoningOutput);
     }
 }
 

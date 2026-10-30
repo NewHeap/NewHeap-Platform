@@ -188,7 +188,10 @@ assistant does not know answers `NhAssistantHttpStatuses.UnknownCodeStatus` (`40
   approval is pending invalidates that approval.
 - **MCP servers.** Configure `ConfigureMcp`: `RequireHttps` (plain http only to
   loopback in Development or with `AllowLoopback`), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
-  `ToolListCacheDuration`, `ConnectTimeout`, which bounds connecting to a server and, once connected,
+  `ToolListCacheDuration`, `UnreachableRetryDelay`, which leaves a server that could not be reached out
+  of turns for 30 seconds so one turn pays its timeout instead of every turn (zero tries it on every
+  turn, and a refused credential, a change to the server and an administrator's test never count),
+  `ConnectTimeout`, which bounds connecting to a server and, once connected,
   listing its tools (a server that does not answer is unreachable for the turn, test or sync, with
   `assistant-mcp-unreachable`), and `ReaderCallTimeout` for readers (below). What a server can make
   the host hold is bounded before the assistant's own limits apply: `MaxResponseBytes` (16 MiB, 64 KiB
@@ -817,6 +820,48 @@ if (sent.Success && sent.Data!.PendingApprovals.FirstOrDefault() is { } approval
         cancellationToken);
 }
 ```
+
+When the channel can show activity, pass `NhAssistantConversationTurnOptions.Progress`, an
+`IProgress<NhAssistantTurnProgress>`, so its client sees the turn work instead of silence, which feels
+faster even when nothing is. Each step has a `Kind` from `NhAssistantTurnProgressKinds`: `started`,
+`text` with the new text, `tool-started` and `tool-completed` with `NhAssistantTurnProgressTool`, and
+`ended` with the status and code. A step carries a tool's id, name and outcome, never its arguments or
+result. A handler that throws is logged once and asked no further, so it never stops the turn. Text
+arrives per fragment of the model's stream, so a channel such as MCP does better with one progress
+notification per tool and a few for the text.
+
+A channel whose caller has a time limit, such as an MCP tool, lets the turn outlive it with
+`KeepTurnAfterCallerLeaves` and reads the answer later with `WaitAsync` instead of polling
+`INhAssistantConversations.GetAsync`:
+
+```csharp
+var waited = await turns.WaitAsync(
+    person,
+    conversationId,
+    new NhAssistantTurnWait(TimeSpan.FromSeconds(40)) { Language = language, Progress = progress },
+    cancellationToken);
+if (waited.Success && waited.Data!.Status == NhAssistantTurnStatuses.Running)
+{
+    // The bound passed first: tell the client to ask again. The turn goes on.
+}
+```
+
+- `WaitAsync` returns the result of `SendAsync` once the chat's turn ended or waits for a person,
+  whoever started it, or status `running` without a message when `Timeout` passes first. A chat without
+  a running turn answers at once, so `TimeSpan.Zero` only reads the state. The wait neither cancels the
+  turn nor keeps it alive, and the caller's cancellation throws `OperationCanceledException` and leaves
+  the turn alone.
+- It applies the checks of a turn, and reads the conversation at an interval while it waits, so access
+  that ends also ends the wait with `assistant-conversation-not-found`, and a turn on another host is
+  seen too. Only a turn on this host reports progress and the status, code, usage and timings of its end.
+  A turn that ended earlier or elsewhere is read from the conversation, which keeps no outcome per turn:
+  status `completed`, `waiting-for-approval` or `failed`, so a cancelled turn reads as `completed` and a
+  failed one has no code.
+- `NhAssistantConversationTurnResult.Timings` (`NhAssistantTurnTimings`) says where the time of a turn
+  went, and the turn's log line says the same: total, preparation with its MCP, retrieval and file parts,
+  model time and calls, tool time and the time to the first text. Read it before changing anything for
+  speed: a turn's own work takes milliseconds, and its wait is nearly always the model, its reasoning
+  effort (`WithReasoning`), or a tool or MCP server.
 
 - A turn is the endpoint's turn, through the same runner and with the same rules: the person's
   conversation (the owner, or a participant of the same tenant), the assistant's access policy and
@@ -1555,6 +1600,10 @@ calls in a consultation store nothing and are not listed.
 - Reading the turn's person from `IHttpContextAccessor` in a tool, policy or turn context provider; a
   channel's turn and a turn that outlived its request have no request of the person. Inject
   `INhAiTurnPerson`.
+- Polling `INhAssistantConversations.GetAsync` for the end of a turn; use
+  `INhAssistantConversationTurns.WaitAsync`.
+- Assuming a server's tools wait for the slowest server: an agent's MCP servers connect at the same
+  time and their tools keep one order, so the list the model reads stays the same from turn to turn.
 - Calling the endpoints to create, list, read, stop or answer a person's chat, list their agents or
   upload a file from a channel; use `INhAssistantConversations` and
   `INhAssistantConversationTurns.AnswerAsync`. Implementing or mocking `INhAssistantConversations`
@@ -1667,6 +1716,13 @@ stores, in every supported culture with that culture current, and assert that
 With `KeepTurnsAfterDisconnect`, disconnect a client while the model waits and assert that the turn
 completes and is stored, that its tool call after the disconnect authorizes the captured principal,
 that the turn is cancelled without the option and that `POST cancel` still stops it. Through
+`INhAssistantConversationTurns`, assert that progress reports a turn's steps in order without its
+arguments or results, that a handler that throws stops nothing, that `WaitAsync` follows a turn its
+caller gave up on, sees the end of a turn on another host, ends when access ends and is refused as a turn
+is, and that the timings and the log line hold numbers only (SPM-383). For an agent with two MCP servers,
+assert that they connect at the same time with their tools in one order, that an unreachable server is
+tried by one turn until a change or `UnreachableRetryDelay`, and that a refused credential is never
+remembered (SPM-384). Through
 `INhAssistantConversationTurns`, assert on both providers a sent message and a decided approval with
 the channel in the audit, refusals of a person outside the conversation, without the access or the
 agent's policy, of another actor or tenant than the principal, and a tool policy decided by the

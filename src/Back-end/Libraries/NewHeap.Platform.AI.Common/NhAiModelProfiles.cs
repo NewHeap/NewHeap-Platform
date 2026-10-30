@@ -52,7 +52,9 @@ public sealed class NhAiModelProfile
         IReadOnlyList<string> fallbackProfileNames,
         string? evaluationBaselineId,
         IReadOnlySet<string> routingTags,
-        IReadOnlySet<string>? acceptedMediaTypes = null)
+        IReadOnlySet<string>? acceptedMediaTypes = null,
+        ReasoningEffort? reasoningEffort = null,
+        ReasoningOutput? reasoningOutput = null)
     {
         Name = name;
         AcceptedMediaTypes = acceptedMediaTypes ?? new HashSet<string>(StringComparer.Ordinal);
@@ -68,6 +70,8 @@ public sealed class NhAiModelProfile
         FallbackProfileNames = fallbackProfileNames;
         EvaluationBaselineId = evaluationBaselineId;
         RoutingTags = routingTags;
+        ReasoningEffort = reasoningEffort;
+        ReasoningOutput = reasoningOutput;
     }
 
     public string Name { get; }
@@ -90,6 +94,19 @@ public sealed class NhAiModelProfile
     /// with <see cref="NhAiModelProfileBuilder.AcceptMediaTypes"/>.
     /// </summary>
     public IReadOnlySet<string> AcceptedMediaTypes { get; }
+
+    /// <summary>
+    /// How hard the model thinks before it answers on every governed call of this profile, or
+    /// <see langword="null"/> for the model's own default. Declare it with
+    /// <see cref="NhAiModelProfileBuilder.WithReasoning"/>.
+    /// </summary>
+    public ReasoningEffort? ReasoningEffort { get; }
+
+    /// <summary>
+    /// How much of its reasoning the model returns on every governed call of this profile, or
+    /// <see langword="null"/> for the model's own default.
+    /// </summary>
+    public ReasoningOutput? ReasoningOutput { get; }
 
     /// <summary>
     /// Whether the model reads files of <paramref name="mediaType"/> itself.
@@ -117,7 +134,9 @@ public sealed class NhAiModelProfile
         string.Join(",", FallbackProfileNames),
         EvaluationBaselineId,
         string.Join(",", RoutingTags.Order(StringComparer.Ordinal)),
-        string.Join(",", AcceptedMediaTypes.Order(StringComparer.Ordinal)));
+        string.Join(",", AcceptedMediaTypes.Order(StringComparer.Ordinal)),
+        ReasoningEffort,
+        ReasoningOutput);
 }
 
 public sealed record NhAiModelResolutionRequest(

@@ -462,7 +462,10 @@ internal sealed partial class NhAssistantTurnRunner
             state.Scope.TurnId,
             status,
             new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
-            code));
+            code)
+        {
+            Timings = state.Scope.Clock.Snapshot()
+        });
         await AfterTurnAsync(state, status);
     }
 

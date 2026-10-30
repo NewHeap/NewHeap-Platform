@@ -197,6 +197,25 @@ public sealed class AssistantChannelTokenMutateModel
 }
 
 /// <summary>
+/// SPM-383: a wait for the linked chat's turn (<c>POST assistant-channel/waits</c>).
+/// </summary>
+public sealed class AssistantChannelWaitMutateModel
+{
+    /// <summary>
+    /// The link token of the chat.
+    /// </summary>
+    [Required]
+    [MaxLength(4_000)]
+    public string Token { get; set; } = "";
+
+    /// <summary>
+    /// How long to wait at most, in seconds.
+    /// </summary>
+    [Range(0, Services.SampleAssistantMessagingChannel.MaxWaitSeconds)]
+    public int Seconds { get; set; }
+}
+
+/// <summary>
 /// SPM-341: a new chat the person starts from the messaging app (<c>POST assistant-channel/chats</c>).
 /// </summary>
 public sealed class AssistantChannelChatMutateModel
@@ -267,7 +286,18 @@ public sealed record AssistantChannelAnswerViewModel(
     string? Code,
     string? Text,
     AssistantChannelApprovalViewModel? Approval,
-    AssistantChannelQuestionViewModel? Question = null);
+    AssistantChannelQuestionViewModel? Question = null)
+{
+    /// <summary>
+    /// SPM-383: the names of the tools the turn used while the channel followed it, in order.
+    /// </summary>
+    public IReadOnlyList<string> Tools { get; init; } = [];
+
+    /// <summary>
+    /// SPM-383: how long the turn took, when the channel saw its end.
+    /// </summary>
+    public long? Milliseconds { get; init; }
+}
 
 /// <summary>
 /// SPM-341: a question card: the question, and the choices the card numbers from 1.

@@ -23,6 +23,11 @@ token. After enumeration, await `NhAiChatStream.Completion`: successful end and
 provider dependency failure are explicit `TaskResult` outcomes, while caller
 cancellation remains cancellation.
 
+A slow assistant turn explains itself: its log line and `NhAssistantConversationTurnResult.Timings`
+(`NhAssistantTurnTimings`) give the total, preparation with its MCP, retrieval and file parts, model time
+and calls, tool time and the time to the first text, as numbers without content (SPM-383). The model
+part adds up the same `NhAiUsageRecord` durations a usage sink receives.
+
 A governed deadline is an expected outcome, not an exception. When the profile's timeout or the
 invocation context's `Deadline` passes before the model answers, after any retry the profile
 allows, `GetResponseAsync` returns the failed result `NhAiModelFailureCodes.Timeout`
@@ -144,3 +149,8 @@ references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusDigestService.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiStructuredOutputSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiStructuredOutputSamplesTests.cs)
+- SPM-383 — A channel follows a turn, waits for one its webhook gave up on, and sees where the time went
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantMessagingChannel.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AssistantChannelController.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMessagingChannelSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantConversationTurns.cs)

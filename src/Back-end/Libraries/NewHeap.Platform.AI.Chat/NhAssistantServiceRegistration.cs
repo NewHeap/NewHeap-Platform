@@ -103,6 +103,8 @@ internal static class NhAssistantServiceRegistration
         // Collaboration: sharing, read state, live updates and notifications. The ASP.NET package
         // replaces the transport, the notifier and the token protector.
         services.TryAddSingleton<NhAssistantConversationAudience>();
+        services.TryAddSingleton<NhAssistantTurnWatchers>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiUsageSink, NhAssistantTurnModelCalls>());
         services.TryAddSingleton<INhAssistantLiveUpdateTransport, NhAssistantNoLiveUpdateTransport>();
         // Who may follow a conversation when something is delivered without their request; the
         // ASP.NET package asks the application's principal factory.

@@ -337,6 +337,11 @@ internal sealed class NhAssistantMcpConnectionPlanner(
     private readonly INhAssistantMcpCredentialProvider[] _providers = providers.ToArray();
 
     /// <summary>
+    /// Keeps the providers of this scope to one call at a time while its servers connect together.
+    /// </summary>
+    private readonly SemaphoreSlim _providerGate = new(1, 1);
+
+    /// <summary>
     /// Plans a connection for a person's request: an administrator's test or sync, or a turn.
     /// </summary>
     public Task<TaskResult<NhAssistantMcpConnectionPlan>> PlanAsync(
@@ -390,7 +395,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         {
             return Failed(NhAssistantAdminErrorCodes.McpUnauthorized);
         }
-        var credentials = new NhAssistantMcpCredentialSource(provider, server, subject);
+        var credentials = new NhAssistantMcpCredentialSource(provider, server, subject, _providerGate);
         var credential = await credentials.GetAsync(cancellationToken);
         if (!credential.Success)
         {
@@ -547,13 +552,16 @@ internal sealed class NhAssistantMcpLease(McpClient client, IList<McpClientTool>
 /// <see cref="NhAssistantMcpOptions.ToolListCacheDuration"/>. A person's OAuth connection is cached for
 /// that person only; connections that forward the caller's token are never cached. Connecting and
 /// listing the tools are each bounded by <see cref="NhAssistantMcpOptions.ConnectTimeout"/>, and the
-/// listing by its pages and tools (<see cref="NhAssistantMcpToolLists"/>).
+/// listing by its pages and tools (<see cref="NhAssistantMcpToolLists"/>). A server that could not be
+/// reached is left out for <see cref="NhAssistantMcpOptions.UnreachableRetryDelay"/>, so one turn pays
+/// that timeout instead of every turn.
 /// </summary>
 internal sealed class NhAssistantMcpConnectionCache(
     INhAssistantMcpClientFactory factory,
     IOptionsMonitor<NhAssistantOptions> options) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, CacheEntry> _entries = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _unreachable = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public async Task<TaskResult<NhAssistantMcpLease>> ConnectAsync(
@@ -563,11 +571,16 @@ internal sealed class NhAssistantMcpConnectionCache(
         CancellationToken cancellationToken)
     {
         var cacheable = !plan.IsPerCaller || plan.PersonalCacheKey is not null;
-        var key = server.Id + "@" + server.UpdatedAt.UtcTicks + (plan.PersonalCacheKey is { } personal ? "#" + personal : string.Empty);
+        var version = server.Id + "@" + server.UpdatedAt.UtcTicks;
+        var key = version + (plan.PersonalCacheKey is { } personal ? "#" + personal : string.Empty);
         if (cacheable && !bypassCache
             && _entries.TryGetValue(key, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
         {
             return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(cached.Client, cached.Tools, false));
+        }
+        if (!bypassCache && _unreachable.TryGetValue(version, out var retryAt) && retryAt > DateTimeOffset.UtcNow)
+        {
+            return TaskResult<NhAssistantMcpLease>.Failed(NhAssistantAdminErrorCodes.McpUnreachable, "The MCP server could not be reached.");
         }
 
         McpClient? client = null;
@@ -582,6 +595,7 @@ internal sealed class NhAssistantMcpConnectionCache(
                 listing.CancelAfter(options.CurrentValue.Mcp.ConnectTimeout);
                 tools = await NhAssistantMcpToolLists.ListAsync(client, options.CurrentValue.Mcp, listing.Token);
             }
+            _unreachable.TryRemove(version, out _);
             if (!cacheable)
             {
                 return TaskResult<NhAssistantMcpLease>.Succeeded(new NhAssistantMcpLease(client, tools, true));
@@ -617,12 +631,39 @@ internal sealed class NhAssistantMcpConnectionCache(
             {
                 await client.DisposeAsync();
             }
-            return TaskResult<NhAssistantMcpLease>.Failed(Classify(exception), "The MCP server could not be reached.");
+            var code = Classify(exception);
+            RememberUnreachable(server.Id, version, code);
+            return TaskResult<NhAssistantMcpLease>.Failed(code, "The MCP server could not be reached.");
+        }
+    }
+
+    /// <summary>
+    /// Keeps turns away from a server for a moment after it could not be reached. Only a failure of the
+    /// server itself counts: a refused credential is one person's and says nothing about the next.
+    /// </summary>
+    private void RememberUnreachable(string serverId, string version, string code)
+    {
+        var delay = options.CurrentValue.Mcp.UnreachableRetryDelay;
+        if (code != NhAssistantAdminErrorCodes.McpUnreachable || delay <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        ForgetUnreachable(serverId);
+        _unreachable[version] = DateTimeOffset.UtcNow.Add(delay);
+    }
+
+    private void ForgetUnreachable(string serverId)
+    {
+        foreach (var stale in _unreachable.Keys.Where(item => item.StartsWith(serverId + "@", StringComparison.Ordinal)).ToArray())
+        {
+            _unreachable.TryRemove(stale, out _);
         }
     }
 
     public async Task InvalidateAsync(string serverId)
     {
+        ForgetUnreachable(serverId);
         foreach (var entry in _entries.Where(item => item.Key.StartsWith(serverId + "@", StringComparison.Ordinal)).ToArray())
         {
             if (_entries.TryRemove(entry.Key, out var removed))
@@ -718,6 +759,7 @@ internal sealed partial class NhAssistantMcpToolSource(
         var missing = new List<NhAssistantMcpMissingConnection>();
         var owners = new Dictionary<string, string>(StringComparer.Ordinal);
         var skippedTools = new Dictionary<string, string>(StringComparer.Ordinal);
+        var planned = new List<PlannedConnection>(request.Agent.McpServerIds.Count);
         foreach (var serverId in request.Agent.McpServerIds)
         {
             var server = await store.FindMcpServerAsync(serverId, cancellationToken);
@@ -760,11 +802,20 @@ internal sealed partial class NhAssistantMcpToolSource(
                 // Step-up: the server asked for scopes the person's connection lacks.
                 Need(needed, server, NhAssistantMcpConnectionReasons.InsufficientScope);
             }
-            var lease = await cache.ConnectAsync(server, plan.Data, bypassCache: false, cancellationToken);
+            planned.Add(new PlannedConnection(server, plan.Data, enabled));
+        }
+
+        // The servers connect at the same time, so a slow one holds up only itself. Their tools follow
+        // in the agent's order, so the list the model reads stays the same from turn to turn.
+        var connected = await ConnectAllAsync(planned, cancellationToken);
+        for (var index = 0; index < planned.Count; index++)
+        {
+            var (server, plan, enabled) = planned[index];
+            var lease = connected[index];
             if (!lease.Success)
             {
                 var code = NhAssistantResults.CodeOf(lease);
-                await SkipAsync(server, skipped, code, plan.Data.IsPerCaller);
+                await SkipAsync(server, skipped, code, plan.IsPerCaller);
                 Miss(missing, server, request, code);
                 if (PersonalConnectionReason(server, request, code) is { } reason)
                 {
@@ -772,13 +823,13 @@ internal sealed partial class NhAssistantMcpToolSource(
                 }
                 continue;
             }
-            if (!plan.Data.IsPerCaller)
+            if (!plan.IsPerCaller)
             {
                 await RecordHealthAsync(server, null);
             }
             leases.Add(lease.Data);
             owners[server.Id] = OwnerOf(server, request);
-            functions.AddRange(await ImportAsync(server, plan.Data, enabled, lease.Data.Tools, skippedTools, cancellationToken));
+            functions.AddRange(await ImportAsync(server, plan, enabled, lease.Data.Tools, skippedTools, cancellationToken));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -797,6 +848,43 @@ internal sealed partial class NhAssistantMcpToolSource(
             MissingConnections = missing
         };
     }
+
+    /// <summary>
+    /// Connects to the planned servers at the same time. A turn that ends meanwhile closes again what
+    /// did connect.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantMcpLease>[]> ConnectAllAsync(
+        IReadOnlyList<PlannedConnection> planned,
+        CancellationToken cancellationToken)
+    {
+        var connecting = planned
+            .Select(connection => cache.ConnectAsync(connection.Server, connection.Plan, bypassCache: false, cancellationToken))
+            .ToArray();
+        try
+        {
+            return await Task.WhenAll(connecting);
+        }
+        catch (OperationCanceledException)
+        {
+            foreach (var task in connecting)
+            {
+                if (task is { IsCompletedSuccessfully: true, Result.Success: true })
+                {
+                    await task.Result.Data!.DisposeAsync();
+                }
+            }
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// A server the turn may use, with how to reach it, the tools the administrator enabled and nothing
+    /// that waits on the network yet.
+    /// </summary>
+    private sealed record PlannedConnection(
+        AssistantMcpServer Server,
+        NhAssistantMcpConnectionPlan Plan,
+        IReadOnlyList<AssistantMcpTool> Enabled);
 
     /// <summary>
     /// Notes a personal server that a headless turn left out for want of a person's consent to

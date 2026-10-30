@@ -14,6 +14,12 @@ internal sealed class NhAssistantTiming
     internal TimeSpan TransientProviderRetryDelay { get; init; } = TimeSpan.FromSeconds(2);
 
     /// <summary>
+    /// How often a caller that waits for a turn reads the conversation: the turn may run on another
+    /// host, whose events do not reach this one, and the caller may lose access while it waits.
+    /// </summary>
+    internal TimeSpan TurnWaitCheckInterval { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// How long the run configuration in effect is trusted before a fire or a run start reads its
     /// stamp again.
     /// </summary>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -125,6 +126,7 @@ internal sealed partial class NhAssistantTurnRunner(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var clock = new NhAssistantTurnClock();
         var limits = registration.Limits;
         var actorId = request.CallerContext.ActorId;
         var text = request.Text?.Trim() ?? string.Empty;
@@ -198,7 +200,7 @@ internal sealed partial class NhAssistantTurnRunner(
             request.RequestAborted,
             request.CallerContext,
             request.Person,
-            (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, chatSubject.Data, events, token));
+            (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, chatSubject.Data, clock, events, token));
     }
 
     /// <summary>
@@ -914,9 +916,7 @@ internal sealed partial class NhAssistantTurnRunner(
             UserMessageId = Guid.Empty,
             AssistantMessageId = invocation.MessageId,
             Events = DiscardEvents(),
-            Broadcast = evt => live.PublishAsync(
-                new NhAssistantLiveTurnEvent(conversation.Id, agent.ActorId, evt),
-                CancellationToken.None)
+            Broadcast = BroadcastOf(conversation, agent.ActorId)
         };
 
         if (governed is not null)
@@ -1331,19 +1331,27 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Retrieves the turn's context once, for an agent that retrieves.
     /// </summary>
-    private Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync(
+    private async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync(
         NhAssistantTurnState state,
         NhAiInvocationContext context,
         string? query,
         CancellationToken cancellationToken)
     {
-        return services.GetRequiredService<NhAssistantRetrievalService>()
-            .RetrieveAsync(
-                state.Scope.Agent,
-                WithTurn(context, state.Scope.ConversationId, state.Scope.Channel, state.ChatSubject?.Subject),
-                query,
-                state.Language,
-                cancellationToken);
+        var startedAt = Stopwatch.GetTimestamp();
+        try
+        {
+            return await services.GetRequiredService<NhAssistantRetrievalService>()
+                .RetrieveAsync(
+                    state.Scope.Agent,
+                    WithTurn(context, state.Scope.ConversationId, state.Scope.Channel, state.ChatSubject?.Subject),
+                    query,
+                    state.Language,
+                    cancellationToken);
+        }
+        finally
+        {
+            state.Scope.Clock.AddRetrieval(Stopwatch.GetElapsedTime(startedAt));
+        }
     }
 
     /// <summary>
@@ -1849,6 +1857,7 @@ internal sealed partial class NhAssistantTurnRunner(
         NhAssistantMessageTurnRequest request,
         string text,
         NhAiSubjectInfo? chatSubject,
+        NhAssistantTurnClock clock,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
@@ -1880,7 +1889,7 @@ internal sealed partial class NhAssistantTurnRunner(
         }
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject, clock: clock);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -2435,7 +2444,9 @@ internal sealed partial class NhAssistantTurnRunner(
         {
             return NhAssistantMcpToolSet.Empty;
         }
+        var startedAt = Stopwatch.GetTimestamp();
         var loaded = await mcpToolSource.GetToolsAsync(CreateMcpToolRequest(state), cancellationToken);
+        state.Scope.Clock.AddMcpTools(Stopwatch.GetElapsedTime(startedAt));
         if (state.Scope.Agent.CanMutate)
         {
             return loaded;
@@ -2758,18 +2769,42 @@ internal sealed partial class NhAssistantTurnRunner(
         await store.TryEndTurnAsync(state.Conversation.Id, state.Scope.TurnId, conversationStatus, CancellationToken.None);
         state.OutcomeStatus = outcomeStatus;
         state.ErrorCode = errorCode;
-        logger.LogInformation(
-            "Assistant turn {TurnId} of agent {AgentId} ended with {Status} after {ToolCalls} tool calls.",
-            state.Scope.TurnId,
-            state.Scope.Agent.Id,
-            outcomeStatus,
-            state.ToolCalls);
+        var timings = state.Scope.Clock.Snapshot();
+        LogTurnEnded(state, outcomeStatus, timings);
         await state.EmitAsync(new NhAssistantTurnCompletedEvent(
             state.Scope.TurnId,
             outcomeStatus,
             new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
-            errorCode));
+            errorCode)
+        {
+            Timings = timings
+        });
         await AfterTurnAsync(state, outcomeStatus);
+    }
+
+    /// <summary>
+    /// The turn's line in the log, with where its time went, so a slow turn can be explained. It holds
+    /// numbers only, never content.
+    /// </summary>
+    private void LogTurnEnded(NhAssistantTurnState state, string status, NhAssistantTurnTimings timings)
+    {
+        logger.LogInformation(
+            "Assistant turn {TurnId} of agent {AgentId} ended with {Status} after {ToolCalls} tool calls in {TotalMs} ms: "
+            + "preparation {PreparationMs} ms (MCP tools {McpToolsMs} ms, retrieval {RetrievalMs} ms, files {FilesMs} ms), "
+            + "model {ModelMs} ms in {ModelCalls} calls, tools {ToolsMs} ms, first text at {FirstTextMs} ms.",
+            state.Scope.TurnId,
+            state.Scope.Agent.Id,
+            status,
+            state.ToolCalls,
+            (long)timings.Total.TotalMilliseconds,
+            (long)timings.Preparation.TotalMilliseconds,
+            (long)timings.McpTools.TotalMilliseconds,
+            (long)timings.Retrieval.TotalMilliseconds,
+            (long)timings.Files.TotalMilliseconds,
+            (long)timings.Model.TotalMilliseconds,
+            timings.ModelCalls,
+            (long)timings.Tools.TotalMilliseconds,
+            timings.FirstText is { } firstText ? (long)firstText.TotalMilliseconds : null);
     }
 
     /// <summary>
@@ -2888,6 +2923,7 @@ internal sealed partial class NhAssistantTurnRunner(
         bool mayRetry,
         CancellationToken cancellationToken)
     {
+        state.Scope.Clock.ModelStarting();
         var firstUpdate = updates?.Count ?? 0;
         var toolCallsBefore = state.ToolCalls;
         var produced = false;
@@ -2929,6 +2965,7 @@ internal sealed partial class NhAssistantTurnRunner(
             if (!string.IsNullOrEmpty(delta) && update.Role != ChatRole.Tool)
             {
                 produced = true;
+                state.Scope.Clock.TextReceived();
                 state.AppendText(delta);
                 await state.EmitAsync(new NhAssistantMessageDeltaEvent(state.AssistantMessageId, delta));
             }
@@ -3502,7 +3539,8 @@ internal sealed partial class NhAssistantTurnRunner(
         ChannelWriter<NhAssistantTurnEvent> events,
         NhAssistantAgentTurnContext? agentTurn = null,
         string? channel = null,
-        NhAiSubjectInfo? chatSubject = null)
+        NhAiSubjectInfo? chatSubject = null,
+        NhAssistantTurnClock? clock = null)
     {
         var agent = effectiveAgent.Definition;
         // The turn context providers read the conversation, the channel and a chat's subject from the context.
@@ -3531,6 +3569,7 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 ConversationId = conversation.Id,
                 TurnId = turnId,
+                Clock = clock ?? new NhAssistantTurnClock(),
                 Agent = agent,
                 OwnerActorId = callerContext.ActorId,
                 ConversationOwnerActorId = conversation.OwnerActorId,
@@ -3569,9 +3608,21 @@ internal sealed partial class NhAssistantTurnRunner(
             UserMessageId = userMessageId,
             AssistantMessageId = assistantMessage.Id,
             Events = events,
-            Broadcast = evt => live.PublishAsync(
-                new NhAssistantLiveTurnEvent(conversation.Id, callerContext.ActorId, evt),
-                CancellationToken.None)
+            Broadcast = BroadcastOf(conversation, callerContext.ActorId)
+        };
+    }
+
+    /// <summary>
+    /// Shares a turn's events with the people of the conversation and the callers on this host who wait
+    /// for it (<see cref="NhAssistantTurnWatchers"/>).
+    /// </summary>
+    private Func<NhAssistantTurnEvent, ValueTask> BroadcastOf(AssistantConversation conversation, string actorId)
+    {
+        var watchers = services.GetRequiredService<NhAssistantTurnWatchers>();
+        return evt =>
+        {
+            watchers.Publish(conversation.Id, evt);
+            return live.PublishAsync(new NhAssistantLiveTurnEvent(conversation.Id, actorId, evt), CancellationToken.None);
         };
     }
 
@@ -3774,7 +3825,10 @@ internal sealed partial class NhAssistantTurnRunner(
             state.Scope.TurnId,
             NhAssistantTurnStatuses.Cancelled,
             new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
-            null));
+            null)
+        {
+            Timings = state.Scope.Clock.Snapshot()
+        });
         await AfterTurnAsync(state, NhAssistantTurnStatuses.Cancelled);
     }
 
