@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -37,6 +38,7 @@ public sealed class MapperConfiguration : IConfigurationProvider
     internal const int DefaultMaxDepth = 64;
 
     private readonly IReadOnlyDictionary<TypePair, TypeMapDefinition> _typeMaps;
+    private readonly ConcurrentDictionary<TypePair, TypeMapDefinition?> _resolvedTypeMaps = new();
     private readonly IReadOnlyList<DuplicateTypeMapDefinition> _duplicateTypeMaps;
     private readonly IReadOnlyDictionary<TypeMapDefinition, TypeMapDefinition[]> _includedDerivedMaps;
 
@@ -134,15 +136,18 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
     internal TypeMapDefinition? FindTypeMap(Type sourceType, Type destinationType)
     {
-        var typeMap = FindDeclaredTypeMap(sourceType, destinationType);
-        if (typeMap is null)
+        return _resolvedTypeMaps.GetOrAdd(new TypePair(sourceType, destinationType), static (pair, configuration) =>
         {
-            return null;
-        }
+            var typeMap = configuration.FindDeclaredTypeMap(pair.SourceType, pair.DestinationType);
+            if (typeMap is null)
+            {
+                return null;
+            }
 
-        return _includedDerivedMaps[typeMap].FirstOrDefault(candidate =>
-            candidate.SourceType.IsAssignableFrom(sourceType) &&
-            destinationType.IsAssignableFrom(candidate.DestinationType)) ?? typeMap;
+            return configuration._includedDerivedMaps[typeMap].FirstOrDefault(candidate =>
+                candidate.SourceType.IsAssignableFrom(pair.SourceType) &&
+                pair.DestinationType.IsAssignableFrom(candidate.DestinationType)) ?? typeMap;
+        }, this);
     }
 
     private TypeMapDefinition? FindDeclaredTypeMap(Type sourceType, Type destinationType)

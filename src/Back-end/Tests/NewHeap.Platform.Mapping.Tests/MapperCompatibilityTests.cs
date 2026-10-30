@@ -7,6 +7,24 @@ namespace NewHeap.Platform.Mapping.Tests;
 public sealed class MapperCompatibilityTests
 {
     [Fact]
+    public void RepeatedConcurrentLookupsStayIsolatedPerConfiguration()
+    {
+        var scalarMapper = new MapperConfiguration(_ => { }).CreateMapper();
+        var converterMapper = new MapperConfiguration(configuration =>
+            configuration.CreateMap<int, string>().ConvertUsing(_ => "converted")).CreateMapper();
+        var objectMapper = new MapperConfiguration(configuration =>
+            configuration.CreateMap<ChildSource, ChildDestination>()).CreateMapper();
+
+        Parallel.For(0, 256, index =>
+        {
+            Assert.Equal(index.ToString(System.Globalization.CultureInfo.InvariantCulture), scalarMapper.Map<string>(index));
+            Assert.Equal("converted", converterMapper.Map<string>(index));
+            Assert.Equal($"child-{index}", objectMapper.Map<ChildDestination>(new ChildSource { Name = $"child-{index}" }).Name);
+            Assert.Null(objectMapper.Map<ChildDestination>(null));
+        });
+    }
+
+    [Fact]
     public void ExistingNestedObjectsAndCollectionsAreReused()
     {
         var mapper = CreateMapper(configuration =>
