@@ -18,8 +18,8 @@ hash. A catalog that does not fit its row, output or time limit returns `truncat
 `database_schema_describe`, `database_schema_indexes`, `database_schema_catalog` and `database_query`. It gives an agent
 structured calls instead of a request file per query. The profile and environment are fixed when the server starts, and
 no tool argument reaches them. A refused or failed call is a tool error with the tool's safe error JSON. The package
-grows by about 2 MB, for `ModelContextProtocol.Core` and `Microsoft.Extensions.AI.Abstractions`, which a one-shot command
-does not load.
+grows by about 0.6 MB and the installed tool by about 2 MB, for `ModelContextProtocol.Core` and
+`Microsoft.Extensions.AI.Abstractions`, which a one-shot command does not load.
 
 One-shot `validate`, `query` and `schema` keep their behavior, JSON and exit codes; only the text of
 `invalid-schema-operation` now also names `catalog`.
