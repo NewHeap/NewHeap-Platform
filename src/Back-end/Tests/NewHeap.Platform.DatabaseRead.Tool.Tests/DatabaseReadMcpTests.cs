@@ -189,6 +189,26 @@ public sealed class DatabaseReadMcpTests
     }
 
     [Fact]
+    public async Task ACallKeepsTheHardRequestLimitOfAOneShotCommand()
+    {
+        await using var database = await DatabaseReadSessionDatabase.CreateAsync(RelationalTestProvider.PostgreSql);
+        using var workspace = new DatabaseReadTestWorkspace(database.ProviderName, database.ReaderConnectionString);
+        var connections = new CountingConnectionFactory();
+        await using var server = await McpTestServer.StartAsync(workspace, connections);
+
+        using var refused = await server.CallErrorAsync(
+            "database_query",
+            new()
+            {
+                ["sql"] = ItemsSql,
+                ["reason"] = new string('x', DatabaseReadJson.MaximumRequestBytes)
+            });
+
+        refused.RootElement.GetProperty("error").GetProperty("code").GetString().Should().Be("request-too-large");
+        connections.OpenCount.Should().Be(0);
+    }
+
+    [Fact]
     public async Task VerificationKeepsTheBoundOfASession()
     {
         await using var database = await DatabaseReadSessionDatabase.CreateAsync(RelationalTestProvider.PostgreSql);

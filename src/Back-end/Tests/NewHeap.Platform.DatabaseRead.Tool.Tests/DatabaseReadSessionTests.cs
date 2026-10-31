@@ -406,6 +406,22 @@ public sealed class DatabaseReadSessionTests
     }
 
     [Fact]
+    public async Task AnOutputThatIsGoneBeforeTheReadyLineEndsTheSession()
+    {
+        using var workspace = new DatabaseReadTestWorkspace("postgresql", UnusedConnectionString);
+        using var input = new MemoryStream();
+        using var output = new MemoryStream();
+        output.Dispose();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["session", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(1);
+    }
+
+    [Fact]
     public void SessionOptionsHaveDefaultsAndCeilings()
     {
         var defaults = CliOptions.Parse(["session"]).Session!;

@@ -40,8 +40,6 @@ internal sealed class DatabaseReadMcpTool : McpServerTool
         "reason": { "type": "string", "description": "Why this is needed." }
         """;
 
-    private static readonly JsonSerializerOptions ArgumentOptions = DatabaseReadJson.Options;
-
     private readonly DatabaseReadCommand _command;
     private readonly string? _schemaOperation;
     private readonly HashSet<string> _argumentNames;
@@ -286,10 +284,15 @@ internal sealed class DatabaseReadMcpTool : McpServerTool
                 DatabaseReadExitCode.InvalidRequest);
         }
 
+        var argumentsJson = JsonSerializer.SerializeToUtf8Bytes(arguments, DatabaseReadJson.Options);
+        if (argumentsJson.Length > DatabaseReadJson.MaximumRequestBytes)
+        {
+            throw DatabaseReadJson.RequestTooLarge();
+        }
+
         var values = arguments is null
             ? new DatabaseReadMcpArguments()
-            : JsonSerializer.SerializeToElement(arguments, ArgumentOptions)
-                .Deserialize<DatabaseReadMcpArguments>(ArgumentOptions)!;
+            : JsonSerializer.Deserialize<DatabaseReadMcpArguments>(argumentsJson, DatabaseReadJson.Options)!;
 
         return new DatabaseReadRequest
         {

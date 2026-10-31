@@ -43,8 +43,6 @@ internal static class DatabaseReadSession
         CancellationToken cancellationToken)
     {
         var sessionOptions = options.Session!;
-        await DatabaseReadJson.WriteAsync(output, ReadyLine, cancellationToken);
-
         await using var host = new DatabaseReadSessionHost(
             options.ProfilesPath,
             options.EnvironmentName,
@@ -56,6 +54,8 @@ internal static class DatabaseReadSession
 
         try
         {
+            await DatabaseReadJson.WriteAsync(output, ReadyLine, cancellationToken);
+
             while (true)
             {
                 var now = timeProvider.GetUtcNow();

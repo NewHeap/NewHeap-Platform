@@ -33,10 +33,7 @@ internal static class DatabaseReadJson
 
             if (buffer.Length + count > MaximumRequestBytes)
             {
-                throw new DatabaseReadExpectedException(
-                    "request-too-large",
-                    $"The JSON request exceeds the hard limit of {MaximumRequestBytes} bytes.",
-                    DatabaseReadExitCode.InvalidRequest);
+                throw RequestTooLarge();
             }
 
             await buffer.WriteAsync(chunk.AsMemory(0, count), cancellationToken);
@@ -59,6 +56,14 @@ internal static class DatabaseReadJson
         return request ?? throw new DatabaseReadExpectedException(
             "invalid-request",
             "The JSON request must be an object.",
+            DatabaseReadExitCode.InvalidRequest);
+    }
+
+    public static DatabaseReadExpectedException RequestTooLarge()
+    {
+        return new DatabaseReadExpectedException(
+            "request-too-large",
+            $"The JSON request exceeds the hard limit of {MaximumRequestBytes} bytes.",
             DatabaseReadExitCode.InvalidRequest);
     }
 
