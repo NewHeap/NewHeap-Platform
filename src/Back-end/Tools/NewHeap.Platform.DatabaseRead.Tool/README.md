@@ -478,6 +478,12 @@ such as `-2146893019`, as `providerCode`. Raw provider messages, server and
 object names, connection values and stack traces are never copied into the
 error contract.
 
+On PostgreSQL, a driver deadline during read-only verification, query execution or
+schema execution is `statement-timeout`, even when the client times out before
+the server returns its SQLSTATE. Narrow the request; this outcome has no network
+retry hint. A timeout while opening a connection and an actual socket failure
+remain `connection-failed`.
+
 If the selected environment resolves the governed connection-string name to a
 value that the configured provider cannot parse, the tool returns
 `connection-configuration-invalid` with exit code `3`. It does not expose the

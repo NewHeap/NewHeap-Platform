@@ -1,5 +1,13 @@
 # v-next
 
+## NewHeap.Platform.DatabaseRead.Tool: PostgreSQL client timeouts
+
+A PostgreSQL driver deadline during read-only verification, a query or a schema read now returns
+`statement-timeout`, also when the client deadline arrives before the server's SQLSTATE. It no longer
+reports a transient `connection-failed` with a network-access remedy. Narrow the request instead;
+timeouts while opening a connection and actual socket failures keep their connection classification.
+SPM-237 demonstrates the consumer's remedy, and real session tests prove recovery on all four providers.
+
 ## NewHeap.Platform.DatabaseRead.Tool: session, catalog and MCP server
 
 `newheap-db session` serves many `query` and `schema` requests in one process over JSON lines, so a caller pays for a

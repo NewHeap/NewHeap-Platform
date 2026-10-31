@@ -79,6 +79,36 @@ public sealed class DatabaseReadToolSamplesTests
         Assert.DoesNotContain("private-canary", message);
     }
 
+    [Theory]
+    [InlineData("query-execution")]
+    [InlineData("schema-execution")]
+    public void McpMapsAPostgreSqlStatementTimeoutToANarrowerQuery(string stage)
+    {
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                code = "database-query-failed",
+                message = "Driver timeout for private-canary.",
+                classification = "statement-timeout",
+                provider = "postgresql",
+                transient = false,
+                stage
+            }
+        }));
+
+        var result = NewHeapSampleDatabaseReadExecutor.SafeFailure(response.RootElement);
+
+        Assert.False(result.Success);
+        var error = Assert.Single(result.GetResultItems());
+        Assert.Equal("statement-timeout", error.Name);
+        var message = Assert.Single(error.ErrorMessages).ToString();
+        Assert.Contains("Narrow the query", message, StringComparison.Ordinal);
+        Assert.Contains($"Stage {stage}.", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("network-access-required", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-canary", message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void CheckedInCatalogProvidesOneAuthoritativeDiagnosticRoute()
     {
