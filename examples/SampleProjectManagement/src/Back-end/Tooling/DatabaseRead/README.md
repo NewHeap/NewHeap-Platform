@@ -23,6 +23,24 @@ tokens (`NhUserAuthRefreshToken`), `AspNetUserTokens` and `NotificationDeliverie
 nor on the `PasswordHash` and `SecurityStamp` columns of `AspNetUsers`. A
 database-wide read grant such as `pg_read_all_data` would include them.
 
+## The tool's own MCP server
+
+An agent that can configure an MCP server does not need this application or a
+request file. `mcp-client.json` in this directory starts the tool's own stdio server
+with the `sample-development` profile fixed on its command line:
+
+```text
+dotnet tool run newheap-db mcp --profiles .newheap/database-read.json --profile sample-development
+```
+
+Run it from `src/Back-end`. It publishes `database_schema_search`,
+`database_schema_describe`, `database_schema_indexes`, `database_schema_catalog` and
+`database_query`, all read-only, with no argument for a profile, an environment or
+a connection. Use it for a single client under the profile's ceilings. Use the
+application above when the server must fix an authorization capability, a call
+budget and its own row ceiling. A program that talks to the tool itself uses
+`newheap-db session`, and a script streams JSON through stdin.
+
 ## Direct fast path for agents
 
 For a question about persisted sample data, start in `src/Back-end` with the
@@ -118,13 +136,14 @@ a PostgreSQL `LIMIT`. The model may
 request a row count within the server-owned ceiling, but cannot choose the profile,
 credential, timeout, authorization scope or a higher ceiling.
 
-The checked-in `requests/project-schema.json`, `requests/project-indexes.json`
-and `requests/project-by-id.json` files demonstrate repeatable JSON contracts
-and can all be checked with `newheap-db validate --request-file <path>` in CI
-without connecting to a database. The MCP route sends
-structured input in memory. For direct CLI use, pass only a request-file path or
-stream JSON through stdin; never place serialized JSON in a Windows process
-argument or reduce the diagnostic candidate set merely to fit that limit.
+The checked-in `requests/project-schema.json`, `requests/project-indexes.json`,
+`requests/project-catalog.json` and `requests/project-by-id.json` files demonstrate
+repeatable JSON contracts and can all be checked with
+`newheap-db validate --request-file <path>` in CI without connecting to a database.
+The MCP route sends structured input in memory. For direct CLI use, pass only a
+request-file path or stream JSON through stdin; never place serialized JSON in a
+process argument, because a command line has a length limit and every shell quotes
+JSON differently, or reduce the diagnostic candidate set merely to fit that limit.
 
 `DatabaseReadMcpSamplesTests` is the reproducible smoke test. It creates a
 database of its own on the test run's real PostgreSQL container, creates a
@@ -136,4 +155,7 @@ through the official in-memory transport, describes `public."Projects"` and its
 incoming/outgoing relationships, inspects its live composite, partial and expression
 indexes, executes a typed UUID query, proves the sixteen-call per-invocation budget,
 rejects a 5,000-row request before execution, and rejects an actual result above
-`requestedRows` without exposing partial rows.
+`requestedRows` without exposing partial rows. The same class runs the tool's own
+`mcp` and `session` commands against that database: structured calls without a
+request file, a whole catalog in one call, a refused statement as a tool error, and
+many requests over one connection.

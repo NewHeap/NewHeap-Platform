@@ -1825,6 +1825,8 @@
       "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-catalog.json",
+      "src/Back-end/Tooling/DatabaseRead/mcp-client.json",
       "src/Back-end/Tooling/DatabaseRead/README.md",
       "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
       "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
@@ -1838,7 +1840,11 @@
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSchemaSearchTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/SqlReadOnlyPolicyTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadQueryPolicyTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadTlsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSessionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadCatalogTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMcpTests.cs"
     ],
     "SPM-238": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",

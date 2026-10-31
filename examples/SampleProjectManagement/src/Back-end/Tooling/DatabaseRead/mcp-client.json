@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "sample-database": {
+      "command": "dotnet",
+      "args": [
+        "tool",
+        "run",
+        "newheap-db",
+        "mcp",
+        "--profiles",
+        ".newheap/database-read.json",
+        "--profile",
+        "sample-development"
+      ]
+    }
+  }
+}

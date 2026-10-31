@@ -149,6 +149,13 @@
       "expectedOutcome": "The consumer pins newheap-db and checks in bounded provider profiles, local database-read instructions, and typed query request files as the execution contract. A profile governs provider, configuration path, connection-string name, ceilings and a default environment. Validate runs locally and advertises outbound-network, while Codex starts the first schema or query invocation with network-enabled execution and a narrow reusable permission scoped only to newheap-db instead of probing the restricted sandbox. An explicitly requested runtime environment is passed with --environment to schema and query without requiring a duplicate profile solely for Production or Staging. The agent uses direct schema search-and-describe without a JSON schema file, uses --request-file instead of serialized query arguments, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
     },
     {
+      "id": "consumer-read-only-diagnostics-route-choice",
+      "skill": "newheap-database-development",
+      "prompt": "Our agent writes a request file before every newheap-db query, and a background service starts newheap-db for each small read. Which route should each of them use, and can we keep the JSON on the command line instead?",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The agent configures the newheap-db mcp server once, with the profile and environment fixed on its command line, and calls its read-only schema and query tools with structured arguments, so it needs no request file and no shell quoting. The background service keeps one newheap-db session and detects it from the ready line, so it pays for a process start, a connection and a principal verification once. One-shot stdin stays for scripts and --request-file for checked-in requests and CI. Serialized JSON never goes on a process command line, because a command line has a length limit and every shell quotes JSON differently. No tool argument can select a profile, an environment or a connection."
+    },
+    {
       "id": "consumer-read-only-diagnostics-credential-tables",
       "skill": "newheap-database-development",
       "prompt": "Create the read-only database principal that agents use for newheap-db diagnostics on our NewHeap application database, so they can investigate users, divisions and notifications.",

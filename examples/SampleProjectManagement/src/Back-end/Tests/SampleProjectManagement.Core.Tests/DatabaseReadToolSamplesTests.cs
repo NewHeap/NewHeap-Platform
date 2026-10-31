@@ -296,6 +296,53 @@ public sealed class DatabaseReadToolSamplesTests
                 .GetProperty("maximumRows").GetInt32());
     }
 
+    /// <summary>
+    /// SPM-237: a client starts the tool's own MCP server from this file. The profile is fixed on
+    /// the command line, which carries no JSON and no credential.
+    /// </summary>
+    [Fact]
+    public void CheckedInMcpClientConfigurationStartsTheToolsServer()
+    {
+        var path = Path.Combine(FindBackendRoot(), "Tooling", "DatabaseRead", "mcp-client.json");
+        using var configuration = JsonDocument.Parse(File.ReadAllText(path));
+        var server = Assert.Single(configuration.RootElement.GetProperty("mcpServers").EnumerateObject()).Value;
+        var arguments = server.GetProperty("args").EnumerateArray().Select(argument => argument.GetString()!).ToArray();
+
+        Assert.Equal("dotnet", server.GetProperty("command").GetString());
+        Assert.Equal(["tool", "run", "newheap-db", "mcp"], arguments[..4]);
+        Assert.Equal("sample-development", arguments[Array.IndexOf(arguments, "--profile") + 1]);
+        Assert.DoesNotContain(arguments, argument => argument.Contains('{', StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CheckedInCatalogRequestMatchesTheDevelopmentProfile()
+    {
+        var backendRoot = FindBackendRoot();
+        var profileCatalogPath = Path.Combine(backendRoot, ".newheap", "database-read.json");
+        var requestPath = Path.Combine(
+            backendRoot,
+            "Tooling",
+            "DatabaseRead",
+            "requests",
+            "project-catalog.json");
+        await using var input = new MemoryStream();
+        await using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", profileCatalogPath, "--request-file", requestPath],
+            input,
+            output,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, exitCode);
+        output.Position = 0;
+        using var response = await JsonDocument.ParseAsync(
+            output,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(response.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("sample-development", response.RootElement.GetProperty("target").GetProperty("profile").GetString());
+    }
+
     [Fact]
     public async Task CheckedInSchemaRequestMatchesTheDevelopmentProfile()
     {

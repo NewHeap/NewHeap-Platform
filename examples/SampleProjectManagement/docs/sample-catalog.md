@@ -1103,6 +1103,19 @@ when the requested evidence is available. It does not inspect controllers,
 entities, EF configuration, appsettings, secrets or package internals merely to
 reconstruct routing or JSON fields that the repository already declares.
 
+The route follows who talks to the tool. An agent that can configure an MCP server
+starts `newheap-db mcp` from the checked-in `mcp-client.json`, with the profile fixed
+on the command line and no tool argument that reaches a profile, an environment or a
+connection, so a query needs no request file and no shell quoting. A program that
+talks to the tool keeps one `newheap-db session` and pays for a process start, a
+connection and a principal verification once. A script streams JSON through stdin,
+and checked-in requests and CI use `--request-file`. Serialized JSON never goes on a
+process command line, because a command line has a length limit and every shell
+quotes JSON differently. The schema operation `catalog` describes every selectable
+object on one connection, and `requests/project-catalog.json` keeps that request
+under CI validation. `DatabaseReadMcpSamplesTests` runs `mcp` and `session` against
+a real PostgreSQL; the platform's session tests prove them on all four providers.
+
 The profile selects the existing NewHeap application configuration and the
 `NewHeapDiagnosticsReadOnly` connection-string name. The actual connection
 string is resolved by `newheap-db`, remains in the normal secrets file and must
