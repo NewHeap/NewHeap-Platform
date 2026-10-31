@@ -105,6 +105,59 @@ public sealed class DatabaseReadFailureClassificationTests
     }
 
     [Theory]
+    [InlineData((int)DatabaseReadExecutionStage.ReadOnlyVerification)]
+    [InlineData((int)DatabaseReadExecutionStage.QueryExecution)]
+    [InlineData((int)DatabaseReadExecutionStage.SchemaExecution)]
+    public void PostgreSqlDriverCommandTimeoutIsAStatementTimeout(int stageValue)
+    {
+        var exception = new NpgsqlException(UnsafeDetail, new TimeoutException(UnsafeDetail));
+
+        var failure = new PostgreSqlDatabaseReadProvider().ClassifyException(
+            exception,
+            (DatabaseReadExecutionStage)stageValue);
+
+        failure.Classification.Should().Be("statement-timeout");
+        failure.Provider.Should().Be("postgresql");
+        failure.ProviderCode.Should().BeNull();
+        failure.Transient.Should().BeFalse();
+        failure.RetryHint.Should().BeNull();
+        failure.Message.Should().NotContain(UnsafeCanary);
+    }
+
+    [Fact]
+    public void PostgreSqlDriverConnectTimeoutKeepsItsNetworkRetryHint()
+    {
+        var exception = new NpgsqlException(UnsafeDetail, new TimeoutException(UnsafeDetail));
+
+        var failure = new PostgreSqlDatabaseReadProvider().ClassifyException(
+            exception,
+            DatabaseReadExecutionStage.ConnectionOpen);
+
+        failure.Classification.Should().Be("connection-failed");
+        failure.Transient.Should().BeTrue();
+        failure.RetryHint.Should().Be("network-access-required");
+        failure.Message.Should().NotContain(UnsafeCanary);
+    }
+
+    [Theory]
+    [InlineData((int)DatabaseReadExecutionStage.QueryExecution)]
+    [InlineData((int)DatabaseReadExecutionStage.SchemaExecution)]
+    public void PostgreSqlSocketFailuresRemainConnectionFailures(int stageValue)
+    {
+        var exception = new NpgsqlException(
+            UnsafeDetail,
+            new TimeoutException(UnsafeDetail, new SocketException((int)SocketError.TimedOut)));
+
+        var failure = new PostgreSqlDatabaseReadProvider().ClassifyException(
+            exception,
+            (DatabaseReadExecutionStage)stageValue);
+
+        failure.Classification.Should().Be("connection-failed");
+        failure.Transient.Should().BeTrue();
+        failure.RetryHint.Should().Be("network-access-required");
+    }
+
+    [Theory]
     [InlineData(-2146893019, "tls-certificate-untrusted", false, "certificate-authority-trust-required")]
     [InlineData(-2146762487, "tls-certificate-untrusted", false, "certificate-authority-trust-required")]
     [InlineData(-2146762486, "tls-certificate-untrusted", false, "certificate-authority-trust-required")]

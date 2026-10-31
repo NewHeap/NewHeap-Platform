@@ -1845,7 +1845,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadSessionProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadCatalogTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMcpTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadDateTimeParameterTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadDateTimeParameterTests.cs",
+      "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Providers/PostgreSql/PostgreSqlDatabaseReadProvider.cs"
     ],
     "SPM-238": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",

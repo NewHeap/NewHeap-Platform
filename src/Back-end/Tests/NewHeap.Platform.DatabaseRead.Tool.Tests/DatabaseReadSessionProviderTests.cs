@@ -190,7 +190,8 @@ public sealed class DatabaseReadSessionProviderTests
 
         var slow = await session.QueryAsync(database.SlowSql, timeoutSeconds: 1);
         slow.ExitCode.Should().Be(5, slow.Text);
-        slow.Classification.Should().Be("statement-timeout");
+        slow.Error.GetProperty("stage").GetString().Should().Be("query-execution", slow.Text);
+        slow.Classification.Should().Be("statement-timeout", slow.Text);
         await AssertRequestsSeeOnlyTheirOwnStateAsync();
 
         var items = await session.QueryAsync(ItemsSql);

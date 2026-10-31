@@ -329,8 +329,25 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             return UntrustedCertificateFailure();
         }
 
+        var driverException = DatabaseReadExceptionInspector.Find<NpgsqlException>(exception);
+        // The client deadline can win the race with PostgreSQL's statement_timeout reply.
+        // Without a SQLSTATE, it still timed out a statement rather than opening a connection.
+        if (stage is DatabaseReadExecutionStage.ReadOnlyVerification
+                or DatabaseReadExecutionStage.QueryExecution
+                or DatabaseReadExecutionStage.SchemaExecution
+            && driverException is not null
+            && DatabaseReadExceptionInspector.Find<TimeoutException>(driverException) is not null
+            && !DatabaseReadExceptionInspector.IsConnectivityFailure(driverException))
+        {
+            return Failure(
+                "statement-timeout",
+                null,
+                false,
+                "The database statement exceeded its configured execution boundary.");
+        }
+
         if (stage == DatabaseReadExecutionStage.ConnectionOpen
-            || DatabaseReadExceptionInspector.Find<NpgsqlException>(exception) is not null
+            || driverException is not null
             || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
         {
             return ConnectionFailure(null);

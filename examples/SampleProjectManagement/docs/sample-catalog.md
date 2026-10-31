@@ -1092,6 +1092,10 @@ failures return safe provider metadata, an execution stage and a retry hint;
 authentication and unknown-database failures remain distinct, and raw server,
 credential and exception details are never exposed.
 
+PostgreSQL statement deadlines remain `statement-timeout` even when the driver
+times out before the server returns its SQLSTATE. The executable MCP failure
+sample maps this to narrowing the request, without a network-access retry hint.
+
 For an agent investigating persisted sample data, the repository profile, local
 database-read README and checked-in request files form a direct fast path. The
 agent makes one bounded tracked-file search when it starts above the backend,
