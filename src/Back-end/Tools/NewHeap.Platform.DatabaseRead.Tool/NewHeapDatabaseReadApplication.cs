@@ -71,6 +71,17 @@ public static class NewHeapDatabaseReadApplication
                         cancellationToken);
                 }
 
+                if (options.Command == DatabaseReadCommand.Mcp)
+                {
+                    return await DatabaseReadMcpServer.RunAsync(
+                        options,
+                        input,
+                        output,
+                        connectionFactory,
+                        timeProvider,
+                        cancellationToken);
+                }
+
                 await using var requestFileInput = OpenRequestFile(options.RequestFilePath);
                 var request = options.DirectSchema?.CreateRequest(options.ProfileName) ??
                               await DatabaseReadJson.ReadRequestAsync(

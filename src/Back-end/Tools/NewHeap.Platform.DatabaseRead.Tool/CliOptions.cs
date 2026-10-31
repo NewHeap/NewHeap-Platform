@@ -23,6 +23,7 @@ internal sealed record CliOptions(
             "schema" => DatabaseReadCommand.Schema,
             "validate" => DatabaseReadCommand.Validate,
             "session" => DatabaseReadCommand.Session,
+            "mcp" => DatabaseReadCommand.Mcp,
             _ => throw new DatabaseReadExpectedException(
                 "unknown-command",
                 $"Unknown command '{args[0]}'.",
@@ -132,22 +133,29 @@ internal sealed record CliOptions(
                 DatabaseReadExitCode.InvalidRequest);
         }
 
-        var hasSessionArguments = maximumLifetimeSeconds is not null ||
-                                  maximumIdleSeconds is not null ||
-                                  verificationIntervalSeconds is not null;
-        if (hasSessionArguments && command != DatabaseReadCommand.Session)
+        var servesManyRequests = command is DatabaseReadCommand.Session or DatabaseReadCommand.Mcp;
+        if (verificationIntervalSeconds is not null && !servesManyRequests)
         {
             throw new DatabaseReadExpectedException(
                 "session-arguments-require-session-command",
-                "Arguments --maximum-lifetime-seconds, --maximum-idle-seconds and --verification-interval-seconds are only accepted by the session command.",
+                "Argument --verification-interval-seconds is only accepted by the session and mcp commands.",
                 DatabaseReadExitCode.InvalidRequest);
         }
 
-        if (requestFilePath is not null && command == DatabaseReadCommand.Session)
+        if ((maximumLifetimeSeconds is not null || maximumIdleSeconds is not null) &&
+            command != DatabaseReadCommand.Session)
+        {
+            throw new DatabaseReadExpectedException(
+                "session-arguments-require-session-command",
+                "Arguments --maximum-lifetime-seconds and --maximum-idle-seconds are only accepted by the session command.",
+                DatabaseReadExitCode.InvalidRequest);
+        }
+
+        if (requestFilePath is not null && servesManyRequests)
         {
             throw new DatabaseReadExpectedException(
                 "request-file-not-supported",
-                "The session command reads its requests from stdin.",
+                "The session and mcp commands read their requests from stdin.",
                 DatabaseReadExitCode.InvalidRequest);
         }
 
@@ -168,7 +176,7 @@ internal sealed record CliOptions(
                 maximumRows,
                 timeoutSeconds);
 
-        var session = command == DatabaseReadCommand.Session
+        var session = servesManyRequests
             ? new DatabaseReadSessionOptions(
                 TimeSpan.FromSeconds(maximumLifetimeSeconds ?? DatabaseReadSessionOptions.DefaultMaximumLifetimeSeconds),
                 TimeSpan.FromSeconds(maximumIdleSeconds ?? DatabaseReadSessionOptions.DefaultMaximumIdleSeconds),
@@ -211,12 +219,16 @@ internal sealed record CliOptions(
                              [--maximum-lifetime-seconds <seconds>]
                              [--maximum-idle-seconds <seconds>]
                              [--verification-interval-seconds <seconds>]
+          newheap-db mcp [--profiles <path>] [--profile <name>]
+                         [--environment <name>]
+                         [--verification-interval-seconds <seconds>]
 
         Commands:
           validate  Dry-run a query or schema request and its profile without connecting.
           query     Validate the request, verify the principal and execute the diagnostic query.
           schema    Validate the request, verify the principal and inspect selectable schema.
           session   Serve many query and schema requests in one process over JSON lines.
+          mcp       Serve read-only schema and query tools to an agent as a stdio MCP server.
 
         Profile discovery:
           Without --profiles, the tool searches upward from the current directory for
@@ -247,6 +259,11 @@ internal sealed record CliOptions(
           --maximum-lifetime-seconds (default 3600) or --maximum-idle-seconds (default 300), and
           verifies the principal again after --verification-interval-seconds (default 60) and on
           every new connection.
+
+        MCP server:
+          stdin and stdout carry the protocol; a start failure goes to stderr as the tool's error
+          JSON. The profile and environment are fixed at start, and no tool argument reaches them.
+          The server ends with its input. It verifies the principal as a session does.
 
         Streams:
           stdout  JSON response only
@@ -346,5 +363,6 @@ internal enum DatabaseReadCommand
     Validate,
     Query,
     Schema,
-    Session
+    Session,
+    Mcp
 }
