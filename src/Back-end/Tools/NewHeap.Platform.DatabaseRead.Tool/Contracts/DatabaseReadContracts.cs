@@ -150,7 +150,12 @@ internal enum DatabaseSchemaOperation
     Search,
     SearchAndDescribe,
     Describe,
-    Indexes
+    Indexes,
+
+    /// <summary>
+    /// Every selectable object, described on one connection and in one read-only transaction.
+    /// </summary>
+    Catalog
 }
 
 internal sealed record ResolvedDatabaseSchemaRequest(
@@ -214,8 +219,22 @@ internal sealed class DatabaseSchemaResultResponse
 {
     public required string Operation { get; init; }
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore]
     public IReadOnlyList<DatabaseSchemaObjectSummaryResponse>? Objects { get; init; }
+
+    /// <summary>
+    /// The described objects of a <c>catalog</c>, which the response also calls <c>objects</c>.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<DatabaseSchemaCatalogObjectResponse>? CatalogObjects { get; init; }
+
+    /// <summary>
+    /// The one JSON name <c>objects</c> for the summaries of a search and the described objects of
+    /// a catalog, in the place the summaries have always had: the evidence hash covers this order.
+    /// </summary>
+    [JsonPropertyName("objects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? ObjectList => (object?)CatalogObjects ?? Objects;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DatabaseSchemaObjectResponse? Object { get; init; }
@@ -227,6 +246,17 @@ internal sealed class DatabaseSchemaResultResponse
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EvidenceHash { get; set; }
+}
+
+/// <summary>
+/// One object of a <c>catalog</c>: <see cref="Object"/> is what <c>describe</c> returns for it, and
+/// <see cref="EvidenceHash"/> the hash that <c>describe</c> reports for that same object.
+/// </summary>
+internal sealed class DatabaseSchemaCatalogObjectResponse
+{
+    public required string EvidenceHash { get; init; }
+
+    public required DatabaseSchemaObjectResponse Object { get; init; }
 }
 
 internal sealed class DatabaseSchemaObjectSummaryResponse

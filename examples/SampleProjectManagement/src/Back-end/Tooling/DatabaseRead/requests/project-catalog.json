@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "profile": "sample-development",
+  "schema": {
+    "operation": "catalog",
+    "schemaName": "public"
+  },
+  "limits": {
+    "maximumRows": 100,
+    "timeoutSeconds": 30
+  },
+  "reason": "Snapshot the deployed tables and views of the public schema with their columns, indexes and relationships"
+}

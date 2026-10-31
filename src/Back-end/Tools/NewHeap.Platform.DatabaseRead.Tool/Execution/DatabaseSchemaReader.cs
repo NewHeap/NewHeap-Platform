@@ -1,10 +1,12 @@
+using System.Data.Common;
+
 namespace NewHeap.Platform.DatabaseRead;
 
 internal static class DatabaseSchemaReader
 {
     public static async Task<DatabaseSchemaResultResponse> ExecuteAsync(
         IDatabaseReadProvider provider,
-        IDatabaseReadConnectionFactory connectionFactory,
+        IDatabaseReadRequestHost host,
         DatabaseReadExecutionContext executionContext,
         string connectionString,
         string requestId,
@@ -12,25 +14,13 @@ internal static class DatabaseSchemaReader
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        executionContext.Enter(DatabaseReadExecutionStage.ConnectionOpen);
-        await using var connection = await connectionFactory.OpenAsync(
+        await using var connection = await host.OpenVerifiedConnectionAsync(
             provider,
+            executionContext,
             connectionString,
             requestId,
             limits,
             cancellationToken);
-        provider.EnsureSupportedServer(connection);
-
-        executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
-        var verification = await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken);
-        if (!verification.IsReadOnly)
-        {
-            throw new DatabaseReadExpectedException(
-                "read-only-principal-not-verified",
-                "The database principal did not pass the read-only permission policy.",
-                DatabaseReadExitCode.PolicyRejected,
-                verification.FailedCheck);
-        }
 
         await using var transaction = await provider.BeginReadOnlyTransactionAsync(
             connection,
@@ -45,6 +35,18 @@ internal static class DatabaseSchemaReader
                 cancellationToken);
 
             executionContext.Enter(DatabaseReadExecutionStage.SchemaExecution);
+            if (request.Operation == DatabaseSchemaOperation.Catalog)
+            {
+                return await ReadCatalogAsync(
+                    provider,
+                    connection,
+                    transaction,
+                    request,
+                    limits,
+                    host.TimeProvider,
+                    cancellationToken);
+            }
+
             if (request.Operation != DatabaseSchemaOperation.SearchAndDescribe)
             {
                 return await provider.ReadSchemaAsync(
@@ -92,7 +94,78 @@ internal static class DatabaseSchemaReader
         }
         finally
         {
-            await transaction.RollbackAsync(CancellationToken.None);
+            await host.RollBackAsync(connection, transaction, executionContext);
         }
+    }
+
+    /// <summary>
+    /// Describes every selectable object in this connection and transaction, in the order of a
+    /// search and up to its row limit. The search's statements each keep their own timeout, so the
+    /// request's timeout also bounds the catalog as a whole: objects that no longer fit that time
+    /// or the output limit are left out and the catalog reports itself as truncated. Each hash is
+    /// the one <c>describe</c> reports for that object, so a caller can compare the two.
+    /// </summary>
+    private static async Task<DatabaseSchemaResultResponse> ReadCatalogAsync(
+        IDatabaseReadProvider provider,
+        DbConnection connection,
+        DbTransaction transaction,
+        ResolvedDatabaseSchemaRequest request,
+        DatabaseReadLimits limits,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var started = timeProvider.GetTimestamp();
+        var timeout = TimeSpan.FromSeconds(limits.TimeoutSeconds);
+        var searchResult = await provider.ReadSchemaAsync(
+            connection,
+            transaction,
+            request with { Operation = DatabaseSchemaOperation.Search },
+            limits,
+            cancellationToken);
+
+        var objects = new List<DatabaseSchemaCatalogObjectResponse>(searchResult.Objects!.Count);
+        var truncated = searchResult.Truncated;
+        var outputBytes = 0;
+
+        foreach (var summary in searchResult.Objects)
+        {
+            if (timeProvider.GetElapsedTime(started) >= timeout)
+            {
+                truncated = true;
+                break;
+            }
+
+            var describeResult = await provider.ReadSchemaAsync(
+                connection,
+                transaction,
+                new ResolvedDatabaseSchemaRequest(
+                    DatabaseSchemaOperation.Describe,
+                    summary.Schema,
+                    summary.Name,
+                    null),
+                limits,
+                cancellationToken);
+            var catalogObject = new DatabaseSchemaCatalogObjectResponse
+            {
+                EvidenceHash = DatabaseReadJson.ComputeEvidenceHash(describeResult),
+                Object = describeResult.Object!
+            };
+
+            outputBytes += DatabaseReadJson.Serialize(catalogObject).Length;
+            if (outputBytes > limits.MaximumOutputBytes)
+            {
+                truncated = true;
+                break;
+            }
+
+            objects.Add(catalogObject);
+        }
+
+        return new DatabaseSchemaResultResponse
+        {
+            Operation = "catalog",
+            CatalogObjects = objects,
+            Truncated = truncated
+        };
     }
 }

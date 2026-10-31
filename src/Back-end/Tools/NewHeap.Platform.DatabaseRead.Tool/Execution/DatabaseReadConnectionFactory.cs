@@ -36,10 +36,7 @@ internal sealed class DatabaseReadConnectionFactory : IDatabaseReadConnectionFac
         catch (Exception exception) when (
             exception is ArgumentException or FormatException or InvalidOperationException)
         {
-            throw new DatabaseReadExpectedException(
-                "connection-configuration-invalid",
-                "The selected environment's resolved connection string is not valid for the configured provider.",
-                DatabaseReadExitCode.InvalidProfile);
+            throw InvalidConfiguration();
         }
 
         try
@@ -54,5 +51,13 @@ internal sealed class DatabaseReadConnectionFactory : IDatabaseReadConnectionFac
 
             throw;
         }
+    }
+
+    public static DatabaseReadExpectedException InvalidConfiguration()
+    {
+        return new DatabaseReadExpectedException(
+            "connection-configuration-invalid",
+            "The selected environment's resolved connection string is not valid for the configured provider.",
+            DatabaseReadExitCode.InvalidProfile);
     }
 }

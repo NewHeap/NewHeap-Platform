@@ -114,6 +114,31 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
     }
 
     /// <summary>
+    /// MySqlConnector resets a pooled connection with <c>COM_RESET_CONNECTION</c> when it comes
+    /// back from the pool, which clears session variables, temporary tables and user variables.
+    /// </summary>
+    public string CreateReusableConnectionString(string connectionString)
+    {
+        var builder = new MySqlConnectionStringBuilder(connectionString)
+        {
+            Pooling = true,
+            ConnectionReset = true
+        };
+
+        return builder.ConnectionString;
+    }
+
+    public string GetPhysicalConnectionId(DbConnection connection)
+    {
+        return ((MySqlConnection)connection).ServerThread.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public Task ClearConnectionPoolAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        return MySqlConnection.ClearPoolAsync((MySqlConnection)connection, cancellationToken);
+    }
+
+    /// <summary>
     /// Checks the flavor and the minimum version from the version the server reported in its
     /// handshake, so a server older than MySQL 8.0, which does not know <c>CURRENT_ROLE()</c> or
     /// roles, stops with <c>provider-version-not-supported</c> before any statement runs instead of

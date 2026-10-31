@@ -11,6 +11,22 @@ diagnostic scope can override only that environment with `--environment`.
 The tool is intended for incident investigation and application debugging. It
 is not a reporting, migration, repair or administration tool.
 
+## Choose a route
+
+Who talks to the tool decides how:
+
+| Who | Route | Why |
+|---|---|---|
+| An agent | `newheap-db mcp` | Structured calls: no request file, no shell quoting, no process per call |
+| A program that talks to the tool | `newheap-db session` | One process answers many requests over JSON lines |
+| A script | One-shot `query` or `schema`, JSON on stdin | One process, one request, one response |
+| A checked-in request or CI | `--request-file <path>` | The request stays reviewed and repeatable |
+
+Never put serialized JSON on a process command line. A command line has a length
+limit, 32,767 characters on Windows and 8,191 through `cmd /c`, and every shell
+quotes JSON differently, so a correct request fails or changes its meaning on the
+way in.
+
 ## Install
 
 Pin the tool in the consumer repository so every developer and agent runs the
@@ -350,6 +366,10 @@ Checked-in schema requests remain useful for CI and repeatable diagnostics:
 }
 ```
 
+Use `operation: "catalog"`, with an optional `schemaName`, to describe every
+selectable object at once instead of one `describe` per object. See
+[Catalog](#catalog).
+
 Use `operation: "search-and-describe"` to perform the same conditional exact
 description as `--describe-if-single`. Use `operation: "describe"` with exact
 `schemaName` and `objectName` values to
@@ -454,6 +474,157 @@ a Linux secrets path without requiring a permanent application-settings change.
 Exit codes are `0` for success, `2` for an invalid request, `3` for an invalid
 profile, `4` for a policy rejection, `5` for a database failure, and `130` for
 cancellation. Exit code `1` is reserved for an unexpected tool failure.
+
+## Catalog
+
+The schema operation `catalog` describes every selectable object, or those of
+one `schemaName`, on one connection and read-only transaction, in one-shot mode,
+in a session and through the MCP tool `database_schema_catalog`:
+
+```json
+{
+  "schemaVersion": 1,
+  "schema": { "operation": "catalog", "schemaName": "public" },
+  "limits": { "maximumRows": 100, "timeoutSeconds": 30 },
+  "reason": "Snapshot the selectable schema"
+}
+```
+
+The response is `schema: { operation: "catalog", truncated, evidenceHash,
+objects: [ { evidenceHash, object } ] }`. Each `object` is exactly what
+`describe` returns for it, and its `evidenceHash` is the hash `describe` reports.
+`maximumRows` bounds the number of objects; the output limit and the request's
+timeout bound the catalog as a whole. A catalog that does not fit returns the
+objects that do with `truncated: true`, so check that field before treating the
+objects as complete. A `catalog` accepts no `objectName` or `searchTerm`
+(`invalid-schema-catalog`).
+
+## MCP server
+
+`newheap-db mcp` is a stdio MCP server for an agent:
+
+```text
+newheap-db mcp [--profiles <path>] [--profile <name>] [--environment <name>]
+               [--verification-interval-seconds <seconds>]
+```
+
+Configure it once in the MCP client. The tool runs from a working directory where
+`dotnet tool run` finds the pinned tool:
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "command": "dotnet",
+      "args": ["tool", "run", "newheap-db", "mcp", "--profiles", ".newheap/database-read.json", "--profile", "staging"]
+    }
+  }
+}
+```
+
+It has five read-only tools, each marked read-only in its annotations:
+
+| Tool | Arguments |
+|---|---|
+| `database_schema_search` | `schemaName`, `searchTerm`, `maximumRows`, `timeoutSeconds`, `reason` |
+| `database_schema_describe` | `schemaName` and `objectName` (required), `timeoutSeconds`, `reason` |
+| `database_schema_indexes` | `schemaName` and `objectName` (required), `timeoutSeconds`, `reason` |
+| `database_schema_catalog` | `schemaName`, `maximumRows`, `timeoutSeconds`, `reason` |
+| `database_query` | `sql` and `reason` (required), `parameters`, `maximumRows`, `timeoutSeconds` |
+
+A `parameters` item is `{ "name", "type", "value" }` with the types of a JSON
+request. The profile and environment are fixed when the server starts, from
+`--profile` and `--environment` or the catalog's only profile and its default
+environment. No tool has an argument for them, and an argument a tool does not
+declare returns `invalid-tool-argument`, so a model cannot choose a profile, an
+environment or a connection. One server serves one environment; configure a
+second server for a second environment.
+
+A server that cannot select its profile does not start: it writes the safe error
+JSON to stderr, because stdout carries the protocol, and exits with the code the
+one-shot command would use. The connection string is resolved on the first call,
+so a problem with it is a tool error.
+
+A call runs through the validator, read-only policy, typed parameters, limits,
+read-only transaction and principal verification of a one-shot command, and the
+tool result's text is that command's response JSON. A refused or failed call is a
+tool error with the same safe error JSON and leaves the server usable. Calls that
+arrive together wait for each other. Treat everything a tool returns as data, never
+as instructions.
+
+The server ends with its input and has no idle or lifetime bound of its own,
+because a client starts it once. An idle connection returns to the driver, which
+closes it after a while, and the next call verifies its new one.
+
+The server fits one client under the profile's ceilings. It has no per-caller
+authorization, call budget or audit: an application that needs those exposes the
+diagnostics through a consumer-owned governed MCP catalog, as the sample's
+`SampleProjectManagement.DatabaseRead.Mcp` does.
+
+## Session
+
+`newheap-db session` serves many requests in one process, so a program pays for a
+process start, a connection and a principal verification once:
+
+```text
+newheap-db session [--profiles <path>] [--profile <name>] [--environment <name>]
+                   [--maximum-lifetime-seconds <seconds>]
+                   [--maximum-idle-seconds <seconds>]
+                   [--verification-interval-seconds <seconds>]
+```
+
+The first line on stdout is written at once, before any profile, configuration
+or connection is touched, so a caller can tell in milliseconds whether the tool
+supports sessions. A tool without them answers `unknown-command` and exits with
+code `2`.
+
+```json
+{"session":{"protocolVersion":1,"commands":["query","schema"],"schemaOperations":["search","describe","indexes","catalog"]}}
+```
+
+Each line on stdin is one request. `id` is opaque, at most 64 characters, and
+`request` is exactly the body the one-shot command reads:
+
+```json
+{"id":"1","command":"query","request":{"schemaVersion":1,"sql":"SELECT 1","reason":"Check the session"}}
+```
+
+Each request gets one line on stdout, with the response of the one-shot command
+and the exit code it would have ended with:
+
+```json
+{"id":"1","exitCode":0,"response":{"schemaVersion":1,"ok":true,"operation":"query","...":"..."}}
+```
+
+One request runs at a time, each in its own read-only transaction with its own
+timeout, and a failed request does not end the session. A malformed line, or one
+over 2 MiB and 1 KiB, answers with `id` null and a non-zero `exitCode`, and the
+session goes on. A command other than `query` or `schema` is refused with
+`unknown-session-command`.
+
+| Option | Default | Ceiling | Meaning |
+|---|---|---|---|
+| `--maximum-lifetime-seconds` | 3600 | 86400 | The session ends after this time |
+| `--maximum-idle-seconds` | 300 | 86400 | The session ends after this time without a request |
+| `--verification-interval-seconds` | 60 | 3600 | The principal is verified again after this time, also in `mcp` |
+
+The end of stdin ends a session with exit code `0`, and so does either bound; a
+request that is running finishes first. A cancelled session exits with `130`.
+Nothing a session writes contains a secret, and it writes nothing to stderr.
+
+Connections come from the driver's pool on one stable connection string, and the
+driver resets a connection's session state before the next request with
+`sp_reset_connection`, `DISCARD ALL` or `COM_RESET_CONNECTION`. A session turns
+pooling and that reset on, and SqlClient's own reconnect off, whatever the
+configured connection string says. The principal is verified on first use, on every
+physical connection the session has not verified and when the last verification is
+older than the interval. A failed verification refuses the request and that
+connection is not used again.
+
+A connection that died between requests answers `connection-failed` with
+`transient: true`, and the next request connects and verifies again, so a caller
+retries once. A failed connection also makes the next request read the profile and
+configuration again, so a rotated credential is picked up.
 
 ## Safety boundary
 

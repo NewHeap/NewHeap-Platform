@@ -269,6 +269,135 @@ public sealed class DatabaseReadMcpSamplesTests(SamplePostgreSqlServer postgreSq
         AssertMcpFailure(overflowingResult);
     }
 
+    /// <summary>
+    /// SPM-237: an agent reads through the tool's own server with structured calls, without a request
+    /// file. The profile is fixed on the command line, the tools answer with the tool's response
+    /// JSON, and a refused statement is a tool error that leaves the server usable.
+    /// </summary>
+    [Fact]
+    public async Task ToolMcpServerAnswersStructuredCallsWithoutARequestFile()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var workspace = await LiveDatabaseReadWorkspace.CreateAsync(postgreSql, cancellationToken);
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        var server = NewHeapDatabaseReadApplication.RunAsync(
+            ["mcp", "--profiles", workspace.ProfileCatalogPath, "--profile", "sample-live"],
+            clientToServer.Reader.AsStream(),
+            serverToClient.Writer.AsStream(),
+            cancellationToken);
+
+        await using (var client = await McpClient.CreateAsync(
+                         new StreamClientTransport(
+                             clientToServer.Writer.AsStream(),
+                             serverToClient.Reader.AsStream()),
+                         cancellationToken: cancellationToken))
+        {
+            var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
+            Assert.Equal(
+                ["database_query", "database_schema_catalog", "database_schema_describe", "database_schema_indexes", "database_schema_search"],
+                tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+            Assert.All(tools, tool => Assert.True(tool.ProtocolTool.Annotations!.ReadOnlyHint));
+
+            var catalog = await client.CallToolAsync(
+                "database_schema_catalog",
+                new Dictionary<string, object?> { ["schemaName"] = "public" },
+                cancellationToken: cancellationToken);
+            Assert.NotEqual(true, catalog.IsError);
+            using var catalogResponse = JsonDocument.Parse(Text(catalog));
+            Assert.Contains(
+                catalogResponse.RootElement.GetProperty("schema").GetProperty("objects").EnumerateArray(),
+                entry => entry.GetProperty("object").GetProperty("name").GetString() == "Projects");
+
+            var query = await client.CallToolAsync(
+                "database_query",
+                new Dictionary<string, object?>
+                {
+                    ["sql"] = "SELECT COUNT(*) FROM public.\"Projects\"",
+                    ["maximumRows"] = 1,
+                    ["reason"] = "Count the projects through the tool's own server"
+                },
+                cancellationToken: cancellationToken);
+            Assert.NotEqual(true, query.IsError);
+            using var queryResponse = JsonDocument.Parse(Text(query));
+            Assert.Equal("sample-live", queryResponse.RootElement.GetProperty("target").GetProperty("profile").GetString());
+            Assert.True(queryResponse.RootElement.GetProperty("target").GetProperty("readOnlyVerified").GetBoolean());
+
+            var refused = await client.CallToolAsync(
+                "database_query",
+                new Dictionary<string, object?>
+                {
+                    ["sql"] = "DELETE FROM public.\"Projects\"",
+                    ["reason"] = "Prove that a write is refused"
+                },
+                cancellationToken: cancellationToken);
+            Assert.True(refused.IsError);
+            using var refusedResponse = JsonDocument.Parse(Text(refused));
+            Assert.Equal(
+                "query-not-read-only",
+                refusedResponse.RootElement.GetProperty("error").GetProperty("code").GetString());
+        }
+
+        await clientToServer.Writer.CompleteAsync();
+        Assert.Equal(0, await server);
+    }
+
+    /// <summary>
+    /// SPM-237: a program keeps one process and sends JSON lines. The ready line comes first, a failed
+    /// request answers with its own id and exit code, and the session goes on until its input ends.
+    /// </summary>
+    [Fact]
+    public async Task SessionServesManyRequestsInOneProcess()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var workspace = await LiveDatabaseReadWorkspace.CreateAsync(postgreSql, cancellationToken);
+        var input = new Pipe();
+        var output = new Pipe();
+        var session = NewHeapDatabaseReadApplication.RunAsync(
+            ["session", "--profiles", workspace.ProfileCatalogPath],
+            input.Reader.AsStream(),
+            output.Writer.AsStream(),
+            cancellationToken);
+        await using var requests = new StreamWriter(input.Writer.AsStream()) { AutoFlush = true };
+        using var answers = new StreamReader(output.Reader.AsStream());
+
+        using var ready = JsonDocument.Parse((await answers.ReadLineAsync(cancellationToken))!);
+        Assert.Equal(1, ready.RootElement.GetProperty("session").GetProperty("protocolVersion").GetInt32());
+
+        async Task<JsonDocument> SendAsync(string id, string sql)
+        {
+            await requests.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                id,
+                command = "query",
+                request = new
+                {
+                    schemaVersion = 1,
+                    sql,
+                    limits = new { maximumRows = 1, timeoutSeconds = 10 },
+                    reason = "Answer one small question in the same process"
+                }
+            }));
+
+            return JsonDocument.Parse((await answers.ReadLineAsync(cancellationToken))!);
+        }
+
+        using var first = await SendAsync("first", "SELECT COUNT(*) FROM public.\"Projects\"");
+        using var failed = await SendAsync("failed", "SELECT \"Missing\" FROM public.\"Projects\"");
+        using var next = await SendAsync("next", "SELECT COUNT(*) FROM public.\"Projects\"");
+
+        Assert.Equal("first", first.RootElement.GetProperty("id").GetString());
+        Assert.Equal(0, first.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(5, failed.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(
+            "column-not-found",
+            failed.RootElement.GetProperty("response").GetProperty("error").GetProperty("classification").GetString());
+        Assert.Equal(0, next.RootElement.GetProperty("exitCode").GetInt32());
+
+        await input.Writer.CompleteAsync();
+        Assert.Equal(0, await session);
+    }
+
     [Fact]
     public async Task SampleBudgetAllowsSixteenCallsPerInvocation()
     {
@@ -378,6 +507,11 @@ public sealed class DatabaseReadMcpSamplesTests(SamplePostgreSqlServer postgreSq
         var newestProject = result.GetProperty("rows")[0];
         Assert.Equal("2", newestProject[0].GetString());
         Assert.Equal("MCP overflow sentinel", newestProject[2].GetString());
+    }
+
+    private static string Text(CallToolResult result)
+    {
+        return Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
     }
 
     private static JsonElement SuccessfulData(JsonElement? structuredContent)
