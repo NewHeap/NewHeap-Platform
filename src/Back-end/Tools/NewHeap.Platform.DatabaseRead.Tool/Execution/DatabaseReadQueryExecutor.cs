@@ -8,7 +8,7 @@ internal static class DatabaseReadQueryExecutor
 {
     public static async Task<DatabaseQueryResultResponse> ExecuteAsync(
         IDatabaseReadProvider provider,
-        IDatabaseReadConnectionFactory connectionFactory,
+        IDatabaseReadRequestHost host,
         DatabaseReadExecutionContext executionContext,
         string connectionString,
         string requestId,
@@ -16,25 +16,13 @@ internal static class DatabaseReadQueryExecutor
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        executionContext.Enter(DatabaseReadExecutionStage.ConnectionOpen);
-        await using var connection = await connectionFactory.OpenAsync(
+        await using var connection = await host.OpenVerifiedConnectionAsync(
             provider,
+            executionContext,
             connectionString,
             requestId,
             limits,
             cancellationToken);
-        provider.EnsureSupportedServer(connection);
-
-        executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
-        var verification = await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken);
-        if (!verification.IsReadOnly)
-        {
-            throw new DatabaseReadExpectedException(
-                "read-only-principal-not-verified",
-                "The database principal did not pass the read-only permission policy.",
-                DatabaseReadExitCode.PolicyRejected,
-                verification.FailedCheck);
-        }
 
         await using var transaction = await provider.BeginReadOnlyTransactionAsync(
             connection,
@@ -124,7 +112,7 @@ internal static class DatabaseReadQueryExecutor
         }
         finally
         {
-            await transaction.RollbackAsync(CancellationToken.None);
+            await host.RollBackAsync(connection, transaction, executionContext);
         }
     }
 }

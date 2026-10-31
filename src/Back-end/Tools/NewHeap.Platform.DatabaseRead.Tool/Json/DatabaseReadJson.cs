@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -74,5 +75,18 @@ internal static class DatabaseReadJson
     public static byte[] Serialize(object response)
     {
         return JsonSerializer.SerializeToUtf8Bytes(response, response.GetType(), Options);
+    }
+
+    /// <summary>
+    /// The SHA-256 of a schema result as it is serialized without its own hash.
+    /// </summary>
+    public static string ComputeEvidenceHash(DatabaseSchemaResultResponse schema)
+    {
+        var evidenceHash = schema.EvidenceHash;
+        schema.EvidenceHash = null;
+        var hash = Convert.ToHexString(SHA256.HashData(Serialize(schema))).ToLowerInvariant();
+        schema.EvidenceHash = evidenceHash;
+
+        return hash;
     }
 }

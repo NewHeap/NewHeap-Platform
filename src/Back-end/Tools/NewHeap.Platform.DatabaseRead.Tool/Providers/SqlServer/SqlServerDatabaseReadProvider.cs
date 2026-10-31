@@ -537,6 +537,35 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     }
 
     /// <summary>
+    /// SqlClient resets a pooled connection with <c>sp_reset_connection</c> on its next use. Its
+    /// connection resiliency would replace a broken connection during the next command, after the
+    /// tool looked at the connection; without it the request fails and the next one verifies its
+    /// new connection.
+    /// </summary>
+    public string CreateReusableConnectionString(string connectionString)
+    {
+        var builder = new SqlConnectionStringBuilder(connectionString)
+        {
+            Pooling = true,
+            ConnectRetryCount = 0
+        };
+
+        return builder.ConnectionString;
+    }
+
+    public string GetPhysicalConnectionId(DbConnection connection)
+    {
+        return ((SqlConnection)connection).ClientConnectionId.ToString("N");
+    }
+
+    public Task ClearConnectionPoolAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        SqlConnection.ClearPool((SqlConnection)connection);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// The SQL Server verification has no minimum server version of its own.
     /// </summary>
     public void EnsureSupportedServer(DbConnection connection)
@@ -660,6 +689,10 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         return DatabaseReadTransactions.BeginReadCommittedAsync(connection, cancellationToken);
     }
 
+    /// <summary>
+    /// Sets the session options every diagnostic runs with. The verification sets them as well, but
+    /// a request on a reused connection skips it, and the connection's reset took them away.
+    /// </summary>
     public async Task ConfigureReadOnlyTransactionAsync(
         DbConnection connection,
         DbTransaction transaction,
@@ -669,7 +702,7 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = FormattableString.Invariant(
-            $"SET LOCK_TIMEOUT {limits.LockTimeoutMilliseconds};");
+            $"SET DEADLOCK_PRIORITY LOW; SET LOCK_TIMEOUT {limits.LockTimeoutMilliseconds};");
         command.CommandTimeout = limits.TimeoutSeconds;
 
         await command.ExecuteNonQueryAsync(cancellationToken);

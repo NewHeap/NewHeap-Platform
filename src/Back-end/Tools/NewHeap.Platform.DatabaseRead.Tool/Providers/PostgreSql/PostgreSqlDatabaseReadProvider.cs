@@ -1,6 +1,7 @@
 using Npgsql;
 using NpgsqlTypes;
 using System.Data.Common;
+using System.Globalization;
 
 namespace NewHeap.Platform.DatabaseRead;
 
@@ -185,6 +186,33 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         };
 
         return new NpgsqlConnection(builder.ConnectionString);
+    }
+
+    /// <summary>
+    /// Npgsql resets a pooled connection with <c>DISCARD ALL</c> before its next use.
+    /// </summary>
+    public string CreateReusableConnectionString(string connectionString)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connectionString)
+        {
+            Pooling = true,
+            NoResetOnClose = false,
+            Multiplexing = false
+        };
+
+        return builder.ConnectionString;
+    }
+
+    public string GetPhysicalConnectionId(DbConnection connection)
+    {
+        return ((NpgsqlConnection)connection).ProcessID.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public Task ClearConnectionPoolAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        NpgsqlConnection.ClearPool((NpgsqlConnection)connection);
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

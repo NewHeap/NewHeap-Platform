@@ -15,7 +15,8 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         string connectionString,
         int maximumRows = 20,
         int profileCount = 1,
-        string? sqlServerFunctionPolicy = null)
+        string? sqlServerFunctionPolicy = null,
+        int maximumOutputBytes = 65_536)
     {
         _root = Path.Combine(
             Path.GetTempPath(),
@@ -37,7 +38,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                     maximumRows,
                     maximumTimeoutSeconds = 15,
                     maximumLockTimeoutMilliseconds = 2_000,
-                    maximumOutputBytes = 65_536,
+                    maximumOutputBytes,
                     maximumCellBytes = 4_096,
                     maximumSqlBytes = 8_192,
                     sqlServerFunctionPolicy

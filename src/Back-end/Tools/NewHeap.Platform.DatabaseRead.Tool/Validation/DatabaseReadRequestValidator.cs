@@ -130,9 +130,10 @@ internal static partial class DatabaseReadRequestValidator
             "search-and-describe" => DatabaseSchemaOperation.SearchAndDescribe,
             "describe" => DatabaseSchemaOperation.Describe,
             "indexes" => DatabaseSchemaOperation.Indexes,
+            "catalog" => DatabaseSchemaOperation.Catalog,
             _ => throw Invalid(
                 "invalid-schema-operation",
-                "Schema operation must be 'search', 'search-and-describe', 'describe' or 'indexes'.")
+                "Schema operation must be 'search', 'search-and-describe', 'describe', 'indexes' or 'catalog'.")
         };
 
         var requiresObject = operation is DatabaseSchemaOperation.Describe or DatabaseSchemaOperation.Indexes;
@@ -146,6 +147,14 @@ internal static partial class DatabaseReadRequestValidator
             throw Invalid(
                 "invalid-schema-search",
                 "objectName is only accepted for the describe or indexes schema operation.");
+        }
+
+        if (operation == DatabaseSchemaOperation.Catalog &&
+            (!string.IsNullOrWhiteSpace(schema.ObjectName) || !string.IsNullOrWhiteSpace(schema.SearchTerm)))
+        {
+            throw Invalid(
+                "invalid-schema-catalog",
+                "The catalog schema operation accepts only schemaName.");
         }
 
         return new ResolvedDatabaseSchemaRequest(

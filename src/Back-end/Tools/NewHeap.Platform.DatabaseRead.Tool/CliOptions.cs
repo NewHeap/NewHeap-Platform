@@ -7,7 +7,8 @@ internal sealed record CliOptions(
     string? ProfileName,
     string? EnvironmentName,
     CliDirectSchemaOptions? DirectSchema,
-    bool ShowHelp)
+    bool ShowHelp,
+    DatabaseReadSessionOptions? Session = null)
 {
     public static CliOptions Parse(string[] args)
     {
@@ -21,6 +22,7 @@ internal sealed record CliOptions(
             "query" => DatabaseReadCommand.Query,
             "schema" => DatabaseReadCommand.Schema,
             "validate" => DatabaseReadCommand.Validate,
+            "session" => DatabaseReadCommand.Session,
             _ => throw new DatabaseReadExpectedException(
                 "unknown-command",
                 $"Unknown command '{args[0]}'.",
@@ -35,6 +37,9 @@ internal sealed record CliOptions(
         string? schemaName = null;
         int? maximumRows = null;
         int? timeoutSeconds = null;
+        int? maximumLifetimeSeconds = null;
+        int? maximumIdleSeconds = null;
+        int? verificationIntervalSeconds = null;
         var describeIfSingle = false;
 
         for (var index = 1; index < args.Length; index++)
@@ -67,6 +72,27 @@ internal sealed record CliOptions(
                     break;
                 case "--timeout-seconds":
                     timeoutSeconds = ReadPositiveInteger(args, ref index, "--timeout-seconds");
+                    break;
+                case "--maximum-lifetime-seconds":
+                    maximumLifetimeSeconds = ReadBoundedInteger(
+                        args,
+                        ref index,
+                        "--maximum-lifetime-seconds",
+                        DatabaseReadSessionOptions.HardMaximumLifetimeSeconds);
+                    break;
+                case "--maximum-idle-seconds":
+                    maximumIdleSeconds = ReadBoundedInteger(
+                        args,
+                        ref index,
+                        "--maximum-idle-seconds",
+                        DatabaseReadSessionOptions.HardMaximumLifetimeSeconds);
+                    break;
+                case "--verification-interval-seconds":
+                    verificationIntervalSeconds = ReadBoundedInteger(
+                        args,
+                        ref index,
+                        "--verification-interval-seconds",
+                        DatabaseReadSessionOptions.HardMaximumVerificationIntervalSeconds);
                     break;
                 case "--help" or "-h":
                     return new CliOptions(
@@ -106,6 +132,25 @@ internal sealed record CliOptions(
                 DatabaseReadExitCode.InvalidRequest);
         }
 
+        var hasSessionArguments = maximumLifetimeSeconds is not null ||
+                                  maximumIdleSeconds is not null ||
+                                  verificationIntervalSeconds is not null;
+        if (hasSessionArguments && command != DatabaseReadCommand.Session)
+        {
+            throw new DatabaseReadExpectedException(
+                "session-arguments-require-session-command",
+                "Arguments --maximum-lifetime-seconds, --maximum-idle-seconds and --verification-interval-seconds are only accepted by the session command.",
+                DatabaseReadExitCode.InvalidRequest);
+        }
+
+        if (requestFilePath is not null && command == DatabaseReadCommand.Session)
+        {
+            throw new DatabaseReadExpectedException(
+                "request-file-not-supported",
+                "The session command reads its requests from stdin.",
+                DatabaseReadExitCode.InvalidRequest);
+        }
+
         if (schemaSearchTerm is not null && requestFilePath is not null)
         {
             throw new DatabaseReadExpectedException(
@@ -123,6 +168,13 @@ internal sealed record CliOptions(
                 maximumRows,
                 timeoutSeconds);
 
+        var session = command == DatabaseReadCommand.Session
+            ? new DatabaseReadSessionOptions(
+                TimeSpan.FromSeconds(maximumLifetimeSeconds ?? DatabaseReadSessionOptions.DefaultMaximumLifetimeSeconds),
+                TimeSpan.FromSeconds(maximumIdleSeconds ?? DatabaseReadSessionOptions.DefaultMaximumIdleSeconds),
+                TimeSpan.FromSeconds(verificationIntervalSeconds ?? DatabaseReadSessionOptions.DefaultVerificationIntervalSeconds))
+            : null;
+
         return new CliOptions(
             command,
             profilesPath is null ? null : Path.GetFullPath(profilesPath),
@@ -130,7 +182,8 @@ internal sealed record CliOptions(
             profileName,
             environmentName,
             directSchema,
-            false);
+            false,
+            session);
     }
 
     public static string HelpText =>
@@ -153,11 +206,17 @@ internal sealed record CliOptions(
                             [--environment <name>] --search <term>
                             [--schema-name <name>] [--describe-if-single]
                             [--maximum-rows <count>] [--timeout-seconds <seconds>]
+          newheap-db session [--profiles <path>] [--profile <name>]
+                             [--environment <name>]
+                             [--maximum-lifetime-seconds <seconds>]
+                             [--maximum-idle-seconds <seconds>]
+                             [--verification-interval-seconds <seconds>]
 
         Commands:
           validate  Dry-run a query or schema request and its profile without connecting.
           query     Validate the request, verify the principal and execute the diagnostic query.
           schema    Validate the request, verify the principal and inspect selectable schema.
+          session   Serve many query and schema requests in one process over JSON lines.
 
         Profile discovery:
           Without --profiles, the tool searches upward from the current directory for
@@ -179,6 +238,15 @@ internal sealed record CliOptions(
           Without --request-file, the tool reads the JSON request from stdin.
           With --request-file, the tool reads that file instead of stdin. Pass only the file
           path as an argument; never inline the serialized JSON in a shell command.
+
+        Session:
+          stdout's first line announces the protocol, before any connection opens. Each stdin
+          line {"id":"...","command":"query"|"schema","request":{...}} gets one stdout line
+          {"id":"...","exitCode":<n>,"response":{...}}. A failed request does not end the
+          session; the end of stdin does, with exit code 0. A session ends by itself after
+          --maximum-lifetime-seconds (default 3600) or --maximum-idle-seconds (default 300), and
+          verifies the principal again after --verification-interval-seconds (default 60) and on
+          every new connection.
 
         Streams:
           stdout  JSON response only
@@ -211,6 +279,20 @@ internal sealed record CliOptions(
         }
 
         return parsed;
+    }
+
+    private static int ReadBoundedInteger(string[] args, ref int index, string name, int maximum)
+    {
+        var value = ReadPositiveInteger(args, ref index, name);
+        if (value > maximum)
+        {
+            throw new DatabaseReadExpectedException(
+                "invalid-argument-value",
+                $"Argument '{name}' may be at most {maximum}.",
+                DatabaseReadExitCode.InvalidRequest);
+        }
+
+        return value;
     }
 
     private static string ResolveRequestFilePath(string path)
@@ -263,5 +345,6 @@ internal enum DatabaseReadCommand
 {
     Validate,
     Query,
-    Schema
+    Schema,
+    Session
 }

@@ -13,6 +13,27 @@ internal interface IDatabaseReadProvider
         DatabaseReadLimits limits);
 
     /// <summary>
+    /// The connection string for a process that serves many requests. Whatever the configured
+    /// string says, the driver pools connections, resets a connection's session state when it
+    /// comes back from the pool, and never reconnects behind the tool's back, because a new
+    /// physical connection must pass the principal verification first.
+    /// </summary>
+    string CreateReusableConnectionString(string connectionString);
+
+    /// <summary>
+    /// What identifies the physical connection, so a process that reuses connections notices that
+    /// it got another one. It needs no round trip. The server assigns it, and on PostgreSQL, MySQL
+    /// and MariaDB it can come back after a server restart.
+    /// </summary>
+    string GetPhysicalConnectionId(DbConnection connection);
+
+    /// <summary>
+    /// Closes the idle connections of this connection's pool and stops the connection itself from
+    /// returning to it.
+    /// </summary>
+    Task ClearConnectionPoolAsync(DbConnection connection, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks the server right after the connection opened, from what the server reported while
     /// the connection opened and before any statement runs, so that a server the verification
     /// cannot read stops with a profile error instead of failing on a statement it does not know.

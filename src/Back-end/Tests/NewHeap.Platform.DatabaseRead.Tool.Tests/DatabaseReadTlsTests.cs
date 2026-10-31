@@ -64,6 +64,36 @@ public sealed class DatabaseReadTlsTests
         }
     }
 
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task SessionRefusesAnUntrustedServerCertificateAndGoesOn(RelationalTestProvider provider)
+    {
+        await using var endpoint = provider == RelationalTestProvider.PostgreSql
+            ? PostgreSqlTlsTestEndpoint.Start()
+            : null;
+        var (providerName, connectionString, host) = provider == RelationalTestProvider.SqlServer
+            ? await SqlServerConnectionAsync()
+            : PostgreSqlConnection(endpoint!);
+        using var workspace = new DatabaseReadTestWorkspace(providerName, connectionString);
+        await using var session = new DatabaseReadSessionClient(workspace);
+        await session.ReadReadyLineAsync();
+
+        foreach (var answer in new[]
+                 {
+                     await session.SchemaAsync("search", searchTerm: "project"),
+                     await session.QueryAsync("SELECT 1")
+                 })
+        {
+            answer.ExitCode.Should().Be(5, answer.Text);
+            answer.Text.Should().NotContain(Canary);
+            answer.Text.Should().NotContain(host);
+            answer.Classification.Should().Be("tls-certificate-untrusted");
+            answer.Error.GetProperty("stage").GetString().Should().Be("connection-open");
+            answer.Error.GetProperty("transient").GetBoolean().Should().BeFalse();
+        }
+    }
+
     private static async Task<(string Provider, string ConnectionString, string Host)> SqlServerConnectionAsync()
     {
         var server = new SqlConnectionStringBuilder(
