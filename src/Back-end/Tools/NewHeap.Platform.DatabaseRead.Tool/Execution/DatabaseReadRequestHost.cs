@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 
 namespace NewHeap.Platform.DatabaseRead;
@@ -53,11 +54,20 @@ internal sealed class DatabaseReadOneShotHost(
 {
     public TimeProvider TimeProvider => TimeProvider.System;
 
+    /// <summary>
+    /// A connection the driver gave up, as Npgsql does when it refuses a parameter value, took its
+    /// transaction with it, and rolling back again would replace the request's own failure.
+    /// </summary>
     public Task RollBackAsync(
         DbConnection connection,
         DbTransaction transaction,
         DatabaseReadExecutionContext executionContext)
     {
+        if (connection.State != ConnectionState.Open)
+        {
+            return Task.CompletedTask;
+        }
+
         return transaction.RollbackAsync(CancellationToken.None);
     }
 

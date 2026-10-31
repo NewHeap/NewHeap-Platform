@@ -304,6 +304,16 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
+    /// <summary>
+    /// Npgsql refuses a <see cref="DateTimeOffset"/> with another offset than zero for
+    /// <c>timestamp with time zone</c>, which stores no offset of its own, so the same instant in
+    /// UTC is exactly what the server would have kept.
+    /// </summary>
+    public DateTimeOffset NormalizeInstant(DateTimeOffset instant)
+    {
+        return instant.ToUniversalTime();
+    }
+
     public DatabaseReadProviderFailure ClassifyException(
         DbException exception,
         DatabaseReadExecutionStage stage)

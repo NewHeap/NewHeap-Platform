@@ -274,6 +274,16 @@ internal sealed partial class MySqlDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
+    /// <summary>
+    /// MySQL and MariaDB have no parameter type with an offset: the instant reaches the server as
+    /// its UTC wall clock, which a <c>datetime</c> column compares as written and a
+    /// <c>timestamp</c> column reads in the session's <c>time_zone</c>.
+    /// </summary>
+    public DateTimeOffset NormalizeInstant(DateTimeOffset instant)
+    {
+        return instant.ToUniversalTime();
+    }
+
     public DatabaseReadProviderFailure ClassifyException(
         DbException exception,
         DatabaseReadExecutionStage stage)

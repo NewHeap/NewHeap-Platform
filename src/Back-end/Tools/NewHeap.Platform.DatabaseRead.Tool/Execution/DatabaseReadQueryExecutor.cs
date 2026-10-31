@@ -41,11 +41,9 @@ internal static class DatabaseReadQueryExecutor
             command.CommandText = request.Sql!;
             command.CommandTimeout = limits.TimeoutSeconds;
             command.Transaction = transaction;
-            DatabaseReadParameterBinder.AddParameters(command, request.Parameters ?? []);
+            DatabaseReadParameterBinder.AddParameters(command, provider, request.Parameters ?? []);
 
-            await using var reader = await command.ExecuteReaderAsync(
-                CommandBehavior.SequentialAccess | CommandBehavior.SingleResult,
-                cancellationToken);
+            await using var reader = await ExecuteReaderAsync(command, cancellationToken);
 
             var columnSchema = reader.GetColumnSchema();
             var columns = Enumerable.Range(0, reader.FieldCount)
@@ -113,6 +111,37 @@ internal static class DatabaseReadQueryExecutor
         finally
         {
             await host.RollBackAsync(connection, transaction, executionContext);
+        }
+    }
+
+    /// <summary>
+    /// A driver refuses a parameter value on the client, before the statement reaches the server,
+    /// with one of these exceptions instead of a <see cref="DbException"/>. Their text can quote the
+    /// value, so the caller gets what to check and not what the driver said. A value the tool cannot
+    /// read at all was refused earlier with <c>invalid-parameter-value</c>.
+    /// </summary>
+    internal static async Task<DbDataReader> ExecuteReaderAsync(
+        DbCommand command,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await command.ExecuteReaderAsync(
+                CommandBehavior.SequentialAccess | CommandBehavior.SingleResult,
+                cancellationToken);
+        }
+        catch (Exception exception) when (
+            command.Parameters.Count > 0 &&
+            exception is ArgumentException
+                or FormatException
+                or InvalidCastException
+                or NotSupportedException
+                or OverflowException)
+        {
+            throw new DatabaseReadExpectedException(
+                "parameter-binding-failed",
+                "The database driver refused a parameter value before the statement reached the server. Check the type and value of each parameter against what the SQL compares it with.",
+                DatabaseReadExitCode.InvalidRequest);
         }
     }
 }

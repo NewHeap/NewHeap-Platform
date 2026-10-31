@@ -333,6 +333,11 @@ public sealed class DatabaseReadCatalogTests
         {
         }
 
+        public DateTimeOffset NormalizeInstant(DateTimeOffset instant)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
             DbConnection connection,
             DatabaseReadLimits limits,

@@ -196,7 +196,7 @@ internal sealed class DatabaseReadMcpTool : McpServerTool
                     "sql": { "type": "string", "description": "One SELECT or read-only WITH statement, without comments." },
                     "parameters": {
                       "type": "array",
-                      "description": "Typed data values that the SQL refers to by name.",
+                      "description": "Typed data values that the SQL refers to by name. A date-time with Z or an offset is an instant; one with neither is a wall-clock value and binds as written.",
                       "items": {
                         "type": "object",
                         "properties": {

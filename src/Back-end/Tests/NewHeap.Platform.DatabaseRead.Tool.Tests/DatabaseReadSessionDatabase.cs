@@ -68,6 +68,13 @@ internal sealed class DatabaseReadSessionDatabase : IAsyncDisposable
 
     public required Func<string, Task> EndConnectionAsync { get; init; }
 
+    /// <summary>
+    /// Creates <c>session_moments</c> for the principal: one row whose <c>instant_at</c> column is the
+    /// provider's zone-aware type and whose <c>wall_clock_at</c> column is its plain one, both holding
+    /// 2026-09-30 22:00:00, the first in UTC.
+    /// </summary>
+    public required Func<Task> CreateMomentsAsync { get; init; }
+
     public static Task<DatabaseReadSessionDatabase> CreateAsync(RelationalTestProvider provider)
     {
         return provider == RelationalTestProvider.SqlServer
@@ -140,6 +147,17 @@ internal sealed class DatabaseReadSessionDatabase : IAsyncDisposable
             GrantWriteAsync = () => ExecuteAsync($"GRANT INSERT ON `{admin.Database}`.session_items TO `{reader}`@`%`;"),
             RevokeWriteAsync = () => ExecuteAsync($"REVOKE INSERT ON `{admin.Database}`.session_items FROM `{reader}`@`%`;"),
             EndConnectionAsync = connectionId => ExecuteAsync($"KILL {connectionId};"),
+            CreateMomentsAsync = () => ExecuteAsync(
+                $"""
+                CREATE TABLE session_moments (
+                    id int NOT NULL PRIMARY KEY,
+                    instant_at timestamp(6) NOT NULL,
+                    wall_clock_at datetime(6) NOT NULL
+                );
+                INSERT INTO session_moments (id, instant_at, wall_clock_at)
+                VALUES (1, '2026-09-30 22:00:00', '2026-09-30 22:00:00');
+                GRANT SELECT ON `{admin.Database}`.session_moments TO `{reader}`@`%`;
+                """),
             _cleanup = () => ExecuteAsync($"DROP USER IF EXISTS `{reader}`@`%`;")
         };
     }
@@ -223,7 +241,18 @@ internal sealed class DatabaseReadSessionDatabase : IAsyncDisposable
             WriteCheck = "table-view-insert",
             GrantWriteAsync = () => ExecuteAsync($"GRANT INSERT ON dbo.session_items TO [{user}];"),
             RevokeWriteAsync = () => ExecuteAsync($"REVOKE INSERT ON dbo.session_items FROM [{user}];"),
-            EndConnectionAsync = connectionId => ExecuteAsync($"KILL {connectionId};")
+            EndConnectionAsync = connectionId => ExecuteAsync($"KILL {connectionId};"),
+            CreateMomentsAsync = () => ExecuteAsync(
+                $"""
+                CREATE TABLE dbo.session_moments (
+                    id int NOT NULL PRIMARY KEY,
+                    instant_at datetimeoffset(7) NOT NULL,
+                    wall_clock_at datetime2(7) NOT NULL
+                );
+                INSERT INTO dbo.session_moments (id, instant_at, wall_clock_at)
+                VALUES (1, '2026-09-30T22:00:00+00:00', '2026-09-30T22:00:00');
+                GRANT SELECT ON dbo.session_moments TO [{user}];
+                """)
         };
     }
 
@@ -291,7 +320,18 @@ internal sealed class DatabaseReadSessionDatabase : IAsyncDisposable
             WriteCheck = "relation-write",
             GrantWriteAsync = () => ExecuteAsync($"GRANT INSERT ON public.session_items TO {user};"),
             RevokeWriteAsync = () => ExecuteAsync($"REVOKE INSERT ON public.session_items FROM {user};"),
-            EndConnectionAsync = connectionId => ExecuteAsync($"SELECT pg_terminate_backend({connectionId});")
+            EndConnectionAsync = connectionId => ExecuteAsync($"SELECT pg_terminate_backend({connectionId});"),
+            CreateMomentsAsync = () => ExecuteAsync(
+                $"""
+                CREATE TABLE public.session_moments (
+                    id int NOT NULL PRIMARY KEY,
+                    instant_at timestamp with time zone NOT NULL,
+                    wall_clock_at timestamp without time zone NOT NULL
+                );
+                INSERT INTO public.session_moments (id, instant_at, wall_clock_at)
+                VALUES (1, '2026-09-30T22:00:00+00:00', '2026-09-30T22:00:00');
+                GRANT SELECT ON public.session_moments TO {user};
+                """)
         };
     }
 }

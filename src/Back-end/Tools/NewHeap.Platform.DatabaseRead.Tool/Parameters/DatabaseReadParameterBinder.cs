@@ -7,16 +7,26 @@ namespace NewHeap.Platform.DatabaseRead;
 
 internal static class DatabaseReadParameterBinder
 {
+    /// <summary>
+    /// Adds the typed parameters. A <c>date-time</c> value with <c>Z</c> or an offset is an instant,
+    /// which the provider binds in the form its driver accepts; one with neither is a wall-clock
+    /// value, which binds unshifted as the provider's plain date and time type. Neither depends on
+    /// the time zone of the host the tool runs on.
+    /// </summary>
     public static void AddParameters(
         DbCommand command,
+        IDatabaseReadProvider provider,
         IReadOnlyList<DatabaseReadParameterRequest> parameterRequests)
     {
         foreach (var request in parameterRequests)
         {
+            var type = ParseType(request.Type);
+            var value = ConvertValue(request, type);
+
             var parameter = command.CreateParameter();
             parameter.ParameterName = $"@{request.Name}";
-            parameter.DbType = ParseType(request.Type);
-            parameter.Value = ConvertValue(request, parameter.DbType);
+            parameter.DbType = value is DateTime ? DbType.DateTime2 : type;
+            parameter.Value = value is DateTimeOffset instant ? provider.NormalizeInstant(instant) : value;
             command.Parameters.Add(parameter);
         }
     }
@@ -67,7 +77,7 @@ internal static class DatabaseReadParameterBinder
                 DbType.Decimal => ParseDecimal(request.Value),
                 DbType.Double => request.Value.GetDouble(),
                 DbType.Guid => Guid.Parse(request.Value.GetString()!),
-                DbType.DateTimeOffset => request.Value.GetDateTimeOffset(),
+                DbType.DateTimeOffset => ParseDateTime(request.Value),
                 DbType.Date => DateOnly.ParseExact(
                     request.Value.GetString()!,
                     "yyyy-MM-dd",
@@ -83,6 +93,24 @@ internal static class DatabaseReadParameterBinder
                 $"Parameter '{request.Name}' does not contain a valid {request.Type} value.",
                 DatabaseReadExitCode.InvalidRequest);
         }
+    }
+
+    /// <summary>
+    /// A <see cref="DateTimeOffset"/> for a value with <c>Z</c> or an offset, and a
+    /// <see cref="DateTime"/> of unspecified kind for a value with neither, which
+    /// <see cref="JsonElement.GetDateTimeOffset"/> would place in the host's time zone. These are
+    /// two branches because a conditional expression would convert the
+    /// <see cref="DateTime"/> to a <see cref="DateTimeOffset"/>, with that same result.
+    /// </summary>
+    private static object ParseDateTime(JsonElement value)
+    {
+        var parsed = value.GetDateTime();
+        if (parsed.Kind == DateTimeKind.Unspecified)
+        {
+            return parsed;
+        }
+
+        return value.GetDateTimeOffset();
     }
 
     private static long ParseInt64(JsonElement value)
