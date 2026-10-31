@@ -68,6 +68,12 @@ internal interface IDatabaseReadProvider
         DatabaseReadLimits limits,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The value to bind for a <c>date-time</c> parameter that carries <c>Z</c> or an offset: the
+    /// same instant, in the form this provider's driver accepts and its server keeps.
+    /// </summary>
+    DateTimeOffset NormalizeInstant(DateTimeOffset instant);
+
     DatabaseReadProviderFailure ClassifyException(
         DbException exception,
         DatabaseReadExecutionStage stage);

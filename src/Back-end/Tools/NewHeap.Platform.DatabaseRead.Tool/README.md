@@ -253,6 +253,24 @@ JSON number precision would be unsafe. A JSON `null` is accepted for every
 type. SQL identifiers are not data parameters; keep table and column names fixed
 in reviewed request files.
 
+A `date-time` value with `Z` or an offset is an instant. A value with neither is
+a wall-clock value, which binds as written; the tool never reads a value in the
+time zone of the host it runs on. Choose the form by the column:
+
+| Provider | Column | Instant (`2026-10-01T00:00:00+02:00`) | Wall clock (`2026-09-30T22:00:00`) |
+|---|---|---|---|
+| SQL Server | `datetimeoffset` | Compared as the same instant; the parameter keeps its offset | Read as UTC by the server |
+| SQL Server | `datetime2`, `datetime` | The server reads the column as UTC | Compared as written |
+| PostgreSQL | `timestamp with time zone` | Compared as the same instant, bound in UTC | Read in the session's `TimeZone` by the server |
+| PostgreSQL | `timestamp without time zone` | The server reads the column in the session's `TimeZone` | Compared as written |
+| MySQL, MariaDB | `datetime` | Compared as its UTC wall clock | Compared as written |
+| MySQL, MariaDB | `timestamp` | Correct only while the session's `time_zone` is UTC | The server reads the column in the session's `time_zone`, so pass that zone's wall clock |
+
+The tool does not set `time_zone` on MySQL or MariaDB, because that would change
+what `timestamp` columns and `NOW()` return to every query. A value a driver
+refuses returns `parameter-binding-failed` with exit code 2 and without the
+driver's text; check the type and value of each parameter.
+
 The SQL policy accepts one `SELECT` or read-only `WITH` statement without
 comments. On PostgreSQL it refuses functions with session or server effects,
 such as `pg_sleep` and its variants, the advisory-lock functions,

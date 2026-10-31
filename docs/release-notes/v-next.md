@@ -21,5 +21,18 @@ no tool argument reaches them. A refused or failed call is a tool error with the
 grows by about 0.6 MB and the installed tool by about 2 MB, for `ModelContextProtocol.Core` and
 `Microsoft.Extensions.AI.Abstractions`, which a one-shot command does not load.
 
-One-shot `validate`, `query` and `schema` keep their behavior, JSON and exit codes; only the text of
-`invalid-schema-operation` now also names `catalog`.
+Apart from `date-time` parameters, below, one-shot `validate`, `query` and `schema` keep their behavior, JSON and exit
+codes; only the text of `invalid-schema-operation` now also names `catalog`.
+
+## NewHeap.Platform.DatabaseRead.Tool: date-time parameters
+
+A `date-time` parameter with an offset, such as `2026-10-01T00:00:00+02:00`, failed on PostgreSQL with
+`unexpected-failure`, because Npgsql refuses a non-zero offset for `timestamp with time zone`. It now binds as the same
+instant in UTC. SQL Server keeps the offset as written, and MySQL and MariaDB receive the UTC wall clock as they did. The
+tool's README shows what each provider compares for each column type, including the limit of a MySQL or MariaDB
+`timestamp` column on a session whose `time_zone` is not UTC.
+
+| Breaking change | Required action |
+|---|---|
+| A `date-time` without `Z` or an offset took the host's time zone, so it moved on SQL Server, MySQL and MariaDB and failed on PostgreSQL; it now binds as written. | Add `Z` or an offset to a value that names an instant. |
+| A parameter value a driver refused returned `unexpected-failure` with exit code 1; it now returns `parameter-binding-failed` with exit code 2 and without the driver's text. | Handle the new code by checking the parameter's type and value. |

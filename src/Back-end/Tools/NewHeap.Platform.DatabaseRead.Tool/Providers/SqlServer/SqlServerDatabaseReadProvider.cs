@@ -739,6 +739,15 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
+    /// <summary>
+    /// <c>datetimeoffset</c> keeps the offset, and <c>CAST(@value AS datetime2)</c>, <c>DATEPART</c>
+    /// and <c>SWITCHOFFSET</c> read the local part of it, so the value stays as the caller wrote it.
+    /// </summary>
+    public DateTimeOffset NormalizeInstant(DateTimeOffset instant)
+    {
+        return instant;
+    }
+
     public DatabaseReadProviderFailure ClassifyException(
         DbException exception,
         DatabaseReadExecutionStage stage)
