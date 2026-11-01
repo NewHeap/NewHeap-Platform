@@ -154,3 +154,19 @@ not run as an agent". `NhAssistantChatSubjects.WorksOn` decides a chat's subject
   The full matrix runs once per train.
 - **(b) All of it in one train.** One verification round less, but the bug fix waits for the features. Lars chose
   this one: FB74 then shares lane OB with FB76, which builds on it.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| CB1 | The budget counts the whole block: heading, introduction, note and the formatted items, not only the formatter's output. That is what the model receives, and it stays true for any formatter. | for Lars to review |
+| CB2 | When the application map has to go, its room goes back to the passages: the fit runs again without the map. The order stays as decided, the map goes only when the text does not fit without any passage, but a turn no longer ends without passages next to free room. | for Lars to review |
+| CB3 | A block without passages keeps its heading and the note, so the model still hears that the sources hold more. It records no hash and counts as `Public`. When not even the note fits, the turn data stays and the block goes. | for Lars to review |
+| CB4 | The note and the warning count what the fit dropped, not what the resolver's `MaxItems` or content budget skipped: a cut by `MaxItems` is a choice of the agent and would put the note in most turns. So a passage the resolver skipped stays unmentioned, as today. | for Lars to review |
+| CB5 | A passage the budget drops does not count for the turn's classification. A passage the fit of the turn drops does: the classification is decided before the fit, the fit can differ per skill, and keeping it errs on the safe side. | for Lars to review |
+| CB6 | The startup warning reads code: the agent's instructions, the seed of the application context, the default preferences and each skill's instructions. It reads no database, so instructions that change as data (an edited application context, an overridden or administrator-created agent, long personal preferences) reach only the warning of the turn. It leaves the map and turn data out, because their size is known only in a turn. | for Lars to review |
+| CB7 | The MCP tools load before the fit, so the note about missing connections keeps its room next to the block and wins from the lowest-ranked passages. When even the instructions plus the note do not fit, the note stays out with a warning of its own. | for Lars to review |
+| CB8 | Characters outside the Basic Multilingual Plane, such as emoji, stay a pair of `\uXXXX` escapes: `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` keeps them and a custom encoder is not worth it for this. The budget counts them as they are written. | for Lars to review |
+| CB9 | `NhAiRoleSeparatedPromptAssembler`, the only other caller of the formatter, has no delimiter of its own, but a host may join its blocks with one, and the old encoder kept markup out. Its retrieved block now neutralizes through the same helper as the assistant. A custom formatter that writes markup for this block sees it replaced; the release notes say so. | for Lars to review |
+| CB10 | A turn on its instructions alone records 0 facts, 0 page entities and no page context next to its empty hashes, so the audit says what the model received throughout. Instructions over the limit record the same, because no model call follows. | for Lars to review |
+| CB11 | The warning goes per model agent, so a turn that switches skills can log it twice, and it fires at warning level for a drop by the budget as well as for one by the limit. The trace of the resolution keeps the resolver's hash, which the guidance names. | for Lars to review |

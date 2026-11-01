@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -271,6 +272,52 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
             Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
             Assert.Contains(host.AuditEvents, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked && evt.RetrievedContextHash is not null);
             host.AssertContentFree(ContextMarker, UserTextMarker, "roadmap moved");
+        }
+        finally
+        {
+            host.Projects.ContextDocuments.Clear();
+        }
+    }
+
+    [Fact]
+    public async Task SPM_291_the_descriptions_stay_within_the_budget_of_the_block_and_the_block_says_what_it_left_out()
+    {
+        const string ContextMarker = "e2e-context-budget-5d2";
+        var lastWeek = DateTimeOffset.UtcNow.AddDays(-7);
+        // Five long descriptions: their content stays within the agent's 4,000 characters, the block
+        // the model reads with their source, date and format does not. The first matches best.
+        host.Projects.ContextDocuments[host.DivisionId] = Enumerable.Range(1, 5)
+            .Select(rank => new ProjectAiContextDocument(
+                Guid.NewGuid(),
+                "PRJ-29" + rank.ToString(CultureInfo.InvariantCulture),
+                "Roadmap",
+                ((rank == 1 ? "What does the roadmap say? " : "The roadmap. ") + ContextMarker).PadRight(650, '.'),
+                lastWeek))
+            .ToArray();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap", limit = 5 } })
+            .RespondWithText("The first description answers it, and not all of them fit.");
+        host.Model.Use(model);
+        using var viewer = host.CreateClient(Viewer, false, ViewerPermissions);
+        var conversationId = await host.CreateConversationAsync(viewer);
+        try
+        {
+            await host.SendAsync(viewer, conversationId, "What does the roadmap say? " + UserTextMarker);
+
+            var instructions = model.Requests[0].Options!.Instructions!;
+            var retrieved = instructions[instructions.IndexOf("# Retrieved context", StringComparison.Ordinal)..];
+            // The budget of SampleAssistantComposition counts what the model reads.
+            Assert.True(retrieved.Length <= 4_000, $"The block takes {retrieved.Length} characters.");
+            Assert.Contains("PRJ-291", retrieved);
+            var left = Enumerable.Range(1, 5).Count(rank => !retrieved.Contains("PRJ-29" + rank.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            Assert.True(left > 0, "Every description fit, so nothing proves the budget.");
+            Assert.Contains($"did not fit and were left out: {left.ToString(CultureInfo.InvariantCulture)}.", retrieved);
+            Assert.Contains("Do not conclude that the sources are silent", retrieved);
+            // Audit and block name the descriptions that were sent, and the log only counts them.
+            var hash = host.AuditEvents.Last(evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked).RetrievedContextHash;
+            Assert.NotNull(hash);
+            Assert.Contains("\"contextHash\":\"" + hash + "\"", retrieved);
+            host.AssertContentFree(ContextMarker, UserTextMarker, "What does the roadmap say");
         }
         finally
         {

@@ -36,7 +36,12 @@ the full retrieved content in logs.
 Use `INhAiContextFormatter.FormatAsData` to serialize retrieved items with
 `instructionAuthority=false`. This metadata is defense in depth, not a security
 boundary: tool policy, authorization and approval never come from retrieved
-text or model output.
+text or model output. The default formatter leaves out empty fields and escapes
+only what JSON requires, so text in any language reads as it is; only a character
+outside the Basic Multilingual Plane, such as an emoji, stays a pair of escapes.
+Markup therefore stays in its output: neutralize `<` and `>` before you place it
+between delimiters of your own. The assistant's block and the retrieved block of
+`INhAiPromptAssembler` do that for any formatter.
 
 ## Retrieved context in agent turns
 
@@ -66,6 +71,13 @@ sources their agent retrieves from. `MaxItems` (8 by default, at most 50) and `M
 `NhAssistantLimits.MaxRetrievedCharacters`, at most 24,000) become the request's item, character
 and token budgets. A turn that continues after an approval does not retrieve again.
 
+`MaxCharacters` limits what the model receives, not only the content of the items: the whole block
+counts, as the registered `INhAiContextFormatter` writes it and with its introduction. The
+lowest-ranked items beyond it are left out one at a time, so a full budget holds fewer items than
+its characters of content suggest. With the default formatter, reckon with about 300 characters for
+the block and 160 per item, plus the item's ids and provenance. Raise `MaxCharacters` and
+`MaxRetrievedCharacters` together when answers need more.
+
 The model reads a `# Retrieved context` block as the last turn data, after the situation and the
 user's screen: the formatter's JSON with each item's source, id, `effectiveAt` date (`EffectiveAt`,
 else `CreatedAt`), provenance and content, markup neutralized, introduced as untrusted data that
@@ -75,6 +87,27 @@ is not part of the prompt hash or the approval binding, and tool audit events ca
 30) leaves the turn without the block, and the log names the exception type only. The library adds
 an `INhAiContextTraceSink` that logs each resolution's content-free trace with the invocation id:
 sources with their outcome codes and counts, selected items, characters and the context hash.
+
+The model instructions of a turn are at most 32,768 characters, and the instructions, the application
+map, the turn data and the block must fit in them together. One fit step before the model call keeps
+what fits, in a fixed order. The lowest-ranked items go first, one at a time. The application map
+goes only when the text does not fit without any item, and the items that fit in its room then come
+back. The situation, the user's screen and the shared conversation stay as long as they fit; when
+they do not, the turn runs on its instructions alone. Instructions over the limit still fail the
+turn with `assistant-instructions-too-long`. A note about missing MCP connections keeps its room next
+to the block. The block is formatted again for what remains, and a turn that switches skills fits
+all of its items again for the skill's instructions. When items were left out, the block says how
+many in the turn's language, so the model does not conclude that the sources are silent; when none
+fit, that note is all the block holds. `RetrievedContextHash` and `ApplicationMapHash` are those of
+what was sent and stay empty when nothing was, so the trace above can name a hash the model never
+received when the fit dropped items. The turn's classification stays that of the items the budget
+kept, also when the fit of the turn drops the highest one.
+
+A warning names the agent, the turn, the items kept and dropped and the characters whenever a turn
+leaves data out, never content, the query or item ids. At startup a warning names each agent or skill
+in code with `UseRetrievedContext` whose instructions plus budget exceed the limit, counting the
+seed of the application context. Instructions that change as data, such as an edited application
+context or an agent created in the administration, show up in the warning of the turn.
 
 A source that serves agent turns receives the whole question as its query. Match its words rather
 than the full text, and stamp every item with the execution scopes it was read for.
@@ -87,6 +120,11 @@ than the full text, and stamp every item with the execution scopes it was read f
   threads; a person's turn there retrieves within the subject's division only.
 - Treating internal database text as trusted instructions.
 - Silently merging conflicting versions or exceeding context budgets.
+- Budgeting `MaxCharacters` for the content alone; it counts the formatted block.
+- Reading a turn that answers from fewer items as proof that the sources are silent; look for the
+  turn's warning and shorten the instructions or raise the budget.
+- Placing the default formatter's output between delimiters of your own without neutralizing its
+  markup.
 - Logging documents, prompts, embeddings, credentials or provider payloads.
 - Using vector similarity as authorization or policy evidence.
 - Connecting every registered source to every agent; name the sources each agent needs.
@@ -108,7 +146,12 @@ reach the model, that a slow resolver leaves the turn without it and that the tr
 content. Assert that a person's turn in a subject thread retrieves with the person as actor within
 the subject and its division, never the request's other active division, while a plain chat keeps
 the person's own division. Assert that a skill or fallback profile that does not permit the highest retrieved
-classification never receives the block: `use_skill` is refused and the turn does not fall back. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
+classification never receives the block: `use_skill` is refused and the turn does not fall back.
+Assert that the block stays within `MaxCharacters` with the default and with a custom formatter, that
+the lowest-ranked items go first and the map after them, that the turn data stays as long as it fits,
+that the note appears in English and Dutch, that the audit hash is that of what was sent and absent
+when nothing was, that a passage cannot close the block, that the warning holds no content, that a
+turn that fits stays as it was and that the startup warning fires and stays silent. SPM-226, SPM-291, `NewHeap.Platform.AI.Tests` and `NewHeap.Platform.AI.Chat.Tests` are the
 executable references.
 
 ## Optional source evidence
