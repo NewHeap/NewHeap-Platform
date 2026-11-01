@@ -428,7 +428,7 @@ export class NhAssistantMockBackend {
     if (method === 'GET' && path === 'agents') {
       // The agents of a chat about a subject, which the caller must be able to read (FB25).
       const subject = this.chatSubject(query.get('subjectType'), query.get('subjectId'), language);
-      return 'code' in subject ? this.error(subject.code) : this.json(200, this.admin.chatAgents());
+      return 'code' in subject ? this.error(subject.code) : this.json(200, this.admin.chatAgents(subject.subject?.subjectType ?? null));
     }
     if (path === 'preferences') {
       return this.result(this.admin.handlePreferences(method, body));
@@ -569,14 +569,19 @@ export class NhAssistantMockBackend {
   }
 
   private create(request: CreateConversationRequest, language: string | null = null): Response {
-    const agent = this.admin.chatAgents().find(item => item.id === request?.agentId);
+    const agent = this.admin.offeredAgents().find(item => item.id === request?.agentId);
     if (!agent) {
       return this.empty(400);
     }
-    // Like the server: a chat about a subject needs a subject the caller may read (FB25).
+    // Like the server: a chat about a subject needs a subject the caller may read (FB25), and an agent
+    // that works on it.
     const subject = this.chatSubject(request.subjectType ?? null, request.subjectId ?? null, language);
     if ('code' in subject) {
       return this.error(subject.code);
+    }
+    const refusal = this.admin.chatRefusal(agent.id, subject.subject?.subjectType ?? null);
+    if (refusal) {
+      return this.error(refusal);
     }
 
     const now = new Date().toISOString();
@@ -1286,7 +1291,7 @@ export class NhAssistantMockBackend {
 
   /** What people may attach to a message to the agent, as its summary says. */
   private uploadsOf(agentId: string): AgentUploads | null {
-    return this.admin.chatAgents().find(agent => agent.id === agentId)?.uploads
+    return this.admin.offeredAgents().find(agent => agent.id === agentId)?.uploads
       ?? this.scenario.agents.find(agent => agent.id === agentId)?.uploads
       ?? null;
   }

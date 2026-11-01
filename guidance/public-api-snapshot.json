@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.97",
   "backEnd": {
-    "hash": "84c36835fa4af3a7c1ca184c3747cb0901e68c0b8846e05c352bf1ff491c765f",
-    "declarationCount": 12200,
+    "hash": "f3a3030e0d19fd1ddb6c3dc7ee1eed7f857abcd30ed9e0471455d9a42f280753",
+    "declarationCount": 12203,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10767,6 +10767,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public IReadOnlyList<string> ChatsAbout { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public NhAiDataClassification? DataClassification { get; init; }"
       },
       {
@@ -11927,6 +11931,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public IReadOnlyList<string> ChatsAbout { get; internal set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public IReadOnlyList<string> Groups { get; internal set; } = [];"
       },
       {
@@ -12088,6 +12096,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder ChatOnly() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder ChatsAbout(params string[] subjectTypes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -13987,7 +13999,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
-        "declaration": "public static bool WorksOn(NhAssistantAgent agent, NhAiSubjectRef subject) {"
+        "declaration": "public static bool CanChatAbout(NhAssistantAgent agent, NhAiSubjectRef subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
@@ -52819,7 +52831,8 @@
       "INhAssistantProposals",
       "ProposeForAsync",
       "NhAssistantProposalRequest",
-      "NhAssistantProposalResult"
+      "NhAssistantProposalResult",
+      "ChatsAbout"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

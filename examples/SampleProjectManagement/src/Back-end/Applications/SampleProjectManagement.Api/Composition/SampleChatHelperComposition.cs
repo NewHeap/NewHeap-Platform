@@ -14,6 +14,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// project is refused with <c>assistant-agent-does-not-work-on</c>, nothing triggers it and it needs no
 /// background operations of its own. The host would refuse to start if it also said what it works on,
 /// accepted hand-offs or worked in shadow.
+/// People may still chat with it about a project (<c>ChatsAbout</c>): the project dialog offers that chat,
+/// <c>GET agents?subjectType=project&amp;subjectId=</c> lists the helper, and the project's access resolver
+/// decides as for any chat about a project, on creation and on every turn, read and invitation. That
+/// reaches chats only: the helper still works on no project and every start stays refused.
 /// Call it after <c>AddSampleIntakeReviewer</c>, whose consultation the helper may ask.
 /// </summary>
 public static class SampleChatHelperComposition
@@ -48,8 +52,9 @@ public static class SampleChatHelperComposition
                 Autonomy: NhAiAutonomyLevel.Propose,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             .ConfigureAgent(AgentId, agent => agent
-                // SPM-343: chat settings without any subject, start, trigger, hand-off or replay.
+                // SPM-343: chat settings without any start, trigger, hand-off or replay.
                 .ChatOnly()
+                .ChatsAbout(ProjectSubjects.Type)
                 .Skill(MeetingNotesSkill, skill => skill
                     .Description("Turns what the person tells about a project meeting into short notes and proposes a status when the meeting decided one.")
                     .Instructions("Write the notes as a short list of decisions and open points. Propose a status change only when the meeting decided it.")

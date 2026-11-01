@@ -313,6 +313,8 @@ export class NhAssistantStore {
   /** Agents the store met in chats about a subject that the status does not list, by id. */
   private readonly knownSubjectAgentsState = signal<ReadonlyMap<string, AgentSummary>>(new Map());
   private subjectRevision = 0;
+  /** The `subjectRevision` whose agents `setChatSubject` is loading; `null` when none are. */
+  private loadingSubjectRevision: number | null = null;
   private readonly conversationsState = signal<ConversationSummary[]>([]);
   private readonly conversationsTotalState = signal(0);
   private readonly conversationsLoadingState = signal(false);
@@ -793,7 +795,7 @@ export class NhAssistantStore {
       }
       this.statusState.set(status);
       if (status.enabled) {
-        this.selectInitialAgent(status.agents);
+        this.selectAgentOfChat();
         this.startCollaboration(status);
         if (this.activeIdState() === null && restored.state.conversationId) {
           await this.loadConversation(restored.state.conversationId, true);
@@ -883,7 +885,7 @@ export class NhAssistantStore {
     if (!subject) {
       this.newChatSubjectState.set(null);
       this.subjectAgentsState.set([]);
-      this.selectInitialAgent(this.statusState()?.agents ?? []);
+      this.selectAgentOfChat();
       return true;
     }
 
@@ -892,12 +894,14 @@ export class NhAssistantStore {
       return false;
     }
 
+    this.loadingSubjectRevision = revision;
     try {
       const agents = await firstValueFrom(this.api.agents(subject));
       if (revision !== this.subjectRevision || accountRevision !== this.accountRevision) {
         return false;
       }
 
+      this.loadingSubjectRevision = null;
       this.newChatSubjectState.set({ ...subject });
       this.subjectAgentsState.set(agents);
       this.startNewConversation();
@@ -908,6 +912,10 @@ export class NhAssistantStore {
         this.setError(null, error);
       }
       return false;
+    } finally {
+      if (this.loadingSubjectRevision === revision) {
+        this.loadingSubjectRevision = null;
+      }
     }
   }
 
@@ -2485,6 +2493,31 @@ export class NhAssistantStore {
       }
     }));
     this.patchSummary(conversationId, { status });
+  }
+
+  /**
+   * Checks the chosen agent against the agents of the chat once they may have changed: those of the next
+   * new chat's subject, otherwise those of the status (FB74). The status alone would replace an agent
+   * offered only for chats about a subject (`RequireChatSubject()`), which it never lists, right before
+   * the message for that agent goes out. So the agent of the open chat stays while the store knows it.
+   * While the agents of a subject load, or when the subject has none, nothing here says which agent the
+   * chat is with: `setChatSubject` chooses once they are there, and the server refuses an agent that does
+   * not work on the subject with its own error.
+   */
+  private selectAgentOfChat(): void {
+    if (this.loadingSubjectRevision === this.subjectRevision) {
+      return;
+    }
+
+    const selected = this.selectedAgentIdState();
+    if (selected !== null && this.activeConversation()?.agentId === selected && this.agents().some(agent => agent.id === selected)) {
+      return;
+    }
+
+    const agents = this.chatAgents();
+    if (this.newChatSubjectState() === null || agents.length > 0) {
+      this.selectInitialAgent(agents);
+    }
   }
 
   private selectInitialAgent(agents: AgentSummary[]): void {

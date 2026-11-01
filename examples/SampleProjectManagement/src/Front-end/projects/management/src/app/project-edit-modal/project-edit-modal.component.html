@@ -100,7 +100,8 @@
   <!--
     SPM-363: a chat about this project with the project chat, which is offered only for chats about a
     project. The store makes the next new chat about the project; the server checks the person's role
-    on it when the chat is created and on every turn and read.
+    on it when the chat is created and on every turn and read. SPM-343: the chat helper works on no
+    project and starts no runs, but people may chat with it about a project (ChatsAbout).
   -->
   @if (formData && assistantEnabled() && project(); as current) {
     <section class="agent-suggestions" data-project-chat [attr.aria-label]="'project.project-chat-label' | translate">
@@ -110,6 +111,13 @@
       <button type="button" class="secondary-button" (click)="chatAboutProject(current)">
         <i class="ph ph-chat-circle-text" aria-hidden="true"></i>
         {{ 'project.project-chat-start' | translate }}
+      </button>
+      <p class="agent-suggestions-note">
+        <i class="ph ph-note-pencil" aria-hidden="true"></i>{{ 'project.project-notes-description' | translate }}
+      </p>
+      <button type="button" class="secondary-button" data-project-notes (click)="chatAboutProject(current, chatHelperId)">
+        <i class="ph ph-chat-circle-text" aria-hidden="true"></i>
+        {{ 'project.project-notes-start' | translate }}
       </button>
     </section>
   }

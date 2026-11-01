@@ -605,7 +605,7 @@ public sealed record NhAssistantCreateConversationRequest(
     /// <summary>
     /// The type of the subject the chat is about (FB25), with <see cref="SubjectId"/>; both or neither.
     /// The subject's resolver must describe it in the caller's tenant and give the caller a role on it,
-    /// and the agent must work on it.
+    /// and the agent must work on it or, as a chat-only agent, chat about its type (<c>ChatsAbout()</c>).
     /// </summary>
     public string? SubjectType { get; init; }
 

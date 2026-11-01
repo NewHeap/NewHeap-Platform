@@ -1751,11 +1751,18 @@ internal sealed class NhAssistantRegistrationState
                     $"Agent '{agentId}' is chat-only (ChatOnly), so it works on no subject and cannot use {string.Join(", ", options.RunSettings)}. Remove them, or remove ChatOnly so the agent runs on subjects.");
             }
 
-            // A chat about a subject needs an agent that works on it and that people may chat with (FB25).
-            if (options.RequiresChatSubject && options.ChatOnly)
+            // Only a chat-only agent names what people chat with it about: any other chats about what it works on (FB76).
+            if (options.ChatsAbout.Count > 0 && !options.ChatOnly)
             {
                 throw new InvalidOperationException(
-                    $"Agent '{agentId}' is chat-only (ChatOnly), so it works on no subject and no chat with it can be about one. Remove RequireChatSubject, or remove ChatOnly and say what the agent works on.");
+                    $"Agent '{agentId}' names object types to chat about (ChatsAbout) but is not chat-only, and an agent that runs chats about what it works on. Add ChatOnly, or remove ChatsAbout and say what the agent works on.");
+            }
+
+            // A chat about a subject needs an agent that works on it or chats about it, and that people may chat with (FB25).
+            if (options.RequiresChatSubject && options.ChatOnly && options.ChatsAbout.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' is chat-only (ChatOnly), so it works on no subject and no chat with it can be about one. Name the object types with ChatsAbout, remove RequireChatSubject, or remove ChatOnly and say what the agent works on.");
             }
             if (options.RequiresChatSubject && options.HiddenFromChat)
             {

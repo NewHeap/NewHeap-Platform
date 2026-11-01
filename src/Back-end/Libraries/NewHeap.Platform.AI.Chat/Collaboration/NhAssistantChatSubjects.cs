@@ -7,9 +7,10 @@ namespace NewHeap.Platform.AI.Chat.Collaboration;
 /// <summary>
 /// The subject of a person's chat (FB25). A new chat names it with a type and an id; the chat is about
 /// it when the type's access resolver describes it in the person's tenant, gives the person at least
-/// <see cref="MinimumRole"/> on it and the agent works on it. Every turn, read and invitation asks the
-/// resolver again, so revoked access takes effect at once. The chat stays the person's: it never
-/// becomes the agent's thread about the subject and shares no memory, run, proposal or member with it.
+/// <see cref="MinimumRole"/> on it and the agent works on it or, as a chat-only agent, chats about its
+/// type. Every turn, read and invitation asks the resolver again, so revoked access takes effect at once.
+/// The chat stays the person's: it never becomes the agent's thread about the subject and shares no
+/// memory, run, proposal or member with it.
 /// </summary>
 internal sealed class NhAssistantChatSubjects(
     NhAssistantSubjectAccessService subjects,
@@ -66,7 +67,8 @@ internal sealed class NhAssistantChatSubjects(
     /// The subject of a new chat of <paramref name="actorId"/> with <paramref name="agent"/>, as its
     /// resolver describes it: <see cref="NhAssistantErrorCodes.SubjectTypeUnknown"/> for a type without a
     /// resolver, the refusals of <see cref="CheckAsync(NhAiSubjectRef, string, string?, CancellationToken)"/>,
-    /// and <see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/> when the agent does not work on it.
+    /// and <see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/> when the agent cannot chat about it
+    /// (<see cref="CanChatAbout"/>).
     /// </summary>
     public async Task<TaskResult<NhAiSubjectInfo>> CheckNewAsync(
         NhAiSubjectRef subject,
@@ -88,7 +90,7 @@ internal sealed class NhAssistantChatSubjects(
             return checkedSubject;
         }
 
-        return WorksOn(agent, subject)
+        return CanChatAbout(agent, subject)
             ? checkedSubject
             : TaskResult<NhAiSubjectInfo>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "The agent does not work on the chat's subject.");
     }
@@ -156,20 +158,23 @@ internal sealed class NhAssistantChatSubjects(
     }
 
     /// <summary>
-    /// Whether <paramref name="agent"/> works on <paramref name="subject"/>, as its triggers, starts and
-    /// consultations ask.
+    /// Whether a chat with <paramref name="agent"/> can be about <paramref name="subject"/>: the agent works
+    /// on it, or it is a chat-only agent that names the subject's type (<c>ChatsAbout()</c>, FB76). Only
+    /// chats ask this: triggers, starts, hand-offs and consultations ask what the agent works on, so
+    /// <c>ChatsAbout()</c> never lets one of those reach the agent.
     /// </summary>
-    public static bool WorksOn(NhAssistantAgent agent, NhAiSubjectRef subject)
+    public static bool CanChatAbout(NhAssistantAgent agent, NhAiSubjectRef subject)
     {
         ArgumentNullException.ThrowIfNull(agent);
         ArgumentNullException.ThrowIfNull(subject);
-        return agent.WorksOn.Covers(subject);
+        return agent.WorksOn.Covers(subject) || agent.ChatsAbout.Contains(subject.Type, StringComparer.Ordinal);
     }
 
     /// <summary>
     /// Whether <paramref name="agent"/> is offered for a new chat with or without a subject: an agent that
-    /// requires one (<c>RequireChatSubject()</c>) only with a subject it works on, every other agent offered
-    /// in the chat always, and with a subject only when it works on it.
+    /// requires one (<c>RequireChatSubject()</c>) only with a subject it can chat about
+    /// (<see cref="CanChatAbout"/>), every other agent offered in the chat always, and with a subject only
+    /// when it can chat about it.
     /// </summary>
     public static bool IsOffered(NhAssistantAgent agent, NhAiSubjectRef? subject)
     {
@@ -181,6 +186,6 @@ internal sealed class NhAssistantChatSubjects(
 
         return subject is null
             ? !agent.RequiresChatSubject
-            : WorksOn(agent, subject);
+            : CanChatAbout(agent, subject);
     }
 }

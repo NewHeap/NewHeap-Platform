@@ -1017,15 +1017,17 @@ var created = await conversations.CreateAsync(
     cancellationToken);
 ```
 
-- Creating checks the subject with its access resolver, the tenant and what the agent works on:
+- Creating checks the subject with its access resolver, the tenant and what the agent works on or,
+  for a chat-only agent, chats about (`ChatsAbout`):
   `assistant-subject-invalid` (400) for one of `subjectType` and `subjectId` without the other, an
   invalid id or a type of the platform (a chat without a subject is already about the whole
   application), `assistant-subject-type-unknown` (404) for a type without a resolver,
   `assistant-subject-not-found` (404) when the resolver does not describe it or the person's tenant
   does not reach it, `assistant-subject-access-denied` (403) when the resolver gives the person no
   role on it (`Reader` is enough: the chat's tools run with the person's own rights), and
-  `assistant-agent-does-not-work-on` (409) when the agent's `WorksOn` does not cover it. An agent with
-  `RequireChatSubject()` refuses a chat without a subject with `assistant-subject-required` (400).
+  `assistant-agent-does-not-work-on` (409) when neither the agent's `WorksOn` nor its `ChatsAbout`
+  covers it. An agent with `RequireChatSubject()` refuses a chat without a subject with
+  `assistant-subject-required` (400).
 - The resolver is asked again on every turn (a message, a decision and an answer, through the
   endpoints and `INhAssistantConversationTurns` alike, which also check that the agent still works on
   the subject), read (`GET conversations/{id}`, marking read, uploads, `GetAsync` and `UploadAsync`),
@@ -1044,10 +1046,11 @@ var created = await conversations.CreateAsync(
   chat shares no memory, run, proposal or member with the agent's thread about the subject, and the
   subject's approvers do not decide its proposals; the person does, inline.
 - `GET agents` and the status leave out agents that require a subject; `GET agents?subjectType=&subjectId=`
-  and `ListAgentsAsync(person, subject)` list the agents that work on the subject, those that require
-  one included, after the same checks as creating. `RequireChatSubject()` is a setting in code; the host
-  refuses to start for a chat-only agent (`ChatOnly()`) and next to `HideFromChat()`. Chats that exist
-  without a subject keep working.
+  and `ListAgentsAsync(person, subject)` list the agents that work on the subject and the chat-only
+  agents that chat about its type (`ChatOnly().ChatsAbout(types)`, see the agent runs rule), those that
+  require one included, after the same checks as creating. `RequireChatSubject()` is a setting in code;
+  the host refuses to start for a chat-only agent (`ChatOnly()`) without `ChatsAbout` and next to
+  `HideFromChat()`. Chats that exist without a subject keep working.
 - `INhAiSubjectRetention.ForgetSubjectAsync(subject, scopeKey)` deletes the chats about the subject in
   that scope with their messages, and the application's file retention forgets their uploads with the
   reason `subject-forgotten`. The subject's columns and index on `AssistantConversation` come with the
@@ -1056,7 +1059,9 @@ var created = await conversations.CreateAsync(
 SampleProjectManagement's project chat (SPM-363, `SampleProjectChatComposition`) works on projects and
 requires a subject; the project dialog starts it with `NhAssistantStore.setChatSubject`. A reader of the
 project chats with the project's briefing, someone of another division is refused, and a member removed
-from the project can no longer read or continue the chat but still deletes it.
+from the project can no longer read or continue the chat but still deletes it. The same dialog starts a
+chat about the project with the chat helper of SPM-343, which chats about projects without working on
+them (`ChatOnly().ChatsAbout(ProjectSubjects.Type)`).
 
 ## Files in model turns
 
@@ -1681,7 +1686,7 @@ calls in a consultation store nothing and are not listed.
 ## Verification
 
 For a chat about a subject, assert on SQL Server and PostgreSQL that creating it checks the subject's
-form, type, existence, tenant, the person's role and what the agent works on, that `RequireChatSubject`
+form, type, existence, tenant, the person's role and what the agent works on or chats about, that `RequireChatSubject`
 refuses a chat without one and leaves the agent out of `GET agents`, that the owner and a participant
 lose reads, turns, joins and live delivery once the resolver gives them no role while deleting and
 stopping stay possible, that tools, the proposal guard, the file source and the briefing receive the

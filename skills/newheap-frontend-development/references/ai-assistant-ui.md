@@ -107,12 +107,20 @@ person's role on the subject then and on every later turn and read. The subject 
 `newChatSubject()` is `null` again once it exists. It resolves `false` and shows the server's refusal,
 such as `assistant-subject-access-denied`, when the person may not use a chat about it. The agent picker
 binds `store.chatAgents()`, the agents of the next new chat: those of its subject, including agents
-offered only for chats about a subject (`RequireChatSubject()` on the server), otherwise those of the
-status; `store.agents()` also knows those agents for lookups. `chatSubject()` names the subject of the
+offered only for chats about a subject (`RequireChatSubject()` on the server) and chat-only agents that
+chat about its type (`ChatsAbout()` on the server), otherwise those of the
+status; `store.agents()` also knows those agents for lookups. The store keeps the chosen agent among
+those agents whenever it reads the status, which it does before every message, so a first message goes
+to an agent the status leaves out. The agent of the open chat stays chosen as long as the store knows it,
+a status that arrives while a subject's agents load chooses nothing, and for a subject without agents the
+server refuses the chosen agent with `assistant-agent-does-not-work-on` instead of the message being
+dropped. `requireChatSubject` and `chatsAbout` of a mock agent (`NhAssistantMockAdminAgent`) make the mock
+API treat an agent the same way as `RequireChatSubject()` and `ChatsAbout()` do on the server. `chatSubject()` names the subject of the
 open chat (`Conversation.subject`, `ConversationSubject` with its type name and link) or of the next new
 chat, and the panel shows it above the composer ("About {subject}", in English and Dutch). Call
 `setChatSubject(null)` when the person leaves the page before sending. SampleProjectManagement's project
-dialog starts the project chat this way (SPM-363).
+dialog starts the project chat this way (SPM-363), and the chat helper, a chat-only agent that chats about
+projects (SPM-343).
 
 Select the assistant in the prompt bar below the message field. The panel shows the
 picker only when more than one assistant is available; a single assistant remains
@@ -685,7 +693,8 @@ An agent in code that works in people's chats only (`chatOnly` of `AdminAgent`, 
 SPM-343) shows a "Chat only" badge and a hint instead of what it works on, and its card offers no "Run
 now", runs, run state changes or shadow mode; its run configuration stays for its skills as data. A
 mock scenario declares one with `chatOnly: true` on a code agent; the mock then refuses its starts and
-its shadow mode with `assistant-agent-does-not-work-on`.
+its shadow mode with `assistant-agent-does-not-work-on`, and `chatsAbout` names the object types people
+may chat with it about.
 
 Agent packages move agents with their configuration between hosts. "Export as package" on an agent's
 card opens the export dialog with that agent chosen: the agents to take (exactly those), the package id

@@ -539,6 +539,12 @@ internal sealed class NhAssistantStartupValidator(
                     $"Agent '{agentId}' works on '{subjectType}', which has no subject access resolver. Register one with AddSubjectType.");
             }
 
+            foreach (var subjectType in runOptions.ChatsAbout.Where(type => !subjectTypes.IsKnownType(type)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' chats about '{subjectType}', which has no subject access resolver. Register one with AddSubjectType.");
+            }
+
             foreach (var policy in new[] { runOptions.WorksOn.RunPolicy, runOptions.WorksOn.ViewPolicy }.OfType<string>())
             {
                 if (await policyProvider.GetPolicyAsync(policy) is null)

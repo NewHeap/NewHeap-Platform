@@ -206,8 +206,9 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// The person's live access to the subject of their chat about one (FB25), checked before every turn
     /// starts: the subject's resolver must describe it in the person's tenant and give them a role on it,
-    /// and the agent must still work on it (<see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/>).
-    /// <see langword="null"/> for a chat without a subject and for an agent's thread.
+    /// and the agent must still work on it or chat about its type
+    /// (<see cref="NhAssistantErrorCodes.AgentDoesNotWorkOn"/>). <see langword="null"/> for a chat without a
+    /// subject and for an agent's thread.
     /// </summary>
     private async Task<TaskResult<NhAiSubjectInfo?>> CheckChatSubjectAsync(
         AssistantConversation conversation,
@@ -230,7 +231,7 @@ internal sealed partial class NhAssistantTurnRunner(
             return checkedSubject;
         }
 
-        return NhAssistantChatSubjects.WorksOn(effectiveAgent, subject)
+        return NhAssistantChatSubjects.CanChatAbout(effectiveAgent, subject)
             ? checkedSubject
             : TaskResult<NhAiSubjectInfo?>.Failed(NhAssistantErrorCodes.AgentDoesNotWorkOn, "The agent no longer works on the chat's subject.");
     }
