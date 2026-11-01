@@ -262,9 +262,10 @@ public sealed class AssistantTurnDataFitTests(AssistantDatabaseFixture database)
             assistant: builder => builder.UseDefaultApplicationContext(Asset("The application.".PadRight(2_000, '.'))));
 
         var conversation = await host.CreateConversationAsync(agentId: AgentId);
-        await host.SendAsync(conversation.Id, Question);
+        var turn = await host.SendAsync(conversation.Id, Question);
 
         Assert.Empty(model.Requests);
+        Assert.Equal(NhAssistantAdminErrorCodes.InstructionsTooLong, turn.Single<NhAssistantTurnCompletedEvent>().ErrorCode);
         Assert.DoesNotContain(host.Business.Events, evt => evt.RetrievedContextHash is not null);
     }
 
