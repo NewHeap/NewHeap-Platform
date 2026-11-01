@@ -375,7 +375,8 @@
     "SPM-381",
     "SPM-382",
     "SPM-383",
-    "SPM-384"
+    "SPM-384",
+    "SPM-387"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4100,6 +4101,20 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs"
+    ],
+    "SPM-387": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkRuleSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
     ]
   }
 }

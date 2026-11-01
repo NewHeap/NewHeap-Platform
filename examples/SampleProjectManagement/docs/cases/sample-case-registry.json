@@ -6830,6 +6830,28 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs"
       ]
+    },
+    {
+      "id": "SPM-387",
+      "categoryId": "18",
+      "title": "A person's chat lists the people on a project while an agent's run and a consultation are refused, although the agent is the actor in all of them",
+      "surface": "`NhAiInvocationContext.IsAgentWork` and `NhAiAgentInvocationScope.IsAgentWork` in a tool handler; `INhAiBackgroundOperationRunAdapter`; the code `project-members-for-people` of `projects.list-members`",
+      "outcome": "`projects.list-members` keeps the people on a project out of an agent's own work with a rule on `IsAgentWork`: a turn of a run and a consultation, which has no run, read the stable code `project-members-for-people` before the tool reads anything, with the rights of a person who may read the members. In a person's chat the tool answers, and in that person's own turn in the agent's thread as well, although `ActorKind` is `Agent` in every one of these calls, so a rule on the actor kind would refuse the application's own chat. The library sets the property for every kind of turn: true in a run, a rule run, a shadow run, a consultation and when a proposal of a run or a consultation executes; false in a person's chat, its follow-up turn after an execution report, a person's own turn in a thread and a proposal recorded for a person; a step of a composition or a script counts as the turn it runs in. `ActorKind`, `RunId`, `AgentRunId` and every proposal hash stay as they were.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkRuleSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAgentInvocation.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAgentInvocationGateTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
+      ]
     }
   ]
 }
