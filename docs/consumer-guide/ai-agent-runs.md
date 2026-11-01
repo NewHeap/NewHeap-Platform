@@ -692,6 +692,22 @@ run executes. It is `null` outside a run: in a person's chat, a person's turn in
 a consultation. `RunId` stays the turn's id, which proposal hashes and usage records use, and
 `CorrelationId` the run id in `N` format; never parse either to find the run.
 
+A rule about runs, such as a tool family that must not run unattended, reads
+`NhAiInvocationContext.IsAgentWork` (SPM-387). It is `true` in a turn of a run, a rule run and a shadow
+run included, in a consultation, and when an approved proposal of a run or a consultation executes, also
+one the asker decides in their own chat. It is `false` in a person's chat, the chat's follow-up turn after
+an execution report, a person's own turn in the agent's thread, also when an approver's decision continues
+it, and a proposal the application records for a person. A step of a composition or a script counts as the
+turn it runs in. Never put such a rule on `NhAiInvocationContext.ActorKind`: the agent is the actor in a
+person's chat as well, so `ActorKind` reads `Agent` there and the rule refuses the application's own chat.
+`RunId` holds the turn's id everywhere and `AgentRunId` is `null` in a consultation, so neither says it
+either. `ActorKind` keeps its meaning, who acts, for the checks, proposals and audit records that read it.
+The agent invocation gate copies the value from `NhAiAgentInvocationScope.IsAgentWork`, which is `true`
+unless the assistant says otherwise, so a scope the application begins itself counts as agent work.
+`INhAiBackgroundOperationRunAdapter` sets it for a durable run; a context the application builds itself
+for its own agent sets it with `IsAgentWork = true`. The property takes part in no proposal hash, approval
+evidence or usage record, and the MCP context does not carry it.
+
 An agent's thread of the whole application is never readable more widely than its results: reading it,
 its conversation, its proposals and its files needs the read role of the whole application (the read
 policy of `UseSystemSubject`) and the agent's view policy, by default its required policy, evaluated as
@@ -2373,6 +2389,10 @@ that a tool in a run reads the run's id as `AgentRunId` while `RunId` is the tur
 unknown filter and assert `assistant-trigger-filter-not-found`, and store a filter the code no longer
 registers and assert `filter-missing` and the problem `unknown-filter`, on both providers.
 
+For a rule about runs, call the tool in a person's chat and assert that it answers although
+`ActorKind` is `Agent`, and call it in a run and in a consultation and assert that the rule refuses,
+so a rule on the wrong signal cannot pass.
+
 For the trigger event lookup, on both providers, assert that the receipts of a started, a coalesced, a
 waiting and a deferred fire name their input, a deferred one before the commit, and a redelivery none;
 that `FindByEventAsync` returns a started event's input with its queued run, a coalesced event's input
@@ -3174,3 +3194,8 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantApprovalPolicySelectionSamplesTests.cs)
+- SPM-387 — A person's chat lists the people on a project while an agent's run and a consultation are refused, although the agent is the actor in all of them
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectOverviewAiTools.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkRuleSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentWorkRuleSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs)
