@@ -1684,7 +1684,7 @@ calls in a consultation store nothing and are not listed.
 ## Verification
 
 For a chat about a subject, assert on SQL Server and PostgreSQL that creating it checks the subject's
-form, type, existence, tenant, the person's role and what the agent works on, that `RequireChatSubject`
+form, type, existence, tenant, the person's role and what the agent works on or chats about, that `RequireChatSubject`
 refuses a chat without one and leaves the agent out of `GET agents`, that the owner and a participant
 lose reads, turns, joins and live delivery once the resolver gives them no role while deleting and
 stopping stay possible, that tools, the proposal guard, the file source and the briefing receive the
