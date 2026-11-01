@@ -70,7 +70,7 @@ public sealed class NhAssistantRetrievedContextOptions
     public int MaxItems { get; internal set; } = 8;
 
     /// <summary>
-    /// The most characters of the items a turn reads, within
+    /// The most characters of the formatted block a turn reads, within
     /// <see cref="NhAssistantLimits.MaxRetrievedCharacters"/>; 6,000 by default.
     /// </summary>
     public int MaxCharacters { get; internal set; } = 6_000;
@@ -127,6 +127,10 @@ public sealed class NhAssistantRetrievedContextBuilder
         return this;
     }
 
+    /// <summary>
+    /// The most characters of the block the model reads: the items as the registered formatter writes
+    /// them, with their introduction. The lowest-ranked items beyond it are left out with a note.
+    /// </summary>
     /// <param name="maxCharacters">500 to 24,000.</param>
     public NhAssistantRetrievedContextBuilder MaxCharacters(int maxCharacters)
     {
@@ -172,7 +176,8 @@ public sealed class NhAssistantAgentContextBuilder
     /// message, the question of a consultation, or the messages of a run's inputs with the subject's
     /// name. The resolver authorizes every source, drops items outside the turn's execution scopes or
     /// above the classification the model profile permits, ranks and bounds them. The items reach the
-    /// model as the last turn data block, marked as untrusted data.
+    /// model as the last turn data block, marked as untrusted data. When the turn's text does not fit
+    /// the model call, the lowest-ranked items are left out first, and the block says so.
     /// </summary>
     public NhAssistantAgentContextBuilder UseRetrievedContext(Action<NhAssistantRetrievedContextBuilder> configure)
     {

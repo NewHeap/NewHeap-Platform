@@ -75,18 +75,19 @@ internal sealed class NhAiContextResolver(
         var characters = 0;
         foreach (var item in ranked)
         {
+            var itemCharacters = NhAiContextResolutions.ContentCharacters(item.Item);
             if (selected.Count >= request.MaxItems
-                || characters + ContentCharacters(item.Item) > request.MaxCharacters)
+                || characters + itemCharacters > request.MaxCharacters)
             {
                 continue;
             }
-            var estimatedTokens = EstimateTokens(characters + ContentCharacters(item.Item));
+            var estimatedTokens = NhAiContextResolutions.EstimateTokens(characters + itemCharacters);
             if (estimatedTokens > request.MaxEstimatedTokens)
             {
                 continue;
             }
             selected.Add(item);
-            characters += ContentCharacters(item.Item);
+            characters += itemCharacters;
         }
         if (selected.Count < ranked.Count)
         {
@@ -96,25 +97,12 @@ internal sealed class NhAiContextResolver(
                 ranked.Count - selected.Count));
         }
 
-        var contextHash = NhAiCanonicalJson.ComputeHash(selected.Select(item => new
-        {
-            item.Item.Id,
-            item.Item.Version,
-            item.Item.SourceId,
-            item.Item.LogicalKey,
-            item.Item.ContentType,
-            ContentHash = item.Item.ContentHash
-                ?? NhAiCanonicalJson.ComputeHash(item.Item.ContentReference ?? item.Item.Content),
-            item.Item.Classification,
-            item.Item.Trust,
-            item.Item.ProvenanceReferences
-        }).ToArray());
         var resolution = new NhAiContextResolution(
             selected,
             trace.Take(128).ToArray(),
             characters,
-            EstimateTokens(characters),
-            contextHash);
+            NhAiContextResolutions.EstimateTokens(characters),
+            NhAiContextResolutions.ComputeHash(selected));
         var redactedTrace = new NhAiContextResolutionTrace(
             request.InvocationContext.InvocationId,
             request.InvocationContext.Purpose,
@@ -214,18 +202,6 @@ internal sealed class NhAiContextResolver(
             && string.Equals(left.Id, right.Id, StringComparison.Ordinal);
     }
 
-    private static int ContentCharacters(NhAiContextItem item)
-    {
-        return string.IsNullOrEmpty(item.Content)
-            ? item.ContentReference?.Length ?? 0
-            : item.Content.Length;
-    }
-
-    private static int EstimateTokens(int characters)
-    {
-        return (characters + 3) / 4;
-    }
-
     private static void ValidateRequest(NhAiContextRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Query)
@@ -253,5 +229,71 @@ internal sealed class NhAiContextResolver(
             throw new InvalidOperationException(
                 $"AI context source '{descriptor.Id}' has invalid bounds.");
         }
+    }
+}
+
+/// <summary>
+/// What a resolution says about its items: their characters, estimated tokens and context hash. The
+/// resolver computes them, and so does whoever narrows a resolution to the items that fit, so a
+/// recorded hash always names the items that were sent.
+/// </summary>
+internal static class NhAiContextResolutions
+{
+    public static int ContentCharacters(NhAiContextItem item)
+    {
+        return string.IsNullOrEmpty(item.Content)
+            ? item.ContentReference?.Length ?? 0
+            : item.Content.Length;
+    }
+
+    public static int EstimateTokens(int characters)
+    {
+        return (characters + 3) / 4;
+    }
+
+    public static string ComputeHash(IEnumerable<NhAiContextRankedItem> items)
+    {
+        return NhAiCanonicalJson.ComputeHash(items.Select(item => new
+        {
+            item.Item.Id,
+            item.Item.Version,
+            item.Item.SourceId,
+            item.Item.LogicalKey,
+            item.Item.ContentType,
+            ContentHash = item.Item.ContentHash
+                ?? NhAiCanonicalJson.ComputeHash(item.Item.ContentReference ?? item.Item.Content),
+            item.Item.Classification,
+            item.Item.Trust,
+            item.Item.ProvenanceReferences
+        }).ToArray());
+    }
+
+    /// <summary>
+    /// Replaces the markup in retrieved data, character for character, so that a passage cannot close
+    /// the delimiters around it, whichever formatter wrote the data.
+    /// </summary>
+    public static string NeutralizeMarkup(string value)
+    {
+        return value
+            .Replace("<", "‹", StringComparison.Ordinal)
+            .Replace(">", "›", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The resolution with only its <paramref name="count"/> highest-ranked items, which come first,
+    /// and the characters, tokens and context hash of those items.
+    /// </summary>
+    public static NhAiContextResolution KeepHighestRanked(NhAiContextResolution resolution, int count)
+    {
+        ArgumentNullException.ThrowIfNull(resolution);
+        var items = resolution.Items.Take(count).ToArray();
+        var characters = items.Sum(item => ContentCharacters(item.Item));
+        return resolution with
+        {
+            Items = items,
+            TotalCharacters = characters,
+            EstimatedTokens = EstimateTokens(characters),
+            ContextHash = ComputeHash(items)
+        };
     }
 }

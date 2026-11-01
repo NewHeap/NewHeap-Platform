@@ -235,7 +235,9 @@ public static class SampleAssistantComposition
             // match the question, read once through the project-documents source with its
             // authorization and division scope. The descriptions are internal: retrieved items raise
             // the classification of the turn's model calls, so every profile that may serve the turn,
-            // a skill's or a fallback, permits what the source returns.
+            // a skill's or a fallback, permits what the source returns. MaxCharacters counts the block
+            // as the model reads it: the lowest-ranked descriptions beyond it stay out, and the block
+            // says how many, so the model does not conclude that the sources are silent.
             // SPM-373: the project assistant may answer a chained question with one script where the
             // portal's own setting of the environment and agent has scripts on (SPM-371,
             // SampleAssistantCompositionsComposition).

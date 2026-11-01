@@ -571,6 +571,11 @@ retrieval => retrieval.Sources("project-documents"))`. The `nh-ai-context-retrie
 the sources, their authorization, the query and the bounds. The `# Retrieved context` block is the
 last turn data, after the situation and the user's screen; like the map it is data outside the
 prompt hash and the approval binding, and tool audit events carry its `RetrievedContextHash`.
+`MaxCharacters` counts the whole block as the model reads it. When the turn's text does not fit the
+model call, the lowest-ranked items go first, then the map, and the turn data stays as long as it
+fits; the block says what was left out, the audit hashes are those of what was sent and a warning
+gives the counts. Startup warns about an agent or skill in code whose instructions leave no room for
+its budget.
 
 ## Sharing, live updates and notifications
 
@@ -1868,7 +1873,9 @@ from the earlier schema up and back down.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another
-division, and that audit and logs carry its hash but not its content (SPM-291).
+division, and that audit and logs carry its hash but not its content. Assert that the block stays
+within its budget as the model reads it, says what it left out, and that the audit names what was
+sent (SPM-291).
 
 For compositions and scripts, register a small marked test catalog and assert on SQL Server and
 PostgreSQL that neither feature is offered by default, that configuration and the application's

@@ -299,7 +299,7 @@ internal sealed class NhAssistantTurnFiles(
         {
             // The retrieved context goes along into the skill, so the skill's profile chain must permit
             // it. File limits do not apply to a turn that reads no files.
-            if (state.RetrievedContext is null)
+            if (state.RetrievedContext is not { Passages: > 0 })
             {
                 return null;
             }

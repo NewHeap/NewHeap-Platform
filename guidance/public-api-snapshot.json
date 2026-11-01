@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.97",
   "backEnd": {
-    "hash": "f3a3030e0d19fd1ddb6c3dc7ee1eed7f857abcd30ed9e0471455d9a42f280753",
-    "declarationCount": 12203,
+    "hash": "c6636e5b9163b59db9d51ae8166143dde5503f2683440f0907a4701bc659cd1b",
+    "declarationCount": 12219,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -13394,6 +13394,10 @@
         "declaration": "public static void Validate(NhAssistantRegistrationState registration, INhAiModelProfileRegistry profiles) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRetrievalChecks.cs",
+        "declaration": "public static void LogCodeWarnings(NhAssistantRegistrationState registration, ILogger logger) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
         "declaration": "public sealed class NhAssistantTriggerEventBuilder<TEvent> where TEvent : class {"
       },
@@ -25462,6 +25466,18 @@
         "declaration": "public static bool Allows(AssistantMcpConnection? connection, AssistantMcpServer server) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPromptFit.cs",
+        "declaration": "public bool LeftDataOut => DroppedPassages > 0 || ApplicationMapDropped || TurnDataDropped;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPromptFit.cs",
+        "declaration": "public static NhAssistantPromptFit Of( NhAssistantComposedPrompt prompt, NhAssistantRetrievedContext? retrieved, int maxCharacters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPromptFit.cs",
+        "declaration": "public static NhAssistantComposedPrompt InstructionsOnly(NhAssistantComposedPrompt prompt) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantQuestions.cs",
         "declaration": "public const string AnsweredCode = \"answered\";"
       },
@@ -25527,7 +25543,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
-        "declaration": "public async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
+        "declaration": "public NhAssistantRetrievedContext(NhAiContextResolution resolution, INhAiContextFormatter formatter, string language) : this(resolution, formatter, NhAssistantPromptComposer.IsDutch(language), 0) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public string Block { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public string? Hash => Passages > 0 ? _resolution.ContextHash : null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public NhAiDataClassification Classification => Passages > 0"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public int Passages => _resolution.Items.Count;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public int LeftOut { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public NhAssistantRetrievedContext FitTo(int maxCharacters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
+        "declaration": "public async Task<NhAssistantRetrievedContext?> RetrieveAsync( NhAssistantAgentDefinition agent, NhAiInvocationContext context, string? query, string language, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantRetrievedContext.cs",
@@ -25587,7 +25631,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public (string Block, string Hash, NhAiDataClassification Classification)? RetrievedContext { get; set; }"
+        "declaration": "public NhAssistantRetrievedContext? RetrievedContext { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -27708,6 +27752,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
         "declaration": "public async ValueTask<NhAiContextResolution> ResolveAsync( NhAiContextRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public static int ContentCharacters(NhAiContextItem item) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public static int EstimateTokens(int characters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public static string ComputeHash(IEnumerable<NhAiContextRankedItem> items) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public static string NeutralizeMarkup(string value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public static NhAiContextResolution KeepHighestRanked(NhAiContextResolution resolution, int count) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",

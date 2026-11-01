@@ -192,6 +192,14 @@ result for the whole application, marked new until they visit the board again, w
 managers, its open proposals and its history; a colleague without the permission does not see the
 follow-up there. The thread of the whole application is never readable more widely than the follow-up's
 results. The playground shows the same board on the mock.
+The project assistant reads the project descriptions that match a question (SPM-291). Its
+`UseRetrievedContext` budget of 4,000 characters counts the block as the model reads it, with each
+description's source, date and format, so the lowest-ranked descriptions that do not fit stay out and
+the block says how many: the model does not conclude that the sources are silent. The same happens
+when the instructions, the application map and the turn data leave too little room in the model call.
+The descriptions go first, then the map, and the situation stays as long as it fits. Audit events
+carry the hash of what was sent, and the log gets a warning with counts, never the descriptions.
+
 The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
 consultation about projects with `AllowConsultation`, and the project assistant selects
 the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's

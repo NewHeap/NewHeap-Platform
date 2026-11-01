@@ -1281,7 +1281,9 @@ ASP.NET integration the subject's division where the host maps an active divisio
 agent's tool calls do. `INhAiAgentInvocationContextFactory` creates that context; replace it only
 to add execution scopes of your own. A person's message in the thread retrieves as that person, but
 within the same subject and division scopes, not the active division of the person's request. The same rule as for briefings applies: what a run retrieves
-may reach every reader of the thread through the model's text.
+may reach every reader of the thread through the model's text. `MaxCharacters` counts the block as
+the model reads it, and a run or consultation whose text does not fit its model call keeps what fits
+in the order of `nh-ai-context-retrieval`, with a warning that names its turn.
 
 Let a headless run read application data through the API bridge gateway with
 `AllowGatewayReads()` and tool selectors that select the gateway's tools (see `nh-ai-api-bridge`
