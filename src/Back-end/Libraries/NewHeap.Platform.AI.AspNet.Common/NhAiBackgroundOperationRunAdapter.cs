@@ -16,7 +16,9 @@ public interface INhAiBackgroundOperationRunAdapter
     /// Binds an agent invocation context to the running operation: the operation id becomes
     /// the run id, and the attempt, idempotency key and fencing token come from the operation.
     /// The context must belong to a non-human agent actor and name an accountable party; an
-    /// agent that answers for itself uses its own actor id as the accountable party.
+    /// agent that answers for itself uses its own actor id as the accountable party. A durable
+    /// run is an agent's own work, so the bound context says so
+    /// (<see cref="NhAiInvocationContext.IsAgentWork"/>).
     /// </summary>
     NhAiInvocationContext BindInvocation(
         NhAiInvocationContext context,
@@ -28,7 +30,8 @@ public interface INhAiBackgroundOperationRunAdapter
     /// run id, so the approval stays valid, and records the executing operation as the
     /// correlation id. <paramref name="fenced"/> passes the operation's fencing token to the
     /// idempotency lease; leave it off for idempotent tools, whose retries must replay rather
-    /// than conflict.
+    /// than conflict. The proposal is an agent's own work, as the run that made it
+    /// (<see cref="NhAiInvocationContext.IsAgentWork"/>).
     /// </summary>
     NhAiInvocationContext BindProposalExecution(
         NhAiInvocationContext context,
@@ -86,6 +89,7 @@ internal sealed class NhAiBackgroundOperationRunAdapter : INhAiBackgroundOperati
 
         return context with
         {
+            IsAgentWork = true,
             RunId = runId,
             RunAttemptNumber = operation.AttemptNumber,
             CorrelationId = context.CorrelationId ?? runId,
@@ -119,6 +123,7 @@ internal sealed class NhAiBackgroundOperationRunAdapter : INhAiBackgroundOperati
 
         return context with
         {
+            IsAgentWork = true,
             RunId = proposalRunId,
             RunAttemptNumber = operation.AttemptNumber,
             CorrelationId = operation.OperationId.ToString("N"),

@@ -102,6 +102,10 @@ public sealed class AssistantChatFollowUpTests(AssistantDatabaseFixture database
         Assert.Equal(
             (AssistantTestHost.UserId, (string?)NhAssistantDecisionChannels.ExecutionReport, (Guid?)conversation.Id),
             (search.AccountableOwnerId, search.Channel, search.ConversationId));
+        // Nobody typed the turn, but it continues the person's chat: the actor is the agent, as in every
+        // chat, and it is no agent work.
+        Assert.Equal(NhAiActorKind.Agent, search.ActorKind);
+        Assert.False(search.IsAgentWork);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked
             && evt.TurnId == started.TurnId
             && evt.ActorId == AssistantTestHost.UserId

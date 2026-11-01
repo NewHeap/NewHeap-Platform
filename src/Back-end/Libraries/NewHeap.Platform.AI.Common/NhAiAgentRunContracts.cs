@@ -1023,6 +1023,14 @@ public sealed record NhAiAgentInvocationScope(
     /// </summary>
     public Guid? AgentRunId { get; init; }
 
+    /// <summary>
+    /// Whether the scope is an agent's own work: a run or a consultation, and by default also a scope an
+    /// application begins itself. The assistant sets it to <see langword="false"/> for a person's own turn
+    /// in the agent's thread and for a proposal the application records for a person. The agent invocation
+    /// gate copies it to <see cref="NhAiInvocationContext.IsAgentWork"/>, so a tool reads it there.
+    /// </summary>
+    public bool IsAgentWork { get; init; } = true;
+
     public DateTimeOffset? Deadline { get; init; }
     public string? ModelProfileName { get; init; }
     public string? PromptVersion { get; init; }
@@ -1061,6 +1069,7 @@ internal sealed class NhAiAgentInvocationContextFactory : INhAiAgentInvocationCo
             RunId = scope.RunId,
             CorrelationId = scope.CorrelationId ?? scope.RunId,
             AgentRunId = scope.AgentRunId,
+            IsAgentWork = scope.IsAgentWork,
             ExecutionScopes = NhAiSystemSubjects.IsSystem(scope.Subject.Subject)
                 ? []
                 : [new NhAiExecutionScopeEntry(scope.Subject.Subject.Type, scope.Subject.Subject.Id, scope.Subject.DisplayName)],

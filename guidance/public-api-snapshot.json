@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.97",
   "backEnd": {
-    "hash": "06c552f8af1546b04f77b67b59dc61690fc0af674c575668b549170130c42636",
-    "declarationCount": 12196,
+    "hash": "84c36835fa4af3a7c1ca184c3747cb0901e68c0b8846e05c352bf1ff491c765f",
+    "declarationCount": 12200,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -24935,6 +24935,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public bool FromConsultation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
+        "declaration": "public bool IsAgentWork => RunId is not null || FromConsultation;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantTurnRunner.cs",
         "declaration": "public long? RunTokensUsed { get; init; }"
       },
       {
@@ -27136,6 +27144,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
         "declaration": "public Guid? AgentRunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+        "declaration": "public bool IsAgentWork { get; init; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
@@ -29488,6 +29500,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public Guid? AgentRunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public bool IsAgentWork { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -52337,6 +52353,8 @@
       "NhAiAgentGrant",
       "NhAiElevatedReads",
       "NhAiAgentInvocationScope",
+      "NhAiAgentInvocationScope.IsAgentWork",
+      "NhAiInvocationContext.IsAgentWork",
       "NhAiAgentInvocationScopes",
       "NhAiAgentFailureCodes",
       "INhAiAgentToolAuthorizer",

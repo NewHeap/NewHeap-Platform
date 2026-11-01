@@ -452,6 +452,7 @@ public sealed class NhAiAspNetContextTests
         Assert.Equal(operation.IdempotencyKey, bound.IdempotencyKey);
         Assert.Equal(operation.FencingToken.ToString(), bound.FencingToken);
         Assert.NotNull(bound.Deadline);
+        Assert.True(bound.IsAgentWork);
     }
 
     private static ServiceCollection CreateServices(

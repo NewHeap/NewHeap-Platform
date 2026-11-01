@@ -87,8 +87,9 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         Assert.Equal(NhAiGrantSource.Agent, context.GrantSource);
         Assert.Equal(approval.ProposalId.ToString(), context.ProposalId);
         Assert.Equal(projectId.ToString(), Assert.Single(context.ExecutionScopes, scope => scope.Type == "project").Id);
-        // The approved proposal executes for the run that proposed it.
+        // The approved proposal executes for the run that proposed it, as the run's own work.
         Assert.Equal(run.Run.Id, context.AgentRunId);
+        Assert.True(context.IsAgentWork);
     }
 
     [Theory]
@@ -112,6 +113,9 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         // The tool reads the agent run on its invocation context and on the ambient scope.
         Assert.Equal(run.Run.Id, context.AgentRunId);
         Assert.Equal(run.Run.Id, scope.AgentRunId);
+        // A rule about runs reads IsAgentWork: true here, false in a person's chat.
+        Assert.True(context.IsAgentWork);
+        Assert.True(scope.IsAgentWork);
         // RunId stays the turn and CorrelationId the run in N format, as proposals and usage use them.
         Assert.Equal(scope.RunId, context.RunId);
         Assert.NotEqual(run.Run.Id.ToString(), context.RunId);

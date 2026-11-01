@@ -1061,7 +1061,8 @@ internal sealed class NhAssistantProposalExecution(
             // application recorded for a person executes with that person's rights only (FB21).
             DelegatedOnly = (approval.ConsultationId is not null && !AgentRights(approval))
                 || NhAssistantPersonProposals.IsPersonProposal(approval),
-            AgentRightsOnly = AgentRights(approval)
+            AgentRightsOnly = AgentRights(approval),
+            FromConsultation = approval.ConsultationId is not null
         };
 
         var check = await CheckBeforeExecutionAsync(approval, proposal, agentTurn, cancellationToken);

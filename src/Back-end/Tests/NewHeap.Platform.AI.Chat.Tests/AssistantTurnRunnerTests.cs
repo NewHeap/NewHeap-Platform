@@ -54,8 +54,9 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) 
         Assert.Equal(AssistantTestHost.UserId, context.AccountableOwnerId);
         Assert.Equal("assistant", context.Purpose);
         Assert.Equal(((NhAssistantTurnStartedEvent)turn.Events[0]).TurnId.ToString(), context.RunId);
-        // A person's chat is no agent run.
+        // A person's chat is no agent run, and although the actor is the agent it is no agent work.
         Assert.Null(context.AgentRunId);
+        Assert.False(context.IsAgentWork);
 
         var view = await host.ReadViewAsync(conversation.Id);
         Assert.Equal(NhAssistantConversationStatuses.Idle, view.Status);

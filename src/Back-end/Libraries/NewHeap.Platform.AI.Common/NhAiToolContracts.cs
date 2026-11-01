@@ -387,6 +387,25 @@ public sealed record NhAiInvocationContext(
     public Guid? AgentRunId { get; init; }
 
     /// <summary>
+    /// Whether the invocation is an agent's own work rather than a person's chat, the signal for a rule
+    /// about runs. <see langword="true"/> in a turn of an agent run (a rule run, a shadow run and a run
+    /// that answers a message it claimed included), in a consultation, when an approved proposal of a
+    /// run or a consultation executes, and in a durable run that
+    /// <c>INhAiBackgroundOperationRunAdapter</c> binds. <see langword="false"/> in a person's chat, the
+    /// chat's follow-up turn after an execution report, a person's own turn in an agent's thread, a
+    /// proposal the application records for a person and outside the assistant. A step of a composition
+    /// or a script counts as the turn it runs in. The agent invocation gate sets it from
+    /// <see cref="NhAiAgentInvocationScope.IsAgentWork"/>.
+    /// <para>
+    /// <see cref="ActorKind"/> is the wrong signal: the agent is the actor in a person's chat as well, so
+    /// it reads <see cref="NhAiActorKind.Agent"/> there too. <see cref="RunId"/> holds the turn's id
+    /// everywhere and <see cref="AgentRunId"/> is <see langword="null"/> in a consultation. Like
+    /// <see cref="ConversationId"/> it takes part in no proposal hash or approval evidence.
+    /// </para>
+    /// </summary>
+    public bool IsAgentWork { get; init; }
+
+    /// <summary>
     /// The assistant conversation the invocation belongs to, set by the assistant in every turn: the
     /// person's chat, the agent's thread of a run or of a person's turn in it, and the consulted agent's
     /// thread in a consultation. <see langword="null"/> outside an assistant turn. It identifies the

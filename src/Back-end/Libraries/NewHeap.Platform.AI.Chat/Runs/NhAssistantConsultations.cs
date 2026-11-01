@@ -357,7 +357,10 @@ internal sealed class NhAssistantConsultationService(
             NhAssistantTriggerIds.Consultation,
             request.AskerActorId,
             request.AskerActorId,
-            request.AskerInRequest);
+            request.AskerInRequest)
+        {
+            FromConsultation = true
+        };
 
         NhAssistantConsultationTurnResult result;
         try

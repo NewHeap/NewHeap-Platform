@@ -11,7 +11,9 @@ namespace NewHeap.Platform.AI.Chat.Governance;
 /// accountable user, with the turn id as run id, the agent prompt identity, the turn deadline,
 /// the call's idempotency key and, for an approved retry, the proposal and approval ids. In every turn,
 /// also of an agent thread, it names the turn's conversation and the channel that started the turn, and
-/// in a person's chat about a subject that subject (FB25).
+/// in a person's chat about a subject that subject (FB25). The actor is the agent in a person's chat as
+/// well; whether the turn is agent work is <see cref="NhAiInvocationContext.IsAgentWork"/>, from the
+/// agent's scope and false without one (FB75).
 /// </summary>
 internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) : INhAiToolInvocationGate
 {
@@ -35,13 +37,15 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             ? existing
             : turn.Deadline;
         var remainingCalls = Math.Max(1, turn.Limits.MaxToolCallsPerTurn - turn.ToolCalls + 1);
-        if (NhAiAgentInvocationScopes.Current is not null)
+        if (NhAiAgentInvocationScopes.Current is { } agentScope)
         {
             // In an agent thread the agent gate already bound the agent actor, the accountable
-            // party, the run and the grant source; only the call's own identity is added here.
+            // party, the run and the grant source; only the call's own identity is added here, and
+            // what a rule about runs reads stays right behind an application's own inner gate.
             return TaskResult<NhAiInvocationContext>.Succeeded(context with
             {
                 InvocationId = call.InvocationId,
+                IsAgentWork = agentScope.IsAgentWork,
                 ConversationId = turn.ConversationId,
                 Channel = turn.Channel,
                 Deadline = deadline,
@@ -65,6 +69,7 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             InvocationId = call.InvocationId,
             ActorId = turn.Agent.ActorId,
             ActorKind = NhAiActorKind.Agent,
+            IsAgentWork = false,
             AccountableOwnerId = turn.AccountableOwnerId,
             Purpose = Purpose,
             RunId = turn.TurnId.ToString(),

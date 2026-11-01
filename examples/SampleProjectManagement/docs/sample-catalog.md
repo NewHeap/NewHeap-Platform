@@ -339,6 +339,14 @@ trigger fires for, so the planner's change of a project does not start it on tha
 while its change made while it worked on another project and a person's change do.
 `AssistantAgentRunSamplesTests` runs the three cases.
 
+A rule about runs reads `IsAgentWork`, not the actor kind (SPM-387). `projects.list-members` keeps the
+people on a project out of an agent's own work: a run and a consultation read
+`project-members-for-people` before the tool reads anything, while a person's chat and that person's own
+turn in the agent's thread get the list. `ActorKind` is `Agent` in every one of these calls, because the
+agent is the actor in a person's chat too, so a rule on it would refuse the chat as well.
+`AssistantAgentWorkRuleSamplesTests` runs the chat through the assistant and the other calls through the
+agent invocation gate and the generated tool.
+
 Approvers get an overview of their inbox (SPM-310). The project resolver names each project's division as
 its parent, and every proposal records that parent when it is made, so the inbox groups without asking
 a resolver per proposal. The intake reviews page shows the inbox grouped: a division with its projects'

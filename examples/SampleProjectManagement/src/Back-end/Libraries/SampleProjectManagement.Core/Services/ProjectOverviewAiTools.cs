@@ -58,6 +58,12 @@ public sealed class ProjectOverviewAiTools(IProjectAiOverviewReadService overvie
     /// <summary>The stable code of a project that is not in the authorized division.</summary>
     public const string ProjectNotFoundCode = "project-not-found";
 
+    /// <summary>
+    /// SPM-387: the stable code of a member list an agent's own work asks for. The people on a project
+    /// are for a person who asks; nobody reads along with a run or a consultation.
+    /// </summary>
+    public const string MembersForPeopleCode = "project-members-for-people";
+
     /// <summary>The most open tasks one call lists.</summary>
     public const int MaxOpenTasks = 50;
 
@@ -121,6 +127,15 @@ public sealed class ProjectOverviewAiTools(IProjectAiOverviewReadService overvie
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
     {
+        // SPM-387: a rule about runs reads IsAgentWork. ActorKind is Agent in a person's chat as well,
+        // because the agent is the actor there too, so a rule on it would refuse every chat.
+        if (context.IsAgentWork)
+        {
+            return TaskResult<IReadOnlyList<ProjectAiMemberItem>>.Failed(
+                MembersForPeopleCode,
+                "The members of a project are listed for a person who asks, not in an agent's run or consultation.");
+        }
+
         if (DivisionOf(context) is not { } divisionId)
         {
             return TaskResult<IReadOnlyList<ProjectAiMemberItem>>.Failed(

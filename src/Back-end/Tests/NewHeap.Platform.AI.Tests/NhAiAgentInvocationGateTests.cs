@@ -48,6 +48,41 @@ public sealed class NhAiAgentInvocationGateTests
     }
 
     [Fact]
+    public async Task The_scope_says_whether_a_call_is_agent_work_while_the_actor_stays_the_agent()
+    {
+        await using var provider = CreateProvider(httpContext: null, new PolicyAuthorizationService());
+        await using var scope = provider.CreateAsyncScope();
+        var gate = scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>();
+        var contexts = scope.ServiceProvider.GetRequiredService<INhAiAgentInvocationContextFactory>();
+        var run = CreateScope(grants: [new NhAiAgentGrant("projects.*")]);
+        var personsTurn = run with { IsAgentWork = false };
+
+        // A scope is agent work unless it says otherwise, also one an application begins itself.
+        Assert.True(run.IsAgentWork);
+        NhAiInvocationContext running;
+        using (NhAiAgentInvocationScopes.Begin(run))
+        {
+            running = (await gate.AuthorizeAsync(MutationTool(allowAgentGrant: true))).Data!;
+        }
+
+        NhAiInvocationContext chatting;
+        using (NhAiAgentInvocationScopes.Begin(personsTurn))
+        {
+            chatting = (await gate.AuthorizeAsync(MutationTool(allowAgentGrant: true))).Data!;
+        }
+
+        Assert.True(running.IsAgentWork);
+        Assert.False(chatting.IsAgentWork);
+        Assert.Equal(NhAiActorKind.Agent, running.ActorKind);
+        Assert.Equal(NhAiActorKind.Agent, chatting.ActorKind);
+
+        // What the agent reads for itself says the same; a context outside any scope is no agent work.
+        Assert.True(contexts.Create(run).IsAgentWork);
+        Assert.False(contexts.Create(personsTurn).IsAgentWork);
+        Assert.False(new NhAiInvocationContext("person-1", "agent-run", new Dictionary<string, string>()).IsAgentWork);
+    }
+
+    [Fact]
     public async Task A_run_for_the_whole_application_concerns_no_object_and_works_in_its_division()
     {
         await using var provider = CreateProvider(httpContext: null, new PolicyAuthorizationService());
@@ -488,6 +523,7 @@ public sealed class NhAiAgentInvocationGateTests
         Assert.Equal("42", fenced.FencingToken);
         Assert.Null(replayable.FencingToken);
         Assert.Equal(operation.IdempotencyKey, replayable.IdempotencyKey);
+        Assert.True(fenced.IsAgentWork);
     }
 
     private static string FailureCode(TaskResult result)

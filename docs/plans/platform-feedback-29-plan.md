@@ -154,3 +154,14 @@ not run as an agent". `NhAssistantChatSubjects.WorksOn` decides a chat's subject
   The full matrix runs once per train.
 - **(b) All of it in one train.** One verification round less, but the bug fix waits for the features. Lars chose
   this one: FB74 then shares lane OB with FB76, which builds on it.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| AK1 | FB75's property is `NhAiInvocationContext.IsAgentWork`, stored and set where the context is made, not derived: `AgentRunId` is null in a consultation, and reading the ambient scope from a record would change its value when the context is passed on. `NhAiAgentInvocationScope.IsAgentWork` is public next to it and true by default, so a scope an application begins itself counts as agent work. | for Lars to review |
+| AK2 | A person's own turn in an agent's thread is false, also when an approver's decision continues it: a person asked, inside their request, with no run. `TriggerOnly` grants already draw the same line. The rule therefore sees a person's chat and a person's turn in a thread alike. | for Lars to review |
+| AK3 | True: a turn of a run (rule run, shadow run and a message the run claimed included), a consultation, and the execution of a proposal of a run or a consultation, also one the asker decides inline in their own chat, because the agent proposed it. False: a person's chat, `ContinueChatAfterReport`'s follow-up turn and a proposal recorded for a person (`ProposeForAsync`) with its execution. A tool step counts as its turn. | for Lars to review |
+| AK4 | `INhAiBackgroundOperationRunAdapter` sets it in `BindInvocation` and `BindProposalExecution`, because both require an agent actor. `NhAiInvocationContextSeed` and the builder do not carry it: a context an application builds itself for its own agent sets it, and the guidance says so. | for Lars to review |
+| AK5 | The sample is a new case, SPM-387, a rule on `projects.list-members`, not SPM-308: SPM-308 stamps who changed a status and a tool with approval would only refuse after the approval. A real run or consultation of this tool would need an agent whose selectors or grant include a tool it always refuses, so the sample runs the chat through the assistant and the run and consultation through the agent gate and the generated tool; the library tests prove the values on real turns. | for Lars to review |
+| AK6 | The property stays on the context only. The MCP context, `NhAiMcpInvocationIdentity`, the audit records and `NhAssistantFileActor` do not carry it: the first two are a wire contract with a binder version, and a file actor's kind is the person in a person's chat, so it does not have this problem. `NhAssistantRunBuildingBlocks` keeps its text, which is about who changed something. | for Lars to review |

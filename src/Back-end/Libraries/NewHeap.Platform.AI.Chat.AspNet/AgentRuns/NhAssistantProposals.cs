@@ -582,6 +582,7 @@ internal sealed class NhAssistantProposals(
                 InitiatorActorId = _person.ActorId,
                 DelegateFromInitiator = true,
                 IsRequestTurn = true,
+                IsAgentWork = false,
                 Grants = [],
                 ElevatedReads = admission.RunOptions.ElevatedReads,
                 RequireApprovalForEffects = true,
