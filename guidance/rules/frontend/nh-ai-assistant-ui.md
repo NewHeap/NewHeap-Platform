@@ -106,7 +106,13 @@ person's role on the subject then and on every later turn and read. The subject 
 such as `assistant-subject-access-denied`, when the person may not use a chat about it. The agent picker
 binds `store.chatAgents()`, the agents of the next new chat: those of its subject, including agents
 offered only for chats about a subject (`RequireChatSubject()` on the server), otherwise those of the
-status; `store.agents()` also knows those agents for lookups. `chatSubject()` names the subject of the
+status; `store.agents()` also knows those agents for lookups. The store keeps the chosen agent among
+those agents whenever it reads the status, which it does before every message, so a first message goes
+to an agent the status leaves out. The agent of the open chat stays chosen as long as the store knows it,
+a status that arrives while a subject's agents load chooses nothing, and for a subject without agents the
+server refuses the chosen agent with `assistant-agent-does-not-work-on` instead of the message being
+dropped. `requireChatSubject` of a mock agent (`NhAssistantMockAdminAgent`) makes the mock API treat an
+agent the same way as `RequireChatSubject()` does on the server. `chatSubject()` names the subject of the
 open chat (`Conversation.subject`, `ConversationSubject` with its type name and link) or of the next new
 chat, and the panel shows it above the composer ("About {subject}", in English and Dutch). Call
 `setChatSubject(null)` when the person leaves the page before sending. SampleProjectManagement's project

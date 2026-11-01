@@ -154,3 +154,11 @@ not run as an agent". `NhAssistantChatSubjects.WorksOn` decides a chat's subject
   The full matrix runs once per train.
 - **(b) All of it in one train.** One verification round less, but the bug fix waits for the features. Lars chose
   this one: FB74 then shares lane OB with FB76, which builds on it.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| OB1 | FB74: besides choosing among `chatAgents()`, the store keeps the agent of the open chat while it knows that agent, also when `setChatSubject(null)` clears the next chat's subject. Without that, the second message of a chat with an agent the status leaves out moves the selection away, and with no agent in the status it is not sent at all. | for Lars to review |
+| OB2 | FB74: the guard for a subject whose agents load covers the load itself (`setChatSubject` still waiting for `GET agents`), since the store only sets a subject together with its agents. The other half of the guard: a subject that has no agents leaves the selection, so the server's refusal reaches the person. | for Lars to review |
+| OB3 | FB74: the mock API learned `requireChatSubject`, and its `GET agents` with a subject now filters on what the agent works on, as the server does. A consumer spec that relied on the mock listing every agent for a subject sees fewer agents. | for Lars to review |

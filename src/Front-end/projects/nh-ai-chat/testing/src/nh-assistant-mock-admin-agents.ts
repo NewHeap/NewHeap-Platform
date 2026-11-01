@@ -31,7 +31,7 @@ import {
   mockSnapshot,
   mockValidationFailure as validationFailure
 } from './nh-assistant-mock-admin-shared';
-import { mockUndeclaredWorksOn, mockWorksOnErrors, mockWorksOnFromInput } from './nh-assistant-mock-works-on';
+import { mockUndeclaredWorksOn, mockWorksOnCovers, mockWorksOnErrors, mockWorksOnFromInput } from './nh-assistant-mock-works-on';
 
 interface StoredAgent {
   agent: AdminAgent;
@@ -39,6 +39,8 @@ interface StoredAgent {
   codeDefinition: AdminAgentInput | null;
   /** The routes of the agent's consultations and the switches administrators set. */
   consultations: StoredConsultationRoutes;
+  /** The agent is offered only for chats about a subject (`RequireChatSubject()` in code). */
+  requiresChatSubject?: boolean;
 }
 
 /** The routes code allows for an agent's consultations and the switches administrators set. */
@@ -117,7 +119,7 @@ export class NhAssistantMockAdminAgents {
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
     for (const {
-      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions, chatOnly,
+      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions, chatOnly, requireChatSubject,
       codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, codeHandOffs: ______, ...input
     } of agents) {
       const variant = typeof shadowOf === 'string';
@@ -161,7 +163,8 @@ export class NhAssistantMockAdminAgents {
         // Consultations in code belong to agents in code; every agent may get consultations as data.
         consultations: noSwitches(source === 'code' && (consultations !== undefined || consultationDescriptions !== undefined)
           ? structuredClone(consultations ?? {})
-          : null)
+          : null),
+        requiresChatSubject: source === 'code' && requireChatSubject === true
       });
     }
   }
@@ -277,12 +280,40 @@ export class NhAssistantMockAdminAgents {
     }
   }
 
+  /**
+   * The agents of a chat, as the server lists them: without `subjectType` those that do not require a
+   * subject (`RequireChatSubject()`), with it those that work on the type.
+   */
+  chatAgents(subjectType: string | null = null): AgentSummary[] {
+    return this.offeredAgents(({ agent, requiresChatSubject }) => subjectType === null
+      ? !requiresChatSubject
+      : mockWorksOnCovers(agent, subjectType));
+  }
+
+  /**
+   * What refuses a new chat with an offered agent, as the server answers it: `assistant-subject-required`
+   * for an agent that requires a subject without one, `assistant-agent-does-not-work-on` for a subject
+   * it does not work on, otherwise `null`.
+   */
+  chatRefusal(agentId: string, subjectType: string | null): string | null {
+    const stored = this.agents.get(agentId);
+    if (!stored) {
+      return null;
+    }
+    if (subjectType === null) {
+      return stored.requiresChatSubject ? 'assistant-subject-required' : null;
+    }
+
+    return mockWorksOnCovers(stored.agent, subjectType) ? null : 'assistant-agent-does-not-work-on';
+  }
+
   /** Chat agents: code agents keep their keys, admin agents carry literal text; stopped agents are left out. */
-  chatAgents(): AgentSummary[] {
+  offeredAgents(offered: (stored: StoredAgent) => boolean = () => true): AgentSummary[] {
     const result: AgentSummary[] = [];
-    for (const { agent } of this.agents.values()) {
+    for (const stored of this.agents.values()) {
+      const { agent } = stored;
       // An agent kept out of the chat still works on its own.
-      if (agent.runState === 'stopped' || agent.runState === 'configured-off' || agent.offeredInChat === false) {
+      if (agent.runState === 'stopped' || agent.runState === 'configured-off' || agent.offeredInChat === false || !offered(stored)) {
         continue;
       }
 

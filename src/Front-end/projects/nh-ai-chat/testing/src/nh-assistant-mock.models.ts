@@ -301,6 +301,13 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    */
   chatOnly?: boolean;
   /**
+   * A code agent offered only for chats about a subject it works on (`RequireChatSubject()`): the status
+   * and `GET agents` leave it out, `GET agents?subjectType=&subjectId=` lists it for a subject it works
+   * on, and a new chat with it that names no subject answers `assistant-subject-required`, as the server
+   * does.
+   */
+  requireChatSubject?: boolean;
+  /**
    * How a code agent runs, as its code says (`codeRunSettings` of its run configuration). By default
    * it answers to its `serviceAccount` when it has one and to itself otherwise, with the platform's
    * approval policy and the model.

@@ -103,7 +103,7 @@ export class NhAssistantMockAdmin {
     }, now);
     this.mcp = new NhAssistantMockAdminMcp(scenario, now, {
       agents: () => this.agents.all(),
-      chatAgentIds: () => this.agents.chatAgents().map(agent => agent.id),
+      chatAgentIds: () => this.agents.offeredAgents().map(agent => agent.id),
       removeServer: serverId => this.agents.removeServer(serverId),
       setAssignment: (serverId, agentId, assign) => this.agents.setMcpAssignment(agentId, serverId, assign),
       canAdminister: () => this.canAdminister
@@ -163,9 +163,22 @@ export class NhAssistantMockAdmin {
     this.mcp.setRemoteTools(serverId, tools);
   }
 
-  /** Chat agents: code agents keep their keys, admin agents carry literal text; stopped agents are left out. */
-  chatAgents(): AgentSummary[] {
-    return this.agents.chatAgents();
+  /**
+   * The agents of a chat, as the server lists them: without `subjectType` those that do not require a
+   * subject, with it those that work on the type.
+   */
+  chatAgents(subjectType: string | null = null): AgentSummary[] {
+    return this.agents.chatAgents(subjectType);
+  }
+
+  /** Every agent offered in the chat, whatever the chat is about. */
+  offeredAgents(): AgentSummary[] {
+    return this.agents.offeredAgents();
+  }
+
+  /** What refuses a new chat with an offered agent about `subjectType`, as the server answers it, or `null`. */
+  chatRefusal(agentId: string, subjectType: string | null): string | null {
+    return this.agents.chatRefusal(agentId, subjectType);
   }
 
   /** Every agent of the administration, also those kept out of the chat, for the agent runs. */
