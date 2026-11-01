@@ -301,6 +301,11 @@ export interface NhAssistantMockAdminAgent extends AdminAgentInput {
    */
   chatOnly?: boolean;
   /**
+   * The object types people may chat with a chat-only agent about (`ChatsAbout()`): `GET agents` with a
+   * subject of such a type lists it and a new chat may name one, while it keeps working on no subject.
+   */
+  chatsAbout?: string[];
+  /**
    * A code agent offered only for chats about a subject it works on (`RequireChatSubject()`): the status
    * and `GET agents` leave it out, `GET agents?subjectType=&subjectId=` lists it for a subject it works
    * on, and a new chat with it that names no subject answers `assistant-subject-required`, as the server

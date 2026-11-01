@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.97",
   "backEnd": {
-    "hash": "06c552f8af1546b04f77b67b59dc61690fc0af674c575668b549170130c42636",
-    "declarationCount": 12196,
+    "hash": "185306ec7cf636c89d3d73b39cf642f8eced1187a05d4e103620309089c11953",
+    "declarationCount": 12199,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10767,6 +10767,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "declaration": "public IReadOnlyList<string> ChatsAbout { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
         "declaration": "public NhAiDataClassification? DataClassification { get; init; }"
       },
       {
@@ -11927,6 +11931,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public IReadOnlyList<string> ChatsAbout { get; internal set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public IReadOnlyList<string> Groups { get; internal set; } = [];"
       },
       {
@@ -12088,6 +12096,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder ChatOnly() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder ChatsAbout(params string[] subjectTypes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -13987,7 +13999,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",
-        "declaration": "public static bool WorksOn(NhAssistantAgent agent, NhAiSubjectRef subject) {"
+        "declaration": "public static bool CanChatAbout(NhAssistantAgent agent, NhAiSubjectRef subject) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantChatSubjects.cs",

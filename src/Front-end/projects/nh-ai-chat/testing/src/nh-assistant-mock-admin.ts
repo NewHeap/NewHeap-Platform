@@ -165,7 +165,7 @@ export class NhAssistantMockAdmin {
 
   /**
    * The agents of a chat, as the server lists them: without `subjectType` those that do not require a
-   * subject, with it those that work on the type.
+   * subject, with it those that work on the type or chat about it.
    */
   chatAgents(subjectType: string | null = null): AgentSummary[] {
     return this.agents.chatAgents(subjectType);

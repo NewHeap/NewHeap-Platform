@@ -1340,6 +1340,31 @@ agent's and its skills' shadow states are `Locked`. The administration shows it 
 chat-only (`ChatOnly` of `NhAssistantAdminAgentDto`, `NhAssistantCodeRunSettingsDto` and
 `NhAssistantAgentInEffectDto`).
 
+To let people chat about an object without the agent running on it, name the object types with
+`ChatsAbout` next to `ChatOnly()` (SPM-343), not with a `WorksOn` that also puts the agent on the
+object's board with a start by hand:
+
+```csharp
+assistant.ConfigureAgent("meeting-notes", run => run
+    .ChatOnly()
+    .ChatsAbout("project", "order")
+    .RequireChatSubject()
+    .SkillsInChat()
+    .AllowQuestions());
+```
+
+`ChatsAbout` reaches chats only. `GET agents?subjectType=&subjectId=` lists the agent for an object of a
+named type, a new chat may name one, and the object's access resolver decides on creation and on every
+turn, read and invitation, as for any chat about a subject. `WorksOn` stays nothing
+(`NhAssistantAgentRunOptions.ChatsAbout` and `NhAssistantAgent.ChatsAbout` hold the types apart from it):
+no object's page lists the agent, no start button appears, every start, trigger, hand-off and
+consultation stays refused, and it joins no board or run maintenance. It keeps what a chat-only agent
+has, so skills in chat and structured questions work in such a chat. `RequireChatSubject()` becomes
+valid next to `ChatsAbout` and stays refused for a `ChatOnly()` without it. The host refuses to start
+for `ChatsAbout` without `ChatOnly()`, since any other agent chats about what it works on, and for a
+type without a subject access resolver; `ChatsAbout` itself refuses a platform type such as `nh-system`,
+because a chat without a subject is already about the whole application.
+
 Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
 and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
 most specific one wins: the skill's, then the agent's, then `NhAiDataClassification.Internal`. It

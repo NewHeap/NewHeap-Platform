@@ -128,9 +128,17 @@ public sealed class NhAssistantAgentRunOptions
     /// consultations it starts, token ceilings, files, classification, approval policies and
     /// metadata), but <see cref="WorksOn"/> covers no subject. It is on no object's page and in no
     /// subject's list of agents, and it is never started by hand or by a trigger, handed work,
-    /// consulted, replayed or swept by run maintenance.
+    /// consulted, replayed or swept by run maintenance. People may chat with it about the object types
+    /// of <see cref="ChatsAbout"/>.
     /// </summary>
     public bool ChatOnly { get; internal set; }
+
+    /// <summary>
+    /// The object types people may chat with a chat-only agent about
+    /// (<see cref="NhAssistantAgentRunBuilder.ChatsAbout"/>), ordered by id; empty for every other agent,
+    /// whose chats are about what it works on. <see cref="WorksOn"/> does not cover them.
+    /// </summary>
+    public IReadOnlyList<string> ChatsAbout { get; internal set; } = [];
 
     private readonly SortedSet<string> _runSettings = new(StringComparer.Ordinal);
 
@@ -739,7 +747,8 @@ public sealed class NhAssistantAgentRunBuilder
     /// <see cref="MaxConsultationsPerTurn"/> for the consultations it starts,
     /// <see cref="MaxTokensPerRun"/>, <see cref="AcceptsFiles"/>, <see cref="DataClassification"/>,
     /// <see cref="UseApprovalPolicy(string)"/> and <see cref="Metadata{TValue}"/>, but works on no
-    /// subject. It is on no object's page and in no subject's list of agents; a start by hand
+    /// subject. It is on no object's page and in no subject's list of agents; with
+    /// <see cref="ChatsAbout"/> people may still chat with it about an object. A start by hand
     /// (<c>threads/start</c>, <c>threads/open</c>, run now) and a hand-off are refused with
     /// <c>assistant-agent-does-not-work-on</c>, nothing triggers or consults it, a replay never runs
     /// into or from it, it joins no board and run maintenance leaves it out, so it needs no background
@@ -762,6 +771,50 @@ public sealed class NhAssistantAgentRunBuilder
     {
         _options.ChatOnly = true;
         _options.WorksOn = NhAssistantAgentWorksOn.Nothing;
+        return this;
+    }
+
+    /// <summary>
+    /// Names the object types people may chat with a chat-only agent about, by their registered type ids
+    /// (FB76); repeated calls add types, at most <see cref="NhAssistantAgentWorksOn.MaxSubjectTypes"/>.
+    /// <c>GET agents?subjectType=&amp;subjectId=</c> then lists the agent for an object of such a type, and a
+    /// new chat with it may name one. The object's access resolver, the tenant and these types decide when
+    /// the chat is created, and the resolver and these types again on every turn, read and invitation, as
+    /// for any chat about a subject. This only reaches chats: <see cref="ChatOnly"/> stays as it is, so the
+    /// agent works on no subject, every start, trigger, hand-off and consultation stays refused and it
+    /// joins no board and no run maintenance. With <see cref="RequireChatSubject"/> it is offered for chats
+    /// about these types only. The host refuses to start without <see cref="ChatOnly"/>, since any other
+    /// agent chats about what it works on, and for a type without a subject access resolver.
+    /// </summary>
+    public NhAssistantAgentRunBuilder ChatsAbout(params string[] subjectTypes)
+    {
+        ArgumentNullException.ThrowIfNull(subjectTypes);
+        if (subjectTypes.Length == 0)
+        {
+            throw new ArgumentException("Name at least one object type.", nameof(subjectTypes));
+        }
+        foreach (var subjectType in subjectTypes)
+        {
+            if (!NhAiSubjectRef.IsValidType(subjectType))
+            {
+                throw new ArgumentException("An object type is a dash-case identifier.", nameof(subjectTypes));
+            }
+            if (NhAiSubjectRef.IsReservedType(subjectType))
+            {
+                throw new ArgumentException(
+                    $"'{subjectType}' belongs to the platform; a chat without a subject is already about the whole application.",
+                    nameof(subjectTypes));
+            }
+        }
+
+        var types = NhAssistantAgentWorksOn.Normalize(_options.ChatsAbout.Concat(subjectTypes));
+        if (types.Count > NhAssistantAgentWorksOn.MaxSubjectTypes)
+        {
+            throw new InvalidOperationException(
+                $"An agent chats about at most {NhAssistantAgentWorksOn.MaxSubjectTypes} object types.");
+        }
+
+        _options.ChatsAbout = types;
         return this;
     }
 
@@ -973,12 +1026,14 @@ public sealed class NhAssistantAgentRunBuilder
     /// <summary>
     /// Offers the agent only for people's chats about a subject (FB25): <c>GET agents</c> and
     /// <c>GET status</c> leave it out, <c>GET agents?subjectType=&amp;subjectId=</c> lists it for a subject
-    /// it works on (<see cref="WorksOn"/>), and a new chat with it that names no subject is refused with
-    /// <c>assistant-subject-required</c>. A chat about a subject is checked with the subject's access
-    /// resolver, the tenant and what the agent works on when it is created, and again on every turn, read
-    /// and invitation. Chats that already exist without a subject keep working, and its runs, subject
-    /// threads and consultations work as before. The host refuses to start for a chat-only agent
-    /// (<see cref="ChatOnly"/>), which works on no subject, and next to <see cref="HideFromChat"/>.
+    /// it works on (<see cref="WorksOn"/>) or chats about (<see cref="ChatsAbout"/>), and a new chat with
+    /// it that names no subject is refused with <c>assistant-subject-required</c>. A chat about a subject
+    /// is checked with the subject's access resolver, the tenant and what the agent works on or chats
+    /// about when it is created, and again on every turn, read and invitation. Chats that already exist
+    /// without a subject keep working, and its runs, subject threads and consultations work as before.
+    /// The host refuses to start for a chat-only agent (<see cref="ChatOnly"/>) without
+    /// <see cref="ChatsAbout"/>, which works on no subject and chats about none, and next to
+    /// <see cref="HideFromChat"/>.
     /// </summary>
     public NhAssistantAgentRunBuilder RequireChatSubject()
     {

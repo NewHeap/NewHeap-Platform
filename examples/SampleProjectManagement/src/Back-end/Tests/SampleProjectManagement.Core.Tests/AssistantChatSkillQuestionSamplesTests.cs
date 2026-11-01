@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Test;
 using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.DAL.Entities;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -23,7 +25,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// SPM-343, the chat helper works in people's chats only (<c>ChatOnly()</c>): it offers its meeting
 /// notes skill and questions in the chat, but it is on no project's page and a start on a project is
 /// refused with <c>assistant-agent-does-not-work-on</c>; the administration says it is chat-only, and its
-/// skill always works live.
+/// skill always works live. People may still chat with it about a project (<c>ChatsAbout</c>), which the
+/// project's access resolver decides on creation and on every turn and read.
 /// </summary>
 public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSampleHost host)
     : IClassFixture<AssistantAgentRunSampleHost>
@@ -163,6 +166,77 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Conflict, shadow.StatusCode);
         Assert.Equal(NhAssistantErrorCodes.AgentDoesNotWorkOn, (await AssistantSampleHost.ReadJsonAsync(shadow)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SPM_343_a_member_chats_with_the_chat_helper_about_their_project_and_loses_the_chat_once_removed()
+    {
+        var model = new NhAiScriptedChatClient().RespondWithText("Decided: the launch moves to May.");
+        host.Model.Use(model);
+        var project = await host.CreateProjectAsync("CHATABOUT", ownerId: host.OwnerId);
+        var membership = await host.AddMemberAsync(project, host.ReaderId, ProjectMemberRole.Reader);
+        using var reader = host.CreateClient(host.ReaderId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        var aboutProject = new { agentId = SampleChatHelperComposition.AgentId, subjectType = ProjectSubjects.Type, subjectId = project.ToString("D") };
+
+        // A chat about a project the person may read lists the helper, as a chat without a subject does.
+        var listed = await host.GetJsonAsync(reader, $"/api/assistant/agents?subjectType={ProjectSubjects.Type}&subjectId={project:D}");
+        Assert.Contains(listed.EnumerateArray(), agent => agent.GetProperty("id").GetString() == SampleChatHelperComposition.AgentId);
+        using (var refusedAgents = await outsider.GetAsync(
+            $"/api/assistant/agents?subjectType={ProjectSubjects.Type}&subjectId={project:D}",
+            TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, refusedAgents.StatusCode);
+        }
+
+        // The chat keeps the project; someone outside the project is refused.
+        using var created = await reader.PostAsync("/api/assistant/conversations", AssistantSampleHost.Json(aboutProject), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var chat = await AssistantSampleHost.ReadJsonAsync(created);
+        var chatId = chat.GetProperty("id").GetGuid();
+        Assert.Equal(project.ToString("D"), chat.GetProperty("subject").GetProperty("subjectId").GetString());
+        using (var notAMember = await outsider.PostAsync("/api/assistant/conversations", AssistantSampleHost.Json(aboutProject), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, notAMember.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.SubjectAccessDenied, (await AssistantSampleHost.ReadJsonAsync(notAMember)).GetProperty("code").GetString());
+        }
+
+        // A message reads the project's briefing and keeps the helper's chat settings.
+        var events = await host.SendAsync(reader, chatId, "What did we decide about the launch?");
+        Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+        Assert.Contains("ask_question", ToolNames(model.Requests[0]));
+        Assert.Contains(
+            model.Requests[0].Messages.Where(message => message.Role == ChatRole.System).Select(message => message.Text),
+            text => text.Contains("<subject-briefing>", StringComparison.Ordinal) && text.Contains("CHATABOUT-", StringComparison.Ordinal));
+
+        // The helper still works on no project: nothing offers a start, and a start by its owner is refused.
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var agents = await host.GetJsonAsync(owner, $"/api/assistant/subjects/project/{project:D}/agents");
+        Assert.DoesNotContain(agents.GetProperty("agents").EnumerateArray(), agent => agent.GetProperty("agentId").GetString() == SampleChatHelperComposition.AgentId);
+        using (var start = await owner.PostAsync(
+            "/api/assistant/threads/start",
+            AssistantSampleHost.Json(new { agentId = SampleChatHelperComposition.AgentId, subjectType = "project", subjectId = project.ToString("D") }),
+            TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, start.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.AgentDoesNotWorkOn, (await AssistantSampleHost.ReadJsonAsync(start)).GetProperty("code").GetString());
+        }
+
+        // Removed from the project, the reader can no longer read or continue the chat.
+        await host.RemoveMemberAsync(membership);
+        using (var read = await reader.GetAsync($"/api/assistant/conversations/{chatId}", TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
+        }
+        using (var message = await reader.PostAsync(
+            $"/api/assistant/conversations/{chatId}/messages",
+            AssistantSampleHost.Json(new { text = "And now?", clientMessageId = Guid.NewGuid().ToString("N") }),
+            TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, message.StatusCode);
+            Assert.Equal(NhAssistantErrorCodes.SubjectAccessDenied, (await AssistantSampleHost.ReadJsonAsync(message)).GetProperty("code").GetString());
+        }
+        Assert.Single(model.Requests);
     }
 
     private static async Task<Guid> CreateConversationAsync(HttpClient client, string agentId)

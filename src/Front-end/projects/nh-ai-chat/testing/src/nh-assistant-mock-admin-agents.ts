@@ -41,6 +41,8 @@ interface StoredAgent {
   consultations: StoredConsultationRoutes;
   /** The agent is offered only for chats about a subject (`RequireChatSubject()` in code). */
   requiresChatSubject?: boolean;
+  /** The object types people may chat with a chat-only agent about (`ChatsAbout()` in code). */
+  chatsAbout?: string[];
 }
 
 /** The routes code allows for an agent's consultations and the switches administrators set. */
@@ -119,7 +121,7 @@ export class NhAssistantMockAdminAgents {
       ?? scenario.agents.map(agent => ({ ...codeAgentFromSummary(agent), source: 'code' as const }));
     // How an agent runs, in code or as data, belongs to its run configuration, not to the agent.
     for (const {
-      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions, chatOnly, requireChatSubject,
+      source, skills, shadowOf, shadow, serviceAccount, worksOnDeclared, knownSubjectTypes, consultations, consultationDescriptions, chatOnly, requireChatSubject, chatsAbout,
       codeRunSettings: _, runConfiguration: __, consultableAsData: ___, dataConsultations: ____, consultationTools: _____, codeHandOffs: ______, ...input
     } of agents) {
       const variant = typeof shadowOf === 'string';
@@ -164,7 +166,8 @@ export class NhAssistantMockAdminAgents {
         consultations: noSwitches(source === 'code' && (consultations !== undefined || consultationDescriptions !== undefined)
           ? structuredClone(consultations ?? {})
           : null),
-        requiresChatSubject: source === 'code' && requireChatSubject === true
+        requiresChatSubject: source === 'code' && requireChatSubject === true,
+        chatsAbout: source === 'code' && chatOnly === true ? chatsAbout ?? [] : []
       });
     }
   }
@@ -282,18 +285,19 @@ export class NhAssistantMockAdminAgents {
 
   /**
    * The agents of a chat, as the server lists them: without `subjectType` those that do not require a
-   * subject (`RequireChatSubject()`), with it those that work on the type.
+   * subject (`RequireChatSubject()`), with it those that work on the type or chat about it
+   * (`ChatsAbout()`).
    */
   chatAgents(subjectType: string | null = null): AgentSummary[] {
-    return this.offeredAgents(({ agent, requiresChatSubject }) => subjectType === null
-      ? !requiresChatSubject
-      : mockWorksOnCovers(agent, subjectType));
+    return this.offeredAgents(stored => subjectType === null
+      ? !stored.requiresChatSubject
+      : canChatAbout(stored, subjectType));
   }
 
   /**
    * What refuses a new chat with an offered agent, as the server answers it: `assistant-subject-required`
    * for an agent that requires a subject without one, `assistant-agent-does-not-work-on` for a subject
-   * it does not work on, otherwise `null`.
+   * it does not work on or chat about, otherwise `null`.
    */
   chatRefusal(agentId: string, subjectType: string | null): string | null {
     const stored = this.agents.get(agentId);
@@ -304,7 +308,7 @@ export class NhAssistantMockAdminAgents {
       return stored.requiresChatSubject ? 'assistant-subject-required' : null;
     }
 
-    return mockWorksOnCovers(stored.agent, subjectType) ? null : 'assistant-agent-does-not-work-on';
+    return canChatAbout(stored, subjectType) ? null : 'assistant-agent-does-not-work-on';
   }
 
   /** Chat agents: code agents keep their keys, admin agents carry literal text; stopped agents are left out. */
@@ -1120,6 +1124,11 @@ export class NhAssistantMockAdminAgents {
 /** A classification name the input chose, or `null` when it chose none. */
 function chosenClassification(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+/** Whether a chat with the agent can be about subjects of the type, as the server's rule decides it. */
+function canChatAbout(stored: StoredAgent, subjectType: string): boolean {
+  return mockWorksOnCovers(stored.agent, subjectType) || (stored.chatsAbout ?? []).includes(subjectType);
 }
 
 function codeAgentFromSummary(agent: AgentSummary): AdminAgentInput {

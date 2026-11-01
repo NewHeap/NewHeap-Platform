@@ -317,6 +317,56 @@ describe('NhAssistantStore with an agent offered only for chats about a subject 
   });
 });
 
+/** FB76: a chat-only agent that names the object types people may chat with it about (`ChatsAbout()`). */
+describe('NhAssistantStore with a chat-only agent that chats about a type (FB76)', () => {
+  const notes: AgentSummary = { id: 'notes', version: 1, displayNameKey: 'agents.notes', descriptionKey: 'agents.notes', canMutate: false };
+  const subject = { subjectType: 'project', subjectId: 'p-1', subjectDisplayName: 'Alpha migration' };
+
+  function chatOnly(): NhAssistantMockScenario {
+    return {
+      ...scenario(),
+      agents: [notes],
+      subjectTypes: [
+        ...scenario().subjectTypes!,
+        { id: 'task', names: { en: 'Task' }, subjects: [{ id: 't-1', displayName: 'Write the plan' }] }
+      ],
+      admin: {
+        agents: [{
+          source: 'code', id: notes.id, displayName: notes.id, description: '', instructions: 'Help.', toolSelectors: [], mcpServerIds: [],
+          requiredPolicy: null, autonomy: 'explain', isEnabled: true, chatOnly: true, chatsAbout: ['project'], requireChatSubject: true
+        }]
+      }
+    };
+  }
+
+  it('sends the first message of a chat about a named type to the agent, which works on nothing', async () => {
+    const fixture = await render(chatOnly());
+    const store = TestBed.inject(NhAssistantStore);
+    const api = TestBed.inject(NhAssistantApiService);
+    await store.initialize();
+    expect(store.chatAgents()).toEqual([]);
+
+    expect(await store.setChatSubject(subject)).toBeTrue();
+    expect(store.selectedAgentId()).toBe('notes');
+    expect(await store.send('What is the status?')).toBeTrue();
+    await settle(fixture);
+
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()?.agentId).toBe('notes');
+    expect(store.activeConversation()?.subject?.subjectId).toBe('p-1');
+
+    // The mock refuses a type the agent does not name, as the server does.
+    expect(await firstValueFrom(api.agents({ subjectType: 'task', subjectId: 't-1' }))).toEqual([]);
+    let refused: unknown = null;
+    try {
+      await firstValueFrom(api.createConversation({ agentId: notes.id, subjectType: 'task', subjectId: 't-1' }));
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused instanceof NhAssistantApiError && refused.code).toBe('assistant-agent-does-not-work-on');
+  });
+});
+
 /** The panel's line that says what the open or next chat is about, in the drawer's overlay. */
 function subjectLine(): HTMLElement | null {
   return TestBed.inject(OverlayContainer).getContainerElement().querySelector<HTMLElement>('.chat-subject');

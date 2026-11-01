@@ -63,6 +63,8 @@ export class ProjectEditModalComponent
   readonly intakeReviewerId = 'sample-project-intake-reviewer';
   /** SPM-363: the agent that answers in a person's chat about one project. */
   readonly projectChatId = 'sample-project-chat';
+  /** SPM-343: the chat-only agent that takes notes in a person's chat about one project. */
+  readonly chatHelperId = 'sample-project-chat-helper';
   private readonly assistant = inject(NhAssistantStore);
   /** Agent work shows only while the assistant is enabled and the access policy allows the user. */
   readonly assistantEnabled = this.assistant.enabled;
@@ -111,9 +113,10 @@ export class ProjectEditModalComponent
   /**
    * SPM-363: the next new chat is about this project, with the project chat. The server checks the
    * person's role on the project when the first message creates the chat and on every later turn and
-   * read; when it refuses the project, the panel shows why and the next chat has no subject.
+   * read; when it refuses the project, the panel shows why and the next chat has no subject. The chat
+   * helper of SPM-343 takes the same way: it does not work on projects, but chats about them.
    */
-  async chatAboutProject(project: ProjectViewModel): Promise<void> {
+  async chatAboutProject(project: ProjectViewModel, agentId: string = this.projectChatId): Promise<void> {
     this.lifecycleReporter()('content event: project chat opened');
     const started = await this.assistant.setChatSubject({
       subjectType: 'project',
@@ -121,7 +124,7 @@ export class ProjectEditModalComponent
       subjectDisplayName: `${project.key} — ${project.name}`
     });
     this.closeDialog();
-    this.panel.open(started ? { agentId: this.projectChatId } : undefined);
+    this.panel.open(started ? { agentId } : undefined);
   }
 
   override async onNewFormData(

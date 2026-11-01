@@ -96,6 +96,8 @@
     "project-chat-label": "Chatten over dit project",
     "project-chat-description": "Vraag de projectchat iets over dit project. Hij antwoordt met jouw eigen rechten zolang je het project mag lezen.",
     "project-chat-start": "Chatten over dit project",
+    "project-notes-description": "Laat de chathulp in jouw chat vergadernotities over dit project maken. Hij werkt alleen in de chat en start zelf niets.",
+    "project-notes-start": "Vergadernotities over dit project",
     "key": "Projectsleutel",
     "key-help": "Kort, uniek en herkenbaar, bijvoorbeeld PORTAL.",
     "name": "Naam",
@@ -604,7 +606,7 @@
       },
       "sample-project-chat-helper": {
         "name": "Chathulp",
-        "description": "Werkt alleen in de chat: maakt vergadernotities en vraagt je om een keuze als dat nodig is."
+        "description": "Werkt alleen in de chat: maakt vergadernotities, ook over één project, en vraagt je om een keuze als dat nodig is."
       },
       "sample-project-chat": {
         "name": "Projectchat",

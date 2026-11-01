@@ -97,6 +97,13 @@ internal sealed record NhAssistantAgent(
     public bool ChatOnly { get; init; }
 
     /// <summary>
+    /// The object types people may chat with a chat-only agent about (<c>ChatsAbout()</c> in code),
+    /// ordered by id; empty for every other agent, whose chats are about what it works on. The agent does
+    /// not work on them: <see cref="WorksOn"/> does not cover them.
+    /// </summary>
+    public IReadOnlyList<string> ChatsAbout { get; init; } = [];
+
+    /// <summary>
     /// The classification of the data the agent's model calls carry: <c>DataClassification(...)</c>
     /// in code for an agent in code, the stored one for an agent created in the administration;
     /// <see langword="null"/> for <see cref="NhAiDataClassification.Internal"/>. A skill's own wins.
@@ -295,6 +302,10 @@ internal sealed class NhAssistantAgentCatalog(
             ChatOnly = row.Source == NhAssistantAgentSources.Code
                 && registration.CodeAgentRuns.TryGetValue(row.Id, out var chatOptions)
                 && chatOptions.ChatOnly,
+            ChatsAbout = row.Source == NhAssistantAgentSources.Code
+                && registration.CodeAgentRuns.TryGetValue(row.Id, out var aboutOptions)
+                    ? aboutOptions.ChatsAbout
+                    : [],
             DataClassification = ClassificationOf(row),
             InstructionsAsset = reference,
             InstructionsProblem = instructionsProblem,

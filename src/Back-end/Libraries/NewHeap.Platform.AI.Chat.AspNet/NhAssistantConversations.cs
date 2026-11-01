@@ -47,7 +47,8 @@ public interface INhAssistantConversations
     /// subject and a chat without one, <c>assistant-subject-invalid</c> for a subject of the platform,
     /// <c>assistant-subject-type-unknown</c>, <c>assistant-subject-not-found</c> when its resolver does not
     /// describe it in the person's tenant, <c>assistant-subject-access-denied</c> when it gives the person
-    /// no role on it, and <c>assistant-agent-does-not-work-on</c> when the agent does not work on it.
+    /// no role on it, and <c>assistant-agent-does-not-work-on</c> when the agent does not work on it and,
+    /// as a chat-only agent, does not chat about its type (<c>ChatsAbout()</c>).
     /// </para>
     /// </summary>
     /// <param name="person">The person the application authenticated.</param>
@@ -132,8 +133,8 @@ public interface INhAssistantConversations
     /// <summary>
     /// Lists the agents for a chat of the person about <paramref name="subject"/> (FB25), as
     /// <c>GET agents?subjectType=&amp;subjectId=</c> returns them: those offered in the chat whose policy the
-    /// person satisfies and that work on the subject, those offered only for chats about a subject
-    /// included.
+    /// person satisfies and that work on the subject or, as chat-only agents, chat about its type
+    /// (<c>ChatsAbout()</c>), those offered only for chats about a subject included.
     /// <para>
     /// Fails with <c>assistant-agent-forbidden</c> when the person fails the assistant's access policy,
     /// <c>assistant-subject-invalid</c> for a subject of the platform, <c>assistant-subject-type-unknown</c>,
@@ -214,7 +215,8 @@ public sealed record NhAssistantNewConversation(string AgentId)
     /// <summary>
     /// The subject the chat is about (FB25), such as the project a person asks about from its page;
     /// <see langword="null"/> for a chat without one. Its resolver must describe it in the person's tenant
-    /// and give the person a role on it, and the agent must work on it. The chat offers it to tools
+    /// and give the person a role on it, and the agent must work on it or, as a chat-only agent, chat
+    /// about its type (<c>ChatsAbout()</c>). The chat offers it to tools
     /// (<see cref="NhAiInvocationContext.ConversationSubject"/>), the file source, proposal guards and the
     /// briefing, and stays the person's chat, apart from the agent's thread about the subject.
     /// </summary>

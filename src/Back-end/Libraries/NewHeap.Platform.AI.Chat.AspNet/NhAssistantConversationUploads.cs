@@ -154,7 +154,8 @@ internal static class NhAssistantPersonLists
     /// The agents offered in the chat whose policy <paramref name="user"/> satisfies, each with what
     /// people may attach to a message to it: for a chat without a subject those that do not require one
     /// (<c>RequireChatSubject()</c>), for a chat about <paramref name="subject"/> (FB25) those that work on
-    /// it. The caller checked the person's access to the subject.
+    /// it or chat about its type (<c>ChatsAbout()</c>). The caller checked the person's access to the
+    /// subject.
     /// </summary>
     public static async Task<IReadOnlyList<NhAssistantAgentSummaryDto>> ListAgentsAsync(
         NhAssistantAgentAccess access,
