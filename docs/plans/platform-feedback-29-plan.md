@@ -12,8 +12,11 @@ guidance rules, the release notes and the sample cases are authoritative.
 ## Status
 
 Decided by Lars on 2026-11-01, one by one: FB72 to FB76 as advised (option (a)), and FB77 option (b), all of it in one
-train. The decisions are summarized below; the sections under "Choices" keep the options that were weighed. Not built
-yet.
+train. The decisions are summarized below; the sections under "Choices" keep the options that were weighed. Built on
+2026-11-01 in train 32, with lanes AK (FB75), OB (FB74, FB76) and CB (FB72, FB73), and verified together, with a browser
+check of a chat about a project. That check found that the panel's picker showed the first agent of the list in an open
+chat with an agent a next chat does not offer; `NhAssistantStore.pickerAgents` fixes that. The choices each lane made are
+in the "Lane choices" table below, for Lars to review.
 
 ## Decisions
 

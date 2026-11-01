@@ -403,6 +403,16 @@ export class NhAssistantStore {
    */
   readonly chatAgents = computed<AgentSummary[]>(() =>
     this.newChatSubjectState() ? this.subjectAgentsState() : this.statusState()?.agents ?? []);
+  /**
+   * The agents of the panel's picker: those of `chatAgents`, and the agent of the open chat when only a
+   * chat about a subject offers it, so the picker names the agent the chat is with.
+   */
+  readonly pickerAgents = computed<AgentSummary[]>(() => {
+    const agents = this.chatAgents();
+    const open = this.activeConversation()?.agentId;
+    const openAgent = agents.some(agent => agent.id === open) ? undefined : this.agents().find(agent => agent.id === open);
+    return openAgent ? [...agents, openAgent] : agents;
+  });
   /** The subject the next new chat is about (FB25), as the host set it; `null` without one. */
   readonly newChatSubject = this.newChatSubjectState.asReadonly();
   /**

@@ -22,6 +22,8 @@ instead. SPM-387 shows such a rule, and `nh-ai-agent-runs` says which turns coun
   every message and chose among its agents, which leave such an agent out, so the first message went to another
   agent or was refused with `assistant-agent-does-not-work-on`. The store now chooses among `chatAgents()`, keeps
   the agent of the open chat while it knows that agent, and chooses nothing while the agents of a subject load.
+- The panel's agent picker names the agent of the open chat, also one that a next chat does not offer
+  (`NhAssistantStore.pickerAgents`). It showed the first agent of the list instead.
 - For a subject without agents, the chosen agent stays and the server refuses it, so the person sees why instead
   of the message being dropped.
 - The mock API has `requireChatSubject` on `NhAssistantMockAdminAgent`. `GET agents?subjectType=&subjectId=` of the

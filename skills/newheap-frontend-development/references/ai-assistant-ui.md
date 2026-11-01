@@ -106,10 +106,11 @@ the subject (`subjectType` and `subjectId` of `CreateConversationRequest`), and 
 person's role on the subject then and on every later turn and read. The subject is for that one chat:
 `newChatSubject()` is `null` again once it exists. It resolves `false` and shows the server's refusal,
 such as `assistant-subject-access-denied`, when the person may not use a chat about it. The agent picker
-binds `store.chatAgents()`, the agents of the next new chat: those of its subject, including agents
-offered only for chats about a subject (`RequireChatSubject()` on the server) and chat-only agents that
-chat about its type (`ChatsAbout()` on the server), otherwise those of the
-status; `store.agents()` also knows those agents for lookups. The store keeps the chosen agent among
+binds `store.pickerAgents()`: `store.chatAgents()`, the agents of the next new chat, plus the agent of the
+open chat when a next chat does not offer it, so that the picker names the agent the chat is with.
+`chatAgents()` holds those of the subject, including agents offered only for chats about a subject
+(`RequireChatSubject()` on the server) and chat-only agents that chat about its type (`ChatsAbout()` on the
+server), otherwise those of the status; `store.agents()` also knows those agents for lookups. The store keeps the chosen agent among
 those agents whenever it reads the status, which it does before every message, so a first message goes
 to an agent the status leaves out. The agent of the open chat stays chosen as long as the store knows it,
 a status that arrives while a subject's agents load chooses nothing, and for a subject without agents the

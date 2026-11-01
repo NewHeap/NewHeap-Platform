@@ -315,11 +315,11 @@
           (attach)="attach($event)"
           (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
-          @if (store.chatAgents().length > 1) {
+          @if (store.pickerAgents().length > 1) {
             <nh-assistant-agent-picker
               nhAssistantComposerControls
               [compact]="true"
-              [agents]="store.chatAgents()"
+              [agents]="store.pickerAgents()"
               [selectedAgentId]="store.selectedAgentId()"
               (agentChange)="store.selectAgent($event)" />
           }

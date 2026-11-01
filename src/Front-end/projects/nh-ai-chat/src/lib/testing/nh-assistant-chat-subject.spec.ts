@@ -192,6 +192,23 @@ describe('NhAssistantStore with an agent offered only for chats about a subject 
     expect(store.activeConversation()?.subject?.subjectId).toBe('p-1');
   });
 
+  it('names the agent of the open chat in the picker, although a next chat does not offer it', async () => {
+    const fixture = await render(subjectOnly());
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+    await store.setChatSubject(subject);
+    TestBed.inject(NhAssistantPanelService).open({ agentId: projectChat.id });
+    await settle(fixture);
+    await store.send('What is the status?');
+    await settle(fixture);
+
+    const picker = TestBed.inject(OverlayContainer).getContainerElement()
+      .querySelector<HTMLSelectElement>('nh-assistant-agent-picker select')!;
+    expect(store.chatAgents().map(agent => agent.id)).toEqual(['projects']);
+    expect(Array.from(picker.options).map(option => option.value)).toEqual(['projects', 'project-chat']);
+    expect(picker.value).toBe('project-chat');
+  });
+
   it('keeps the agent of the open chat while the status lists no agent at all', async () => {
     const fixture = await render(subjectOnly([]));
     const store = TestBed.inject(NhAssistantStore);
