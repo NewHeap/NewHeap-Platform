@@ -242,6 +242,20 @@ internal sealed record NhAssistantAgentTurnContext(
     public bool AgentRightsOnly { get; init; }
 
     /// <summary>
+    /// The turn belongs to a consultation: the consulted agent's own turn, or the execution of a proposal
+    /// a consultation left. Such a turn has no <see cref="RunId"/>.
+    /// </summary>
+    public bool FromConsultation { get; init; }
+
+    /// <summary>
+    /// Whether the turn is the agent's own work, as tools read it in
+    /// <see cref="NhAiInvocationContext.IsAgentWork"/>: a turn of a run, whatever started it, and of a
+    /// consultation. A person's own turn in the thread is not, also when an approver's decision continues
+    /// it, and neither is a proposal the application recorded for a person. Those stay a person's work.
+    /// </summary>
+    public bool IsAgentWork => RunId is not null || FromConsultation;
+
+    /// <summary>
     /// The tokens earlier turns of the same execution of the run used; <see langword="null"/> for a
     /// turn outside a run, which has no token ceiling.
     /// </summary>

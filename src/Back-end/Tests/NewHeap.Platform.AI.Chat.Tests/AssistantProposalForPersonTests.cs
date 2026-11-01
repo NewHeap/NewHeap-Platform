@@ -134,6 +134,8 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
         var change = Assert.Single(host.Tools.StatusChanges);
         Assert.Equal((projectId, "OnHold"), (change.ProjectId, change.Status));
         Assert.Equal(NhAiGrantSource.Delegated, host.Tools.Contexts.Last().GrantSource);
+        // The person asked for it: it runs in the agent's thread, but it is no agent work.
+        Assert.False(host.Tools.Contexts.Last().IsAgentWork);
         // After the decision the key still names the proposal, as it is now.
         var afterwards = (await ProposeAsync(host, Request(Proposer, projectId, "OnHold") with { IdempotencyKey = "request-1" })).Data!;
         Assert.Equal((approval.Id, true, NhAssistantApprovalStatuses.Executed), (afterwards.ApprovalId, afterwards.Repeated, afterwards.Status));

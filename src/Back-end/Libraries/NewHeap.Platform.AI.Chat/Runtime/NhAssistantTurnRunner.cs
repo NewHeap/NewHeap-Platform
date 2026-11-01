@@ -1321,6 +1321,7 @@ internal sealed partial class NhAssistantTurnRunner(
             new Dictionary<string, string>(StringComparer.Ordinal))
         {
             ActorKind = agentTurn.InitiatorActorId is null ? NhAiActorKind.Agent : NhAiActorKind.Human,
+            IsAgentWork = agentTurn.IsAgentWork,
             AccountableOwnerId = agentTurn.AccountableOwnerId,
             TenantId = conversation.TenantId,
             CorrelationId = agentTurn.RunId?.ToString("N"),
@@ -1452,6 +1453,7 @@ internal sealed partial class NhAssistantTurnRunner(
             RunAttemptNumber = agentTurn.Attempt,
             CorrelationId = agentTurn.RunId?.ToString("N") ?? state.Scope.TurnId.ToString(),
             AgentRunId = agentTurn.RunId,
+            IsAgentWork = agentTurn.IsAgentWork,
             Deadline = state.Scope.Deadline,
             ModelProfileName = state.Scope.ModelProfileName,
             PromptVersion = state.Scope.PromptVersion,
@@ -3231,6 +3233,7 @@ internal sealed partial class NhAssistantTurnRunner(
             RunId = state.Scope.TurnId.ToString(),
             CorrelationId = callerContext.CorrelationId ?? state.Scope.TurnId.ToString(),
             AgentRunId = state.AgentTurn?.RunId,
+            IsAgentWork = state.AgentTurn?.IsAgentWork ?? false,
             ConversationId = state.Scope.ConversationId,
             Channel = state.Scope.Channel,
             ConversationSubject = state.ChatSubject?.Subject,

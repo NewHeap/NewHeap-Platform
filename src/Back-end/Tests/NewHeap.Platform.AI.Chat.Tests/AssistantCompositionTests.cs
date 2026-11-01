@@ -52,6 +52,13 @@ public sealed class AssistantCompositionTests(AssistantDatabaseFixture database)
         Assert.Equal([TestRiskToolCatalog.GetProject.Id, TestRiskToolCatalog.ListRisks.Id, TestRiskToolCatalog.GetPeople.Id], recorder.RanTools);
         Assert.Equal(projectId.ToString(), recorder.InputOf(TestRiskToolCatalog.ListRisks.Id).GetProperty("projectId").GetString());
         Assert.Equal(["person-2", "person-3"], recorder.InputOf(TestRiskToolCatalog.GetPeople.Id).GetProperty("ids").EnumerateArray().Select(id => id.GetString()).ToArray());
+        // A step counts as the turn it runs in: in a person's chat it is no agent work.
+        Assert.All(recorder.Contexts, context =>
+        {
+            Assert.NotNull(context.Origin);
+            Assert.Equal(NhAiActorKind.Agent, context.ActorKind);
+            Assert.False(context.IsAgentWork);
+        });
         var descriptor = Composition(host, TestCompositions.Overview);
         Assert.Equal(NhAiToolEffect.ReadOnly, descriptor.Effect);
         Assert.Equal(NhAiCompositionFeature.Compositions, descriptor.CompositionFeature);
@@ -147,6 +154,12 @@ public sealed class AssistantCompositionTests(AssistantDatabaseFixture database)
         var recorder = host.Services.GetRequiredService<TestRiskToolRecorder>();
         Assert.Equal([TestRiskToolCatalog.ListRisks.Id, TestRiskToolCatalog.TagRisk.Id], recorder.RanTools);
         Assert.Equal("risk-1", recorder.InputOf(TestRiskToolCatalog.TagRisk.Id).GetProperty("riskId").GetString());
+        // A step counts as the turn it runs in: in a run it is agent work.
+        Assert.All(recorder.Contexts, context =>
+        {
+            Assert.NotNull(context.Origin);
+            Assert.True(context.IsAgentWork);
+        });
         var approval = Assert.Single(await host.Services.GetRequiredService<NhAssistantRunStore>().GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
         Assert.Equal(TestRiskToolCatalog.FlagRisk.Id, approval.ToolId);
         Assert.Equal(NhAssistantApprovalModes.Deferred, approval.Mode);
@@ -186,6 +199,8 @@ public sealed class AssistantCompositionTests(AssistantDatabaseFixture database)
 
         Assert.Equal(NhAssistantTurnStatuses.Completed, turn.Outcome);
         Assert.Equal([TestRiskToolCatalog.ListRisks.Id], host.Services.GetRequiredService<TestRiskToolRecorder>().RanTools);
+        // A shadow run is a run: what it reads is agent work.
+        Assert.True(Assert.Single(host.Services.GetRequiredService<TestRiskToolRecorder>().Contexts).IsAgentWork);
         var proposals = await host.Services.GetRequiredService<NhAssistantRunStore>().GetRunApprovalsAsync(run.Run.Id, CancellationToken.None);
         Assert.Equal(
             [TestRiskToolCatalog.FlagRisk.Id, TestRiskToolCatalog.TagRisk.Id],

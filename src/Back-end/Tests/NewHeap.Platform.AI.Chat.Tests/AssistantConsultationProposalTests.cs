@@ -92,6 +92,8 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
         var executed = Assert.Single(host.Tools.StatusChanges);
         Assert.Equal("active", executed.Status);
         Assert.Equal(NhAiGrantSource.Delegated, host.Tools.Contexts.Last().GrantSource);
+        // The asker decided in their own chat, but the consulted agent's proposal stays agent work.
+        Assert.True(host.Tools.Contexts.Last().IsAgentWork);
         Assert.Empty(host.Services.GetRequiredService<CountingPrincipals>().People);
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await StoredAsync(host, approval.Id)).Status);
         var result = asker.FunctionResults.Last().Result?.ToString();
@@ -194,6 +196,7 @@ public sealed class AssistantConsultationProposalTests(AssistantDatabaseFixture 
         // An approver other than the asker approves it; it executes with the agent's own grant.
         await ApproveAndExecuteAsync(host, moved, Approver);
         Assert.Equal(NhAiGrantSource.Agent, host.Tools.Contexts.Last().GrantSource);
+        Assert.True(host.Tools.Contexts.Last().IsAgentWork);
         Assert.Empty(host.Services.GetRequiredService<CountingPrincipals>().People);
         var told = Assert.Single(channel.Deliveries, delivery => delivery.Context.Kind == NhAssistantAgentNotificationKind.ConsultationProposalDecided);
         Assert.Equal([Member], told.Recipients);

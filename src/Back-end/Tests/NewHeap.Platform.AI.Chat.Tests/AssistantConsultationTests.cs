@@ -234,6 +234,9 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         var executed = Assert.Single(host.Tools.StatusChanges);
         Assert.Equal("active", executed.Status);
         Assert.Equal(NhAiGrantSource.Delegated, host.Tools.Contexts.Last().GrantSource);
+        // It has no run, but a consultation left it: it stays agent work, with the asker's rights.
+        Assert.Null(host.Tools.Contexts.Last().AgentRunId);
+        Assert.True(host.Tools.Contexts.Last().IsAgentWork);
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await store.FindApprovalAsync(approvals[0].Id, CancellationToken.None))!.Status);
 
         // Once the asker may no longer sign in, the second fails instead of using the agent's own grant.
@@ -272,6 +275,33 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
         Assert.Empty(await Runs(host).GetConsultationApprovalsAsync(consultation.Id, CancellationToken.None));
         await using var context = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
         Assert.DoesNotContain(await context.ToolInvocations.ToListAsync(), invocation => invocation.ToolId == "projects.change-status");
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_tool_in_a_consultation_reads_agent_work_without_a_run_also_inside_the_askers_request(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "c-1")
+            .RespondWithText("The roadmap project exists.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Does the roadmap project exist?" } }, "call-1")
+            .RespondWithText("It exists.");
+        await using var host = await CreateHostAsync(provider, target, asker);
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        await host.SendAsync(conversation.Id, "Ask the reviewer about the roadmap project.", Member);
+
+        // No run, so AgentRunId cannot tell it from a person's chat; the consulted agent's scope does.
+        var context = Assert.Single(host.Tools.Contexts);
+        Assert.Equal(NhAiActorKind.Agent, context.ActorKind);
+        Assert.Null(context.AgentRunId);
+        Assert.True(context.IsAgentWork);
+        var scope = Assert.Single(host.Tools.Scopes);
+        Assert.NotNull(scope);
+        Assert.True(scope.IsRequestTurn);
+        Assert.True(scope.IsAgentWork);
     }
 
     [Fact]

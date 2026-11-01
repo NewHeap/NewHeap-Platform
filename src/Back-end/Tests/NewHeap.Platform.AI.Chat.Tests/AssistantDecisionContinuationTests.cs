@@ -58,6 +58,8 @@ public sealed class AssistantDecisionContinuationTests(AssistantDatabaseFixture 
         // the member's rights and saw no person of the approver's request.
         var search = Assert.Single(host.Audit.Records, record => record.ToolId == "projects.search");
         Assert.Equal(NhAiGrantSource.Delegated, search.GrantSource);
+        // The approver continues the member's own turn: still no agent work.
+        Assert.False(host.Tools.Contexts.Last().IsAgentWork);
         var recorder = host.Services.GetRequiredService<TurnPersonRecorder>();
         Assert.NotEmpty(recorder.Seen);
         Assert.All(recorder.Seen, Assert.Null);
@@ -66,6 +68,31 @@ public sealed class AssistantDecisionContinuationTests(AssistantDatabaseFixture 
         var decided = await host.Services.GetRequiredService<Persistence.INhAssistantStore>().FindApprovalAsync(approval.ApprovalId, CancellationToken.None);
         Assert.Equal(Approver, decided!.DecidedByActorId);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalApproved && evt.ActorId == Approver);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_persons_own_turn_in_the_agents_thread_is_no_agent_work_although_the_agent_is_the_actor(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } }, "call-search")
+            .RespondWithText("The roadmap project exists.");
+        await using var host = await CreateHostAsync(provider, model);
+        var thread = await OpenThreadAsync(host, projectId, Member);
+
+        var turn = await RequestTurnAsync(host, thread, Member, "Does the roadmap project exist?");
+
+        Assert.True(turn.Start.Success);
+        var context = Assert.Single(host.Tools.Contexts);
+        Assert.Equal(NhAiActorKind.Agent, context.ActorKind);
+        Assert.Null(context.AgentRunId);
+        Assert.False(context.IsAgentWork);
+        // The thread's agent scope is ambient, as for its runs, and says the same.
+        var scope = Assert.Single(host.Tools.Scopes);
+        Assert.NotNull(scope);
+        Assert.False(scope.IsAgentWork);
     }
 
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, NhAiScriptedChatClient model)

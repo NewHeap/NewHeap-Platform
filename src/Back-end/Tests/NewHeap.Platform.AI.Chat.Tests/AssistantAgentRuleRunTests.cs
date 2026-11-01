@@ -49,9 +49,11 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         await using var host = await CreateHostAsync(provider, model);
         var script = Script(host);
         RuleNotice? payload = null;
+        bool? agentWork = null;
         script.Run = async (context, cancellationToken) =>
         {
             payload = context.Inputs.Single().GetPayload<RuleNotice>();
+            agentWork = NhAiAgentInvocationScopes.Current?.IsAgentWork;
             var proposed = await context.ProposeAsync(
                 ChangeStatusTool,
                 new ProjectStatusInput(projectId, "Active"),
@@ -126,6 +128,9 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await FindAsync(host, approval.Id)).Status);
         Assert.Equal(new ProjectStatusInput(projectId, "Active"), Assert.Single(host.Tools.StatusChanges));
         Assert.Empty(model.Requests);
+        // A rule run is a run: agent work while it proposes and when its proposal executes.
+        Assert.True(agentWork);
+        Assert.True(Assert.Single(host.Tools.Contexts).IsAgentWork);
     }
 
     [Theory]

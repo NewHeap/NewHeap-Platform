@@ -241,7 +241,8 @@ internal sealed partial class NhAssistantTurnRunner
                 proposal.AccountableOwnerId,
                 IsRequestTurn: true)
             {
-                DelegatedOnly = true
+                DelegatedOnly = true,
+                FromConsultation = true
             };
             execution = await ExecuteProposalAsync(new NhAssistantProposalExecutionRequest(consulted, approval.Id), cancellationToken);
         }
