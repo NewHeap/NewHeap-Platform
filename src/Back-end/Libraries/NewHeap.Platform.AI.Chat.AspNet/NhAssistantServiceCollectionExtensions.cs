@@ -306,7 +306,8 @@ internal sealed class NhAssistantAgentAccess(
 /// Fails host start when the assistant registration is incomplete: missing ASP.NET AI integration,
 /// managers replaced after the assistant, unknown policies or profiles, a profile in use that permits
 /// the execution region neither itself nor through a fallback, or invalid agents. It logs a warning for
-/// an agent or skill in code whose data classification no profile of its chain permits.
+/// an agent or skill in code whose data classification no profile of its chain permits, and for one
+/// whose instructions leave no room for its retrieval budget.
 /// </summary>
 internal sealed class NhAssistantStartupValidator(
     IServiceScopeFactory scopeFactory,
@@ -483,6 +484,9 @@ internal sealed class NhAssistantStartupValidator(
         // A classification that no profile of the chain permits is no reason to stop the host: the
         // profiles may change without a deploy of the agent. The model calls fail until then.
         NhAssistantClassificationChecks.LogCodeWarnings(state, profiles, logger);
+        // Instructions without room for their retrieval budget are no reason to stop the host either:
+        // the turns keep the passages that fit.
+        NhAssistantRetrievalChecks.LogCodeWarnings(state, logger);
         // A chat-only agent never runs, so it needs no background operations (FB8).
         if (state.CodeAgentRuns.Values.Any(run => !run.ChatOnly))
         {

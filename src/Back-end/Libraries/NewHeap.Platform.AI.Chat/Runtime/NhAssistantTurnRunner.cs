@@ -1331,7 +1331,7 @@ internal sealed partial class NhAssistantTurnRunner(
     /// <summary>
     /// Retrieves the turn's context once, for an agent that retrieves.
     /// </summary>
-    private async Task<(string Block, string Hash, NhAiDataClassification Classification)?> RetrieveAsync(
+    private async Task<NhAssistantRetrievedContext?> RetrieveAsync(
         NhAssistantTurnState state,
         NhAiInvocationContext context,
         string? query,
@@ -3087,31 +3087,45 @@ internal sealed partial class NhAssistantTurnRunner(
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
         var selectors = await SelectToolsAsync(state, agent, context, state.Scope.Consultation, cancellationToken);
         var prompt = await WithApplicationMapAsync(state, state.Scope.Prompt!, context, selectors, cancellationToken);
-        prompt = state.RetrievedContext is { } retrieved
-            ? prompt with { RetrievedContext = retrieved.Block, RetrievedContextHash = retrieved.Hash }
-            : prompt;
-        state.Scope.Prompt = prompt;
         if (prompt.Instructions.Length > NhAssistantPromptComposer.MaxInstructionsLength)
         {
+            // No model call follows, so the turn records no data as sent.
+            state.Scope.Prompt = NhAssistantPromptFit.InstructionsOnly(prompt);
             state.InstructionsTooLong = true;
             return null;
         }
-        // The turn data blocks are bounded; when they would push the instructions over the adapter
-        // limit, the turn runs without them rather than failing.
-        var modelInstructions = prompt.ModelInstructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength
-            ? prompt.ModelInstructions
-            : prompt.Instructions;
         state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
         state.Scope.McpConnectionOwners = state.McpTools.ConnectionOwners;
+        var connectionsNote = string.Empty;
         if (state.McpTools.ConnectionsNeeded.Count > 0)
         {
             // The person sees once per turn which servers need their connection.
             await interceptor.AnnounceConnectionsAsync(state.McpTools.ConnectionsNeeded, cancellationToken);
-            var note = ConnectionsNeededNote(state.McpTools.ConnectionsNeeded);
-            if (modelInstructions.Length + note.Length <= NhAssistantPromptComposer.MaxInstructionsLength)
-            {
-                modelInstructions += note;
-            }
+            connectionsNote = ConnectionsNeededNote(state.McpTools.ConnectionsNeeded);
+        }
+        // The turn data blocks are bounded but can still exceed the adapter's limit together. The fit
+        // keeps what fits, with room for the note about connections, and the prompt then records what
+        // the model receives: the audit names no block that was left out.
+        var fit = NhAssistantPromptFit.Of(
+            prompt,
+            state.RetrievedContext,
+            NhAssistantPromptComposer.MaxInstructionsLength - connectionsNote.Length);
+        state.Scope.Prompt = fit.Prompt;
+        var modelInstructions = fit.Prompt.ModelInstructions;
+        LogLeftOutData(state, fit, modelInstructions.Length);
+        if (modelInstructions.Length + connectionsNote.Length <= NhAssistantPromptComposer.MaxInstructionsLength)
+        {
+            modelInstructions += connectionsNote;
+        }
+        else
+        {
+            logger.LogWarning(
+                "Agent {AgentId} cannot tell its model in turn {TurnId} which connections are missing: instructions of {InstructionsCharacters} characters leave no room for a note of {NoteCharacters} within {MaxCharacters}.",
+                agent.Id,
+                state.Scope.TurnId,
+                modelInstructions.Length,
+                connectionsNote.Length,
+                NhAssistantPromptComposer.MaxInstructionsLength);
         }
         var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors) with
         {
@@ -3143,6 +3157,30 @@ internal sealed partial class NhAssistantTurnRunner(
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
             .Build(agentServices);
+    }
+
+    /// <summary>
+    /// Warns when the turn gives its model less than it has. Only counts reach the log: no content,
+    /// query or item id.
+    /// </summary>
+    private void LogLeftOutData(NhAssistantTurnState state, NhAssistantPromptFit fit, int sentCharacters)
+    {
+        if (!fit.LeftDataOut)
+        {
+            return;
+        }
+
+        logger.LogWarning(
+            "Agent {AgentId} left data out of turn {TurnId}: {KeptPassages} passages kept, {DroppedPassages} dropped, application map dropped {ApplicationMapDropped}, turn data dropped {TurnDataDropped}; {SentCharacters} characters sent of at most {MaxCharacters}, of which {InstructionsCharacters} instructions.",
+            state.Scope.Agent.Id,
+            state.Scope.TurnId,
+            fit.KeptPassages,
+            fit.DroppedPassages,
+            fit.ApplicationMapDropped,
+            fit.TurnDataDropped,
+            sentCharacters,
+            NhAssistantPromptComposer.MaxInstructionsLength,
+            fit.Prompt.Instructions.Length);
     }
 
     /// <summary>
