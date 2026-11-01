@@ -100,7 +100,7 @@ internal sealed class NhAssistantRetrievedContext
 
         return block
             .Append("<retrieved-context>\n")
-            .Append(Neutralize(_formatter.FormatAsData(_resolution)))
+            .Append(NhAiContextResolutions.NeutralizeMarkup(_formatter.FormatAsData(_resolution)))
             .Append("\n</retrieved-context>")
             .ToString();
     }
@@ -116,20 +116,14 @@ internal sealed class NhAssistantRetrievedContext
             ? "Gevonden passages die niet pasten en zijn weggelaten: " + count + ". Concludeer niet dat de bronnen zwijgen over wat hier ontbreekt."
             : "Passages found for this question that did not fit and were left out: " + count + ". Do not conclude that the sources are silent on what is missing here.";
     }
-
-    private static string Neutralize(string value)
-    {
-        return value
-            .Replace("<", "‹", StringComparison.Ordinal)
-            .Replace(">", "›", StringComparison.Ordinal);
-    }
 }
 
 /// <summary>
 /// Retrieves context for the turns of agents with <c>UseRetrievedContext</c> once per turn, through
 /// the registered context resolver with its authorization, execution scopes, ranking and budgets,
-/// and formats it as the last turn data block. A resolver that fails or is slow leaves the turn
-/// without retrieved context.
+/// and formats it as the last turn data block, which stays within the agent's budget in whichever
+/// format the registered formatter writes. A resolver that fails or is slow leaves the turn without
+/// retrieved context.
 /// </summary>
 internal sealed class NhAssistantRetrievalService(
     INhAiContextResolver resolver,
@@ -196,7 +190,8 @@ internal sealed class NhAssistantRetrievalService(
             return null;
         }
 
-        return new NhAssistantRetrievedContext(resolution, formatter, language);
+        // The resolver counts the content of the items. The budget is what the model reads.
+        return new NhAssistantRetrievedContext(resolution, formatter, language).FitTo(maxCharacters);
     }
 
     /// <summary>

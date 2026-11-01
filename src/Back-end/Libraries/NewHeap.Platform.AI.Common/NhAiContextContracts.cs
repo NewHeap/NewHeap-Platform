@@ -1,4 +1,6 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace NewHeap.Platform.AI;
 
@@ -240,6 +242,15 @@ internal sealed class NhAiNoOpContextTraceSink : INhAiContextTraceSink
 
 internal sealed class NhAiJsonContextFormatter : INhAiContextFormatter
 {
+    // Empty fields stay out and only what JSON requires is escaped, so the data costs what it says.
+    // This leaves markup as it is: whoever places the data between delimiters neutralizes it first
+    // (NhAiContextResolutions.NeutralizeMarkup).
+    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     public string FormatAsData(NhAiContextResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(resolution);
@@ -256,14 +267,19 @@ internal sealed class NhAiJsonContextFormatter : INhAiContextFormatter
                     effectiveAt = item.Item.EffectiveAt ?? item.Item.CreatedAt,
                     trust = item.Item.Trust.ToString(),
                     classification = item.Item.Classification.ToString(),
-                    provenance = item.Item.ProvenanceReferences,
+                    provenance = item.Item.ProvenanceReferences.Count > 0 ? item.Item.ProvenanceReferences : null,
                     contentType = item.Item.ContentType,
-                    content = item.Item.Content,
-                    contentReference = item.Item.ContentReference,
-                    contentHash = item.Item.ContentHash
+                    content = NullWhenEmpty(item.Item.Content),
+                    contentReference = NullWhenEmpty(item.Item.ContentReference),
+                    contentHash = NullWhenEmpty(item.Item.ContentHash)
                 })
             },
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Options);
+    }
+
+    private static string? NullWhenEmpty(string? value)
+    {
+        return string.IsNullOrEmpty(value) ? null : value;
     }
 }
 
@@ -278,7 +294,8 @@ internal sealed class NhAiRoleSeparatedPromptAssembler(
         ArgumentException.ThrowIfNullOrWhiteSpace(systemInstructions);
         ArgumentException.ThrowIfNullOrWhiteSpace(trustedPolicyMetadata);
         ArgumentNullException.ThrowIfNull(resolution);
-        var retrievedData = formatter.FormatAsData(resolution);
+        // The block travels apart from the instructions, but a host may still join them with delimiters.
+        var retrievedData = NhAiContextResolutions.NeutralizeMarkup(formatter.FormatAsData(resolution));
         return
         [
             Create(

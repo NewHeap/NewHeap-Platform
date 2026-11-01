@@ -225,8 +225,8 @@ public sealed class NhAssistantLimits
     public TimeSpan ApplicationMapTimeout { get; set; } = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// The most characters of retrieved context a turn reads, at most 24,000; an agent's own bound
-    /// is cut to it.
+    /// The most characters of the formatted retrieved context block a turn reads, at most 24,000; an
+    /// agent's own bound is cut to it. Passages beyond it are left out with a note.
     /// </summary>
     public int MaxRetrievedCharacters { get; set; } = 6_000;
 

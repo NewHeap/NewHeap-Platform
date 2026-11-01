@@ -269,6 +269,17 @@ internal static class NhAiContextResolutions
     }
 
     /// <summary>
+    /// Replaces the markup in retrieved data, character for character, so that a passage cannot close
+    /// the delimiters around it, whichever formatter wrote the data.
+    /// </summary>
+    public static string NeutralizeMarkup(string value)
+    {
+        return value
+            .Replace("<", "‹", StringComparison.Ordinal)
+            .Replace(">", "›", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The resolution with only its <paramref name="count"/> highest-ranked items, which come first,
     /// and the characters, tokens and context hash of those items.
     /// </summary>

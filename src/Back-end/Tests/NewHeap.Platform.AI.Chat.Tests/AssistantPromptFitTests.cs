@@ -158,6 +158,20 @@ public sealed class AssistantPromptFitTests
     }
 
     [Fact]
+    public async Task The_block_counts_as_the_highest_classification_of_the_passages_it_keeps()
+    {
+        var retrieved = Retrieved(await ResolveAsync(
+            ["first", "second"],
+            [NhAiDataClassification.Internal, NhAiDataClassification.Confidential]));
+
+        var fitted = retrieved.FitTo(retrieved.Block.Length - 1);
+
+        Assert.Equal(NhAiDataClassification.Confidential, retrieved.Classification);
+        Assert.Equal(1, fitted.Passages);
+        Assert.Equal(NhAiDataClassification.Internal, fitted.Classification);
+    }
+
+    [Fact]
     public async Task The_turn_data_stays_when_not_even_the_note_fits_next_to_it()
     {
         var retrieved = Retrieved(await ResolveAsync("first", "second"));
@@ -307,7 +321,12 @@ public sealed class AssistantPromptFitTests
     /// <summary>
     /// Resolves the named passages through the real resolver, which ranks them by id here.
     /// </summary>
-    private static async Task<NhAiContextResolution> ResolveAsync(params string[] names)
+    private static Task<NhAiContextResolution> ResolveAsync(params string[] names)
+    {
+        return ResolveAsync(names, names.Select(_ => NhAiDataClassification.Internal).ToArray());
+    }
+
+    private static async Task<NhAiContextResolution> ResolveAsync(string[] names, NhAiDataClassification[] classifications)
     {
         var scope = new NhAiExecutionScopeEntry("division", "division-a");
         var created = DateTimeOffset.UtcNow.AddDays(-1);
@@ -318,7 +337,7 @@ public sealed class AssistantPromptFitTests
                 "documents",
                 "text/plain",
                 Passage(name),
-                NhAiDataClassification.Internal,
+                classifications[index],
                 NhAiContextTrust.UntrustedRetrieved,
                 [scope],
                 created))
@@ -335,7 +354,7 @@ public sealed class AssistantPromptFitTests
                 ExecutionScopes = [scope]
             },
             "roadmap",
-            NhAiDataClassification.Internal,
+            NhAiDataClassification.Confidential,
             10,
             10_000,
             2_500));
