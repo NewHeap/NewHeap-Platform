@@ -675,6 +675,11 @@ limit on the consultations of the intake reviewer it starts in one turn, but it 
 project's page lists it, a start on a project answers `409 assistant-agent-does-not-work-on`, nothing
 triggers it and it needs no background operations of its own; the administration shows it as chat-only.
 The host would refuse to start if it also said what it works on, accepted hand-offs or worked in shadow.
+People may still chat with it about a project: `ChatsAbout(ProjectSubjects.Type)` makes
+`GET agents?subjectType=project&subjectId=` list it, and the project dialog's "Meeting notes about this
+project" starts that chat as "Chat about this project" does. The project's access resolver decides on
+creation and on every turn, read and invitation, and `ChatsAbout` reaches chats only: the helper still
+works on no project.
 `AssistantChatSkillQuestionSamplesTests` runs the case.
 
 The project chat answers in a person's chat about one project (SPM-363). `SampleProjectChatComposition`
