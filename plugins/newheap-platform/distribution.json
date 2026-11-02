@@ -1,8 +1,8 @@
 {
   "schemaVersion": 3,
-  "pluginVersion": "1.13.102",
-  "guidanceVersion": "1.13.102",
-  "skillContentHash": "815f8d013d14e5579384ca04cf46c20a288baf592f98ffa7827b78d5bc7460d1",
+  "pluginVersion": "1.13.103",
+  "guidanceVersion": "1.13.103",
+  "skillContentHash": "5d2930859a4481fb6469cfb1ca57e46209f8d07f80482f5261e6ae1e82ca6b1f",
   "skills": [
     "newheap-platform-development"
   ],
@@ -101,7 +101,7 @@
     }
   },
   "evidence": {
-    "sourceRef": "newheap-platform-plugin-v1.13.102",
+    "sourceRef": "newheap-platform-plugin-v1.13.103",
     "catalog": "skills/newheap-platform-development/references/immutable-evidence.md"
   },
   "repositoryTarget": ".agents/skills/newheap-platform-development",
