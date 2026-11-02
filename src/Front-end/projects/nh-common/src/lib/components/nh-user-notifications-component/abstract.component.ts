@@ -29,7 +29,15 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
   private lastNotificationDate = this.userNotificationState.overview.lastNotificationDate;
   private lastNotificationCount = this.userNotificationState.overview.totalCount;
   private lastUnreadNotificationCount = this.userNotificationState.overview.unreadCount;
-  protected userNotificationSubscription = this.userNotificationService.userNotificationState$.subscribe(async (state) => {
+  protected userNotificationSubscription = this.userNotificationService.userNotificationState$.subscribe(state => {
+    this.applyState(state).then();
+  });
+
+  constructor() {
+    super();
+  }
+
+  private async applyState(state: NhUserNotificationState): Promise<void> {
     this.userNotificationState = state;
 
     const hasNewNotifications = this.lastNotificationDate !== this.userNotificationState.overview.lastNotificationDate;
@@ -39,7 +47,8 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     if(hasNewNotifications || countChanged || unreadCountChanged) {
       if(this.autoLoadNotificationChanges) {
         try {
-          await this.reload();
+          // The overview just arrived; reading it again would only repeat that request.
+          await this.reload(false);
         }catch (ex) {
           console.error('Error while loading new notifications:', ex);
         }
@@ -51,10 +60,6 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
 
       this.captureOverview(state);
     }
-  });
-
-  constructor() {
-    super();
   }
 
   protected onNewNotificationsAvailable(state: NhUserNotificationState): Promise<void> {
@@ -95,7 +100,11 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     this.captureOverview(this.userNotificationState);
   }
 
-  async reload() {
+  /**
+   * Reads every page shown so far again and, unless `refreshOverview` is false, the overview behind
+   * the unread count as well.
+   */
+  async reload(refreshOverview: boolean = true) {
     const currentPage = this.requestOptions.page;
     const itemsPerPage = this.requestOptions.itemsPerPage;
 
@@ -109,7 +118,9 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     }
 
     const results = await Promise.all(loadPromises);
-    this.userNotificationService.loadState().then();
+    if(refreshOverview) {
+      this.userNotificationService.loadState().then();
+    }
 
     this.collectionResponse.items = [];
 

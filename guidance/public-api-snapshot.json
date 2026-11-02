@@ -51956,7 +51956,7 @@
     ]
   },
   "frontEnd": {
-    "hash": "ddd4aba42e8cfc22c0db309d60144bf23b12f1101ba08c738b1b32286f51b77c",
+    "hash": "30367b5192bce41278fb583ee717d6fb9c30d21d4c60e385bbd3372d44ad475f",
     "declarationCount": 871,
     "declarations": [
       {
@@ -52609,7 +52609,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-user-notifications-component/abstract.component.ts",
-        "declaration": "protected userNotificationSubscription = this.userNotificationService.userNotificationState$.subscribe(async (state) => {"
+        "declaration": "protected userNotificationSubscription = this.userNotificationService.userNotificationState$.subscribe(state => {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-user-notifications-component/abstract.component.ts",

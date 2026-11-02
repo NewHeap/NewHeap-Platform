@@ -23,6 +23,13 @@
   as an open duplicate and audited `AgentProposalDeduplicated`. It now returns the proposal with `Repeated`, as a
   later call does, without an audit. One proposal was recorded either way.
 
+## @newheap/nh-common: the notification bell reads its overview once per change
+
+- A bell or list built on `NhUserNotificationsAbstractComponent` reads its shown pages again when the polled
+  overview changes, as before, but no longer reads the overview a second time right after the poll that brought
+  the change. `reload()` takes an optional `refreshOverview` (default `true`), so a call from an application
+  still refreshes the unread count.
+
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: alerts (FB87)
 
 - An alert warns people about an object without a proposal: nothing is approved and nothing changes. Kinds are code:
