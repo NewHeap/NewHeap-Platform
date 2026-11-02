@@ -607,7 +607,8 @@ public static class NhAiToolCatalogAttestation
 {
     /// <summary>
     /// Throws <see cref="InvalidOperationException"/> when the catalog is not
-    /// SharedInvoker-governed, when a created function is not an
+    /// SharedInvoker-governed, when a descriptor allows running without approval for a contract that may
+    /// not (<see cref="NhAiWithoutApproval.Validate"/>), when a created function is not an
     /// <see cref="INhAiGovernedAIFunction"/> bound to one of its descriptors, or when the
     /// attestation hash does not match the manifest.
     /// </summary>
@@ -627,6 +628,8 @@ public static class NhAiToolCatalogAttestation
         var byIdentity = new Dictionary<string, NhAiToolDescriptor>(StringComparer.Ordinal);
         foreach (var descriptor in descriptors)
         {
+            // A runtime catalog may only allow running without approval where a generated tool may.
+            NhAiWithoutApproval.Validate(descriptor);
             if (!byIdentity.TryAdd(Identity(descriptor.Id, descriptor.Version), descriptor))
             {
                 throw new InvalidOperationException(

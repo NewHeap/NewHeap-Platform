@@ -75,8 +75,22 @@ internal sealed class NhAssistantWithoutApprovalStore(NhAssistantDbContextFactor
         }
         catch (DbUpdateException)
         {
-            // The unique version per agent and tool: someone else switched in between.
-            return false;
+            // The unique version per agent and tool: someone else switched in between. Any other
+            // failure, such as an agent that is gone, is no conflict.
+            if (await VersionExistsAsync(version, cancellationToken))
+            {
+                return false;
+            }
+
+            throw;
         }
+    }
+
+    private async Task<bool> VersionExistsAsync(AssistantAgentToolSwitch version, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.AgentToolSwitches.AnyAsync(
+            item => item.AgentId == version.AgentId && item.ToolId == version.ToolId && item.Version == version.Version,
+            cancellationToken);
     }
 }
