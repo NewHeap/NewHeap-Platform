@@ -486,7 +486,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Attribute protection",
     "category": "Collections, filtering, and projections",
     "surface": "filter/search/order attributes, nested [Filterable] filter paths and [Orderable] order paths",
-    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `tasks{any}.completedByUserId`, which the task view does not mark, is rejected although the entity has it. An order key is checked the same way against `[Orderable]`: `ownerUser.email` orders, while a key that continues behind `creationDateTime` is ignored and the projects keep the default order.",
+    "outcome": "A disallowed field returns a safe error. A nested filter key runs only through navigations, collections and members that the view models mark `[Filterable]`: `ownerUser.email` and `tasks{any}.title` filter on SQL Server and PostgreSQL, while `tasks{any}.completedByUserId`, which the task view does not mark, is rejected although the entity has it. An order key is checked the same way against `[Orderable]`: `ownerUser.email` orders, while a key that continues behind `creationDateTime` is ignored and the projects keep the default order. A `deadline` filter reads its value as an instant in UTC: `Z`, an offset, a value without a zone and a date alone find the same project on PostgreSQL, and a value that is no date and time returns the safe filter error before the query runs.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -496,7 +496,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectNestedFilterSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionFilterPathValidationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionOrderPathValidationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionOrderPathValidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionDateTimeFilterProviderTests.cs"
     ]
   },
   {

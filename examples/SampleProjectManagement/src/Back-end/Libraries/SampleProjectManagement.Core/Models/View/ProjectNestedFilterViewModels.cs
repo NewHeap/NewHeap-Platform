@@ -11,6 +11,9 @@ namespace SampleProjectManagement.Core.Models.View;
 /// <see cref="FilterableAttribute"/>. Order keys are checked the same way against
 /// <see cref="OrderableAttribute"/>: <c>ownerUser.email</c> orders, while a key that continues behind
 /// <c>creationDateTime</c>, such as a conditional over the owner's password hash, is ignored.
+/// A <c>deadline</c> filter reads its value as an instant in UTC, so <c>Z</c>, an offset, a value
+/// without a zone and a date alone all filter on every provider, and a value that is no date and
+/// time is rejected like an unknown key.
 /// </summary>
 public sealed class ProjectNestedFilterViewModel
 {
@@ -26,6 +29,13 @@ public sealed class ProjectNestedFilterViewModel
 
     [Orderable, Filterable]
     public string Name { get; set; } = "";
+
+    /// <summary>
+    /// A filterable date and time: <c>2026-12-01T00:00:00Z</c>, <c>2026-12-01T01:00:00+01:00</c>,
+    /// <c>2026-12-01T00:00:00</c> and <c>2026-12-01</c> are the same instant.
+    /// </summary>
+    [Filterable]
+    public DateTimeOffset? Deadline { get; set; }
 
     /// <summary>
     /// A filterable and orderable navigation; only its own filterable or orderable members can be

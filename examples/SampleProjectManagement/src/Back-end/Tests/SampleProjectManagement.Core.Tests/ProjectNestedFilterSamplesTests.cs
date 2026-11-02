@@ -98,6 +98,45 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
     }
 
     /// <summary>
+    /// A <c>deadline</c> filter reads its value as an instant in UTC on PostgreSQL, which accepts nothing
+    /// but UTC for <c>timestamp with time zone</c>: <c>Z</c>, an offset, a value without a zone and a date
+    /// alone find the same project. A value that is no date and time fails with the safe filter error
+    /// instead of when the query runs.
+    /// </summary>
+    [Fact]
+    public async Task DeadlineFiltersReadTheInstantInUtc()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var connectionString = await postgreSql.CreateMigratedDatabaseAsync("deadline_filters");
+        await using var dbContext = new SampleProjectManagementDbContext(
+            new DbContextOptionsBuilder<SampleProjectManagementDbContext>()
+                .UseNpgsql(connectionString)
+                .Options);
+
+        var divisionId = Guid.NewGuid();
+        dbContext.Set<NhDivision>().Add(new NhDivision { Id = divisionId, Name = "Deadline filters" });
+        dbContext.Projects.AddRange(
+            new Project { Id = Guid.NewGuid(), DivisionId = divisionId, Key = "NOVEMBER", Name = "November project", Deadline = new DateTimeOffset(2026, 11, 30, 23, 0, 0, TimeSpan.Zero) },
+            new Project { Id = Guid.NewGuid(), DivisionId = divisionId, Key = "DECEMBER", Name = "December project", Deadline = new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero) });
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var service = CreateService(dbContext);
+
+        foreach (var deadline in new[] { "2026-12-01T00:00:00Z", "2026-12-01T01:00:00+01:00", "2026-12-01T00:00:00", "2026-12-01" })
+        {
+            var due = await service.GetByNestedFiltersAsync(Request("deadline", deadline, ">="), cancellationToken);
+
+            Assert.True(due.Success);
+            Assert.Equal("December project", Assert.Single(due.Data!.Items).Name);
+        }
+
+        var rejected = await service.GetByNestedFiltersAsync(Request("deadline", "next week", ">="), cancellationToken);
+
+        Assert.False(rejected.Success);
+        Assert.Equal("filter", Assert.Single(rejected.GetResultItems()).Name);
+    }
+
+    /// <summary>
     /// An order key runs only through members the nested view marks <c>[Orderable]</c>. A key that
     /// continues behind the orderable <c>creationDateTime</c> into a conditional over the owner's
     /// password hash would let row order reveal the hash; it is ignored like an unknown key, so the
@@ -188,13 +227,13 @@ public sealed class ProjectNestedFilterSamplesTests(SamplePostgreSqlServer postg
         };
     }
 
-    private static CollectionRequestModel Request(string key, object value)
+    private static CollectionRequestModel Request(string key, object value, string @operator = "==")
     {
         return new CollectionRequestModel
         {
             Page = 1,
             ItemsPerPage = 10,
-            Filter = [new FilterCollectionRequestModel { Key = key, Operator = "==", Value = value }]
+            Filter = [new FilterCollectionRequestModel { Key = key, Operator = @operator, Value = value }]
         };
     }
 }

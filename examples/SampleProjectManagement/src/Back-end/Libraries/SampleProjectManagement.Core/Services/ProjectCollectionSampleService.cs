@@ -139,7 +139,7 @@ public sealed class ProjectCollectionSampleService
         {
             return TaskResult<CollectionResultModel<ProjectNestedFilterViewModel>>.Failed(
                 "filter",
-                "The filter field is not available for this collection.");
+                "The filter field or its value is not valid for this collection.");
         }
     }
 }

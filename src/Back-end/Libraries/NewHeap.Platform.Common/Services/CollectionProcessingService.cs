@@ -548,17 +548,122 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         }
     }
 
+    /// <summary>
+    /// The filter value as a constant of the member's type. The value is converted before the query
+    /// runs, so a value the type cannot hold fails with <see cref="InvalidFilterCollectionResultException"/>,
+    /// which the base controllers return as <c>400</c>, instead of failing when the query executes.
+    /// A date and time becomes an instant in UTC on every provider and host: <c>Z</c> and an offset
+    /// keep their instant, and a value with neither, or a date alone, is read as UTC, never in the
+    /// zone of the host. PostgreSQL accepts nothing but UTC for <c>timestamp with time zone</c>.
+    /// </summary>
     protected static UnaryExpression? GetExpressionConstant(Type type, object? value)
     {
-        var memberTypeConverter = TypeDescriptor.GetConverter(type);
-        Expression<Func<object>> closure = () =>
-            (value == null
-                ? null
-                : memberTypeConverter.ConvertFrom((value == null
-                    ? null
-                    : GetExpressionConstantString(value))!))!;
+        return GetFilterConstant(type, value, key: null);
+    }
+
+    private static UnaryExpression GetFilterConstant(Type type, object? value, string? key)
+    {
+        var converted = ConvertFilterValue(type, value, key);
+        // A captured value, so EF sends it as a parameter and reuses the query when only values change.
+        Expression<Func<object?>> closure = () => converted;
 
         return Expression.Convert(closure.Body, type);
+    }
+
+    private static object? ConvertFilterValue(Type type, object? value, string? key)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        var valueType = Nullable.GetUnderlyingType(type) ?? type;
+        if (valueType == typeof(DateTime) || valueType == typeof(DateTimeOffset))
+        {
+            var instant = ReadFilterInstant(value, nullable: valueType != type, key);
+            if (instant is not { } utc)
+            {
+                return null;
+            }
+
+            return valueType == typeof(DateTime) ? (object)utc.UtcDateTime : utc;
+        }
+
+        try
+        {
+            return TypeDescriptor.GetConverter(type).ConvertFrom(GetExpressionConstantString(value)!);
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException
+            or InvalidCastException or NotSupportedException or OverflowException)
+        {
+            throw InvalidFilterValue(key, dateTime: false);
+        }
+    }
+
+    /// <summary>
+    /// A date and time filter value as an instant in UTC. A <see cref="DateTime"/>, as a JSON body
+    /// binds it, keeps its instant by its kind, and an unspecified kind is UTC. Text is read with the
+    /// invariant culture, as UTC when it has no zone. Empty text is null for a nullable member and
+    /// the earliest value otherwise, as the type converters read it.
+    /// </summary>
+    private static DateTimeOffset? ReadFilterInstant(object value, bool nullable, string? key)
+    {
+        switch (value)
+        {
+            case DateTimeOffset dateTimeOffset:
+                return dateTimeOffset.ToUniversalTime();
+            case DateTime dateTime:
+                return UtcInstant(dateTime);
+            case IConvertible convertible when convertible.GetTypeCode() == TypeCode.DateTime:
+                return UtcInstant(convertible.ToDateTime(CultureInfo.InvariantCulture));
+        }
+
+        var text = value.ToString()?.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            return nullable ? null : DateTimeOffset.MinValue;
+        }
+
+        if (!DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
+        {
+            throw InvalidFilterValue(key, dateTime: true);
+        }
+
+        return parsed.ToUniversalTime();
+    }
+
+    private static DateTimeOffset UtcInstant(DateTime dateTime)
+    {
+        return dateTime.Kind switch
+        {
+            DateTimeKind.Local => new DateTimeOffset(dateTime.ToUniversalTime()),
+            DateTimeKind.Utc => new DateTimeOffset(dateTime),
+            _ => new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc))
+        };
+    }
+
+    /// <summary>
+    /// The text of one value of an <c>IN</c> or <c>NOT IN</c> list. A date and time, also inside a
+    /// JSON array, is written in the round-trip format, so its zone survives the host's culture.
+    /// </summary>
+    private static string? ListValueText(object? value)
+    {
+        return value switch
+        {
+            DateTime dateTime => dateTime.ToString("o", CultureInfo.InvariantCulture),
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("o", CultureInfo.InvariantCulture),
+            IConvertible convertible when convertible.GetTypeCode() == TypeCode.DateTime =>
+                convertible.ToDateTime(CultureInfo.InvariantCulture).ToString("o", CultureInfo.InvariantCulture),
+            _ => value?.ToString()
+        };
+    }
+
+    private static InvalidFilterCollectionResultException InvalidFilterValue(string? key, bool dateTime)
+    {
+        var message = key == null ? "Invalid filter value" : $"Invalid value for filter field '{key}'";
+        return new InvalidFilterCollectionResultException(dateTime
+            ? message + ": expected a date and time such as 2026-11-01T09:00:00Z"
+            : message);
     }
 
     protected Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
@@ -612,7 +717,9 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 dynamic? lambda2 = typeof(CollectionProcessingService)
                     .GetMethod(nameof(GetFilterLambdaCore), BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
-                    .Invoke(this, new object[] { filter2, filterProperties, parameterIndex, parameter2, true, true });
+                    // Unwrapped, so an invalid value inside the items stays an invalid filter.
+                    .Invoke(this, BindingFlags.DoNotWrapExceptions, binder: null,
+                        new object[] { filter2, filterProperties, parameterIndex, parameter2, true, true }, culture: null);
 
                 if (collectionMethodName == "any" || collectionMethodName == "!any")
                 {
@@ -698,38 +805,38 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 case "IS":
                 case "==":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.Equal(member, constant);
                         break;
                     }
                 case "IS NOT":
                 case "!=":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.NotEqual(member, constant);
                         break;
                     }
                 case ">":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.GreaterThan(member, constant);
                         break;
                     }
                 case ">=":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.GreaterThanOrEqual(member, constant);
                         break;
                     }
                 case "<":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.LessThan(member, constant);
                         break;
                     }
                 case "<=":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
                         body = Expression.LessThanOrEqual(member, constant);
                         break;
                     }
@@ -737,14 +844,14 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     {
                         var valueSplit = filter.Value is string
                             ? ((string)filter.Value).Split(',')
-                            : ((IEnumerable)filter.Value!).Cast<object>().Select(x => x?.ToString()).ToArray();
+                            : ((IEnumerable)filter.Value!).Cast<object>().Select(ListValueText).ToArray();
 
                         if (!valueSplit.Any())
                         {
                             return null;
                         }
 
-                        var constant = GetExpressionConstant(member.Type, valueSplit[0]!.Trim())!;
+                        var constant = GetFilterConstant(member.Type, valueSplit[0]!.Trim(), filter.Key);
                         body = Expression.Equal(member, constant);
 
                         if (valueSplit.Length > 1)
@@ -752,7 +859,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
                                 var value = valueSplit[i]!.Trim();
-                                var constant2 = GetExpressionConstant(member.Type, value)!;
+                                var constant2 = GetFilterConstant(member.Type, value, filter.Key);
                                 var body2 = Expression.Equal(member, constant2);
                                 body = Expression.OrElse(body, body2);
                             }
@@ -764,14 +871,14 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     {
                         var valueSplit = filter.Value is string
                             ? ((string)filter.Value).Split(',')
-                            : ((IEnumerable)filter.Value!).Cast<object>().Select(x => x?.ToString()).ToArray();
+                            : ((IEnumerable)filter.Value!).Cast<object>().Select(ListValueText).ToArray();
 
                         if (!valueSplit.Any())
                         {
                             return null;
                         }
 
-                        var constant = GetExpressionConstant(member.Type, valueSplit[0]!.Trim())!;
+                        var constant = GetFilterConstant(member.Type, valueSplit[0]!.Trim(), filter.Key);
                         body = Expression.NotEqual(member, constant);
 
                         if (valueSplit.Length > 1)
@@ -779,7 +886,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
                                 var value = valueSplit[i]!.Trim();
-                                var constant2 = GetExpressionConstant(member.Type, value)!;
+                                var constant2 = GetFilterConstant(member.Type, value, filter.Key);
                                 var body2 = Expression.NotEqual(member, constant2);
                                 body = Expression.AndAlso(body, body2);
                             }
@@ -789,7 +896,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     }
                 case "LIKE":
                     {
-                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
+                        var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
 
                         body = Expression.Call(
                             typeof(DbFunctionsExtensions),
