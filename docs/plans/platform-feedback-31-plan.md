@@ -34,7 +34,9 @@ and AU (API and UI) built on it in parallel. The verification found two things, 
   project's alerts.
 
 The choices each lane made are in the "Lane choices" table below (AK1–AK10, AB1–AB12, AU1–AU10), all for Lars to
-review. Phase 2 is not built.
+review.
+
+Phase 2 was decided by Lars on 2026-11-02, one by one, all as advised (FB87-8 to FB87-13 below). It is not built yet.
 
 ## Decisions
 
@@ -47,6 +49,12 @@ review. Phase 2 is not built.
 | FB87-5 | **The public name is alerts**, in Dutch "Attenties". Examples: `NhAssistantAlert`, `AddAlertKind`, `WithAlerts`, `GET alerts` and `nh-assistant-alerts`. |
 | FB87-6 | **One preference model for every notification of the assistant**: one store and one component. In phase 1 it governs the alert kinds per kind. The existing push switch for proposals shows in the same component and keeps working as it does. |
 | FB87-7 | **One train with three lanes**: AK (the core), then AB (delivery) and AU (API and UI) in parallel. |
+| FB87-8 | **Phase 2 entirely, in one train (35) with four lanes**: AD (administration), AR (recipients and lifecycle), AT (time and the person) and AM (the model tool). |
+| FB87-9 | **The model tool needs an opt-in in code and a rollout per agent**: a kind allows it with typed parameters without links; an administrator switches it on per agent, first in shadow (recorded, not delivered), then live, as running without approval does (FB82). |
+| FB87-10 | **Revalidation is an explicit call**: the application calls `INhAssistantAlerts.RevalidateAsync(subject)`, and a kind declares its check in code, as proposals are revalidated; no event bridge. |
+| FB87-11 | **"Do not tell me about this object for N days" mutes only that kind** on that object; a `Required` kind cannot be muted. |
+| FB87-12 | **The built-in notification kinds do not join the preference model yet**; they keep the push switch. The model's category lets them join later without a migration. |
+| FB87-13 | **The duplicate requests of the alert page**, found in train 34's browser check, are fixed in lane AT. |
 
 ## Rules for all of it
 
@@ -259,6 +267,62 @@ Each choice lists the options that were weighed. "(advice)" marks the recommenda
   store. Each lane extends SPM-392 and the guidance for its own part. The full matrix runs once.
 - **(b) Two trains**, first the core and delivery, then the API and UI. Each train is smaller, but the whole takes
   longer.
+
+### FB87 phase 2
+
+#### Scope (FB87-8)
+
+- **(a) Everything in one train with four lanes (advice, decided).**
+  - **AD (administration):**
+    - `GET admin/alert-kinds`: every kind with the bounds its code sets, the administrator's settings, and per
+      kind over a period the numbers raised, delivered, read, dismissed, resolved before reading and withheld;
+      for shadow alerts, "would have sent" per agent.
+    - `PUT admin/alert-kinds/{id}`: switch a kind off (not a `Required` one) and change its default delivery
+      (digest times, working days, immediately from an urgency, quiet hours) only where its code allows it.
+    - The table `AssistantAlertKindSetting` with the migration `AlertKindSettings`, the audit
+      `AdminAlertKindChanged` (131), and an "Alerts" section in `nh-assistant-admin`.
+  - **AR (recipients and lifecycle):**
+    - `NhAssistantAlertRecipients.SubjectMembers(minRole)`, checked live as the other recipients are.
+    - `ResolveWhenNotRaised()` on a kind: a rule run on a subject resolves the agent's open alerts of that kind
+      on that subject that the run did not raise; a run on the whole application resolves explicitly.
+    - Revalidation (FB87-10).
+    - No migration is expected.
+  - **AT (time and the person):**
+    - More digest times per day (at most four) and quiet hours, with defaults from the code and the
+      administrator, changeable by the person where the kind allows it. Delivery that would go during quiet hours
+      moves to the next digest; `Urgent` passes only when the kind says so.
+    - "Do not tell me about this object for N days" on dismissing (FB87-11).
+    - The preference store's extension with its migration, after AD's.
+    - The duplicate requests of the alert page (FB87-13), with a spec that pins the number of requests.
+  - **AM (the model tool):** the platform tool of FB87-2 with the rollout of FB87-9: the switch per agent and kind
+    with its migration after AT's, the audit `AdminAlertModelSwitchChanged` (132), and the switch on the agent's
+    Rollout tab. The platform derives the key from the kind, the subject and the parameters the kind names.
+  - AD and AR start first. AT and AM start once AD is merged, because they read its settings; AT merges before
+    AM. Reserved: audit 131–134, SPM-392 extended (SPM-393 if a lane needs a case of its own).
+- **(b) Without the model tool**, which would follow in a train of its own.
+- **(c) Two trains**: first AD and AT, then AR and AM.
+
+#### The model tool's rollout (FB87-9)
+
+- **(a) Opt-in in code plus shadow per agent (advice, decided).** An administrator sees what the model would send
+  before anyone receives it.
+- **(b) Only the opt-in in code**: a kind that allows it and an agent that lists it are live at once.
+
+#### Revalidation (FB87-10)
+
+- **(a) An explicit call (advice, decided)**, as proposals are revalidated, in line with keeping triggers explicit.
+- **(b) Bound to events** (`AddAlertRevalidation<TEvent>(check)`), as suggested: less code in the application, but
+  an implicit coupling.
+
+#### Muting an object (FB87-11)
+
+- **(a) Only that kind (advice, decided)**: a person still hears about another kind on the same object.
+- **(b) Every kind on the object**: a person may then miss another, possibly more important warning.
+
+#### The built-in kinds (FB87-12)
+
+- **(a) Not yet (advice, decided)**: approvers cannot mute proposals away, and the category lets them join later.
+- **(b) Now**: one place for everything, but which built-in kinds stay required would have to be decided too.
 
 ## Lane choices
 
