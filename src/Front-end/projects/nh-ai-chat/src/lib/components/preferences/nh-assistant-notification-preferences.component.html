@@ -1,0 +1,148 @@
+<section class="notification-preferences" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || saving()">
+  <header class="header">
+    <h3 [id]="id + '-title'">{{ 'nh-assistant.notification-preferences.title' | translate }}</h3>
+    @if (closable()) {
+      <button
+        class="icon-button"
+        type="button"
+        [attr.aria-label]="'nh-assistant.notification-preferences.back' | translate"
+        [attr.title]="'nh-assistant.notification-preferences.back' | translate"
+        (click)="closed.emit()">
+        <nh-assistant-icon name="close" />
+      </button>
+    }
+  </header>
+
+  @if (loading()) {
+    <p class="state" role="status">{{ 'nh-assistant.notification-preferences.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.notification-preferences.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.notification-preferences.retry' | translate }}</button>
+    </div>
+  } @else {
+    <form class="form" (submit)="$event.preventDefault(); save()">
+      <nh-assistant-push-switch (failed)="onPushFailed($event)" />
+
+      <fieldset class="kinds">
+        <legend>{{ 'nh-assistant.notification-preferences.alerts-label' | translate }}</legend>
+        <p class="description">{{ 'nh-assistant.notification-preferences.description' | translate }}</p>
+        @if (timeZone(); as zone) {
+          <p class="hint" data-time-zone>
+            <nh-assistant-icon name="clock" />{{ 'nh-assistant.notification-preferences.time-zone' | translate: { timeZone: zone } }}
+          </p>
+        }
+
+        @if (kinds().length === 0) {
+          <p class="state" data-no-alert-kinds>{{ 'nh-assistant.notification-preferences.no-kinds' | translate }}</p>
+        }
+        @for (kind of kinds(); track kind.id) {
+          @let draft = draftOf(kind);
+          <div class="kind" role="group" data-alert-kind [attr.data-kind-id]="kind.id" [attr.aria-labelledby]="id + '-' + kind.id">
+            <div class="kind-header">
+              <strong [id]="id + '-' + kind.id">{{ kind.displayNameKey | nhAssistantTranslate: kind.id }}</strong>
+              <span class="badge" [class.warning]="kind.urgency === 'warning'" [class.danger]="kind.urgency === 'urgent'">
+                {{ 'nh-assistant.alerts.urgency.' + kind.urgency | translate }}
+              </span>
+              @if (kind.required) {
+                <span class="badge" data-kind-required>{{ 'nh-assistant.notification-preferences.required' | translate }}</span>
+              }
+            </div>
+            <p class="hint" data-kind-delivery>
+              {{ deliveryKey(kind) | translate: { time: effectiveDigestTime(kind) } }}
+            </p>
+
+            @if (kind.mayMute && !kind.required) {
+              <label class="switch">
+                <input type="checkbox" data-kind-received [checked]="!draft.muted" [disabled]="saving()" (change)="setReceived(kind, $event)" />
+                <span>{{ 'nh-assistant.notification-preferences.receive' | translate }}</span>
+              </label>
+            }
+
+            @if (kind.mayChangeDigestTime) {
+              <div class="field">
+                <label [for]="id + '-' + kind.id + '-time'">{{ 'nh-assistant.notification-preferences.digest-time' | translate }}</label>
+                <div class="inline">
+                  <input
+                    type="time"
+                    step="60"
+                    data-kind-digest-time
+                    [id]="id + '-' + kind.id + '-time'"
+                    [value]="draft.digestTime ?? ''"
+                    [disabled]="draft.muted || saving()"
+                    [attr.aria-invalid]="isInvalid(kind) ? true : null"
+                    [attr.aria-describedby]="id + '-' + kind.id + '-time-hint'"
+                    (change)="setDigestTime(kind, $event)" />
+                  @if (draft.digestTime !== null) {
+                    <button class="secondary" type="button" data-kind-reset [disabled]="draft.muted || saving()" (click)="resetDigestTime(kind)">
+                      {{ 'nh-assistant.notification-preferences.reset' | translate }}
+                    </button>
+                  }
+                </div>
+                <p class="hint" [id]="id + '-' + kind.id + '-time-hint'">
+                  @if (isInvalid(kind)) {
+                    <span class="error-text">{{ 'nh-assistant.notification-preferences.digest-time-invalid' | translate }}</span>
+                  } @else if (kind.defaultDigestTime) {
+                    <span>{{ 'nh-assistant.notification-preferences.digest-default' | translate: { time: kind.defaultDigestTime } }}</span>
+                  } @else {
+                    <span>{{ 'nh-assistant.notification-preferences.digest-default-immediately' | translate }}</span>
+                  }
+                </p>
+              </div>
+            }
+
+            @if (kind.mayChooseChannels && kind.availableChannels.length > 0) {
+              <fieldset class="channels">
+                <legend>{{ 'nh-assistant.notification-preferences.channels' | translate }}</legend>
+                @for (channel of kind.availableChannels; track channel) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [attr.data-kind-channel]="channel"
+                      [checked]="channelOn(draft, channel)"
+                      [disabled]="draft.muted || saving()"
+                      (change)="setChannel(kind, channel, $event)" />
+                    <span>{{ 'nh-assistant.notification-preferences.channel.' + channel | translate }}</span>
+                  </label>
+                }
+              </fieldset>
+            } @else if (channelsOf(kind).length > 0) {
+              <p class="hint">
+                {{ 'nh-assistant.notification-preferences.channels' | translate }}:
+                @for (channel of channelsOf(kind); track channel; let last = $last) {
+                  {{ 'nh-assistant.notification-preferences.channel.' + channel | translate }}{{ last ? '' : ',' }}
+                }
+              </p>
+            }
+          </div>
+        }
+      </fieldset>
+
+      @if (error(); as failure) {
+        <p class="message error" role="alert">
+          <nh-assistant-icon name="warning" />
+          {{ errorKeys() | nhAssistantTranslate: failure.code }}
+        </p>
+      }
+      @if (savedMessage()) {
+        <p class="message success" role="status">
+          <nh-assistant-icon name="check" />
+          {{ 'nh-assistant.notification-preferences.saved' | translate }}
+        </p>
+      }
+
+      @if (kinds().length > 0 || closable()) {
+        <div class="actions">
+          @if (closable()) {
+            <button class="secondary" type="button" (click)="closed.emit()">{{ 'nh-assistant.notification-preferences.back' | translate }}</button>
+          }
+          @if (kinds().length > 0) {
+            <button class="primary" type="submit" data-save-notifications [disabled]="!canSave()">
+              {{ (saving() ? 'nh-assistant.notification-preferences.saving' : 'nh-assistant.notification-preferences.save') | translate }}
+            </button>
+          }
+        </div>
+      }
+    </form>
+  }
+</section>

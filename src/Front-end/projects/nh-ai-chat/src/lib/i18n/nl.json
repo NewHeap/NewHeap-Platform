@@ -557,7 +557,9 @@
       "assistant-step-chain-stopped": "Niet uitgevoerd: een eerdere stap heeft de aanroep gestopt.",
       "assistant-step-arguments-invalid": "De argumenten van een stap waren niet geldig.",
       "assistant-step-host-unavailable": "Stappen kunnen hier niet worden uitgevoerd.",
-      "assistant-composition-step-result-unavailable": "Een stap had het resultaat nodig van een eerdere stap die er geen had."
+      "assistant-composition-step-result-unavailable": "Een stap had het resultaat nodig van een eerdere stap die er geen had.",
+      "assistant-alert-not-found": "Deze attentie bestaat niet meer of is niet voor jou.",
+      "assistant-alert-filter-invalid": "De attenties konden niet zo worden gefilterd."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -1097,6 +1099,87 @@
       "connecting": "Wachten op de autorisatie…",
       "connected": "{{name}} is gekoppeld.",
       "retry": "Opnieuw vragen"
+    },
+    "alerts": {
+      "title": "Attenties",
+      "description": "Waarschuwingen over je werk die je aandacht vragen, de nieuwste eerst. Er is niets goed te keuren.",
+      "description-grouped": "Waarschuwingen over je werk die je aandacht vragen, gegroepeerd naar waar ze bij horen. Er is niets goed te keuren.",
+      "refresh": "Vernieuwen",
+      "loading": "Je attenties worden geladen",
+      "load-failed": "Je attenties konden niet worden geladen.",
+      "retry": "Opnieuw proberen",
+      "filter": {
+        "label": "Toon",
+        "active": "Alle attenties",
+        "unread": "Ongelezen",
+        "read": "Gelezen",
+        "open": "Open",
+        "closed": "Opgelost of verlopen",
+        "resolved": "Opgelost",
+        "expired": "Verlopen",
+        "dismissed": "Weggelegd"
+      },
+      "empty": {
+        "active": "Je hebt geen attenties.",
+        "unread": "Je hebt geen ongelezen attenties.",
+        "read": "Je hebt geen gelezen attenties.",
+        "open": "Je hebt geen open attenties.",
+        "closed": "Je hebt geen opgeloste of verlopen attenties.",
+        "resolved": "Je hebt geen opgeloste attenties.",
+        "expired": "Je hebt geen verlopen attenties.",
+        "dismissed": "Je hebt geen attenties weggelegd."
+      },
+      "status": {
+        "unread": "Nieuw",
+        "read": "Gelezen",
+        "resolved": "Opgelost",
+        "expired": "Verlopen",
+        "dismissed": "Weggelegd"
+      },
+      "urgency": {
+        "info": "Informatie",
+        "warning": "Waarschuwing",
+        "urgent": "Dringend"
+      },
+      "untitled": "Een attentie over {{subject}}",
+      "mark-read": "Markeren als gelezen",
+      "dismiss": "Wegleggen",
+      "group-count": "{{count}} van {{total}}",
+      "group-continued": "Vervolg van de vorige pagina",
+      "group-continues": "Gaat verder op de volgende pagina",
+      "pages": "Pagina's van je attenties",
+      "previous": "Vorige",
+      "next": "Volgende",
+      "page": "Pagina {{page}} van {{pages}}"
+    },
+    "notification-preferences": {
+      "title": "Meldingen",
+      "alerts-label": "Attenties",
+      "description": "Kies hoe attenties je bereiken. Je lijst met attenties toont altijd elke attentie; verplichte attenties bereiken je altijd.",
+      "time-zone": "Tijden gelden in je eigen tijdzone, {{timeZone}}.",
+      "no-kinds": "Er zijn geen attenties om voor te kiezen.",
+      "required": "Verplicht",
+      "receive": "Deze attenties ontvangen",
+      "delivery-immediately": "Bezorgd zodra ze ontstaan.",
+      "delivery-digest": "Bezorgd in het dagoverzicht om {{time}}.",
+      "delivery-digest-workdays": "Bezorgd in het dagoverzicht om {{time}} op werkdagen.",
+      "digest-time": "Tijd van het dagoverzicht",
+      "digest-default": "Standaard: {{time}}",
+      "digest-default-immediately": "Standaard: zodra ze ontstaan",
+      "digest-time-invalid": "Vul een tijd in, zoals 07:30.",
+      "reset": "Standaard gebruiken",
+      "channels": "Kanalen",
+      "channel": {
+        "push": "Bureaubladmeldingen",
+        "in-app": "Meldingen in de applicatie"
+      },
+      "save": "Meldingskeuzes opslaan",
+      "saving": "Je keuzes worden opgeslagen",
+      "saved": "Je meldingskeuzes zijn opgeslagen.",
+      "back": "Meldingskeuzes sluiten",
+      "loading": "Je meldingskeuzes worden geladen",
+      "load-failed": "Je meldingskeuzes konden niet worden geladen.",
+      "retry": "Opnieuw proberen"
     }
   }
 }

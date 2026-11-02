@@ -1,0 +1,23 @@
+@use '../styles/tokens';
+@use '../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  color: var(--nha-text);
+  @include forms.controls;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+
+  input {
+    margin: 0;
+  }
+}

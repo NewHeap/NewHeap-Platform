@@ -37,7 +37,7 @@ import {
   AgentTriggerReceipt,
   StartAgentRequest
 } from '../models/assistant-agent-run.models';
-import { NhAssistantTransport } from './nh-assistant-transport';
+import { NhAssistantTransport, nhAssistantWithQuery as withQuery } from './nh-assistant-transport';
 
 /**
  * Client for the agent-run endpoints: the agent thread about a subject, its runs, proposals,
@@ -385,23 +385,4 @@ export class NhAssistantAgentRunApiService {
       text: text?.trim() || null
     });
   }
-}
-
-/** Appends the filter values that are set as query parameters; a list repeats its parameter per value. */
-function withQuery(path: string, filter: object): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(filter)) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item !== undefined && item !== null && item !== '') {
-          query.append(key, String(item));
-        }
-      }
-    } else if (value !== undefined && value !== null && value !== '') {
-      query.set(key, String(value));
-    }
-  }
-
-  const suffix = query.toString();
-  return suffix ? `${path}?${suffix}` : path;
 }

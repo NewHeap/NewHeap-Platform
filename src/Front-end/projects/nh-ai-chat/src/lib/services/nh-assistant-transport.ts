@@ -361,3 +361,25 @@ export async function nhAssistantRequestHeaders(
   }
   return headers;
 }
+
+/**
+ * Appends the filter values that are set as query parameters to an API path; a list repeats its
+ * parameter per value, and empty values are left out.
+ */
+export function nhAssistantWithQuery(path: string, filter: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null && item !== '') {
+          query.append(key, String(item));
+        }
+      }
+    } else if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
+}

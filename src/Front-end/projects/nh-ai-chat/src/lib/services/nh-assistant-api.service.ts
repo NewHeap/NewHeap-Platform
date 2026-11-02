@@ -10,6 +10,7 @@ import {
   UpdateMcpConnectionRequest
 } from '../models/assistant-admin.models';
 import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
+import { Alert, AlertList, AlertListFilter, AlertSummary, AlertSummaryFilter } from '../models/assistant-alert.models';
 import {
   AgentSummary,
   AnswerQuestionRequest,
@@ -25,7 +26,8 @@ import {
   PushSubscriptionRequest,
   ResolveApprovalRequest,
   SendMessageRequest,
-  ShareLink
+  ShareLink,
+  UpdateNotificationSettingsRequest
 } from '../models/assistant-api.models';
 import {
   NH_ASSISTANT_SSE_EVENT_TYPES,
@@ -35,7 +37,12 @@ import {
   NhAssistantSseEventType
 } from '../models/assistant-sse.models';
 import { NhAssistantSseParser } from './nh-assistant-sse-parser';
-import { NhAssistantTransport, nhAssistantErrorMessageKey, nhAssistantIsSafeCode } from './nh-assistant-transport';
+import {
+  NhAssistantTransport,
+  nhAssistantErrorMessageKey,
+  nhAssistantIsSafeCode,
+  nhAssistantWithQuery as withQuery
+} from './nh-assistant-transport';
 
 export {
   NH_ASSISTANT_UPLOAD_HEADER,
@@ -216,6 +223,45 @@ export class NhAssistantApiService {
   /** Turns push notifications on or off for every browser of the caller. */
   updateNotificationSettings(pushEnabled: boolean): Observable<NotificationSettings> {
     return this.transport.json<NotificationSettings>('PUT', 'notifications', { pushEnabled });
+  }
+
+  /**
+   * Changes the caller's notification choices (`PUT notifications`): the push switch and, per alert
+   * kind, mute, digest time and channels, each only where it is named. Returns every choice as it is
+   * stored. A change the kind does not allow fails with `400` and a stable code.
+   */
+  updateNotificationPreferences(request: UpdateNotificationSettingsRequest): Observable<NotificationSettings> {
+    return this.transport.json<NotificationSettings>('PUT', 'notifications', request);
+  }
+
+  /**
+   * The caller's own alerts (`GET alerts`), the most recently raised first or with `grouped` per parent,
+   * with their titles and texts in the caller's language. Alerts about a subject the caller may no
+   * longer read are left out. Fails with `assistant-alert-filter-invalid` for a malformed filter.
+   */
+  getAlerts(filter: AlertListFilter = {}): Observable<AlertList> {
+    return this.transport.json<AlertList>('GET', withQuery('alerts', filter));
+  }
+
+  /** The counts of a badge (`GET alerts/summary`): the caller's unread open alerts, in total and per urgency. */
+  getAlertSummary(filter: AlertSummaryFilter = {}): Observable<AlertSummary> {
+    return this.transport.json<AlertSummary>('GET', withQuery('alerts/summary', filter));
+  }
+
+  /**
+   * Marks the caller's alert read and returns it as the list now shows it; a delivery that still waits
+   * is then not sent. Fails with `assistant-alert-not-found` for an alert the caller may not read.
+   */
+  markAlertRead(alertId: string): Observable<Alert> {
+    return this.transport.json<Alert>('POST', `alerts/${encodeURIComponent(alertId)}/read`);
+  }
+
+  /**
+   * Dismisses the caller's alert, also a closed one, and returns it as the list now shows it. Fails with
+   * `assistant-alert-not-found` for an alert the caller may not read.
+   */
+  dismissAlert(alertId: string): Observable<Alert> {
+    return this.transport.json<Alert>('POST', `alerts/${encodeURIComponent(alertId)}/dismiss`);
   }
 
   /** Registers this browser's push subscription for the caller. */
