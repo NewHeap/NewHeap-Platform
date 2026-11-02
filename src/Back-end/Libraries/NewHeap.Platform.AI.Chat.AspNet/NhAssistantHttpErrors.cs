@@ -342,6 +342,14 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ProposalPresentationInvalid);
         Add(statuses, StatusCodes.Status409Conflict,
             NhAssistantErrorCodes.ProposalIdempotencyConflict);
+        // A person's notification preferences (FB87-6): an alert kind that is not registered, a change the
+        // kind does not allow and a digest time that is no time of day.
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantErrorCodes.NotificationKindUnknown,
+            NhAssistantErrorCodes.NotificationMuteNotAllowed,
+            NhAssistantErrorCodes.NotificationDigestTimeNotAllowed,
+            NhAssistantErrorCodes.NotificationChannelsNotAllowed,
+            NhAssistantErrorCodes.NotificationDigestTimeInvalid);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

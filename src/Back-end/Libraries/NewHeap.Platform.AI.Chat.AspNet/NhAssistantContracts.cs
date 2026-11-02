@@ -313,15 +313,118 @@ public sealed record NhAssistantDirectoryEntryDto(
     string DisplayName,
     string? Detail);
 
-/// <param name="PushEnabled">The caller's choice; push notifications are on by default.</param>
+/// <param name="PushEnabled">The caller's choice; push notifications are on by default. It is the one
+/// switch for every push notification of the assistant, proposals and alerts alike.</param>
 /// <param name="PushAvailable">The server has Web Push configured.</param>
 /// <param name="PublicKey">The VAPID application server key browsers subscribe with.</param>
 public sealed record NhAssistantNotificationSettingsDto(
     bool PushEnabled,
     bool PushAvailable,
-    string? PublicKey);
+    string? PublicKey)
+{
+    /// <summary>
+    /// The IANA or Windows id of the caller's time zone, in which their daily digest of alerts and their
+    /// working days count: the zone the application gives for them, otherwise the application's time
+    /// zone for alerts. Read-only.
+    /// </summary>
+    public string TimeZone { get; init; } = TimeZoneInfo.Utc.Id;
 
-public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnabled);
+    /// <summary>
+    /// The caller's choices per alert kind (FB87-6), one per registered kind ordered by id; empty in a
+    /// host without alert kinds.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAlertKindPreferenceDto> AlertKinds { get; init; } = [];
+}
+
+/// <param name="PushEnabled">Turns push notifications on or off for every browser of the caller; omitted
+/// leaves the switch as it is.</param>
+public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnabled)
+{
+    /// <summary>
+    /// Changes of the caller's choices per alert kind, each kind at most once; omitted changes none. A
+    /// change a kind does not allow is refused with <c>400</c> and nothing changes, the push switch
+    /// included. A value that repeats the kind's default is always accepted.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAlertKindPreferenceUpdateDto>? AlertKinds { get; init; }
+}
+
+/// <summary>
+/// One alert kind in the caller's notification preferences: what it is, what the caller may change and
+/// what applies to them now.
+/// </summary>
+/// <param name="Id">The kind's id.</param>
+/// <param name="DisplayNameKey">The front-end translation key of the kind's name.</param>
+/// <param name="Urgency">The kind's urgency: <c>info</c>, <c>warning</c> or <c>urgent</c>.</param>
+/// <param name="Required">Nobody can mute the kind.</param>
+/// <param name="MayMute">The caller may mute the kind.</param>
+/// <param name="MayChangeDigestTime">The caller may choose the time of the kind's daily digest.</param>
+/// <param name="MayChooseChannels">The caller may choose the channels that deliver the kind.</param>
+/// <param name="Muted">The caller muted the kind.</param>
+/// <param name="DefaultDigestTime">The kind's digest time as <c>HH:mm</c>; <see langword="null"/> for a kind delivered immediately.</param>
+/// <param name="DigestTime">The digest time the caller chose as <c>HH:mm</c>; <see langword="null"/> for the kind's own.</param>
+/// <param name="WorkdaysOnly">The kind's digest goes out on working days only.</param>
+/// <param name="Channels">Whether Web Push and the in-app notifications deliver the kind to the caller:
+/// their choice, or on when they made none or the kind lets them choose none.</param>
+/// <param name="AvailableChannels">The channels the host offers: <c>push</c> when Web Push is configured
+/// and <c>in-app</c> when the host has in-app notifications.</param>
+public sealed record NhAssistantAlertKindPreferenceDto(
+    string Id,
+    string DisplayNameKey,
+    string Urgency,
+    bool Required,
+    bool MayMute,
+    bool MayChangeDigestTime,
+    bool MayChooseChannels,
+    bool Muted,
+    string? DefaultDigestTime,
+    string? DigestTime,
+    bool WorkdaysOnly,
+    NhAssistantAlertChannelsDto Channels,
+    IReadOnlyList<string> AvailableChannels);
+
+/// <param name="Push">Web Push delivers the kind.</param>
+/// <param name="InApp">The in-app notifications deliver the kind.</param>
+public sealed record NhAssistantAlertChannelsDto(bool Push, bool InApp);
+
+/// <summary>
+/// A change of the caller's choices about one alert kind. A value that is omitted stays as it is;
+/// <see cref="DigestTime"/> given as <see langword="null"/> resets it to the kind's own time.
+/// </summary>
+public sealed record NhAssistantAlertKindPreferenceUpdateDto
+{
+    private readonly string? _digestTime;
+
+    /// <summary>The kind's id.</summary>
+    public string? Id { get; init; }
+
+    /// <summary>Mutes or unmutes the kind; muting needs a kind the caller may mute.</summary>
+    public bool? Muted { get; init; }
+
+    /// <summary>
+    /// The time of the caller's digest of the kind as <c>HH:mm</c>, such as <c>07:30</c>, in their time
+    /// zone; <see langword="null"/> resets it to the kind's own time.
+    /// </summary>
+    public string? DigestTime
+    {
+        get => _digestTime;
+        init
+        {
+            _digestTime = value;
+            DigestTimeGiven = true;
+        }
+    }
+
+    /// <summary>Whether the request gave <see cref="DigestTime"/>, also as <see langword="null"/>.</summary>
+    [JsonIgnore]
+    public bool DigestTimeGiven { get; private init; }
+
+    /// <summary>Turns Web Push or the in-app notifications on or off for the kind.</summary>
+    public NhAssistantAlertChannelsUpdateDto? Channels { get; init; }
+}
+
+/// <param name="Push">Web Push for the kind; omitted stays as it is.</param>
+/// <param name="InApp">The in-app notifications for the kind; omitted stays as it is.</param>
+public sealed record NhAssistantAlertChannelsUpdateDto(bool? Push, bool? InApp);
 
 /// <summary>
 /// A browser push subscription as <c>PushSubscription.toJSON()</c> returns it, plus the language of
@@ -726,6 +829,8 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))]
 [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))]
 [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))]
+[JsonSerializable(typeof(NhAssistantAlertKindPreferenceDto))]
+[JsonSerializable(typeof(NhAssistantAlertKindPreferenceUpdateDto))]
 [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))]
 [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))]
 [JsonSerializable(typeof(NhAssistantLiveConversationDto))]
