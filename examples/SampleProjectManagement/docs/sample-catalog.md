@@ -276,6 +276,13 @@ the approver, and the platform records that it would have run without approval. 
 follows shadow, the reviewer's own run completes the task without a proposal, with every other rule
 checked, and the audit names it with the switch's version. Switching off asks again at once, and a
 person's chat or a consultation always asks. `AssistantAgentRunSamplesTests` runs both steps.
+An agent can also warn people without proposing anything (SPM-392). The deadline watch's rules
+raise an alert of the kind `project-due-today`, declared in code with its texts per language, its
+recipients and its default delivery, for the owner and the people working on a project that is due
+today with open tasks. A later round on the same day is the same alert, so nobody is warned twice;
+the application's own code may name more people, and the platform leaves out everyone without a role
+on the project; once the tasks are done the watch resolves the alert. `AssistantAlertSamplesTests`
+runs three rounds on one day.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

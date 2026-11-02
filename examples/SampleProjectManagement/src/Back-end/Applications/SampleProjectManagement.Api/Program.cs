@@ -372,6 +372,8 @@ builder.Services.AddSampleProjectOverview();
 builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 // SPM-375: a project tool with a due date and a time of day, which a script passes as strings.
 builder.Services.AddSampleProjectDeadlines();
+// SPM-392: the deadline watch's rules warn people about a project due today, as an alert of a kind in code.
+builder.Services.AddSampleDeadlineAlerts();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
