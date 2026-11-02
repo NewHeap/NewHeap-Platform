@@ -48,6 +48,7 @@ public static class NhAiServiceCollectionExtensions
             services.TryAddSingleton<INhAiToolConcurrencyLimiter>(
                 _ => new NhAiInProcessToolConcurrencyLimiter());
             services.TryAddScoped<INhAiEffectPolicy, NhAiDefaultEffectPolicy>();
+            services.TryAddScoped<INhAiWithoutApprovalSwitches, NhAiNoWithoutApprovalSwitches>();
             services.TryAddScoped<INhAiApprovalEvidenceProvider, NhAiDenyApprovalEvidenceProvider>();
             services.TryAddScoped<
                 INhAiAuthoritativeExecutionEvidenceValidator,
@@ -87,7 +88,8 @@ public static class NhAiServiceCollectionExtensions
             provider.GetRequiredService<INhAiToolConcurrencyLimiter>(),
             provider.GetService<INhAiAuthoritativeExecutionEvidenceValidator>(),
             provider.GetService<ILogger<NhAiToolInvoker>>(),
-            provider.GetService<TimeProvider>() ?? TimeProvider.System);
+            provider.GetService<TimeProvider>() ?? TimeProvider.System,
+            provider.GetService<INhAiWithoutApprovalSwitches>() ?? new NhAiNoWithoutApprovalSwitches());
     }
 }
 

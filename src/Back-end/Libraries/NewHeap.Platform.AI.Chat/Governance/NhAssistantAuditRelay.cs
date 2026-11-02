@@ -58,6 +58,21 @@ internal sealed class NhAssistantAuditRelay(
         {
             await sink.RecordAsync(turn.WithPromptIdentity(evt), cancellationToken);
         }
+
+        if (record is { WithoutApprovalMode: NhAiWithoutApprovalMode.Live, WithoutApprovalSwitchVersion: { } switchVersion })
+        {
+            // FB82: the call ran without a person's approval under an administrator's switch, which the
+            // audit names with its version next to the call itself.
+            var withoutApproval = evt with
+            {
+                Kind = NhAssistantAuditEventKind.AgentToolRanWithoutApproval,
+                WithoutApprovalVersion = switchVersion
+            };
+            foreach (var sink in _businessSinks)
+            {
+                await sink.RecordAsync(turn.WithPromptIdentity(withoutApproval), cancellationToken);
+            }
+        }
     }
 
     /// <summary>

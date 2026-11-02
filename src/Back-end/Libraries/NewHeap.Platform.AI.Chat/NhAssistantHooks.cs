@@ -492,7 +492,36 @@ public enum NhAssistantAuditEventKind
     /// principal cannot be rebuilt or <c>assistant-agent-forbidden</c> when they fail the assistant's or the
     /// agent's policy. <see cref="NhAssistantAuditEvent.TurnId"/> is empty.
     /// </summary>
-    ChatFollowUpSkipped = 122
+    ChatFollowUpSkipped = 122,
+
+    /// <summary>
+    /// An administrator or the application switched whether an agent runs a tool without approval (FB82):
+    /// <see cref="NhAssistantAuditEvent.ObjectId"/> is the agent, <see cref="NhAssistantAuditEvent.ToolId"/>
+    /// the tool, <see cref="NhAssistantAuditEvent.ActorId"/> who switched,
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> the new mode (<c>off</c>, <c>shadow</c> or <c>live</c>,
+    /// <see cref="Entities.NhAssistantWithoutApprovalModes"/>) and
+    /// <see cref="NhAssistantAuditEvent.WithoutApprovalVersion"/> the switch's new version. Never the reason.
+    /// <see cref="NhAssistantAuditEvent.ConversationId"/> and <see cref="NhAssistantAuditEvent.TurnId"/> are empty.
+    /// </summary>
+    AdminAgentToolWithoutApprovalChanged = 124,
+
+    /// <summary>
+    /// A switch in shadow found that an agent's call would have run without approval (FB82); the call
+    /// still became the proposal of the <see cref="ApprovalRequested"/> next to it, which people decide.
+    /// <see cref="NhAssistantAuditEvent.ApprovalId"/> is that proposal, <see cref="NhAssistantAuditEvent.ToolId"/>
+    /// the tool, <see cref="NhAssistantAuditEvent.WithoutApprovalVersion"/> the switch's version and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>shadow</c>.
+    /// </summary>
+    AgentProposalWouldRunWithoutApproval = 125,
+
+    /// <summary>
+    /// An agent's call ran without approval because a switch for the agent and the tool is live (FB82),
+    /// next to the call's <see cref="ToolInvoked"/>. <see cref="NhAssistantAuditEvent.InvocationId"/> is the
+    /// call, <see cref="NhAssistantAuditEvent.ToolId"/> the tool, <see cref="NhAssistantAuditEvent.WithoutApprovalVersion"/>
+    /// the switch's version and <see cref="NhAssistantAuditEvent.ResultCode"/> how the call ended:
+    /// <c>succeeded</c> or its failure code.
+    /// </summary>
+    AgentToolRanWithoutApproval = 126
 }
 
 /// <summary>
@@ -627,6 +656,15 @@ public sealed record NhAssistantAuditEvent(
     /// the live version's runs carry the live version.
     /// </summary>
     public int? TriggerVersion { get; init; }
+
+    /// <summary>
+    /// The version of the switch that lets an agent run a tool without approval (FB82), on the events
+    /// <see cref="NhAssistantAuditEventKind.AdminAgentToolWithoutApprovalChanged"/>,
+    /// <see cref="NhAssistantAuditEventKind.AgentProposalWouldRunWithoutApproval"/> and
+    /// <see cref="NhAssistantAuditEventKind.AgentToolRanWithoutApproval"/>; <see langword="null"/> for
+    /// other events.
+    /// </summary>
+    public int? WithoutApprovalVersion { get; init; }
 
     /// <summary>
     /// Whether the run of an <see cref="NhAssistantAuditEventKind.AgentRunEnded"/> event worked in the

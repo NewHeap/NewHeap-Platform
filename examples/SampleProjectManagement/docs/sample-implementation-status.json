@@ -376,7 +376,8 @@
     "SPM-382",
     "SPM-383",
     "SPM-384",
-    "SPM-387"
+    "SPM-387",
+    "SPM-391"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4155,6 +4156,31 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRunTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
+    ],
+    "SPM-391": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiWithoutApproval.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantWithoutApprovalSwitches.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantWithoutApprovalStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWithoutApproval.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWithoutApprovalEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102104105_AgentToolWithoutApproval.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102104109_AgentToolWithoutApproval.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiWithoutApprovalTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWithoutApprovalTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-without-approval-switch.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-without-approval-action.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-without-approval.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-without-approval.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-without-approval-admin.spec.ts"
     ]
   }
 }

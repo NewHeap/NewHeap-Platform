@@ -1061,7 +1061,8 @@ hash, tools within the agent's own selectors, profile, rule handler, ceiling, bu
 policy) and a data trigger (an event or a schedule with cron, time zone, subject set and message,
 the skill, conflict and debounce). Saving checks the data as startup checks code and answers with
 field errors; a skill or trigger in code cannot change (`assistant-skill-in-code`,
-`assistant-trigger-in-code`), and grants never become data. A new skill and a new trigger start in
+`assistant-trigger-in-code`), and grants never become data, with the one exception of running a kind
+of action without approval below. A new skill and a new trigger start in
 shadow: put the skill live with `SetSkillShadowAsync` and the trigger with `SetTriggerShadowAsync`
 or `POST admin/agents/{id}/triggers/{triggerId}/shadow`. A changed skill is the next version
 (`expectedVersion`, otherwise `assistant-version-conflict`) and the change chooses how it takes
@@ -1984,6 +1985,46 @@ database. A candidate is a suggestion only: nothing about deciding changes, and 
 the admin policy like the rest of the administration. Filter it with `agentId` and `toolId`; the
 period defaults to 30 days and spans at most 366.
 
+Let an agent run a routine kind of action without approval only with both keys, and try it in
+shadow first (FB82, SPM-391). This is the one exception to "grants never become data": a trust
+decision that an administrator makes as data, so keep it narrow. The tool's key is in code,
+`AllowWithoutApproval` on `NhAiToolAttribute` (see `nh-ai-protected-actions` for what it must weigh
+and which contracts may carry it): set it only on a reversible change of the application's own data
+of low risk. The administrator's key is a switch per agent and tool, `INhAssistantWithoutApprovalSwitches`
+or `GET admin/agents/{id}/without-approval` (the agent's tools that carry the code key, with the
+switch in effect, its `version`, `contractChanged` and `applies`), `PUT
+admin/agents/{id}/tools/{toolId}/without-approval` `{ mode, expectedVersion, reason }` and `GET
+.../without-approval/versions`, behind the admin policy (`403 assistant-forbidden` otherwise). A
+switch goes from `off` to `shadow`, and only from `shadow` to `live`
+(`assistant-without-approval-shadow-first`); it goes back to shadow or off at any time. A tool
+without the code key, a tool outside the agent's selectors and an agent without work of its own (a
+chat-only agent, a shadow variant or an agent without runs) answer `409
+assistant-without-approval-not-allowed`, a stale `expectedVersion` `409 assistant-version-conflict`,
+and the same mode again changes nothing. Every change is the next version of
+`AssistantAgentToolSwitch`, with who switched, when on the application's clock, the reason (at most
+500 characters) and the tool's contract hash, and is audited as `AdminAgentToolWithoutApprovalChanged`
+(mode and `WithoutApprovalVersion`, never the reason). A switch applies only to the contract it was
+made for: once the tool's contract changes it reads as `off` with `contractChanged` and goes through
+shadow again. Every call reads the switch from the database, so switching off asks again at the next
+call on every host. A switch applies only to a call of the agent's own run in its live thread: never in
+a person's chat or a person's own turn in the thread, a request turn, a consultation (which only
+proposes), a rule turn, a run in a shadow thread, a call for another object than the run's own, a tool
+the application executes (`ExecuteInApplication`); stopping the agent, the kill switch included, still
+cancels its runs. Before it lifts the approval, the call must fit every rule its proposal
+would meet: the application's approval policy selector must not refuse it, no open or recently rejected
+proposal for the same objects may stand in its way, and every guard of the tool at the proposal,
+decision and execution stages must find it needed and fitting; otherwise it becomes the proposal it
+was, which reports why. In shadow the proposal waits for people as every other one, records the switch's
+version (`AssistantApproval.WithoutApprovalVersion`) and is audited as
+`AgentProposalWouldRunWithoutApproval` next to its `ApprovalRequested`, so the numbers of the kind show
+how people decided such proposals; people deciding the proposal do not see the mark. Live, the governed
+invoker runs the call without a proposal with every other rule intact (the tool's authorization, the
+agent's grants and rights, capabilities, budgets, concurrency, idempotency and the verifier); the call's
+row records `WithoutApprovalVersion`, and the audit records `AgentToolRanWithoutApproval` with the
+version and the outcome next to `ToolInvoked`. Watch the candidates of the view per kind of action
+before you put a kind live; the administration offers the switch on the agent's Rollout and next to the
+numbers, where a kind that is no candidate names the thresholds it misses before it goes live.
+
 Close proposals that people overtook. A proposal can wait for days while a person does the
 work by hand. Register an `INhAiProposalGuard` for the tools it knows with
 `AddProposalGuard<TGuard>(toolSelectors)`; several guards may apply to one tool and the first
@@ -2463,8 +2504,19 @@ instructions in full: call them for an administrator or process the application 
   the person with `NhAssistantDecidingPerson` and let the platform compare tenants.
 - Forgetting a deleted subject without its scope key in an application whose ids repeat across
   tenants or divisions, which deletes another tenant's threads with the same id.
+- Putting a kind of action live without trying it in shadow and reading how people decided it, switching
+  a tool live for every agent at once, or letting application code switch tools on its own; the switch
+  is an administrator's trust decision and keeps its versions and audit.
 
 ## Verification
+
+For running a kind of action without approval, on both providers, assert that a tool without the code
+key, a tool outside the agent's tools, an agent without work of its own and a live switch from off are
+refused, that a person without the admin policy gets `403`, that in shadow the run still proposes and
+records the switch's version on the proposal and in the audit, that live the run executes without a
+proposal and audits `AgentToolRanWithoutApproval`, that switching off proposes again at the next call,
+that a person's chat and a shadow run still ask, that a switch of another contract reads as off and
+that the kill switch still stops the agent (`AssistantWithoutApprovalTests`, SPM-391).
 
 For subject access, remove a member after they opened the thread and assert on both providers
 that the refresh removes their subject-joined participant row while an invitation stays, and that

@@ -262,6 +262,14 @@ it marks a kind as a candidate for running without approval when the numbers mee
 it explains: with the sample's development thresholds three quick approvals of status requests
 are enough, until a rejection takes the candidate away again. The section only suggests; every
 proposal still waits for its approver, and only administrators see it.
+Running a kind of action without approval takes two keys (SPM-391). Completing a task is reversible and
+of low risk, so `project-tasks.complete` allows it in code (`AllowWithoutApproval`); an administrator
+then switches it for the intake reviewer, on the reviewer's Rollout or next to the numbers of the kind,
+first in shadow, which the development data does: every proposal to tick off a task still waits for
+the approver, and the platform records that it would have run without approval. Live, which only
+follows shadow, the reviewer's own run completes the task without a proposal, with every other rule
+checked, and the audit names it with the switch's version. Switching off asks again at once, and a
+person's chat or a consultation always asks. `AssistantAgentRunSamplesTests` runs both steps.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

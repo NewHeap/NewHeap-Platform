@@ -23,6 +23,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private readonly INhAiCapabilityResolver _capabilityResolver;
     private readonly INhAiBudgetManager _budgetManager;
     private readonly INhAiToolConcurrencyLimiter _concurrencyLimiter;
+    private readonly INhAiWithoutApprovalSwitches _withoutApproval;
     private readonly ILogger? _logger;
 
     /// <summary>
@@ -260,6 +261,45 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator,
         ILogger<NhAiToolInvoker>? logger,
         TimeProvider timeProvider)
+        : this(
+            invocationGate,
+            auditSinks,
+            effectPolicy,
+            approvalEvidenceProvider,
+            approvalValidator,
+            idempotencyManager,
+            verifiers,
+            capabilityResolver,
+            budgetManager,
+            concurrencyLimiter,
+            authoritativeEvidenceValidator,
+            logger,
+            timeProvider,
+            new NhAiNoWithoutApprovalSwitches())
+    {
+    }
+
+    /// <summary>
+    /// Creates the invoker with the application's clock and the administrator's switches that let one
+    /// agent run a tool without approval (FB82). <c>AddNewHeapPlatformAI</c> passes the registered
+    /// <see cref="INhAiWithoutApprovalSwitches"/>, which the assistant replaces; the other constructors
+    /// keep every call that needs approval a proposal.
+    /// </summary>
+    public NhAiToolInvoker(
+        INhAiToolInvocationGate invocationGate,
+        IEnumerable<INhAiAuditSink> auditSinks,
+        INhAiEffectPolicy effectPolicy,
+        INhAiApprovalEvidenceProvider approvalEvidenceProvider,
+        INhAiApprovalValidator approvalValidator,
+        INhAiIdempotencyManager idempotencyManager,
+        IEnumerable<INhAiToolVerifier> verifiers,
+        INhAiCapabilityResolver capabilityResolver,
+        INhAiBudgetManager budgetManager,
+        INhAiToolConcurrencyLimiter concurrencyLimiter,
+        INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator,
+        ILogger<NhAiToolInvoker>? logger,
+        TimeProvider timeProvider,
+        INhAiWithoutApprovalSwitches withoutApproval)
     {
         ArgumentNullException.ThrowIfNull(invocationGate);
         ArgumentNullException.ThrowIfNull(auditSinks);
@@ -272,6 +312,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         ArgumentNullException.ThrowIfNull(budgetManager);
         ArgumentNullException.ThrowIfNull(concurrencyLimiter);
         ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(withoutApproval);
         _invocationGate = invocationGate;
         _auditSinks = auditSinks.ToArray();
         _effectPolicy = effectPolicy;
@@ -284,6 +325,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         _capabilityResolver = capabilityResolver;
         _budgetManager = budgetManager;
         _concurrencyLimiter = concurrencyLimiter;
+        _withoutApproval = withoutApproval;
         _logger = logger;
         _approvalClock = timeProvider;
     }
@@ -522,43 +564,65 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 cancellationToken);
             if (evidence is null)
             {
-                activity?.SetTag("newheap.ai.tool.outcome", "approval-required");
-                // No approval code: a missing approval is no rejected one, and the assistant turns
-                // it into a proposal.
-                await WriteAuditAsync(
+                // The one exception (FB82): an administrator's switch for the agent and the tool, which
+                // the tool allows in code, lets the agent's own work run without a person's approval.
+                var withoutApproval = await DecideWithoutApprovalAsync(
                     descriptor,
                     context,
-                    NhAiOutcomeKind.ApprovalRequired,
-                    cancellationToken,
-                    resultCode: NhAiToolFailureCodes.ApprovalRequired);
-                return TaskResult<T>.Failed(
-                    NhAiToolFailureCodes.ApprovalRequired,
-                    "AI tool approval is required.");
+                    arguments,
+                    effectDecision,
+                    cancellationToken);
+                if (withoutApproval.Mode == NhAiWithoutApprovalMode.Live)
+                {
+                    activity?.SetTag("newheap.ai.tool.approval_code", NhAiWithoutApproval.ApprovalCode);
+                    context = context with { WithoutApproval = withoutApproval };
+                    approvalCode = NhAiWithoutApproval.ApprovalCode;
+                }
+                else
+                {
+                    activity?.SetTag("newheap.ai.tool.outcome", "approval-required");
+                    // No approval code: a missing approval is no rejected one, and the assistant turns
+                    // it into a proposal. In shadow the record says that the call would have run
+                    // without approval.
+                    await WriteAuditAsync(
+                        descriptor,
+                        withoutApproval.Mode == NhAiWithoutApprovalMode.Shadow
+                            ? context with { WithoutApproval = withoutApproval }
+                            : context,
+                        NhAiOutcomeKind.ApprovalRequired,
+                        cancellationToken,
+                        resultCode: NhAiToolFailureCodes.ApprovalRequired);
+                    return TaskResult<T>.Failed(
+                        NhAiToolFailureCodes.ApprovalRequired,
+                        "AI tool approval is required.");
+                }
             }
-
-            // A proposal lives by the application's clock, which its expiry was taken from.
-            var validation = _approvalValidator.Validate(
-                descriptor,
-                context,
-                arguments,
-                evidence,
-                _approvalClock.GetUtcNow());
-            if (!validation.Succeeded)
+            else
             {
-                activity?.SetTag("newheap.ai.tool.outcome", "approval-invalid");
-                activity?.SetTag("newheap.ai.tool.approval_code", validation.Code);
-                await WriteAuditAsync(
+                // A proposal lives by the application's clock, which its expiry was taken from.
+                var validation = _approvalValidator.Validate(
                     descriptor,
                     context,
-                    NhAiOutcomeKind.ApprovalRequired,
-                    cancellationToken,
-                    approvalCode: SafeCode(validation.Code) ?? "approval-invalid",
-                    resultCode: NhAiToolFailureCodes.ApprovalInvalid);
-                return TaskResult<T>.Failed(
-                    NhAiToolFailureCodes.ApprovalInvalid,
-                    $"AI tool approval validation failed with code '{validation.Code}'.");
+                    arguments,
+                    evidence,
+                    _approvalClock.GetUtcNow());
+                if (!validation.Succeeded)
+                {
+                    activity?.SetTag("newheap.ai.tool.outcome", "approval-invalid");
+                    activity?.SetTag("newheap.ai.tool.approval_code", validation.Code);
+                    await WriteAuditAsync(
+                        descriptor,
+                        context,
+                        NhAiOutcomeKind.ApprovalRequired,
+                        cancellationToken,
+                        approvalCode: SafeCode(validation.Code) ?? "approval-invalid",
+                        resultCode: NhAiToolFailureCodes.ApprovalInvalid);
+                    return TaskResult<T>.Failed(
+                        NhAiToolFailureCodes.ApprovalInvalid,
+                        $"AI tool approval validation failed with code '{validation.Code}'.");
+                }
+                approvalCode = SafeCode(validation.Code) ?? "approval-validated";
             }
-            approvalCode = SafeCode(validation.Code) ?? "approval-validated";
         }
         if (descriptor.Approval == NhAiApprovalRequirement.Issuer && approvalCode is null)
         {
@@ -898,7 +962,9 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             AccountableOwnerId = context?.AccountableOwnerId,
             ProposalId = context?.ProposalId,
             GrantSource = context?.GrantSource ?? NhAiGrantSource.None,
-            Origin = context?.Origin ?? origin
+            Origin = context?.Origin ?? origin,
+            WithoutApprovalMode = context?.WithoutApproval?.Mode ?? NhAiWithoutApprovalMode.Off,
+            WithoutApprovalSwitchVersion = context?.WithoutApproval?.SwitchVersion
         };
         foreach (var sink in _auditSinks)
         {
@@ -984,6 +1050,46 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private static string? SafeCode(string? code)
     {
         return NhAiNames.IsSegment(code) ? code : null;
+    }
+
+    /// <summary>
+    /// Whether an administrator's switch lets this call run without approval, or records in shadow that
+    /// it would have (FB82). Only the switches are asked, and only for a call that every key allows: the
+    /// tool's contract allows it in code, the default effect policy asked for an approval a switch may
+    /// lift, and the call is an agent's own work in a scope that does not require approval for every
+    /// effect, outside a person's turn, for the agent that the scope runs for and without a proposal it
+    /// executes. Anything the switches answer for another call stays <see cref="NhAiWithoutApprovalMode.Off"/>.
+    /// </summary>
+    private async ValueTask<NhAiWithoutApprovalDecision> DecideWithoutApprovalAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        object arguments,
+        NhAiEffectDecision effectDecision,
+        CancellationToken cancellationToken)
+    {
+        if (!NhAiWithoutApproval.IsAllowedBy(descriptor) || !NhAiWithoutApproval.CanLift(effectDecision))
+        {
+            return NhAiWithoutApprovalDecision.Off;
+        }
+        if (!context.IsAgentWork
+            || context.ActorKind != NhAiActorKind.Agent
+            || string.IsNullOrWhiteSpace(context.AgentId)
+            || context.ProposalId is not null
+            || context.ApprovalId is not null)
+        {
+            return NhAiWithoutApprovalDecision.Off;
+        }
+        if (NhAiPersonInvocationScopes.Current is not null
+            || NhAiAgentInvocationScopes.Current is not { RequireApprovalForEffects: false, IsAgentWork: true } scope
+            || !string.Equals(scope.AgentId, context.AgentId, StringComparison.Ordinal))
+        {
+            return NhAiWithoutApprovalDecision.Off;
+        }
+
+        var decision = await _withoutApproval.DecideAsync(descriptor, context, arguments, cancellationToken);
+        return decision is { Mode: NhAiWithoutApprovalMode.Shadow or NhAiWithoutApprovalMode.Live, SwitchVersion: > 0 }
+            ? decision
+            : NhAiWithoutApprovalDecision.Off;
     }
 
     /// <summary>

@@ -168,6 +168,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantCompositionActivityEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentEvaluationEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentConfigurationEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantWithoutApprovalEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantHandOffsAsDataEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentPackageEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
@@ -413,7 +414,8 @@ internal static class NhAssistantAdminEndpoints
                 .Where(descriptor => (descriptor.Exposure & NhAiToolExposure.Agent) != 0)
                 .Select(descriptor => new NhAssistantToolCatalogEntryDto(descriptor.Id, source, EffectName(descriptor.Effect), descriptor.Description)
                 {
-                    SubjectType = descriptor.Subject?.Type
+                    SubjectType = descriptor.Subject?.Type,
+                    AllowWithoutApproval = NhAiWithoutApproval.IsAllowedBy(descriptor)
                 }));
         }
         foreach (var (server, _) in await store.ListMcpServersAsync(httpContext.RequestAborted))

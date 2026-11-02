@@ -185,6 +185,20 @@ public sealed class NhAiToolAttribute(
     public string? ApprovalPolicy { get; set; }
 
     /// <summary>
+    /// Allows an administrator to let one agent run this tool without a person's approval (FB82). This
+    /// is the tool author's key of the one exception to "an agent's effect waits for a person": the
+    /// tool says in code that what it does is reversible and of low risk, and an administrator then
+    /// switches it on for one agent as data, first in shadow and then live
+    /// (<see cref="INhAiWithoutApprovalSwitches"/>). Only an agent's own work runs without approval,
+    /// never a person's chat or a consultation, and every other rule stays: the tool's authorization,
+    /// the agent's grants, guards, budgets and the agent's stop. Requires
+    /// <see cref="NhAiToolExposure.Agent"/>, an authorization policy, the effect
+    /// <see cref="NhAiToolEffect.IdempotentMutation"/> or <see cref="NhAiToolEffect.Mutation"/> and an
+    /// approval that the platform decides (not <see cref="NhAiApprovalRequirement.Issuer"/> or
+    /// <see cref="NhAiApprovalRequirement.ConsumerAuthoritative"/>) and not <see cref="RequireIndividualDecision"/>;
+    /// the generator refuses it otherwise (<c>NHAI019</c>). Setting it changes the tool's contract hash.
+    /// </summary>
+    public bool AllowWithoutApproval { get; set; }
     /// Keeps the tool's proposals out of every decision of several proposals at once: a person decides
     /// each one on its own card. Use it for an effect that cannot be undone, such as a message to an
     /// external party. A bulk decision of a filter leaves such proposals out of its set and says how many
@@ -314,6 +328,12 @@ public sealed record NhAiToolDescriptor(
     public string? ApprovalPolicy { get; init; }
 
     /// <summary>
+    /// Whether an administrator may let one agent run this tool without a person's approval. See
+    /// <see cref="NhAiToolAttribute.AllowWithoutApproval"/>. A hand-built or attested catalog that sets
+    /// it includes it in its contract hash; <see cref="NhAiWithoutApproval.Validate"/> refuses it for a
+    /// contract that may not allow it, and the invoker never lifts an approval for such a contract.
+    /// </summary>
+    public bool AllowWithoutApproval { get; init; }
     /// Whether a person decides every proposal of this tool on its own, never together with others.
     /// See <see cref="NhAiToolAttribute.RequireIndividualDecision"/>.
     /// </summary>
@@ -487,6 +507,15 @@ public sealed record NhAiInvocationContext(
     /// </summary>
     public NhAiGrantSource GrantSource { get; init; } = NhAiGrantSource.None;
 
+    /// <summary>
+    /// Set by the invoker when an administrator's switch lets this call of an agent's work run without
+    /// a person's approval (<see cref="NhAiWithoutApprovalMode.Live"/>, with the switch's version), so a
+    /// tool may say so in what it records. <see langword="null"/> for every other call, an approved
+    /// proposal included. Like <see cref="ConversationId"/> it takes part in no proposal hash or approval
+    /// evidence.
+    /// </summary>
+    public NhAiWithoutApprovalDecision? WithoutApproval { get; init; }
+
     public bool TryGetScopeValue(string key, out string value)
     {
         return Scope.TryGetValue(key, out value!);
@@ -589,7 +618,8 @@ public static class NhAiToolCatalogAttestation
 {
     /// <summary>
     /// Throws <see cref="InvalidOperationException"/> when the catalog is not
-    /// SharedInvoker-governed, when a created function is not an
+    /// SharedInvoker-governed, when a descriptor allows running without approval for a contract that may
+    /// not (<see cref="NhAiWithoutApproval.Validate"/>), when a created function is not an
     /// <see cref="INhAiGovernedAIFunction"/> bound to one of its descriptors, or when the
     /// attestation hash does not match the manifest.
     /// </summary>
@@ -609,6 +639,8 @@ public static class NhAiToolCatalogAttestation
         var byIdentity = new Dictionary<string, NhAiToolDescriptor>(StringComparer.Ordinal);
         foreach (var descriptor in descriptors)
         {
+            // A runtime catalog may only allow running without approval where a generated tool may.
+            NhAiWithoutApproval.Validate(descriptor);
             if (!byIdentity.TryAdd(Identity(descriptor.Id, descriptor.Version), descriptor))
             {
                 throw new InvalidOperationException(

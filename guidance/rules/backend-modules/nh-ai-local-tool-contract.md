@@ -93,6 +93,11 @@ than `AuthorizeAttribute` itself, including its subclasses, because their
 requirement cannot be read at compile time; express roles and schemes as a named
 policy instead. `NHAI007` counts inherited declarations too.
 
+`AllowWithoutApproval = true` lets an administrator switch the tool for one agent to run without
+approval (FB82, see `nh-ai-protected-actions`); it changes the contract hash and the generator reports
+`NHAI019` unless the tool has `Agent` exposure, a named policy, the effect `IdempotentMutation` or
+`Mutation` and an approval the platform decides, and never together with `RequireIndividualDecision`.
+
 `AddNewHeapPlatformAI` registers the shared `INhAiToolInvoker`. Register an
 `INhAiToolInvocationGate`, through `AddNewHeapPlatformAIAspNet` or
 `UseInvocationGate<TGate>()`, in every host that creates or runs tool functions.
