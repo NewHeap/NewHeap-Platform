@@ -780,6 +780,16 @@ export interface AgentInboxSubjectGroup {
  */
 export type AgentInboxStatus = 'pending' | 'awaiting-application' | 'execution-unknown';
 
+/**
+ * The order the inbox lists by (`AgentInboxFilter.sort`), earliest first: `expiresAt` by the decision
+ * deadline in every status, `createdAt` by when the proposal was made. Without a sort each status keeps
+ * its own order.
+ */
+export type AgentInboxSort = 'expiresAt' | 'createdAt';
+
+/** The most kinds of action one inbox request filters on (`AgentInboxFilter.toolId`). */
+export const NH_ASSISTANT_MAX_INBOX_TOOL_FILTERS = 20;
+
 export interface AgentInboxFilter {
   /**
    * The status the inbox lists, with the same visibility: `pending` by expiry (the default),
@@ -791,10 +801,69 @@ export interface AgentInboxFilter {
   /** Only proposals on subjects of this division; the inbox's visits are then those of the division. */
   divisionId?: string;
   runId?: string;
+  /**
+   * Only proposals of these kinds of action (`AgentProposal.toolId`), at most
+   * `NH_ASSISTANT_MAX_INBOX_TOOL_FILTERS`; sent as one `toolId` parameter per kind. Older servers
+   * ignore it.
+   */
+  toolId?: string | readonly string[];
+  /** Only proposals whose decision deadline (`expiresAt`) is before this ISO time. Older servers ignore it. */
+  expiresBefore?: string;
+  /** The order to list by instead of the status's own. Older servers ignore it. */
+  sort?: AgentInboxSort;
   /** Groups the proposals by parent and subject (`AgentInbox.groups`) instead of by expiry alone. */
   grouped?: boolean;
   page?: number;
   itemsPerPage?: number;
+}
+
+/** The filter of `getInboxSummary`: the inbox's filter without its paging, grouping and order. */
+export type AgentInboxSummaryFilter = Omit<AgentInboxFilter, 'grouped' | 'page' | 'itemsPerPage' | 'sort'>;
+
+/**
+ * What the inbox lists with a filter, counted (`getInboxSummary`), with the inbox's own filter and
+ * visibility: every count says how many proposals are listed, not how many the person may decide.
+ * Deciding still checks each proposal on its own (four-eyes, the approver rules, the tool's approve
+ * policy).
+ */
+export interface AgentInboxSummary {
+  /** How many proposals the inbox lists with the filter. */
+  total: number;
+  /** How many of them expire before `expiringBefore`, 24 hours after the summary was made. */
+  expiringSoon: number;
+  expiringBefore: string;
+  status: AgentInboxStatus;
+  /** Per agent how many it lists, the most first. */
+  agents: AgentInboxAgentCount[];
+  /** Per kind of action how many it lists, the most first, named as its cards name it. */
+  tools: AgentInboxToolCount[];
+  /** Per subject type how many it lists and on how many subjects, the most first. */
+  subjectTypes: AgentInboxSubjectTypeCount[];
+}
+
+export interface AgentInboxAgentCount {
+  agentId: string;
+  count: number;
+}
+
+/** One kind of action of an inbox summary or a bulk decision's overview. */
+export interface AgentInboxToolCount {
+  /** The tool the proposals would run; the value of `AgentInboxFilter.toolId`. */
+  toolId: string;
+  /** The name the cards show in the person's language, or the tool id when nothing named it. */
+  displayName: string;
+  count: number;
+}
+
+/** One subject type of an inbox summary or a bulk decision's overview. */
+export interface AgentInboxSubjectTypeCount {
+  subjectType: string;
+  /** The type's name in the person's language, when the application named it. */
+  subjectTypeName: string | null;
+  /** How many proposals on subjects of the type. */
+  count: number;
+  /** On how many distinct subjects of the type. */
+  subjects: number;
 }
 
 /** A recorded visit of the inbox in one scope (`visitInbox`). */
@@ -811,6 +880,77 @@ export interface AgentDecisionOutcome {
   succeeded: boolean;
   code: string | null;
   status: AgentProposalStatus | null;
+}
+
+/** The most proposals one bulk decision of a filter decides (`AgentBulkDecisionOverview.limit`). */
+export const NH_ASSISTANT_MAX_BULK_DECISION = 200;
+
+/**
+ * The filter whose pending proposals a bulk decision's overview puts in its set: the inbox's filter
+ * without paging or grouping; `sort` decides which come first when the filter lists more than a set holds.
+ */
+export type AgentBulkDecisionFilter = Omit<AgentInboxFilter, 'status' | 'grouped' | 'page' | 'itemsPerPage'>;
+
+/**
+ * What deciding a whole filter would decide (`getBulkDecisionOverview`): the set of pending proposals the
+ * inbox lists with the filter, at most `limit`, counted per kind of action and subject type, and the
+ * `token` that decides exactly that set until `expiresAt`. Proposals of tools that are decided one by one
+ * stay out of the set (`individual`). Each proposal is still checked when it is decided.
+ */
+export interface AgentBulkDecisionOverview {
+  /** Decides the set with `decideBulk`, only for this person; `null` for an empty set. */
+  token: string | null;
+  expiresAt: string | null;
+  /** How many proposals the set holds. */
+  count: number;
+  /** On how many distinct objects. */
+  subjects: number;
+  /** How many the inbox lists with the filter, those decided one by one included. */
+  listed: number;
+  /** How many it lists beyond the set's bound, for a next round. */
+  remaining: number;
+  limit: number;
+  /** Per kind of action and object type, for a confirmation such as "212 times Add office task, on 38 projects". */
+  kinds: AgentBulkDecisionKind[];
+  tools: AgentInboxToolCount[];
+  subjectTypes: AgentInboxSubjectTypeCount[];
+  /** The proposals the set leaves out because their tool is decided one by one, per kind. */
+  individual: { count: number; tools: AgentInboxToolCount[] };
+}
+
+/** One kind of action on one object type in a bulk decision's set. */
+export interface AgentBulkDecisionKind {
+  toolId: string;
+  toolDisplayName: string;
+  subjectType: string;
+  subjectTypeName: string | null;
+  count: number;
+  subjects: number;
+}
+
+/**
+ * What became of one proposal of a bulk decision: `succeeded`, `refused` by a rule of its own (four-eyes,
+ * the approver rules, the tool's approve policy, a tool decided one by one, or a proposal the person no
+ * longer sees), or `stale`: changed, decided or closed since the overview, expired, or no longer applying.
+ */
+export type AgentBulkDecisionOutcome = 'succeeded' | 'refused' | 'stale';
+
+export interface AgentBulkDecisionItem {
+  approvalId: string;
+  outcome: AgentBulkDecisionOutcome;
+  code: string | null;
+  status: AgentProposalStatus | null;
+}
+
+/** The outcome of `decideBulk`; a repeat of a decided token reports it again with `repeated: true`. */
+export interface AgentBulkDecisionResult {
+  token: string;
+  decision: AgentProposalDecision;
+  succeeded: number;
+  refused: number;
+  stale: number;
+  repeated: boolean;
+  items: AgentBulkDecisionItem[];
 }
 
 export interface AgentThreadMemory {

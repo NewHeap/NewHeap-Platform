@@ -40,6 +40,47 @@ public static class NhAssistantInboxStatuses
 }
 
 /// <summary>
+/// The orders the approval inbox lists by (<c>GET approvals/inbox?sort=</c>), earliest first. Without a
+/// sort each status keeps its own order: a pending proposal by its expiry, one waiting for the
+/// application's report by its deadline and an uncertain execution by its decision.
+/// </summary>
+public static class NhAssistantInboxSorts
+{
+    /// <summary>
+    /// By the decision deadline (<c>expiresAt</c>), the soonest first, in every status.
+    /// </summary>
+    public const string ExpiresAt = "expiresAt";
+
+    /// <summary>
+    /// By when the proposal was made (<c>createdAt</c>), the oldest first.
+    /// </summary>
+    public const string CreatedAt = "createdAt";
+
+    /// <summary>
+    /// Every sort the inbox takes, in this order.
+    /// </summary>
+    public static IReadOnlyList<string> All { get; } = [ExpiresAt, CreatedAt];
+
+    /// <summary>
+    /// Whether the inbox sorts by <paramref name="sort"/>.
+    /// </summary>
+    public static bool IsValid(string? sort)
+    {
+        return sort is ExpiresAt or CreatedAt;
+    }
+
+    internal static NhAssistantInboxSort Parse(string? sort)
+    {
+        return sort switch
+        {
+            ExpiresAt => NhAssistantInboxSort.ExpiresAt,
+            CreatedAt => NhAssistantInboxSort.CreatedAt,
+            _ => NhAssistantInboxSort.Default
+        };
+    }
+}
+
+/// <summary>
 /// Counts the proposals a person's approval inbox lists, per status, for example for a daily digest
 /// of what waits. It is a server API for the application's code; there is no endpoint for it. The
 /// counts follow the inbox's visibility exactly: the proposals of subjects the person approves

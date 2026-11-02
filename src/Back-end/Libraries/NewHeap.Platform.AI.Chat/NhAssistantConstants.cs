@@ -1218,6 +1218,30 @@ public static class NhAssistantErrorCodes
     public const string ProposalStale = "assistant-proposal-stale";
 
     /// <summary>
+    /// The proposal's tool requires that each of its proposals is decided on its own
+    /// (<see cref="NhAiToolAttribute.RequireIndividualDecision"/>), so a decision of several proposals at
+    /// once leaves it pending; decide it on its own card.
+    /// </summary>
+    public const string IndividualDecisionRequired = "assistant-individual-decision-required";
+
+    /// <summary>
+    /// The bulk decision names a set that does not exist, was removed after its lifetime, or was made for
+    /// another person or tenant; it reads as unknown.
+    /// </summary>
+    public const string BulkDecisionNotFound = "assistant-bulk-decision-not-found";
+
+    /// <summary>
+    /// The set of a bulk decision was not decided within its lifetime; ask for a new overview.
+    /// </summary>
+    public const string BulkDecisionExpired = "assistant-bulk-decision-expired";
+
+    /// <summary>
+    /// Another request decides the same set of a bulk decision right now; its result is reported once it
+    /// ended.
+    /// </summary>
+    public const string BulkDecisionInProgress = "assistant-bulk-decision-in-progress";
+
+    /// <summary>
     /// A proposal guard failed, so whether the proposal still fits is unknown. The proposal stays
     /// open; deciding it again later runs the check again.
     /// </summary>

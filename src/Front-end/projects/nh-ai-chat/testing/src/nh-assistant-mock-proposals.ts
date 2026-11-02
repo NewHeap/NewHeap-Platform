@@ -1,8 +1,13 @@
 import {
+  AgentBulkDecisionItem,
+  AgentBulkDecisionKind,
+  AgentBulkDecisionOverview,
+  AgentBulkDecisionResult,
   AgentDecisionOutcome,
   AgentInbox,
   AgentInboxGroup,
   AgentInboxStatus,
+  AgentInboxSummary,
   AgentInboxVisit,
   AgentProposal,
   AgentProposalLookup,
@@ -20,6 +25,16 @@ interface StoredProposal {
   divisionId: string | null;
   /** The application executes the proposal's tool (`ExecuteInApplication`). */
   executedByApplication: boolean;
+  /** The proposal's tool is decided one proposal at a time (`RequireIndividualDecision`). */
+  individual: boolean;
+}
+
+/** The set of a bulk decision's overview, which its token decides once. */
+interface StoredBulkDecision {
+  actorId: string;
+  items: { approvalId: string; proposalHash: string }[];
+  expiresAt: string;
+  result: AgentBulkDecisionResult | null;
 }
 
 /** How long the application may take to report after a hand-off in the mock. */
@@ -29,6 +44,14 @@ const dashCase = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const maxReason = 500;
 const maxItemsPerPage = 100;
 const maxBulkDecisions = 50;
+/** The most kinds of action one inbox request filters on. */
+const maxToolFilters = 20;
+/** How far ahead the inbox summary counts what expires soon. */
+const expiringSoonMs = 24 * 60 * 60 * 1000;
+/** The most proposals one set of a bulk decision holds. */
+const maxBulkDecisionSet = 200;
+/** How long the set of a bulk decision's overview may be decided. */
+const bulkDecisionLifetimeMs = 15 * 60 * 1000;
 const guid = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
 /** The platform's subject type of the whole application. */
@@ -41,7 +64,8 @@ const fourEyesCode = 'assistant-four-eyes-required';
 /**
  * The proposals the scenario lists, which the mock's agents left, for example one a run for the whole
  * application placed at a project (`placedBy`). The mock runs no agents: it serves them as the server
- * does in the approval inbox (`GET approvals/inbox`, pending proposals the caller may decide), one by id
+ * does in the approval inbox (`GET approvals/inbox`, pending proposals the caller may decide, with its
+ * filters on kind of action and expiry and its sorts), counted (`GET approvals/inbox/summary`), one by id
  * (`GET approvals/{id}`), several by id (`POST approvals/lookup`), in their thread
  * (`GET threads/{id}/proposals`) and on their subject's work, and decides them one by one or together
  * with the server's validation and statuses. An approved proposal executes at once. A proposal of the
@@ -53,10 +77,16 @@ const fourEyesCode = 'assistant-four-eyes-required';
  * `assistant-four-eyes-required`. A proposal of a tool the application executes (`executedByApplication`)
  * waits as `awaiting-application` once approved, and `POST approvals/{id}/resolve` resolves an
  * `execution-unknown` proposal as the server does: `hand-to-application` for one the application
- * executes, `re-execute` for any other, `mark-resolved` for both.
+ * executes, `re-execute` for any other, `mark-resolved` for both. A bulk decision of a filter
+ * (`POST approvals/bulk-decisions/overview` and `POST approvals/bulk-decisions`) decides the set of its
+ * overview once for the person who asked for it, leaves proposals decided one by one
+ * (`requireIndividualDecision`) out, reports a repeat and refuses an expired set, as the server does;
+ * deciding several by id checks the proposal hashes sent with them.
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
+  /** The sets of bulk decisions by token. */
+  private readonly bulkDecisions = new Map<string, StoredBulkDecision>();
   /** When the caller last looked at the inbox, by scope key. */
   private readonly visits = new Map<string, string>();
 
@@ -128,7 +158,8 @@ export class NhAssistantMockProposals {
         divisionId: item.divisionId ?? null,
         canDecide,
         reasonCode: canDecide ? null : item.reasonCode ?? refusal ?? 'assistant-approval-policy-denied',
-        executedByApplication
+        executedByApplication,
+        individual: item.requireIndividualDecision ?? false
       });
     }
   }
@@ -138,6 +169,9 @@ export class NhAssistantMockProposals {
     if (segments.length === 2 && segments[1] === 'inbox') {
       return method === 'GET' ? this.inbox(query) : { status: 405 };
     }
+    if (segments.length === 3 && segments[1] === 'inbox' && segments[2] === 'summary') {
+      return method === 'GET' ? this.summary(query) : { status: 405 };
+    }
     if (segments.length === 3 && segments[1] === 'inbox' && segments[2] === 'visit') {
       return method === 'POST' ? this.visit(query) : { status: 405 };
     }
@@ -146,6 +180,12 @@ export class NhAssistantMockProposals {
     }
     if (segments.length === 2 && segments[1] === 'decisions') {
       return method === 'POST' ? this.decideMany(body) : { status: 405 };
+    }
+    if (segments.length === 3 && segments[1] === 'bulk-decisions' && segments[2] === 'overview') {
+      return method === 'POST' ? this.bulkOverview(body) : { status: 405 };
+    }
+    if (segments.length === 2 && segments[1] === 'bulk-decisions') {
+      return method === 'POST' ? this.decideBulk(body) : { status: 405 };
     }
     if (segments.length === 2) {
       return method === 'GET' ? this.read(segments[1]) : { status: 405 };
@@ -213,13 +253,13 @@ export class NhAssistantMockProposals {
     return stored && this.isVisible(stored) ? stored : undefined;
   }
 
-  private inbox(query: URLSearchParams): NhAssistantMockResult {
-    const page = Number(query.get('page') ?? '1');
-    const itemsPerPage = Number(query.get('itemsPerPage') ?? '20');
+  /**
+   * The proposals the inbox lists with the request's filter, in its order, as the server filters and
+   * sorts them; a failure for a filter the server refuses.
+   */
+  private listed(query: URLSearchParams): { items: AgentProposal[]; status: AgentInboxStatus; divisionId: string | null } | NhAssistantMockResult {
     const subjectType = query.get('subjectType');
-    if (!Number.isInteger(page) || page < 1
-      || !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage
-      || (subjectType !== null && !dashCase.test(subjectType))) {
+    if (subjectType !== null && !dashCase.test(subjectType)) {
       return failure('assistant-message-invalid');
     }
 
@@ -237,17 +277,50 @@ export class NhAssistantMockProposals {
       return failure('assistant-message-invalid');
     }
 
-    const grouped = query.get('grouped') === 'true';
+    const toolIds = [...new Set(query.getAll('toolId'))];
+    const sort = query.get('sort');
+    const expiresBefore = query.get('expiresBefore');
+    if (toolIds.length > maxToolFilters
+      || toolIds.some(toolId => toolId.trim() === '' || toolId.length > 256)
+      || (sort !== null && sort !== '' && sort !== 'expiresAt' && sort !== 'createdAt')
+      || (expiresBefore !== null && Number.isNaN(Date.parse(expiresBefore)))) {
+      return failure('assistant-message-invalid');
+    }
+
+    const before = expiresBefore === null ? null : Date.parse(expiresBefore);
+    const sortAt = (proposal: AgentProposal) => sort === 'expiresAt'
+      ? proposal.expiresAt
+      : sort === 'createdAt' ? proposal.createdAt : inboxSortAt(proposal, status);
     const items = this.visible()
       .filter(item => item.proposal.status === status && item.canDecide)
       .filter(item => divisionId === null || sameGuid(item.divisionId, divisionId))
       .map(item => item.proposal)
       .filter(proposal => (subjectType === null || proposal.subjectType === subjectType)
         && (agentId === null || proposal.agentId === agentId)
-        && (runId === null || proposal.runId === runId))
-      .sort((left, right) => inboxSortAt(left, status).localeCompare(inboxSortAt(right, status))
+        && (runId === null || proposal.runId === runId)
+        && (toolIds.length === 0 || toolIds.includes(proposal.toolId))
+        && (before === null || Date.parse(proposal.expiresAt) < before))
+      .sort((left, right) => sortAt(left).localeCompare(sortAt(right))
         || left.approvalId.localeCompare(right.approvalId));
-    const ordered = grouped ? groupedOrder(items) : items;
+    return { items, status, divisionId };
+  }
+
+  private inbox(query: URLSearchParams): NhAssistantMockResult {
+    const page = Number(query.get('page') ?? '1');
+    const itemsPerPage = Number(query.get('itemsPerPage') ?? '20');
+    if (!Number.isInteger(page) || page < 1
+      || !Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > maxItemsPerPage) {
+      return failure('assistant-message-invalid');
+    }
+
+    const listed = this.listed(query);
+    if (!('items' in listed)) {
+      return listed;
+    }
+
+    const { items, status, divisionId } = listed;
+    const grouped = query.get('grouped') === 'true';
+    const ordered = grouped ? groupedOrder(items, proposal => inboxSortKey(proposal, status, query.get('sort'))) : items;
     const offset = (page - 1) * itemsPerPage;
     const pageItems = ordered.slice(offset, offset + itemsPerPage);
     const scopeKey = scopeKeyOf(divisionId);
@@ -262,6 +335,31 @@ export class NhAssistantMockProposals {
         .filter(proposal => lastVisitedAt === null || Date.parse(proposal.createdAt) > Date.parse(lastVisitedAt))
         .map(proposal => proposal.approvalId),
       groups: grouped ? groupsOf(ordered, offset, pageItems.length) : null
+    };
+    return { status: 200, body };
+  }
+
+  /**
+   * `GET approvals/inbox/summary`: what the inbox lists with the same filter, counted per agent, kind of
+   * action (named by the newest card's presentation, otherwise the tool id) and subject type with its
+   * subjects, and how many expire within 24 hours.
+   */
+  private summary(query: URLSearchParams): NhAssistantMockResult {
+    const listed = this.listed(query);
+    if (!('items' in listed)) {
+      return listed;
+    }
+
+    const { items, status } = listed;
+    const expiringBefore = new Date(Date.parse(this.now()) + expiringSoonMs).toISOString();
+    const body: AgentInboxSummary = {
+      total: items.length,
+      expiringSoon: items.filter(proposal => Date.parse(proposal.expiresAt) < Date.parse(expiringBefore)).length,
+      expiringBefore,
+      status,
+      agents: counted(items, proposal => proposal.agentId).map(([agentId, group]) => ({ agentId, count: group.length })),
+      tools: toolCounts(items),
+      subjectTypes: subjectTypeCounts(items)
     };
     return { status: 200, body };
   }
@@ -318,7 +416,7 @@ export class NhAssistantMockProposals {
   }
 
   private decideMany(body: unknown): NhAssistantMockResult {
-    const request = body as { approvalIds?: unknown; decision?: unknown; reason?: unknown } | undefined;
+    const request = body as { approvalIds?: unknown; decision?: unknown; reason?: unknown; expectedProposalHashes?: unknown } | undefined;
     const ids = request?.approvalIds;
     if (!validDecision(request)
       || !Array.isArray(ids)
@@ -328,8 +426,9 @@ export class NhAssistantMockProposals {
       return failure('assistant-approval-decision-invalid');
     }
 
+    const hashes = (request?.expectedProposalHashes ?? {}) as Record<string, unknown>;
     const results: AgentDecisionOutcome[] = [...new Set(ids as string[])].map(id => {
-      const outcome = this.decide(id, request!.decision === 'approve', null);
+      const outcome = this.decide(id, request!.decision === 'approve', hashes[id] ?? null, true);
       return {
         approvalId: id,
         succeeded: outcome.code === null,
@@ -340,8 +439,112 @@ export class NhAssistantMockProposals {
     return { status: 200, body: { results } };
   }
 
-  /** Decides one proposal as the server does; an approved proposal executes at once. */
-  private decide(approvalId: string, approve: boolean, expectedHash: unknown): { code: string | null } {
+  /**
+   * `POST approvals/bulk-decisions/overview`: the pending proposals the inbox lists with the filter, at
+   * most a set's bound in the inbox's order, without those decided one by one, counted per kind of action
+   * and object type, with the token of the set.
+   */
+  private bulkOverview(body: unknown): NhAssistantMockResult {
+    const request = (body ?? {}) as Record<string, unknown>;
+    const query = new URLSearchParams();
+    for (const key of ['subjectType', 'agentId', 'divisionId', 'runId', 'expiresBefore', 'sort']) {
+      if (typeof request[key] === 'string') {
+        query.set(key, request[key] as string);
+      }
+    }
+    if (Array.isArray(request['toolIds'])) {
+      for (const toolId of request['toolIds'] as unknown[]) {
+        query.append('toolId', String(toolId));
+      }
+    }
+
+    const listed = this.listed(query);
+    if (!('items' in listed)) {
+      return listed;
+    }
+
+    const individual = listed.items.filter(proposal => this.proposals.get(proposal.approvalId)?.individual);
+    const decidable = listed.items.filter(proposal => !this.proposals.get(proposal.approvalId)?.individual);
+    const set = decidable.slice(0, maxBulkDecisionSet);
+    let token: string | null = null;
+    let expiresAt: string | null = null;
+    if (set.length > 0) {
+      token = `mock-bulk-${this.bulkDecisions.size + 1}`;
+      expiresAt = new Date(Date.parse(this.now()) + bulkDecisionLifetimeMs).toISOString();
+      this.bulkDecisions.set(token, {
+        actorId: this.actorId(),
+        items: set.map(proposal => ({ approvalId: proposal.approvalId, proposalHash: proposal.proposalHash })),
+        expiresAt,
+        result: null
+      });
+    }
+
+    const response: AgentBulkDecisionOverview = {
+      token,
+      expiresAt,
+      count: set.length,
+      subjects: new Set(set.map(proposal => `${proposal.subjectType}|${proposal.subjectId}`)).size,
+      listed: listed.items.length,
+      remaining: decidable.length - set.length,
+      limit: maxBulkDecisionSet,
+      kinds: kindsOf(set),
+      tools: toolCounts(set),
+      subjectTypes: subjectTypeCounts(set),
+      individual: { count: individual.length, tools: toolCounts(individual) }
+    };
+    return { status: 200, body: response };
+  }
+
+  /**
+   * `POST approvals/bulk-decisions`: decides the set of a token once, each proposal with its own rules and
+   * the version the overview counted; a repeat reports the stored result.
+   */
+  private decideBulk(body: unknown): NhAssistantMockResult {
+    const request = body as { token?: unknown; decision?: unknown; reason?: unknown } | undefined;
+    if (!validDecision(request) || typeof request?.token !== 'string' || request.token.trim() === '') {
+      return failure('assistant-approval-decision-invalid');
+    }
+
+    const stored = this.bulkDecisions.get(request.token);
+    if (!stored || stored.actorId !== this.actorId()) {
+      return failure('assistant-bulk-decision-not-found');
+    }
+    if (stored.result) {
+      return { status: 200, body: { ...stored.result, repeated: true } };
+    }
+    if (Date.parse(stored.expiresAt) <= Date.parse(this.now())) {
+      return failure('assistant-bulk-decision-expired');
+    }
+
+    const approve = request.decision === 'approve';
+    const items: AgentBulkDecisionItem[] = stored.items.map(item => {
+      const outcome = this.decide(item.approvalId, approve, item.proposalHash, true);
+      const code = outcome.code;
+      return {
+        approvalId: item.approvalId,
+        outcome: code === null ? 'succeeded' : staleCodes.includes(code) ? 'stale' : 'refused',
+        code,
+        status: code === null ? this.proposals.get(item.approvalId)!.proposal.status : null
+      };
+    });
+    const result: AgentBulkDecisionResult = {
+      token: request.token,
+      decision: approve ? 'approve' : 'reject',
+      succeeded: items.filter(item => item.outcome === 'succeeded').length,
+      refused: items.filter(item => item.outcome === 'refused').length,
+      stale: items.filter(item => item.outcome === 'stale').length,
+      repeated: false,
+      items
+    };
+    stored.result = result;
+    return { status: 200, body: result };
+  }
+
+  /**
+   * Decides one proposal as the server does; an approved proposal executes at once. A decision of several
+   * at once (`bulk`) leaves a proposal that is decided one by one.
+   */
+  private decide(approvalId: string, approve: boolean, expectedHash: unknown, bulk = false): { code: string | null } {
     const stored = this.find(approvalId);
     if (!stored) {
       return { code: 'assistant-approval-not-found' };
@@ -351,6 +554,9 @@ export class NhAssistantMockProposals {
     }
     if (stored.proposal.status !== 'pending') {
       return { code: 'assistant-approval-not-pending' };
+    }
+    if (bulk && stored.individual) {
+      return { code: 'assistant-individual-decision-required' };
     }
     if (!stored.canDecide) {
       return { code: stored.reasonCode ?? 'assistant-approval-policy-denied' };
@@ -435,6 +641,26 @@ function consultationRefusal(route: NhAssistantConsultationRoute | null, initiat
   return route === 'subject-agent-rights' && initiatorActorId === actorId ? fourEyesCode : null;
 }
 
+/** The codes of a proposal that is no longer what a bulk decision's overview showed. */
+const staleCodes = [
+  'assistant-proposal-hash-mismatch',
+  'assistant-approval-not-pending',
+  'assistant-approval-expired',
+  'assistant-proposal-stale'
+];
+
+/** Per kind of action and object type how many and on how many objects, the most first. */
+function kindsOf(items: readonly AgentProposal[]): AgentBulkDecisionKind[] {
+  return counted(items, proposal => `${proposal.toolId}|${proposal.subjectType}`).map(([, group]) => ({
+    toolId: group[0].toolId,
+    toolDisplayName: toolCounts(group)[0].displayName,
+    subjectType: group[0].subjectType,
+    subjectTypeName: group.find(proposal => proposal.subjectTypeName)?.subjectTypeName ?? null,
+    count: group.length,
+    subjects: new Set(group.map(proposal => proposal.subjectId)).size
+  }));
+}
+
 function isInboxStatus(status: string): status is AgentInboxStatus {
   return status === 'pending' || status === 'awaiting-application' || status === 'execution-unknown';
 }
@@ -452,6 +678,41 @@ function inboxSortAt(proposal: AgentProposal, status: AgentInboxStatus): string 
     default:
       return proposal.expiresAt;
   }
+}
+
+/** The time a sort orders by, as the server: the decision deadline, when it was made, or the status's own. */
+function inboxSortKey(proposal: AgentProposal, status: AgentInboxStatus, sort: string | null): string {
+  return sort === 'expiresAt' ? proposal.expiresAt : sort === 'createdAt' ? proposal.createdAt : inboxSortAt(proposal, status);
+}
+
+/** The proposals per key, the largest group first, then by key. */
+function counted(items: readonly AgentProposal[], key: (proposal: AgentProposal) => string): [string, AgentProposal[]][] {
+  const groups = new Map<string, AgentProposal[]>();
+  for (const proposal of items) {
+    groups.set(key(proposal), [...(groups.get(key(proposal)) ?? []), proposal]);
+  }
+  return [...groups.entries()].sort(([leftKey, left], [rightKey, right]) =>
+    right.length - left.length || (leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0));
+}
+
+/** Per kind of action how many, named by the newest card that has a presentation, otherwise by its tool id. */
+function toolCounts(items: readonly AgentProposal[]): AgentInboxSummary['tools'] {
+  return counted(items, proposal => proposal.toolId).map(([toolId, group]) => {
+    const named = [...group]
+      .filter(proposal => proposal.presentation)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+    return { toolId, displayName: named?.presentation?.toolDisplayName ?? toolId, count: group.length };
+  });
+}
+
+/** Per subject type how many and on how many distinct subjects. */
+function subjectTypeCounts(items: readonly AgentProposal[]): AgentInboxSummary['subjectTypes'] {
+  return counted(items, proposal => proposal.subjectType).map(([subjectType, group]) => ({
+    subjectType,
+    subjectTypeName: group.find(proposal => proposal.subjectTypeName)?.subjectTypeName ?? null,
+    count: group.length,
+    subjects: new Set(group.map(proposal => proposal.subjectId)).size
+  }));
 }
 
 /** The scope of the inbox's visits: `global`, or the scope key of a division. */
@@ -474,12 +735,16 @@ function subjectKeyOf(proposal: AgentProposal): string {
   return `${groupKeyOf(proposal)}|${proposal.subjectType}|${proposal.subjectId}`;
 }
 
-function firstExpiries(items: readonly AgentProposal[], key: (proposal: AgentProposal) => string): Map<string, string> {
+function firstExpiries(
+  items: readonly AgentProposal[],
+  key: (proposal: AgentProposal) => string,
+  sortAt: (proposal: AgentProposal) => string
+): Map<string, string> {
   const first = new Map<string, string>();
   for (const proposal of items) {
     const current = first.get(key(proposal));
-    if (current === undefined || proposal.expiresAt < current) {
-      first.set(key(proposal), proposal.expiresAt);
+    if (current === undefined || sortAt(proposal) < current) {
+      first.set(key(proposal), sortAt(proposal));
     }
   }
   return first;
@@ -490,9 +755,9 @@ function firstExpiries(items: readonly AgentProposal[], key: (proposal: AgentPro
  * subject first, then its other subjects by their first expiry, one run's proposals together, then by
  * expiry.
  */
-function groupedOrder(items: readonly AgentProposal[]): AgentProposal[] {
-  const groups = firstExpiries(items, groupKeyOf);
-  const subjects = firstExpiries(items, subjectKeyOf);
+function groupedOrder(items: readonly AgentProposal[], sortAt: (proposal: AgentProposal) => string): AgentProposal[] {
+  const groups = firstExpiries(items, groupKeyOf, sortAt);
+  const subjects = firstExpiries(items, subjectKeyOf, sortAt);
   const compare = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
   return [...items].sort((left, right) =>
     compare(groups.get(groupKeyOf(left))!, groups.get(groupKeyOf(right))!)
@@ -502,7 +767,7 @@ function groupedOrder(items: readonly AgentProposal[]): AgentProposal[] {
     || compare(subjectKeyOf(left), subjectKeyOf(right))
     || (left.runId === null ? 1 : 0) - (right.runId === null ? 1 : 0)
     || compare(left.runId ?? '', right.runId ?? '')
-    || compare(left.expiresAt, right.expiresAt)
+    || compare(sortAt(left), sortAt(right))
     || compare(left.approvalId, right.approvalId));
 }
 
