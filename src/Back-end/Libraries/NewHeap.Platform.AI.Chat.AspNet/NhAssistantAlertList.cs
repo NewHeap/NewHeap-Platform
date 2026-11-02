@@ -108,6 +108,7 @@ internal sealed class NhAssistantAlertList(
     NhAssistantAlertTexts texts,
     NhAssistantSubjectAccessService subjects,
     NhAssistantAgentEvents events,
+    NhAssistantAlertSubjectMuteStore subjectMutes,
     TimeProvider? timeProvider = null)
 {
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
@@ -192,24 +193,56 @@ internal sealed class NhAssistantAlertList(
     /// Dismisses the caller's alert: it leaves their list, and raising it again does not reach them until
     /// its key changes. The first dismissal is audited with <see cref="NhAssistantAuditEventKind.AgentAlertDismissed"/>,
     /// content-free and with the user who impersonates the caller, if any; dismissing it again changes
-    /// nothing. Returns the alert as the caller's list now shows it, or <see cref="NhAssistantAlertCodes.NotFound"/>.
+    /// nothing. With <paramref name="muteSubjectForDays"/> the kind also tells the caller nothing more about
+    /// the alert's subject for that many days (FB87-11), or longer when a mute of it lasts longer; also when
+    /// the alert was dismissed before. A required kind, or one the caller may not mute, refuses that with
+    /// <see cref="NhAssistantAlertCodes.SubjectMuteNotAllowed"/> and a number of days out of bounds with
+    /// <see cref="NhAssistantAlertCodes.SubjectMuteDaysInvalid"/>; neither dismisses. Returns the alert as
+    /// the caller's list now shows it, or <see cref="NhAssistantAlertCodes.NotFound"/>.
     /// </summary>
     public async Task<TaskResult<NhAssistantAlertDto>> DismissAsync(
         NhAiInvocationContext caller,
         Guid alertId,
         string? impersonationOriginActorId,
+        int? muteSubjectForDays,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(caller);
+        if (muteSubjectForDays is < 1 or > NhAssistantAlertLimits.MaxSubjectMuteDays)
+        {
+            return TaskResult<NhAssistantAlertDto>.Failed(
+                NhAssistantAlertCodes.SubjectMuteDaysInvalid,
+                NhAssistantErrorCodes.MessageKey(NhAssistantAlertCodes.SubjectMuteDaysInvalid));
+        }
+
         var found = await FindAsync(caller, alertId, cancellationToken);
         if (found is null)
         {
             return NotFound();
         }
-
-        if (await store.DismissOnceAsync(alertId, caller.ActorId, _applicationClock.GetUtcNow(), cancellationToken))
+        if (muteSubjectForDays is not null && !NhAssistantAlertChoice.MayMute(found.Value.Kind))
         {
-            await events.AlertDismissedAsync(found.Value.Delivery.Alert!, caller.ActorId, cancellationToken, impersonationOriginActorId);
+            return TaskResult<NhAssistantAlertDto>.Failed(
+                NhAssistantAlertCodes.SubjectMuteNotAllowed,
+                NhAssistantErrorCodes.MessageKey(NhAssistantAlertCodes.SubjectMuteNotAllowed));
+        }
+
+        var now = _applicationClock.GetUtcNow();
+        var alert = found.Value.Delivery.Alert!;
+        if (await store.DismissOnceAsync(alertId, caller.ActorId, now, cancellationToken))
+        {
+            await events.AlertDismissedAsync(alert, caller.ActorId, cancellationToken, impersonationOriginActorId);
+        }
+        if (muteSubjectForDays is { } days)
+        {
+            await subjectMutes.MuteAsync(
+                caller.ActorId,
+                alert.KindId,
+                new NhAiSubjectRef(alert.SubjectType, alert.SubjectId),
+                alert.SubjectDisplayName,
+                now,
+                now.AddDays(days),
+                cancellationToken);
         }
 
         return await CurrentAsync(caller.ActorId, alertId, found.Value.Kind, cancellationToken);
@@ -241,7 +274,11 @@ internal sealed class NhAssistantAlertList(
             SubjectType = query.SubjectType,
             SubjectId = query.SubjectId,
             Urgencies = query.Urgencies,
-            WithoutMuted = withoutMuted
+            WithoutMuted = withoutMuted,
+            // A mute about a subject applies only to a kind the person may mute.
+            SubjectMuteKindIds = withoutMuted
+                ? registration.AlertKinds.Values.Where(NhAssistantAlertChoice.MayMute).Select(kind => kind.Id).ToArray()
+                : []
         };
         var deliveries = await store.ListForRecipientAsync(caller.ActorId, filter, NhAssistantAlertListDto.MaxListed, cancellationToken);
         var verdicts = new Dictionary<(string Type, string Id), bool>();
@@ -352,7 +389,8 @@ internal sealed class NhAssistantAlertList(
             IsExpired = alert.Status == NhAssistantAlertStatuses.Expired
                 || (alert.Status == NhAssistantAlertStatuses.Open && alert.ExpiresAt is { } expiresAt && expiresAt <= now),
             IsWithheld = withheld,
-            WithheldReason = withheld ? delivery.ReasonCode : null
+            WithheldReason = withheld ? delivery.ReasonCode : null,
+            MayMuteSubject = NhAssistantAlertChoice.MayMute(kind)
         };
     }
 

@@ -14,12 +14,14 @@
         <input type="checkbox" data-compact-alerts [checked]="density() === 'compact'" (change)="toggleDensity()" />
         {{ 'alerts-page.compact-list' | translate }}
       </label>
-      <!-- The list groups the alerts per division, the parent every project names; it never navigates. -->
+      <!-- The list groups the alerts per division, the parent every project names; it never navigates.
+           Dismissing offers to hear nothing more about the project for a while. -->
       <nh-assistant-alerts [grouped]="true" [density]="density()" (openSubject)="openSubject($event)" />
     </article>
 
     <article class="preferences-card">
-      <!-- SPM-392: how the alerts reach the person, in their own time zone. -->
+      <!-- SPM-392: how the alerts reach the person, in their own time zone: the times of the overviews,
+           quiet hours, and the projects they muted for a while. -->
       <nh-assistant-notification-preferences />
     </article>
   </div>

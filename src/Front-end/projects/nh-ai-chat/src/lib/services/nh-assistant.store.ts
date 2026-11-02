@@ -374,6 +374,8 @@ export class NhAssistantStore {
   private statusRevision = 0;
   private accountRevision = 0;
   private collaborationKey: string | null = null;
+  /** Push was activated for the signed-in person, so forgetting them deactivates it. */
+  private pushActivated = false;
 
   private readonly activeSession = computed(() => {
     const id = this.activeIdState();
@@ -2052,6 +2054,7 @@ export class NhAssistantStore {
     const accountChanged = this.collaborationKey?.split('|')[0] !== String(this.accountRevision);
     this.collaborationKey = key;
     void this.live.connect(collaboration?.hubPath ?? null, accountChanged);
+    this.pushActivated = true;
     void this.push.activate(collaboration?.push === true);
   }
 
@@ -2109,7 +2112,13 @@ export class NhAssistantStore {
     this.attachmentConversation = null;
     this.clearAgentWorkTimers();
     void this.live.stop();
-    void this.push.deactivate().catch(() => undefined);
+    // The page's first person leaves no earlier person's notifications to forget: their activation renews
+    // or cancels this browser's subscription, and the notification settings a page loaded for them meanwhile
+    // stay, so the page asks for them once (FB87-13).
+    if (this.pushActivated) {
+      void this.push.deactivate().catch(() => undefined);
+    }
+    this.pushActivated = false;
   }
 
   private async createConversation(): Promise<Conversation | null> {

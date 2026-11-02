@@ -204,6 +204,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAlertKindSettingStore>();
         services.TryAddScoped<Alerts.NhAssistantAlertKindSettings>();
         services.TryAddScoped<NhAssistantAlertNumbersStore>();
+        // Time and the person (FB87 phase 2): a person's mutes of one kind about one subject (FB87-11).
+        services.TryAddScoped<NhAssistantAlertSubjectMuteStore>();
         return state;
     }
 

@@ -1317,6 +1317,51 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAlertKindSetting", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAlertSubjectMute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("KindId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("MutedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SubjectDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("Until")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Until");
+
+                    b.HasIndex("ActorId", "KindId", "SubjectType", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("AssistantAlertSubjectMute", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantApplicationContext", b =>
                 {
                     b.Property<string>("Id")
@@ -2738,6 +2783,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<TimeOnly?>("DigestTime")
                         .HasColumnType("time");
 
+                    b.Property<string>("DigestTimes")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<bool?>("InApp")
                         .HasColumnType("bit");
 
@@ -2746,6 +2795,12 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<bool?>("Push")
                         .HasColumnType("bit");
+
+                    b.Property<TimeOnly?>("QuietHoursEnd")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("QuietHoursStart")
+                        .HasColumnType("time");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");

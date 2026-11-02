@@ -46,9 +46,10 @@ internal sealed record NhAssistantAlertDispatchResult(
 /// It claims the deliveries that are due in bounded batches, so several instances never send one twice,
 /// and for each person checks every recipient again right before sending: a person who no longer
 /// qualifies is dropped with the content-free audit <c>AgentAlertRecipientDropped</c>. A person who
-/// muted a kind that is not required, or who reached <see cref="NhAssistantLimits.MaxAlertsPerPersonPerDay"/>,
-/// gets nothing and the delivery is withheld; the alert stays in their list, as it does when an
-/// administrator switched its kind off meanwhile. A kind's delivery is its effective one
+/// muted a kind that is not required, who muted the kind about the alert's subject for a while (FB87-11),
+/// or who reached <see cref="NhAssistantLimits.MaxAlertsPerPersonPerDay"/>, gets nothing and the delivery
+/// is withheld; the alert stays in their list, as it does when an administrator switched its kind off
+/// meanwhile. A kind's delivery is its effective one
 /// (<see cref="NhAssistantAlertKindSettings"/>). An alert delivered
 /// immediately goes out on its own; every other delivery of a person due at the same moment goes out
 /// as one digest, whose title counts its alerts per urgency and which lists at most
@@ -68,6 +69,7 @@ internal sealed class NhAssistantAlertDispatcher(
     NhAssistantAlertTexts texts,
     NhAssistantAgentEvents events,
     NhAssistantAlertKindSettings kindSettings,
+    NhAssistantAlertSubjectMuteStore subjectMutes,
     INhAssistantNotifier notifier,
     IEnumerable<INhAssistantAlertChannel> channels,
     IOptionsMonitor<NhAssistantOptions> options,
@@ -133,7 +135,8 @@ internal sealed class NhAssistantAlertDispatcher(
         var sentToday = await store.CountSentSinceAsync(recipients, new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero), cancellationToken);
         var cultures = await CulturesAsync(recipients, cancellationToken);
         var kinds = await kindSettings.GetAllAsync(cancellationToken);
-        var pass = new Pass(claimant, now) { Claimed = claimed.Count };
+        var mutes = await subjectMutes.FindActiveAsync(recipients, now, cancellationToken);
+        var pass = new Pass(claimant, now) { Claimed = claimed.Count, SubjectMutes = mutes };
 
         foreach (var person in claimed.GroupBy(delivery => delivery.RecipientActorId, StringComparer.Ordinal).OrderBy(group => group.Key, StringComparer.Ordinal))
         {
@@ -221,6 +224,12 @@ internal sealed class NhAssistantAlertDispatcher(
             if (choice.Muted)
             {
                 await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.Muted, cancellationToken);
+                continue;
+            }
+            if (NhAssistantAlertChoice.MayMute(kind)
+                && pass.SubjectMutes.Contains(new NhAssistantAlertSubjectMuteKey(actorId, kind.Id, alert.SubjectType, alert.SubjectId)))
+            {
+                await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.SubjectMuted, cancellationToken);
                 continue;
             }
             if (sentToday + items.Count >= limit)
@@ -661,6 +670,9 @@ internal sealed class NhAssistantAlertDispatcher(
         public DateTimeOffset Now { get; } = now;
 
         public int Claimed { get; init; }
+
+        /// <summary>The mutes of a kind about a subject of the claimed people that have not ended.</summary>
+        public IReadOnlySet<NhAssistantAlertSubjectMuteKey> SubjectMutes { get; init; } = new HashSet<NhAssistantAlertSubjectMuteKey>();
 
         public int Sent { get; set; }
 

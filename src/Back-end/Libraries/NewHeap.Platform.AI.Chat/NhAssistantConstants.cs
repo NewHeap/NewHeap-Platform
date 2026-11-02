@@ -871,9 +871,22 @@ public static class NhAssistantErrorCodes
 
     /// <summary>
     /// A digest time in a change of the caller's notification preferences is not a time of day as
-    /// <c>HH:mm</c>, such as <c>07:30</c>. Nothing was saved.
+    /// <c>HH:mm</c>, such as <c>07:30</c>, or a list of digest times is empty or has more than
+    /// <see cref="Entities.AssistantAlertKindSetting.MaxDigestTimes"/>. Nothing was saved.
     /// </summary>
     public const string NotificationDigestTimeInvalid = "assistant-notification-digest-time-invalid";
+
+    /// <summary>
+    /// A change of the caller's notification preferences sets quiet hours for an alert kind that does not
+    /// let people choose them. Nothing was saved.
+    /// </summary>
+    public const string NotificationQuietHoursNotAllowed = "assistant-notification-quiet-hours-not-allowed";
+
+    /// <summary>
+    /// Quiet hours in a change of the caller's notification preferences are not a start and an end as
+    /// <c>HH:mm</c> that differ. Nothing was saved.
+    /// </summary>
+    public const string NotificationQuietHoursInvalid = "assistant-notification-quiet-hours-invalid";
 
     /// <summary>
     /// An impersonation session (an access token with the NewHeap impersonation origin) acts as the

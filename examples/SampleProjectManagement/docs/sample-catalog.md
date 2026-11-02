@@ -291,6 +291,10 @@ there, and a colleague who muted the kind in their notification preferences gets
 An administrator manages the kind in the Alerts section of the assistant administration, within the
 bounds its code declares: they see its numbers per period, move its morning digest, which every
 person's preferences then show as the default, or switch it off, after which nothing of it is raised.
+The kind delivers in a morning and an afternoon digest and keeps quiet from 20:00 to 07:00, so an
+urgent warning in the evening waits for the morning; a person chooses their own digest times and quiet
+hours, and one who dismisses the warning may hear nothing more about that project for a week, while the
+owner still does.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

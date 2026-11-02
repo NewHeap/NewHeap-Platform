@@ -113,6 +113,61 @@ internal static class NhAssistantAlertDigestTimes
     }
 
     /// <summary>
+    /// The first moment at or after <paramref name="now"/> of the digests at <paramref name="times"/>, as
+    /// <see cref="Next(DateTimeOffset, TimeOnly, bool, TimeZoneInfo)"/> plans one, outside
+    /// <paramref name="quietHours"/>: a digest time in the quiet hours is skipped, so the delivery moves to
+    /// the first digest time after they end; when every digest time is in them, it goes out at their end.
+    /// </summary>
+    public static DateTimeOffset Next(
+        DateTimeOffset now,
+        IReadOnlyList<TimeOnly> times,
+        bool workdaysOnly,
+        NhAssistantAlertQuietHours? quietHours,
+        TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(times);
+        if (times.Count == 0)
+        {
+            throw new ArgumentException("A digest delivery has at least one digest time.", nameof(times));
+        }
+
+        IReadOnlyList<TimeOnly> candidates = quietHours is null ? times : times.Where(time => !quietHours.Contains(time)).ToArray();
+        if (candidates.Count == 0)
+        {
+            candidates = times;
+        }
+
+        // A time the clock skips falls after the gap, which may lie in the quiet hours: that one waits too.
+        return candidates
+            .Select(time => Next(now, time, workdaysOnly, zone))
+            .Select(moment => quietHours is null ? moment : OutsideQuietHours(moment, quietHours, zone))
+            .Min();
+    }
+
+    /// <summary>
+    /// <paramref name="moment"/> when the clock in <paramref name="zone"/> shows a time outside
+    /// <paramref name="quietHours"/>; otherwise the end of the quiet hours it falls in, in UTC.
+    /// </summary>
+    public static DateTimeOffset OutsideQuietHours(DateTimeOffset moment, NhAssistantAlertQuietHours quietHours, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(quietHours);
+        ArgumentNullException.ThrowIfNull(zone);
+        var local = TimeZoneInfo.ConvertTime(moment, zone).DateTime;
+        var time = TimeOnly.FromDateTime(local);
+        if (!quietHours.Contains(time))
+        {
+            return moment;
+        }
+
+        // Quiet hours across midnight that began today end tomorrow; all others end today.
+        var day = DateOnly.FromDateTime(local);
+        var end = At(time < quietHours.End ? day : day.AddDays(1), quietHours.End, zone);
+
+        // Around a change of daylight saving time the end's first pass may lie before the moment.
+        return end > moment ? end : moment;
+    }
+
+    /// <summary>
     /// The moment, in UTC, when the clock in <paramref name="zone"/> shows <paramref name="time"/> on
     /// <paramref name="day"/>.
     /// </summary>
@@ -134,13 +189,16 @@ internal static class NhAssistantAlertDigestTimes
 }
 
 /// <summary>
-/// Plans the deliveries of alerts (FB87 phase 1, lane AB) in place of the immediate default: an alert of
+/// Plans the deliveries of alerts (FB87, lanes AB and AT) in place of the immediate default: an alert of
 /// a kind delivered immediately, or of an urgency from which its kind delivers immediately, is due at
-/// once; any other is due at the next daily digest at the person's chosen digest time or the kind's, on
-/// working days only when the kind says so, in the person's time zone. The kind's delivery is its
-/// effective one (<see cref="NhAssistantAlertKindSettings"/>), with an administrator's settings; of several
-/// digest times it plans the first of the day. A later change of a digest time applies to the deliveries
-/// planned after it.
+/// once; any other is due at the next of the day's digest times, the person's own where the kind lets
+/// them choose, otherwise the kind's, on working days only when the kind says so, in the person's time
+/// zone. Nothing is due in quiet hours, the person's own where the kind lets them choose, otherwise the
+/// kind's: a digest moves to the first digest time after they end, and a delivery due at once to their
+/// end, unless the alert is urgent and its kind lets urgent alerts through
+/// (<see cref="NhAssistantAlertKind.UrgentBreaksQuietHours"/>). The kind's delivery is its effective one
+/// (<see cref="NhAssistantAlertKindSettings"/>), with an administrator's settings. A later change of the
+/// digest times or quiet hours applies to the deliveries planned after it.
 /// </summary>
 internal sealed class NhAssistantAlertDigestScheduler(
     NhAssistantNotificationStore notifications,
@@ -155,8 +213,11 @@ internal sealed class NhAssistantAlertDigestScheduler(
         ArgumentNullException.ThrowIfNull(request);
         var kind = request.Kind;
         var delivery = (await kindSettings.GetAsync(kind, cancellationToken)).Delivery;
-        if (delivery.IsImmediateFor(request.Urgency) || delivery.DigestTime is null)
+        var immediate = delivery.IsImmediateFor(request.Urgency) || delivery.DigestTime is null;
+        var breaksQuietHours = request.Urgency == NhAssistantAlertUrgency.Urgent && kind.UrgentBreaksQuietHours;
+        if (immediate && (breaksQuietHours || (delivery.QuietHours is null && !NhAssistantAlertChoice.MayChangeQuietHours(kind))))
         {
+            // Nothing can hold it back, so the person's choices and time zone are not read.
             return request.Now;
         }
 
@@ -170,7 +231,15 @@ internal sealed class NhAssistantAlertDigestScheduler(
         }
 
         var choice = NhAssistantAlertChoice.Of(kind, delivery, preferences.GetValueOrDefault(kind.Id));
+        var quietHours = breaksQuietHours ? null : choice.QuietHours;
+        if (immediate && quietHours is null)
+        {
+            return request.Now;
+        }
+
         var zone = await timeZones.OfAsync(request.RecipientActorId, cancellationToken);
-        return NhAssistantAlertDigestTimes.Next(request.Now, choice.DigestTime!.Value, delivery.WorkdaysOnly, zone);
+        return immediate
+            ? NhAssistantAlertDigestTimes.OutsideQuietHours(request.Now, quietHours!, zone)
+            : NhAssistantAlertDigestTimes.Next(request.Now, choice.DigestTimes, delivery.WorkdaysOnly, quietHours, zone);
     }
 }

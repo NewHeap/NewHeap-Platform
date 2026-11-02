@@ -3,9 +3,9 @@ id: nh-ai-alerts
 title: "Warn people about an object with alerts of a kind declared in code, raised by rules and by the application without a proposal"
 area: backend
 reference: ai-alerts
-summary: "Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin."
+summary: "Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin. A kind delivers in up to four digests a day and keeps quiet hours, a person chooses their own where the kind allows it, and a person who dismisses an alert may hear nothing more of its kind about that object for a while."
 sample-cases: ["SPM-392"]
-public-symbols: ["AddAlertKind", "NhAssistantAlertKindBuilder", "NhAssistantAlertKind", "NhAssistantAlertUrgency", "NhAssistantAlertRecipients", "NhAssistantAlertRecipientSelector", "NhAssistantAlertDelivery", "NhAssistantAlertDeliveryBuilder", "NhAssistantAlertDeliveryMode", "NhAssistantAlertChoices", "NhAssistantAlertPushContent", "NhAssistantAgentRunBuilder.Alerts", "AlertKinds", "NhAssistantRuleResult.WithAlerts", "NhAssistantRuleResult.ResolveAlerts", "AlertsToResolve", "NhAssistantAlert", "NhAssistantAlertKey", "INhAssistantAlerts", "NhAssistantAlertReceipt", "NhAssistantAlertOutcome", "INhAssistantAlertPolicy", "NhAssistantAlertRecipientContext", "NhAssistantDefaultAlertPolicy", "UseAlertPolicy", "NhAssistantAlertCodes", "NhAssistantAlertLimits", "NhAssistantAlertStatuses", "NhAssistantAlertDeliveryStatuses", "NhAssistantAlertDropReasons", "MaxAlertsPerRun", "MaxAlertsPerSubjectPerDay", "AlertRetention", "AssistantAlert", "AssistantAlertDelivery", "NhAssistantAuditEventKind.AgentAlertRaised", "NhAssistantAuditEventKind.AgentAlertResolved", "NhAssistantAuditEventKind.AgentAlertDismissed", "NhAssistantAuditEventKind.AgentAlertRecipientDropped", "NhAssistantAuditEvent.AlertId", "NhAssistantAuditEvent.AlertKind", "NhAssistantAuditEvent.AlertRevision", "NhAssistantAuditEvent.AlertRecipientCount", "NhAssistantAlertOptions", "ConfigureAlerts", "INhAssistantPersonTimeZones", "UsePersonTimeZones", "INhAssistantAlertChannel", "AddAlertChannel", "NhAssistantAlertMessage", "NhAssistantAlertMessageItem", "NhAssistantAlertWithholdReasons", "NhAssistantAlertDeliveryStatuses.Withheld", "MaxAlertsPerPersonPerDay", "MaxAlertDigestLines", "AssistantNotificationPreference", "NhAssistantAlertKindPreferenceDto", "NhAssistantAlertChannelsDto", "NhAssistantAlertKindPreferenceUpdateDto", "NhAssistantAlertChannelsUpdateDto", "NhAssistantErrorCodes.NotificationKindUnknown", "NhAssistantErrorCodes.NotificationMuteNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeNotAllowed", "NhAssistantErrorCodes.NotificationChannelsNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeInvalid", "openAlerts$", "NhAssistantAlertNotificationClick", "alertsUrl", "NhAssistantAlertListStatuses", "NhAssistantAlertUrgencyNames", "NhAssistantAlertListDto", "NhAssistantAlertDto", "NhAssistantAlertParentDto", "NhAssistantAlertGroupDto", "NhAssistantAlertSubjectGroupDto", "NhAssistantAlertSummaryDto", "NhAssistantAlertUrgencyCountsDto", "NhAssistantAlertJsonSerializerContext", "NhAssistantAlertsComponent", "NhAssistantAlertBadgeService", "NhAssistantNotificationPreferencesComponent", "NhAssistantAlertDensity", "AlertSubjectTarget", "NotificationAlertKind", "NotificationAlertKindChange", "UpdateNotificationSettingsRequest", "getAlerts", "getAlertSummary", "markAlertRead", "dismissAlert", "updateNotificationPreferences", "NhAssistantAlertRecipients.SubjectMembers", "NhAssistantAlertRecipientSelector.SubjectMembers", "MinimumMemberRole", "NhAssistantAlertDropReasons.BelowMinimumRole", "NhAssistantAlertKindBuilder.ResolveWhenNotRaised", "NhAssistantAlertKind.ResolveWhenNotRaised", "NhAssistantAlertCodes.NotRaised", "NhAssistantAlertKindBuilder.Revalidate", "INhAssistantAlertCheck", "NhAssistantAlertCheckContext", "NhAssistantAlertValidity", "INhAssistantAlerts.RevalidateAsync", "NhAssistantAlertRevalidationResult", "NhAssistantResolvedAlert", "NhAssistantAlertCodes.Revalidated", "NhAssistantAlertLimits.MaxRevalidatedAlerts", "NhAssistantAlertAdminChoices", "NhAssistantAlertKindBuilder.AdministratorMayChange", "NhAssistantAlertKind.AdministratorChoices", "AssistantAlertKindSetting", "NhAssistantAlertKindSettingModes", "NhAssistantAlertCodes.KindOff", "NhAssistantAlertWithholdReasons.KindOff", "NhAssistantAuditEventKind.AdminAlertKindChanged", "NhAssistantAuditEvent.ChangedFields", "NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed", "NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed", "NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid", "NhAssistantAdminAlertKindsDto", "NhAssistantAdminAlertKindDto", "NhAssistantAdminAlertKindChoicesDto", "NhAssistantAdminAlertDeliveryDto", "NhAssistantAdminAlertQuietHoursDto", "NhAssistantAdminAlertKindSettingsDto", "NhAssistantAdminAlertKindNumbersDto", "NhAssistantAdminAlertShadowAgentDto", "NhAssistantAdminAlertKindRequest", "NhAssistantAdminAlertDeliveryRequest", "NhAssistantAdminAlertQuietHoursRequest", "NhAssistantAdminAlertKindsComponent", "getAlertKinds", "updateAlertKind", "AdminAlertKinds", "AdminAlertKind", "AdminAlertKindChange"]
+public-symbols: ["AddAlertKind", "NhAssistantAlertKindBuilder", "NhAssistantAlertKind", "NhAssistantAlertUrgency", "NhAssistantAlertRecipients", "NhAssistantAlertRecipientSelector", "NhAssistantAlertDelivery", "NhAssistantAlertDeliveryBuilder", "NhAssistantAlertDeliveryMode", "NhAssistantAlertChoices", "NhAssistantAlertPushContent", "NhAssistantAgentRunBuilder.Alerts", "AlertKinds", "NhAssistantRuleResult.WithAlerts", "NhAssistantRuleResult.ResolveAlerts", "AlertsToResolve", "NhAssistantAlert", "NhAssistantAlertKey", "INhAssistantAlerts", "NhAssistantAlertReceipt", "NhAssistantAlertOutcome", "INhAssistantAlertPolicy", "NhAssistantAlertRecipientContext", "NhAssistantDefaultAlertPolicy", "UseAlertPolicy", "NhAssistantAlertCodes", "NhAssistantAlertLimits", "NhAssistantAlertStatuses", "NhAssistantAlertDeliveryStatuses", "NhAssistantAlertDropReasons", "MaxAlertsPerRun", "MaxAlertsPerSubjectPerDay", "AlertRetention", "AssistantAlert", "AssistantAlertDelivery", "NhAssistantAuditEventKind.AgentAlertRaised", "NhAssistantAuditEventKind.AgentAlertResolved", "NhAssistantAuditEventKind.AgentAlertDismissed", "NhAssistantAuditEventKind.AgentAlertRecipientDropped", "NhAssistantAuditEvent.AlertId", "NhAssistantAuditEvent.AlertKind", "NhAssistantAuditEvent.AlertRevision", "NhAssistantAuditEvent.AlertRecipientCount", "NhAssistantAlertOptions", "ConfigureAlerts", "INhAssistantPersonTimeZones", "UsePersonTimeZones", "INhAssistantAlertChannel", "AddAlertChannel", "NhAssistantAlertMessage", "NhAssistantAlertMessageItem", "NhAssistantAlertWithholdReasons", "NhAssistantAlertDeliveryStatuses.Withheld", "MaxAlertsPerPersonPerDay", "MaxAlertDigestLines", "AssistantNotificationPreference", "NhAssistantAlertKindPreferenceDto", "NhAssistantAlertChannelsDto", "NhAssistantAlertKindPreferenceUpdateDto", "NhAssistantAlertChannelsUpdateDto", "NhAssistantErrorCodes.NotificationKindUnknown", "NhAssistantErrorCodes.NotificationMuteNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeNotAllowed", "NhAssistantErrorCodes.NotificationChannelsNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeInvalid", "openAlerts$", "NhAssistantAlertNotificationClick", "alertsUrl", "NhAssistantAlertListStatuses", "NhAssistantAlertUrgencyNames", "NhAssistantAlertListDto", "NhAssistantAlertDto", "NhAssistantAlertParentDto", "NhAssistantAlertGroupDto", "NhAssistantAlertSubjectGroupDto", "NhAssistantAlertSummaryDto", "NhAssistantAlertUrgencyCountsDto", "NhAssistantAlertJsonSerializerContext", "NhAssistantAlertsComponent", "NhAssistantAlertBadgeService", "NhAssistantNotificationPreferencesComponent", "NhAssistantAlertDensity", "AlertSubjectTarget", "NotificationAlertKind", "NotificationAlertKindChange", "UpdateNotificationSettingsRequest", "getAlerts", "getAlertSummary", "markAlertRead", "dismissAlert", "updateNotificationPreferences", "NhAssistantAlertRecipients.SubjectMembers", "NhAssistantAlertRecipientSelector.SubjectMembers", "MinimumMemberRole", "NhAssistantAlertDropReasons.BelowMinimumRole", "NhAssistantAlertKindBuilder.ResolveWhenNotRaised", "NhAssistantAlertKind.ResolveWhenNotRaised", "NhAssistantAlertCodes.NotRaised", "NhAssistantAlertKindBuilder.Revalidate", "INhAssistantAlertCheck", "NhAssistantAlertCheckContext", "NhAssistantAlertValidity", "INhAssistantAlerts.RevalidateAsync", "NhAssistantAlertRevalidationResult", "NhAssistantResolvedAlert", "NhAssistantAlertCodes.Revalidated", "NhAssistantAlertLimits.MaxRevalidatedAlerts", "NhAssistantAlertAdminChoices", "NhAssistantAlertKindBuilder.AdministratorMayChange", "NhAssistantAlertKind.AdministratorChoices", "AssistantAlertKindSetting", "NhAssistantAlertKindSettingModes", "NhAssistantAlertCodes.KindOff", "NhAssistantAlertWithholdReasons.KindOff", "NhAssistantAuditEventKind.AdminAlertKindChanged", "NhAssistantAuditEvent.ChangedFields", "NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed", "NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed", "NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid", "NhAssistantAdminAlertKindsDto", "NhAssistantAdminAlertKindDto", "NhAssistantAdminAlertKindChoicesDto", "NhAssistantAdminAlertDeliveryDto", "NhAssistantAdminAlertQuietHoursDto", "NhAssistantAdminAlertKindSettingsDto", "NhAssistantAdminAlertKindNumbersDto", "NhAssistantAdminAlertShadowAgentDto", "NhAssistantAdminAlertKindRequest", "NhAssistantAdminAlertDeliveryRequest", "NhAssistantAdminAlertQuietHoursRequest", "NhAssistantAdminAlertKindsComponent", "getAlertKinds", "updateAlertKind", "AdminAlertKinds", "AdminAlertKind", "AdminAlertKindChange", "NhAssistantAlertQuietHours", "DailyDigests", "NhAssistantAlertDeliveryBuilder.QuietHours", "DigestTimes", "NhAssistantAlertKindBuilder.UrgentBreaksQuietHours", "NhAssistantAlertKind.UrgentBreaksQuietHours", "NhAssistantAlertChoices.QuietHours", "AssistantAlertSubjectMute", "NhAssistantAlertWithholdReasons.SubjectMuted", "NhAssistantAlertCodes.SubjectMuteNotAllowed", "NhAssistantAlertCodes.SubjectMuteDaysInvalid", "NhAssistantAlertLimits.MaxSubjectMuteDays", "NhAssistantErrorCodes.NotificationQuietHoursNotAllowed", "NhAssistantErrorCodes.NotificationQuietHoursInvalid", "NhAssistantQuietHoursDto", "NhAssistantQuietHoursUpdateDto", "NhAssistantAlertSubjectMuteDto", "NhAssistantDismissAlertRequest", "NotificationQuietHours", "NotificationSubjectMute", "AlertDismissOptions", "NH_ASSISTANT_ALERT_MAX_SUBJECT_MUTE_DAYS", "loadSettings", "updatePreferences"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -27,10 +27,11 @@ resources, as SPM-392 does, so every language follows the translations. Give the
 `Urgency` (`Info`, `Warning`, `Urgent`), its recipients with `NhAssistantAlertRecipients`
 (`SubjectResponsible`, `Explicit`, `SubjectApprovers` and `SubjectMembers(minRole)`, combined with
 `Or`), an optional
-`RepeatAfter` and its default `Delivery`: immediately, one `DailyDigest(time)` with
-`WorkdaysOnly()`, and `ImmediatelyFrom(urgency)` for alerts that cannot wait. Declare what a person
-may change with `PersonMayChange` (`Mute`, `DigestTime`, `Channels`), or make the kind `Required()`
-so nobody mutes it. `PushShows` stays `TitleOnly` unless the text is safe on a lock screen.
+`RepeatAfter` and its default `Delivery`: immediately, one `DailyDigest(time)` or up to four
+`DailyDigests(times)` with `WorkdaysOnly()`, `ImmediatelyFrom(urgency)` for alerts that cannot wait and
+`QuietHours(start, end)` (see "Time and the person"). Declare what a person may change with
+`PersonMayChange` (`Mute`, `DigestTime`, `Channels`, `QuietHours`), or make the kind `Required()` so
+nobody mutes it. `PushShows` stays `TitleOnly` unless the text is safe on a lock screen.
 
 ```csharp
 assistant
@@ -273,6 +274,64 @@ preferences leave it out. Switching it on again lets the next raise plan the wit
 switch and the delivery editable where the code allows it; `NhAssistantAdminApiService` has
 `getAlertKinds` and `updateAlertKind`, and `provideNhAssistantMockApi` serves an example view.
 
+### Time and the person
+
+A kind delivers in up to four digests a day: `DailyDigests(new TimeOnly(7, 30), new TimeOnly(16, 0))`,
+of which `DailyDigest(time)` is the one-time form; an alert goes out in the next of them after it is
+raised. `QuietHours(start, end)` keeps the kind quiet in the person's time zone, across midnight when the
+end comes before the start, such as 22:00 to 07:00: a digest that would go out in them moves to the
+first digest time after they end, or to their end when every digest time is in them, and an alert that
+goes out immediately waits for their end. An urgent alert waits as well, unless the kind lets urgent
+alerts through with `UrgentBreaksQuietHours()`. An administrator changes the digest times and quiet
+hours within `AdministratorMayChange` (see above). Where the kind's `PersonMayChange` allows
+`DigestTime`, a person chooses one to four times of their own, and with `QuietHours` their own quiet
+hours, which replace the kind's; both count in the person's time zone and across daylight saving time,
+and apply to the deliveries planned after they changed. Mind an alert's expiry: one that waits for the
+end of the quiet hours and expires first is never sent, which suits a warning about today.
+
+```csharp
+assistant.AddAlertKind("project-due-today", kind => kind
+    // ...
+    .Delivery(delivery => delivery
+        .DailyDigests(new TimeOnly(7, 30), new TimeOnly(16, 0))
+        .WorkdaysOnly()
+        .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent)
+        .QuietHours(new TimeOnly(20, 0), new TimeOnly(7, 0)))
+    .PersonMayChange(NhAssistantAlertChoices.All));
+```
+
+A person who dismisses an alert may also hear nothing more of its kind about that object for a while
+(FB87-11): `POST alerts/{id}/dismiss` with `{ "muteSubjectForDays": 7 }`, from 1 to
+`NhAssistantAlertLimits.MaxSubjectMuteDays` (90). Only that kind about that object, for that person: other
+kinds about the object and the kind about other objects still reach them. While the mute lasts, the
+deliveries are withheld as `subject-muted` (`NhAssistantAlertWithholdReasons.SubjectMuted`), stay in the
+person's list and leave the badge; dismissing again for longer extends the mute and never shortens it.
+A kind the person may not mute, a `Required` one above all, answers `400
+assistant-alert-subject-mute-not-allowed`, and a number of days out of bounds `400
+assistant-alert-subject-mute-days-invalid`; neither dismisses. `mayMuteSubject` on an alert says whether
+the person may. A mute is kept in `AssistantAlertSubjectMute` and removed by the run maintenance once it
+ended, and when the application forgets the user.
+
+`GET notifications` shows per kind, next to every field of before, `defaultDigestTimes` and the person's
+`digestTimes` (the single `defaultDigestTime` and `digestTime` stay the first of them),
+`mayChangeQuietHours`, `defaultQuietHours`, the person's `quietHours` and `urgentBreaksQuietHours`, and the
+person's `subjectMutes` that have not ended. `PUT notifications` takes `digestTimes` (one to four `HH:mm`,
+`null` for the kind's; it replaces `digestTime`) and `quietHours` (`{ start, end }`, `null` for the kind's)
+per kind, and `liftSubjectMutes` with the ids of the person's own mutes; an id of anyone else's changes
+nothing. A value left out stays as it is. Times that are no times of day or more than four are refused
+with `assistant-notification-digest-time-invalid`, quiet hours that are none with
+`assistant-notification-quiet-hours-invalid`, and quiet hours a kind does not let the person choose with
+`assistant-notification-quiet-hours-not-allowed`. `nh-assistant-notification-preferences` edits the times
+and quiet hours and lists the mutes so a save lifts them, and `nh-assistant-alerts` offers 7 or 30 days on
+dismissing where `mayMuteSubject` allows it; `dismissAlert(id, { muteSubjectForDays })` sends it.
+
+The page of a person's alerts reads their settings once: `NhAssistantPushService` holds them for every
+part of the page (FB87-13). `loadSettings()` shares one `GET notifications` while it is in flight,
+activating push for the signed-in person reuses settings that were loaded for them, and
+`updatePreferences(request)` keeps `settings` current, so the preferences, the push switch and the
+assistant's start do not each ask. These features add the `AlertTimingAndMutes` migration of the SQL
+Server or PostgreSQL assistant storage, on top of `AlertKindSettings`.
+
 ## Avoid
 
 - Raising a proposal, or an application message in a thread, to warn a person about an object.
@@ -300,6 +359,12 @@ switch and the delivery editable where the code allows it; `NhAssistantAdminApiS
 - Reading the alert store yourself for a person's list or badge instead of `GET alerts`, which checks
   every alert against the person's access again.
 - Navigating from inside the alert list, or polling the summary yourself next to the badge service.
+- Raising an urgent alert at night that must wake people without `UrgentBreaksQuietHours()`, or letting
+  a kind break quiet hours for alerts that can wait.
+- Using a mute about an object to silence a kind for everyone; it is one person's choice, and a kind
+  that must reach people is `Required()`.
+- Fetching `GET notifications` yourself next to `nh-assistant-notification-preferences`; read the
+  person's settings through `NhAssistantPushService.loadSettings()`, which the page shares.
 
 ## Verification
 
@@ -337,6 +402,16 @@ delivery is withheld as `kind-off` and that resolving still works. Assert that a
 the code does not allow, a malformed delivery and a stale version are refused and save nothing, that the
 numbers count each delivery once per period and the shadow alerts per agent, and that people without the
 admin policy get `401` or `403`, on SQL Server and PostgreSQL.
+
+For time and the person, raise alerts of a kind with two digest times and assert the next one in each
+person's time zone, also a person's own times; raise in quiet hours across midnight and assert that a
+digest moves to the first digest time after them and an immediate alert to their end, that an urgent
+alert passes only for a kind with `UrgentBreaksQuietHours()`, that an administrator's and a person's
+quiet hours replace the kind's, and the end of quiet hours across a change of daylight saving time.
+Dismiss an alert with a mute and assert that only that kind about that object is withheld for that
+person, that a required kind cannot be muted, that another person neither reads nor lifts the mute, and
+that it ends, on SQL Server and PostgreSQL. In Angular, pin the requests a page with the list and the
+choices makes: one `GET notifications`.
 
 For a person's side, read `GET alerts` as the recipient and assert the title in their language, the
 subject's link and the groups per parent across pages; mark one read and dismiss one twice and assert

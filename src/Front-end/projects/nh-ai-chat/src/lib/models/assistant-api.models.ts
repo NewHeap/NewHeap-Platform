@@ -7,7 +7,7 @@
  */
 
 import type { AgentSubjectRole } from './assistant-agent-run.models';
-import type { NotificationAlertKind, NotificationAlertKindChange } from './assistant-alert.models';
+import type { NotificationAlertKind, NotificationAlertKindChange, NotificationSubjectMute } from './assistant-alert.models';
 
 export interface AssistantStatus {
   enabled: boolean;
@@ -587,15 +587,22 @@ export interface NotificationSettings {
    * (FB87). A server without alerts sends none; treat it as empty.
    */
   alertKinds?: NotificationAlertKind[];
+  /**
+   * The person's mutes of one alert kind about one subject that have not ended, the most recent first
+   * (FB87-11). An older server sends none; treat it as empty.
+   */
+  subjectMutes?: NotificationSubjectMute[];
 }
 
 /**
- * Body of `PUT notifications`: the push switch and the person's changes per alert kind, each optional.
- * Only what is named changes.
+ * Body of `PUT notifications`: the push switch, the person's changes per alert kind and the mutes to
+ * lift, each optional. Only what is named changes.
  */
 export interface UpdateNotificationSettingsRequest {
   pushEnabled?: boolean;
   alertKinds?: NotificationAlertKindChange[];
+  /** Ids of the person's own `subjectMutes` to lift, at most 200; others change nothing. */
+  liftSubjectMutes?: string[];
 }
 
 /** Body of `PUT notifications/push-subscription`: `PushSubscription.toJSON()` plus the text language. */

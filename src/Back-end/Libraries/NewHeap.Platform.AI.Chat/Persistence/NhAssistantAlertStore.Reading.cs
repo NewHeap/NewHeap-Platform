@@ -47,9 +47,14 @@ internal sealed record NhAssistantAlertListFilter(
 
     /// <summary>
     /// Leaves out the deliveries withheld because the person muted the kind or an administrator switched it
-    /// off, for a badge: the list shows them, but such a kind never asks for the person's attention.
+    /// off, for a badge: the list shows them, but such a kind never asks for the person's attention. With
+    /// <see cref="SubjectMuteKindIds"/> it also leaves out what the person muted about a subject (FB87-11):
+    /// a delivery withheld for that, and one of a kind about a subject whose mute has not ended.
     /// </summary>
     public bool WithoutMuted { get; init; }
+
+    /// <summary>The kinds whose mutes about a subject apply with <see cref="WithoutMuted"/>: those a person may mute.</summary>
+    public IReadOnlyList<string> SubjectMuteKindIds { get; init; } = [];
 }
 
 /// <summary>
@@ -89,7 +94,20 @@ internal sealed partial class NhAssistantAlertStore
         {
             query = query.Where(delivery => !(delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld
                 && (delivery.ReasonCode == NhAssistantAlertWithholdReasons.Muted
-                    || delivery.ReasonCode == NhAssistantAlertWithholdReasons.KindOff)));
+                    || delivery.ReasonCode == NhAssistantAlertWithholdReasons.KindOff
+                    || delivery.ReasonCode == NhAssistantAlertWithholdReasons.SubjectMuted)));
+        }
+        if (filter.WithoutMuted && filter.SubjectMuteKindIds.Count > 0)
+        {
+            // Muted about the subject: also what waited for its digest or went out before the mute.
+            var mutableKindIds = filter.SubjectMuteKindIds.ToArray();
+            var now = filter.Now;
+            query = query.Where(delivery => !(mutableKindIds.Contains(delivery.Alert!.KindId)
+                && context.AlertSubjectMutes.Any(mute => mute.ActorId == delivery.RecipientActorId
+                    && mute.KindId == delivery.Alert.KindId
+                    && mute.SubjectType == delivery.Alert.SubjectType
+                    && mute.SubjectId == delivery.Alert.SubjectId
+                    && mute.Until > now)));
         }
 
         if (filter.KindIds.Count > 0)
