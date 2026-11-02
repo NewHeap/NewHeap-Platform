@@ -4269,20 +4269,12 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/admin-alert-kinds.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-alert-kinds.ts",
       "src/Front-end/projects/management/src/app/assistant-administration/sample-assistant-admin-location.ts",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Alerts.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertModelSwitchStore.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitchEndpoints.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202421_AlertModelSwitches.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202426_AlertModelSwitches.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertModelToolTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-alert-model.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-alert-model.component.html",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-alert-model-admin.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-alert-model.ts"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202319_AlertTimingAndMutes.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202330_AlertTimingAndMutes.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertTimingTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertTimingEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-alert-page-requests.spec.ts"
     ]
   }
 }

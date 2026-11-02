@@ -441,7 +441,7 @@ export class NhAssistantMockBackend {
       const collaboration = {
         directory: (this.scenario.collaboration?.directory?.length ?? 0) > 0,
         hubPath: NH_ASSISTANT_MOCK_HUB_PATH,
-        push: false,
+        push: this.scenario.collaboration?.push === true,
         maxParticipants: this.maxParticipants()
       };
       return this.json(200, this.enabledState()
@@ -464,21 +464,26 @@ export class NhAssistantMockBackend {
       return this.result(this.admin.handleMcpConnections(method, segments, body));
     }
     if (segments[0] === 'alerts') {
-      return this.result(this.alerts.handle(method, segments, query) ?? { status: 404 });
+      return this.result(this.alerts.handle(method, segments, query, body) ?? { status: 404 });
     }
     if (path === 'notifications') {
       if (method === 'PUT') {
-        const update = body as { pushEnabled?: unknown; alertKinds?: unknown } | undefined;
-        // The choices per alert kind apply together with the push switch, or neither does.
-        const refused = this.alerts.update(update?.alertKinds);
+        const update = body as { pushEnabled?: unknown; alertKinds?: unknown; liftSubjectMutes?: unknown } | undefined;
+        if (update?.pushEnabled === undefined && update?.alertKinds === undefined && update?.liftSubjectMutes === undefined) {
+          return this.error('assistant-validation');
+        }
+        // The choices per alert kind apply together with the push switch and the lifted mutes, or none does.
+        const refused = this.alerts.liftRefusal(update?.liftSubjectMutes) ?? this.alerts.update(update?.alertKinds);
         if (refused) {
           return this.result(refused);
         }
+        this.alerts.lift(update?.liftSubjectMutes);
         if (typeof update?.pushEnabled === 'boolean') {
           this.pushEnabled = update.pushEnabled;
         }
       }
-      return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: false, publicKey: null, ...this.alerts.settings() });
+      const push = this.scenario.collaboration?.push === true;
+      return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: push, publicKey: push ? 'mock-public-key' : null, ...this.alerts.settings() });
     }
     if (path === 'notifications/push-subscription') {
       return this.error('assistant-push-unavailable');

@@ -16,8 +16,8 @@ internal static class NhAssistantNotificationPreferenceCategories
 
 /// <summary>
 /// One change to a person's choices about one kind: each value that is set replaces the stored one;
-/// <see cref="DigestTimeChanged"/> says whether <see cref="DigestTime"/> replaces it, so
-/// <see langword="null"/> resets it to the kind's own time.
+/// <see cref="DigestTimeChanged"/>, <see cref="DigestTimesChanged"/> and <see cref="QuietHoursChanged"/>
+/// say whether their value replaces it, so <see langword="null"/> resets it to the kind's own.
 /// </summary>
 internal sealed record NhAssistantNotificationPreferenceChange(string KindId)
 {
@@ -26,6 +26,18 @@ internal sealed record NhAssistantNotificationPreferenceChange(string KindId)
     public bool DigestTimeChanged { get; init; }
 
     public TimeOnly? DigestTime { get; init; }
+
+    /// <summary>
+    /// Whether <see cref="DigestTimes"/> replaces the person's digest times, the first of which is also
+    /// their <see cref="AssistantNotificationPreference.DigestTime"/>.
+    /// </summary>
+    public bool DigestTimesChanged { get; init; }
+
+    public IReadOnlyList<TimeOnly>? DigestTimes { get; init; }
+
+    public bool QuietHoursChanged { get; init; }
+
+    public NhAssistantAlertQuietHours? QuietHours { get; init; }
 
     public bool? Push { get; init; }
 
@@ -376,9 +388,21 @@ internal sealed class NhAssistantNotificationStore(NhAssistantDbContextFactory c
             {
                 preference.Muted = muted;
             }
-            if (change.DigestTimeChanged)
+            if (change.DigestTimesChanged)
+            {
+                // The first time stays in the single column, so a reader of phase 1 finds it.
+                preference.DigestTimes = change.DigestTimes is { Count: > 0 } times ? Alerts.NhAssistantAlertKindSettings.FormatTimes(times) : null;
+                preference.DigestTime = change.DigestTimes is { Count: > 0 } first ? first.Min() : null;
+            }
+            else if (change.DigestTimeChanged)
             {
                 preference.DigestTime = change.DigestTime;
+                preference.DigestTimes = change.DigestTime is { } single ? Alerts.NhAssistantAlertKindSettings.FormatTimes([single]) : null;
+            }
+            if (change.QuietHoursChanged)
+            {
+                preference.QuietHoursStart = change.QuietHours?.Start;
+                preference.QuietHoursEnd = change.QuietHours?.End;
             }
             if (change.Push is { } push)
             {

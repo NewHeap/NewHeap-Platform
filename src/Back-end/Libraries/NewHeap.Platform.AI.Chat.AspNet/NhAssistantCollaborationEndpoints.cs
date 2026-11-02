@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.AspNet.Notifications;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using static NewHeap.Platform.AI.Chat.AspNet.NhAssistantEndpointRouteBuilderExtensions;
 
@@ -77,12 +78,12 @@ internal static class NhAssistantCollaborationEndpoints
         enabled.MapGet("notifications", GetNotificationSettingsAsync)
             .WithName("NhAssistantGetNotificationSettings")
             .WithSummary("Get my notification settings")
-            .WithDescription("Returns whether the caller receives push notifications, whether the server supports them, the key browsers subscribe with, the caller's time zone for the daily digest of alerts and their choices per alert kind. Only the caller's own settings.")
+            .WithDescription("Returns whether the caller receives push notifications, whether the server supports them, the key browsers subscribe with, the caller's time zone for the digests of alerts, their choices per alert kind (with the kind's digest times and quiet hours, and the caller's own where the kind allows them) and their mutes of an alert kind about one subject that have not ended (subjectMutes). Only the caller's own settings.")
             .Produces<NhAssistantNotificationSettingsDto>();
         enabled.MapPut("notifications", UpdateNotificationSettingsAsync)
             .WithName("NhAssistantUpdateNotificationSettings")
             .WithSummary("Update my notification settings")
-            .WithDescription("Turns push notifications on or off for every browser of the caller (pushEnabled, optional) and changes the caller's choices per alert kind (alertKinds, optional): muted, digest time and channels. An unknown kind or a change the kind does not allow is refused with 400 and changes nothing. Only the caller's own settings.")
+            .WithDescription("Turns push notifications on or off for every browser of the caller (pushEnabled, optional), changes the caller's choices per alert kind (alertKinds, optional): muted, digest times (digestTimes, one to four, or the single digestTime), quiet hours and channels, and lifts the caller's mutes of an alert kind about a subject (liftSubjectMutes, optional, ids from subjectMutes; ids that are not the caller's change nothing). An unknown kind or a change the kind does not allow is refused with 400 and changes nothing. Only the caller's own settings.")
             .Produces<NhAssistantNotificationSettingsDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         enabled.MapPut("notifications/push-subscription", SubscribeAsync)
@@ -334,6 +335,7 @@ internal static class NhAssistantCollaborationEndpoints
         HttpContext httpContext,
         NhAssistantNotificationStore notifications,
         Alerts.NhAssistantAlertPreferences alertPreferences,
+        NhAssistantSubjectAccessService subjects,
         IOptionsMonitor<NhAssistantOptions> options)
     {
         var caller = await ResolveCallerAsync(httpContext);
@@ -342,7 +344,7 @@ internal static class NhAssistantCollaborationEndpoints
             return ContextUnavailable();
         }
         return Json(
-            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, options.CurrentValue.Push, httpContext.RequestAborted),
+            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, subjects, options.CurrentValue.Push, httpContext.RequestAborted),
             NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
     }
 
@@ -355,6 +357,7 @@ internal static class NhAssistantCollaborationEndpoints
         HttpContext httpContext,
         NhAssistantNotificationStore notifications,
         Alerts.NhAssistantAlertPreferences alertPreferences,
+        NhAssistantSubjectAccessService subjects,
         IOptionsMonitor<NhAssistantOptions> options)
     {
         var caller = await ResolveCallerAsync(httpContext);
@@ -364,8 +367,9 @@ internal static class NhAssistantCollaborationEndpoints
         }
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantUpdateNotificationSettingsRequest);
         if (request is null
-            || (request.PushEnabled is null && request.AlertKinds is null)
-            || request.AlertKinds?.Any(kind => kind is null) == true)
+            || (request.PushEnabled is null && request.AlertKinds is null && request.LiftSubjectMutes is null)
+            || request.AlertKinds?.Any(kind => kind is null) == true
+            || request.LiftSubjectMutes?.Count > Alerts.NhAssistantAlertPreferences.MaxListedSubjectMutes)
         {
             return Error(NhAssistantAdminErrorCodes.ValidationFailed);
         }
@@ -380,12 +384,21 @@ internal static class NhAssistantCollaborationEndpoints
                 return FromFailure(changed);
             }
         }
+        if (request.LiftSubjectMutes is { } lifted)
+        {
+            // Only the caller's own mutes: the store names the caller in every lift.
+            var liftedResult = await alertPreferences.LiftSubjectMutesAsync(caller.Data.ActorId, lifted, httpContext.RequestAborted);
+            if (!liftedResult.Success)
+            {
+                return FromFailure(liftedResult);
+            }
+        }
         if (request.PushEnabled is { } enabled)
         {
             await notifications.SetPushEnabledAsync(caller.Data.ActorId, enabled, httpContext.RequestAborted);
         }
         return Json(
-            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, options.CurrentValue.Push, httpContext.RequestAborted),
+            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, subjects, options.CurrentValue.Push, httpContext.RequestAborted),
             NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
     }
 
@@ -449,6 +462,7 @@ internal static class NhAssistantCollaborationEndpoints
         string actorId,
         NhAssistantNotificationStore notifications,
         Alerts.NhAssistantAlertPreferences alertPreferences,
+        NhAssistantSubjectAccessService subjects,
         NhAssistantPushOptions push,
         CancellationToken cancellationToken)
     {
@@ -484,8 +498,45 @@ internal static class NhAssistantCollaborationEndpoints
                     Alerts.NhAssistantAlertPreferences.FormatDigestTime(kind.Choice.ChosenDigestTime),
                     kind.Delivery.WorkdaysOnly,
                     new NhAssistantAlertChannelsDto(kind.Choice.Push, kind.Choice.InApp),
-                    available))
-                .ToArray()
+                    available)
+                {
+                    DefaultDigestTimes = kind.Delivery.DigestTimes.Select(time => Alerts.NhAssistantAlertPreferences.FormatDigestTime(time)!).ToArray(),
+                    DigestTimes = kind.Choice.ChosenDigestTimes?.Select(time => Alerts.NhAssistantAlertPreferences.FormatDigestTime(time)!).ToArray(),
+                    MayChangeQuietHours = kind.MayChangeQuietHours,
+                    DefaultQuietHours = QuietHoursOf(kind.Delivery.QuietHours),
+                    QuietHours = QuietHoursOf(kind.Choice.ChosenQuietHours),
+                    UrgentBreaksQuietHours = kind.Kind.UrgentBreaksQuietHours
+                })
+                .ToArray(),
+            SubjectMutes = alerts.SubjectMutes.Select(item => MuteOf(item, subjects)).ToArray()
+        };
+    }
+
+    private static NhAssistantQuietHoursDto? QuietHoursOf(NhAssistantAlertQuietHours? quietHours)
+    {
+        return quietHours is null
+            ? null
+            : new NhAssistantQuietHoursDto(
+                Alerts.NhAssistantAlertPreferences.FormatDigestTime(quietHours.Start)!,
+                Alerts.NhAssistantAlertPreferences.FormatDigestTime(quietHours.End)!);
+    }
+
+    private static NhAssistantAlertSubjectMuteDto MuteOf(Alerts.NhAssistantAlertSubjectMuteView item, NhAssistantSubjectAccessService subjects)
+    {
+        var mute = item.Mute;
+        var (typeName, link) = AgentRuns.NhAssistantAgentRunDtoMapper.SubjectOf(subjects, mute.SubjectType, mute.SubjectId);
+        return new NhAssistantAlertSubjectMuteDto(
+            mute.Id,
+            mute.KindId,
+            item.Kind.DisplayNameKey,
+            mute.SubjectType,
+            mute.SubjectId,
+            AgentRuns.NhAssistantAgentRunDtoMapper.DisplayNameOf(subjects, mute.SubjectType, mute.SubjectId, mute.SubjectDisplayName),
+            mute.MutedAt,
+            mute.Until)
+        {
+            SubjectTypeName = typeName,
+            SubjectLink = link
         };
     }
 
@@ -496,6 +547,11 @@ internal static class NhAssistantCollaborationEndpoints
             Muted = update.Muted,
             DigestTimeGiven = update.DigestTimeGiven,
             DigestTime = update.DigestTime,
+            DigestTimesGiven = update.DigestTimesGiven,
+            DigestTimes = update.DigestTimes,
+            QuietHoursGiven = update.QuietHoursGiven,
+            QuietHoursStart = update.QuietHours?.Start,
+            QuietHoursEnd = update.QuietHours?.End,
             Push = update.Channels?.Push,
             InApp = update.Channels?.InApp
         };

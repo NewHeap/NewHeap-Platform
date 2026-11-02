@@ -43,6 +43,19 @@ const escalated: NotificationAlertKind = {
   availableChannels: ['push', 'in-app']
 };
 
+/** A kind of a server that takes several digest times and quiet hours (FB87 phase 2). */
+const twice: NotificationAlertKind = {
+  ...dueToday,
+  id: 'task-twice',
+  displayNameKey: 'tests.alert-kinds.task-twice',
+  defaultDigestTimes: ['07:30', '16:00'],
+  digestTimes: null,
+  mayChangeQuietHours: true,
+  defaultQuietHours: { start: '22:00', end: '07:00' },
+  quietHours: null,
+  urgentBreaksQuietHours: true
+};
+
 describe('NhAssistantNotificationPreferencesComponent', () => {
   let fixture: ComponentFixture<NhAssistantNotificationPreferencesComponent>;
 
@@ -58,7 +71,7 @@ describe('NhAssistantNotificationPreferencesComponent', () => {
     });
     const translate = TestBed.inject(TranslateService);
     await firstValueFrom(translate.use('en'));
-    translate.setTranslation('en', { tests: { 'alert-kinds': { 'task-due-today': 'Task due today', 'task-escalated': 'Task escalated' } } }, true);
+    translate.setTranslation('en', { tests: { 'alert-kinds': { 'task-due-today': 'Task due today', 'task-escalated': 'Task escalated', 'task-twice': 'Task twice' } } }, true);
     fixture = TestBed.createComponent(NhAssistantNotificationPreferencesComponent);
     fixture.detectChanges();
     await settle();
@@ -153,6 +166,103 @@ describe('NhAssistantNotificationPreferencesComponent', () => {
     await settle();
     expect(element.querySelector('.message.error')?.getAttribute('role')).toBe('alert');
     expect(kind(element, 'task-due-today').textContent?.replace(/\s+/g, ' ')).toContain('Channels: Desktop notifications, Notifications in the application');
+  });
+
+  it('edits up to four digest times and quiet hours of a kind, and sends them as a list', async () => {
+    const element = await render({ kinds: [twice], timeZone: 'Europe/Amsterdam' });
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    const item = () => kind(element, 'task-twice');
+    const times = () => Array.from(item().querySelectorAll('[data-kind-digest-time]')) as HTMLInputElement[];
+    expect(item().querySelector('[data-kind-delivery]')?.textContent?.trim()).toBe('Delivered in the daily overviews at 07:30, 16:00 on working days.');
+    expect(times().map(input => input.value)).toEqual(['07:30', '16:00']);
+    expect(item().textContent).toContain('Default: 07:30, 16:00');
+    expect((item().querySelector('[data-kind-quiet-start]') as HTMLInputElement).value).toBe('22:00');
+    expect((item().querySelector('[data-kind-quiet-end]') as HTMLInputElement).value).toBe('07:00');
+    expect(item().querySelector('[data-kind-urgent-through]')?.textContent?.trim()).toBe('Urgent alerts still reach you.');
+
+    // A third time an hour after the last, the second moved to noon, and quiet hours from 21:00.
+    (item().querySelector('[data-kind-add-time]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(times().map(input => input.value)).toEqual(['07:30', '16:00', '17:00']);
+    change(times()[1], '12:00');
+    change(item().querySelector('[data-kind-quiet-start]') as HTMLInputElement, '21:00');
+    expect(item().querySelector('[data-kind-delivery]')?.textContent?.trim()).toBe('Delivered in the daily overviews at 07:30, 12:00, 17:00 on working days.');
+    (element.querySelector('[data-save-notifications]') as HTMLButtonElement).click();
+    await settle();
+    expect(backend.requests.filter(request => request.method === 'PUT').pop()?.body).toEqual({
+      alertKinds: [{ id: 'task-twice', digestTimes: ['07:30', '12:00', '17:00'], quietHours: { start: '21:00', end: '07:00' } }]
+    });
+    expect(times().map(input => input.value)).toEqual(['07:30', '12:00', '17:00']);
+
+    // A fourth time is the last; a time given twice is refused before saving.
+    (item().querySelector('[data-kind-add-time]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(times().length).toBe(4);
+    expect(item().querySelector('[data-kind-add-time]')).withContext('four times a day at most').toBeNull();
+    change(times()[3], '12:00');
+    expect(times()[3].getAttribute('aria-invalid')).toBe('true');
+    expect((element.querySelector('[data-save-notifications]') as HTMLButtonElement).disabled).toBeTrue();
+    (item().querySelectorAll('[data-kind-remove-time]')[3] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect((element.querySelector('[data-save-notifications]') as HTMLButtonElement).disabled).withContext('as stored').toBeTrue();
+
+    // Back to the kind's times and quiet hours.
+    (item().querySelector('[data-kind-reset]') as HTMLButtonElement).click();
+    (item().querySelector('[data-kind-quiet-reset]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (element.querySelector('[data-save-notifications]') as HTMLButtonElement).click();
+    await settle();
+    expect(backend.requests.filter(request => request.method === 'PUT').pop()?.body)
+      .toEqual({ alertKinds: [{ id: 'task-twice', digestTimes: null, quietHours: null }] });
+  });
+
+  it('shows the quiet hours of a kind the person may not change, and refuses quiet hours that are none', async () => {
+    const element = await render({ kinds: [{ ...twice, mayChangeQuietHours: false, urgentBreaksQuietHours: false }], timeZone: 'Europe/Amsterdam' });
+    const item = kind(element, 'task-twice');
+    expect(item.querySelector('[data-kind-quiet-start]')).toBeNull();
+    expect(item.querySelector('[data-kind-quiet-hours-fixed]')?.textContent?.trim()).toBe('Nothing is delivered from 22:00 until 07:00.');
+
+    TestBed.resetTestingModule();
+    const editable = await render({ kinds: [twice], timeZone: 'Europe/Amsterdam' });
+    const end = kind(editable, 'task-twice').querySelector('[data-kind-quiet-end]') as HTMLInputElement;
+    change(end, '22:00');
+    expect(end.getAttribute('aria-invalid')).toBe('true');
+    expect(kind(editable, 'task-twice').textContent).toContain('Enter two different times such as 22:00 and 07:00.');
+    expect((editable.querySelector('[data-save-notifications]') as HTMLButtonElement).disabled).toBeTrue();
+  });
+
+  it('lists the objects the person muted and lifts one with the next save', async () => {
+    const until = new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString();
+    const element = await render({
+      kinds: [twice],
+      timeZone: 'Europe/Amsterdam',
+      subjectMutes: [
+        {
+          id: 'mute-1', kindId: 'task-twice', displayNameKey: 'tests.alert-kinds.task-twice', subjectType: 'project', subjectId: 'p-1',
+          subjectDisplayName: 'Launch', subjectTypeName: 'Project', mutedAt: new Date().toISOString(), until
+        },
+        {
+          id: 'mute-2', kindId: 'task-twice', displayNameKey: 'tests.alert-kinds.task-twice', subjectType: 'project', subjectId: 'p-2',
+          subjectDisplayName: 'Fair', mutedAt: new Date(Date.now() - 60_000).toISOString(), until
+        }
+      ]
+    });
+    const mutes = () => Array.from(element.querySelectorAll('[data-subject-mute]')) as HTMLElement[];
+    expect(mutes().map(mute => mute.querySelector('strong')?.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Project Launch', 'Fair']);
+    expect(mutes()[0].textContent).toContain('until');
+
+    const lift = mutes()[0].querySelector('[data-lift-mute]') as HTMLButtonElement;
+    expect(lift.textContent?.trim()).toBe('Lift');
+    lift.click();
+    fixture.detectChanges();
+    expect(mutes()[0].textContent).toContain('lifted when you save');
+    expect(lift.getAttribute('aria-pressed')).toBe('true');
+    (element.querySelector('[data-save-notifications]') as HTMLButtonElement).click();
+    await settle();
+
+    expect(TestBed.inject(NhAssistantMockBackend).requests.filter(request => request.method === 'PUT').pop()?.body)
+      .toEqual({ liftSubjectMutes: ['mute-1'] });
+    expect(mutes().map(mute => mute.getAttribute('data-mute-id'))).toEqual(['mute-2']);
   });
 
   it('lists no kinds for a server without alerts and keeps working', async () => {

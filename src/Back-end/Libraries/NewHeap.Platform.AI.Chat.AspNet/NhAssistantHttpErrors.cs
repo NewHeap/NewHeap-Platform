@@ -348,6 +348,11 @@ internal static class NhAssistantHttpErrors
             NhAssistantAlertCodes.NotFound);
         Add(statuses, StatusCodes.Status400BadRequest,
             NhAssistantAlertCodes.FilterInvalid);
+        // Dismissing with a mute of the subject (FB87-11): a kind that cannot be muted and a number of days
+        // out of bounds.
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantAlertCodes.SubjectMuteNotAllowed,
+            NhAssistantAlertCodes.SubjectMuteDaysInvalid);
         // A person's notification preferences (FB87-6): an alert kind that is not registered, a change the
         // kind does not allow and a digest time that is no time of day.
         Add(statuses, StatusCodes.Status400BadRequest,
@@ -355,7 +360,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.NotificationMuteNotAllowed,
             NhAssistantErrorCodes.NotificationDigestTimeNotAllowed,
             NhAssistantErrorCodes.NotificationChannelsNotAllowed,
-            NhAssistantErrorCodes.NotificationDigestTimeInvalid);
+            NhAssistantErrorCodes.NotificationDigestTimeInvalid,
+            NhAssistantErrorCodes.NotificationQuietHoursNotAllowed,
+            NhAssistantErrorCodes.NotificationQuietHoursInvalid);
         // The administration of alert kinds (FB87 phase 2): a kind that is not registered, a change its code
         // does not allow and a malformed delivery.
         Add(statuses, StatusCodes.Status404NotFound,

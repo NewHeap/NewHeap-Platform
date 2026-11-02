@@ -207,6 +207,8 @@ internal static class NhAssistantServiceRegistration
         // The model tool of alerts (FB87-9): the switches per agent and kind, and the tool a run's model calls.
         services.TryAddScoped<NhAssistantAlertModelSwitchStore>();
         services.TryAddScoped<Alerts.NhAssistantAlertModelTool>();
+        // Time and the person (FB87 phase 2): a person's mutes of one kind about one subject (FB87-11).
+        services.TryAddScoped<NhAssistantAlertSubjectMuteStore>();
         return state;
     }
 

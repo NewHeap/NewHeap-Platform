@@ -78,7 +78,8 @@ public sealed class AssistantAlertKindAdministrationTests(AssistantDatabaseFixtu
             (Administrator, DueToday, DueToday, "created", "digest-times,workdays-only,immediately-from,quiet-hours"),
             (audited.ActorId, audited.AlertKind, audited.ObjectId, audited.ResultCode, audited.ChangedFields));
 
-        // The scheduler plans the first digest time of the administrator's delivery, and a warning at once.
+        // The scheduler plans the first digest time of the administrator's delivery, and a warning, which
+        // goes at once, at the end of the administrator's quiet hours: 06:00 in the application's zone, UTC.
         var info = await RaiseAsync(app, "a", NhAssistantAlertUrgency.Info);
         Assert.True(info.Success);
         Assert.Equal(new DateTimeOffset(2026, 11, 2, 6, 45, 0, TimeSpan.Zero), (await DeliveryAsync(app, info.Data!.AlertId)).DueAt);
@@ -86,7 +87,9 @@ public sealed class AssistantAlertKindAdministrationTests(AssistantDatabaseFixtu
         {
             var scheduler = scope.ServiceProvider.GetRequiredService<INhAssistantAlertScheduler>();
             var kind = scope.ServiceProvider.GetRequiredService<NhAssistantRegistrationState>().AlertKinds[DueToday];
-            Assert.Equal(Monday, await scheduler.DueAtAsync(new NhAssistantAlertScheduleRequest(kind, NhAssistantAlertUrgency.Warning, Owner, Monday), CancellationToken.None));
+            Assert.Equal(
+                new DateTimeOffset(2026, 11, 2, 6, 0, 0, TimeSpan.Zero),
+                await scheduler.DueAtAsync(new NhAssistantAlertScheduleRequest(kind, NhAssistantAlertUrgency.Warning, Owner, Monday), CancellationToken.None));
         }
 
         // A person's preferences show the administrator's default.

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.101",
   "backEnd": {
-    "hash": "f6f2749d2164b41de6847441fef16394ec410ef9d15c6415a2362606adc56d90",
-    "declarationCount": 13009,
+    "hash": "8e74fbc72671fdf64d5c7b5b954471358a94018cd744f5f232025788069163aa",
+    "declarationCount": 12987,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7539,7 +7539,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertContracts.cs",
-        "declaration": "public bool RaisedByModel { get; init; }"
+        "declaration": "public bool MayMuteSubject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertContracts.cs",
+        "declaration": "public sealed record NhAssistantDismissAlertRequest(int? MuteSubjectForDays);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertContracts.cs",
@@ -7595,7 +7599,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantAlertDto))] [JsonSerializable(typeof(NhAssistantAlertListDto))] [JsonSerializable(typeof(NhAssistantAlertSummaryDto))] [JsonSerializable(typeof(NhAssistantAdminAlertKindsDto))] [JsonSerializable(typeof(NhAssistantAdminAlertKindDto))] [JsonSerializable(typeof(NhAssistantAdminAlertKindRequest))] [JsonSerializable(typeof(NhAssistantAlertModelListDto))] [JsonSerializable(typeof(NhAssistantAlertModelSwitchDto))] [JsonSerializable(typeof(NhAssistantAlertModelRequest))] [JsonSerializable(typeof(NhAssistantAlertModelVersionDto[]))] public sealed partial class NhAssistantAlertJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantAlertDto))] [JsonSerializable(typeof(NhAssistantAlertListDto))] [JsonSerializable(typeof(NhAssistantAlertSummaryDto))] [JsonSerializable(typeof(NhAssistantDismissAlertRequest))] [JsonSerializable(typeof(NhAssistantAdminAlertKindsDto))] [JsonSerializable(typeof(NhAssistantAdminAlertKindDto))] [JsonSerializable(typeof(NhAssistantAdminAlertKindRequest))] public sealed partial class NhAssistantAlertJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertEndpoints.cs",
@@ -7623,47 +7627,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertList.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantAlertDto>> DismissAsync( NhAiInvocationContext caller, Guid alertId, string? impersonationOriginActorId, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitchEndpoints.cs",
-        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public interface INhAssistantAlertModelSwitches {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public sealed record NhAssistantAlertModelRequest( string? Mode, int? ExpectedVersion, string? Reason = null);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public sealed record NhAssistantAlertModelParameterDto( string Name, string Type, string Description, IReadOnlyList<string> Choices, int? Minimum, int? Maximum, int? MaxLength, bool Key);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public sealed record NhAssistantAlertModelSwitchDto( string KindId, string DisplayNameKey, string Description, IReadOnlyList<NhAssistantAlertModelParameterDto> Parameters, string Mode, int Version, bool ContractChanged, bool KindEnabled, string? ChangedBy, DateTimeOffset? ChangedAt, string? Reason);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public sealed record NhAssistantAlertModelListDto( string AgentId, bool Applies, IReadOnlyList<NhAssistantAlertModelSwitchDto> Kinds);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public sealed record NhAssistantAlertModelVersionDto( int Version, string Mode, string ChangedBy, DateTimeOffset ChangedAt, string? Reason, string ContractHash);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public async Task<NhAssistantAlertModelListDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public async Task<IReadOnlyList<NhAssistantAlertModelVersionDto>> GetVersionsAsync( string agentId, string kindId, CancellationToken cancellationToken = default)"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertModelSwitches.cs",
-        "declaration": "public async Task<TaskResult<NhAssistantAlertModelSwitchDto>> SetAsync( string agentId, string kindId, NhAssistantAlertModelRequest request, string actorId, CancellationToken cancellationToken = default)"
+        "declaration": "public async Task<TaskResult<NhAssistantAlertDto>> DismissAsync( NhAiInvocationContext caller, Guid alertId, string? impersonationOriginActorId, int? muteSubjectForDays, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAskerDecisions.cs",
@@ -7819,6 +7783,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlertSubjectMuteDto> SubjectMutes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnabled) {"
       },
       {
@@ -7827,7 +7795,51 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantAlertKindPreferenceDto( string Id, string DisplayNameKey, string Urgency, bool Required, bool MayMute, bool MayChangeDigestTime, bool MayChooseChannels, bool Muted, string? DefaultDigestTime, string? DigestTime, bool WorkdaysOnly, NhAssistantAlertChannelsDto Channels, IReadOnlyList<string> AvailableChannels);"
+        "declaration": "public IReadOnlyList<Guid>? LiftSubjectMutes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantAlertKindPreferenceDto( string Id, string DisplayNameKey, string Urgency, bool Required, bool MayMute, bool MayChangeDigestTime, bool MayChooseChannels, bool Muted, string? DefaultDigestTime, string? DigestTime, bool WorkdaysOnly, NhAssistantAlertChannelsDto Channels, IReadOnlyList<string> AvailableChannels) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string> DefaultDigestTimes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string>? DigestTimes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool MayChangeQuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantQuietHoursDto? DefaultQuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantQuietHoursDto? QuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool UrgentBreaksQuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantQuietHoursDto(string Start, string End);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantAlertSubjectMuteDto( Guid Id, string KindId, string DisplayNameKey, string SubjectType, string SubjectId, string? SubjectDisplayName, DateTimeOffset MutedAt, DateTimeOffset Until) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectTypeName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public string? SubjectLink { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7851,7 +7863,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonIgnore] public bool DigestTimeGiven { get; private init; }"
+        "declaration": "[JsonIgnore] public bool DigestTimeGiven { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public IReadOnlyList<string?>? DigestTimes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore] public bool DigestTimesGiven { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public NhAssistantQuietHoursUpdateDto? QuietHours {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "[JsonIgnore] public bool QuietHoursGiven { get; private set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -7860,6 +7888,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantAlertChannelsUpdateDto(bool? Push, bool? InApp);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantQuietHoursUpdateDto(string? Start, string? End);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -10370,19 +10402,19 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202426_AlertModelSwitches.Designer.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202330_AlertTimingAndMutes.Designer.cs",
         "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202426_AlertModelSwitches.cs",
-        "declaration": "public partial class AlertModelSwitches : Migration {"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202330_AlertTimingAndMutes.cs",
+        "declaration": "public partial class AlertTimingAndMutes : Migration {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202426_AlertModelSwitches.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202330_AlertTimingAndMutes.cs",
         "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202426_AlertModelSwitches.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102202330_AlertTimingAndMutes.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -11398,19 +11430,19 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202421_AlertModelSwitches.Designer.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202319_AlertTimingAndMutes.Designer.cs",
         "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202421_AlertModelSwitches.cs",
-        "declaration": "public partial class AlertModelSwitches : Migration {"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202319_AlertTimingAndMutes.cs",
+        "declaration": "public partial class AlertTimingAndMutes : Migration {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202421_AlertModelSwitches.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202319_AlertTimingAndMutes.cs",
         "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202421_AlertModelSwitches.cs",
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102202319_AlertTimingAndMutes.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -14831,6 +14863,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDispatcher.cs",
+        "declaration": "public IReadOnlySet<NhAssistantAlertSubjectMuteKey> SubjectMutes { get; init; } = new HashSet<NhAssistantAlertSubjectMuteKey>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDispatcher.cs",
         "declaration": "public int Sent { get; set; }"
       },
       {
@@ -14848,10 +14884,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDispatcher.cs",
         "declaration": "public int Notifications { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKindSettings.cs",
-        "declaration": "public bool Contains(TimeOnly time) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKindSettings.cs",
@@ -14911,7 +14943,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
-        "declaration": "[Flags] public enum NhAssistantAlertChoices { None = 0, Mute = 1, DigestTime = 2, Channels = 4, All = Mute | DigestTime | Channels }"
+        "declaration": "[Flags] public enum NhAssistantAlertChoices { None = 0, Mute = 1, DigestTime = 2, Channels = 4, QuietHours = 8, All = Mute | DigestTime | Channels | QuietHours }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public sealed record NhAssistantAlertQuietHours(TimeOnly Start, TimeOnly End) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public bool Contains(TimeOnly time) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public static bool IsValid(TimeOnly start, TimeOnly end) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -14971,7 +15015,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public IReadOnlyList<TimeOnly> DigestTimes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAssistantAlertQuietHours? QuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
         "declaration": "public bool IsImmediateFor(NhAssistantAlertUrgency urgency) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public bool Equals(NhAssistantAlertDelivery? other) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public override int GetHashCode() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -14984,6 +15044,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
         "declaration": "public NhAssistantAlertDeliveryBuilder DailyDigest(TimeOnly at) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAssistantAlertDeliveryBuilder DailyDigests(params TimeOnly[] times) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAssistantAlertDeliveryBuilder QuietHours(TimeOnly start, TimeOnly end) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -15043,7 +15111,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
-        "declaration": "public NhAssistantAlertModelTemplate? ModelTemplate { get; internal init; }"
+        "declaration": "public bool UrgentBreaksQuietHours { get; internal init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -15099,195 +15167,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
-        "declaration": "public NhAssistantAlertKindBuilder Revalidate<TCheck>() where TCheck : class, INhAssistantAlertCheck {"
+        "declaration": "public NhAssistantAlertKindBuilder UrgentBreaksQuietHours() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
-        "declaration": "public NhAssistantAlertKindBuilder RaisedByModel(Action<NhAssistantAlertModelTemplateBuilder> template) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public enum NhAssistantAlertModelParameterType { Choice = 0, WholeNumber = 1, Date = 2, Text = 3 }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public static class NhAssistantAlertParameterErrors {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string Missing = \"missing\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string Unknown = \"unknown\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string WrongType = \"wrong-type\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string NotAChoice = \"not-a-choice\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string OutOfRange = \"out-of-range\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string Empty = \"empty\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string TooLong = \"too-long\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string Link = \"link\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string Markup = \"markup\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public const string ControlCharacter = \"control-character\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public sealed class NhAssistantAlertModelParameter {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public string Name { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelParameterType Type { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public string Description { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public IReadOnlyList<string> Choices { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public int? Minimum { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public int? Maximum { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public int? MaxLength { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public sealed class NhAssistantAlertModelTemplate {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public string Description { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public IReadOnlyList<NhAssistantAlertModelParameter> Parameters { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public IReadOnlyList<string> KeyParameters { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public sealed partial class NhAssistantAlertModelTemplateBuilder {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder Describe(string whenToRaise) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder Choice(string name, string description, params string[] choices) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder WholeNumber(string name, string description, int minimum, int maximum) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder Date(string name, string description) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder Text(string name, string description, int maxLength) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public NhAssistantAlertModelTemplateBuilder Key(params string[] parameterNames) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public bool Success => Values is not null;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public static NhAssistantAlertModelValues Accepted(IReadOnlyDictionary<string, string> values) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public static NhAssistantAlertModelValues Refused(string parameter, string error) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public static (string? Value, string? Error) Check(JsonElement value, int maxLength) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTemplates.cs",
-        "declaration": "public static (string? Value, string? Error) Check(string value, int maxLength) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public static NhAssistantAlertModelOutcome Refused(string code, string? parameter = null, string? reason = null)"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public const string ToolId = \"assistant.alert.raise\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public const string ExportName = \"raise_alert\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public static string ModeOf(NhAssistantAlertKind kind, AssistantAgentAlertModelSwitch? current) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public static bool DoesOwnWork(NhAssistantRegistrationState registration, string agentId) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public async Task<IReadOnlyDictionary<string, string>> OfferedKindsAsync( NhAssistantAgentRunOptions options, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public string DescriptionOf(IReadOnlyDictionary<string, string> offered) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public string SchemaOf(IReadOnlyDictionary<string, string> offered) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public async Task<NhAssistantAlertModelOutcome> RaiseAsync( NhAssistantAgentTurnContext agentTurn, IReadOnlyDictionary<string, string> offered, IReadOnlyDictionary<string, object?> arguments, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertModelTool.cs",
-        "declaration": "public static JsonElement ResultOf(NhAssistantAlertModelOutcome outcome) {"
+        "declaration": "public NhAssistantAlertKindBuilder Revalidate<TCheck>() where TCheck : class, INhAssistantAlertCheck {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertOptions.cs",
@@ -15327,11 +15211,31 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public IReadOnlyList<TimeOnly> DigestTimes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public IReadOnlyList<TimeOnly>? ChosenDigestTimes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public NhAssistantAlertQuietHours? QuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public NhAssistantAlertQuietHours? ChosenQuietHours { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
         "declaration": "public static NhAssistantAlertChoice Of(NhAssistantAlertKind kind, AssistantNotificationPreference? stored) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
         "declaration": "public static NhAssistantAlertChoice Of( NhAssistantAlertKind kind, NhAssistantAlertEffectiveDelivery delivery, AssistantNotificationPreference? stored) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public static bool MayChangeQuietHours(NhAssistantAlertKind kind) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
@@ -15363,6 +15267,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public bool MayChangeQuietHours => NhAssistantAlertChoice.MayChangeQuietHours(Kind);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlertSubjectMuteView> SubjectMutes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
         "declaration": "public bool? Muted { get; init; }"
       },
       {
@@ -15375,6 +15287,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public bool DigestTimesGiven { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public IReadOnlyList<string?>? DigestTimes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public bool QuietHoursGiven { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public string? QuietHoursStart { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public string? QuietHoursEnd { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
         "declaration": "public bool? Push { get; init; }"
       },
       {
@@ -15384,6 +15316,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
         "declaration": "public async Task<NhAssistantAlertPreferenceView> GetAsync(string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+        "declaration": "public async Task<TaskResult> LiftSubjectMutesAsync(string actorId, IReadOnlyCollection<Guid> muteIds, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
@@ -15455,6 +15391,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduler.cs",
+        "declaration": "public static DateTimeOffset Next( DateTimeOffset now, IReadOnlyList<TimeOnly> times, bool workdaysOnly, NhAssistantAlertQuietHours? quietHours, TimeZoneInfo zone) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduler.cs",
+        "declaration": "public static DateTimeOffset OutsideQuietHours(DateTimeOffset moment, NhAssistantAlertQuietHours quietHours, TimeZoneInfo zone) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduler.cs",
         "declaration": "public static DateTimeOffset At(DateOnly day, TimeOnly time, TimeZoneInfo zone) {"
       },
       {
@@ -15480,10 +15424,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.cs",
         "declaration": "public static NhAssistantAlertRaiser Application { get; } = new(null, null, false);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.cs",
-        "declaration": "public bool Model { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.cs",
@@ -15579,19 +15519,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const int MaxModelTextLength = 200;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const int MaxModelChoices = 50;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const int MaxModelChoiceLength = 64;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const int MaxModelDescriptionLength = 500;"
+        "declaration": "public const int MaxSubjectMuteDays = 90;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -15643,6 +15571,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string SubjectMuteNotAllowed = \"assistant-alert-subject-mute-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string SubjectMuteDaysInvalid = \"assistant-alert-subject-mute-days-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string Raised = \"raised\";"
       },
       {
@@ -15660,14 +15596,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string Revalidated = \"revalidated\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const string NotOfferedToModel = \"assistant-alert-kind-not-offered\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
-        "declaration": "public const string ParameterInvalid = \"assistant-alert-parameter-invalid\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -15776,6 +15704,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string KindOff = \"kind-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string SubjectMuted = \"subject-muted\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -18251,10 +18183,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertEntities.cs",
-        "declaration": "public bool RaisedByModel { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertEntities.cs",
         "declaration": "public DateTimeOffset RaisedAt { get; set; }"
       },
       {
@@ -18460,70 +18388,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertKindSettingEntities.cs",
         "declaration": "public static bool TryParse(string? name, out NhAssistantAlertDeliveryMode mode) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public sealed class AssistantAgentAlertModelSwitch {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public const int MaxReasonLength = 500;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public Guid Id { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string AgentId { get; set; } = string.Empty;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string KindId { get; set; } = string.Empty;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public int Version { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string Mode { get; set; } = NhAssistantAlertModelModes.Off;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string ContractHash { get; set; } = string.Empty;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string ChangedBy { get; set; } = string.Empty;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public DateTimeOffset ChangedAt { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public string? Reason { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public static class NhAssistantAlertModelModes {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public const string Off = \"off\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public const string Shadow = \"shadow\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public const string Live = \"live\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertModelSwitchEntities.cs",
-        "declaration": "public static bool IsKnown(string? mode) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantCollaborationEntities.cs",
@@ -19311,6 +19175,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string? DigestTimes { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public TimeOnly? QuietHoursStart { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public TimeOnly? QuietHoursEnd { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
         "declaration": "public bool? Push { get; set; }"
       },
       {
@@ -19320,6 +19196,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
         "declaration": "public DateTimeOffset UpdatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public sealed class AssistantAlertSubjectMute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string ActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string KindId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string SubjectType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string SubjectId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public string? SubjectDisplayName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public DateTimeOffset MutedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+        "declaration": "public DateTimeOffset Until { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
@@ -21719,6 +21631,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NotificationQuietHoursNotAllowed = \"assistant-notification-quiet-hours-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string NotificationQuietHoursInvalid = \"assistant-notification-quiet-hours-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string NotAllowedWhileImpersonating = \"assistant-not-allowed-while-impersonating\";"
       },
       {
@@ -22731,14 +22651,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
-        "declaration": "public const string AlertModelNotAllowed = \"assistant-alert-model-not-allowed\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
-        "declaration": "public const string AlertModelShadowFirst = \"assistant-alert-model-shadow-first\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantFieldErrors {"
       },
       {
@@ -23055,7 +22967,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131, AdminAlertModelSwitchChanged = 132 }"
+        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -23308,14 +23220,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public string? ChangedFields { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public bool? AlertRaisedByModel { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public int? AlertModelSwitchVersion { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -24946,22 +24850,6 @@
         "declaration": "public async Task<NhAssistantStoreResult<NhAssistantAlertKindSettingChange>> SaveAsync( AssistantAlertKindSetting settings, int expectedVersion, CancellationToken cancellationToken) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertModelSwitchStore.cs",
-        "declaration": "public async Task<AssistantAgentAlertModelSwitch?> FindCurrentAsync( string agentId, string kindId, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertModelSwitchStore.cs",
-        "declaration": "public async Task<IReadOnlyList<AssistantAgentAlertModelSwitch>> GetCurrentAsync( string agentId, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertModelSwitchStore.cs",
-        "declaration": "public async Task<IReadOnlyList<AssistantAgentAlertModelSwitch>> GetVersionsAsync( string agentId, string kindId, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertModelSwitchStore.cs",
-        "declaration": "public async Task<bool> AddAsync(AssistantAgentAlertModelSwitch version, CancellationToken cancellationToken) {"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertNumbersStore.cs",
         "declaration": "public async Task<NhAssistantAlertKindAggregates> GetAsync( IReadOnlyCollection<string> kindIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) {"
       },
@@ -24982,10 +24870,6 @@
         "declaration": "public async Task<AssistantAlert?> ResolveUnchangedAsync(AssistantAlert read, DateTimeOffset now, CancellationToken cancellationToken) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Model.cs",
-        "declaration": "public async Task<int> CountOthersForRunAsync( Guid runId, bool shadow, string kindId, NhAiSubjectRef subject, string key, CancellationToken cancellationToken) {"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
         "declaration": "public IReadOnlyList<string> KindIds { get; init; } = [];"
       },
@@ -25004,6 +24888,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
         "declaration": "public bool WithoutMuted { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
+        "declaration": "public IReadOnlyList<string> SubjectMuteKindIds { get; init; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
@@ -25040,10 +24928,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
         "declaration": "public DateTimeOffset DayStart { get; init; } = DateTimeOffset.MinValue;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
-        "declaration": "public bool RaisedByModel { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
@@ -25116,6 +25000,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
         "declaration": "public async Task<IReadOnlyDictionary<string, int>> CountSentSinceAsync( IReadOnlyCollection<string> recipientActorIds, DateTimeOffset since, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+        "declaration": "public async Task<AssistantAlertSubjectMute> MuteAsync( string actorId, string kindId, NhAiSubjectRef subject, string? subjectDisplayName, DateTimeOffset now, DateTimeOffset until, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAlertSubjectMute>> ListActiveAsync( string actorId, DateTimeOffset now, int limit, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+        "declaration": "public async Task<IReadOnlySet<NhAssistantAlertSubjectMuteKey>> FindActiveAsync( IReadOnlyCollection<string> actorIds, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+        "declaration": "public async Task<int> LiftAsync(string actorId, IReadOnlyCollection<Guid> muteIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertSubjectMuteStore.cs",
+        "declaration": "public async Task<int> DeleteEndedAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantBoardStore.cs",
@@ -25335,10 +25239,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
-        "declaration": "public DbSet<AssistantAgentAlertModelSwitch> AlertModelSwitches => Set<AssistantAgentAlertModelSwitch>();"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();"
       },
       {
@@ -25352,6 +25252,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantAlertKindSetting> AlertKindSettings => Set<AssistantAlertKindSetting>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantAlertSubjectMute> AlertSubjectMutes => Set<AssistantAlertSubjectMute>();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
@@ -25688,6 +25592,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
         "declaration": "public TimeOnly? DigestTime { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public bool DigestTimesChanged { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public IReadOnlyList<TimeOnly>? DigestTimes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public bool QuietHoursChanged { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+        "declaration": "public NhAssistantAlertQuietHours? QuietHours { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
@@ -27136,10 +27056,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task AlertKindChangedAsync( string kindId, string actorId, string outcome, IReadOnlyCollection<string> changedFields, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
-        "declaration": "public Task AlertModelSwitchChangedAsync( string agentId, string kindId, string actorId, string mode, int version, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
@@ -28720,10 +28636,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public IReadOnlyDictionary<string, string> AlertModelKinds { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -56233,42 +56145,30 @@
       "AdminAlertKinds",
       "AdminAlertKind",
       "AdminAlertKindChange",
-      "NhAssistantAlertKindBuilder.RaisedByModel",
-      "NhAssistantAlertModelTemplateBuilder",
-      "NhAssistantAlertModelTemplate",
-      "NhAssistantAlertModelParameter",
-      "NhAssistantAlertModelParameterType",
-      "NhAssistantAlertKind.ModelTemplate",
-      "NhAssistantAlertParameterErrors",
-      "NhAssistantAlertCodes.NotOfferedToModel",
-      "NhAssistantAlertCodes.ParameterInvalid",
-      "NhAssistantAlertLimits.MaxModelTextLength",
-      "NhAssistantAlertLimits.MaxModelChoices",
-      "NhAssistantAlertLimits.MaxModelChoiceLength",
-      "NhAssistantAlertLimits.MaxModelDescriptionLength",
-      "RaisedByModel",
-      "INhAssistantAlertModelSwitches",
-      "NhAssistantAlertModelListDto",
-      "NhAssistantAlertModelSwitchDto",
-      "NhAssistantAlertModelParameterDto",
-      "NhAssistantAlertModelRequest",
-      "NhAssistantAlertModelVersionDto",
-      "AssistantAgentAlertModelSwitch",
-      "NhAssistantAlertModelModes",
-      "NhAssistantAdminErrorCodes.AlertModelNotAllowed",
-      "NhAssistantAdminErrorCodes.AlertModelShadowFirst",
-      "NhAssistantAuditEventKind.AdminAlertModelSwitchChanged",
-      "NhAssistantAuditEvent.AlertModelSwitchVersion",
-      "AlertRaisedByModel",
-      "getAgentAlertModel",
-      "setAgentAlertModel",
-      "getAgentAlertModelVersions",
-      "AgentAlertModel",
-      "AlertModelSwitch",
-      "AlertModelParameter",
-      "AlertModelRequest",
-      "AlertModelVersion",
-      "AlertModelMode"
+      "NhAssistantAlertQuietHours",
+      "DailyDigests",
+      "NhAssistantAlertDeliveryBuilder.QuietHours",
+      "DigestTimes",
+      "NhAssistantAlertKindBuilder.UrgentBreaksQuietHours",
+      "NhAssistantAlertKind.UrgentBreaksQuietHours",
+      "NhAssistantAlertChoices.QuietHours",
+      "AssistantAlertSubjectMute",
+      "NhAssistantAlertWithholdReasons.SubjectMuted",
+      "NhAssistantAlertCodes.SubjectMuteNotAllowed",
+      "NhAssistantAlertCodes.SubjectMuteDaysInvalid",
+      "NhAssistantAlertLimits.MaxSubjectMuteDays",
+      "NhAssistantErrorCodes.NotificationQuietHoursNotAllowed",
+      "NhAssistantErrorCodes.NotificationQuietHoursInvalid",
+      "NhAssistantQuietHoursDto",
+      "NhAssistantQuietHoursUpdateDto",
+      "NhAssistantAlertSubjectMuteDto",
+      "NhAssistantDismissAlertRequest",
+      "NotificationQuietHours",
+      "NotificationSubjectMute",
+      "AlertDismissOptions",
+      "NH_ASSISTANT_ALERT_MAX_SUBJECT_MUTE_DAYS",
+      "loadSettings",
+      "updatePreferences"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

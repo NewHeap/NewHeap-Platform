@@ -62,7 +62,7 @@ public sealed class AssistantAlertKindTests
         Assert.Equal(new[] { NhAssistantAlertRecipientSelector.SubjectResponsible }, note.Recipients.Selectors);
         Assert.Null(note.RepeatAfter);
         Assert.True(escalated.Required);
-        Assert.Equal(NhAssistantAlertChoices.DigestTime | NhAssistantAlertChoices.Channels, escalated.Choices);
+        Assert.Equal(NhAssistantAlertChoices.DigestTime | NhAssistantAlertChoices.Channels | NhAssistantAlertChoices.QuietHours, escalated.Choices);
     }
 
     [Fact]

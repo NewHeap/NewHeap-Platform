@@ -125,6 +125,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAlertKindSetting> AlertKindSettings => Set<AssistantAlertKindSetting>();
 
+    public DbSet<AssistantAlertSubjectMute> AlertSubjectMutes => Set<AssistantAlertSubjectMute>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -218,6 +220,8 @@ public sealed class NhAssistantDbContext : DbContext
             preference.Property(item => item.ActorId).HasMaxLength(256);
             preference.Property(item => item.Category).HasMaxLength(32);
             preference.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength);
+            // FB87 phase 2: the person's own digest times, as the administration stores a kind's.
+            preference.Property(item => item.DigestTimes).HasMaxLength(64);
         });
 
         modelBuilder.Entity<AssistantToolInvocation>(invocation =>
@@ -990,6 +994,23 @@ public sealed class NhAssistantDbContext : DbContext
             setting.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
             setting.Property(item => item.Reason).HasMaxLength(AssistantAlertKindSetting.MaxReasonLength);
             setting.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+        });
+
+        // FB87-11: a person's mute of one alert kind about one subject, until it ends.
+        modelBuilder.Entity<AssistantAlertSubjectMute>(mute =>
+        {
+            mute.ToTable("AssistantAlertSubjectMute");
+            mute.HasKey(item => item.Id);
+            mute.Property(item => item.Id).ValueGeneratedNever();
+            mute.Property(item => item.ActorId).HasMaxLength(256).IsRequired();
+            mute.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength).IsRequired();
+            mute.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            mute.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            mute.Property(item => item.SubjectDisplayName).HasMaxLength(200);
+            // One mute per person, kind and subject; also a person's mutes for the delivery and their list.
+            mute.HasIndex(item => new { item.ActorId, item.KindId, item.SubjectType, item.SubjectId }).IsUnique();
+            // The run maintenance: mutes that ended.
+            mute.HasIndex(item => item.Until);
         });
 
         modelBuilder.Entity<AssistantAgentMetadata>(metadata =>

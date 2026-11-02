@@ -291,6 +291,10 @@ there, and a colleague who muted the kind in their notification preferences gets
 An administrator manages the kind in the Alerts section of the assistant administration, within the
 bounds its code declares: they see its numbers per period, move its morning digest, which every
 person's preferences then show as the default, or switch it off, after which nothing of it is raised.
+The kind delivers in a morning and an afternoon digest and keeps quiet from 20:00 to 07:00, so an
+urgent warning in the evening waits for the morning; a person chooses their own digest times and quiet
+hours, and one who dismisses the warning may hear nothing more about that project for a week, while the
+owner still does.
 The deadline reviewer shows the same kind of warning from a language model: a project member starts it
 on a project, and its model may raise the kind `project-deliverable-due` only through the template the
 kind declares in code, filling a deliverable's name, its deadline, the days left and how far its work is,

@@ -27,7 +27,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// nothing. Ticking off the last task resolves the alert at once, because the task consumer revalidates
 /// the project's alerts, and a round that no longer raises the watch's warning resolves it by omission.
 /// The warning arrives in the 07:30 digest where each person works, and not for a person who muted its
-/// kind.
+/// kind. Its kind delivers in two digests a day and keeps quiet at night; a person chooses their own
+/// digest times and quiet hours, and asks to hear nothing more about one project for a while.
 /// </summary>
 public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : IClassFixture<AssistantAlertSampleHost>
 {
@@ -182,7 +183,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
 
             var kind = await AlertKindAsync(administrator);
             Assert.Equal(new NhAssistantAdminAlertKindChoicesDto(true, true, true, true, true), kind.AdministratorMayChange);
-            Assert.Equal(("daily-digest", "07:30", true, "urgent"), (kind.CodeDelivery.Mode, Assert.Single(kind.CodeDelivery.DigestTimes), kind.CodeDelivery.WorkdaysOnly, kind.CodeDelivery.ImmediatelyFrom));
+            Assert.Equal(("daily-digest", true, "urgent"), (kind.CodeDelivery.Mode, kind.CodeDelivery.WorkdaysOnly, kind.CodeDelivery.ImmediatelyFrom));
+            Assert.Equal(["07:30", "16:00"], kind.CodeDelivery.DigestTimes);
 
             // The morning shift reads the warning at 08:15; a person's preferences show the new default.
             NhAssistantAdminAlertKindDto moved;
@@ -433,6 +435,110 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.DoesNotContain(host.Inbox.Requests, request => request.UserId == muted && request.Category == "assistant-alert");
     }
 
+    [Fact]
+    public async Task SPM_392_two_digests_a_day_quiet_hours_and_a_project_muted_for_one_person()
+    {
+        // Time and the person (FB87 phase 2): 07:00 on a working day, when the morning round runs.
+        host.MoveToNextWorkingMorning();
+        var today = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+        var project = await host.CreateProjectAsync(
+            "TIMING",
+            host.OwnerId,
+            ProjectStatus.Active,
+            SampleDeadlineAlertsComposition.StartOf(today).AddHours(17));
+        await host.AddTasksAsync(project, "Sign the contract");
+        var muting = await host.CreatePersonAsync();
+        var lunch = await host.CreatePersonAsync();
+        await host.AddMemberAsync(project, muting, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, lunch, ProjectMemberRole.Participant);
+        using var mutingClient = host.CreateClient(muting.ToString());
+        using var lunchClient = host.CreateClient(lunch.ToString());
+        var about = $"subjectType={ProjectSubjects.Type}&subjectId={project}";
+
+        // The kind's digests at 07:30 and 16:00, quiet from 20:00 to 07:00; a colleague reads theirs at
+        // 12:30 and keeps quiet only from 23:00 to 05:00.
+        var settings = await mutingClient.GetFromJsonAsync<NhAssistantNotificationSettingsDto>("/api/assistant/notifications", Json);
+        var kind = Assert.Single(settings!.AlertKinds, item => item.Id == SampleDeadlineAlertsComposition.KindId);
+        Assert.Equal(["07:30", "16:00"], kind.DefaultDigestTimes);
+        Assert.Equal(("07:30", true, true), (kind.DefaultDigestTime, kind.MayChangeDigestTime, kind.MayChangeQuietHours));
+        Assert.Equal(new NhAssistantQuietHoursDto("20:00", "07:00"), kind.DefaultQuietHours);
+        using (var response = await lunchClient.PutAsJsonAsync(
+                   "/api/assistant/notifications",
+                   new
+                   {
+                       alertKinds = new[]
+                       {
+                           new { id = SampleDeadlineAlertsComposition.KindId, digestTimes = new[] { "12:30" }, quietHours = new { start = "23:00", end = "05:00" } }
+                       }
+                   },
+                   Json))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var own = Assert.Single(
+                (await response.Content.ReadFromJsonAsync<NhAssistantNotificationSettingsDto>(Json))!.AlertKinds,
+                item => item.Id == SampleDeadlineAlertsComposition.KindId);
+            Assert.Equal(["12:30"], own.DigestTimes);
+            Assert.Equal(new NhAssistantQuietHoursDto("23:00", "05:00"), own.QuietHours);
+        }
+
+        // Raised at 07:00: the 07:30 digest for the owner and the first colleague, 12:30 for the other.
+        var warned = await WarnAsync(project);
+        Assert.Equal(3, warned.Data!.RecipientCount);
+        host.MoveTo(SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
+        await host.WaitForOutboxAsync(host.OwnerId, warned.Data.AlertId);
+        await host.WaitForOutboxAsync(muting, warned.Data.AlertId);
+        Assert.DoesNotContain(host.Outbox.Entries, entry => entry.RecipientActorId == lunch.ToString("D"));
+        var lunchtime = SampleDeadlineAlertsComposition.At(today, new TimeOnly(12, 30), SampleDeadlineAlertsComposition.TimeZone);
+        host.MoveTo(lunchtime);
+        Assert.True((await host.WaitForOutboxAsync(lunch, warned.Data.AlertId)).SentAt >= lunchtime);
+
+        // The first colleague dismisses the warning and hears nothing more about the project for a week.
+        var dismissedAt = host.Clock.GetUtcNow();
+        using (var response = await mutingClient.PostAsJsonAsync($"/api/assistant/alerts/{warned.Data.AlertId}/dismiss", new { muteSubjectForDays = 7 }, Json))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var dismissed = await response.Content.ReadFromJsonAsync<NhAssistantAlertDto>(Json);
+            Assert.Equal((NhAssistantAlertListStatuses.Dismissed, true), (dismissed!.Status, dismissed.MayMuteSubject));
+        }
+        settings = await mutingClient.GetFromJsonAsync<NhAssistantNotificationSettingsDto>("/api/assistant/notifications", Json);
+        var mute = Assert.Single(settings!.SubjectMutes);
+        Assert.Equal((SampleDeadlineAlertsComposition.KindId, ProjectSubjects.Type, project.ToString()), (mute.KindId, mute.SubjectType, mute.SubjectId));
+        Assert.InRange(mute.Until, dismissedAt.AddDays(7), host.Clock.GetUtcNow().AddDays(7));
+
+        // At 21:00 the warning turns urgent, which goes at once, but not in the owner's quiet hours: the
+        // colleague whose quiet hours start at 23:00 gets it now, while the owner's waits for 07:00, after
+        // the warning about today expired at midnight.
+        var evening = SampleDeadlineAlertsComposition.At(today, new TimeOnly(21, 0), SampleDeadlineAlertsComposition.TimeZone);
+        host.MoveTo(evening);
+        NhAssistantAlertReceipt urgent;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var raised = await scope.ServiceProvider.GetRequiredService<INhAssistantAlerts>().RaiseAsync(
+                SampleDeadlineAlertsComposition.AlertFor(project, "TIMING", today, 1, []) with { Urgency = NhAssistantAlertUrgency.Urgent });
+            Assert.True(raised.Success);
+            urgent = raised.Data!;
+        }
+        Assert.Equal((warned.Data.AlertId, NhAssistantAlertOutcome.Redelivered), (urgent.AlertId, urgent.Outcome));
+        var atOnce = await host.WaitForOutboxAsync(lunch, urgent.AlertId, count: 2);
+        Assert.True(atOnce.SentAt < evening.AddHours(1));
+        // The pass that told the colleague left the owner's delivery alone: it is not due before 07:00.
+        Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == host.OwnerId.ToString("D") && entry.AlertIds.Contains(urgent.AlertId));
+
+        // The next working day the project is due again: its new warning reaches the owner, while the
+        // muted colleague's is withheld, stays in their list and leaves their badge.
+        host.MoveToNextWorkingMorning();
+        var nextDay = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+        await host.MoveDeadlineAsync(project, SampleDeadlineAlertsComposition.StartOf(nextDay).AddHours(17));
+        var again = await WarnAsync(project);
+        Assert.NotEqual(warned.Data.AlertId, again.Data!.AlertId);
+        host.MoveTo(SampleDeadlineAlertsComposition.At(nextDay, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
+        await host.WaitForOutboxAsync(host.OwnerId, again.Data.AlertId);
+        var withheld = Assert.Single((await ListAlertsAsync(mutingClient, about)).Items, item => item.Id == again.Data.AlertId);
+        Assert.Equal((true, NhAssistantAlertWithholdReasons.SubjectMuted), (withheld.IsWithheld, withheld.WithheldReason));
+        Assert.Equal(0, (await SummaryAsync(mutingClient, about)).Unread);
+        Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == muting.ToString("D"));
+    }
+
     private async Task<NewHeap.Platform.Common.Models.TaskResult<NhAssistantAlertReceipt>> WarnAsync(Guid projectId, params Guid[] people)
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -554,21 +660,35 @@ public sealed class AssistantAlertSampleHost(SamplePostgreSqlServer postgreSql) 
     /// The notification of <paramref name="alertId"/> to <paramref name="personId"/> in the outbox, once
     /// the delivery sent it.
     /// </summary>
-    public async Task<SampleAlertOutboxEntry> WaitForOutboxAsync(Guid personId, Guid alertId)
+    public async Task<SampleAlertOutboxEntry> WaitForOutboxAsync(Guid personId, Guid alertId, int count = 1)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
         while (DateTimeOffset.UtcNow < deadline)
         {
-            var entry = Outbox.Entries.FirstOrDefault(item => item.RecipientActorId == personId.ToString("D") && item.AlertIds.Contains(alertId));
-            if (entry is not null)
+            var entries = Outbox.Entries
+                .Where(item => item.RecipientActorId == personId.ToString("D") && item.AlertIds.Contains(alertId))
+                .ToArray();
+            if (entries.Length >= count)
             {
-                return entry;
+                return entries[count - 1];
             }
 
             await Task.Delay(PollInterval);
         }
 
-        throw new TimeoutException($"No notification of alert {alertId} reached person {personId} within 90 s.");
+        throw new TimeoutException($"Notification {count} of alert {alertId} did not reach person {personId} within 90 s.");
+    }
+
+    /// <summary>
+    /// Moves the deadline of <paramref name="projectId"/>, as a project manager who postpones it.
+    /// </summary>
+    public async Task MoveDeadlineAsync(Guid projectId, DateTimeOffset deadline)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var project = await dbContext.Projects.SingleAsync(item => item.Id == projectId);
+        project.Deadline = deadline;
+        await dbContext.SaveChangesAsync();
     }
 
     public void MoveToNextMorning()

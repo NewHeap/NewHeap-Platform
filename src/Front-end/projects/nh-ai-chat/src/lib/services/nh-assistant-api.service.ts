@@ -10,7 +10,7 @@ import {
   UpdateMcpConnectionRequest
 } from '../models/assistant-admin.models';
 import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
-import { Alert, AlertList, AlertListFilter, AlertSummary, AlertSummaryFilter } from '../models/assistant-alert.models';
+import { Alert, AlertDismissOptions, AlertList, AlertListFilter, AlertSummary, AlertSummaryFilter } from '../models/assistant-alert.models';
 import {
   AgentSummary,
   AnswerQuestionRequest,
@@ -226,9 +226,10 @@ export class NhAssistantApiService {
   }
 
   /**
-   * Changes the caller's notification choices (`PUT notifications`): the push switch and, per alert
-   * kind, mute, digest time and channels, each only where it is named. Returns every choice as it is
-   * stored. A change the kind does not allow fails with `400` and a stable code.
+   * Changes the caller's notification choices (`PUT notifications`): the push switch, per alert kind
+   * mute, digest times, quiet hours and channels, and the mutes of a kind about a subject to lift, each
+   * only where it is named. Returns every choice as it is stored. A change the kind does not allow fails
+   * with `400` and a stable code.
    */
   updateNotificationPreferences(request: UpdateNotificationSettingsRequest): Observable<NotificationSettings> {
     return this.transport.json<NotificationSettings>('PUT', 'notifications', request);
@@ -257,11 +258,17 @@ export class NhAssistantApiService {
   }
 
   /**
-   * Dismisses the caller's alert, also a closed one, and returns it as the list now shows it. Fails with
-   * `assistant-alert-not-found` for an alert the caller may not read.
+   * Dismisses the caller's alert, also a closed one, and returns it as the list now shows it. With
+   * `muteSubjectForDays` its kind also tells the caller nothing more about its subject for that many
+   * days (FB87-11). Fails with `assistant-alert-not-found` for an alert the caller may not read, and with
+   * `assistant-alert-subject-mute-not-allowed` or `assistant-alert-subject-mute-days-invalid` for a mute
+   * that is refused, which dismisses nothing.
    */
-  dismissAlert(alertId: string): Observable<Alert> {
-    return this.transport.json<Alert>('POST', `alerts/${encodeURIComponent(alertId)}/dismiss`);
+  dismissAlert(alertId: string, options: AlertDismissOptions = {}): Observable<Alert> {
+    const path = `alerts/${encodeURIComponent(alertId)}/dismiss`;
+    return options.muteSubjectForDays === undefined
+      ? this.transport.json<Alert>('POST', path)
+      : this.transport.json<Alert>('POST', path, { muteSubjectForDays: options.muteSubjectForDays });
   }
 
   /** Registers this browser's push subscription for the caller. */

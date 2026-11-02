@@ -135,3 +135,68 @@ h3 {
 .switch {
   font-weight: 650;
 }
+
+.digest-times,
+.quiet-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.time-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.mutes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mute-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mute {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 8px 12px;
+  background: var(--nha-surface);
+
+  &.lifting .mute-body {
+    opacity: 0.6;
+  }
+}
+
+.mute-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .muted {
+    color: var(--nha-text-muted);
+    font-weight: 500;
+  }
+}

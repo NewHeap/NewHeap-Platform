@@ -31,6 +31,7 @@ import {
   McpDiscovery,
   McpServerInput,
   NotificationAlertKind,
+  NotificationSubjectMute,
   AssistantAccount,
   ApprovalPresentation,
   NhAssistantConsultationLeaveRoute,
@@ -601,6 +602,12 @@ export interface NhAssistantMockCollaboration {
   directory?: NhAssistantMockPerson[];
   /** Default 20. */
   maxParticipants?: number;
+  /**
+   * The server has Web Push configured: the status says so and `GET notifications` answers
+   * `pushAvailable` with a key, while registering a browser still answers `assistant-push-unavailable`.
+   * Default `false`.
+   */
+  push?: boolean;
 }
 
 /** A subject of a mock subject type, as the application's resolver describes it. */
@@ -835,6 +842,8 @@ export interface NhAssistantMockAlertScenario {
   kinds?: NotificationAlertKind[];
   /** The person's time zone. Default `Europe/Amsterdam`. */
   timeZone?: string;
+  /** The person's mutes of a kind about one object (FB87-11), as dismissing with a mute leaves them. */
+  subjectMutes?: NotificationSubjectMute[];
 }
 
 /**

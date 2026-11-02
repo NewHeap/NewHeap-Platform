@@ -5,21 +5,6 @@ using NewHeap.Platform.AI.Chat.Persistence;
 namespace NewHeap.Platform.AI.Chat.Alerts;
 
 /// <summary>
-/// Quiet hours of a kind's delivery, in a person's time zone: from <see cref="Start"/> up to
-/// <see cref="End"/>, across midnight when the end comes before the start.
-/// </summary>
-internal sealed record NhAssistantAlertQuietHours(TimeOnly Start, TimeOnly End)
-{
-    /// <summary>Whether the clock showing <paramref name="time"/> is within the quiet hours.</summary>
-    public bool Contains(TimeOnly time)
-    {
-        return Start <= End
-            ? time >= Start && time < End
-            : time >= Start || time < End;
-    }
-}
-
-/// <summary>
 /// The delivery that applies to a kind: the code's (<see cref="NhAssistantAlertKind.Delivery"/>) merged
 /// with an administrator's settings where the code lets an administrator change them. Several digest
 /// times and quiet hours are carried for the scheduler that plans them; <see cref="DigestTime"/> is the
@@ -49,13 +34,13 @@ internal sealed record NhAssistantAlertEffectiveDelivery(
             || (ImmediatelyFrom is { } from && urgency >= from);
     }
 
-    /// <summary>The delivery the code declares.</summary>
+    /// <summary>The delivery the code declares, with its digest times and quiet hours.</summary>
     public static NhAssistantAlertEffectiveDelivery Of(NhAssistantAlertDelivery code)
     {
         ArgumentNullException.ThrowIfNull(code);
-        return code.Mode == NhAssistantAlertDeliveryMode.DailyDigest && code.DigestTime is { } time
-            ? new NhAssistantAlertEffectiveDelivery(NhAssistantAlertDeliveryMode.DailyDigest, [time], code.WorkdaysOnly, code.ImmediatelyFrom, null)
-            : Immediate(null);
+        return code.Mode == NhAssistantAlertDeliveryMode.DailyDigest && code.DigestTimes.Count > 0
+            ? new NhAssistantAlertEffectiveDelivery(NhAssistantAlertDeliveryMode.DailyDigest, code.DigestTimes, code.WorkdaysOnly, code.ImmediatelyFrom, code.QuietHours)
+            : Immediate(code.QuietHours);
     }
 
     /// <summary>A delivery as soon as an alert is raised, with <paramref name="quietHours"/>.</summary>

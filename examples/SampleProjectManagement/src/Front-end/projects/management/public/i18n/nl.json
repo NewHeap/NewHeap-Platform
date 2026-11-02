@@ -790,7 +790,7 @@
   "alerts-page": {
     "navigation": "Attenties",
     "title": "Attenties",
-    "description": "Waarschuwingen over de projecten waaraan je werkt, zoals een project dat vandaag af moet terwijl er nog taken openstaan. Er wacht niets op je goedkeuring: lees een attentie, open het project of leg haar weg, en kies hoe attenties je bereiken.",
+    "description": "Waarschuwingen over de projecten waaraan je werkt, zoals een project dat vandaag af moet terwijl er nog taken openstaan. Er wacht niets op je goedkeuring: lees een attentie, open het project of leg haar weg, of hoor een tijdje niets meer over dat project, en kies hoe attenties je bereiken: de tijden van je overzichten en je stille uren.",
     "compact-list": "Compacte lijst",
     "unread": "{{count}} ongelezen",
     "bell": "Attenties",

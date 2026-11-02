@@ -76,8 +76,8 @@ export interface Alert {
    */
   isWithheld?: boolean;
   /**
-   * Why: `muted`, `limit-reached`, `kind-unknown`, `text-invalid` or `kind-off`; `null` when the alert was
-   * not withheld.
+   * Why: `muted`, `subject-muted` (the person muted the kind about this subject for a while),
+   * `limit-reached`, `kind-unknown`, `text-invalid` or `kind-off`; `null` when the alert was not withheld.
    */
   withheldReason?: string | null;
   /**
@@ -86,6 +86,24 @@ export interface Alert {
    * Missing on older servers.
    */
   raisedByModel?: boolean;
+  /**
+   * The person may dismiss the alert with `muteSubjectForDays`, so its kind tells them nothing more about
+   * its subject for a while: the kind is not required and lets them mute it. An older server sends none.
+   */
+  mayMuteSubject?: boolean;
+}
+
+/** The most days one "do not tell me about this object" lasts; the fewest is one. */
+export const NH_ASSISTANT_ALERT_MAX_SUBJECT_MUTE_DAYS = 90;
+
+/** Options of `dismissAlert`. */
+export interface AlertDismissOptions {
+  /**
+   * Also tells the person nothing more of the alert's kind about its subject for this many days, 1 to
+   * 90; other kinds about the subject still reach them, and a mute that lasts longer stays. Refused with
+   * `assistant-alert-subject-mute-not-allowed` for a kind they may not mute (`mayMuteSubject`).
+   */
+  muteSubjectForDays?: number;
 }
 
 /** One subject within a group of the grouped alert list; its name and link are those of its items. */
@@ -182,6 +200,12 @@ export interface NotificationAlertChannels {
   inApp: boolean;
 }
 
+/** Quiet hours in the person's time zone: from `start` up to `end`, `HH:mm`; an end before the start spans midnight. */
+export interface NotificationQuietHours {
+  start: string;
+  end: string;
+}
+
 /**
  * One kind of alert in a person's notification choices (`GET notifications`), with what the kind lets
  * the person change and the person's choices. Times are `HH:mm` in the person's time zone.
@@ -197,10 +221,25 @@ export interface NotificationAlertKind {
   mayChangeDigestTime: boolean;
   mayChooseChannels: boolean;
   muted: boolean;
-  /** The kind's daily digest time; `null` when the kind delivers immediately. */
+  /** The kind's first digest time of the day; `null` when the kind delivers immediately. */
   defaultDigestTime: string | null;
-  /** The person's own digest time; `null` for the default. */
+  /** The person's own first digest time; `null` for the default. */
   digestTime: string | null;
+  /**
+   * The kind's digest times in ascending order, at most four, the first of them `defaultDigestTime`;
+   * empty when the kind delivers immediately. An older server sends none.
+   */
+  defaultDigestTimes?: string[];
+  /** The person's own digest times in ascending order; `null` for the kind's. An older server sends none. */
+  digestTimes?: string[] | null;
+  /** The person may choose their own quiet hours for the kind. */
+  mayChangeQuietHours?: boolean;
+  /** The kind's quiet hours, its code's or an administrator's; `null` for none. */
+  defaultQuietHours?: NotificationQuietHours | null;
+  /** The person's own quiet hours; `null` for the kind's. */
+  quietHours?: NotificationQuietHours | null;
+  /** An urgent alert of the kind is delivered in quiet hours as well. */
+  urgentBreaksQuietHours?: boolean;
   /** The kind's digest goes out on working days only. */
   workdaysOnly: boolean;
   /** The channels that deliver the kind for the person, as they apply. */
@@ -210,12 +249,36 @@ export interface NotificationAlertKind {
 }
 
 /**
- * A person's change of one kind in `PUT notifications`: only what is named changes. `digestTime` `null`
- * returns to the kind's default. A change the kind does not allow is refused with `400` and its code.
+ * A person's change of one kind in `PUT notifications`: only what is named changes. `digestTime`,
+ * `digestTimes` or `quietHours` `null` returns to the kind's default; `digestTimes`, one to four times,
+ * replaces `digestTime`. A change the kind does not allow is refused with `400` and its code.
  */
 export interface NotificationAlertKindChange {
   id: string;
   muted?: boolean;
   digestTime?: string | null;
+  digestTimes?: string[] | null;
+  quietHours?: NotificationQuietHours | null;
   channels?: Partial<NotificationAlertChannels>;
+}
+
+/**
+ * One of the person's mutes of an alert kind about one subject (`subjectMutes` of `GET notifications`),
+ * set by dismissing an alert with `muteSubjectForDays`.
+ */
+export interface NotificationSubjectMute {
+  /** The mute, as `liftSubjectMutes` of `PUT notifications` names it. */
+  id: string;
+  kindId: string;
+  /** The translation key of the kind's name. */
+  displayNameKey: string;
+  subjectType: string;
+  subjectId: string;
+  /** The subject's name as the dismissed alert showed it. */
+  subjectDisplayName: string | null;
+  subjectTypeName?: string | null;
+  subjectLink?: string | null;
+  mutedAt: string;
+  /** When the mute ends. */
+  until: string;
 }

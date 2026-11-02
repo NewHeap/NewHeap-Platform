@@ -27,6 +27,7 @@ import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantAlertBadgeService } from '../../services/nh-assistant-alert-badge.service';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
+import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
 
 /** How `nh-assistant-alerts` shows its alerts: a card each, or one row each for a long list. */
@@ -34,6 +35,9 @@ export type NhAssistantAlertDensity = 'comfortable' | 'compact';
 
 /** The statuses the list's own filter offers; the empty value shows every alert the person did not dismiss. */
 const filterStatuses: readonly (AlertListStatus | '')[] = ['', 'unread', 'open', 'closed', 'dismissed'];
+
+/** The days a person may choose for "do not tell me about this object for a while" (FB87-11). */
+const muteDays: readonly number[] = [7, 30];
 
 const urgencyIcons: Readonly<Record<AlertUrgency, NhAssistantIconName>> = {
   info: 'bell',
@@ -56,7 +60,9 @@ let nextId = 0;
  * default) per parent, such as a project with the alerts about its tasks. Each alert shows its urgency,
  * its title and text in the person's language, its kind and its subject; a resolved or expired alert
  * shows as such. The person marks an alert read or dismisses it, also a closed one, and each action
- * updates the badge of `NhAssistantAlertBadgeService`.
+ * updates the badge of `NhAssistantAlertBadgeService`. Where the alert's kind lets them (`mayMuteSubject`),
+ * dismissing also offers to hear nothing more of that kind about its object for 7 or 30 days (FB87-11);
+ * the notification preferences list such mutes, and lift them.
  *
  * Opening an alert's subject marks the alert read and emits `openSubject` with its type, id and link;
  * the component never navigates, so the host routes to the object as it routes the subject of a
@@ -75,6 +81,7 @@ let nextId = 0;
 export class NhAssistantAlertsComponent {
   private readonly api = inject(NhAssistantApiService);
   private readonly badge = inject(NhAssistantAlertBadgeService);
+  private readonly push = inject(NhAssistantPushService);
   private subscription?: Subscription;
   private actionSubscription?: Subscription;
 
@@ -99,6 +106,9 @@ export class NhAssistantAlertsComponent {
 
   readonly id = `nh-assistant-alerts-${nextId++}`;
   readonly filterStatuses = filterStatuses;
+  readonly muteDays = muteDays;
+  /** The alert whose choice of how long to mute its object shows. */
+  readonly muteMenuFor = signal<string | null>(null);
   /** The status shown: the host's, until the person chooses another in the list's filter. */
   readonly shownStatus = linkedSignal<AlertListStatus | null>(() => this.status());
   readonly page = signal(1);
@@ -180,6 +190,24 @@ export class NhAssistantAlertsComponent {
     this.act(alert, this.api.dismissAlert(alert.id));
   }
 
+  /** Shows or hides the choice of how long to hear nothing more of the alert's kind about its object. */
+  toggleMuteMenu(alert: Alert): void {
+    this.muteMenuFor.update(current => (current === alert.id ? null : alert.id));
+  }
+
+  /**
+   * Dismisses the alert and hears nothing more of its kind about its object for `days`; the notification
+   * choices that show on the page list the mute.
+   */
+  dismissAndMute(alert: Alert, days: number): void {
+    this.act(alert, this.api.dismissAlert(alert.id, { muteSubjectForDays: days }), () => {
+      if (this.push.settings() !== null) {
+        // Another part of the page shows the person's mutes: it reads them again.
+        this.push.loadSettings().subscribe({ error: () => undefined });
+      }
+    });
+  }
+
   /**
    * Opens the alert's subject: emits it for the host to route to and marks an unread alert read. The
    * component itself never navigates.
@@ -205,9 +233,16 @@ export class NhAssistantAlertsComponent {
     return `nh-assistant.alerts.empty.${this.shownStatus() ?? 'active'}`;
   }
 
-  /** The text of an alert that reached none of the person's channels: a muted kind, or another reason. */
+  /** The text of an alert that reached none of the person's channels: a muted kind or object, or another reason. */
   withheldKey(alert: Alert): string {
-    return alert.withheldReason === 'muted' ? 'nh-assistant.alerts.withheld.muted' : 'nh-assistant.alerts.withheld.other';
+    switch (alert.withheldReason) {
+      case 'muted':
+        return 'nh-assistant.alerts.withheld.muted';
+      case 'subject-muted':
+        return 'nh-assistant.alerts.withheld.subject-muted';
+      default:
+        return 'nh-assistant.alerts.withheld.other';
+    }
   }
 
   /** A group's subject name as people see it: its name, else its type's name with its id. */
@@ -220,7 +255,7 @@ export class NhAssistantAlertsComponent {
     return !!group && group.subjectType === alert.subjectType && group.subjectId === alert.subjectId;
   }
 
-  private act(alert: Alert, request: Observable<Alert>): void {
+  private act(alert: Alert, request: Observable<Alert>, done?: () => void): void {
     if (this.busyId()) {
       return;
     }
@@ -231,6 +266,8 @@ export class NhAssistantAlertsComponent {
     this.actionSubscription = request.subscribe({
       next: changed => {
         this.busyId.set(null);
+        this.muteMenuFor.set(null);
+        done?.();
         this.items.update(items => items.map(item => (item.id === changed.id ? changed : item)));
         this.badge.refresh();
         // The list reads its page again quietly, so an alert that no longer matches the filter leaves.

@@ -59,6 +59,12 @@ public static class NhAssistantAlertLimits
 
     /// <summary>The longest description in an alert's template for the model: when the kind applies, or what a parameter holds.</summary>
     public const int MaxModelDescriptionLength = 500;
+
+    /// <summary>
+    /// The most days one "do not tell me about this object" lasts (<c>POST alerts/{id}/dismiss</c> with
+    /// <c>muteSubjectForDays</c>); the fewest is one.
+    /// </summary>
+    public const int MaxSubjectMuteDays = 90;
 }
 
 /// <summary>
@@ -116,6 +122,18 @@ public static class NhAssistantAlertCodes
     /// unknown status or urgency, a subject id without a subject type, or more than 20 kinds: <c>400</c>.
     /// </summary>
     public const string FilterInvalid = "assistant-alert-filter-invalid";
+
+    /// <summary>
+    /// <c>POST alerts/{id}/dismiss</c> asks to mute the alert's subject for a kind that is required or
+    /// does not let people mute it (FB87-11): <c>400</c>, and the alert is not dismissed either.
+    /// </summary>
+    public const string SubjectMuteNotAllowed = "assistant-alert-subject-mute-not-allowed";
+
+    /// <summary>
+    /// <c>muteSubjectForDays</c> of <c>POST alerts/{id}/dismiss</c> is not a whole number of days from 1 to
+    /// <see cref="NhAssistantAlertLimits.MaxSubjectMuteDays"/>: <c>400</c>, and the alert is not dismissed.
+    /// </summary>
+    public const string SubjectMuteDaysInvalid = "assistant-alert-subject-mute-days-invalid";
 
     /// <summary>The outcome of an alert raised for the first time, in the audit's <c>ResultCode</c>.</summary>
     public const string Raised = "raised";
@@ -260,6 +278,12 @@ public static class NhAssistantAlertWithholdReasons
 
     /// <summary>An administrator switched the alert's kind off before the delivery went out.</summary>
     public const string KindOff = "kind-off";
+
+    /// <summary>
+    /// The person asked not to be told about the alert's subject for a while for its kind (FB87-11), and
+    /// that mute had not ended when the delivery was due.
+    /// </summary>
+    public const string SubjectMuted = "subject-muted";
 }
 
 /// <summary>

@@ -125,11 +125,16 @@ public static class SampleDeadlineAlertsComposition
                     .Or(NhAssistantAlertRecipients.Explicit))
                 // A project due today is warned about once per day, however many rounds raise it.
                 .RepeatAfter(TimeSpan.FromDays(1))
-                // By default in the morning digest on working days; an urgent one comes at once.
+                // By default in the morning and afternoon digests on working days; an urgent one comes at
+                // once, but nothing between 20:00 and 07:00: a warning raised at night waits for the morning.
                 .Delivery(delivery => delivery
-                    .DailyDigest(new TimeOnly(7, 30))
+                    .DailyDigests(new TimeOnly(7, 30), new TimeOnly(16, 0))
                     .WorkdaysOnly()
-                    .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent))
+                    .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent)
+                    .QuietHours(new TimeOnly(20, 0), new TimeOnly(7, 0)))
+                // A person mutes the kind, chooses their own digest times, quiet hours and channels, and
+                // asks to hear nothing about one project for a while; a required kind would allow none of
+                // the muting.
                 .PersonMayChange(NhAssistantAlertChoices.All)
                 // An administrator may switch the warning off and move its digest; recipients and texts stay code.
                 .AdministratorMayChange(NhAssistantAlertAdminChoices.SwitchOff | NhAssistantAlertAdminChoices.Delivery)

@@ -217,6 +217,49 @@ describe('NhAssistantAlertsComponent', () => {
     expect(element.querySelector('[data-alert-id="a-report"] [data-alert-raised-by-model]')).toBeNull();
   });
 
+  it('dismisses an alert and mutes its object for a while where its kind lets the person, and withholds what follows', async () => {
+    const element = await render([
+      ...alerts,
+      {
+        id: 'a-audit', kindId: 'task-due-today', urgency: 'urgent', title: 'Pass the audit is due today', mayMuteSubject: false,
+        subjectType: 'task', subjectId: 't-5', subjectDisplayName: 'Pass the audit', parent: project, updatedAt: '2026-11-02T07:30:00Z'
+      }
+    ]);
+    const backend = TestBed.inject(NhAssistantMockBackend);
+    const badge = TestBed.inject(NhAssistantAlertBadgeService);
+    const release = badge.watch();
+    await settle();
+    expect(element.querySelector('[data-alert-id="a-audit"] [data-alert-mute]')).withContext('a kind that cannot be muted').toBeNull();
+
+    const report = element.querySelector('[data-alert-id="a-report"]') as HTMLElement;
+    const toggle = report.querySelector('[data-alert-mute]') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-label')).toBe('Not about this for a while');
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const choices = report.querySelector('[data-alert-mute-choices]') as HTMLElement;
+    expect(choices.textContent?.replace(/\s+/g, ' ')).toContain('Dismiss and hear nothing more of this kind about Write the report for 7 days 30 days');
+
+    (choices.querySelector('[data-alert-mute-days="7"]') as HTMLButtonElement).click();
+    await settle();
+    const dismissed = backend.requests.filter(request => request.method === 'POST');
+    expect(dismissed.map(request => [request.path, request.body])).toEqual([['alerts/a-report/dismiss', { muteSubjectForDays: 7 }]]);
+    expect(titles(element)).not.toContain('Write the report is due today');
+    const response = await backend.fetch('/api/assistant/notifications', { method: 'GET' });
+    const settings = await response.json() as { subjectMutes: { kindId: string; subjectId: string }[] };
+    expect(settings.subjectMutes.map(mute => [mute.kindId, mute.subjectId])).toEqual([['task-due-today', 't-1']]);
+
+    // The next alert of the kind about the task reaches no channel and leaves the badge.
+    backend.raiseAlert({ id: 'a-report-2', kindId: 'task-due-today', urgency: 'warning', title: 'Write the report is late', subjectType: 'task', subjectId: 't-1', parent: project });
+    badge.refresh();
+    (element.querySelector('.toolbar button.secondary') as HTMLButtonElement).click();
+    await settle();
+    const withheld = element.querySelector('[data-alert-id="a-report-2"]') as HTMLElement;
+    expect(withheld.querySelector('[data-alert-withheld]')?.textContent?.trim()).toBe('Muted for a while');
+    expect(badge.unread()).withContext('the invoice and the audit').toBe(2);
+    release();
+  });
+
   it('shows an untitled alert by its subject, an empty list and a load failure with a retry', async () => {
     let element = await render([{ ...alerts[0], title: null }]);
     expect(titles(element)).toEqual(['An alert about Write the report']);

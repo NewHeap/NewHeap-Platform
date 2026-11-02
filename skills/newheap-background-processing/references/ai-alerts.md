@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Warn people about an object with alerts of a kind declared in code, raised by rules and by the application without a proposal
 
-Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin. An agent's language model raises a kind only through the template its code declares with RaisedByModel, by the platform tool raise_alert in its own runs on one subject, with typed parameters the platform checks as plain values before anything is stored, once an administrator switched the kind on for the agent, first in shadow, through admin/agents/{id}/alert-model and the agent's Rollout tab.
+Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin. A kind delivers in up to four digests a day and keeps quiet hours, a person chooses their own where the kind allows it, and a person who dismisses an alert may hear nothing more of its kind about that object for a while.
 
 ## Preferred approach
 
@@ -29,10 +29,11 @@ resources, as SPM-392 does, so every language follows the translations. Give the
 `Urgency` (`Info`, `Warning`, `Urgent`), its recipients with `NhAssistantAlertRecipients`
 (`SubjectResponsible`, `Explicit`, `SubjectApprovers` and `SubjectMembers(minRole)`, combined with
 `Or`), an optional
-`RepeatAfter` and its default `Delivery`: immediately, one `DailyDigest(time)` with
-`WorkdaysOnly()`, and `ImmediatelyFrom(urgency)` for alerts that cannot wait. Declare what a person
-may change with `PersonMayChange` (`Mute`, `DigestTime`, `Channels`), or make the kind `Required()`
-so nobody mutes it. `PushShows` stays `TitleOnly` unless the text is safe on a lock screen.
+`RepeatAfter` and its default `Delivery`: immediately, one `DailyDigest(time)` or up to four
+`DailyDigests(times)` with `WorkdaysOnly()`, `ImmediatelyFrom(urgency)` for alerts that cannot wait and
+`QuietHours(start, end)` (see "Time and the person"). Declare what a person may change with
+`PersonMayChange` (`Mute`, `DigestTime`, `Channels`, `QuietHours`), or make the kind `Required()` so
+nobody mutes it. `PushShows` stays `TitleOnly` unless the text is safe on a lock screen.
 
 ```csharp
 assistant
@@ -275,72 +276,63 @@ preferences leave it out. Switching it on again lets the next raise plan the wit
 switch and the delivery editable where the code allows it; `NhAssistantAdminApiService` has
 `getAlertKinds` and `updateAlertKind`, and `provideNhAssistantMockApi` serves an example view.
 
-### Alerts from an agent's model (FB87-9)
+### Time and the person
 
-An agent's language model raises an alert only through a template that its kind declares in code
-with `RaisedByModel`, and only once an administrator switched it on for the agent. Free text of the
-model is never an alert: the model chooses one of the kinds it is offered and fills that kind's typed
-parameters, which `NhAssistantAlertModelTemplateBuilder` declares, each required: `Choice` from a fixed
-list, `WholeNumber` between bounds, `Date` as `yyyy-MM-dd` and `Text` of at most
-`NhAssistantAlertLimits.MaxModelTextLength` characters. `Describe` tells the model when the kind
-applies; `Key` names the parameters whose values tell the kind's alerts about one subject apart, and the
-platform derives the key from the kind, the subject and those values, so the same values update one
-open alert and a person who dismissed it hears again only when they change. Write the kind's title and
-text from these parameters only, and prefer a choice or a number to a text.
+A kind delivers in up to four digests a day: `DailyDigests(new TimeOnly(7, 30), new TimeOnly(16, 0))`,
+of which `DailyDigest(time)` is the one-time form; an alert goes out in the next of them after it is
+raised. `QuietHours(start, end)` keeps the kind quiet in the person's time zone, across midnight when the
+end comes before the start, such as 22:00 to 07:00: a digest that would go out in them moves to the
+first digest time after they end, or to their end when every digest time is in them, and an alert that
+goes out immediately waits for their end. An urgent alert waits as well, unless the kind lets urgent
+alerts through with `UrgentBreaksQuietHours()`. An administrator changes the digest times and quiet
+hours within `AdministratorMayChange` (see above). Where the kind's `PersonMayChange` allows
+`DigestTime`, a person chooses one to four times of their own, and with `QuietHours` their own quiet
+hours, which replace the kind's; both count in the person's time zone and across daylight saving time,
+and apply to the deliveries planned after they changed. Mind an alert's expiry: one that waits for the
+end of the quiet hours and expires first is never sent, which suits a warning about today.
 
 ```csharp
-assistant
-    .AddAlertKind("project-deliverable-due", kind => kind
-        .DisplayName("app.alerts.project-deliverable-due")
-        .Title((culture, parameters) => Texts.Format("DeliverableDue", culture, parameters["deliverable"], parameters["daysLeft"]))
-        .Recipients(NhAssistantAlertRecipients.SubjectResponsible)
-        .RaisedByModel(template => template
-            .Describe("A deliverable of the project is due within 14 days and its work is not done.")
-            .Text("deliverable", "The deliverable's name, without a file extension.", 80)
-            .Date("deadline", "The deliverable's deadline.")
-            .WholeNumber("daysLeft", "The days left until the deadline.", 0, 14)
-            .Choice("work", "How far its work is.", "not-started", "in-progress")
-            .Key("deliverable", "deadline")))
-    .ConfigureAgent("deadline-reviewer", agent => agent.Alerts("project-deliverable-due"));
+assistant.AddAlertKind("project-due-today", kind => kind
+    // ...
+    .Delivery(delivery => delivery
+        .DailyDigests(new TimeOnly(7, 30), new TimeOnly(16, 0))
+        .WorkdaysOnly()
+        .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent)
+        .QuietHours(new TimeOnly(20, 0), new TimeOnly(7, 0)))
+    .PersonMayChange(NhAssistantAlertChoices.All));
 ```
 
-A run's model is offered the platform tool `raise_alert` (`assistant.alert.raise`) only for the kinds its
-agent lists with `Alerts(...)` that declare a template and whose switch for the agent is shadow or live,
-and only in the agent's own run on one subject: never in a person's chat, a person's turn in a thread,
-a consultation or a run on the whole application (`nh-system`), which has no person responsible and no
-members to warn. Its input is the kind and the parameters, nothing else: the subject is the run's own and
-the recipients are the kind's, checked as every alert's recipients are. The values are untrusted, since
-the model may have read them in a document an attacker wrote, so the platform checks every one before
-anything is stored and refuses with `assistant-alert-parameter-invalid` and the parameter and reason
-(`NhAssistantAlertParameterErrors`), never the value: a value outside its choices, bounds or date, an
-unknown or missing parameter, an argument that names recipients or a subject, a text that is too long,
-and a text with a link (a URL, a scheme such as `mailto:`, a `www.` address, an IP address or a word with
-a dot between letters such as `example.com` or `report.pdf`, which mail clients and phones turn into
-links), with markup (`<`, `>`, brackets, braces, a backtick or an HTML entity) or with a control, format or
-private-use character. A kind the tool does not offer is refused with `assistant-alert-kind-not-offered`.
-The alert is then raised as a rule's: `MaxAlertsPerRun` counts the run's alerts, `MaxAlertsPerSubjectPerDay`
-the subject's, a kind that is off is refused with `assistant-alert-kind-off` and a paused agent raises
-nothing. The result tells the model only whether the alert was recorded and whether it was new, updated or
-unchanged, never whom it reaches, and reads the same in shadow. The alert stores that the model raised or
-last updated it (`AssistantAlert.RaisedByModel`), `AgentAlertRaised` carries `AlertRaisedByModel`, `GET
-alerts` returns `raisedByModel` and `nh-assistant-alerts` labels it "Raised by AI"; render its title and
-text as plain text only, in every channel of the application too.
+A person who dismisses an alert may also hear nothing more of its kind about that object for a while
+(FB87-11): `POST alerts/{id}/dismiss` with `{ "muteSubjectForDays": 7 }`, from 1 to
+`NhAssistantAlertLimits.MaxSubjectMuteDays` (90). Only that kind about that object, for that person: other
+kinds about the object and the kind about other objects still reach them. While the mute lasts, the
+deliveries are withheld as `subject-muted` (`NhAssistantAlertWithholdReasons.SubjectMuted`), stay in the
+person's list and leave the badge; dismissing again for longer extends the mute and never shortens it.
+A kind the person may not mute, a `Required` one above all, answers `400
+assistant-alert-subject-mute-not-allowed`, and a number of days out of bounds `400
+assistant-alert-subject-mute-days-invalid`; neither dismisses. `mayMuteSubject` on an alert says whether
+the person may. A mute is kept in `AssistantAlertSubjectMute` and removed by the run maintenance once it
+ended, and when the application forgets the user.
 
-Roll the model out per agent and kind as running without approval is rolled out (FB82), with
-`INhAssistantAlertModelSwitches` behind the admin policy: `GET admin/agents/{id}/alert-model` lists the
-kinds the agent lists that declare a template, with when they apply, their parameters and the switch,
-and `PUT admin/agents/{id}/alert-kinds/{kindId}/model` switches it with `mode` and `expectedVersion`. A
-switch starts off, goes to shadow first, where the model's alerts are shadow alerts that reach nobody and
-count as `wouldHaveSent` in `GET admin/alert-kinds`, and only from shadow live, where they reach the kind's
-recipients; off before live answers `409 assistant-alert-model-shadow-first`, a kind the agent's model cannot
-raise `409 assistant-alert-model-not-allowed`. Versions are append-only (`AssistantAgentAlertModelSwitch`,
-`GET .../model/versions`), every change is audited as `AdminAlertModelSwitchChanged` with the mode and
-version, never the reason, and applies to the next run on every host. A switch applies to the template it
-was made for: a kind whose template changed reads as off until it is switched again, first in shadow. A
-shadow agent's or shadow run's alerts stay shadow alerts whatever the switch says, and a shadow variant has
-no switch of its own. `nh-assistant-admin` shows the switches on the agent's Rollout tab, explaining each
-step before it applies. Apply the `AlertModelSwitches` migration of the SQL Server or PostgreSQL assistant
-storage before the first switch.
+`GET notifications` shows per kind, next to every field of before, `defaultDigestTimes` and the person's
+`digestTimes` (the single `defaultDigestTime` and `digestTime` stay the first of them),
+`mayChangeQuietHours`, `defaultQuietHours`, the person's `quietHours` and `urgentBreaksQuietHours`, and the
+person's `subjectMutes` that have not ended. `PUT notifications` takes `digestTimes` (one to four `HH:mm`,
+`null` for the kind's; it replaces `digestTime`) and `quietHours` (`{ start, end }`, `null` for the kind's)
+per kind, and `liftSubjectMutes` with the ids of the person's own mutes; an id of anyone else's changes
+nothing. A value left out stays as it is. Times that are no times of day or more than four are refused
+with `assistant-notification-digest-time-invalid`, quiet hours that are none with
+`assistant-notification-quiet-hours-invalid`, and quiet hours a kind does not let the person choose with
+`assistant-notification-quiet-hours-not-allowed`. `nh-assistant-notification-preferences` edits the times
+and quiet hours and lists the mutes so a save lifts them, and `nh-assistant-alerts` offers 7 or 30 days on
+dismissing where `mayMuteSubject` allows it; `dismissAlert(id, { muteSubjectForDays })` sends it.
+
+The page of a person's alerts reads their settings once: `NhAssistantPushService` holds them for every
+part of the page (FB87-13). `loadSettings()` shares one `GET notifications` while it is in flight,
+activating push for the signed-in person reuses settings that were loaded for them, and
+`updatePreferences(request)` keeps `settings` current, so the preferences, the push switch and the
+assistant's start do not each ask. These features add the `AlertTimingAndMutes` migration of the SQL
+Server or PostgreSQL assistant storage, on top of `AlertKindSettings`.
 
 ## Avoid
 
@@ -369,12 +361,12 @@ storage before the first switch.
 - Reading the alert store yourself for a person's list or badge instead of `GET alerts`, which checks
   every alert against the person's access again.
 - Navigating from inside the alert list, or polling the summary yourself next to the badge service.
-- Letting a model write an alert's text, or a template parameter that is free text where a choice, a
-  number or a date fits; a text parameter is the one place where content the model read reaches people.
-- Switching the model live without a period in shadow, or switching it on for an agent whose model reads
-  content that people outside the subject write without looking at its shadow alerts first.
-- Rendering an alert's title or text as HTML or Markdown, in the platform's list or in an application
-  channel such as e-mail.
+- Raising an urgent alert at night that must wake people without `UrgentBreaksQuietHours()`, or letting
+  a kind break quiet hours for alerts that can wait.
+- Using a mute about an object to silence a kind for everyone; it is one person's choice, and a kind
+  that must reach people is `Required()`.
+- Fetching `GET notifications` yourself next to `nh-assistant-notification-preferences`; read the
+  person's settings through `NhAssistantPushService.loadSettings()`, which the page shares.
 
 ## Verification
 
@@ -413,22 +405,22 @@ the code does not allow, a malformed delivery and a stale version are refused an
 numbers count each delivery once per period and the shadow alerts per agent, and that people without the
 admin policy get `401` or `403`, on SQL Server and PostgreSQL.
 
+For time and the person, raise alerts of a kind with two digest times and assert the next one in each
+person's time zone, also a person's own times; raise in quiet hours across midnight and assert that a
+digest moves to the first digest time after them and an immediate alert to their end, that an urgent
+alert passes only for a kind with `UrgentBreaksQuietHours()`, that an administrator's and a person's
+quiet hours replace the kind's, and the end of quiet hours across a change of daylight saving time.
+Dismiss an alert with a mute and assert that only that kind about that object is withheld for that
+person, that a required kind cannot be muted, that another person neither reads nor lifts the mute, and
+that it ends, on SQL Server and PostgreSQL. In Angular, pin the requests a page with the list and the
+choices makes: one `GET notifications`.
+
 For a person's side, read `GET alerts` as the recipient and assert the title in their language, the
 subject's link and the groups per parent across pages; mark one read and dismiss one twice and assert
 the badge's counts and one `AgentAlertDismissed`. Assert that another person, a person who lost access
 to the subject and an impersonation session's origin user list nothing and get `404` for the id, on
 SQL Server and PostgreSQL. In Angular, render the list and the notification choices on
 `provideNhAssistantMockApi` with an `alerts` scenario.
-
-For the model tool, declare a kind with a template, list it for an agent and assert that the tool is not
-offered while the switch is off, for a kind without a template, for a kind the agent does not list and in
-a run on the whole application; that live before shadow is refused; that a shadow alert reaches nobody and
-a live one only the kind's checked recipients; that a text with a URL, a word such as `example.com`,
-markup or a control character, a value outside its choices or bounds, an unknown or missing parameter, a
-text that is too long and arguments that name recipients or a subject are refused before anything is
-stored; that the same key values update one alert; and that the store, the audit and `GET alerts` mark the
-alert as the model's, on SQL Server and PostgreSQL. In Angular, render the Rollout tab on
-`provideNhAssistantMockApi` with `admin.alertModel` and the list with an alert that has `raisedByModel`.
 
 ## Optional source evidence
 

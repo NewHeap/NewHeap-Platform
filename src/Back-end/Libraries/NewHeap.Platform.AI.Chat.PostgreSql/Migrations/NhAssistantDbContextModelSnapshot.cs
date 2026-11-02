@@ -1317,6 +1317,51 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.ToTable("AssistantAlertKindSetting", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAlertSubjectMute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("KindId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("MutedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SubjectDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("Until")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Until");
+
+                    b.HasIndex("ActorId", "KindId", "SubjectType", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("AssistantAlertSubjectMute", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantApplicationContext", b =>
                 {
                     b.Property<string>("Id")
@@ -2738,6 +2783,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<TimeOnly?>("DigestTime")
                         .HasColumnType("time without time zone");
 
+                    b.Property<string>("DigestTimes")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<bool?>("InApp")
                         .HasColumnType("boolean");
 
@@ -2746,6 +2795,12 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<bool?>("Push")
                         .HasColumnType("boolean");
+
+                    b.Property<TimeOnly?>("QuietHoursEnd")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly?>("QuietHoursStart")
+                        .HasColumnType("time without time zone");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
