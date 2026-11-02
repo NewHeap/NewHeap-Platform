@@ -334,6 +334,10 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.ReadOnly",
         "ApprovalPolicy = \"projects-approve\"",
         "NHAI014")]
+    [InlineData(
+        "NhAiToolEffect.IdempotentMutation",
+        "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, AllowWithoutApproval = true",
+        "NHAI019")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,
@@ -461,6 +465,73 @@ public sealed class NhAiToolTests
         Assert.Contains("AllowAgentGrant = true,", granted, StringComparison.Ordinal);
         Assert.Contains("ApprovalPolicy = \"projects.approve\",", granted, StringComparison.Ordinal);
         Assert.NotEqual(ReadContractHash(plain), ReadContractHash(granted));
+    }
+
+    [Fact]
+    public void Generator_emits_running_without_approval_into_the_contract_only_when_the_tool_allows_it()
+    {
+        var plain = GenerateAgentTool(string.Empty);
+        var allowed = GenerateAgentTool(", AllowWithoutApproval = true");
+
+        Assert.DoesNotContain("AllowWithoutApproval", plain, StringComparison.Ordinal);
+        Assert.Contains("AllowWithoutApproval = true,", allowed, StringComparison.Ordinal);
+        Assert.NotEqual(ReadContractHash(plain), ReadContractHash(allowed));
+    }
+
+    [Theory]
+    [InlineData("NhAiToolEffect.Destructive", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, VerifierId = \"verifier\"", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.ExternalSideEffect", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.ReadOnly", "", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Issuer, Idempotency = NhAiIdempotencySupport.Supported", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.ConsumerAuthoritative, Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required", "[Authorize]", "NhAiToolExposure.Agent")]
+    [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Mcp")]
+    public void Generator_refuses_running_without_approval_for_a_contract_that_may_not_allow_it(
+        string effect,
+        string namedArguments,
+        string authorization,
+        string exposure)
+    {
+        var separator = namedArguments.Length == 0 ? string.Empty : ", ";
+        var source = $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [NhAiToolSet("projects")]
+            public sealed class ProjectTools
+            {
+                [NhAiTool("change", 1, {{effect}}, {{exposure}}, {{namedArguments}}{{separator}}AllowWithoutApproval = true)]
+                {{authorization}}
+                [Description("Change a project.")]
+                public Task<TaskResult<string>> ChangeAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorWithoutApproval",
+            [CSharpSyntaxTree.ParseText(source)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        var runResult = driver.GetRunResult();
+        Assert.Contains(runResult.Diagnostics, diagnostic => diagnostic.Id == "NHAI019");
+        Assert.DoesNotContain(runResult.GeneratedTrees, tree => tree.ToString().Contains("AllowWithoutApproval", StringComparison.Ordinal));
     }
 
     [Fact]

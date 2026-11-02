@@ -183,6 +183,22 @@ public sealed class NhAiToolAttribute(
     /// <see langword="null"/> uses the tool's own authorization policies.
     /// </summary>
     public string? ApprovalPolicy { get; set; }
+
+    /// <summary>
+    /// Allows an administrator to let one agent run this tool without a person's approval (FB82). This
+    /// is the tool author's key of the one exception to "an agent's effect waits for a person": the
+    /// tool says in code that what it does is reversible and of low risk, and an administrator then
+    /// switches it on for one agent as data, first in shadow and then live
+    /// (<see cref="INhAiWithoutApprovalSwitches"/>). Only an agent's own work runs without approval,
+    /// never a person's chat or a consultation, and every other rule stays: the tool's authorization,
+    /// the agent's grants, guards, budgets and the agent's stop. Requires
+    /// <see cref="NhAiToolExposure.Agent"/>, an authorization policy, the effect
+    /// <see cref="NhAiToolEffect.IdempotentMutation"/> or <see cref="NhAiToolEffect.Mutation"/> and an
+    /// approval that the platform decides (not <see cref="NhAiApprovalRequirement.Issuer"/> or
+    /// <see cref="NhAiApprovalRequirement.ConsumerAuthoritative"/>); the generator refuses it otherwise
+    /// (<c>NHAI019</c>). Setting it changes the tool's contract hash.
+    /// </summary>
+    public bool AllowWithoutApproval { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
@@ -303,6 +319,14 @@ public sealed record NhAiToolDescriptor(
     /// <see cref="AuthorizationPolicies"/>.
     /// </summary>
     public string? ApprovalPolicy { get; init; }
+
+    /// <summary>
+    /// Whether an administrator may let one agent run this tool without a person's approval. See
+    /// <see cref="NhAiToolAttribute.AllowWithoutApproval"/>. A hand-built or attested catalog that sets
+    /// it includes it in its contract hash; <see cref="NhAiWithoutApproval.Validate"/> refuses it for a
+    /// contract that may not allow it, and the invoker never lifts an approval for such a contract.
+    /// </summary>
+    public bool AllowWithoutApproval { get; init; }
 
     /// <summary>
     /// The object a call of this tool concerns, declared with <see cref="NhAiSubjectAttribute"/>;
@@ -471,6 +495,15 @@ public sealed record NhAiInvocationContext(
     /// tool invocation rows and proposals carry it.
     /// </summary>
     public NhAiGrantSource GrantSource { get; init; } = NhAiGrantSource.None;
+
+    /// <summary>
+    /// Set by the invoker when an administrator's switch lets this call of an agent's work run without
+    /// a person's approval (<see cref="NhAiWithoutApprovalMode.Live"/>, with the switch's version), so a
+    /// tool may say so in what it records. <see langword="null"/> for every other call, an approved
+    /// proposal included. Like <see cref="ConversationId"/> it takes part in no proposal hash or approval
+    /// evidence.
+    /// </summary>
+    public NhAiWithoutApprovalDecision? WithoutApproval { get; init; }
 
     public bool TryGetScopeValue(string key, out string value)
     {

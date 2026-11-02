@@ -150,6 +150,20 @@ public sealed record NhAiAuditRecord(
     /// </summary>
     public NhAiToolCallOrigin? Origin { get; init; }
 
+    /// <summary>
+    /// Whether an administrator's switch decided the call (FB82): <see cref="NhAiWithoutApprovalMode.Live"/>
+    /// on every record of a call that ran without approval, whose <see cref="ApprovalCode"/> is
+    /// <see cref="NhAiWithoutApproval.ApprovalCode"/>; <see cref="NhAiWithoutApprovalMode.Shadow"/> on the
+    /// approval-required record of a call that still became a proposal but would have run without
+    /// approval; <see cref="NhAiWithoutApprovalMode.Off"/> otherwise.
+    /// </summary>
+    public NhAiWithoutApprovalMode WithoutApprovalMode { get; init; }
+
+    /// <summary>
+    /// The version of the switch that decided the call; <see langword="null"/> when none did.
+    /// </summary>
+    public int? WithoutApprovalSwitchVersion { get; init; }
+
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;
 }
 
