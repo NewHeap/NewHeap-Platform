@@ -19,11 +19,13 @@ namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
 /// SPM-392: the deadline watch warns the people of a project due today with an alert, not a proposal.
-/// Two morning rounds are one alert, the application's own warning of more people reaches only those
-/// who read the project, each of them reads it through <c>GET alerts</c> in their language and marks it
-/// read or dismisses it, an outsider reads nothing, and the watch resolves the alert once the tasks are
-/// done. The warning arrives in the 07:30 digest where each person works, and not for a person who
-/// muted its kind.
+/// Two morning rounds are one alert for the owner and the members who work on the project, the
+/// application's own warning of more people reaches only those who read the project, each of them reads
+/// it through <c>GET alerts</c> in their language and marks it read or dismisses it, and an outsider reads
+/// nothing. Ticking off the last task resolves the alert at once, because the task consumer revalidates
+/// the project's alerts, and a round that no longer raises the watch's warning resolves it by omission.
+/// The warning arrives in the 07:30 digest where each person works, and not for a person who muted its
+/// kind.
 /// </summary>
 public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : IClassFixture<AssistantAlertSampleHost>
 {
@@ -45,7 +47,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         var tasks = await host.AddTasksAsync(project, "Write the report", "Book the room");
         using var owner = host.CreateClient(host.OwnerId.ToString());
 
-        // The first morning round raises the alert for the owner and the participant.
+        // The first morning round raises the alert for the owner and the participant, whom the kind
+        // chooses as the members who work on the project; the reader is not one of them.
         host.StartMorningRound();
         var conversationId = await WaitForThreadAsync(owner, project);
         var first = Assert.Single(await WaitForRunsAsync(owner, conversationId, 1));
@@ -100,8 +103,17 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Equal(NhAssistantAlertListStatuses.Dismissed, (await PostAlertAsync(reader, alert.Id, "dismiss")).Status);
         Assert.Empty((await ListAlertsAsync(reader, about)).Items);
 
-        // The tasks are done: the next round resolves the alert, so the application finds nothing open.
-        await host.CompleteTasksAsync(tasks);
+        // The owner ticks off the tasks on the task page. After each commit the task consumer revalidates
+        // the project's alerts: with a task left the warning still applies, after the last it is resolved
+        // at once, also though the application raised it last, without waiting for a round.
+        var firstDone = await host.CompleteTaskByHandAsync(tasks[0], host.OwnerId);
+        await host.DeliverAsync(firstDone);
+        Assert.Equal(NhAssistantAlertListStatuses.Read, Assert.Single((await ListAlertsAsync(owner, about)).Items).Status);
+        var lastDone = await host.CompleteTaskByHandAsync(tasks[1], host.OwnerId);
+        await host.DeliverAsync(lastDone);
+        Assert.Empty((await ListAlertsAsync(owner, about, "open")).Items);
+
+        // The next round finds nothing to warn about, so the application finds nothing open either.
         host.StartMorningRound();
         Assert.All(await WaitForRunsAsync(owner, conversationId, 3), run => Assert.Equal(NhAssistantRunStatuses.Completed, run.Status));
         var done = await WarnAsync(project);
@@ -114,6 +126,36 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         var resolved = Assert.Single((await ListAlertsAsync(owner, about, "closed")).Items);
         Assert.Equal((NhAssistantAlertListStatuses.Resolved, true), (resolved.Status, resolved.IsResolved));
         Assert.Equal(0, (await SummaryAsync(participant, about)).Unread);
+    }
+
+    [Fact]
+    public async Task SPM_392_a_round_that_no_longer_raises_the_warning_resolves_it_by_omission()
+    {
+        host.MoveToNextMorning();
+        var today = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+        var project = await host.CreateProjectAsync(
+            "OMIT",
+            host.OwnerId,
+            ProjectStatus.Active,
+            SampleDeadlineAlertsComposition.StartOf(today).AddHours(17));
+        var tasks = await host.AddTasksAsync(project, "Sign the contract");
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var about = $"subjectType={ProjectSubjects.Type}&subjectId={ProjectSubjects.IdOf(project)}";
+
+        // The round warns the owner.
+        host.StartMorningRound();
+        var conversationId = await WaitForThreadAsync(owner, project);
+        Assert.Single(await WaitForRunsAsync(owner, conversationId, 1), run => run.Status == NhAssistantRunStatuses.Completed);
+        Assert.Equal(NhAssistantAlertListStatuses.Unread, Assert.Single((await ListAlertsAsync(owner, about)).Items).Status);
+
+        // The task is done without an event the application revalidates on, as an import would do it.
+        // The next round raises nothing, so the kind resolves the watch's own warning by omission.
+        await host.CompleteTasksAsync(tasks);
+        host.StartMorningRound();
+        Assert.All(await WaitForRunsAsync(owner, conversationId, 2), run => Assert.Equal(NhAssistantRunStatuses.Completed, run.Status));
+        var resolved = Assert.Single((await ListAlertsAsync(owner, about, "closed")).Items);
+        Assert.Equal((NhAssistantAlertListStatuses.Resolved, true), (resolved.Status, resolved.IsResolved));
+        Assert.Equal(0, (await SummaryAsync(owner, about)).Unread);
     }
 
     private static async Task<NhAssistantAlertListDto> ListAlertsAsync(HttpClient client, string about, string? status = null)
