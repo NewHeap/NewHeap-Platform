@@ -271,6 +271,9 @@ public sealed class AssistantRegistrationTests
                     // The actor id of the user who impersonated the event's actor when a withdrawal
                     // was made in an impersonation session.
                     or "ImpersonationOriginActorId"
+                    // The kind of an alert event, a dash-case id registered with AddAlertKind (FB87);
+                    // never the alert's key, parameters or texts.
+                    or "AlertKind"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }

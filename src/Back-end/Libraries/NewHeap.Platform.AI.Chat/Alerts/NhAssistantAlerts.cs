@@ -167,9 +167,10 @@ public static class NhAssistantAlertDropReasons
 /// no proposal: nothing is approved and nothing changes. The same kind, subject and <see cref="Key"/>
 /// identify one open alert, which raising them again updates in place. Raise alerts from a rule with
 /// <see cref="NhAssistantRuleResult.WithAlerts"/> or from the application's code with
-/// <see cref="INhAssistantAlerts.RaiseAsync"/>.
+/// <see cref="INhAssistantAlerts.RaiseAsync"/>. A copy with other values (<c>alert with { Urgency = ... }</c>)
+/// is checked as the original is; its text form names the kind and subject only, never the parameters.
 /// </summary>
-public sealed class NhAssistantAlert
+public sealed record NhAssistantAlert
 {
     private static readonly IReadOnlyDictionary<string, string> NoParameters = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -253,6 +254,16 @@ public sealed class NhAssistantAlert
     /// deliveries that did not go out are taken back; <see langword="null"/> while it is not resolved.
     /// </summary>
     public DateTimeOffset? ExpiresAt { get; init; }
+
+    /// <summary>
+    /// Writes the kind and subject only: the parameters, key and recipients are the application's data
+    /// and stay out of logs.
+    /// </summary>
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("KindId = ").Append(KindId).Append(", Subject = ").Append(Subject);
+        return true;
+    }
 }
 
 /// <summary>
