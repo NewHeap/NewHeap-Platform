@@ -25,7 +25,16 @@ Decided by Lars on 2026-11-02, one by one. As advised:
 - one preference model;
 - one train with three lanes.
 
-Not as advised: the model tool comes in phase 2, with templates, instead of not at all. Phase 1 is not built yet.
+Not as advised: the model tool comes in phase 2, with templates, instead of not at all.
+
+Phase 1 was built on 2026-11-02 in train 34 and verified together. Lane AK built the core, then lanes AB (delivery)
+and AU (API and UI) built on it in parallel. The verification found two things, fixed in the train:
+- AU had removed two public members of `nh-assistant-preferences`; they are back as deprecated delegates.
+- The SPM-392 test of AU counted the alerts that AB's test raises in the same host; it now reads only its own
+  project's alerts.
+
+The choices each lane made are in the "Lane choices" table below (AK1–AK10, AB1–AB12, AU1–AU10), all for Lars to
+review. Phase 2 is not built.
 
 ## Decisions
 
