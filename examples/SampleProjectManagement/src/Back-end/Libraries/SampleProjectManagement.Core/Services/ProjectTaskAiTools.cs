@@ -16,6 +16,9 @@ public sealed record ProjectTaskCompletion(Guid TaskId, Guid ProjectId, bool Was
 /// SPM-282: lets the intake reviewer propose to complete a project task. Completing a task that is
 /// already done changes nothing, so the tool is idempotent; still, people often tick tasks off by
 /// hand while the proposal waits, and the task guard then closes the proposal as already done.
+/// SPM-391: completing a task is reversible and of low risk, so the tool allows an administrator to let
+/// the intake reviewer run it without approval (<c>AllowWithoutApproval</c>), first in shadow; the
+/// development seeder switches it to shadow, where every proposal still waits for the approver.
 /// </summary>
 [Authorize]
 [NhAiToolSet("project-tasks")]
@@ -31,6 +34,7 @@ public sealed class ProjectTaskAiTools(SampleProjectManagementDbContext dbContex
         Approval = NhAiApprovalRequirement.Required,
         Idempotency = NhAiIdempotencySupport.Required,
         AllowAgentGrant = true,
+        AllowWithoutApproval = true,
         RequiredCapabilities = new[] { ProjectAiTools.ManageCapability })]
     [Authorize(Policy = ProjectAiTools.ManagePolicy)]
     [Description("Mark one task of a project in the authorized active division as completed.")]
@@ -61,7 +65,8 @@ public sealed class ProjectTaskAiTools(SampleProjectManagementDbContext dbContex
             return TaskResult<ProjectTaskCompletion>.Succeeded(new ProjectTaskCompletion(task.Id, task.ProjectId, false));
         }
 
-        // An agent completes the task through an approved proposal, so no person is recorded.
+        // An agent completes the task through an approved proposal, or without one under an
+        // administrator's switch (SPM-391), so no person is recorded.
         var updated = await tasks.UpdateAsync(
             task.Id,
             new ProjectTaskMutateModel { ProjectId = task.ProjectId, Title = task.Title, IsCompleted = true },

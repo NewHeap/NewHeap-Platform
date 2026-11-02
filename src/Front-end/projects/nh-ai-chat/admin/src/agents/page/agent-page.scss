@@ -642,3 +642,20 @@ h4[tabindex='-1']:focus {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: none; }
 }
+
+// A switch that lets an agent run a tool without approval (FB82): its mode and its changes on one line,
+// the change being confirmed below them.
+:host(.without-approval-switch) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.switch-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

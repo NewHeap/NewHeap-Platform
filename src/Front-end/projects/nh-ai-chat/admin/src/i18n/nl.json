@@ -1919,6 +1919,40 @@
           "evaluation": {
             "title": "Evaluatie",
             "description": "Hoe de agent en zijn schaduwvarianten het deden op hetzelfde werk."
+          },
+          "without-approval": {
+            "title": "Soorten acties zonder goedkeuring",
+            "description": "Een tool waarvan de code het toestaat, kan voor deze agent draaien zonder goedkeuring van een persoon. Probeer het eerst in schaduw: de voorstellen wachten nog op mensen, en het platform legt vast welke vanzelf hadden gedraaid. Laat het zonder goedkeuring draaien zodra mensen ze als regel goedkeuren. Alleen de eigen runs van de agent gebruiken het, nooit de chat van een persoon of een consultatie; uitzetten vraagt meteen weer om goedkeuring.",
+            "empty": "Geen van de tools van deze agent staat in zijn code toe dat hij zonder goedkeuring draait.",
+            "not-applicable": "Deze agent doet geen eigen werk, dus zijn tools vragen altijd om goedkeuring.",
+            "effect": {
+              "mutation": "Wijzigt gegevens",
+              "idempotent-mutation": "Wijzigt gegevens, veilig te herhalen"
+            },
+            "mode": {
+              "off": "Vraagt om goedkeuring",
+              "shadow": "In schaduw",
+              "live": "Draait zonder goedkeuring"
+            },
+            "action": {
+              "off": "Uitzetten",
+              "shadow": "Proberen in schaduw",
+              "live": "Zonder goedkeuring laten draaien"
+            },
+            "explain": {
+              "off": "Vanaf nu vraagt elke aanroep van {{tool}} door deze agent weer om goedkeuring.",
+              "shadow": "Aanroepen van {{tool}} door deze agent wachten nog op goedkeuring, en het platform legt vast welke zonder goedkeuring hadden gedraaid.",
+              "live": "Vanaf nu draait deze agent {{tool}} zonder goedkeuring van iemand, alleen in zijn eigen runs. Elke aanroep wordt vastgelegd als gedraaid zonder goedkeuring."
+            },
+            "confirm": {
+              "off": "Uitzetten",
+              "shadow": "Proberen in schaduw",
+              "live": "Zonder goedkeuring laten draaien"
+            },
+            "changed": "Versie {{version}}, omgezet door {{user}} op {{date}}",
+            "contract-changed": "De tool is veranderd sinds hij werd omgezet, dus hij vraagt weer om goedkeuring. Probeer hem eerst opnieuw in schaduw.",
+            "unavailable": "Vraagt om goedkeuring: de code laat deze agent het niet zonder goedkeuring draaien.",
+            "not-candidate": "De cijfers merken dit soort actie voor deze agent nog niet als routine aan:"
           }
         },
         "activity": {
@@ -1992,7 +2026,7 @@
         "title": "Soorten acties",
         "description": "Hoe mensen beslissen over elke soort actie die de agents voorstellen, over alle agents: de beslissingen, het afkeurpercentage en hoe lang een beslissing duurt. Een soort die mensen bijna altijd snel goedkeuren, is misschien routine.",
         "refresh": "Vernieuwen",
-        "suggestions-only": "Dit zijn suggesties op basis van de cijfers. Een kandidaat verandert niets aan hoe over voorstellen wordt beslist: elk voorstel wacht nog steeds op zijn goedkeurders.",
+        "suggestions-only": "Dit zijn suggesties uit de cijfers. Een kandidaat verandert zelf niets: elk voorstel wacht op zijn goedkeurders tot een beheerder de agent een soort actie waarvan de code het toestaat zonder goedkeuring laat draaien, eerst in schaduw.",
         "audience": "Alleen de beheerders van de assistent zien dit overzicht.",
         "period": "Periode",
         "only-candidates": "Alleen soorten met een kandidaat",

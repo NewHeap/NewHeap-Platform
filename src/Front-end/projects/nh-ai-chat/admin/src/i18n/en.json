@@ -1919,6 +1919,40 @@
           "evaluation": {
             "title": "Evaluation",
             "description": "How the agent and its shadow variants did on the same work."
+          },
+          "without-approval": {
+            "title": "Kinds of action without approval",
+            "description": "A tool whose code allows it can run for this agent without a person's approval. Try it in shadow first: its proposals still wait for people, and the platform records which ones would have run on their own. Let it run without approval once people approve them as a rule. Only the agent's own runs use it, never a person's chat or a consultation; switching off asks for approval again at once.",
+            "empty": "None of this agent's tools allows running without approval in its code.",
+            "not-applicable": "This agent does no work of its own, so its tools always ask for approval.",
+            "effect": {
+              "mutation": "Changes data",
+              "idempotent-mutation": "Changes data, safe to repeat"
+            },
+            "mode": {
+              "off": "Asks for approval",
+              "shadow": "In shadow",
+              "live": "Runs without approval"
+            },
+            "action": {
+              "off": "Switch off",
+              "shadow": "Try in shadow",
+              "live": "Run without approval"
+            },
+            "explain": {
+              "off": "From now on every call of {{tool}} by this agent asks for approval again.",
+              "shadow": "Calls of {{tool}} by this agent still wait for approval, and the platform records which ones would have run without it.",
+              "live": "From now on this agent runs {{tool}} without anyone's approval, in its own runs only. Every call is recorded as run without approval."
+            },
+            "confirm": {
+              "off": "Switch off",
+              "shadow": "Try in shadow",
+              "live": "Run without approval"
+            },
+            "changed": "Version {{version}}, switched by {{user}} on {{date}}",
+            "contract-changed": "The tool changed since it was switched, so it asks for approval again. Try it in shadow again first.",
+            "unavailable": "Asks for approval: its code does not let this agent run it without approval.",
+            "not-candidate": "The numbers do not mark this kind as routine for this agent yet:"
           }
         },
         "activity": {
@@ -1992,7 +2026,7 @@
         "title": "Kinds of action",
         "description": "How people decide each kind of action the agents propose, over all agents: the decisions, the rejection rate and how long a decision takes. A kind that people almost always approve quickly may be routine.",
         "refresh": "Refresh",
-        "suggestions-only": "These are suggestions from the numbers. A candidate changes nothing about how proposals are decided: every proposal still waits for its approvers.",
+        "suggestions-only": "These are suggestions from the numbers. A candidate changes nothing by itself: every proposal waits for its approvers until an administrator lets the agent run a kind whose code allows it without approval, first in shadow.",
         "audience": "Only the assistant's administrators see this view.",
         "period": "Period",
         "only-candidates": "Only kinds with a candidate",

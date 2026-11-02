@@ -31,6 +31,7 @@ import { agentStatus, runsOnItsOwn } from '../agent-operations';
 import { NhAssistantAgentEvaluationComponent } from '../nh-assistant-agent-evaluation.component';
 import { NhAssistantAgentShadowVariantsComponent } from '../run-config/nh-assistant-agent-shadow-variants.component';
 import { NhAssistantAgentStateControlComponent } from './nh-assistant-agent-state-control.component';
+import { NhAssistantAgentWithoutApprovalComponent } from './nh-assistant-agent-without-approval.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 
 /** A part of the agent that is not live yet, and what decides it. */
@@ -44,7 +45,8 @@ let nextId = 0;
 /**
  * Everything of an agent that is not live yet, in one place: the agent's own shadow mode, its skills
  * and triggers that work in shadow, the candidate versions of its skills and triggers that run in
- * shadow next to the live version, and its shadow variants with the evaluation that compares them.
+ * shadow next to the live version, its shadow variants with the evaluation that compares them, and the
+ * kinds of action it may run without approval, which go live only after shadow (FB82).
  * The shadow modes change here; a candidate is compared and promoted or discarded in Build, which
  * `review` opens at it.
  */
@@ -58,7 +60,8 @@ let nextId = 0;
     NhAssistantIconComponent,
     NhAssistantAgentStateControlComponent,
     NhAssistantAgentShadowVariantsComponent,
-    NhAssistantAgentEvaluationComponent
+    NhAssistantAgentEvaluationComponent,
+    NhAssistantAgentWithoutApprovalComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-rollout.component.html',

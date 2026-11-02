@@ -88,6 +88,8 @@
     }
   </section>
 
+  <nh-assistant-agent-without-approval [agentId]="agent().id" [names]="names()" [disabled]="disabled()" />
+
   @if (runs()) {
     <section class="build-section" data-rollout-variants>
       <nh-assistant-agent-shadow-variants

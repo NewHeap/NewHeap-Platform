@@ -1111,6 +1111,12 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
         }
+        if (execution.Call.AuditRecords.Count > 0
+            && execution.Call.AuditRecords[^1] is { WithoutApprovalMode: NhAiWithoutApprovalMode.Live, WithoutApprovalSwitchVersion: { } switchVersion })
+        {
+            // The call ran without a person's approval under an administrator's switch (FB82).
+            row.WithoutApprovalVersion = switchVersion;
+        }
         if (row.GrantSource == NhAiGrantSource.DelegatedRead)
         {
             // Only the person whose rights the read used sees its result; without a known person, nobody.
@@ -1286,6 +1292,104 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             await sink.RecordAsync(state.Scope.WithPromptIdentity(evt), cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Whether an agent's call that a switch for the agent and the tool lets run without approval (FB82)
+    /// fits every rule a proposal of it would meet before it executes: it is a run's own headless turn in
+    /// the agent's live thread, not a request turn, a rule turn, a consultation or a tool the application
+    /// executes; the application's approval policy selector does not refuse it; no open or recently
+    /// rejected proposal for the same objects stands in its way; and every guard of the tool, at the
+    /// proposal, decision and execution stages, finds it needed and fitting. When it does not fit, nothing
+    /// changes: the call becomes a proposal as without a switch, which reports why where it applies.
+    /// </summary>
+    internal async Task<bool> FitsWithoutApprovalAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        object arguments,
+        CancellationToken cancellationToken)
+    {
+        if (state.AgentTurn is not { RunId: not null, IsRequestTurn: false } agentTurn
+            || state.Scope.Consultation is not null
+            || state.RuleTurn
+            || NhAssistantTurnRunner.IsShadowRunTurn(agentTurn)
+            || !string.Equals(agentTurn.Thread.AgentId, context.AgentId, StringComparison.Ordinal)
+            || ExecutedByApplication(descriptor.Id))
+        {
+            return false;
+        }
+
+        NhAiApprovalPolicy? policy = null;
+        if (approvalPolicies is not null)
+        {
+            var resolved = approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, isRun: true, state.Skill?.Id);
+            var choice = await approvalPolicies.SelectAsync(
+                resolved,
+                SelectionOf(descriptor, arguments, context, agentTurn, resolved, null),
+                cancellationToken);
+            if (choice.Refused)
+            {
+                return false;
+            }
+
+            policy = choice.Policy!;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var proposedAt = _applicationClock.GetUtcNow();
+        var proposal = proposalFactory.Create(new NhAiProposalCreateRequest(
+            Guid.NewGuid(),
+            context.RunId!,
+            context.ActorKind,
+            context.ActorId,
+            context.AccountableOwnerId ?? agentTurn.AccountableOwnerId,
+            descriptor,
+            arguments,
+            context.ExecutionScopes
+                .Take(32)
+                .Select(scope => new NhAiProposalTarget(scope.Type, scope.Id))
+                .ToArray(),
+            NhAssistantContent.Bound(string.IsNullOrWhiteSpace(descriptor.Description) ? descriptor.Id : descriptor.Description, 512),
+            [EffectCode(descriptor.Effect)],
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            new NhAiActionBudget(1),
+            proposedAt,
+            proposedAt.Add(policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime)));
+        if (proposalGuards is not null
+            && proposalGuards.HasGuards(descriptor.Id, NhAiProposalGuardStages.Proposal | NhAiProposalGuardStages.Decision | NhAiProposalGuardStages.Execution))
+        {
+            // The call takes the place of the proposal, its decision and its execution at once, so every
+            // stage's guards check it now; a guard that fails keeps the proposal.
+            var check = await proposalGuards.CheckAsync(
+                ProposingGuardContext(agentTurn.Thread, descriptor.Id, proposal, now, context) with
+                {
+                    PolicyId = policy?.Id,
+                    Mode = policy?.Mode
+                },
+                NhAiProposalGuardStages.Proposal | NhAiProposalGuardStages.Decision | NhAiProposalGuardStages.Execution,
+                cancellationToken);
+            if (check.Stale is not null || check.Failed)
+            {
+                return false;
+            }
+        }
+        if (duplicates is not null && policy is not null)
+        {
+            var keys = await GuardKeysAsync(agentTurn.Thread, descriptor.Id, proposal, now, context, cancellationToken);
+            var duplicate = await duplicates.CheckAsync(
+                agentTurn.Thread,
+                descriptor.Id,
+                NhAssistantProposalDuplicates.IdentityOf(descriptor.Id, proposal.Arguments),
+                keys,
+                policy,
+                cancellationToken);
+            if (duplicate.Outcome != NhAssistantProposeOutcome.Created)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private async Task<NhAssistantRecordedProposal?> RequestApprovalAsync(
@@ -1515,6 +1619,9 @@ internal sealed class NhAssistantToolCallInterceptor(
                 : null,
             ArgumentsHash = argumentsHash,
             RationalesJson = _rationale is null ? null : texts?.Render(_rationale),
+            // A switch in shadow found that the call would have run without approval (FB82); people still
+            // decide the proposal, and the numbers compare their decisions.
+            WithoutApprovalVersion = shadow || placed is not null || consultation is not null ? null : WouldRunWithoutApprovalIn(call),
             ConcurrencyStamp = Guid.NewGuid()
         };
         if (consultation is not null || placed is not null)
@@ -1621,6 +1728,29 @@ internal sealed class NhAssistantToolCallInterceptor(
                 ConsultationRoute = route?.Route
             },
             cancellationToken);
+        if (approval.WithoutApprovalVersion is { } switchVersion)
+        {
+            await RecordBusinessEventAsync(
+                new NhAssistantAuditEvent(
+                    NhAssistantAuditEventKind.AgentProposalWouldRunWithoutApproval,
+                    state.Conversation.Id,
+                    state.Scope.TurnId,
+                    state.Scope.OwnerActorId,
+                    state.Scope.Agent.Id,
+                    state.Scope.Agent.Version,
+                    now)
+                {
+                    ToolId = descriptor.Id,
+                    ToolVersion = descriptor.Version,
+                    InvocationId = row.Id,
+                    ResultCode = NhAssistantWithoutApprovalModes.Shadow,
+                    ApprovalId = approval.Id,
+                    ProposalId = proposal.ProposalId,
+                    StartedAt = row.StartedAt,
+                    WithoutApprovalVersion = switchVersion
+                },
+                cancellationToken);
+        }
         return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow)
         {
             Superseded = superseded,
@@ -1897,6 +2027,19 @@ internal sealed class NhAssistantToolCallInterceptor(
         return await proposalGuards.GetKeysAsync(
             ProposingGuardContext(thread, toolId, proposal, now, invocation),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The version of the switch in shadow under which the call would have run without approval, as the
+    /// invoker recorded it with the missing approval; <see langword="null"/> when no switch applied.
+    /// </summary>
+    private static int? WouldRunWithoutApprovalIn(NhAssistantToolCallScope call)
+    {
+        var records = call.AuditRecords;
+        return records.Count > 0
+            && records[^1] is { Outcome: NhAiOutcomeKind.ApprovalRequired, WithoutApprovalMode: NhAiWithoutApprovalMode.Shadow, WithoutApprovalSwitchVersion: { } version }
+                ? version
+                : null;
     }
 
     /// <summary>

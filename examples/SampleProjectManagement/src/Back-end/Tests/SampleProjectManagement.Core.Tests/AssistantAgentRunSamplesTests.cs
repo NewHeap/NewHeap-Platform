@@ -868,6 +868,100 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task SPM_391_the_intake_reviewer_tries_completing_tasks_in_shadow_and_runs_them_without_approval_once_live()
+    {
+        // SPM-391: completing a task allows running without approval in code; an administrator switches it
+        // for the intake reviewer, first in shadow as the development data does, then live.
+        const string route = $"/api/assistant/admin/agents/{SampleIntakeReviewerComposition.AgentId}/tools/{ProjectTaskAiTools.CompleteToolId}/without-approval";
+        using var administrator = host.CreateClient("spm-391-admin", admin: true);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>();
+        try
+        {
+            // Only the administration switches: the project's owner may not.
+            using (var forbidden = await owner.PutAsync(route, AssistantSampleHost.Json(new { mode = "shadow", expectedVersion = 0 })))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            }
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                Assert.True((await SampleRuntimeAgentSeeder.SeedWithoutApprovalShadowAsync(scope.ServiceProvider, host.OwnerId, CancellationToken.None)).Success);
+            }
+            var listed = await administrator.GetFromJsonAsync<NhAssistantWithoutApprovalListDto>(
+                $"/api/assistant/admin/agents/{SampleIntakeReviewerComposition.AgentId}/without-approval",
+                Json);
+            var tool = Assert.Single(listed!.Tools);
+            Assert.Equal((ProjectTaskAiTools.CompleteToolId, NewHeap.Platform.AI.Chat.Entities.NhAssistantWithoutApprovalModes.Shadow, 1), (tool.ToolId, tool.Mode, tool.Version));
+            Assert.Equal(SampleRuntimeAgentSeeder.WithoutApprovalReason, tool.Reason);
+
+            // In shadow the reviewer's proposal waits for the approver, and the record says it would have run.
+            var shadowProject = await host.CreateProjectAsync("SHADOW-TASK", ownerId: host.OwnerId);
+            await host.AddMemberAsync(shadowProject, host.ColleagueId, ProjectMemberRole.Approver);
+            var shadowTask = await host.CreateTaskAsync(shadowProject, "Book the kickoff room");
+            var shadowRun = await StartReviewerAsync(shadowProject, shadowTask);
+            var proposal = await WaitForProposalAsync(colleague, shadowRun.ConversationId!.Value, NhAssistantApprovalStatuses.Pending, ProjectTaskAiTools.CompleteToolId);
+            Assert.Contains(audit.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalWouldRunWithoutApproval
+                && evt.ApprovalId == proposal.ApprovalId
+                && evt.WithoutApprovalVersion == 1);
+            Assert.False(await IsCompletedAsync(shadowTask));
+
+            // Live only from shadow: the reviewer now completes a task without a proposal, audited with the version.
+            using (var live = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "live", expectedVersion = 1, reason = "Approvers approved every completion" })))
+            {
+                Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+            }
+            var liveProject = await host.CreateProjectAsync("LIVE-TASK", ownerId: host.OwnerId);
+            await host.AddMemberAsync(liveProject, host.ColleagueId, ProjectMemberRole.Approver);
+            var liveTask = await host.CreateTaskAsync(liveProject, "Send the kickoff invitation");
+            var liveRun = await StartReviewerAsync(liveProject, liveTask);
+            var ended = await WaitForRunWithTriggerAsync(colleague, liveRun.ConversationId!.Value, liveRun.TriggerId);
+            Assert.Equal(NhAssistantRunStatuses.Completed, ended.Status);
+            Assert.True(await IsCompletedAsync(liveTask));
+            var proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{liveRun.ConversationId}/proposals", Json);
+            Assert.DoesNotContain(proposals!, item => item.ToolId == ProjectTaskAiTools.CompleteToolId);
+            Assert.Contains(audit.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentToolRanWithoutApproval
+                && evt.ToolId == ProjectTaskAiTools.CompleteToolId
+                && evt.WithoutApprovalVersion == 2
+                && evt.ResultCode == "succeeded");
+            Assert.Contains(audit.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentToolWithoutApprovalChanged
+                && evt.ActorId == "spm-391-admin"
+                && evt.ResultCode == NewHeap.Platform.AI.Chat.Entities.NhAssistantWithoutApprovalModes.Live);
+        }
+        finally
+        {
+            // The other tests of the reviewer expect its proposals.
+            var current = await administrator.GetFromJsonAsync<NhAssistantWithoutApprovalListDto>(
+                $"/api/assistant/admin/agents/{SampleIntakeReviewerComposition.AgentId}/without-approval",
+                Json);
+            var version = current!.Tools.Single().Version;
+            using var off = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "off", expectedVersion = version }));
+        }
+    }
+
+    private async Task<NhAssistantTriggerReceipt> StartReviewerAsync(Guid project, Guid taskId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var started = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().StartAsync(
+            SampleIntakeReviewerComposition.AgentId,
+            ProjectSubjects.For(project),
+            host.OwnerId.ToString("D"),
+            $"Complete task {taskId:D} of project {project:D}.");
+        Assert.NotEqual(NhAssistantTriggerOutcomes.Rejected, started.Outcome);
+        return started;
+    }
+
+    private async Task<bool> IsCompletedAsync(Guid taskId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>().ProjectTasks
+            .AsNoTracking()
+            .Where(item => item.Id == taskId)
+            .Select(item => item.IsCompleted)
+            .SingleAsync();
+    }
+
+    [Fact]
     public async Task A_run_waiting_for_a_proposal_that_a_person_overtook_continues_without_it()
     {
         // SPM-282: the status advisor's run waits for the participant's inline approval. Nobody

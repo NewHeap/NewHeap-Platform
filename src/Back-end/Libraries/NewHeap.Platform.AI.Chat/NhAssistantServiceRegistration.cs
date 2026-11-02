@@ -52,6 +52,11 @@ internal static class NhAssistantServiceRegistration
             .UseApprovalEvidenceProvider<NhAssistantApprovalEvidenceProvider>()
             .AddAuditSink<NhAssistantAuditRelay>());
         DecorateInvocationGate(services);
+        // FB82: the administrator's switches that let one agent run a tool without approval, which the
+        // tool allows in code. Only the assistant's audited switches decide; the startup check refuses
+        // a replacement.
+        services.TryAddScoped<NhAssistantWithoutApprovalStore>();
+        services.Replace(ServiceDescriptor.Scoped<INhAiWithoutApprovalSwitches, NhAssistantWithoutApprovalSwitches>());
 
         services.TryAddScoped<INhAssistantStore, NhAssistantStore>();
         services.TryAddSingleton<NhAssistantAgentRegistry>();

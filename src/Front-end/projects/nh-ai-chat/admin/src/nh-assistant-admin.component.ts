@@ -8,6 +8,7 @@ import { NhAssistantAdminAgentsComponent, NhAssistantAgentsLocation } from './ag
 import { NhAssistantAdminContextComponent } from './context/nh-assistant-admin-context.component';
 import { NhAssistantAdminMcpServersComponent } from './mcp/nh-assistant-admin-mcp-servers.component';
 import { NhAssistantAdminProposalKindsComponent } from './proposal-kinds/nh-assistant-admin-proposal-kinds.component';
+import { NhAssistantWithoutApprovalActionComponent } from './agents/page/nh-assistant-without-approval-action.component';
 import { NhAssistantAdminLocation, NhAssistantAdminTab } from './nh-assistant-admin-location';
 import { startNhAssistantAdminTranslations } from './i18n/nh-assistant-admin-translations';
 
@@ -33,7 +34,8 @@ let nextId = 0;
     NhAssistantAdminContextComponent,
     NhAssistantAdminAgentsComponent,
     NhAssistantAdminMcpServersComponent,
-    NhAssistantAdminProposalKindsComponent
+    NhAssistantAdminProposalKindsComponent,
+    NhAssistantWithoutApprovalActionComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin.component.html',

@@ -219,7 +219,8 @@ detail), Build (one page of sections: profile, tools, the guided setup of an age
 skills with their status and today's use, triggers, connected agents by consultation and hand-off,
 and guardrails, with what an agent in code sets for its runs read only), Rollout (everything not live
 yet: the agent's and its skills' shadow mode, triggers in shadow, candidate versions to compare in
-Build, shadow variants and their evaluation) and Activity (runs and feedback). A chat-only agent has
+Build, the kinds of action it may run without approval, shadow variants and their evaluation) and
+Activity (runs and feedback). A chat-only agent has
 no Rollout and no runs. A host that keeps the open agent in its URL binds `location`
 (`NhAssistantAdminLocation`: `tab`, `agentId`, `agentTab`) and follows `locationChange`,
 which reports every navigation of the administrator, as SampleProjectManagement's
@@ -536,7 +537,21 @@ thresholds the server returns and the section explains. It says that candidates 
 that change nothing about deciding and that only administrators see them. Each agent's row is
 `tr[nhAssistantRoutineCandidateRow]` (`NhAssistantRoutineCandidateRowComponent`); pass
 `candidateActions` (a template with `NhAssistantRoutineCandidateActionContext`) to give the rows a
-last column with an action of the host's own. The same page pauses, stops, switches off
+last column with an action of the host's own. The administration page passes the switch that lets the
+row's agent run the kind without approval (FB82, SPM-391), `NhAssistantWithoutApprovalActionComponent`
+(`<nh-assistant-without-approval-action [candidate]="candidate" />` in the template), which a host that
+renders the section itself passes the same way; the notice then says that a candidate changes nothing
+by itself until an administrator switches a kind. The switch shows only for a tool whose code allows
+it (`allowWithoutApproval` on `ToolCatalogEntry`) and changes only for an agent that does work of its
+own (`applies`). It offers "Try in shadow" from off, "Run without approval" and "Switch off" from
+shadow, and "Try in shadow" or "Switch off" again when live, each explained with an optional note before it
+applies; going live from a kind that is no candidate names the thresholds it misses first, and the
+administrator decides. The agent's Rollout lists the same switches per tool with who switched it last,
+the note and whether the tool's contract changed since (`contractChanged`, which reads as off), over
+`getAgentWithoutApproval`, `setAgentWithoutApproval` (`WithoutApprovalRequest` with `expectedVersion`)
+and `getAgentWithoutApprovalVersions`; refusals read `assistant-without-approval-shadow-first`,
+`assistant-without-approval-not-allowed` and `assistant-version-conflict` in English and Dutch. The mock
+API keeps the versions and refuses as the server does. The same page pauses, stops, switches off
 and resumes an agent and each skill (an agent or skill that is off offers "Switch on", which
 replays nothing, and an agent that started off in code says so; a stopped agent says, from
 `offBeforeStop` on `AdminAgent` and `AgentState`, whether releasing the kill switch switches it back

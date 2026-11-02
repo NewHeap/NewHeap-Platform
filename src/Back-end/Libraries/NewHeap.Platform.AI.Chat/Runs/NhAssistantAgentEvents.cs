@@ -994,6 +994,31 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// FB82: who switched whether the agent runs a tool without approval, to which mode and version;
+    /// never the reason.
+    /// </summary>
+    public Task AgentToolWithoutApprovalChangedAsync(
+        string agentId,
+        string toolId,
+        int toolVersion,
+        string actorId,
+        string mode,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAgentToolWithoutApprovalChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                ToolId = toolId,
+                ToolVersion = toolVersion,
+                ResultCode = mode,
+                WithoutApprovalVersion = version
+            },
+            cancellationToken);
+    }
+
     public Task AgentConsultationRoutesChangedAsync(
         string agentId,
         string actorId,

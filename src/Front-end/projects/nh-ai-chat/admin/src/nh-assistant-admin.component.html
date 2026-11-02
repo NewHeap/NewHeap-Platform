@@ -47,7 +47,11 @@
           <nh-assistant-admin-agents [agentId]="agentId()" [agentTab]="agentTab()" (navigated)="onAgentsNavigated($event)" (openMcpServers)="showMcpServers()" />
         }
         @case ('proposal-kinds') {
-          <nh-assistant-admin-proposal-kinds />
+          <nh-assistant-admin-proposal-kinds [candidateActions]="withoutApprovalAction" />
+          <!-- FB82: the switch that lets an agent run the kind without approval, next to its numbers. -->
+          <ng-template #withoutApprovalAction let-candidate>
+            <nh-assistant-without-approval-action [candidate]="candidate" />
+          </ng-template>
         }
         @case ('mcp-servers') {
           <nh-assistant-admin-mcp-servers />

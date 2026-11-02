@@ -111,6 +111,7 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentPackageLink> AgentPackageLinks => Set<AssistantAgentPackageLink>();
 
+    public DbSet<AssistantAgentToolSwitch> AgentToolSwitches => Set<AssistantAgentToolSwitch>();
     public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -669,6 +670,25 @@ public sealed class NhAssistantDbContext : DbContext
             definition.HasIndex(item => new { item.AgentId, item.SkillId, item.Version }).IsUnique();
             definition.HasIndex(item => new { item.AgentId, item.Status });
             definition.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAgentToolSwitch>(toolSwitch =>
+        {
+            toolSwitch.ToTable("AssistantAgentToolSwitch");
+            toolSwitch.HasKey(item => item.Id);
+            toolSwitch.Property(item => item.Id).ValueGeneratedNever();
+            toolSwitch.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            toolSwitch.Property(item => item.ToolId).HasMaxLength(256).IsRequired();
+            toolSwitch.Property(item => item.Mode).HasMaxLength(16).IsRequired();
+            toolSwitch.Property(item => item.ContractHash).HasMaxLength(128).IsRequired();
+            toolSwitch.Property(item => item.ChangedBy).HasMaxLength(256).IsRequired();
+            toolSwitch.Property(item => item.Reason).HasMaxLength(AssistantAgentToolSwitch.MaxReasonLength);
+            // Append-only versions: two administrators who switch at once cannot both write the next one.
+            toolSwitch.HasIndex(item => new { item.AgentId, item.ToolId, item.Version }).IsUnique();
+            toolSwitch.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);

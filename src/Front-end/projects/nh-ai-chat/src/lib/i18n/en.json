@@ -484,6 +484,8 @@
       "assistant-consult-proposal-moved": "The proposal was left for the subject's approvers.",
       "assistant-moved-to-shadow": "The work went to the agent's shadow thread, where a run in shadow takes it.",
       "assistant-shadow-variant": "A shadow variant always works in shadow.",
+      "assistant-without-approval-not-allowed": "This tool cannot run without approval for this agent: its code does not allow it, it is not among the agent's tools, or the agent does no work of its own.",
+      "assistant-without-approval-shadow-first": "Switch this kind of action to shadow first. It goes live only from shadow, also after its tool changed.",
       "assistant-not-shadow-variant": "Only a shadow variant created here can be promoted onto its live agent.",
       "assistant-service-account-not-used": "This agent does not answer to a technical account.",
       "assistant-service-account-not-found": "No account that may sign in exists with this id.",
