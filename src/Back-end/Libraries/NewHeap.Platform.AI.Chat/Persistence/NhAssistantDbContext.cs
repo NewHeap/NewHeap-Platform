@@ -120,6 +120,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAlertDelivery> AlertDeliveries => Set<AssistantAlertDelivery>();
 
+    public DbSet<AssistantAlertKindSetting> AlertKindSettings => Set<AssistantAlertKindSetting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -949,6 +951,20 @@ public sealed class NhAssistantDbContext : DbContext
             delivery.HasIndex(item => new { item.Status, item.DueAt });
             // A person's alerts, by status.
             delivery.HasIndex(item => new { item.RecipientActorId, item.Status });
+        });
+
+        // FB87 phase 2: an administrator's settings per alert kind, within the bounds of its code.
+        modelBuilder.Entity<AssistantAlertKindSetting>(setting =>
+        {
+            setting.ToTable("AssistantAlertKindSetting");
+            setting.HasKey(item => item.KindId);
+            setting.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength);
+            setting.Property(item => item.DeliveryMode).HasMaxLength(16);
+            setting.Property(item => item.DigestTimes).HasMaxLength(64);
+            setting.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
+            setting.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
+            setting.Property(item => item.Reason).HasMaxLength(AssistantAlertKindSetting.MaxReasonLength);
+            setting.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<AssistantAgentMetadata>(metadata =>
