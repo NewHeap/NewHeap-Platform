@@ -43,6 +43,7 @@ Read these references only when the task adds or changes AI behavior through the
 - [assets](references/ai-assets.md) when versioning instructions or agent assets for approvals, evaluation and rollout;
 - [assistant](references/ai-assistant.md) for the in-app assistant: durable conversations, streamed turns, in-chat approvals, sharing and its administration;
 - [agent runs](references/ai-agent-runs.md) for agents that run on their own from events, schedules or people, with deferred proposals, skills, boards and the approval inbox;
+- [alerts](references/ai-alerts.md) when an agent's rules or the application warn people about an object without a proposal, with alert kinds in code;
 - [Agent Framework](references/ai-agent-framework.md) when creating Microsoft Agent Framework agents bound to NewHeap profiles, tools and policy;
 - [durable runs](references/ai-durable-runs.md) when AI work outlives a request inside a background operation with checkpoints and approval waits;
 - [MCP tools](references/ai-mcp-tools.md) when exposing generated tools to MCP clients;

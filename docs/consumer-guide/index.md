@@ -18,6 +18,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 - [ai-agent-framework](./ai-agent-framework.md) — 1 rule
 - [ai-agent-runs](./ai-agent-runs.md) — 1 rule
+- [ai-alerts](./ai-alerts.md) — 1 rule
 - [ai-api-bridge](./ai-api-bridge.md) — 1 rule
 - [ai-aspnet-context](./ai-aspnet-context.md) — 1 rule
 - [ai-assets](./ai-assets.md) — 1 rule
@@ -67,4 +68,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 52 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 53 validated rules.
