@@ -306,6 +306,39 @@ public sealed class AssistantDecisionTimeMathTests
     }
 
     [Fact]
+    public void The_view_per_kind_of_action_keeps_its_json_names()
+    {
+        var numbers = new NhAssistantProposalKindNumbersDto(1, 2, 0, 2, 0, 0, 0, 0, 0, 1, 0, new NhAssistantDecisionTimeDto(2, 60, 90, false), null);
+        var candidate = new NhAssistantRoutineCandidateDto("intake", "Intake", "admin", "projects.change-status", numbers, false, [NhAssistantRoutineCandidateReasons.TooFewDecisions]);
+        var view = JsonSerializer.SerializeToElement(
+            new NhAssistantProposalKindsDto(
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch.AddDays(30),
+                new NhAssistantRoutineCandidateThresholdsDto(50, 0.98, 7, 0),
+                [new NhAssistantProposalKindDto("projects.change-status", "Change project status", numbers, [candidate])]),
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalKindsDto);
+
+        AssertNames(view, "from", "to", "thresholds", "kinds");
+        AssertNames(view.GetProperty("thresholds"), "minimumDecisions", "minimumApprovalRate", "quietPeriodDays", "maximumStaleOrFailedAfterApproval");
+        var kind = view.GetProperty("kinds")[0];
+        AssertNames(kind, "toolId", "displayName", "numbers", "agents");
+        AssertNames(
+            kind.GetProperty("numbers"),
+            "pending", "approved", "rejected", "decisions", "expired", "withdrawn", "invalidated", "staleAfterApproval",
+            "executionFailed", "approvalRate", "rejectionRate", "decisionTime", "lastRejectedAt");
+        AssertNames(kind.GetProperty("numbers").GetProperty("decisionTime"), "sampleSize", "medianSeconds", "percentile90Seconds", "sampled");
+        AssertNames(kind.GetProperty("agents")[0], "agentId", "agentDisplayName", "agentSource", "toolId", "numbers", "candidate", "unmetThresholds");
+        Assert.Equal("too-few-decisions", kind.GetProperty("agents")[0].GetProperty("unmetThresholds")[0].GetString());
+    }
+
+    private static void AssertNames(JsonElement element, params string[] expected)
+    {
+        Assert.Equal(
+            expected.Order(StringComparer.Ordinal),
+            element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void Thresholds_outside_their_ranges_count_as_their_nearest_bound()
     {
         var bounded = new NhAssistantRoutineCandidateOptions
