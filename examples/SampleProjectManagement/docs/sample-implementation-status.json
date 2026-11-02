@@ -4227,7 +4227,28 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertDeliveryTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationPreferenceTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts",
+      "src/Front-end/projects/management/src/app/alerts/alerts-page.component.ts",
+      "src/Front-end/projects/management/src/app/alerts/alerts-page.component.html",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertList.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAlertContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-alert.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/alerts/nh-assistant-alerts.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/alerts/nh-assistant-alerts.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-notification-preferences.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-notification-preferences.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-alert-badge.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-alert-badge.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-alerts.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts"
     ]
   }
 }
