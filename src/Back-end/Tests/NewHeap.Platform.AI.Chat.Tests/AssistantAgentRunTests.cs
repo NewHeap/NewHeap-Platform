@@ -221,6 +221,8 @@ public sealed class AssistantAgentRunTests(AssistantDatabaseFixture database) : 
         var approval = await FindApprovalAsync(host, waiting.PendingApprovalId!.Value);
         Assert.Equal(clock.GetUtcNow().AddDays(3), approval.ExpiresAt);
         Assert.Equal(clock.GetUtcNow(), Governance.NhAssistantProposalSerializer.Deserialize(approval.ProposalJson).GeneratedAt);
+        // When it was proposed follows the same clock, for the decision times (FB82).
+        Assert.Equal(clock.GetUtcNow(), approval.ProposedAt);
 
         // A minute before the end of its lifetime it is still open, and the maintenance job leaves it.
         clock.Advance(TimeSpan.FromDays(3) - TimeSpan.FromMinutes(1));

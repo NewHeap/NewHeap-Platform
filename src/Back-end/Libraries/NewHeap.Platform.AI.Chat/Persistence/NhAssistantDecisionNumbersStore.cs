@@ -55,7 +55,8 @@ internal sealed class NhAssistantDecisionNumbersStore(NhAssistantDbContextFactor
                 ToolId = approval.ToolId,
                 AgentVersion = run == null ? (int?)null : run.AgentVersion,
                 ScopeKey = thread.ScopeKey,
-                CreatedAt = approval.CreatedAt,
+                // Both on the application's clock; a proposal made before 30.1 has its recorded time only.
+                ProposedAt = approval.ProposedAt ?? approval.CreatedAt,
                 DecidedAt = approval.DecidedAt!.Value
             };
         if (filter.ScopeKey is { } scopeKey)
@@ -78,7 +79,7 @@ internal sealed class NhAssistantDecisionNumbersStore(NhAssistantDbContextFactor
                 .Where(row => row.ToolId == key.ToolId && row.AgentVersion == key.AgentVersion)
                 .OrderByDescending(row => row.DecidedAt)
                 .Take(samplePerGroup + 1)
-            select new NhAssistantDecisionTimeRow(row.AgentId, row.ToolId, row.AgentVersion, row.CreatedAt, row.DecidedAt);
+            select new NhAssistantDecisionTimeRow(row.AgentId, row.ToolId, row.AgentVersion, row.ProposedAt, row.DecidedAt);
         return await sample.ToListAsync(cancellationToken);
     }
 
@@ -150,7 +151,8 @@ internal sealed class NhAssistantDecisionNumbersStore(NhAssistantDbContextFactor
                 ToolId = approval.ToolId,
                 AgentVersion = null,
                 ScopeKey = thread.ScopeKey,
-                CreatedAt = approval.CreatedAt,
+                // Both on the application's clock; a proposal made before 30.1 has its recorded time only.
+                ProposedAt = approval.ProposedAt ?? approval.CreatedAt,
                 DecidedAt = approval.DecidedAt!.Value
             };
         if (filter.AgentId is { } decidedAgentId)
@@ -169,7 +171,7 @@ internal sealed class NhAssistantDecisionNumbersStore(NhAssistantDbContextFactor
                     .Where(row => row.AgentId == key.AgentId && row.ToolId == key.ToolId)
                     .OrderByDescending(row => row.DecidedAt)
                     .Take(samplePerGroup + 1)
-                select new NhAssistantDecisionTimeRow(row.AgentId, row.ToolId, null, row.CreatedAt, row.DecidedAt))
+                select new NhAssistantDecisionTimeRow(row.AgentId, row.ToolId, null, row.ProposedAt, row.DecidedAt))
             .ToListAsync(cancellationToken);
 
         var toolIds = statuses.Select(row => row.ToolId).Distinct(StringComparer.Ordinal).ToList();
@@ -220,7 +222,7 @@ internal sealed class NhAssistantDecisionNumbersStore(NhAssistantDbContextFactor
 
         public required string ScopeKey { get; init; }
 
-        public required DateTimeOffset CreatedAt { get; init; }
+        public required DateTimeOffset ProposedAt { get; init; }
 
         public required DateTimeOffset DecidedAt { get; init; }
     }
@@ -236,12 +238,12 @@ internal sealed record NhAssistantProposalKindFilter(
     string? AgentId,
     string? ToolId);
 
-/// <summary>When one proposal was made and when a person decided it.</summary>
+/// <summary>When one proposal was made and when a person decided it, both on the application's clock.</summary>
 internal sealed record NhAssistantDecisionTimeRow(
     string AgentId,
     string ToolId,
     int? AgentVersion,
-    DateTimeOffset CreatedAt,
+    DateTimeOffset ProposedAt,
     DateTimeOffset DecidedAt);
 
 /// <param name="AfterApproval">The proposal reached its execution, so a stale one was approved first.</param>

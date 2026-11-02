@@ -260,6 +260,13 @@ public sealed class AssistantApproval
 
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>
+    /// When the proposal was made, on the application's clock, which its lifetime and its decision
+    /// (<see cref="DecidedAt"/>) follow; <see cref="CreatedAt"/> stays on the system clock, which the
+    /// proposal guards compare with the subject's own changes. Empty for a proposal made before 30.1.
+    /// </summary>
+    public DateTimeOffset? ProposedAt { get; set; }
+
     public DateTimeOffset ExpiresAt { get; set; }
 
     public string? DecidedByActorId { get; set; }

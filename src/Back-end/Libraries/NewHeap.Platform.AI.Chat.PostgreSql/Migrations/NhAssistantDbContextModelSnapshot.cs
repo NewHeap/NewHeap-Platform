@@ -1213,6 +1213,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("ProposedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("RationalesJson")
                         .HasMaxLength(6000)
                         .HasColumnType("character varying(6000)");

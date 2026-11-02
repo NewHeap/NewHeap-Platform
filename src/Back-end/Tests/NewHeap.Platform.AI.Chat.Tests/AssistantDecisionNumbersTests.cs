@@ -162,6 +162,37 @@ public sealed class AssistantDecisionNumbersTests(AssistantDatabaseFixture datab
         Assert.Empty(current.Kinds);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Decision_times_follow_the_application_clock_also_when_it_runs_ahead_of_the_system_clock(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider);
+        var reviewer = await ThreadAsync(app, Reviewer);
+        var day1 = Start.AddDays(1);
+        // The application's clock runs two hours ahead: a proposal and its decision follow it, while
+        // when it was recorded stays on the system clock for the proposal guards.
+        var ahead = TimeSpan.FromHours(2);
+        await using (var context = app.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext())
+        {
+            context.Approvals.AddRange(
+                Approval(reviewer, AddTask, NhAssistantApprovalStatuses.Executed, day1, 60, executed: true, clockAhead: ahead),
+                Approval(reviewer, AddTask, NhAssistantApprovalStatuses.Executed, day1, 90, executed: true, clockAhead: ahead),
+                Approval(reviewer, AddTask, NhAssistantApprovalStatuses.Executed, day1, 120, executed: true, clockAhead: ahead),
+                // A proposal made before 30.1 has its recorded time only.
+                Approval(reviewer, AddTask, NhAssistantApprovalStatuses.Executed, day1, 30, executed: true));
+            await context.SaveChangesAsync();
+        }
+        using var admin = app.CreateClient(Approver, admin: true);
+        var period = $"?from={Uri.EscapeDataString(Start.ToString("O"))}&to={Uri.EscapeDataString(End.ToString("O"))}";
+
+        var view = (await admin.GetFromJsonAsync<NhAssistantProposalKindsDto>(KindsPath + period, Json))!;
+
+        // 30, 60, 90 and 120 seconds, not two hours more for the three on the application's clock.
+        var tasks = Assert.Single(Assert.Single(view.Kinds).Agents);
+        Assert.Equal(new NhAssistantDecisionTimeDto(4, 75, 111, false), tasks.Numbers.DecisionTime);
+    }
+
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider)
     {
         return AssistantWebApplication.StartAsync(
@@ -229,6 +260,8 @@ public sealed class AssistantDecisionNumbersTests(AssistantDatabaseFixture datab
     }
 
     /// <param name="decidedAfterSeconds">When it was decided after it was made; <see langword="null"/> for an open or expired proposal.</param>
+    /// <param name="clockAhead">How far the application's clock runs ahead of the system clock when the
+    /// proposal stores its own time; <see langword="null"/> for a proposal made before 30.1, which has none.</param>
     private static AssistantApproval Approval(
         AssistantThread thread,
         string toolId,
@@ -237,9 +270,11 @@ public sealed class AssistantDecisionNumbersTests(AssistantDatabaseFixture datab
         int? decidedAfterSeconds,
         bool executed = false,
         string decidedBy = Approver,
-        string? presentation = null)
+        string? presentation = null,
+        TimeSpan? clockAhead = null)
     {
-        var decidedAt = decidedAfterSeconds is { } seconds ? createdAt.AddSeconds(seconds) : (DateTimeOffset?)null;
+        var proposedAt = clockAhead is { } shift ? createdAt + shift : (DateTimeOffset?)null;
+        var decidedAt = decidedAfterSeconds is { } seconds ? (proposedAt ?? createdAt).AddSeconds(seconds) : (DateTimeOffset?)null;
         return new AssistantApproval
         {
             Id = Guid.NewGuid(),
@@ -256,6 +291,7 @@ public sealed class AssistantDecisionNumbersTests(AssistantDatabaseFixture datab
             ArgumentsPreview = "{}",
             Status = status,
             CreatedAt = createdAt,
+            ProposedAt = proposedAt,
             ExpiresAt = createdAt.AddDays(3),
             DecidedByActorId = decidedAt is null ? null : decidedBy,
             DecidedAt = decidedAt,

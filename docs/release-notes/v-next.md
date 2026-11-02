@@ -13,7 +13,15 @@
   the 90th percentile of the time from a proposal to a person's approval or rejection, in whole seconds, from at most
   the newest 1,000 decisions per row (`sampled` says when there were more). Expired, withdrawn and invalidated
   proposals and decisions of agents or of the platform do not count. Computed with provider-neutral LINQ and a
-  bounded load on SQL Server and PostgreSQL; no migration.
+  bounded load on SQL Server and PostgreSQL.
+- A proposal records when it was made on the application's clock, `AssistantApproval.ProposedAt`, next to
+  `CreatedAt` on the system clock, which the proposal guards keep using. Decision times run from `ProposedAt` to
+  `DecidedAt`, so an application whose `TimeProvider` runs ahead of the system clock reads true times; a proposal
+  made before this version has no `ProposedAt` and counts from `CreatedAt`.
+
+| Breaking change | Required action |
+|---|---|
+| The `ApprovalProposedAt` migrations add the nullable column `AssistantApproval.ProposedAt` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
 - `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view per kind of action over all
   agents: per tool the counts, approval and rejection rates, decision times, the newest rejection and the name the
   proposal cards show, and per agent a `NhAssistantRoutineCandidateDto` (`agentId`, `toolId`, the numbers,

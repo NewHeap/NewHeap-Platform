@@ -1213,6 +1213,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTimeOffset?>("ProposedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("RationalesJson")
                         .HasMaxLength(6000)
                         .HasColumnType("nvarchar(max)");

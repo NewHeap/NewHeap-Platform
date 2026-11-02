@@ -1965,9 +1965,10 @@ time from a proposal to a person's approval or rejection, in whole seconds and i
 `percentile_cont` does. Expired, withdrawn and invalidated proposals do not count, nor decisions
 of agents or of the platform. The numbers are a bounded load with provider-neutral LINQ, the same
 on SQL Server and PostgreSQL: at most the newest 1,000 decisions per row, and `Sampled` says
-when there were more. A proposal's creation follows the system clock and its decision the
-application's clock, so an application whose `TimeProvider` runs ahead reads the shift in the
-times. `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view
+when there were more. A decision time runs from `AssistantApproval.ProposedAt` to `DecidedAt`,
+both on the application's clock; `CreatedAt` stays on the system clock, which the proposal guards
+compare with the subject's own changes, and counts only for a proposal made before 30.1, which has
+no `ProposedAt`. `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view
 per kind of action over all agents: per tool the counts, `ApprovalRate`, `RejectionRate`,
 `DecisionTime`, `LastRejectedAt` and the name the proposal cards show (from the newest
 proposal's presentation in the caller's culture, the tool id without one), and per agent a

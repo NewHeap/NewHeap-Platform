@@ -367,6 +367,7 @@ internal sealed class NhAssistantConsultationProposals(
             TargetsJson = approval.TargetsJson,
             Status = NhAssistantApprovalStatuses.Pending,
             CreatedAt = now,
+            ProposedAt = proposedAt,
             ExpiresAt = expiresAt,
             PolicyId = route.Policy.Id,
             Mode = NhAssistantApprovalModes.Deferred,

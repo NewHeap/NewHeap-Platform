@@ -751,6 +751,7 @@ internal sealed class NhAssistantProposals(
                     NhAssistantContent.JsonOptions),
                 Status = NhAssistantApprovalStatuses.Pending,
                 CreatedAt = now,
+                ProposedAt = proposedAt,
                 ExpiresAt = expiresAt,
                 RunId = null,
                 PlacedFromConversationId = null,

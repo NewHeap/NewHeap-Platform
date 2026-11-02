@@ -1598,6 +1598,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             TargetsJson = JsonSerializer.Serialize(targetLabels, NhAssistantContent.JsonOptions),
             Status = shadow ? NhAssistantApprovalStatuses.Shadow : NhAssistantApprovalStatuses.Pending,
             CreatedAt = now,
+            ProposedAt = proposedAt,
             ExpiresAt = expiresAt,
             RunId = agentTurn?.RunId,
             PlacedFromConversationId = placed is null ? null : state.Conversation.Id,

@@ -203,7 +203,7 @@ internal static class NhAssistantDecisionTimes
         }
 
         var seconds = sample
-            .Select(row => Math.Max(0, (row.DecidedAt - row.CreatedAt).TotalSeconds))
+            .Select(row => Math.Max(0, (row.DecidedAt - row.ProposedAt).TotalSeconds))
             .Order()
             .ToList();
         return new NhAssistantDecisionTimeDto(
