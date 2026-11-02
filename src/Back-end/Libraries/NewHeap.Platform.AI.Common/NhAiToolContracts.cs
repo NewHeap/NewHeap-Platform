@@ -183,6 +183,15 @@ public sealed class NhAiToolAttribute(
     /// <see langword="null"/> uses the tool's own authorization policies.
     /// </summary>
     public string? ApprovalPolicy { get; set; }
+
+    /// <summary>
+    /// Keeps the tool's proposals out of every decision of several proposals at once: a person decides
+    /// each one on its own card. Use it for an effect that cannot be undone, such as a message to an
+    /// external party. A bulk decision of a filter leaves such proposals out of its set and says how many
+    /// it left out, and deciding several by id refuses each one with
+    /// <c>assistant-individual-decision-required</c>. It does not change the tool's contract hash.
+    /// </summary>
+    public bool RequireIndividualDecision { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
@@ -303,6 +312,12 @@ public sealed record NhAiToolDescriptor(
     /// <see cref="AuthorizationPolicies"/>.
     /// </summary>
     public string? ApprovalPolicy { get; init; }
+
+    /// <summary>
+    /// Whether a person decides every proposal of this tool on its own, never together with others.
+    /// See <see cref="NhAiToolAttribute.RequireIndividualDecision"/>.
+    /// </summary>
+    public bool RequireIndividualDecision { get; init; }
 
     /// <summary>
     /// The object a call of this tool concerns, declared with <see cref="NhAiSubjectAttribute"/>;
