@@ -39,8 +39,42 @@
 - The content-free audit kinds `AgentAlertRaised` (127), `AgentAlertResolved` (128), `AgentAlertDismissed` (129) and
   `AgentAlertRecipientDropped` (130), with `NhAssistantAuditEvent.AlertId`, `AlertKind`, `AlertRevision` and
   `AlertRecipientCount`. Forgetting a user also removes their alert deliveries.
+- A person's side: `GET alerts` lists the caller's own alerts, the most recently raised first or with `grouped=true` per
+  parent, paged as the inbox pages, with title and text in the caller's language and the state `unread`, `read`,
+  `resolved`, `expired` or `dismissed` (`NhAssistantAlertListStatuses`), filtered on status (also `open` and `closed`),
+  kind, subject and urgency (`NhAssistantAlertUrgencyNames`). `GET alerts/summary` counts the unread ones in total and
+  per urgency for a badge. `POST alerts/{id}/read` and `POST alerts/{id}/dismiss` are idempotent; a read delivery that
+  waits for a digest is not sent, and the first dismissal is audited as `AgentAlertDismissed`, with
+  `ImpersonationOriginActorId` in an impersonation session. Every alert passes the recipient check again with the
+  caller's tenant: an alert of another person, or about a subject the caller lost access to, is not listed or counted
+  and its id answers `404 assistant-alert-not-found` (`NhAssistantAlertCodes.NotFound`); a malformed filter answers
+  `400 assistant-alert-filter-invalid` (`NhAssistantAlertCodes.FilterInvalid`). The responses are
+  `NhAssistantAlertListDto`, `NhAssistantAlertDto` and `NhAssistantAlertSummaryDto` of
+  `NhAssistantAlertJsonSerializerContext`.
 
 | Breaking change | Required action |
 |---|---|
 | The `Alerts` migrations add the tables `AssistantAlert` and `AssistantAlertDelivery` on SQL Server and PostgreSQL. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. An application without alert kinds sees no other change. |
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees four new kinds. | Handle or ignore `AgentAlertRaised`, `AgentAlertResolved`, `AgentAlertDismissed` and `AgentAlertRecipientDropped`. |
+## @newheap/platform-ai-chat: alerts (FB87)
+
+- `nh-assistant-alerts` (`NhAssistantAlertsComponent`) shows a person's own alerts, grouped by parent by default, with
+  `density: 'compact'`, a status filter, read and dismiss in place, and resolved and expired alerts shown as such. It
+  emits `openSubject` (`AlertSubjectTarget`) with the subject and its link for the host to route, and never navigates.
+- `NhAssistantAlertBadgeService` gives the shell the unread counts (`unread`, `unreadByUrgency`, `highestUrgency`):
+  `watch()` keeps them current on load, on focus and visibility, every five minutes while the page is visible and after
+  the person's own actions, and its release forgets them.
+- `nh-assistant-notification-preferences` (`NhAssistantNotificationPreferencesComponent`) shows the push switch of
+  `NhAssistantPushService`, the person's time zone and per alert kind whether they receive it, its digest time and its
+  channels where the kind allows it. `NotificationSettings` gains the optional `timeZone` and `alertKinds`
+  (`NotificationAlertKind`); a server without alerts sends neither.
+- `NhAssistantApiService` gains `getAlerts`, `getAlertSummary`, `markAlertRead`, `dismissAlert` and
+  `updateNotificationPreferences` (`UpdateNotificationSettingsRequest`), with the models `Alert`, `AlertList`,
+  `AlertSummary` and their filters. `provideNhAssistantMockApi` serves them from the scenario's `alerts`, and
+  `NhAssistantMockBackend.raiseAlert`, `resolveAlert` and `setAlertKind` change them while a test runs.
+- The texts are in English and Dutch ("Attenties") under `nh-assistant.alerts` and `nh-assistant.notification-preferences`.
+
+| Breaking change | Required action |
+|---|---|
+| `nh-assistant-preferences` shows its push switch through an internal component and no longer has the public `push` field and `toggleNotifications`. | Use `NhAssistantPushService` (`setEnabled`, `state`) for the push switch in a host's own template. |
+| `PUT notifications` in the mock API changes the push switch only when the body names `pushEnabled`. | Send `pushEnabled` to change it in a test, as the server requires. |
