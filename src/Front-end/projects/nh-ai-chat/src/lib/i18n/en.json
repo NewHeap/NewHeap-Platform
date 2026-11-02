@@ -960,7 +960,12 @@
         "history-loading": "Loading the runs…",
         "history-empty": "No runs yet.",
         "history-more": "Show more runs",
-        "history-limited": "Older runs are not shown here."
+        "history-limited": "Older runs are not shown here.",
+        "about": "About this agent",
+        "more": "More",
+        "less": "Less",
+        "result-of": "the latest result of {{agent}}",
+        "open-inbox": "show them with the proposals to decide"
       },
       "compact": {
         "hint": "Proposals in rows. The arrow keys move between them, Enter shows a whole proposal and the question mark lists the keys.",

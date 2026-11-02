@@ -53776,6 +53776,7 @@
       "NhAssistantMockRun",
       "NhAssistantAgentBoardComponent",
       "NhAssistantBoardPanel",
+      "NhAssistantBoardInboxRequest",
       "AgentBoard",
       "AgentBoardAgent",
       "AgentBoardList",

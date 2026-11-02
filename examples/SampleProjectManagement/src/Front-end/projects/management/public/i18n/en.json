@@ -716,6 +716,7 @@
     "active-division-only": "Only proposals of my active division",
     "compact-list": "Compact list with keyboard keys",
     "run-only": "The proposals of the run a notification is about",
+    "board-agent-only": "The open proposals of one agent of the Project management board",
     "show-all": "Show all proposals"
   },
   "project-management-board": {

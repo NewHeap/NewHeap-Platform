@@ -960,7 +960,12 @@
         "history-loading": "De runs laden…",
         "history-empty": "Nog geen runs.",
         "history-more": "Toon meer runs",
-        "history-limited": "Oudere runs staan hier niet."
+        "history-limited": "Oudere runs staan hier niet.",
+        "about": "Over deze agent",
+        "more": "Meer",
+        "less": "Minder",
+        "result-of": "het laatste resultaat van {{agent}}",
+        "open-inbox": "toon ze bij de voorstellen om te beslissen"
       },
       "compact": {
         "hint": "Voorstellen in rijen. Met de pijltoetsen ga je van rij naar rij, Enter toont een heel voorstel en het vraagteken somt de toetsen op.",

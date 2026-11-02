@@ -194,7 +194,10 @@ of its code. `nh-assistant-agent-board` shows people who pass the follow-up's vi
 result for the whole application, marked new until they visit the board again, with run now for project
 managers, its open proposals and its history; a colleague without the permission does not see the
 follow-up there. The thread of the whole application is never readable more widely than the follow-up's
-results. The playground shows the same board on the mock.
+results. The portal's board is compact: what an agent is about folds behind "About this agent", the
+latest result shows two lines with "More", and the count of the follow-up's open proposals opens the
+intake reviews inbox filtered on the follow-up through the board's `openInbox`, since the library reads
+no route parameters. The playground shows the same board on the mock, with the comfortable tiles.
 The project assistant reads the project descriptions that match a question (SPM-291). Its
 `UseRetrievedContext` budget of 4,000 characters counts the block as the model reads it, with each
 description's source, date and format, so the lowest-ranked descriptions that do not fit stay out and

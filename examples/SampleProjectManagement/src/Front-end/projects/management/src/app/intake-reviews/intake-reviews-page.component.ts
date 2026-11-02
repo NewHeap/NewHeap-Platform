@@ -17,8 +17,11 @@ import {
   SampleAuthService
 } from 'sample-project-management-common';
 
-/** The ids of projects and runs in the address. */
+/** The ids of projects, runs and divisions in the address. */
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The id of an agent in the address. */
+const agentIdPattern = /^[a-z0-9][a-z0-9._-]{0,99}$/i;
 
 /**
  * SPM-277: the intake reviewer's work in the management portal. The inbox lists the proposals
@@ -40,6 +43,11 @@ const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * SPM-277: "Compact list" shows the inbox with `density: 'compact'`: one row per proposal that expands
  * to its card, one tab stop with the arrow keys, and the list's letters (`j`, `k`, `x`, `a`, `r`, `?`)
  * while the focus is in a row; `a` and `r` decide the focused row, never the selection.
+ *
+ * SPM-304: the count of an agent's open proposals on the compact Project management board opens this
+ * page with `?agent=` and, on a division's board, `?division=` (`openInbox` of the board); the inbox
+ * then lists that agent's proposals in that scope until the person shows all again, and records no
+ * visit, because it shows only part of the inbox.
  *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
@@ -76,6 +84,10 @@ export class IntakeReviewsPageComponent implements OnInit {
   readonly compactList = signal(false);
   /** SPM-310: the run a clicked notification is about; the inbox then lists that run's proposals. */
   readonly runId = signal<string | null>(null);
+  /** SPM-304: the agent whose open proposals the board's count asked for. */
+  readonly boardAgentId = signal<string | null>(null);
+  /** SPM-304: the division of the board that asked, if any. */
+  readonly boardDivisionId = signal<string | null>(null);
   readonly projects = signal<ProjectViewModel[]>([]);
   readonly projectId = signal<string | null>(null);
   readonly loading = signal(true);
@@ -97,6 +109,10 @@ export class IntakeReviewsPageComponent implements OnInit {
         }
         const run = parameters.get('run');
         this.runId.set(run && idPattern.test(run) ? run : null);
+        const agent = parameters.get('agent');
+        this.boardAgentId.set(agent && agentIdPattern.test(agent) ? agent : null);
+        const division = parameters.get('division');
+        this.boardDivisionId.set(division && idPattern.test(division) ? division : null);
       });
 
     this.projectApi.list(new ProjectCollectionRequestOptions({ itemsPerPage: 100 }))
@@ -128,11 +144,14 @@ export class IntakeReviewsPageComponent implements OnInit {
     this.panel.open(conversationId);
   }
 
-  /** SPM-310: leaves the run a notification opened and shows the whole inbox again. */
+  /**
+   * SPM-310 and SPM-304: leaves the run a notification opened, or the agent a board asked for, and shows
+   * the whole inbox again.
+   */
   showAllProposals(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { run: null },
+      queryParams: { run: null, agent: null, division: null },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });

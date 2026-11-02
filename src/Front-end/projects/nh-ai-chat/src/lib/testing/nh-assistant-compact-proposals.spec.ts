@@ -4,11 +4,13 @@ import { By } from '@angular/platform-browser';
 import { provideTranslateService } from '@ngx-translate/core';
 import { NEVER, Subject, of } from 'rxjs';
 import {
+  NhAssistantAgentBoardComponent,
   NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
+  NhAssistantBoardInboxRequest,
   NhAssistantProposalDensity
 } from '../../../agent-runs/src/public-api';
-import { AgentInbox, AgentInboxFilter, AgentProposal, AgentProposalDecision } from '../models/assistant-agent-run.models';
+import { AgentBoard, AgentInbox, AgentInboxFilter, AgentProposal, AgentProposalDecision } from '../models/assistant-agent-run.models';
 import { LiveAgentWorkChanged } from '../models/assistant-live.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
@@ -18,7 +20,8 @@ import { NhAssistantLiveService, NhAssistantLiveState } from '../services/nh-ass
  * The proposals list for many proposals: a selection that follows the list (FB84), so "Approve
  * selected" only sends what is shown, and the compact density (FB79): one row per proposal that
  * expands to its card, one tab stop with the arrow keys, and letters that act only while the focus is
- * in a row, never in a field.
+ * in a row, never in a field; and the way from a board's count of open proposals to the host's inbox
+ * (FB81).
  */
 function proposal(id: string, overrides: Partial<AgentProposal> = {}): AgentProposal {
   return {
@@ -103,6 +106,53 @@ class ProposalsHostComponent {
   readonly width = signal(900);
 }
 
+@Component({
+  standalone: true,
+  imports: [NhAssistantAgentBoardComponent],
+  template: `<nh-assistant-agent-board group="regional-review" [divisionId]="divisionId" [compact]="compact()" (openInbox)="requests.push($event)" />`
+})
+class RoutingBoardHostComponent {
+  readonly divisionId = '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f';
+  readonly compact = signal(false);
+  readonly requests: NhAssistantBoardInboxRequest[] = [];
+}
+
+@Component({
+  standalone: true,
+  imports: [NhAssistantAgentBoardComponent],
+  template: `<nh-assistant-agent-board group="regional-review" [divisionId]="divisionId" [compact]="compact()" />`
+})
+class InlineBoardHostComponent {
+  readonly divisionId = '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f';
+  readonly compact = signal(false);
+}
+
+/** A board with one agent that works per division and has two open proposals in the board's scope. */
+function board(divisionId: string): AgentBoard {
+  return {
+    id: 'regional-review',
+    name: 'Regional review',
+    description: null,
+    scopeKey: `division:${divisionId.replaceAll('-', '')}`,
+    divisionId,
+    lastVisitedAt: '2026-10-20T12:00:00Z',
+    agents: [{
+      agentId: 'regional',
+      displayNameKey: 'Regional review',
+      descriptionKey: 'Reviews a division.',
+      worksOn: { allObjects: false, application: true, perDivision: true, subjectTypes: [] },
+      subjectType: 'nh-system',
+      subjectId: `division-${divisionId.replaceAll('-', '')}`,
+      subjectDisplayName: 'North',
+      canStart: false,
+      conversationId: null,
+      latestRun: null,
+      openProposals: 2,
+      isNew: false
+    }]
+  };
+}
+
 function key(target: Element, name: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init });
   target.dispatchEvent(event);
@@ -143,8 +193,12 @@ describe('the proposals list for many proposals', () => {
       'visitInbox',
       'decide',
       'decideMany',
-      'lookupProposals'
+      'lookupProposals',
+      'getBoard',
+      'visitBoard'
     ]);
+    api.visitBoard.and.returnValue(of({ groupId: 'regional-review', scopeKey: 'division', visitedAt: '2026-10-21T12:00:00Z' }));
+    api.getBoard.and.callFake((_group: string, divisionId?: string | null) => of(board(divisionId!)));
     TestBed.configureTestingModule({
       providers: [
         provideTranslateService(),
@@ -485,6 +539,66 @@ describe('the proposals list for many proposals', () => {
       const rows = Array.from((inbox.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-proposal-row]'));
       expect(rows.map(item => item.dataset['proposalRow'])).toEqual(['a', 'b']);
       inbox.destroy();
+    });
+  });
+
+  describe('the way from a board to the inbox', () => {
+    it('emits the agent and division from the count of open proposals to a host that listens, in either density', () => {
+      const fixture = TestBed.createComponent(RoutingBoardHostComponent);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+
+      for (const compact of [false, true]) {
+        fixture.componentInstance.compact.set(compact);
+        fixture.detectChanges();
+        const count = element.querySelector<HTMLButtonElement>('[data-board-open-inbox]')!;
+        expect(count).not.toBeNull();
+        expect(count.tagName).toBe('BUTTON');
+        expect(text(count)).toContain('object-agents.proposals');
+        expect(text(count)).toContain('board.open-inbox');
+        // The host's inbox shows the proposals; the tile has no inline inbox of its own.
+        expect(element.querySelector('[data-board-toggle-proposals]')).toBeNull();
+        count.click();
+        fixture.detectChanges();
+      }
+
+      expect(fixture.componentInstance.requests).toEqual([
+        { agentId: 'regional', divisionId: '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f' },
+        { agentId: 'regional', divisionId: '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f' }
+      ]);
+      expect(element.querySelector('nh-assistant-agent-inbox')).toBeNull();
+      expect(api.getInbox).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('opens the own inbox of a tile from the count of a compact tile while nobody listens, and keeps the comfortable tile as it was', () => {
+      api.getInbox.and.returnValue(of({ items: [proposal('a', { agentId: 'regional' })], total: 1 }));
+      const fixture = TestBed.createComponent(InlineBoardHostComponent);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+
+      // Comfortable: the count is a badge and "Show the proposals" opens the inline inbox, as before.
+      expect(element.querySelector('span[data-open-proposals]')).not.toBeNull();
+      expect(element.querySelector('[data-board-open-inbox]')).toBeNull();
+      expect(element.querySelector('.card-actions [data-board-toggle-proposals]')).not.toBeNull();
+
+      fixture.componentInstance.compact.set(true);
+      fixture.detectChanges();
+      const count = element.querySelector<HTMLButtonElement>('button[data-open-proposals]')!;
+      expect(count.hasAttribute('data-board-toggle-proposals')).toBeTrue();
+      expect(element.querySelector('.card-actions [data-board-toggle-proposals]')).toBeNull();
+      expect(count.getAttribute('aria-expanded')).toBe('false');
+
+      count.click();
+      fixture.detectChanges();
+      expect(count.getAttribute('aria-expanded')).toBe('true');
+      const panel = element.querySelector<HTMLElement>(`#${count.getAttribute('aria-controls')}`)!;
+      expect(panel.querySelector('nh-assistant-agent-inbox')).not.toBeNull();
+      expect(api.getInbox).toHaveBeenCalledOnceWith(jasmine.objectContaining({
+        agentId: 'regional',
+        divisionId: '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f'
+      }));
+      fixture.destroy();
     });
   });
 });

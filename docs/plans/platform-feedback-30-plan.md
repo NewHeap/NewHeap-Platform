@@ -184,3 +184,16 @@ next `@newheap/platform-ai-chat`.
   QB and QU both touch the inbox component; QU merges after QB, and AE after DS. The full matrix runs once.
 - **(b) FB84 first as a fix of its own, then the train.** It ships the bug fix sooner at the cost of a second
   verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| QU1 | FB84: the selection is a linked signal of the shown pending proposals the caller may decide, closed cards the list keeps excluded; "Approve selected" and "Reject selected" send those ids in the list's order. A proposal that leaves the list and comes back is not selected again. | for Lars to review |
+| QU2 | FB79: a compact row is its checkbox plus one button that holds the list's single tab stop and expands the card in place (`aria-expanded`, `aria-controls`). The row checkboxes stay out of the tab order, because Space and `x` select, so Tab reaches the list once. The row names the object without its type and link; the expanded card has both. | for Lars to review |
+| QU3 | FB79: the letters act only while the focus is inside a row, `?` anywhere in the list; never in an input, text area, select, editable content or the feedback form, never with Ctrl, Alt or Meta, and a held key does nothing more for `x`, `a` and `r`. Space on a row that cannot be selected keeps the button's own expansion. Each key action is read out through a polite status region. | for Lars to review |
+| QU4 | FB79: `?` shows the keys as a panel above the rows, not a modal dialog; the focus moves to it and Escape or Close returns it to the row. A "Keyboard keys" button in the list's toolbar does the same for mouse users. | for Lars to review |
+| QU5 | FB79: when a decision in a compact list, by key or by click in an expanded card, takes the focused row away, the row that takes its place gets the focus, but only when the focus was lost; focus the person moved elsewhere stays there. | for Lars to review |
+| QU6 | FB81: `openInbox` works in both densities. While a host listens, the count of open proposals is the button and the tile has no inline inbox ("Show the proposals" goes); the board detects a listener through `outputFromObservable` over a subject (`observed`). Without a listener the count of a compact tile opens the tile's own inbox, and a comfortable tile stays as it was. | for Lars to review |
+| QU7 | FB81: on a compact tile the description and the "works on" line fold together behind "About this agent"; "More" ("Less" while open) replaces "Show the result" and also shows for a run without a result. | for Lars to review |
+| QU8 | Sample: the intake reviews page gets a "Compact list with keyboard keys" switch, off by default. The portal's Project management board is compact and routes `openInbox` to `/management/intake-reviews?agent=…&division=…`, where the inbox filters on that agent, records no visit and "Show all proposals" clears the filter; the playground's board stays comfortable. No new case: SPM-277, SPM-304 and SPM-310 are extended, SPM-389 stays unused. | for Lars to review |

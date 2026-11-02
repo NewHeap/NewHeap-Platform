@@ -716,6 +716,7 @@
     "active-division-only": "Alleen voorstellen van mijn actieve divisie",
     "compact-list": "Compacte lijst met toetsen",
     "run-only": "De voorstellen van de run waarover een melding gaat",
+    "board-agent-only": "De open voorstellen van één agent van het bord Projectbeheer",
     "show-all": "Alle voorstellen tonen"
   },
   "project-management-board": {

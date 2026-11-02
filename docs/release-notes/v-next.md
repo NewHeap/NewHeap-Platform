@@ -22,3 +22,9 @@
   Space selects. While the focus is in a row, and never in a field or the feedback form, `j` and `k` move,
   `x` selects, `a` approves and `r` rejects that row's proposal, never the selection, and `?` lists the keys.
   Rejecting by key asks afterwards what was wrong, as a click does. The comfortable cards stay the default.
+- `nh-assistant-agent-board` takes `compact` for a board of busy agents: what an agent is about folds behind
+  "About this agent", the latest result shows two lines with "More", which opens the whole result, and the
+  count of open proposals becomes the way to them. Its new output `openInbox` (`NhAssistantBoardInboxRequest`:
+  the agent and the board's division) lets the host route to its own filtered inbox; while a host listens,
+  the count is that button in either density and the tile has no inline inbox. Without a listener a compact
+  tile's count opens the tile's own inbox and a comfortable tile stays as it was.

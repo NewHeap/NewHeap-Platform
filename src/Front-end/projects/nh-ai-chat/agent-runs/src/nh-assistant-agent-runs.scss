@@ -538,6 +538,43 @@ pre {
   overflow: hidden;
 }
 
+// Two lines of the latest result on a compact tile; "More" opens the whole result below.
+.board-preview.compact {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-height: calc(2 * 1.5em);
+  line-height: 1.5;
+}
+
+:host ::ng-deep .board-preview.compact > * {
+  margin: 0;
+  line-height: inherit;
+}
+
+// The count of open proposals as the way to them on a board tile.
+.count-button {
+  border: 0;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  @include tokens.focus-ring;
+}
+
+// A disclosure of a compact tile: "About this agent" and "More".
+.tile-disclosure {
+  align-self: flex-start;
+}
+
+.board-about {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 // The runs of an agent on its tile, newest first.
 .board-history {
   display: flex;

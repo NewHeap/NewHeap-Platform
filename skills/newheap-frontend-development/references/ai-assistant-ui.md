@@ -862,6 +862,16 @@ policies need. In the administration the agent editor lists the run catalog's `a
 saves the choice with `NhAssistantAdminApiService.setAgentGroups` (`AdminAgentGroups`); the agent cards
 name the agent's groups.
 
+For a board of busy agents pass `compact` (SPM-304): what an agent is about, its description and what
+it works on, folds behind "About this agent", the latest result shows two lines with "More", which opens
+the whole result where "Show the result" did, and the count of open proposals becomes the way to them.
+The library reads no route parameters, so listen to `openInbox` (`NhAssistantBoardInboxRequest`, the
+agent and the board's division, `null` for the whole application) and route to the application's inbox
+filtered on them, with `recordVisit` off there because it shows only part of the inbox. While a host
+listens, the count is that button in either density and the tile has no inline inbox; without a
+listener the count of a compact tile opens the tile's own inbox, and a comfortable tile keeps "Show the
+proposals". The disclosures carry `aria-expanded` and `aria-controls`.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
@@ -993,6 +1003,8 @@ own table (SPM-371).
 - Building an agents page that reads each agent's runs and decides "new" itself; use
   `nh-assistant-agent-board`, which follows the server's visibility and the person's visits.
 - Recording a board visit before reading the board; the visit then hides what is new.
+- Reading a board's route parameters in the library's place, or embedding a full inbox in every tile of
+  a busy board; listen to `openInbox` and route to the application's own filtered inbox.
 - Sending the assistant requests through host `HttpClient` interceptors or
   `EventSource`; the library streams through `fetch` with the token from
   `getAccessToken`.
@@ -1259,7 +1271,13 @@ a division's board ask the inbox for that division and on the board of the whole
 and mark those of the code, and the mock API serves groups, memberships, boards and visits with the
 server's validation (`NhAssistantMockScenario.agentGroups`, `NhAssistantMockAgentGroup`). The portal's
 Project management page shows the group's board with the project follow-up against the real back-end,
-and the playground shows it on the mock API (SPM-304).
+and the playground shows it on the mock API (SPM-304). The compact board tests fold what an agent is
+about behind its disclosure, show two lines of the result with "More", which opens the whole result,
+and fit 375px; the board routing tests emit the agent and the division from the count of open
+proposals to a host that listens, in either density, without an inline inbox, and open the tile's own
+inbox from the count of a compact tile while nobody listens. The portal's Project management board is
+compact, and the follow-up's count of open proposals opens the intake reviews inbox filtered on the
+follow-up (SPM-304).
 The inbox overview tests pass the division, run and grouping to the inbox and reload from the first
 page when one changes, render a header per group and subject and per run, say how much of a group is
 shown and that it continues, select with "Select group" only the shown pending proposals the person may

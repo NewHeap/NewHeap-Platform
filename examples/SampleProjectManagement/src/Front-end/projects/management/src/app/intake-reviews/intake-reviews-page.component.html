@@ -30,13 +30,21 @@
           <span>{{ 'intake-reviews.run-only' | translate }}</span>
           <button type="button" (click)="showAllProposals()">{{ 'intake-reviews.show-all' | translate }}</button>
         </p>
+      } @else if (boardAgentId()) {
+        <!-- SPM-304: the count of an agent's open proposals on the Project management board opened this inbox. -->
+        <p class="run-filter" role="status" data-board-agent-filter>
+          <i class="ph ph-squares-four" aria-hidden="true"></i>
+          <span>{{ 'intake-reviews.board-agent-only' | translate }}</span>
+          <button type="button" (click)="showAllProposals()">{{ 'intake-reviews.show-all' | translate }}</button>
+        </p>
       }
       <!-- SPM-302: a proposal a run for the whole application placed here opens that run's conversation. -->
       <nh-assistant-agent-inbox
-        [agentId]="runId() ? undefined : agentId"
-        [subjectType]="runId() ? undefined : 'project'"
+        [agentId]="runId() ? undefined : (boardAgentId() ?? agentId)"
+        [subjectType]="runId() || boardAgentId() ? undefined : 'project'"
         [runId]="runId()"
-        [divisionId]="activeDivisionOnly() ? activeDivisionId : null"
+        [divisionId]="boardDivisionId() ?? (activeDivisionOnly() ? activeDivisionId : null)"
+        [recordVisit]="!boardAgentId()"
         [grouped]="true"
         [groupByRun]="true"
         [density]="compactList() ? 'compact' : 'comfortable'"
