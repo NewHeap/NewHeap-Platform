@@ -926,6 +926,62 @@ public sealed record NhAssistantInboxSubjectGroupDto(
     bool ContinuesOnNextPage);
 
 /// <summary>
+/// What the approval inbox lists with a filter, counted (<c>GET approvals/inbox/summary</c>): with the
+/// inbox's filter and visibility, so every count is what the inbox lists, never what the caller may
+/// decide. Deciding still checks each proposal on its own: four-eyes, the approver rules and the
+/// tool's approve policy apply only then.
+/// </summary>
+/// <param name="Total">How many proposals the inbox lists with the filter.</param>
+/// <param name="ExpiringSoon">How many of them expire before <see cref="ExpiringBefore"/>, 24 hours from now on the application's clock.</param>
+/// <param name="Agents">Per agent how many it lists, the most first.</param>
+/// <param name="Tools">Per kind of action how many it lists, the most first, named as its cards name it.</param>
+/// <param name="SubjectTypes">Per subject type how many it lists and on how many subjects, the most first.</param>
+public sealed record NhAssistantInboxSummaryDto(
+    int Total,
+    int ExpiringSoon,
+    IReadOnlyList<NhAssistantInboxAgentCountDto> Agents,
+    IReadOnlyList<NhAssistantInboxToolCountDto> Tools,
+    IReadOnlyList<NhAssistantInboxSubjectTypeCountDto> SubjectTypes)
+{
+    /// <summary>
+    /// The status the summary counts, one of <see cref="NhAssistantInboxStatuses"/>.
+    /// </summary>
+    public string Status { get; init; } = NhAssistantInboxStatuses.Pending;
+
+    /// <summary>
+    /// Until when a proposal counts in <see cref="ExpiringSoon"/>: 24 hours after the summary was made.
+    /// </summary>
+    public DateTimeOffset ExpiringBefore { get; init; }
+}
+
+/// <summary>
+/// How many proposals of one agent an inbox summary lists.
+/// </summary>
+public sealed record NhAssistantInboxAgentCountDto(string AgentId, int Count);
+
+/// <summary>
+/// How many proposals of one kind of action an inbox summary or a bulk decision's overview lists.
+/// </summary>
+/// <param name="ToolId">The kind of action: the tool the proposals would run, the value of <c>toolId</c>.</param>
+/// <param name="DisplayName">The name the cards show, in the caller's language: the tool's name from the
+/// presentation its newest proposal stored, or the tool id when no presenter named it, as for a
+/// confidential tool.</param>
+/// <param name="Count">How many proposals of the kind it lists.</param>
+public sealed record NhAssistantInboxToolCountDto(string ToolId, string DisplayName, int Count);
+
+/// <summary>
+/// How many proposals on subjects of one type an inbox summary or a bulk decision's overview lists.
+/// </summary>
+/// <param name="SubjectTypeName">The type's name in the caller's language, when the application named it.</param>
+/// <param name="Count">How many proposals on subjects of the type it lists.</param>
+/// <param name="Subjects">On how many distinct subjects of the type.</param>
+public sealed record NhAssistantInboxSubjectTypeCountDto(
+    string SubjectType,
+    string? SubjectTypeName,
+    int Count,
+    int Subjects);
+
+/// <summary>
 /// A recorded visit of the approval inbox in one scope (<c>POST approvals/inbox/visit</c>).
 /// </summary>
 /// <param name="ScopeKey"><c>global</c>, or <c>division:{id}</c> for the inbox of one division.</param>
@@ -1003,6 +1059,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantProposalDto[]))]
 [JsonSerializable(typeof(NhAssistantInboxDto))]
 [JsonSerializable(typeof(NhAssistantInboxVisitDto))]
+[JsonSerializable(typeof(NhAssistantInboxSummaryDto))]
 [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionDto))]

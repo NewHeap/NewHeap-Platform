@@ -417,6 +417,57 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Empty((await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?divisionId={host.DivisionId}", Json))!.NewApprovalIds);
     }
 
+    [Fact]
+    public async Task The_inbox_counts_what_it_lists_per_kind_of_action_and_lists_one_kind_on_request()
+    {
+        // SPM-310, FB78: the intake reviews page offers the kinds of action the inbox lists, counted with the
+        // inbox's own filter and visibility, and shows one kind, what expires soon or the oldest first.
+        var approver = await host.CreatePersonAsync();
+        using var client = host.CreateClient(approver.ToString());
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        var first = await ProposeIntakeAsync(owner, "KIND-A", approver, host.DivisionId);
+        var second = await ProposeIntakeAsync(owner, "KIND-B", approver, host.DivisionId);
+        var project = await host.CreateProjectAsync("KIND-C", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, approver, ProjectMemberRole.Approver);
+        var conversation = await StartIntakeReviewerAsync(participant, project, $"Please order 3 laptops for project {project:D}.");
+        var order = await WaitForProposalAsync(client, conversation, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+
+        var path = $"/api/assistant/approvals/inbox/summary?agentId={SampleIntakeReviewerComposition.AgentId}&subjectType={ProjectSubjects.Type}";
+        var summary = (await client.GetFromJsonAsync<NhAssistantInboxSummaryDto>(path, Json))!;
+        Assert.Equal((3, NhAssistantInboxStatuses.Pending), (summary.Total, summary.Status));
+        Assert.Equal([(SampleIntakeReviewerComposition.AgentId, 3)], summary.Agents.Select(agent => (agent.AgentId, agent.Count)));
+        // The status change is named as its cards name it; the order, which no presenter names, by its tool id.
+        Assert.Equal(
+            [(ProjectAiTools.ChangeStatusToolId, 2), (ProjectAiEquipmentTools.OrderEquipmentToolId, 1)],
+            summary.Tools.Select(tool => (tool.ToolId, tool.Count)));
+        var resources = new ResourceManager(typeof(SampleAssistantToolPresenter));
+        Assert.Contains(
+            summary.Tools[0].DisplayName,
+            new[] { "en-US", "nl-NL" }.Select(culture => resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo(culture))));
+        Assert.Equal(ProjectAiEquipmentTools.OrderEquipmentToolId, summary.Tools[1].DisplayName);
+        var type = Assert.Single(summary.SubjectTypes);
+        Assert.Equal((ProjectSubjects.Type, 3, 3), (type.SubjectType, type.Count, type.Subjects));
+
+        // The inbox lists one kind, what expires before a time, and the oldest proposal first.
+        var orders = (await client.GetFromJsonAsync<NhAssistantInboxDto>(
+            $"/api/assistant/approvals/inbox?toolId={ProjectAiEquipmentTools.OrderEquipmentToolId}", Json))!;
+        Assert.Equal([order.ApprovalId], orders.Items.Select(item => item.ApprovalId));
+        var soon = Uri.EscapeDataString(summary.ExpiringBefore.ToString("O", CultureInfo.InvariantCulture));
+        Assert.Equal(
+            summary.ExpiringSoon,
+            (await client.GetFromJsonAsync<NhAssistantInboxDto>($"/api/assistant/approvals/inbox?expiresBefore={soon}", Json))!.Total);
+        var oldest = (await client.GetFromJsonAsync<NhAssistantInboxDto>("/api/assistant/approvals/inbox?sort=createdAt", Json))!;
+        Assert.Equal([first, second, order.ApprovalId], oldest.Items.Select(item => item.ApprovalId));
+
+        // Somebody without a role on the projects has nothing listed and nothing counted.
+        var none = (await outsider.GetFromJsonAsync<NhAssistantInboxSummaryDto>(path, Json))!;
+        Assert.Equal(0, none.Total);
+        Assert.Empty(none.Tools);
+    }
+
     /// <summary>
     /// SPM-310: creates a project in the division with <paramref name="approver"/> as its approver, lets the
     /// intake reviewer propose to start it and returns that proposal.

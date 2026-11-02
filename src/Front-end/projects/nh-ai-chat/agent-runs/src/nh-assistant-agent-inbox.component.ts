@@ -17,6 +17,7 @@ import { Subscription } from 'rxjs';
 import {
   AgentInbox,
   AgentInboxGroup,
+  AgentInboxSort,
   AgentProposal,
   NhAssistantAgentRunApiService,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
@@ -37,8 +38,11 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * reason until it is dismissed. A proposal a run placed at its object from another subject, such as a
  * run for the whole application, names that run; `openConversation` emits its conversation.
  *
- * `agentId`, `subjectType`, `divisionId` and `runId` filter the inbox; changing a filter, or `grouped`,
- * reloads it from the first page. With `grouped` the inbox shows the proposals per parent, such as a
+ * `agentId`, `subjectType`, `divisionId` and `runId` filter the inbox, `toolId` its kinds of action and
+ * `expiresBefore` the decision deadline, and `sort` orders it by `expiresAt` or `createdAt` instead of
+ * each status's own order; changing a filter, the sort or `grouped` reloads it from the first page. A
+ * host builds its own filter on `NhAssistantAgentRunApiService.getInboxSummary`, which counts what the
+ * inbox lists per agent, kind of action and subject type with the same filter. With `grouped` the inbox shows the proposals per parent, such as a
  * project with its own proposals and those of its tasks, and per subject, optionally per run
  * (`groupByRun`); a group that goes on on another page says so, and "Select group" selects only its
  * proposals shown here. With `markNew` (on by default) it marks the proposals made since the person's
@@ -80,6 +84,12 @@ export class NhAssistantAgentInboxComponent {
   readonly divisionId = input<string | null | undefined>(undefined);
   /** Limits the inbox to the proposals of one run. */
   readonly runId = input<string | null | undefined>(undefined);
+  /** Limits the inbox to one or more kinds of action (`AgentProposal.toolId`). */
+  readonly toolId = input<string | readonly string[] | null | undefined>(undefined);
+  /** Limits the inbox to proposals whose decision deadline is before this ISO time. */
+  readonly expiresBefore = input<string | null | undefined>(undefined);
+  /** Orders the inbox by the decision deadline or by when proposals were made, earliest first. */
+  readonly sort = input<AgentInboxSort | null | undefined>(undefined);
   /** Groups the proposals per parent and subject instead of listing them by expiry alone. */
   readonly grouped = input(false);
   /** In a grouped inbox, also shows a header per run within a subject. */
@@ -123,6 +133,9 @@ export class NhAssistantAgentInboxComponent {
       this.subjectType();
       this.divisionId();
       this.runId();
+      this.toolId();
+      this.expiresBefore();
+      this.sort();
       this.grouped();
       untracked(() => {
         this.page.set(1);
@@ -171,6 +184,9 @@ export class NhAssistantAgentInboxComponent {
         subjectType: this.subjectType(),
         divisionId: divisionId ?? undefined,
         runId: this.runId() ?? undefined,
+        toolId: this.toolId() ?? undefined,
+        expiresBefore: this.expiresBefore() ?? undefined,
+        sort: this.sort() ?? undefined,
         // Only a grouped inbox asks for groups, so the requests of a flat inbox stay as they were.
         grouped: this.grouped() || undefined,
         page: this.page(),

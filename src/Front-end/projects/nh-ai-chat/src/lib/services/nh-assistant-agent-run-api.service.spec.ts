@@ -86,6 +86,13 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.getInbox()), 'GET', 'approvals/inbox'],
       [() => firstValueFrom(api.getInbox({ subjectType: 'project', page: 2, itemsPerPage: 10 })), 'GET', 'approvals/inbox?subjectType=project&page=2&itemsPerPage=10'],
       [() => firstValueFrom(api.getInbox({ status: 'awaiting-application' })), 'GET', 'approvals/inbox?status=awaiting-application'],
+      [
+        () => firstValueFrom(api.getInbox({ toolId: ['projects.add-task', 'projects.close'], expiresBefore: '2026-11-03T10:00:00Z', sort: 'createdAt' })),
+        'GET',
+        'approvals/inbox?toolId=projects.add-task&toolId=projects.close&expiresBefore=2026-11-03T10%3A00%3A00Z&sort=createdAt'
+      ],
+      [() => firstValueFrom(api.getInboxSummary()), 'GET', 'approvals/inbox/summary'],
+      [() => firstValueFrom(api.getInboxSummary({ agentId: 'intake', toolId: 'projects.close' })), 'GET', 'approvals/inbox/summary?agentId=intake&toolId=projects.close'],
       [() => firstValueFrom(api.decide(proposal, 'approve')), 'POST', 'approvals/approval%201/decisions'],
       [() => firstValueFrom(api.decideMany(['a', 'b'], 'reject')), 'POST', 'approvals/decisions'],
       [() => firstValueFrom(api.resolve('approval-1', 'mark-resolved')), 'POST', 'approvals/approval-1/resolve'],

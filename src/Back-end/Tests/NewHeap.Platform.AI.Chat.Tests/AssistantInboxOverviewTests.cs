@@ -8,6 +8,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.Common.Actors;
@@ -216,6 +217,106 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
         Assert.Equal(2, await InboxVisitCountAsync(app, Approver));
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_inbox_filters_and_sorts_by_kind_and_expiry_and_its_summary_counts_what_it_lists(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider);
+        var now = DateTimeOffset.UtcNow;
+        const string complete = "projects.complete";
+        const string addTask = "projects.add-task";
+        var a = await ProposeAsync(app, ProjectRef("n1"), FirstRun, now.AddHours(1), now.AddMinutes(-10), complete, "Complete project");
+        var b = await ProposeAsync(app, TaskRef("n1-a"), SecondRun, now.AddHours(30), now.AddMinutes(-30), addTask, "Add task");
+        var c = await ProposeAsync(app, TaskRef("n1-a"), SecondRun, now.AddHours(2), now.AddMinutes(-5), addTask, "Add task");
+        var d = await ProposeAsync(app, ProjectRef("s1"), ThirdRun, now.AddHours(3), now.AddMinutes(-20), addTask, "Add task");
+        // Another approver's proposal, of a kind without a presentation, which this approver never sees.
+        var hidden = await ProposeAsync(app, ProjectRef("n2"), FourthRun, now.AddHours(4), now.AddMinutes(-1), "projects.archive", member: "approver-2");
+        using var approver = app.CreateClient(Approver);
+
+        // One kind of action, by expiry; several kinds; the expiry filter; the sorts.
+        Assert.Equal([c, d, b], Ids(await ReadJsonAsync(await approver.GetAsync($"/api/assistant/approvals/inbox?toolId={addTask}"))));
+        Assert.Equal(
+            [a, c, d, b],
+            Ids(await ReadJsonAsync(await approver.GetAsync($"/api/assistant/approvals/inbox?toolId={addTask}&toolId={complete}&toolId=projects.archive"))));
+        var before = Uri.EscapeDataString(now.AddHours(24).ToString("O"));
+        Assert.Equal([a, c, d], Ids(await ReadJsonAsync(await approver.GetAsync($"/api/assistant/approvals/inbox?expiresBefore={before}"))));
+        Assert.Equal([b, d, a, c], Ids(await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox?sort=createdAt"))));
+        Assert.Equal([a, c, d, b], Ids(await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox?sort=expiresAt"))));
+        // Grouped, a sort orders the groups by their first proposal of that time.
+        var grouped = await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox?grouped=true&sort=createdAt"));
+        Assert.Equal([a, b, c, d], Ids(grouped));
+        Assert.Equal([("n1", 3, 3, false, false), ("s1", 1, 1, false, false)], Shape(grouped));
+        foreach (var refused in new[]
+        {
+            "sort=title",
+            "sort=-createdAt",
+            "toolId=%20",
+            string.Join('&', Enumerable.Range(0, NhAssistantAgentRunEndpoints.MaxToolFilters + 1).Select(index => $"toolId=tool-{index}"))
+        })
+        {
+            using var response = await approver.GetAsync($"/api/assistant/approvals/inbox?{refused}");
+            Assert.Equal(
+                NhAssistantErrorCodes.MessageInvalid,
+                (await ReadJsonAsync(response, HttpStatusCode.BadRequest)).GetProperty("code").GetString());
+        }
+
+        // The summary counts what the inbox lists, with the same filter and visibility.
+        var summary = await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox/summary"));
+        Assert.Equal(
+            (4, 3, "pending"),
+            (summary.GetProperty("total").GetInt32(), summary.GetProperty("expiringSoon").GetInt32(), summary.GetProperty("status").GetString()));
+        Assert.InRange(summary.GetProperty("expiringBefore").GetDateTimeOffset(), now.AddHours(24), now.AddHours(24).AddMinutes(5));
+        Assert.Equal(
+            [(ProjectAgent, 4)],
+            summary.GetProperty("agents").EnumerateArray().Select(agent => (agent.GetProperty("agentId").GetString(), agent.GetProperty("count").GetInt32())));
+        Assert.Equal([(addTask, "Add task", 3), (complete, "Complete project", 1)], Tools(summary));
+        Assert.Equal([("project", "Project", 2, 2), ("project-task", "Task", 2, 1)], SubjectTypes(summary));
+        var kind = await ReadJsonAsync(await approver.GetAsync($"/api/assistant/approvals/inbox/summary?toolId={addTask}&expiresBefore={before}"));
+        Assert.Equal((2, 2), (kind.GetProperty("total").GetInt32(), kind.GetProperty("expiringSoon").GetInt32()));
+        Assert.Equal([(addTask, "Add task", 2)], Tools(kind));
+        var south = await ReadJsonAsync(await approver.GetAsync($"/api/assistant/approvals/inbox/summary?divisionId={AssistantSystemSubjectTests.South}"));
+        Assert.Equal([("project", "Project", 1, 1)], SubjectTypes(south));
+
+        // It never counts what the caller does not list: another approver's proposal, another status,
+        // and nothing at all for an outsider; a kind without a presentation is named by its tool id.
+        using var otherApprover = app.CreateClient("approver-2");
+        var other = await ReadJsonAsync(await otherApprover.GetAsync("/api/assistant/approvals/inbox/summary"));
+        Assert.Equal(1, other.GetProperty("total").GetInt32());
+        Assert.Equal([("projects.archive", "projects.archive", 1)], Tools(other));
+        Assert.DoesNotContain(hidden, Ids(await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox?toolId=projects.archive"))));
+        var waiting = await ReadJsonAsync(await approver.GetAsync("/api/assistant/approvals/inbox/summary?status=awaiting-application"));
+        Assert.Equal((0, "awaiting-application"), (waiting.GetProperty("total").GetInt32(), waiting.GetProperty("status").GetString()));
+        using var outsider = app.CreateClient(Outsider);
+        var none = await ReadJsonAsync(await outsider.GetAsync("/api/assistant/approvals/inbox/summary"));
+        Assert.Equal(0, none.GetProperty("total").GetInt32());
+        Assert.Empty(Tools(none));
+        Assert.Empty(SubjectTypes(none));
+        using (var invalid = await approver.GetAsync("/api/assistant/approvals/inbox/summary?status=approved"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        }
+    }
+
+    private static (string?, string?, int)[] Tools(JsonElement summary)
+    {
+        return summary.GetProperty("tools").EnumerateArray()
+            .Select(tool => (tool.GetProperty("toolId").GetString(), tool.GetProperty("displayName").GetString(), tool.GetProperty("count").GetInt32()))
+            .ToArray();
+    }
+
+    private static (string?, string?, int, int)[] SubjectTypes(JsonElement summary)
+    {
+        return summary.GetProperty("subjectTypes").EnumerateArray()
+            .Select(type => (
+                type.GetProperty("subjectType").GetString(),
+                type.GetProperty("subjectTypeName").GetString(),
+                type.GetProperty("count").GetInt32(),
+                type.GetProperty("subjects").GetInt32()))
+            .ToArray();
+    }
+
+
     private static NhAiSubjectRef ProjectRef(string id)
     {
         return new NhAiSubjectRef("project", id);
@@ -257,7 +358,10 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
         NhAiSubjectRef subject,
         Guid runId,
         DateTimeOffset expiresAt,
-        DateTimeOffset? createdAt = null)
+        DateTimeOffset? createdAt = null,
+        string toolId = "projects.complete",
+        string? toolDisplayName = null,
+        string member = Approver)
     {
         await using var scope = app.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -265,19 +369,20 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
         var agent = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(ProjectAgent, includeDisabled: false, CancellationToken.None))!;
         var thread = (await services.GetRequiredService<NhAssistantThreadService>().GetOrCreateAsync(agent, info, CancellationToken.None)).Data!;
         await using var context = services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var memberId = member;
         if (!context.SubjectMembers.Any(member => member.ScopeKey == info.ScopeKey
                 && member.SubjectType == subject.Type
                 && member.SubjectId == subject.Id
-                && member.ActorId == Approver))
+                && member.ActorId == memberId))
         {
             context.SubjectMembers.Add(new AssistantSubjectMember
             {
                 ScopeKey = info.ScopeKey,
                 SubjectType = subject.Type,
                 SubjectId = subject.Id,
-                ActorId = Approver,
+                ActorId = memberId,
                 Role = NhAiSubjectRole.Approver,
-                DisplayName = Approver,
+                DisplayName = memberId,
                 SnapshotAt = DateTimeOffset.UtcNow
             });
         }
@@ -291,8 +396,12 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
             ProposalId = Guid.NewGuid(),
             ProposalHash = "sha256:" + Guid.NewGuid().ToString("N"),
             ProposalJson = "{}",
-            ToolId = "projects.complete",
+            ToolId = toolId,
             Summary = "Complete it.",
+            // As the interceptor stores a presenter's presentation; without one the tool id names the kind.
+            PresentationJson = toolDisplayName is null
+                ? null
+                : NhAssistantToolPresentationResolver.Serialize(new NhAssistantApprovalPresentation(toolDisplayName, "Do it.", [])),
             ArgumentsPreview = "{}",
             Status = NhAssistantApprovalStatuses.Pending,
             CreatedAt = createdAt ?? DateTimeOffset.UtcNow.AddMinutes(-1),

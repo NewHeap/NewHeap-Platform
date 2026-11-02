@@ -780,6 +780,16 @@ export interface AgentInboxSubjectGroup {
  */
 export type AgentInboxStatus = 'pending' | 'awaiting-application' | 'execution-unknown';
 
+/**
+ * The order the inbox lists by (`AgentInboxFilter.sort`), earliest first: `expiresAt` by the decision
+ * deadline in every status, `createdAt` by when the proposal was made. Without a sort each status keeps
+ * its own order.
+ */
+export type AgentInboxSort = 'expiresAt' | 'createdAt';
+
+/** The most kinds of action one inbox request filters on (`AgentInboxFilter.toolId`). */
+export const NH_ASSISTANT_MAX_INBOX_TOOL_FILTERS = 20;
+
 export interface AgentInboxFilter {
   /**
    * The status the inbox lists, with the same visibility: `pending` by expiry (the default),
@@ -791,10 +801,69 @@ export interface AgentInboxFilter {
   /** Only proposals on subjects of this division; the inbox's visits are then those of the division. */
   divisionId?: string;
   runId?: string;
+  /**
+   * Only proposals of these kinds of action (`AgentProposal.toolId`), at most
+   * `NH_ASSISTANT_MAX_INBOX_TOOL_FILTERS`; sent as one `toolId` parameter per kind. Older servers
+   * ignore it.
+   */
+  toolId?: string | readonly string[];
+  /** Only proposals whose decision deadline (`expiresAt`) is before this ISO time. Older servers ignore it. */
+  expiresBefore?: string;
+  /** The order to list by instead of the status's own. Older servers ignore it. */
+  sort?: AgentInboxSort;
   /** Groups the proposals by parent and subject (`AgentInbox.groups`) instead of by expiry alone. */
   grouped?: boolean;
   page?: number;
   itemsPerPage?: number;
+}
+
+/** The filter of `getInboxSummary`: the inbox's filter without its paging, grouping and order. */
+export type AgentInboxSummaryFilter = Omit<AgentInboxFilter, 'grouped' | 'page' | 'itemsPerPage' | 'sort'>;
+
+/**
+ * What the inbox lists with a filter, counted (`getInboxSummary`), with the inbox's own filter and
+ * visibility: every count says how many proposals are listed, not how many the person may decide.
+ * Deciding still checks each proposal on its own (four-eyes, the approver rules, the tool's approve
+ * policy).
+ */
+export interface AgentInboxSummary {
+  /** How many proposals the inbox lists with the filter. */
+  total: number;
+  /** How many of them expire before `expiringBefore`, 24 hours after the summary was made. */
+  expiringSoon: number;
+  expiringBefore: string;
+  status: AgentInboxStatus;
+  /** Per agent how many it lists, the most first. */
+  agents: AgentInboxAgentCount[];
+  /** Per kind of action how many it lists, the most first, named as its cards name it. */
+  tools: AgentInboxToolCount[];
+  /** Per subject type how many it lists and on how many subjects, the most first. */
+  subjectTypes: AgentInboxSubjectTypeCount[];
+}
+
+export interface AgentInboxAgentCount {
+  agentId: string;
+  count: number;
+}
+
+/** One kind of action of an inbox summary or a bulk decision's overview. */
+export interface AgentInboxToolCount {
+  /** The tool the proposals would run; the value of `AgentInboxFilter.toolId`. */
+  toolId: string;
+  /** The name the cards show in the person's language, or the tool id when nothing named it. */
+  displayName: string;
+  count: number;
+}
+
+/** One subject type of an inbox summary or a bulk decision's overview. */
+export interface AgentInboxSubjectTypeCount {
+  subjectType: string;
+  /** The type's name in the person's language, when the application named it. */
+  subjectTypeName: string | null;
+  /** How many proposals on subjects of the type. */
+  count: number;
+  /** On how many distinct subjects of the type. */
+  subjects: number;
 }
 
 /** A recorded visit of the inbox in one scope (`visitInbox`). */

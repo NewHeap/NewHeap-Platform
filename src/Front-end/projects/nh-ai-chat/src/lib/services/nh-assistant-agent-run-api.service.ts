@@ -11,6 +11,8 @@ import {
   AgentFeedbackOutcome,
   AgentInbox,
   AgentInboxFilter,
+  AgentInboxSummary,
+  AgentInboxSummaryFilter,
   AgentInboxVisit,
   AgentObjectAgents,
   AgentProposal,
@@ -247,14 +249,17 @@ export class NhAssistantAgentRunApiService {
    * uncertain execution (`execution-unknown`) instead, with the same visibility.
    */
   getInbox(filter: AgentInboxFilter = {}): Observable<AgentInbox> {
-    const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(filter)) {
-      if (value !== undefined && value !== null && value !== '') {
-        query.set(key, String(value));
-      }
-    }
-    const suffix = query.toString();
-    return this.transport.json<AgentInbox>('GET', suffix ? `approvals/inbox?${suffix}` : 'approvals/inbox');
+    return this.transport.json<AgentInbox>('GET', withQuery('approvals/inbox', filter));
+  }
+
+  /**
+   * Counts what `getInbox` lists with the same filter and visibility: in total, per agent, per kind of
+   * action (named as its cards name it), per subject type with its subjects, and how many expire within
+   * 24 hours. The counts say what is listed; deciding still checks each proposal on its own, so a host
+   * labels them "listed", for example to offer a filter per kind of action.
+   */
+  getInboxSummary(filter: AgentInboxSummaryFilter = {}): Observable<AgentInboxSummary> {
+    return this.transport.json<AgentInboxSummary>('GET', withQuery('approvals/inbox/summary', filter));
   }
 
   /**
@@ -334,11 +339,17 @@ export class NhAssistantAgentRunApiService {
   }
 }
 
-/** Appends the filter values that are set as query parameters. */
+/** Appends the filter values that are set as query parameters; a list repeats its parameter per value. */
 function withQuery(path: string, filter: object): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(filter)) {
-    if (value !== undefined && value !== null && value !== '') {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null && item !== '') {
+          query.append(key, String(item));
+        }
+      }
+    } else if (value !== undefined && value !== null && value !== '') {
       query.set(key, String(value));
     }
   }

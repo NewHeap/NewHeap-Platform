@@ -94,8 +94,14 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapGet("approvals/inbox", GetInboxAsync)
             .WithName("NhAssistantGetApprovalInbox")
             .WithSummary("List the proposals the caller may decide")
-            .WithDescription("Returns agent proposals across threads that the caller may decide, by default the pending ones sorted by expiry, paged. status=awaiting-application lists approved proposals of tools the application executes that wait for its report, sorted by report deadline, and status=execution-unknown those whose execution is uncertain until an approver resolves it, sorted by decision; both with the same visibility as pending ones. Visibility: in threads of the caller's tenant, proposals on subjects the caller approves according to the member snapshot and proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
+            .WithDescription("Returns agent proposals across threads that the caller may decide, by default the pending ones sorted by expiry, paged. status=awaiting-application lists approved proposals of tools the application executes that wait for its report, sorted by report deadline, and status=execution-unknown those whose execution is uncertain until an approver resolves it, sorted by decision; both with the same visibility as pending ones. Visibility: in threads of the caller's tenant, proposals on subjects the caller approves according to the member snapshot and proposals of runs the caller started made in the run's own thread, and proposals of the whole application (nh-system) where the caller's live role is approver or the caller started the run, both only when the caller passes the agent's view policy (by default its required policy). A proposal a run placed at another object waits for that object's approvers only; its placedBy names the run. Each decision is checked live again; a proposal of the whole application the caller may not see answers 404 like an unknown one. subjectType, agentId, divisionId and runId filter the proposals, toolId (repeated, at most 20) the kinds of action and expiresBefore the decision deadline (expiresAt before that time). sort=expiresAt orders every status by the decision deadline and sort=createdAt by when the proposal was made, both earliest first; another sort answers 400 assistant-message-invalid. grouped=true groups them by the parent each proposal recorded from the subject access resolver when it was made, or by its own subject without one: groups come by their first expiry, a group's own subject first, then its other subjects by their first expiry, a run's proposals together; groups lists per group on the page its subjects, how many proposals it has on the page and in total, and whether it continues on the page before or after. newApprovalIds names the proposals on the page made after the caller's last visit of the inbox in its scope (global, or the division of divisionId), lastVisitedAt; before the first visit every proposal is new.")
             .Produces<NhAssistantInboxDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
+        group.MapGet("approvals/inbox/summary", GetInboxSummaryAsync)
+            .WithName("NhAssistantGetApprovalInboxSummary")
+            .WithSummary("Count what the inbox lists")
+            .WithDescription("Counts the proposals GET approvals/inbox lists with the same filter (subjectType, agentId, divisionId, runId, toolId, expiresBefore and status) and the same visibility: in total, per agent, per kind of action (toolId, named as its cards name it from the stored presentation in the caller's language, otherwise the tool id), per subject type with its distinct subjects, and how many expire within 24 hours (expiringSoon before expiringBefore, on the application's clock). The counts say what is listed, not what the caller may decide: four-eyes, the approver rules and the tool's approve policy apply only when a proposal is decided. Ids and counts only, no proposal content.")
+            .Produces<NhAssistantInboxSummaryDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapPost("approvals/inbox/visit", VisitInboxAsync)
             .WithName("NhAssistantVisitApprovalInbox")
@@ -581,6 +587,61 @@ internal static class NhAssistantAgentRunEndpoints
         return Receipt(new NhAssistantTriggerReceipt(run.TriggerId, NhAssistantTriggerOutcomes.Queued, run.Id, run.ConversationId, null));
     }
 
+    /// <summary>
+    /// The most kinds of action one inbox request filters on.
+    /// </summary>
+    internal const int MaxToolFilters = 20;
+
+    /// <summary>
+    /// Reads the filter the inbox, its summary and a bulk decision's overview share. A proposal of
+    /// another tenant's thread is in no inbox of the caller's, as it is in no read.
+    /// </summary>
+    internal static bool TryReadInboxFilter(
+        string? subjectType,
+        string? agentId,
+        Guid? divisionId,
+        Guid? runId,
+        IReadOnlyCollection<string>? toolIds,
+        DateTimeOffset? expiresBefore,
+        string? status,
+        string? sort,
+        string? tenantId,
+        out NhAssistantInboxFilter filter)
+    {
+        var inboxStatus = string.IsNullOrEmpty(status) ? NhAssistantInboxStatuses.Pending : status;
+        var kinds = toolIds?.Distinct(StringComparer.Ordinal).ToArray() ?? [];
+        filter = new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId)
+        {
+            Status = inboxStatus,
+            TenantId = tenantId,
+            ToolIds = kinds.Length == 0 ? null : kinds,
+            ExpiresBefore = expiresBefore,
+            Sort = NhAssistantInboxSorts.Parse(sort)
+        };
+
+        return (subjectType is null || NhAiSubjectRef.IsValidType(subjectType))
+            && NhAssistantInboxStatuses.IsValid(inboxStatus)
+            && (string.IsNullOrEmpty(sort) || NhAssistantInboxSorts.IsValid(sort))
+            && kinds.Length <= MaxToolFilters
+            && kinds.All(kind => !string.IsNullOrWhiteSpace(kind) && kind.Length <= 256);
+    }
+
+    /// <summary>
+    /// The whole application lists no members: its approvers, and who passes each agent's view policy,
+    /// are evaluated now, for the inbox's status.
+    /// </summary>
+    internal static async Task<NhAssistantSystemInbox> SystemInboxAsync(
+        NhAssistantSystemApprovers systemApprovers,
+        NhAssistantInboxFilter filter,
+        string actorId,
+        string? tenantId,
+        CancellationToken cancellationToken)
+    {
+        return filter.SubjectType is null || filter.SubjectType == NhAiSubjectRef.SystemType
+            ? await systemApprovers.InboxAsync(actorId, tenantId, cancellationToken, filter.Status)
+            : NhAssistantSystemInbox.None;
+    }
+
     private static async Task<IResult> GetInboxAsync(
         HttpContext httpContext,
         NhAssistantRunStore runs,
@@ -591,10 +652,13 @@ internal static class NhAssistantAgentRunEndpoints
         string? agentId,
         Guid? divisionId,
         Guid? runId,
+        string[]? toolId,
+        DateTimeOffset? expiresBefore,
         int? page,
         int? itemsPerPage,
         bool? grouped,
-        string? status)
+        string? status,
+        string? sort)
     {
         var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
         if (!caller.Success)
@@ -603,28 +667,18 @@ internal static class NhAssistantAgentRunEndpoints
         }
         var pageNumber = page ?? 1;
         var size = itemsPerPage ?? 20;
-        var inboxStatus = string.IsNullOrEmpty(status) ? NhAssistantInboxStatuses.Pending : status;
         if (pageNumber < 1
             || size is < 1 or > 100
-            || (subjectType is not null && !NhAiSubjectRef.IsValidType(subjectType))
-            || !NhAssistantInboxStatuses.IsValid(inboxStatus))
+            || !TryReadInboxFilter(subjectType, agentId, divisionId, runId, toolId, expiresBefore, status, sort, caller.Data!.TenantId, out var filter))
         {
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
         }
 
-        // The whole application lists no members: its approvers, and who passes each agent's view
-        // policy, are evaluated now.
-        var system = subjectType is null || subjectType == NhAiSubjectRef.SystemType
-            ? await systemApprovers.InboxAsync(caller.Data!.ActorId, caller.Data.TenantId, httpContext.RequestAborted, inboxStatus)
-            : NhAssistantSystemInbox.None;
-        // A proposal of another tenant's thread is in no inbox of the caller's, as it is in no read.
+        var inboxStatus = filter.Status;
+        var system = await SystemInboxAsync(systemApprovers, filter, caller.Data.ActorId, caller.Data.TenantId, httpContext.RequestAborted);
         var inbox = await runs.ListInboxAsync(
-            caller.Data!.ActorId,
-            new NhAssistantInboxFilter(subjectType, agentId, divisionId, runId)
-            {
-                Status = inboxStatus,
-                TenantId = caller.Data.TenantId
-            },
+            caller.Data.ActorId,
+            filter,
             pageNumber,
             size,
             httpContext.RequestAborted,
@@ -652,6 +706,78 @@ internal static class NhAssistantAgentRunEndpoints
                 Groups = inbox.Groups?.Select(group => ToGroupDto(group, subjects)).ToArray()
             },
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxDto);
+    }
+
+    private static async Task<IResult> GetInboxSummaryAsync(
+        HttpContext httpContext,
+        NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects,
+        NhAssistantSystemApprovers systemApprovers,
+        string? subjectType,
+        string? agentId,
+        Guid? divisionId,
+        Guid? runId,
+        string[]? toolId,
+        DateTimeOffset? expiresBefore,
+        string? status)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+        if (!TryReadInboxFilter(subjectType, agentId, divisionId, runId, toolId, expiresBefore, status, null, caller.Data!.TenantId, out var filter))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
+        }
+
+        var system = await SystemInboxAsync(systemApprovers, filter, caller.Data.ActorId, caller.Data.TenantId, httpContext.RequestAborted);
+        // A proposal expires on the application's clock, as the inbox lists it.
+        var clock = httpContext.RequestServices.GetService<TimeProvider>() ?? TimeProvider.System;
+        var expiringBefore = clock.GetUtcNow().Add(ExpiringSoonWindow);
+        var summary = await runs.SummarizeInboxAsync(caller.Data.ActorId, filter, system, expiringBefore, httpContext.RequestAborted);
+        return TypedResults.Json(
+            new NhAssistantInboxSummaryDto(
+                summary.Total,
+                summary.Expiring,
+                summary.Agents.Select(agent => new NhAssistantInboxAgentCountDto(agent.Key, agent.Count)).ToArray(),
+                summary.Tools.Select(ToToolCountDto).ToArray(),
+                summary.SubjectTypes
+                    .Select(type => new NhAssistantInboxSubjectTypeCountDto(type.SubjectType, TypeNameOf(subjects, type.SubjectType), type.Count, type.Subjects))
+                    .ToArray())
+            {
+                Status = filter.Status,
+                ExpiringBefore = expiringBefore
+            },
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxSummaryDto);
+    }
+
+    /// <summary>
+    /// How far ahead the inbox summary counts the proposals that expire soon.
+    /// </summary>
+    internal static readonly TimeSpan ExpiringSoonWindow = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// A kind of action named as its cards name it: the tool's name from the stored presentation in the
+    /// caller's language, otherwise its id.
+    /// </summary>
+    internal static NhAssistantInboxToolCountDto ToToolCountDto(NhAssistantInboxToolRow tool)
+    {
+        var presentation = Runtime.NhAssistantToolPresentationResolver.Pick(
+            tool.PresentationJson,
+            tool.PresentationsJson,
+            System.Globalization.CultureInfo.CurrentUICulture);
+        return new NhAssistantInboxToolCountDto(tool.ToolId, presentation?.ToolDisplayName ?? tool.ToolId, tool.Count);
+    }
+
+    /// <summary>
+    /// The name of a subject type in the caller's language, when the application named it.
+    /// </summary>
+    internal static string? TypeNameOf(NhAssistantSubjectAccessService subjects, string subjectType)
+    {
+        return subjects.FindType(subjectType) is { IsNamed: true } type
+            ? type.NameIn(System.Globalization.CultureInfo.CurrentUICulture)
+            : null;
     }
 
     private static NhAssistantInboxGroupDto ToGroupDto(NhAssistantInboxGroupRow group, NhAssistantSubjectAccessService subjects)

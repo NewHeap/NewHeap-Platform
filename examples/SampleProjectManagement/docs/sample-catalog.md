@@ -362,8 +362,12 @@ proposals, per project and run, how many of a group the page shows of its total 
 continues on another page, and "Select group" selects only the shown pending proposals the person may
 decide. The page can show the active division's proposals only. What came since the person's last
 visit of the inbox in its scope is marked new, also what arrives while it is shown. A run's result
-lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
-grouped order and totals across pages, the recorded parent, the division filter and what is new.
+lets its reader select and decide the run's proposals together. Above the inbox the page offers the
+kinds of action it lists, counted per kind with `getInboxSummary` and named as their cards name them,
+with each count labelled "listed" because deciding still checks every proposal; a chosen kind, "Only
+what expires within 24 hours" and "Proposed first" pass `toolId`, `expiresBefore` and `sort` to the
+inbox. `AssistantAgentRunSamplesTests` proves the grouped order and totals across pages, the recorded
+parent, the division filter, what is new, and the counts per kind of action with one kind listed.
 
 What waits for people reaches them (SPM-327). The sample's daily approval digest, `SampleApprovalDigest`,
 counts per person what the approval inbox lists per status with `INhAssistantProposalCounts`: proposals
