@@ -948,6 +948,35 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Declares a kind of alert (FB87): a warning about an object for the people its kind chooses, with
+    /// nothing to approve and nothing that changes. <paramref name="kindId"/> is a dash-case id of at
+    /// most <see cref="NhAssistantAlertLimits.MaxKindIdLength"/> characters; the kind needs a display
+    /// name key and a title. Rules raise the kinds their agent lists with
+    /// <see cref="NhAssistantAgentRunBuilder.Alerts"/>, the application's code raises any kind with
+    /// <see cref="INhAssistantAlerts"/>. A kind id registered twice is refused.
+    /// </summary>
+    public NhAssistantBuilder AddAlertKind(string kindId, Action<NhAssistantAlertKindBuilder> configure)
+    {
+        NhAssistantAlertKeys.ValidateKindId(kindId, nameof(kindId));
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantAlertKindBuilder(kindId);
+        configure(builder);
+        _state.AddAlertKind(builder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Replaces who receives an alert. The default applies the selectors of the alert's kind
+    /// (<see cref="NhAssistantDefaultAlertPolicy"/>); every recipient is checked again either way.
+    /// </summary>
+    public NhAssistantBuilder UseAlertPolicy<TPolicy>()
+        where TPolicy : class, INhAssistantAlertPolicy
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantAlertPolicy, TPolicy>());
+        return this;
+    }
+
+    /// <summary>
     /// Adds a channel, such as e-mail or an in-app inbox, that delivers agent notifications next to
     /// Web Push.
     /// </summary>
@@ -1217,6 +1246,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly List<NhAssistantFileReaderDefinition> _fileReaders = [];
     private readonly Dictionary<string, NhAssistantApplicationExecution> _applicationExecutions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantCompositionDefinition> _compositions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAlertKind> _alertKinds = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The compositions the application declared with <see cref="NhAssistantBuilder.AddComposition{TInput}"/>.
@@ -1228,6 +1258,20 @@ internal sealed class NhAssistantRegistrationState
         if (!_compositions.TryAdd(composition.Id, composition))
         {
             throw new InvalidOperationException($"The composition '{composition.Id}' is registered more than once.");
+        }
+    }
+
+    /// <summary>
+    /// The kinds of alert the application declared with <see cref="NhAssistantBuilder.AddAlertKind"/>, by id.
+    /// </summary>
+    public IReadOnlyDictionary<string, NhAssistantAlertKind> AlertKinds => _alertKinds;
+
+    public void AddAlertKind(NhAssistantAlertKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        if (!_alertKinds.TryAdd(kind.Id, kind))
+        {
+            throw new InvalidOperationException($"Alert kind '{kind.Id}' is already registered.");
         }
     }
 
@@ -1796,6 +1840,13 @@ internal sealed class NhAssistantRegistrationState
             foreach (var policyId in policies.OfType<string>())
             {
                 ValidatePolicyReference(policyId, $"agent '{agentId}'");
+            }
+
+            // FB87: an agent's rules raise only the alert kinds it lists, and those are declared.
+            foreach (var kindId in options.AlertKinds.Where(kindId => !_alertKinds.ContainsKey(kindId)))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{agentId}' lists alert kind '{kindId}', which is not registered. Register it with AddAlertKind.");
             }
 
             foreach (var groupId in options.Groups.Where(groupId => !_agentGroups.ContainsKey(groupId)))

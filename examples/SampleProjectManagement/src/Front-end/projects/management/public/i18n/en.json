@@ -652,12 +652,21 @@
             "description": "Reads the newest documents of a project and says what they change for the project."
           }
         }
+      },
+      "sample-deadline-watch": {
+        "name": "Deadline watch",
+        "description": "Warns a project's owner and the people working on it when the project is due today with open tasks."
       }
     },
     "policies": {
       "app.active-division.project.view": "viewing projects in the active division",
       "app.project.manage": "project managers",
       "app.project.view": "everyone who may read projects"
+    },
+    "alert-kinds": {
+      "project-due-today": {
+        "name": "Project due today"
+      }
     }
   },
   "nh-two-factor": {

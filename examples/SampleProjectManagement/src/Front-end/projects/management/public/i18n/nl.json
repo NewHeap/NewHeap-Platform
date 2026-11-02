@@ -652,12 +652,21 @@
             "description": "Leest de nieuwste documenten van een project en zegt wat ze voor het project veranderen."
           }
         }
+      },
+      "sample-deadline-watch": {
+        "name": "Deadlinewacht",
+        "description": "Waarschuwt de eigenaar van een project en de mensen die eraan werken als het project vandaag af moet en er nog taken openstaan."
       }
     },
     "policies": {
       "app.active-division.project.view": "projecten bekijken in de actieve divisie",
       "app.project.manage": "projectmanagers",
       "app.project.view": "iedereen die projecten mag lezen"
+    },
+    "alert-kinds": {
+      "project-due-today": {
+        "name": "Project moet vandaag af"
+      }
     }
   },
   "nh-two-factor": {

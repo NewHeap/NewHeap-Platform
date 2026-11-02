@@ -253,4 +253,15 @@ Each choice lists the options that were weighed. "(advice)" marks the recommenda
 
 ## Lane choices
 
-None yet.
+| # | Choice | Status |
+|---|---|---|
+| AK1 | A rule result that raises or resolves a kind its agent does not list fails the run with `assistant-alert-kind-not-listed`, and none of that result's alerts are raised or resolved. Other refusals of one alert (a limit, a subject that is gone, a title that fails) are logged with their code and the run completes. | for Lars to review |
+| AK2 | A paused or stopped agent (also `Enabled(false)` in code) raises nothing but still resolves: resolving only lowers noise. An agent that is switched off still raises in runs started by hand. | for Lars to review |
+| AK3 | The sample's tasks have no due date or responsible person, so SPM-392 alerts about the project's deadline and its owner, whom the project's resolver names as responsible, and the members who take part; no sample migration. | for Lars to review |
+| AK4 | "The actor still exists" is what the principal factory says: an unknown person, or one who may no longer sign in, is not rebuilt for the subject (`INhAssistantRecipientRules.IsResolvedForAsync`). A host whose factory cannot tell lets everyone pass, as the notifications do. The division and tenant come from the resolver's role on the subject and the principal rebuilt for the subject's division and tenant; a read in a request also passes the caller's tenant. | for Lars to review |
+| AK5 | The identity of an open alert includes the subject's scope key and the shadow mark. One open alert per identity is held by the subject's transaction lock and a unique index over the identity hash and a closed marker (empty while open, the alert's id once closed), so neither provider needs a filtered index. | for Lars to review |
+| AK6 | The limit per subject per day counts new alerts only, per UTC day of the application's clock; an update in place is no new alert. The limit per run counts the alerts of one rule result. Shadow alerts count apart. | for Lars to review |
+| AK7 | Titles and texts are written when an alert is shown or delivered, from its stored parameters with the kind's functions in the reader's culture, and once when it is raised to refuse a title that fails. A kind removed from code leaves its stored alerts without a text. | for Lars to review |
+| AK8 | A person chosen earlier and not named when the alert is raised again keeps their delivery, since raisers may name different people; only people chosen now who fail the check lose a waiting delivery. Recipients on an alert whose kind lacks `Explicit` are refused with `assistant-alert-recipients-not-selected`. | for Lars to review |
+| AK9 | Expiry and purge run in the existing run maintenance only while the host registers alert kinds; a host that removes every kind stops purging old alerts until it adds one again. | for Lars to review |
+| AK10 | The audit names the agent (`assistant-agent:{id}`) or `application` as the actor of raised and resolved alerts, and the person concerned for a dismissal or a dropped recipient, with the new fields `AlertId`, `AlertKind`, `AlertRevision` and `AlertRecipientCount`. | for Lars to review |

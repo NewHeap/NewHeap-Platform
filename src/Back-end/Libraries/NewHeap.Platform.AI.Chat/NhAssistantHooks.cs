@@ -521,7 +521,44 @@ public enum NhAssistantAuditEventKind
     /// the switch's version and <see cref="NhAssistantAuditEvent.ResultCode"/> how the call ended:
     /// <c>succeeded</c> or its failure code.
     /// </summary>
-    AgentToolRanWithoutApproval = 126
+    AgentToolRanWithoutApproval = 126,
+
+    /// <summary>
+    /// An alert was raised (FB87): recorded for the first time, updated in place or delivered again.
+    /// <see cref="NhAssistantAuditEvent.AlertId"/> is the alert, <see cref="NhAssistantAuditEvent.AlertKind"/>
+    /// its kind, <see cref="NhAssistantAuditEvent.AlertRevision"/> its revision,
+    /// <see cref="NhAssistantAuditEvent.SubjectType"/> and <see cref="NhAssistantAuditEvent.SubjectId"/> its
+    /// subject, <see cref="NhAssistantAuditEvent.AlertRecipientCount"/> the people it reaches now and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> <c>raised</c>, <c>updated</c> or <c>redelivered</c>
+    /// (<see cref="NhAssistantAlertCodes"/>). <see cref="NhAssistantAuditEvent.AgentId"/> and
+    /// <see cref="NhAssistantAuditEvent.RunId"/> name the agent and run whose rules raised it; both are
+    /// empty for the application's code. <see cref="NhAssistantAuditEvent.Shadow"/> marks a shadow alert.
+    /// Never its parameters, title or text.
+    /// </summary>
+    AgentAlertRaised = 127,
+
+    /// <summary>
+    /// An open alert closed: <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>resolved</c> when a rule
+    /// or the application resolved it and <c>expired</c> when its expiry passed
+    /// (<see cref="NhAssistantAlertStatuses"/>), with the alert, kind, revision, subject and shadow mark of
+    /// <see cref="AgentAlertRaised"/>.
+    /// </summary>
+    AgentAlertResolved = 128,
+
+    /// <summary>
+    /// A person dismissed an alert: <see cref="NhAssistantAuditEvent.ActorId"/> is the person, with the
+    /// alert, kind, revision and subject of <see cref="AgentAlertRaised"/>. Raising it again does not reach
+    /// them until its key changes.
+    /// </summary>
+    AgentAlertDismissed = 129,
+
+    /// <summary>
+    /// A recipient of an alert was left out because they no longer qualify, when the alert was raised,
+    /// delivered or read: <see cref="NhAssistantAuditEvent.ActorId"/> is the person left out and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> why (<see cref="NhAssistantAlertDropReasons"/>), with
+    /// the alert, kind and subject of <see cref="AgentAlertRaised"/>.
+    /// </summary>
+    AgentAlertRecipientDropped = 130
 }
 
 /// <summary>
@@ -836,6 +873,31 @@ public sealed record NhAssistantAuditEvent(
     /// other events and for executions in the tool's function.
     /// </summary>
     public string? ExecutionCode { get; init; }
+
+    /// <summary>
+    /// The alert an alert event concerns (<see cref="NhAssistantAuditEventKind.AgentAlertRaised"/> to
+    /// <see cref="NhAssistantAuditEventKind.AgentAlertRecipientDropped"/>); <see langword="null"/> for
+    /// other events.
+    /// </summary>
+    public Guid? AlertId { get; init; }
+
+    /// <summary>
+    /// The kind of the alert of an alert event, a dash-case id registered with <c>AddAlertKind</c>;
+    /// <see langword="null"/> for other events.
+    /// </summary>
+    public string? AlertKind { get; init; }
+
+    /// <summary>
+    /// The revision of the alert of an alert event: 1 when it was raised, one more for every update in
+    /// place; <see langword="null"/> for other events.
+    /// </summary>
+    public int? AlertRevision { get; init; }
+
+    /// <summary>
+    /// The people an alert reaches after an <see cref="NhAssistantAuditEventKind.AgentAlertRaised"/>
+    /// event, after every check; never who they are. <see langword="null"/> for other events.
+    /// </summary>
+    public int? AlertRecipientCount { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

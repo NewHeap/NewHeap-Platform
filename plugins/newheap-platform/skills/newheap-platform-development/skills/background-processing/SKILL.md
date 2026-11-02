@@ -23,6 +23,7 @@ Read these references only when background work runs AI, and only those whose bo
 
 - [durable runs](references/ai-durable-runs.md) when AI work outlives a request inside a background operation, with checkpoints and approval waits;
 - [agent runs](references/ai-agent-runs.md) when agents start from committed events, schedules or people and run headless as background operations;
+- [alerts](references/ai-alerts.md) when a scheduled or event-driven rule warns people about an object, deduplicated per key and resolved or expired later;
 - [Agent Framework](references/ai-agent-framework.md) when such work creates Microsoft Agent Framework agents bound to NewHeap profiles, tools and policy;
 - [ingestion](references/ai-ingestion.md) when content is indexed into a vector store in the background with scope, provenance and classification.
 

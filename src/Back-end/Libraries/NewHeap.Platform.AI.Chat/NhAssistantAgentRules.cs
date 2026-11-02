@@ -36,6 +36,74 @@ public sealed class NhAssistantRuleResult
     }
 
     /// <summary>
+    /// The alerts the rules raise when the run's rules end, in order; see <see cref="WithAlerts"/>.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAlert> Alerts { get; private init; } = [];
+
+    /// <summary>
+    /// The open alerts the rules resolve when the run's rules end; see <see cref="ResolveAlerts"/>.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAlertKey> AlertsToResolve { get; private init; } = [];
+
+    /// <summary>
+    /// The same result that also raises <paramref name="alerts"/> once the rules end (FB87): warnings for
+    /// people, with nothing to approve. Each alert's kind must be listed with the agent's
+    /// <c>Alerts(...)</c>; a kind that is not fails the run with
+    /// <see cref="NhAssistantAlertCodes.KindNotListed"/> and raises none of them. The same kind, subject
+    /// and key update the open alert in place, so a daily round raises the same alert every day without
+    /// warning people every day. A paused or stopped agent raises nothing; a shadow run records them as
+    /// shadow alerts that reach nobody. <see cref="NhAssistantLimits.MaxAlertsPerRun"/> and
+    /// <see cref="NhAssistantLimits.MaxAlertsPerSubjectPerDay"/> bound them.
+    /// </summary>
+    public NhAssistantRuleResult WithAlerts(params NhAssistantAlert[] alerts)
+    {
+        ArgumentNullException.ThrowIfNull(alerts);
+        if (alerts.Any(alert => alert is null))
+        {
+            throw new ArgumentException("An alert is missing.", nameof(alerts));
+        }
+        if (Alerts.Count + alerts.Length > NhAssistantAlertLimits.MaxAlertsPerResult)
+        {
+            throw new ArgumentException(
+                $"A rule result raises at most {NhAssistantAlertLimits.MaxAlertsPerResult} alerts.",
+                nameof(alerts));
+        }
+
+        return new NhAssistantRuleResult(Summary, HandOverReason, SkillId, LocalizedSummary)
+        {
+            Alerts = [.. Alerts, .. alerts],
+            AlertsToResolve = AlertsToResolve
+        };
+    }
+
+    /// <summary>
+    /// The same result that also resolves the open alerts <paramref name="keys"/> name once the rules
+    /// end, such as a warning about a task that was completed meanwhile: they close, and their deliveries
+    /// that did not go out are taken back. Each key's kind must be listed with the agent's
+    /// <c>Alerts(...)</c>. A shadow run resolves only its shadow alerts.
+    /// </summary>
+    public NhAssistantRuleResult ResolveAlerts(params NhAssistantAlertKey[] keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Any(key => key is null))
+        {
+            throw new ArgumentException("An alert key is missing.", nameof(keys));
+        }
+        if (AlertsToResolve.Count + keys.Length > NhAssistantAlertLimits.MaxAlertsPerResult)
+        {
+            throw new ArgumentException(
+                $"A rule result resolves at most {NhAssistantAlertLimits.MaxAlertsPerResult} alerts.",
+                nameof(keys));
+        }
+
+        return new NhAssistantRuleResult(Summary, HandOverReason, SkillId, LocalizedSummary)
+        {
+            Alerts = Alerts,
+            AlertsToResolve = [.. AlertsToResolve, .. keys]
+        };
+    }
+
+    /// <summary>
     /// The skill the rules route the run to; <see langword="null"/> otherwise.
     /// </summary>
     public string? SkillId { get; }

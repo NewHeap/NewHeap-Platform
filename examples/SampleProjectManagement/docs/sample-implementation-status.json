@@ -377,7 +377,8 @@
     "SPM-383",
     "SPM-384",
     "SPM-387",
-    "SPM-391"
+    "SPM-391",
+    "SPM-392"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4188,6 +4189,30 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-without-approval.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-without-approval.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-without-approval-admin.spec.ts"
+    ],
+    "SPM-392": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDeadlineAlertsComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAlertSamplesTests.cs",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/projects/management/public/i18n/nl.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduling.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertTexts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAlertEntities.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102143739_Alerts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102143749_Alerts.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertKindTests.cs"
     ]
   }
 }

@@ -380,6 +380,13 @@
       "prompt": "Let the project assistant answer chained questions, such as the overdue tasks of my projects and their owners, with one script over its tools instead of many model rounds, also for MCP clients, and let one of its scripts propose a status change.",
       "expectedRules": ["nh-ai-scripting", "nh-ai-protected-actions"],
       "expectedOutcome": "The backend installs the scripting package, allows scripts only for the agent and the MCP exposure that need them under the application's switch, keeps scripts read-only unless a small mutation limit is set, lets every call get the decision it gets on its own so a deferred proposal continues and an inline approval stops the script, and proves the limits, signatures and per-call decisions with engine tests and both providers."
+    },
+    {
+      "id": "consumer-ai-alerts",
+      "skill": "newheap-background-processing",
+      "prompt": "Every working-day morning, warn the person responsible for each task that is due today and not reported done, without asking anyone to approve anything, and stop warning once the task is done.",
+      "expectedRules": ["nh-ai-alerts", "nh-ai-agent-runs"],
+      "expectedOutcome": "The backend declares an alert kind in code with AddAlertKind, with a display name key, an urgency, a title per culture from named parameters, the subject's responsible person as recipient, a RepeatAfter and a morning digest as default delivery; an agent with a rule handler lists the kind with Alerts(...) and a scheduled trigger starts it on the tasks due today; the rules raise one alert per task and due date with WithAlerts and resolve it with ResolveAlerts once the task is done, relying on one open alert per kind, subject and key, the recipient check and the expiry; the application's own code uses INhAssistantAlerts; the Alerts migration is applied on SQL Server or PostgreSQL and the behaviour is tested on both."
     }
   ]
 }

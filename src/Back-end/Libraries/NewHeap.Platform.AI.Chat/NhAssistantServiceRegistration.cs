@@ -181,6 +181,16 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantProposalDuplicates>();
         services.TryAddScoped<NhAssistantProposalPlacement>();
         services.TryAddScoped<INhAssistantProposalRevalidation, NhAssistantProposalRevalidation>();
+        // Alerts (FB87): kinds in code, raised by rules and by the application's code, deduplicated per
+        // kind, subject and key, with one recipient check for delivery and reading. The delivery replaces
+        // the scheduler, whose default makes every delivery due at once.
+        services.TryAddScoped<NhAssistantAlertStore>();
+        services.TryAddSingleton<Alerts.NhAssistantAlertTexts>();
+        services.TryAddScoped<Alerts.NhAssistantAlertRecipientCheck>();
+        services.TryAddScoped<INhAssistantAlertPolicy, NhAssistantDefaultAlertPolicy>();
+        services.TryAddSingleton<Alerts.INhAssistantAlertScheduler, Alerts.NhAssistantImmediateAlertScheduler>();
+        services.TryAddScoped<Alerts.NhAssistantAlertService>();
+        services.TryAddScoped<INhAssistantAlerts>(provider => provider.GetRequiredService<Alerts.NhAssistantAlertService>());
         return state;
     }
 

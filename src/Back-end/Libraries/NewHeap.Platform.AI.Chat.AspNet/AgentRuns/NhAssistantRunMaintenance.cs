@@ -79,7 +79,9 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// operator cancelled its operation, and withdraws approved inline proposals that a run never
 /// executed because it ended first, such as after a person's cancel. Once an hour it removes board
 /// visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that
-/// are no longer registered, and the sets of bulk decisions a day after their lifetime. Every change is a compare-and-set update or a conditional delete, so
+/// are no longer registered, and the sets of bulk decisions a day after their lifetime. In a host with
+/// alert kinds it closes the alerts whose expiry passed and purges closed alerts after
+/// <see cref="NhAssistantLimits.AlertRetention"/>, on the application's clock (FB87). Every change is a compare-and-set update or a conditional delete, so
 /// several instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
 /// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
 /// clock); runs, background-operation liveness and board visits keep the system clock.
@@ -130,6 +132,16 @@ internal sealed class NhAssistantRunMaintenance(
 
     internal async Task RunOnceAsync(CancellationToken cancellationToken)
     {
+        // FB87: alerts need maintenance with or without agent runs, since the application's code raises
+        // them too; a host without alert kinds has none.
+        if (registration.AlertKinds.Count > 0)
+        {
+            await using var alertScope = scopeFactory.CreateAsyncScope();
+            await alertScope.ServiceProvider
+                .GetRequiredService<Alerts.NhAssistantAlertService>()
+                .MaintainAsync(cancellationToken);
+        }
+
         // Chat-only agents never run, so they leave nothing to maintain (FB8).
         if (registration.AgentRuns.Values.All(options => options.ChatOnly))
         {

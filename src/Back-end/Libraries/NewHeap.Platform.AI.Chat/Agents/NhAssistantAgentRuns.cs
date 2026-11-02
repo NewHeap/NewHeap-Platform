@@ -154,6 +154,12 @@ public sealed class NhAssistantAgentRunOptions
     }
 
     /// <summary>
+    /// The kinds of alert the agent's rules may raise and resolve, as <c>Alerts(...)</c> lists them,
+    /// ordered by id; empty for an agent that raises none. Startup refuses a kind that is not registered.
+    /// </summary>
+    public IReadOnlyList<string> AlertKinds { get; internal set; } = [];
+
+    /// <summary>
     /// The groups the agent joins in code with <c>InGroup</c>, ordered by id. An administrator's
     /// choice per group wins; an agent created in the administration joins groups there only.
     /// </summary>
@@ -907,6 +913,35 @@ public sealed class NhAssistantAgentRunBuilder
     {
         _options.MarkRunSetting(nameof(UseRuleHandler));
         _options.RuleHandlerType = typeof(THandler);
+        return this;
+    }
+
+    /// <summary>
+    /// Lists the kinds of alert (<c>AddAlertKind</c>) the agent's rules may raise with
+    /// <see cref="NhAssistantRuleResult.WithAlerts"/> and resolve with
+    /// <see cref="NhAssistantRuleResult.ResolveAlerts"/>; repeated calls add kinds. A rule run that raises
+    /// or resolves another kind fails with <see cref="NhAssistantAlertCodes.KindNotListed"/>, and startup
+    /// refuses a kind that is not registered. A paused or stopped agent raises nothing, and a shadow agent
+    /// or shadow run records its alerts as shadow alerts that reach nobody.
+    /// </summary>
+    public NhAssistantAgentRunBuilder Alerts(params string[] kindIds)
+    {
+        _options.MarkRunSetting(nameof(Alerts));
+        ArgumentNullException.ThrowIfNull(kindIds);
+        if (kindIds.Length == 0)
+        {
+            throw new ArgumentException("List at least one alert kind.", nameof(kindIds));
+        }
+        foreach (var kindId in kindIds)
+        {
+            NhAssistantAlertKeys.ValidateKindId(kindId, nameof(kindIds));
+        }
+
+        _options.AlertKinds = _options.AlertKinds
+            .Concat(kindIds)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
         return this;
     }
 
