@@ -42,6 +42,8 @@ public sealed class AssistantWithoutApprovalTests(AssistantDatabaseFixture datab
         // The first key: a tool that does not allow it in code cannot be switched, nor a tool outside the agent's tools.
         var withoutKey = await SwitchAsync(host, TestTaskToolCatalog.Archive.Id, NhAssistantWithoutApprovalModes.Shadow, 0);
         var unknown = await SwitchAsync(host, "orders.cancel", NhAssistantWithoutApprovalModes.Shadow, 0);
+        // A tool whose proposals a person decides one by one never runs without approval, whatever its code says.
+        var individual = await SwitchAsync(host, TestTaskToolCatalog.Notify.Id, NhAssistantWithoutApprovalModes.Shadow, 0);
         var noAgent = await SwitchAsync(host, TestTaskToolCatalog.Complete.Id, NhAssistantWithoutApprovalModes.Shadow, 0, agentId: "nobody");
         // Live only from shadow.
         var liveFirst = await SwitchAsync(host, TestTaskToolCatalog.Complete.Id, NhAssistantWithoutApprovalModes.Live, 0);
@@ -49,6 +51,7 @@ public sealed class AssistantWithoutApprovalTests(AssistantDatabaseFixture datab
 
         Assert.Equal(NhAssistantErrorCodes.WithoutApprovalNotAllowed, CodeOf(withoutKey));
         Assert.Equal(NhAssistantErrorCodes.WithoutApprovalNotAllowed, CodeOf(unknown));
+        Assert.Equal(NhAssistantErrorCodes.WithoutApprovalNotAllowed, CodeOf(individual));
         Assert.Equal(NhAssistantErrorCodes.AgentNotFound, CodeOf(noAgent));
         Assert.Equal(NhAssistantErrorCodes.WithoutApprovalShadowFirst, CodeOf(liveFirst));
         Assert.Contains(invalid.GetResultItems(), item => item.Name == "field:mode");
@@ -329,6 +332,7 @@ public sealed class AssistantWithoutApprovalTests(AssistantDatabaseFixture datab
         var entries = tools.EnumerateArray().ToDictionary(entry => entry.GetProperty("id").GetString()!, entry => entry.GetProperty("allowWithoutApproval").GetBoolean());
         Assert.True(entries[TestTaskToolCatalog.Complete.Id]);
         Assert.False(entries[TestTaskToolCatalog.Archive.Id]);
+        Assert.False(entries[TestTaskToolCatalog.Notify.Id]);
     }
 
     private static async Task<System.Text.Json.JsonElement> ReadJsonAsync(HttpResponseMessage response)
@@ -478,9 +482,19 @@ public sealed class TestTaskToolCatalog : INhAiToolCatalog
         allowWithoutApproval: false,
         'd');
 
+    /// <summary>
+    /// Claims the code key but requires an individual decision, which keeps it out of every switch.
+    /// </summary>
+    public static readonly NhAiToolDescriptor Notify = Descriptor(
+        "projects.notify-task",
+        "projects_notify_task_v1",
+        "Tell the task's owner by mail.",
+        allowWithoutApproval: true,
+        'f') with { RequireIndividualDecision = true };
+
     public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
 
-    public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; } = [Complete, Archive];
+    public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; } = [Complete, Archive, Notify];
 
     public NhAiToolCatalogManifest Manifest { get; } = new(
         "project-task-tools",
@@ -488,7 +502,8 @@ public sealed class TestTaskToolCatalog : INhAiToolCatalog
         new string('e', 64),
         [
             new NhAiToolManifestEntry(Complete.Id, 1, Complete.SchemaHash, Complete.ContractHash) { ExportName = Complete.ExportName },
-            new NhAiToolManifestEntry(Archive.Id, 1, Archive.SchemaHash, Archive.ContractHash) { ExportName = Archive.ExportName }
+            new NhAiToolManifestEntry(Archive.Id, 1, Archive.SchemaHash, Archive.ContractHash) { ExportName = Archive.ExportName },
+            new NhAiToolManifestEntry(Notify.Id, 1, Notify.SchemaHash, Notify.ContractHash) { ExportName = Notify.ExportName }
         ]);
 
     public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
