@@ -396,8 +396,9 @@ public sealed record NhAssistantAlertReceipt(
 
 /// <summary>
 /// Raises and resolves alerts from the application's own code, without an agent, for example when a
-/// job finds work that is late. The same checks, deduplication, limits and audit apply as for an alert
-/// a rule raises. Expected refusals are failed results with a code of <see cref="NhAssistantAlertCodes"/>.
+/// job finds work that is late, and revalidates a subject's open alerts after the application changed it.
+/// The same checks, deduplication, limits and audit apply as for an alert a rule raises. Expected
+/// refusals are failed results with a code of <see cref="NhAssistantAlertCodes"/>.
 /// </summary>
 public interface INhAssistantAlerts
 {
