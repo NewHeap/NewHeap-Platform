@@ -9,7 +9,10 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 /// </summary>
 internal enum NhAssistantAlertReadingState
 {
-    /// <summary>The alert is open and the person has not read it: it waits, or went out.</summary>
+    /// <summary>
+    /// The alert is open and the person has not read it: it waits, went out, or was withheld from their
+    /// channels, such as for a kind they muted.
+    /// </summary>
     Unread = 0,
 
     /// <summary>The alert is open and the person read it.</summary>
@@ -41,6 +44,12 @@ internal sealed record NhAssistantAlertListFilter(
     public string? SubjectId { get; init; }
 
     public IReadOnlyList<NhAssistantAlertUrgency> Urgencies { get; init; } = [];
+
+    /// <summary>
+    /// Leaves out the deliveries withheld because the person muted the kind, for a badge: the list shows
+    /// them, but a muted kind never asks for the person's attention.
+    /// </summary>
+    public bool WithoutMuted { get; init; }
 }
 
 /// <summary>
@@ -76,6 +85,11 @@ internal sealed partial class NhAssistantAlertStore
                 && delivery.Status != NhAssistantAlertDeliveryStatuses.Dropped
                 && !delivery.Alert!.Shadow);
         query = WhereIn(query, filter);
+        if (filter.WithoutMuted)
+        {
+            query = query.Where(delivery => !(delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld
+                && delivery.ReasonCode == NhAssistantAlertWithholdReasons.Muted));
+        }
 
         if (filter.KindIds.Count > 0)
         {
@@ -104,9 +118,36 @@ internal sealed partial class NhAssistantAlertStore
     }
 
     /// <summary>
-    /// Dismisses the person's delivery from their alert list once: a delivery that waits, went out or
-    /// was read, and also one that a resolved or expired alert took back, so the person can clear a
-    /// closed alert from the list. Returns <see langword="true"/> only for the request that dismissed it;
+    /// Marks the person's delivery read from their alert list: one that waits is then not sent, and one
+    /// that was withheld from their channels, such as for a muted kind, is read as well. Returns
+    /// <see langword="false"/> for a delivery that was dismissed, taken back, dropped or does not exist.
+    /// </summary>
+    public async Task<bool> MarkReadFromListAsync(Guid alertId, string recipientActorId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var changed = await context.AlertDeliveries
+            .Where(delivery => delivery.AlertId == alertId
+                && delivery.RecipientActorId == recipientActorId
+                && (delivery.Status == NhAssistantAlertDeliveryStatuses.Pending
+                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Sent
+                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld
+                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Read))
+            .ExecuteUpdateAsync(
+                update => update
+                    .SetProperty(delivery => delivery.Status, NhAssistantAlertDeliveryStatuses.Read)
+                    .SetProperty(delivery => delivery.ReadAt, delivery => delivery.ReadAt ?? now)
+                    .SetProperty(delivery => delivery.ClaimedBy, (string?)null)
+                    .SetProperty(delivery => delivery.ClaimedUntil, (DateTimeOffset?)null)
+                    .SetProperty(delivery => delivery.UpdatedAt, now)
+                    .SetProperty(delivery => delivery.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return changed == 1;
+    }
+
+    /// <summary>
+    /// Dismisses the person's delivery from their alert list once: a delivery that waits, went out, was
+    /// withheld or was read, and also one that a resolved or expired alert took back, so the person can
+    /// clear a closed alert from the list. Returns <see langword="true"/> only for the request that dismissed it;
     /// a delivery dismissed before, a dropped one and one that does not exist return
     /// <see langword="false"/>, so the dismissal is audited once.
     /// </summary>
@@ -118,6 +159,7 @@ internal sealed partial class NhAssistantAlertStore
                 && delivery.RecipientActorId == recipientActorId
                 && (delivery.Status == NhAssistantAlertDeliveryStatuses.Pending
                     || delivery.Status == NhAssistantAlertDeliveryStatuses.Sent
+                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld
                     || delivery.Status == NhAssistantAlertDeliveryStatuses.Read
                     || delivery.Status == NhAssistantAlertDeliveryStatuses.Resolved
                     || delivery.Status == NhAssistantAlertDeliveryStatuses.Expired))
@@ -186,7 +228,8 @@ internal sealed partial class NhAssistantAlertStore
                         && (delivery.Alert.ExpiresAt == null || delivery.Alert.ExpiresAt > now)
                         && ((unread
                                 && (delivery.Status == NhAssistantAlertDeliveryStatuses.Pending
-                                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Sent))
+                                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Sent
+                                    || delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld))
                             || (read && delivery.Status == NhAssistantAlertDeliveryStatuses.Read))))));
     }
 }

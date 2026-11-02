@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
@@ -137,6 +138,20 @@ public sealed class AssistantAlertEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(
             NhAssistantAlertListStatuses.Dismissed,
             (await ReadJsonAsync(await owner.PostAsync($"/api/assistant/alerts/{b.AlertId}/dismiss", null))).GetProperty("status").GetString());
+
+        // A delivery the dispatcher withheld because the person muted the kind stays in the list as unread,
+        // says so, does not count on the badge, and can be read.
+        clock.Advance(TimeSpan.FromMinutes(1));
+        var muted = await RaiseAsync(app, TaskOf("d-" + Guid.NewGuid().ToString("N")[..8], "p2"), "File the claim", NhAssistantAlertUrgency.Warning);
+        await WithholdAsync(app, muted.AlertId, Owner, NhAssistantAlertWithholdReasons.Muted);
+        var withheld = (await ReadJsonAsync(await owner.GetAsync("/api/assistant/alerts?status=unread"))).GetProperty("items")[0];
+        Assert.Equal(
+            (muted.AlertId, NhAssistantAlertListStatuses.Unread, true, NhAssistantAlertWithholdReasons.Muted),
+            (withheld.GetProperty("id").GetGuid(), withheld.GetProperty("status").GetString(), withheld.GetProperty("isWithheld").GetBoolean(), withheld.GetProperty("withheldReason").GetString()));
+        Assert.Equal((0, 0, 0, 0), Summary(await ReadJsonAsync(await owner.GetAsync("/api/assistant/alerts/summary"))));
+        Assert.Equal(
+            NhAssistantAlertListStatuses.Read,
+            (await ReadJsonAsync(await owner.PostAsync($"/api/assistant/alerts/{muted.AlertId}/read", null))).GetProperty("status").GetString());
 
         // A malformed filter is refused.
         foreach (var malformed in new[]
@@ -291,6 +306,19 @@ public sealed class AssistantAlertEndpointTests(AssistantDatabaseFixture databas
     }
 
     private sealed record RaisedAlert(Guid AlertId, NhAiSubjectRef Subject, int RecipientCount);
+
+    /// <summary>
+    /// Ends the person's waiting delivery as the dispatcher does when it withholds one, such as for a muted kind.
+    /// </summary>
+    private static async Task WithholdAsync(AssistantWebApplication app, Guid alertId, string actorId, string reason)
+    {
+        await using var context = app.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var delivery = await context.AlertDeliveries.SingleAsync(item => item.AlertId == alertId && item.RecipientActorId == actorId);
+        delivery.Status = NhAssistantAlertDeliveryStatuses.Withheld;
+        delivery.ReasonCode = reason;
+        delivery.ConcurrencyStamp = Guid.NewGuid();
+        await context.SaveChangesAsync();
+    }
 
     private static HttpClient CreateClient(AssistantWebApplication app, string user, string language, string? impersonatedBy = null)
     {

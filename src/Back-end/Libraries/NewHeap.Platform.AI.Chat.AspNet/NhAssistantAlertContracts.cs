@@ -148,6 +148,16 @@ public sealed record NhAssistantAlertDto(
 
     /// <summary>The alert's expiry passed; the list shows it as such until the caller dismisses it.</summary>
     public bool IsExpired { get; init; }
+
+    /// <summary>
+    /// The delivery was due but reached none of the caller's channels (<c>withheld</c>), for example because
+    /// the caller muted the kind; the alert is in the list all the same. A muted one is not counted by
+    /// <c>GET alerts/summary</c>.
+    /// </summary>
+    public bool IsWithheld { get; init; }
+
+    /// <summary>Why the delivery was withheld, one of <see cref="NhAssistantAlertWithholdReasons"/>; <see langword="null"/> otherwise.</summary>
+    public string? WithheldReason { get; init; }
 }
 
 /// <summary>

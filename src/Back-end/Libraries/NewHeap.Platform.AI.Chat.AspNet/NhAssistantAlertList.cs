@@ -127,7 +127,7 @@ internal sealed class NhAssistantAlertList(
         ArgumentNullException.ThrowIfNull(caller);
         ArgumentNullException.ThrowIfNull(query);
         var now = _applicationClock.GetUtcNow();
-        var visible = await VisibleAsync(caller, query, query.States, now, cancellationToken);
+        var visible = await VisibleAsync(caller, query, query.States, now, withoutMuted: false, cancellationToken);
 
         var ordered = grouped ? GroupedOrder(visible) : visible;
         var start = (page - 1) * itemsPerPage;
@@ -154,7 +154,8 @@ internal sealed class NhAssistantAlertList(
         ArgumentNullException.ThrowIfNull(caller);
         ArgumentNullException.ThrowIfNull(query);
         var unread = new HashSet<NhAssistantAlertReadingState> { NhAssistantAlertReadingState.Unread };
-        var visible = await VisibleAsync(caller, query, unread, _applicationClock.GetUtcNow(), cancellationToken);
+        // A kind the person muted is listed, but never asks for their attention.
+        var visible = await VisibleAsync(caller, query, unread, _applicationClock.GetUtcNow(), withoutMuted: true, cancellationToken);
         var counts = visible
             .GroupBy(item => item.Delivery.Alert!.Urgency)
             .ToDictionary(group => group.Key, group => group.Count());
@@ -183,7 +184,7 @@ internal sealed class NhAssistantAlertList(
             return NotFound();
         }
 
-        await store.MarkReadAsync(alertId, caller.ActorId, _applicationClock.GetUtcNow(), cancellationToken);
+        await store.MarkReadFromListAsync(alertId, caller.ActorId, _applicationClock.GetUtcNow(), cancellationToken);
         return await CurrentAsync(caller.ActorId, alertId, found.Value.Kind, cancellationToken);
     }
 
@@ -216,14 +217,16 @@ internal sealed class NhAssistantAlertList(
 
     /// <summary>
     /// The caller's deliveries in <paramref name="states"/> that the query selects and the caller may read
-    /// now, in the store's order, at most <see cref="NhAssistantAlertListDto.MaxListed"/>. The recipient
-    /// check runs once per subject.
+    /// now, in the store's order, at most <see cref="NhAssistantAlertListDto.MaxListed"/>, without those
+    /// withheld for a muted kind when <paramref name="withoutMuted"/>. The recipient check runs once per
+    /// subject.
     /// </summary>
     private async Task<IReadOnlyList<(AssistantAlertDelivery Delivery, NhAssistantAlertKind Kind)>> VisibleAsync(
         NhAiInvocationContext caller,
         NhAssistantAlertQuery query,
         IReadOnlySet<NhAssistantAlertReadingState> states,
         DateTimeOffset now,
+        bool withoutMuted,
         CancellationToken cancellationToken)
     {
         if (registration.AlertKinds.Count == 0)
@@ -237,7 +240,8 @@ internal sealed class NhAssistantAlertList(
             KindIds = query.KindIds,
             SubjectType = query.SubjectType,
             SubjectId = query.SubjectId,
-            Urgencies = query.Urgencies
+            Urgencies = query.Urgencies,
+            WithoutMuted = withoutMuted
         };
         var deliveries = await store.ListForRecipientAsync(caller.ActorId, filter, NhAssistantAlertListDto.MaxListed, cancellationToken);
         var verdicts = new Dictionary<(string Type, string Id), bool>();
@@ -317,6 +321,7 @@ internal sealed class NhAssistantAlertList(
         var written = texts.Render(kind, alert.ParametersJson, culture);
         var (typeName, link) = NhAssistantAgentRunDtoMapper.SubjectOf(subjects, alert.SubjectType, alert.SubjectId);
         var read = delivery.Status == NhAssistantAlertDeliveryStatuses.Read;
+        var withheld = delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld;
         var dismissed = state == NhAssistantAlertReadingState.Dismissed;
         return new NhAssistantAlertDto(
             alert.Id,
@@ -345,7 +350,9 @@ internal sealed class NhAssistantAlertList(
             DismissedAt = dismissed ? delivery.DismissedAt : null,
             IsResolved = alert.Status == NhAssistantAlertStatuses.Resolved,
             IsExpired = alert.Status == NhAssistantAlertStatuses.Expired
-                || (alert.Status == NhAssistantAlertStatuses.Open && alert.ExpiresAt is { } expiresAt && expiresAt <= now)
+                || (alert.Status == NhAssistantAlertStatuses.Open && alert.ExpiresAt is { } expiresAt && expiresAt <= now),
+            IsWithheld = withheld,
+            WithheldReason = withheld ? delivery.ReasonCode : null
         };
     }
 
