@@ -141,6 +141,10 @@ internal sealed class NhAssistantRunMaintenance(
             await alertScope.ServiceProvider
                 .GetRequiredService<Alerts.NhAssistantAlertService>()
                 .MaintainAsync(cancellationToken);
+            // A person's mutes of a kind about a subject that ended have no effect; remove a bounded batch.
+            await alertScope.ServiceProvider
+                .GetRequiredService<NhAssistantAlertSubjectMuteStore>()
+                .DeleteEndedAsync(_applicationClock.GetUtcNow(), BatchSize, cancellationToken);
             // Then the delivery sends what is due, after expired alerts left their waiting digests. With
             // the assistant disabled nothing goes out; the deliveries wait.
             await DispatchAlertsAsync(alertScope.ServiceProvider, cancellationToken);
