@@ -18,6 +18,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
+import { NhAssistantDurationText, nhAssistantDurationText } from '../proposal-kinds/nh-assistant-decision-time';
 
 /** Periods the report offers, in days before now. */
 export type NhAssistantFeedbackPeriod = 7 | 30 | 90;
@@ -27,6 +28,10 @@ interface NhAssistantFeedbackSummaryView extends AgentFeedbackSummaryRow {
   topCategories: AgentFeedbackCategoryCount[];
   /** Open proposals closed before a decision, per kind, most frequent first. */
   invalidatedKinds: { kind: StaleKind; count: number; reasons: string }[];
+  /** The median time to a person's decision, written out; `null` before anyone decided. */
+  median: NhAssistantDurationText | null;
+  /** The 90th percentile of that time, written out. */
+  percentile90: NhAssistantDurationText | null;
 }
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -36,7 +41,8 @@ let nextId = 0;
 
 /**
  * What people said when they rejected an agent's proposals, for the agent's administrators: per
- * tool and agent version the decisions, the rejection rate, the share of rejections with feedback,
+ * tool and agent version the decisions, the rejection rate, how long people took to decide (median
+ * and 90th percentile), the share of rejections with feedback,
  * the number of different people and the most frequent categories, followed by the feedback itself
  * and a JSON Lines export. Comparing agent versions shows whether a change to the prompt, tools or
  * policy helped. The server requires the assistant admin policy and reports only the caller's scopes.
@@ -98,7 +104,9 @@ export class NhAssistantAgentFeedbackReportComponent {
     .map(row => ({
       ...row,
       topCategories: [...row.categories].sort((left, right) => right.count - left.count).slice(0, topCategoryCount),
-      invalidatedKinds: invalidatedKinds(row)
+      invalidatedKinds: invalidatedKinds(row),
+      median: row.decisionTime ? nhAssistantDurationText(row.decisionTime.medianSeconds) : null,
+      percentile90: row.decisionTime ? nhAssistantDurationText(row.decisionTime.percentile90Seconds) : null
     })));
   readonly filtered = computed(() => this.toolId() !== '' || this.category() !== '');
 

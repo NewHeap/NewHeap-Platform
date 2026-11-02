@@ -7,15 +7,18 @@ import {
 import { NhAssistantAdminAgentsComponent, NhAssistantAgentsLocation } from './agents/nh-assistant-admin-agents.component';
 import { NhAssistantAdminContextComponent } from './context/nh-assistant-admin-context.component';
 import { NhAssistantAdminMcpServersComponent } from './mcp/nh-assistant-admin-mcp-servers.component';
+import { NhAssistantAdminProposalKindsComponent } from './proposal-kinds/nh-assistant-admin-proposal-kinds.component';
 import { NhAssistantAdminLocation, NhAssistantAdminTab } from './nh-assistant-admin-location';
 import { startNhAssistantAdminTranslations } from './i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
 
 /**
- * The assistant administration page with the sections Agents, Tools & connections (the MCP servers)
- * and Application context. The host routes to it and guards the route with its admin permission;
- * the component additionally shows a no-access state unless the server reports `canAdminister`.
+ * The assistant administration page with the sections Agents, Kinds of action (how people decide
+ * each kind of action over all agents, with candidates for running without approval), Tools &
+ * connections (the MCP servers) and Application context. The host routes to it and guards the route
+ * with its admin permission; the component additionally shows a no-access state unless the server
+ * reports `canAdminister`.
  *
  * It opens on `initialTab`, Agents unless the host chooses otherwise. A host that keeps the section
  * and the open agent in its URL binds them to `location` and follows `locationChange`, which reports
@@ -29,7 +32,8 @@ let nextId = 0;
     NhAssistantIconComponent,
     NhAssistantAdminContextComponent,
     NhAssistantAdminAgentsComponent,
-    NhAssistantAdminMcpServersComponent
+    NhAssistantAdminMcpServersComponent,
+    NhAssistantAdminProposalKindsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin.component.html',
@@ -48,7 +52,7 @@ export class NhAssistantAdminComponent {
   readonly locationChange = output<NhAssistantAdminLocation>();
 
   readonly id = `nh-assistant-admin-${nextId++}`;
-  readonly tabs: readonly NhAssistantAdminTab[] = ['agents', 'mcp-servers', 'context'];
+  readonly tabs: readonly NhAssistantAdminTab[] = ['agents', 'proposal-kinds', 'mcp-servers', 'context'];
   readonly activeTab = signal<NhAssistantAdminTab | null>(null);
   readonly ready = signal(false);
   /** The agent and tab the agents section opens, as `location` names them. */

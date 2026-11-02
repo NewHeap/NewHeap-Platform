@@ -167,7 +167,7 @@ describe('NhAssistantAdminComponent', () => {
     const { fixture, element } = await render(NhAssistantAdminComponent);
 
     const tabs = () => Array.from(element.querySelectorAll('.admin > .tabs [role="tab"]')) as HTMLElement[];
-    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Agents', 'Tools & connections', 'Context']);
+    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Agents', 'Kinds of action', 'Tools & connections', 'Context']);
     expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
     expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-agents')).not.toBeNull();
 
@@ -176,6 +176,16 @@ describe('NhAssistantAdminComponent', () => {
 
     expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
     expect(tabs()[0].getAttribute('tabindex')).toBe('-1');
+    // FB82: the view per kind of action over all agents, with the mock's example of a candidate.
+    const kinds = element.querySelector('[role="tabpanel"] nh-assistant-admin-proposal-kinds')!;
+    expect(kinds).not.toBeNull();
+    expect(kinds.querySelector('tr[data-agent-id="projects"][data-tool-id="projects.change-status"]')?.getAttribute('data-candidate')).toBe('true');
+    expect(TestBed.inject(NhAssistantMockBackend).requests.some(item => item.path === 'admin/proposal-kinds')).toBeTrue();
+
+    element.querySelector('.admin > .tabs')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await settle(fixture);
+
+    expect(tabs()[2].getAttribute('aria-selected')).toBe('true');
     expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-mcp-servers')).not.toBeNull();
   });
 

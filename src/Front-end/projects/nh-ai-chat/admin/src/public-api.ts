@@ -17,6 +17,8 @@ export * from './agents/nh-assistant-agent-feedback-report.component';
 export * from './agents/nh-assistant-agent-composition-activity.component';
 export * from './agents/nh-assistant-agent-run-history.component';
 export * from './agents/nh-assistant-agent-run-configuration.component';
+export * from './proposal-kinds/nh-assistant-admin-proposal-kinds.component';
+export * from './proposal-kinds/nh-assistant-routine-candidate-row.component';
 export * from './mcp/nh-assistant-admin-mcp-servers.component';
 export * from './mcp/nh-assistant-admin-mcp-server-editor.component';
 export * from './mcp/nh-assistant-admin-mcp-tools.component';

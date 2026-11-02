@@ -46,6 +46,9 @@
         @case ('agents') {
           <nh-assistant-admin-agents [agentId]="agentId()" [agentTab]="agentTab()" (navigated)="onAgentsNavigated($event)" (openMcpServers)="showMcpServers()" />
         }
+        @case ('proposal-kinds') {
+          <nh-assistant-admin-proposal-kinds />
+        }
         @case ('mcp-servers') {
           <nh-assistant-admin-mcp-servers />
         }
