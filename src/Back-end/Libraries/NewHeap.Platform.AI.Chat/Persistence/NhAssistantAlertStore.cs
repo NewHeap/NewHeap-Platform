@@ -342,6 +342,28 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await TryResolveAsync(kindId, subject, key, scopeKey, shadow, now, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < MaxWriteAttempts)
+            {
+                // The maintenance expired one of the alerts meanwhile; read them again.
+            }
+        }
+    }
+
+    private async Task<IReadOnlyList<AssistantAlert>> TryResolveAsync(
+        string kindId,
+        NhAiSubjectRef subject,
+        string? key,
+        string? scopeKey,
+        bool shadow,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         await using var context = contextFactory.CreateDbContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         await LockSubjectAsync(context, subject, shadow, cancellationToken);
