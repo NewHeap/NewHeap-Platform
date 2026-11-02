@@ -140,6 +140,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantAgentGroups>(provider => provider.GetRequiredService<NhAssistantAgentGroups>());
             services.TryAddScoped<NhAssistantAgentBoards>();
             services.TryAddScoped<NhAssistantInboxVisits>();
+            // A person's alerts (FB87): the list, the badge's counts, read and dismiss.
+            services.TryAddScoped<NhAssistantAlertList>();
             services.TryAddScoped<NhAssistantSystemApprovers>();
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantAgentWorkWatchers>();

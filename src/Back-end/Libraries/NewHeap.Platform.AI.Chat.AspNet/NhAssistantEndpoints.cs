@@ -146,6 +146,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         AgentRuns.NhAssistantSubjectEndpoints.Map(enabled);
         AgentRuns.NhAssistantRunHistoryEndpoints.Map(enabled);
         AgentRuns.NhAssistantBoardEndpoints.Map(enabled);
+        // A person's alerts (FB87): their list, the badge's counts, read and dismiss.
+        NhAssistantAlertEndpoints.Map(enabled);
 
         // Webhook triggers carry no user: they are authenticated by their signature.
         var webhooks = groups.MapGroup(prefix)

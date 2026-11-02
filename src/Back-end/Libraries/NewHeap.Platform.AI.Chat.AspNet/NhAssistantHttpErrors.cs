@@ -342,6 +342,12 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ProposalPresentationInvalid);
         Add(statuses, StatusCodes.Status409Conflict,
             NhAssistantErrorCodes.ProposalIdempotencyConflict);
+        // A person's alerts (FB87): an alert the caller has no delivery of or may no longer read, and a
+        // malformed filter of the alert list.
+        Add(statuses, StatusCodes.Status404NotFound,
+            NhAssistantAlertCodes.NotFound);
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantAlertCodes.FilterInvalid);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

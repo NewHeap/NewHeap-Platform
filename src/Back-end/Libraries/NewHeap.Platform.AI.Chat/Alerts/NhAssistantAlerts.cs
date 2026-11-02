@@ -79,6 +79,19 @@ public static class NhAssistantAlertCodes
     /// <summary>The agent of the rule run is paused or stopped, so its rules raise nothing.</summary>
     public const string AgentNotActive = "assistant-alert-agent-not-active";
 
+    /// <summary>
+    /// The caller has no delivery of the alert, may no longer read its subject, or the alert's kind is no
+    /// longer registered: <c>POST alerts/{id}/read</c> and <c>POST alerts/{id}/dismiss</c> answer it with
+    /// <c>404</c>, as for an alert that does not exist.
+    /// </summary>
+    public const string NotFound = "assistant-alert-not-found";
+
+    /// <summary>
+    /// The filter or paging of <c>GET alerts</c> or <c>GET alerts/summary</c> is malformed, such as an
+    /// unknown status or urgency, a subject id without a subject type, or more than 20 kinds: <c>400</c>.
+    /// </summary>
+    public const string FilterInvalid = "assistant-alert-filter-invalid";
+
     /// <summary>The outcome of an alert raised for the first time, in the audit's <c>ResultCode</c>.</summary>
     public const string Raised = "raised";
 
