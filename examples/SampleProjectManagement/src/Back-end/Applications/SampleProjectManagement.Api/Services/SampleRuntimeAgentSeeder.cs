@@ -20,7 +20,8 @@ namespace SampleProjectManagement.Api.Services;
 /// projects and on the whole application; SPM-304: it joins the project management group. A
 /// development database with a follow-up of an earlier version keeps it; put it in the group in the
 /// administration, or remove it to seed this one. The seeder creates both once; afterwards the administration
-/// owns them, so changes made there survive a restart.
+/// owns them, so changes made there survive a restart. SPM-391: it also switches the intake reviewer's
+/// completion of a task to shadow once, the first step to running it without approval.
 /// </summary>
 public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogger<SampleRuntimeAgentSeeder> logger) : IHostedService
 {
@@ -53,6 +54,11 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     public const string ScriptingDeskAgentId = "scripting-desk";
 
     private const string Reason = "Development sample of an agent that works on its own";
+
+    /// <summary>
+    /// SPM-391: why the development data lets the intake reviewer try completing tasks without approval.
+    /// </summary>
+    public const string WithoutApprovalReason = "Development sample: see how approvers decide completed tasks before they run on their own";
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -92,6 +98,14 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                     string.Join(", ", followUp.GetResultItems().Select(item => item.Name)));
             }
 
+            var withoutApproval = await SeedWithoutApprovalShadowAsync(scope.ServiceProvider, administrator.Id, cancellationToken);
+            if (!withoutApproval.Success)
+            {
+                logger.LogWarning(
+                    "The intake reviewer's task completion was not switched to shadow: {Codes}",
+                    string.Join(", ", withoutApproval.GetResultItems().Select(item => item.Name)));
+            }
+
             var scriptingDesk = await SeedScriptingDeskAsync(scope.ServiceProvider, administrator.Id, cancellationToken);
             if (!scriptingDesk.Success)
             {
@@ -108,6 +122,35 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// SPM-391: switches the intake reviewer's completion of a task to shadow, as an administrator does
+    /// on the agent's Rollout, unless someone switched it before. The tool allows it in code
+    /// (<c>AllowWithoutApproval</c>); in shadow every proposal to complete a task still waits for the
+    /// project's approver, and the platform records that it would have run without approval. Putting it
+    /// live stays an administrator's decision once the numbers show that approvers approve such proposals.
+    /// </summary>
+    public static async Task<TaskResult> SeedWithoutApprovalShadowAsync(
+        IServiceProvider services,
+        Guid administratorId,
+        CancellationToken cancellationToken)
+    {
+        var switches = services.GetRequiredService<INhAssistantWithoutApprovalSwitches>();
+        var listed = await switches.GetAsync(SampleIntakeReviewerComposition.AgentId, cancellationToken);
+        var tool = listed?.Tools.FirstOrDefault(item => item.ToolId == ProjectTaskAiTools.CompleteToolId);
+        if (tool is null || tool.Version > 0)
+        {
+            return TaskResult.Succeeded();
+        }
+
+        var switched = await switches.SetAsync(
+            SampleIntakeReviewerComposition.AgentId,
+            ProjectTaskAiTools.CompleteToolId,
+            new NhAssistantWithoutApprovalRequest(NhAssistantWithoutApprovalModes.Shadow, 0, WithoutApprovalReason),
+            administratorId.ToString("D"),
+            cancellationToken);
+        return switched.Success ? TaskResult.Succeeded() : TaskResult.Failed(switched);
+    }
 
     /// <summary>
     /// SPM-371: creates the scripting desk unless it exists, as an administrator does in the agent
