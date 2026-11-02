@@ -23,10 +23,10 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// </summary>
 public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
-    private const string ProjectAgent = "project-assistant";
+    internal const string ProjectAgent = "project-assistant";
     private const string Group = "project-management";
-    private const string Approver = "reader-1";
-    private const string Outsider = "outsider-1";
+    internal const string Approver = "reader-1";
+    internal const string Outsider = "outsider-1";
 
     // Runs whose ids order the same on both providers: they differ in the last byte only.
     private static readonly Guid FirstRun = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -317,17 +317,29 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
     }
 
 
-    private static NhAiSubjectRef ProjectRef(string id)
+    internal static NhAiSubjectRef ProjectRef(string id)
     {
         return new NhAiSubjectRef("project", id);
     }
 
-    private static NhAiSubjectRef TaskRef(string id)
+    internal static NhAiSubjectRef TaskRef(string id)
     {
         return new NhAiSubjectRef("project-task", id);
     }
 
     private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider)
+    {
+        return StartInboxAsync(database, provider);
+    }
+
+    /// <summary>
+    /// A host with projects in North and South and their tasks, whose parent is their project, for
+    /// proposals seeded with <see cref="ProposeAsync"/>; <paramref name="configure"/> adds services.
+    /// </summary>
+    internal static Task<AssistantWebApplication> StartInboxAsync(
+        AssistantDatabaseFixture database,
+        AssistantTestProvider provider,
+        Action<IServiceCollection>? configure = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -338,6 +350,7 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
                 services.AddNewHeapDivisionAccess<TestDivisionAccess>();
                 // Proposals are seeded here, not made by runs.
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator)));
+                configure?.Invoke(services);
             },
             assistantBuilder: assistant => assistant
                 .AddSubjectType<InboxProjectResolver>(type => type
@@ -353,7 +366,7 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
     /// Stores a pending proposal of the run in the agent's thread at the subject, with the parent its
     /// resolver names, and lists the approver in the subject's member snapshot.
     /// </summary>
-    private static async Task<Guid> ProposeAsync(
+    internal static async Task<Guid> ProposeAsync(
         AssistantWebApplication app,
         NhAiSubjectRef subject,
         Guid runId,
@@ -361,7 +374,9 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
         DateTimeOffset? createdAt = null,
         string toolId = "projects.complete",
         string? toolDisplayName = null,
-        string member = Approver)
+        string member = Approver,
+        NhAiApprovalPolicy? policy = null,
+        string? initiator = null)
     {
         await using var scope = app.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -408,6 +423,10 @@ public sealed class AssistantInboxOverviewTests(AssistantDatabaseFixture databas
             ExpiresAt = expiresAt,
             RunId = runId,
             Mode = NhAssistantApprovalModes.Deferred,
+            // Without a policy copy a decision checks the default policy of runs.
+            PolicyJson = policy is null ? null : NhAssistantApprovalPolicySnapshot.Serialize(policy),
+            PolicyId = policy?.Id,
+            InitiatorActorId = initiator,
             // As the interceptor records it from the subject's description.
             ParentSubjectType = info.Parent?.Subject.Type,
             ParentSubjectId = info.Parent?.Subject.Id,

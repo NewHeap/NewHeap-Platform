@@ -184,3 +184,18 @@ next `@newheap/platform-ai-chat`.
   QB and QU both touch the inbox component; QU merges after QB, and AE after DS. The full matrix runs once.
 - **(b) FB84 first as a fix of its own, then the train.** It ships the bug fix sooner at the cost of a second
   verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| QB1 | FB78: `sort` takes `expiresAt` and `createdAt`, both earliest first, flat and grouped (groups then come by their first proposal of that time); there is no descending sort, and any other value answers `400`. | for Lars to review |
+| QB2 | FB78: `expiresBefore` filters the decision deadline (`ExpiresAt`) in every status; the summary's `expiringSoon` counts proposals whose `ExpiresAt` is within 24 hours on the application's clock. | for Lars to review |
+| QB3 | FB78: a kind of action is named by the presentation its newest proposal stored (in the caller's language), otherwise by its tool id; a summary names at most 50 kinds that way. The summary's agents carry the agent id only, clients name them from their own agent list. No index was added: no measurement asked for one. | for Lars to review |
+| QB4 | FB80: the token is the id of a set stored server-side (`AssistantDecisionBatch`, migrations `BulkDecisionSets`), bound to the caller and the caller's tenant, valid for 15 minutes on the application's clock; another caller's token reads as unknown (`404`). It carries no data, so it is not signed; every item is checked again at the decision. | for Lars to review |
+| QB5 | FB80: the set is decided in the request, not as a background operation, with a bound of 200; the loop ignores the request's cancellation so a closed page finishes the set, a claim with a 5-minute lease keeps a second request out (`409 assistant-bulk-decision-in-progress`), and a repeat after the lease takes over a set that stopped halfway, counting what this person already decided with the same version. Larger piles go in rounds (`remaining`). | for Lars to review |
+| QB6 | FB80: the decision runs the inbox's own visibility again for the set; a proposal no longer listed is not decided: `stale` when it is no longer pending or expired, otherwise `refused` as unknown (`assistant-approval-not-found`). `stale` also covers a changed hash and a proposal closed as no longer applying; every other code is `refused`. A repeat that asks for the other decision reports the stored one. | for Lars to review |
+| QB7 | FB80: `RequireIndividualDecision` is checked in the one decision for every decision with a batch id, so both bulk paths refuse such a proposal; it stays out of the contract hash, and the newest version of a tool decides. `POST approvals/decisions` gives its decisions one batch id per request as well (not stored), so the audit tells them from single decisions. | for Lars to review |
+| QB8 | FB80: "Decide all N" is on by default (`decideAll`), shown when the filter lists more than one proposal, as an overview inside the inbox rather than a modal; no feedback question follows a bulk rejection. The board's inline inbox shows it too; lane QU may pass `[decideAll]="false"` in compact tiles. | for Lars to review |
+| QB9 | FB80: `decideMany` also takes the shown proposals and then sends their hashes; the proposals list was left to lane QU, whose FB84 change of `decideSelected` should pass the shown proposals instead of ids so the library's list sends the versions. | for Lars to review |
+| QB10 | FB80: in the sample, `projects.order-equipment` declares `RequireIndividualDecision`, so "Decide all" leaves equipment orders on the intake reviews page. | for Lars to review |

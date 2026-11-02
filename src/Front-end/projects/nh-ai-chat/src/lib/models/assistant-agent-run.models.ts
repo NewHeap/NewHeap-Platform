@@ -882,6 +882,77 @@ export interface AgentDecisionOutcome {
   status: AgentProposalStatus | null;
 }
 
+/** The most proposals one bulk decision of a filter decides (`AgentBulkDecisionOverview.limit`). */
+export const NH_ASSISTANT_MAX_BULK_DECISION = 200;
+
+/**
+ * The filter whose pending proposals a bulk decision's overview puts in its set: the inbox's filter
+ * without paging or grouping; `sort` decides which come first when the filter lists more than a set holds.
+ */
+export type AgentBulkDecisionFilter = Omit<AgentInboxFilter, 'status' | 'grouped' | 'page' | 'itemsPerPage'>;
+
+/**
+ * What deciding a whole filter would decide (`getBulkDecisionOverview`): the set of pending proposals the
+ * inbox lists with the filter, at most `limit`, counted per kind of action and subject type, and the
+ * `token` that decides exactly that set until `expiresAt`. Proposals of tools that are decided one by one
+ * stay out of the set (`individual`). Each proposal is still checked when it is decided.
+ */
+export interface AgentBulkDecisionOverview {
+  /** Decides the set with `decideBulk`, only for this person; `null` for an empty set. */
+  token: string | null;
+  expiresAt: string | null;
+  /** How many proposals the set holds. */
+  count: number;
+  /** On how many distinct objects. */
+  subjects: number;
+  /** How many the inbox lists with the filter, those decided one by one included. */
+  listed: number;
+  /** How many it lists beyond the set's bound, for a next round. */
+  remaining: number;
+  limit: number;
+  /** Per kind of action and object type, for a confirmation such as "212 times Add office task, on 38 projects". */
+  kinds: AgentBulkDecisionKind[];
+  tools: AgentInboxToolCount[];
+  subjectTypes: AgentInboxSubjectTypeCount[];
+  /** The proposals the set leaves out because their tool is decided one by one, per kind. */
+  individual: { count: number; tools: AgentInboxToolCount[] };
+}
+
+/** One kind of action on one object type in a bulk decision's set. */
+export interface AgentBulkDecisionKind {
+  toolId: string;
+  toolDisplayName: string;
+  subjectType: string;
+  subjectTypeName: string | null;
+  count: number;
+  subjects: number;
+}
+
+/**
+ * What became of one proposal of a bulk decision: `succeeded`, `refused` by a rule of its own (four-eyes,
+ * the approver rules, the tool's approve policy, a tool decided one by one, or a proposal the person no
+ * longer sees), or `stale`: changed, decided or closed since the overview, expired, or no longer applying.
+ */
+export type AgentBulkDecisionOutcome = 'succeeded' | 'refused' | 'stale';
+
+export interface AgentBulkDecisionItem {
+  approvalId: string;
+  outcome: AgentBulkDecisionOutcome;
+  code: string | null;
+  status: AgentProposalStatus | null;
+}
+
+/** The outcome of `decideBulk`; a repeat of a decided token reports it again with `repeated: true`. */
+export interface AgentBulkDecisionResult {
+  token: string;
+  decision: AgentProposalDecision;
+  succeeded: number;
+  refused: number;
+  stale: number;
+  repeated: boolean;
+  items: AgentBulkDecisionItem[];
+}
+
 export interface AgentThreadMemory {
   configured: boolean;
   schemaVersion: number;

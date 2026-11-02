@@ -134,9 +134,23 @@ internal static class NhAssistantAgentRunEndpoints
         group.MapPost("approvals/decisions", DecideManyAsync)
             .WithName("NhAssistantDecideProposals")
             .WithSummary("Decide several agent proposals")
-            .WithDescription("Approves or rejects several pending proposals; each one is checked and decided on its own.")
+            .WithDescription("Approves or rejects 1 to 50 pending proposals by id; each one is checked and decided on its own. expectedProposalHashes (optional, per approval id) binds each decision to the version the person saw, as for one proposal: a proposal that changed since is refused with assistant-proposal-hash-mismatch. A proposal of a tool that requires individual decisions (RequireIndividualDecision) is refused with assistant-individual-decision-required. Every decision's audit carries one batch id per request. To decide a whole filter of the inbox use POST approvals/bulk-decisions/overview and POST approvals/bulk-decisions.")
             .Produces<NhAssistantBulkDecisionDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
+        group.MapPost("approvals/bulk-decisions/overview", GetBulkDecisionOverviewAsync)
+            .WithName("NhAssistantGetBulkDecisionOverview")
+            .WithSummary("Show what deciding a filter would decide")
+            .WithDescription("Puts the pending proposals GET approvals/inbox lists for the caller with the body's filter (subjectType, agentId, divisionId, runId, toolIds, expiresBefore and sort, with the inbox's visibility) in a set and counts it: how many and on how many subjects, per kind of action and subject type (kinds, for a confirmation such as \"212 times Add office task, on 38 projects\"), per kind (tools) and per subject type. The set holds at most limit (200) proposals, the first in the inbox's order; remaining says how many the filter lists beyond it, for a next round. Proposals of a tool that requires individual decisions (RequireIndividualDecision) stay out of the set, and individual says how many and of which kinds. token decides exactly this set with POST approvals/bulk-decisions until expiresAt (15 minutes on the application's clock), only for the caller in the caller's tenant; an empty set has no token. The counts say what is listed: each proposal is still checked when it is decided. A malformed filter answers 400 assistant-message-invalid.")
+            .Produces<NhAssistantBulkDecisionOverviewDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
+        group.MapPost("approvals/bulk-decisions", DecideBulkAsync)
+            .WithName("NhAssistantDecideBulk")
+            .WithSummary("Decide the set of an overview")
+            .WithDescription("Approves or rejects the set of a bulk decision's overview by its token, with an optional reason of at most 500 characters. Only the proposals of that set are decided, never one that arrived later: the inbox's visibility is run again for the set, a proposal no longer listed is not decided, and every other one is decided with its own rules and the version the overview counted (the tenant, the view policy, its proposal hash, its expiry, four-eyes, the approver rules, the tool's approve policy and the proposal guards). The result counts what succeeded, what a rule refused (refused) and what was no longer what the overview showed (stale: changed, decided or closed meanwhile, expired, or no longer applying), with the outcome per proposal; every decision's audit carries the token as its batch id, through the web channel. A repeat of a decided token reports the same result with repeated=true and decides nothing. The decisions go on when the client goes away. An unknown token, and one of another person or tenant, answers 404 assistant-bulk-decision-not-found; a set not decided within its lifetime 409 assistant-bulk-decision-expired; a set another request decides right now 409 assistant-bulk-decision-in-progress; a missing token, decision or a reason that is too long 400 assistant-approval-decision-invalid.")
+            .Produces<NhAssistantBulkDecisionResultDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         group.MapPost("approvals/{approvalId:guid}/resolve", ResolveAsync)
             .WithName("NhAssistantResolveExecution")
             .WithSummary("Resolve an uncertain execution")
@@ -928,6 +942,12 @@ internal static class NhAssistantAgentRunEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
         }
 
+        // One batch id per request tells the audit that these proposals were decided together.
+        var origin = NhAssistantDecisionOrigin.Web with
+        {
+            Culture = System.Globalization.CultureInfo.CurrentUICulture.Name,
+            BatchId = Guid.NewGuid()
+        };
         var results = new List<NhAssistantDecisionOutcomeDto>(approvalIds.Count);
         foreach (var approvalId in approvalIds.Distinct())
         {
@@ -936,8 +956,9 @@ internal static class NhAssistantAgentRunEndpoints
                 caller.Data!.ActorId,
                 httpContext.User,
                 request.Decision == "approve",
-                null,
+                request.ExpectedProposalHashes?.GetValueOrDefault(approvalId),
                 request.Reason,
+                origin,
                 httpContext.RequestAborted,
                 caller.Data.TenantId);
             results.Add(new NhAssistantDecisionOutcomeDto(
@@ -950,6 +971,71 @@ internal static class NhAssistantAgentRunEndpoints
         return TypedResults.Json(
             new NhAssistantBulkDecisionDto(results),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkDecisionDto);
+    }
+
+    private static async Task<IResult> GetBulkDecisionOverviewAsync(
+        HttpContext httpContext,
+        NhAssistantBulkDecisions bulk)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+        var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkDecisionOverviewRequest);
+        if (request is null
+            || !TryReadInboxFilter(
+                request.SubjectType,
+                request.AgentId,
+                request.DivisionId,
+                request.RunId,
+                request.ToolIds,
+                request.ExpiresBefore,
+                NhAssistantInboxStatuses.Pending,
+                request.Sort,
+                caller.Data!.TenantId,
+                out var filter))
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
+        }
+
+        var overview = await bulk.OverviewAsync(filter, caller.Data.ActorId, caller.Data.TenantId, httpContext.RequestAborted);
+        return TypedResults.Json(overview, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkDecisionOverviewDto);
+    }
+
+    private static async Task<IResult> DecideBulkAsync(
+        HttpContext httpContext,
+        NhAssistantBulkDecisions bulk)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+        var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkDecisionSetRequest);
+        if (request is null
+            || string.IsNullOrWhiteSpace(request.Token)
+            || request.Decision is not ("approve" or "reject")
+            || request.Reason is { Length: > 500 })
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+        }
+
+        var decided = await bulk.DecideAsync(
+            request.Token,
+            request.Decision == "approve",
+            request.Reason,
+            caller.Data!.ActorId,
+            caller.Data.TenantId,
+            httpContext.User,
+            httpContext.RequestAborted);
+        return decided.Success
+            ? TypedResults.Json(decided.Data!, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantBulkDecisionResultDto)
+            : NhAssistantHttpErrors.Failure(decided);
     }
 
     private static async Task<IResult> ResolveAsync(

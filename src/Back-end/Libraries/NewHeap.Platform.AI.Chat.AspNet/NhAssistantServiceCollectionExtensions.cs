@@ -144,6 +144,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantAgentWorkWatchers>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
+            services.TryAddScoped<NhAssistantBulkDecisions>();
             // The same decision for the application's own channels, such as a messaging reply.
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
             // Who may approve under a policy or a proposal's policy copy, for the application's code (FB20).

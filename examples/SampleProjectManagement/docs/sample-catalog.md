@@ -366,8 +366,12 @@ lets its reader select and decide the run's proposals together. Above the inbox 
 kinds of action it lists, counted per kind with `getInboxSummary` and named as their cards name them,
 with each count labelled "listed" because deciding still checks every proposal; a chosen kind, "Only
 what expires within 24 hours" and "Proposed first" pass `toolId`, `expiresBefore` and `sort` to the
-inbox. `AssistantAgentRunSamplesTests` proves the grouped order and totals across pages, the recorded
-parent, the division filter, what is new, and the counts per kind of action with one kind listed.
+inbox. "Decide all" decides that whole filter after an overview of what it decides, per kind of action
+and number of projects; it leaves the equipment orders, whose tool declares `RequireIndividualDecision`,
+and decides exactly the set it showed, each proposal with its own rules, so a repeat reports and a
+four-eyes review is still refused to its creator. `AssistantAgentRunSamplesTests` proves the grouped
+order and totals across pages, the recorded parent, the division filter, what is new, the counts per
+kind of action with one kind listed, and a bulk decision that leaves the orders.
 
 What waits for people reaches them (SPM-327). The sample's daily approval digest, `SampleApprovalDigest`,
 counts per person what the approval inbox lists per status with `INhAssistantProposalCounts`: proposals

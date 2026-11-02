@@ -69,6 +69,19 @@ public sealed class NhAssistantLimits
     public const int MaxRunResultCharacters = 20_000;
 
     /// <summary>
+    /// The most proposals one bulk decision of a filter decides (<c>POST approvals/bulk-decisions</c>):
+    /// its overview puts at most this many in its set, the first ones in the inbox's order, and says how
+    /// many remain for a next round.
+    /// </summary>
+    public const int MaxBulkDecisionProposals = 200;
+
+    /// <summary>
+    /// How long the set of a bulk decision's overview may be decided, on the application's clock; a later
+    /// decision is refused with <see cref="NhAssistantErrorCodes.BulkDecisionExpired"/>.
+    /// </summary>
+    public static TimeSpan BulkDecisionLifetime { get; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;

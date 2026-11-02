@@ -775,6 +775,15 @@ public sealed record NhAssistantAuditEvent(
     public string? IdempotencyKey { get; init; }
 
     /// <summary>
+    /// The bulk decision a <see cref="NhAssistantAuditEventKind.ApprovalApproved"/> or
+    /// <see cref="NhAssistantAuditEventKind.ApprovalRejected"/> event belongs to: the set of a bulk decision
+    /// of a filter (<c>POST approvals/bulk-decisions</c>), or one request that decided several proposals by
+    /// id (<c>POST approvals/decisions</c>). Every decision of one bulk decision carries the same id, so
+    /// the audit tells it from a decision of one proposal. Null for other events and for single decisions.
+    /// </summary>
+    public Guid? BatchId { get; init; }
+
+    /// <summary>
     /// How the application said its execution of a proposal ended, on the
     /// <see cref="NhAssistantAuditEventKind.AgentProposalExecuted"/> event of its report
     /// (<see cref="INhAssistantProposalExecutionReports.ReportExecutionAsync"/>): <c>completed</c>,

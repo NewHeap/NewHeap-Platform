@@ -1,4 +1,8 @@
 import {
+  AgentBulkDecisionItem,
+  AgentBulkDecisionKind,
+  AgentBulkDecisionOverview,
+  AgentBulkDecisionResult,
   AgentDecisionOutcome,
   AgentInbox,
   AgentInboxGroup,
@@ -21,6 +25,16 @@ interface StoredProposal {
   divisionId: string | null;
   /** The application executes the proposal's tool (`ExecuteInApplication`). */
   executedByApplication: boolean;
+  /** The proposal's tool is decided one proposal at a time (`RequireIndividualDecision`). */
+  individual: boolean;
+}
+
+/** The set of a bulk decision's overview, which its token decides once. */
+interface StoredBulkDecision {
+  actorId: string;
+  items: { approvalId: string; proposalHash: string }[];
+  expiresAt: string;
+  result: AgentBulkDecisionResult | null;
 }
 
 /** How long the application may take to report after a hand-off in the mock. */
@@ -34,6 +48,10 @@ const maxBulkDecisions = 50;
 const maxToolFilters = 20;
 /** How far ahead the inbox summary counts what expires soon. */
 const expiringSoonMs = 24 * 60 * 60 * 1000;
+/** The most proposals one set of a bulk decision holds. */
+const maxBulkDecisionSet = 200;
+/** How long the set of a bulk decision's overview may be decided. */
+const bulkDecisionLifetimeMs = 15 * 60 * 1000;
 const guid = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const lifetimeMs = 3 * 24 * 60 * 60 * 1000;
 /** The platform's subject type of the whole application. */
@@ -59,10 +77,16 @@ const fourEyesCode = 'assistant-four-eyes-required';
  * `assistant-four-eyes-required`. A proposal of a tool the application executes (`executedByApplication`)
  * waits as `awaiting-application` once approved, and `POST approvals/{id}/resolve` resolves an
  * `execution-unknown` proposal as the server does: `hand-to-application` for one the application
- * executes, `re-execute` for any other, `mark-resolved` for both.
+ * executes, `re-execute` for any other, `mark-resolved` for both. A bulk decision of a filter
+ * (`POST approvals/bulk-decisions/overview` and `POST approvals/bulk-decisions`) decides the set of its
+ * overview once for the person who asked for it, leaves proposals decided one by one
+ * (`requireIndividualDecision`) out, reports a repeat and refuses an expired set, as the server does;
+ * deciding several by id checks the proposal hashes sent with them.
  */
 export class NhAssistantMockProposals {
   private readonly proposals = new Map<string, StoredProposal>();
+  /** The sets of bulk decisions by token. */
+  private readonly bulkDecisions = new Map<string, StoredBulkDecision>();
   /** When the caller last looked at the inbox, by scope key. */
   private readonly visits = new Map<string, string>();
 
@@ -134,7 +158,8 @@ export class NhAssistantMockProposals {
         divisionId: item.divisionId ?? null,
         canDecide,
         reasonCode: canDecide ? null : item.reasonCode ?? refusal ?? 'assistant-approval-policy-denied',
-        executedByApplication
+        executedByApplication,
+        individual: item.requireIndividualDecision ?? false
       });
     }
   }
@@ -155,6 +180,12 @@ export class NhAssistantMockProposals {
     }
     if (segments.length === 2 && segments[1] === 'decisions') {
       return method === 'POST' ? this.decideMany(body) : { status: 405 };
+    }
+    if (segments.length === 3 && segments[1] === 'bulk-decisions' && segments[2] === 'overview') {
+      return method === 'POST' ? this.bulkOverview(body) : { status: 405 };
+    }
+    if (segments.length === 2 && segments[1] === 'bulk-decisions') {
+      return method === 'POST' ? this.decideBulk(body) : { status: 405 };
     }
     if (segments.length === 2) {
       return method === 'GET' ? this.read(segments[1]) : { status: 405 };
@@ -385,7 +416,7 @@ export class NhAssistantMockProposals {
   }
 
   private decideMany(body: unknown): NhAssistantMockResult {
-    const request = body as { approvalIds?: unknown; decision?: unknown; reason?: unknown } | undefined;
+    const request = body as { approvalIds?: unknown; decision?: unknown; reason?: unknown; expectedProposalHashes?: unknown } | undefined;
     const ids = request?.approvalIds;
     if (!validDecision(request)
       || !Array.isArray(ids)
@@ -395,8 +426,9 @@ export class NhAssistantMockProposals {
       return failure('assistant-approval-decision-invalid');
     }
 
+    const hashes = (request?.expectedProposalHashes ?? {}) as Record<string, unknown>;
     const results: AgentDecisionOutcome[] = [...new Set(ids as string[])].map(id => {
-      const outcome = this.decide(id, request!.decision === 'approve', null);
+      const outcome = this.decide(id, request!.decision === 'approve', hashes[id] ?? null, true);
       return {
         approvalId: id,
         succeeded: outcome.code === null,
@@ -407,8 +439,112 @@ export class NhAssistantMockProposals {
     return { status: 200, body: { results } };
   }
 
-  /** Decides one proposal as the server does; an approved proposal executes at once. */
-  private decide(approvalId: string, approve: boolean, expectedHash: unknown): { code: string | null } {
+  /**
+   * `POST approvals/bulk-decisions/overview`: the pending proposals the inbox lists with the filter, at
+   * most a set's bound in the inbox's order, without those decided one by one, counted per kind of action
+   * and object type, with the token of the set.
+   */
+  private bulkOverview(body: unknown): NhAssistantMockResult {
+    const request = (body ?? {}) as Record<string, unknown>;
+    const query = new URLSearchParams();
+    for (const key of ['subjectType', 'agentId', 'divisionId', 'runId', 'expiresBefore', 'sort']) {
+      if (typeof request[key] === 'string') {
+        query.set(key, request[key] as string);
+      }
+    }
+    if (Array.isArray(request['toolIds'])) {
+      for (const toolId of request['toolIds'] as unknown[]) {
+        query.append('toolId', String(toolId));
+      }
+    }
+
+    const listed = this.listed(query);
+    if (!('items' in listed)) {
+      return listed;
+    }
+
+    const individual = listed.items.filter(proposal => this.proposals.get(proposal.approvalId)?.individual);
+    const decidable = listed.items.filter(proposal => !this.proposals.get(proposal.approvalId)?.individual);
+    const set = decidable.slice(0, maxBulkDecisionSet);
+    let token: string | null = null;
+    let expiresAt: string | null = null;
+    if (set.length > 0) {
+      token = `mock-bulk-${this.bulkDecisions.size + 1}`;
+      expiresAt = new Date(Date.parse(this.now()) + bulkDecisionLifetimeMs).toISOString();
+      this.bulkDecisions.set(token, {
+        actorId: this.actorId(),
+        items: set.map(proposal => ({ approvalId: proposal.approvalId, proposalHash: proposal.proposalHash })),
+        expiresAt,
+        result: null
+      });
+    }
+
+    const response: AgentBulkDecisionOverview = {
+      token,
+      expiresAt,
+      count: set.length,
+      subjects: new Set(set.map(proposal => `${proposal.subjectType}|${proposal.subjectId}`)).size,
+      listed: listed.items.length,
+      remaining: decidable.length - set.length,
+      limit: maxBulkDecisionSet,
+      kinds: kindsOf(set),
+      tools: toolCounts(set),
+      subjectTypes: subjectTypeCounts(set),
+      individual: { count: individual.length, tools: toolCounts(individual) }
+    };
+    return { status: 200, body: response };
+  }
+
+  /**
+   * `POST approvals/bulk-decisions`: decides the set of a token once, each proposal with its own rules and
+   * the version the overview counted; a repeat reports the stored result.
+   */
+  private decideBulk(body: unknown): NhAssistantMockResult {
+    const request = body as { token?: unknown; decision?: unknown; reason?: unknown } | undefined;
+    if (!validDecision(request) || typeof request?.token !== 'string' || request.token.trim() === '') {
+      return failure('assistant-approval-decision-invalid');
+    }
+
+    const stored = this.bulkDecisions.get(request.token);
+    if (!stored || stored.actorId !== this.actorId()) {
+      return failure('assistant-bulk-decision-not-found');
+    }
+    if (stored.result) {
+      return { status: 200, body: { ...stored.result, repeated: true } };
+    }
+    if (Date.parse(stored.expiresAt) <= Date.parse(this.now())) {
+      return failure('assistant-bulk-decision-expired');
+    }
+
+    const approve = request.decision === 'approve';
+    const items: AgentBulkDecisionItem[] = stored.items.map(item => {
+      const outcome = this.decide(item.approvalId, approve, item.proposalHash, true);
+      const code = outcome.code;
+      return {
+        approvalId: item.approvalId,
+        outcome: code === null ? 'succeeded' : staleCodes.includes(code) ? 'stale' : 'refused',
+        code,
+        status: code === null ? this.proposals.get(item.approvalId)!.proposal.status : null
+      };
+    });
+    const result: AgentBulkDecisionResult = {
+      token: request.token,
+      decision: approve ? 'approve' : 'reject',
+      succeeded: items.filter(item => item.outcome === 'succeeded').length,
+      refused: items.filter(item => item.outcome === 'refused').length,
+      stale: items.filter(item => item.outcome === 'stale').length,
+      repeated: false,
+      items
+    };
+    stored.result = result;
+    return { status: 200, body: result };
+  }
+
+  /**
+   * Decides one proposal as the server does; an approved proposal executes at once. A decision of several
+   * at once (`bulk`) leaves a proposal that is decided one by one.
+   */
+  private decide(approvalId: string, approve: boolean, expectedHash: unknown, bulk = false): { code: string | null } {
     const stored = this.find(approvalId);
     if (!stored) {
       return { code: 'assistant-approval-not-found' };
@@ -418,6 +554,9 @@ export class NhAssistantMockProposals {
     }
     if (stored.proposal.status !== 'pending') {
       return { code: 'assistant-approval-not-pending' };
+    }
+    if (bulk && stored.individual) {
+      return { code: 'assistant-individual-decision-required' };
     }
     if (!stored.canDecide) {
       return { code: stored.reasonCode ?? 'assistant-approval-policy-denied' };
@@ -500,6 +639,26 @@ function consultationRefusal(route: NhAssistantConsultationRoute | null, initiat
     return askerDecidesCode;
   }
   return route === 'subject-agent-rights' && initiatorActorId === actorId ? fourEyesCode : null;
+}
+
+/** The codes of a proposal that is no longer what a bulk decision's overview showed. */
+const staleCodes = [
+  'assistant-proposal-hash-mismatch',
+  'assistant-approval-not-pending',
+  'assistant-approval-expired',
+  'assistant-proposal-stale'
+];
+
+/** Per kind of action and object type how many and on how many objects, the most first. */
+function kindsOf(items: readonly AgentProposal[]): AgentBulkDecisionKind[] {
+  return counted(items, proposal => `${proposal.toolId}|${proposal.subjectType}`).map(([, group]) => ({
+    toolId: group[0].toolId,
+    toolDisplayName: toolCounts(group)[0].displayName,
+    subjectType: group[0].subjectType,
+    subjectTypeName: group.find(proposal => proposal.subjectTypeName)?.subjectTypeName ?? null,
+    count: group.length,
+    subjects: new Set(group.map(proposal => proposal.subjectId)).size
+  }));
 }
 
 function isInboxStatus(status: string): status is AgentInboxStatus {

@@ -95,7 +95,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-server-not-found',
     'assistant-mcp-tool-not-found',
     'assistant-files-unavailable',
-    'assistant-file-not-found'
+    'assistant-file-not-found',
+    'assistant-bulk-decision-not-found'
   ],
   409: [
     'assistant-conversation-busy',
@@ -103,6 +104,9 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-message-duplicate',
     'assistant-approval-not-pending',
     'assistant-proposal-hash-mismatch',
+    'assistant-individual-decision-required',
+    'assistant-bulk-decision-expired',
+    'assistant-bulk-decision-in-progress',
     'assistant-participant-limit-reached',
     'assistant-no-accountable-owner',
     'assistant-agent-disabled',

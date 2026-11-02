@@ -55,6 +55,22 @@ public sealed class AssistantApprovalPolicySelectionSamplesTests(AssistantApprov
         using var refused = await DecideAsync(owner, sharedReview);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         Assert.Contains(NhAssistantErrorCodes.FourEyesRequired, await refused.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        // FB80: deciding the run's proposals together checks four eyes per proposal just the same.
+        using var overview = await owner.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions/overview",
+            new NhAssistantBulkDecisionOverviewRequest(null, null, null, sharedReview.RunId, null, null, null),
+            Json,
+            TestContext.Current.CancellationToken);
+        var token = (await overview.Content.ReadFromJsonAsync<NhAssistantBulkDecisionOverviewDto>(Json, TestContext.Current.CancellationToken))!.Token;
+        using var together = await owner.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions",
+            new NhAssistantBulkDecisionSetRequest(token, "approve", null),
+            Json,
+            TestContext.Current.CancellationToken);
+        var outcome = Assert.Single((await together.Content.ReadFromJsonAsync<NhAssistantBulkDecisionResultDto>(Json, TestContext.Current.CancellationToken))!.Items);
+        Assert.Equal(
+            (sharedReview.ApprovalId, NhAssistantBulkDecisionOutcomes.Refused, NhAssistantErrorCodes.FourEyesRequired),
+            (outcome.ApprovalId, outcome.Outcome, outcome.Code));
         using var decided = await DecideAsync(owner, aloneReview);
         Assert.Equal(HttpStatusCode.OK, decided.StatusCode);
         // A colleague who joins later changes nothing for the proposal: it keeps the policy it was recorded with.

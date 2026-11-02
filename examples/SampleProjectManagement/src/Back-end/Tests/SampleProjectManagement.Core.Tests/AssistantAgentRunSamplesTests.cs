@@ -468,6 +468,75 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Empty(none.Tools);
     }
 
+    [Fact]
+    public async Task The_inbox_decides_a_whole_kind_of_action_after_an_overview_and_leaves_the_equipment_orders()
+    {
+        // SPM-310, FB80: "Decide all" shows what it decides, decides exactly that set with each proposal's
+        // own rules, reports a repeat, and leaves the equipment orders, which are decided one by one.
+        var approver = await host.CreatePersonAsync();
+        await host.GrantProjectManagementAsync(approver);
+        using var client = host.CreateClient(approver.ToString());
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var first = await ProposeIntakeAsync(owner, "BULK-A", approver, host.DivisionId);
+        var second = await ProposeIntakeAsync(owner, "BULK-B", approver, host.DivisionId);
+        var project = await host.CreateProjectAsync("BULK-C", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(project, approver, ProjectMemberRole.Approver);
+        var conversation = await StartIntakeReviewerAsync(participant, project, $"Please order 2 monitors for project {project:D}.");
+        var order = await WaitForProposalAsync(client, conversation, NhAssistantApprovalStatuses.Pending, ProjectAiEquipmentTools.OrderEquipmentToolId);
+
+        using var overviewResponse = await client.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions/overview",
+            new NhAssistantBulkDecisionOverviewRequest(ProjectSubjects.Type, SampleIntakeReviewerComposition.AgentId, null, null, null, null, null),
+            Json);
+        var overview = (await overviewResponse.Content.ReadFromJsonAsync<NhAssistantBulkDecisionOverviewDto>(Json))!;
+        Assert.Equal((2, 2, 3, 0), (overview.Count, overview.Subjects, overview.Listed, overview.Remaining));
+        var kind = Assert.Single(overview.Kinds);
+        Assert.Equal((ProjectAiTools.ChangeStatusToolId, ProjectSubjects.Type, 2, 2), (kind.ToolId, kind.SubjectType, kind.Count, kind.Subjects));
+        Assert.Equal(1, overview.Individual.Count);
+        Assert.Equal(ProjectAiEquipmentTools.OrderEquipmentToolId, Assert.Single(overview.Individual.Tools).ToolId);
+
+        var decided = await client.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions",
+            new NhAssistantBulkDecisionSetRequest(overview.Token, "approve", "Routine intake."),
+            Json);
+        var result = (await decided.Content.ReadFromJsonAsync<NhAssistantBulkDecisionResultDto>(Json))!;
+        Assert.Equal((2, 0, 0, false), (result.Succeeded, result.Refused, result.Stale, result.Repeated));
+        Assert.Equal([first, second], result.Items.Select(item => item.ApprovalId));
+        foreach (var approvalId in new[] { first, second })
+        {
+            var read = (await client.GetFromJsonAsync<NhAssistantSubjectProposalDto>($"/api/assistant/approvals/{approvalId}", Json))!;
+            Assert.NotEqual(NhAssistantApprovalStatuses.Pending, read.Proposal.Status);
+        }
+        var repeated = (await (await client.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions",
+            new NhAssistantBulkDecisionSetRequest(overview.Token, "approve", null),
+            Json)).Content.ReadFromJsonAsync<NhAssistantBulkDecisionResultDto>(Json))!;
+        Assert.Equal((2, true), (repeated.Succeeded, repeated.Repeated));
+
+        // The order waits for a decision of its own; deciding it with others is refused.
+        var many = (await (await client.PostAsJsonAsync(
+            "/api/assistant/approvals/decisions",
+            new NhAssistantBulkDecisionRequest([order.ApprovalId], "approve", null)
+            {
+                ExpectedProposalHashes = new Dictionary<Guid, string> { [order.ApprovalId] = order.ProposalHash }
+            },
+            Json)).Content.ReadFromJsonAsync<NhAssistantBulkDecisionDto>(Json))!;
+        Assert.Equal(NhAssistantErrorCodes.IndividualDecisionRequired, Assert.Single(many.Results).Code);
+        Assert.Equal(
+            NhAssistantApprovalStatuses.Pending,
+            (await client.GetFromJsonAsync<NhAssistantSubjectProposalDto>($"/api/assistant/approvals/{order.ApprovalId}", Json))!.Proposal.Status);
+
+        // The token decides for nobody else.
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        using var refused = await outsider.PostAsJsonAsync(
+            "/api/assistant/approvals/bulk-decisions",
+            new NhAssistantBulkDecisionSetRequest(overview.Token, "approve", null),
+            Json);
+        Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+    }
+
     /// <summary>
     /// SPM-310: creates a project in the division with <paramref name="approver"/> as its approver, lets the
     /// intake reviewer propose to start it and returns that proposal.
@@ -7423,6 +7492,21 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
             ActiveDivisionId = DivisionId
         });
         dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = id, DivisionId = DivisionId });
+    }
+
+    /// <summary>
+    /// FB80: gives a person created later the division's project-manager role, so they may approve the
+    /// intake reviewer's status changes as the tool's approve policy requires.
+    /// </summary>
+    public async Task GrantProjectManagementAsync(Guid userId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var role = await dbContext.Set<NhDivisionRole>().FirstAsync(item => item.Name == "project-managers");
+        var membership = await dbContext.Set<NhDivisionUser>()
+            .SingleAsync(item => item.DivisionId == DivisionId && item.UserId == userId);
+        dbContext.Set<NhDivisionUserRole>().Add(new NhDivisionUserRole { DivisionUserId = membership.Id, DivisionRoleId = role.Id });
+        await dbContext.SaveChangesAsync();
     }
 
     /// <summary>

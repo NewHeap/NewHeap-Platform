@@ -49,6 +49,11 @@ const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * because deciding still checks each proposal on its own. The inbox takes the chosen kind (`toolId`),
  * the expiry (`expiresBefore`) and an order (`sort`).
  *
+ * FB80: the inbox offers "Decide all" for its whole filter, such as one kind of action. It first shows
+ * what it decides, how many times which kind of action on how many projects, and leaves the equipment
+ * orders, whose tool requires that each is decided on its own; then it decides exactly that set, each
+ * proposal with its own rules, and shows what succeeded, what was refused and what had changed.
+ *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
  * `canAdminister` from the assistant admin policy `app.project.edit-or-admin` (manage
