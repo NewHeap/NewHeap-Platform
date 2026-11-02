@@ -179,6 +179,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantServiceAccountBinding>();
             services.TryAddScoped<NhAssistantAgentControl>();
             services.TryAddScoped<INhAssistantAgentControl>(provider => provider.GetRequiredService<NhAssistantAgentControl>());
+            // FB82: an administrator's switches that let one agent run a tool without approval.
+            services.TryAddScoped<INhAssistantWithoutApprovalSwitches, NhAssistantWithoutApprovalService>();
             services.TryAddScoped<INhAiSubjectRetention, NhAssistantSubjectRetention>();
             services.TryAddScoped<NhAssistantScheduledTriggerJob>();
             // The recurring jobs of schedules in code; a host with RunSchedules false adds none (LS11).
@@ -338,6 +340,13 @@ internal sealed class NhAssistantStartupValidator(
         {
             throw new InvalidOperationException(
                 "The assistant budget, idempotency or approval-evidence manager was replaced. Call AddNewHeapAssistant after the application's own AI registrations.");
+        }
+        if (provider.GetService<INhAiWithoutApprovalSwitches>() is not NewHeap.Platform.AI.Chat.Governance.NhAssistantWithoutApprovalSwitches)
+        {
+            // FB82: running a tool without approval is decided only by the assistant's switches, which
+            // administrators change as audited data.
+            throw new InvalidOperationException(
+                "The assistant's switches for running tools without approval were replaced. Do not register another INhAiWithoutApprovalSwitches.");
         }
         if (state.ApplicationBudgetInTurns
             && !NhAssistantBudgetManager.IsApplicationManager(

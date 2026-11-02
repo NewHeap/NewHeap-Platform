@@ -802,6 +802,12 @@ public sealed record NhAssistantToolCatalogEntryDto(
     /// as MCP tools never do; their proposals stay in the run's own thread.
     /// </summary>
     public string? SubjectType { get; init; }
+
+    /// <summary>
+    /// Whether the tool allows in code that an administrator lets one agent run it without approval
+    /// (FB82, <c>AllowWithoutApproval</c>): the first of the two keys. MCP tools never do.
+    /// </summary>
+    public bool AllowWithoutApproval { get; init; }
 }
 
 /// <summary>

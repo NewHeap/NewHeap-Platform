@@ -970,6 +970,19 @@ public static class NhAssistantErrorCodes
     public const string ShadowVariant = "assistant-shadow-variant";
 
     /// <summary>
+    /// The agent cannot run the tool without approval (FB82): the tool does not allow it in code
+    /// (<see cref="NhAiToolAttribute.AllowWithoutApproval"/>), the tool is not among the agent's tools,
+    /// or the agent does no work of its own, such as a chat-only agent or a shadow variant.
+    /// </summary>
+    public const string WithoutApprovalNotAllowed = "assistant-without-approval-not-allowed";
+
+    /// <summary>
+    /// A switch that lets an agent run a tool without approval goes live only from shadow (FB82), also
+    /// after the tool's contract changed.
+    /// </summary>
+    public const string WithoutApprovalShadowFirst = "assistant-without-approval-shadow-first";
+
+    /// <summary>
     /// The agent is no shadow variant created as data (<c>UseShadowVariantsAsData</c>), so it has no
     /// live agent to be promoted onto.
     /// </summary>
