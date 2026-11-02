@@ -481,7 +481,8 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.True(lookup.GetProperty("readOnlyHint").GetBoolean());
         Assert.Equal("mcp.planning.lookup-order", lookup.GetProperty("localId").GetString());
         Assert.False(tools.EnumerateArray().Single(tool => tool.GetProperty("remoteName").GetString() == "reschedule").GetProperty("isEnabled").GetBoolean());
-        AssertNames(catalog[0], "id", "source", "effect", "description", "subjectType");
+        // FB82: whether the tool carries the code key to run without approval; never a secret.
+        AssertNames(catalog[0], "id", "source", "effect", "description", "subjectType", "allowWithoutApproval");
         Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "projects.search" && entry.GetProperty("source").GetString() == "local");
         // MCP tools never declare the object they concern.
         Assert.Contains(catalog.EnumerateArray(), entry => entry.GetProperty("id").GetString() == "mcp.planning.lookup-order"
