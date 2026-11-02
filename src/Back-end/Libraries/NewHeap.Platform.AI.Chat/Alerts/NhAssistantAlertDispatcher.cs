@@ -179,6 +179,11 @@ internal sealed class NhAssistantAlertDispatcher(
         foreach (var delivery in deliveries)
         {
             var alert = delivery.Alert!;
+            if (alert.ExpiresAt is { } expiresAt && expiresAt <= pass.Now)
+            {
+                // Expired before the maintenance closed it: never sent; closing it takes the delivery back.
+                continue;
+            }
             if (!registration.AlertKinds.TryGetValue(alert.KindId, out var kind))
             {
                 await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.KindUnknown, cancellationToken);
