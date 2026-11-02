@@ -628,8 +628,8 @@ internal static partial class NhAssistantAlertModelText
         }
 
         var compatible = text.Normalize(NormalizationForm.FormKC)
-            .Replace('。', '.')
-            .Replace('｡', '.')
+            .Replace('\u3002', '.')
+            .Replace('\uFF61', '.')
             .ToLowerInvariant();
         if (compatible.IndexOfAny(['<', '>', '[', ']', '{', '}', '`']) >= 0 || Entity().IsMatch(compatible))
         {
