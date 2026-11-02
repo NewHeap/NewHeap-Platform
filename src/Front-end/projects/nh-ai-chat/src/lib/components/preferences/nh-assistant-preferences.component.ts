@@ -13,6 +13,7 @@ import { NhAssistantMcpConnectionsComponent } from './nh-assistant-mcp-connectio
 import { NhAssistantPushSwitchComponent } from '../../internal/nh-assistant-push-switch.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
+import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
 
 /** Maximum length of the user's own instructions. */
@@ -37,6 +38,8 @@ let nextId = 0;
 })
 export class NhAssistantPreferencesComponent {
   private readonly api = inject(NhAssistantApiService);
+  /** @deprecated The push switch is shown by an internal component; use `NhAssistantPushService` directly. */
+  readonly push = inject(NhAssistantPushService);
   private subscription?: Subscription;
 
   /** Emitted when the user leaves the preferences. */
@@ -96,6 +99,20 @@ export class NhAssistantPreferencesComponent {
   /** Shows why desktop notifications could not be turned on or off. */
   onPushFailed(error: unknown): void {
     this.error.set(toNhAssistantError(error));
+  }
+
+  /**
+   * Turns desktop notifications on or off; turning them on asks the browser for permission.
+   * @deprecated The push switch is shown by an internal component; call `NhAssistantPushService.setEnabled`.
+   */
+  async toggleNotifications(event: Event): Promise<void> {
+    const enabled = (event.target as HTMLInputElement).checked;
+    this.error.set(null);
+    try {
+      await this.push.setEnabled(enabled);
+    } catch (error) {
+      this.onPushFailed(error);
+    }
   }
 
   onInstructionsInput(event: Event): void {

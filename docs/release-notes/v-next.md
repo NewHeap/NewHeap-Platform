@@ -110,6 +110,5 @@
 
 | Breaking change | Required action |
 |---|---|
-| `nh-assistant-preferences` shows its push switch through an internal component and no longer has the public `push` field and `toggleNotifications`. | Use `NhAssistantPushService` (`setEnabled`, `state`) for the push switch in a host's own template. |
 | `PUT notifications` in the mock API changes the push switch only when the body names `pushEnabled`. | Send `pushEnabled` to change it in a test, as the server requires. |
 | The push worker's registration URL gains the `alerts` parameter, so browsers update the registered worker once. | Copy the new `nh-assistant-push-worker.js` into the application's assets. |
