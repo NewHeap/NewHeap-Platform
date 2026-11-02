@@ -2660,6 +2660,40 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantMessage", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantNotificationPreference", b =>
+                {
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("KindId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<TimeOnly?>("DigestTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool?>("InApp")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Muted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("Push")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("ActorId", "Category", "KindId");
+
+                    b.ToTable("AssistantNotificationPreference", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantNotificationSetting", b =>
                 {
                     b.Property<string>("ActorId")
