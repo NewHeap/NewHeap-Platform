@@ -41,6 +41,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// division is in New York gets it at 07:30 there. A person who muted the kind in their notification
 /// preferences receives nothing. The digest reaches people through Web Push, the in-app notifications
 /// and the sample's stand-in for an e-mail channel (<see cref="SampleAlertOutbox"/>).
+/// The administration (FB87 phase 2, lane AD): the kind lets an administrator switch it off and change
+/// its default delivery (<c>AdministratorMayChange</c>), which the Alerts section of the sample's
+/// assistant administration does through <c>PUT admin/alert-kinds/{id}</c>; the delivery and a person's
+/// preferences then follow the administrator's settings, and a kind that is off raises nothing.
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleDeadlineAlertsComposition
@@ -109,6 +113,8 @@ public static class SampleDeadlineAlertsComposition
                     .WorkdaysOnly()
                     .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent))
                 .PersonMayChange(NhAssistantAlertChoices.All)
+                // An administrator may switch the warning off and move its digest; recipients and texts stay code.
+                .AdministratorMayChange(NhAssistantAlertAdminChoices.SwitchOff | NhAssistantAlertAdminChoices.Delivery)
                 // A lock screen shows the title only, never the open tasks.
                 .PushShows(NhAssistantAlertPushContent.TitleOnly)
                 // A round that no longer raises the warning about its project resolves the watch's own.

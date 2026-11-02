@@ -158,6 +158,87 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Equal(0, (await SummaryAsync(owner, about)).Unread);
     }
 
+    [Fact]
+    public async Task SPM_392_an_administrator_moves_the_warnings_digest_and_switches_it_off_within_its_kinds_bounds()
+    {
+        // The administration of alert kinds (FB87 phase 2): the deadline watch's kind lets an
+        // administrator switch it off and change its default delivery; its recipients and texts stay code.
+        const string route = $"/api/assistant/admin/alert-kinds/{SampleDeadlineAlertsComposition.KindId}";
+        using var administrator = host.CreateClient("spm-392-admin", admin: true);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>();
+        try
+        {
+            // Only the administration changes a kind: the project's owner may not.
+            using (var forbidden = await owner.PutAsync(route, AssistantSampleHost.Json(new { enabled = false, expectedVersion = 0 })))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            }
+
+            var kind = await AlertKindAsync(administrator);
+            Assert.Equal(new NhAssistantAdminAlertKindChoicesDto(true, true, true, true, true), kind.AdministratorMayChange);
+            Assert.Equal(("daily-digest", "07:30", true, "urgent"), (kind.CodeDelivery.Mode, Assert.Single(kind.CodeDelivery.DigestTimes), kind.CodeDelivery.WorkdaysOnly, kind.CodeDelivery.ImmediatelyFrom));
+
+            // The morning shift reads the warning at 08:15; a person's preferences show the new default.
+            NhAssistantAdminAlertKindDto moved;
+            var later = new { mode = "daily-digest", digestTimes = new[] { "08:15" }, workdaysOnly = true, immediatelyFrom = "urgent" };
+            using (var response = await administrator.PutAsync(route, AssistantSampleHost.Json(new
+                   {
+                       enabled = true,
+                       delivery = later,
+                       expectedVersion = kind.Settings.Version,
+                       reason = "The project office starts later"
+                   })))
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                moved = (await response.Content.ReadFromJsonAsync<NhAssistantAdminAlertKindDto>(Json))!;
+            }
+            Assert.Equal(["08:15"], moved.Delivery.DigestTimes);
+            var settings = await owner.GetFromJsonAsync<NhAssistantNotificationSettingsDto>("/api/assistant/notifications", Json);
+            Assert.Equal("08:15", Assert.Single(settings!.AlertKinds, item => item.Id == SampleDeadlineAlertsComposition.KindId).DefaultDigestTime);
+
+            // The application's warning about a project due today counts in the kind's numbers.
+            host.MoveToNextWorkingMorning();
+            var today = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+            var project = await host.CreateProjectAsync(
+                "ADMIN",
+                host.OwnerId,
+                ProjectStatus.Active,
+                SampleDeadlineAlertsComposition.StartOf(today).AddHours(17));
+            await host.AddTasksAsync(project, "Approve the budget");
+            Assert.True((await WarnAsync(project)).Success);
+            var period = $"?to={Uri.EscapeDataString(host.Clock.GetUtcNow().AddMinutes(1).ToString("O"))}";
+            Assert.True((await AlertKindAsync(administrator, period)).Numbers!.Raised >= 1);
+
+            // Switched off, keeping its delivery, the kind raises nothing and a person has nothing to choose about it.
+            using (var off = await administrator.PutAsync(route, AssistantSampleHost.Json(new { enabled = false, delivery = later, expectedVersion = moved.Settings.Version })))
+            {
+                Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+            }
+            var refused = await WarnAsync(project);
+            Assert.Equal(NhAssistantAlertCodes.KindOff, Assert.Single(refused.GetResultItems()).Name);
+            settings = await owner.GetFromJsonAsync<NhAssistantNotificationSettingsDto>("/api/assistant/notifications", Json);
+            Assert.DoesNotContain(settings!.AlertKinds, item => item.Id == SampleDeadlineAlertsComposition.KindId);
+            Assert.Contains(audit.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAlertKindChanged
+                && evt.ActorId == "spm-392-admin"
+                && evt.AlertKind == SampleDeadlineAlertsComposition.KindId
+                && evt.ChangedFields == "enabled");
+        }
+        finally
+        {
+            // The other tests of the watch expect the kind as its code declares it.
+            var current = await AlertKindAsync(administrator);
+            using var reset = await administrator.PutAsync(route, AssistantSampleHost.Json(new { enabled = true, delivery = (object?)null, expectedVersion = current.Settings.Version }));
+            Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+        }
+    }
+
+    private static async Task<NhAssistantAdminAlertKindDto> AlertKindAsync(HttpClient administrator, string period = "")
+    {
+        var view = await administrator.GetFromJsonAsync<NhAssistantAdminAlertKindsDto>("/api/assistant/admin/alert-kinds" + period, Json);
+        return Assert.Single(view!.Kinds, item => item.Id == SampleDeadlineAlertsComposition.KindId);
+    }
+
     private static async Task<NhAssistantAlertListDto> ListAlertsAsync(HttpClient client, string about, string? status = null)
     {
         var query = status is null ? about : $"{about}&status={status}";
