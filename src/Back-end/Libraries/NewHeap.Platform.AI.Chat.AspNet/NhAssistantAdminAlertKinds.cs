@@ -139,7 +139,11 @@ internal sealed class NhAssistantAdminAlertKinds(
             Reason = reason
         };
         Apply(settings, wanted);
-        var changed = ChangedFields(current, settings);
+        var changed = ChangedFields(
+            current?.Enabled ?? true,
+            StoredDeliveryOf(kind.Id, current) ?? code,
+            settings.Enabled,
+            wanted ?? code);
         if (changed.Count == 0)
         {
             return TaskResult<NhAssistantAdminAlertKindDto>.Succeeded(ToDto(NhAssistantAlertKindSettings.Merge(kind, current)));
@@ -386,34 +390,38 @@ internal sealed class NhAssistantAdminAlertKinds(
     }
 
     /// <summary>
-    /// The names of the settings that differ between what is stored and the change, for the audit; the
-    /// reason alone is no change.
+    /// The names of the settings that differ between what applied before and the change, for the audit:
+    /// each part of the delivery compared with the administrator's delivery or, without one, the code's.
+    /// The reason alone is no change.
     /// </summary>
-    private static IReadOnlyList<string> ChangedFields(AssistantAlertKindSetting? before, AssistantAlertKindSetting after)
+    private static IReadOnlyList<string> ChangedFields(
+        bool enabledBefore,
+        NhAssistantAlertEffectiveDelivery before,
+        bool enabledAfter,
+        NhAssistantAlertEffectiveDelivery after)
     {
-        var current = before ?? new AssistantAlertKindSetting { KindId = after.KindId };
         var changed = new List<string>();
-        if (current.Enabled != after.Enabled)
+        if (enabledBefore != enabledAfter)
         {
             changed.Add("enabled");
         }
-        if (!string.Equals(current.DeliveryMode, after.DeliveryMode, StringComparison.Ordinal))
+        if (before.Mode != after.Mode)
         {
             changed.Add("delivery-mode");
         }
-        if (!string.Equals(current.DigestTimes, after.DigestTimes, StringComparison.Ordinal))
+        if (!before.DigestTimes.SequenceEqual(after.DigestTimes))
         {
             changed.Add("digest-times");
         }
-        if (current.WorkdaysOnly != after.WorkdaysOnly)
+        if (before.WorkdaysOnly != after.WorkdaysOnly)
         {
             changed.Add("workdays-only");
         }
-        if (current.ImmediatelyFrom != after.ImmediatelyFrom)
+        if (before.ImmediatelyFrom != after.ImmediatelyFrom)
         {
             changed.Add("immediately-from");
         }
-        if (current.QuietHoursStart != after.QuietHoursStart || current.QuietHoursEnd != after.QuietHoursEnd)
+        if (before.QuietHours != after.QuietHours)
         {
             changed.Add("quiet-hours");
         }
