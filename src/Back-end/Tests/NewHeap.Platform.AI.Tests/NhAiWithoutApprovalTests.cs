@@ -88,7 +88,8 @@ public sealed class NhAiWithoutApprovalTests
         "consumer-authoritative",
         "no-policy",
         "not-agent-exposed",
-        "composition"
+        "composition",
+        "individual-decision"
     };
 
     [Theory]
@@ -103,7 +104,8 @@ public sealed class NhAiWithoutApprovalTests
             "consumer-authoritative" => Allowed with { Approval = NhAiApprovalRequirement.ConsumerAuthoritative },
             "no-policy" => Allowed with { AuthorizationPolicies = [] },
             "not-agent-exposed" => Allowed with { Exposure = NhAiToolExposure.Local },
-            _ => Allowed with { CompositionFeature = NhAiCompositionFeature.Compositions }
+            "composition" => Allowed with { CompositionFeature = NhAiCompositionFeature.Compositions },
+            _ => Allowed with { RequireIndividualDecision = true }
         };
         var switches = new FixedSwitches(new NhAiWithoutApprovalDecision(NhAiWithoutApprovalMode.Live, 1));
         var invoker = CreateInvoker(new NhAiCapturedAuditSink(), switches);

@@ -79,7 +79,7 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// operator cancelled its operation, and withdraws approved inline proposals that a run never
 /// executed because it ended first, such as after a person's cancel. Once an hour it removes board
 /// visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that
-/// are no longer registered. Every change is a compare-and-set update or a conditional delete, so
+/// are no longer registered, and the sets of bulk decisions a day after their lifetime. Every change is a compare-and-set update or a conditional delete, so
 /// several instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
 /// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
 /// clock); runs, background-operation liveness and board visits keep the system clock.
@@ -197,8 +197,33 @@ internal sealed class NhAssistantRunMaintenance(
         if (now - _boardVisitsCleanedAt >= BoardVisitCleanupInterval)
         {
             await RemoveStaleBoardVisitsAsync(services.GetRequiredService<NhAssistantBoardStore>(), now, cancellationToken);
+            // A bulk decision's set is read again only by a repeat soon after its decision.
+            await RemoveExpiredDecisionSetsAsync(services.GetRequiredService<NhAssistantDecisionBatchStore>(), proposalTime, cancellationToken);
             _boardVisitsCleanedAt = now;
         }
+    }
+
+    /// <summary>
+    /// How long after its lifetime the set of a bulk decision is kept, so a repeat of its token still
+    /// reports its outcome.
+    /// </summary>
+    internal static readonly TimeSpan DecisionSetRetention = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Removes the sets of bulk decisions whose lifetime, on the application's clock, ended more than
+    /// <see cref="DecisionSetRetention"/> ago.
+    /// </summary>
+    internal async Task<int> RemoveExpiredDecisionSetsAsync(
+        NhAssistantDecisionBatchStore batches,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var removed = await batches.RemoveExpiredAsync(now - DecisionSetRetention, cancellationToken);
+        if (removed > 0)
+        {
+            logger.LogInformation("Assistant run maintenance removed {Count} sets of bulk decisions.", removed);
+        }
+        return removed;
     }
 
     /// <summary>

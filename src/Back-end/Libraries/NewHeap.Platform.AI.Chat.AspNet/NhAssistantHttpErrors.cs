@@ -175,6 +175,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpInitiatorOnly);
         Add(statuses, StatusCodes.Status404NotFound,
             NhAssistantErrorCodes.Disabled,
+            NhAssistantErrorCodes.BulkDecisionNotFound,
             NhAssistantErrorCodes.ConversationNotFound,
             NhAssistantErrorCodes.AgentNotFound,
             NhAssistantErrorCodes.ApprovalNotFound,
@@ -208,6 +209,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.MessageDuplicate,
             NhAssistantErrorCodes.ApprovalNotPending,
             NhAssistantErrorCodes.ProposalHashMismatch,
+            NhAssistantErrorCodes.IndividualDecisionRequired,
+            NhAssistantErrorCodes.BulkDecisionExpired,
+            NhAssistantErrorCodes.BulkDecisionInProgress,
             NhAssistantErrorCodes.ParticipantLimitReached,
             NhAssistantErrorCodes.NoAccountableOwner,
             NhAssistantErrorCodes.AgentDisabled,

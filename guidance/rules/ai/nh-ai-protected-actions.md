@@ -5,7 +5,7 @@ area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
 sample-cases: ["SPM-224", "SPM-240", "SPM-268", "SPM-356", "SPM-372", "SPM-378", "SPM-379", "SPM-391"]
-public-symbols: ["INhAiWithoutApprovalSwitches", "NhAiWithoutApproval", "NhAiWithoutApprovalMode", "NhAiWithoutApprovalDecision", "NhAiToolAttribute.AllowWithoutApproval", "NhAiToolDescriptor.AllowWithoutApproval", "NhAiInvocationContext.WithoutApproval", "NhAiAuditRecord.WithoutApprovalMode", "NhAiAuditRecord.WithoutApprovalSwitchVersion", "INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult", "AllowAgentGrant", "NhAiGrantSource", "NhAiToolCallOrigin", "NhAiToolCallOriginKind", "INhAssistantApprovalPolicySelector", "NhAssistantApprovalPolicySelection", "INhAssistantApproverCandidates"]
+public-symbols: ["INhAiWithoutApprovalSwitches", "NhAiWithoutApproval", "NhAiWithoutApprovalMode", "NhAiWithoutApprovalDecision", "NhAiToolAttribute.AllowWithoutApproval", "NhAiToolDescriptor.AllowWithoutApproval", "NhAiInvocationContext.WithoutApproval", "NhAiAuditRecord.WithoutApprovalMode", "NhAiAuditRecord.WithoutApprovalSwitchVersion", "INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult", "AllowAgentGrant", "NhAiGrantSource", "NhAiToolCallOrigin", "NhAiToolCallOriginKind", "INhAssistantApprovalPolicySelector", "NhAssistantApprovalPolicySelection", "INhAssistantApproverCandidates", "RequireIndividualDecision"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -127,8 +127,9 @@ affects no one outside the application and that people approve almost always,
 such as ticking off a task; never on a payment, a message to an external party,
 an irreversible or a bulk change. The generator refuses it (`NHAI019`) without
 agent exposure and an authorization policy, and for any effect other than
-`IdempotentMutation` or `Mutation` or an approval the platform does not decide
-(`Issuer`, `ConsumerAuthoritative`); `NhAiWithoutApproval.Validate` refuses the
+`IdempotentMutation` or `Mutation`, an approval the platform does not decide
+(`Issuer`, `ConsumerAuthoritative`) and a tool that declares `RequireIndividualDecision`, whose effect a
+person must decide on its own; `NhAiWithoutApproval.Validate` refuses the
 same for a hand-built or attested catalog, and the invoker never lifts an approval
 for such a contract. MCP imports, compositions and the script tool never allow it.
 The key changes the tool's contract hash. The administrator's key is data: a
@@ -163,6 +164,14 @@ selector that chooses an unknown policy, throws or misses its time limit refuses
 the application's executor read that recorded policy (`PolicyId`, `Mode`) on their context and hand-off,
 and may close a proposal whose choice no longer holds (SPM-379). See `nh-ai-agent-runs` for the selection,
 the directory and the guards.
+
+A decision of many proposals at once keeps every rule per proposal: a bulk decision of a filter of the
+approval inbox, and a decision of several by id, check four-eyes, the approver rules, the tool's approve
+policy and the guards for each proposal as a decision of one does, so the creator of a four-eyes review is
+refused it among others too (SPM-356). Declare `RequireIndividualDecision = true` on a tool whose effect
+cannot be undone, such as a message to an external party or an order at a supplier: its proposals stay
+out of every bulk decision and are decided one by one. It is not part of the tool's contract hash, so
+existing approvals stay valid when a tool opts in.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
@@ -209,6 +218,7 @@ approval evidence, and a call the tool makes internally carries none.
 - Adding `AllowWithoutApproval` to a tool whose effect cannot be undone, leaves the application or
   changes much at once, or to every tool of a set; or registering an own `INhAiWithoutApprovalSwitches`
   or effect policy to let calls run without approval outside the audited switch.
+- Letting people approve an irreversible effect, such as an external message, among hundreds of routine proposals at once; declare `RequireIndividualDecision` on its tool.
 
 - Treating a conversational confirmation as approval.
 - Letting an agent approve its own proposal or widening the proposal after approval.

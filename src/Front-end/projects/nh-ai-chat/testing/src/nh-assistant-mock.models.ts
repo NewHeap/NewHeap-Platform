@@ -889,6 +889,13 @@ export interface NhAssistantMockProposal {
    * `withdrawn` proposal and a `shadow-superseded` shadow proposal. Default none.
    */
   supersededByApprovalId?: string | null;
+  /**
+   * Whether the proposal's tool requires that each of its proposals is decided on its own
+   * (`RequireIndividualDecision` on the server). Default `false`. A bulk decision's overview leaves such a
+   * proposal out of its set and counts it in `individual`, and deciding several by id refuses it with
+   * `assistant-individual-decision-required`.
+   */
+  requireIndividualDecision?: boolean;
 }
 
 /** One request the mock API received, for assertions in tests. */

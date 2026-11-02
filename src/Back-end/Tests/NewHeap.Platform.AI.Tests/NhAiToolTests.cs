@@ -486,6 +486,7 @@ public sealed class NhAiToolTests
     [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.ConsumerAuthoritative, Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
     [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required", "[Authorize]", "NhAiToolExposure.Agent")]
     [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Mcp")]
+    [InlineData("NhAiToolEffect.Mutation", "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, RequireIndividualDecision = true", "[Authorize(Policy = \"projects.manage\")]", "NhAiToolExposure.Agent")]
     public void Generator_refuses_running_without_approval_for_a_contract_that_may_not_allow_it(
         string effect,
         string namedArguments,
@@ -532,6 +533,18 @@ public sealed class NhAiToolTests
         var runResult = driver.GetRunResult();
         Assert.Contains(runResult.Diagnostics, diagnostic => diagnostic.Id == "NHAI019");
         Assert.DoesNotContain(runResult.GeneratedTrees, tree => tree.ToString().Contains("AllowWithoutApproval", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Generator_emits_an_individual_decision_without_changing_the_contract()
+    {
+        var plain = GenerateAgentTool(string.Empty);
+        var individual = GenerateAgentTool(", RequireIndividualDecision = true");
+
+        Assert.DoesNotContain("RequireIndividualDecision", plain, StringComparison.Ordinal);
+        Assert.Contains("RequireIndividualDecision = true,", individual, StringComparison.Ordinal);
+        // How a person decides is no part of the contract: pending proposals keep their binding.
+        Assert.Equal(ReadContractHash(plain), ReadContractHash(individual));
     }
 
     [Fact]

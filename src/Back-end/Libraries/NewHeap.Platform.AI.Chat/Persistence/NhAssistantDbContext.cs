@@ -112,6 +112,7 @@ public sealed class NhAssistantDbContext : DbContext
     public DbSet<AssistantAgentPackageLink> AgentPackageLinks => Set<AssistantAgentPackageLink>();
 
     public DbSet<AssistantAgentToolSwitch> AgentToolSwitches => Set<AssistantAgentToolSwitch>();
+    public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -866,6 +867,20 @@ public sealed class NhAssistantDbContext : DbContext
             visit.Property(item => item.ActorId).HasMaxLength(256);
             visit.Property(item => item.GroupId).HasMaxLength(NhAssistantAgentGroupDefinition.MaxIdLength);
             visit.Property(item => item.ScopeKey).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<AssistantDecisionBatch>(batch =>
+        {
+            batch.ToTable("AssistantDecisionBatch");
+            batch.HasKey(item => item.Id);
+            batch.Property(item => item.Id).ValueGeneratedNever();
+            batch.Property(item => item.ActorId).HasMaxLength(256).IsRequired();
+            batch.Property(item => item.TenantId).HasMaxLength(256);
+            batch.Property(item => item.ItemsJson).IsRequired();
+            batch.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            batch.Property(item => item.Decision).HasMaxLength(16);
+            // Serves the run maintenance, which removes sets some time after they could be decided.
+            batch.HasIndex(item => item.ExpiresAt);
         });
 
         modelBuilder.Entity<AssistantAgentMetadata>(metadata =>

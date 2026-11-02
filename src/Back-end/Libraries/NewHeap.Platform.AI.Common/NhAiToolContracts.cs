@@ -195,10 +195,17 @@ public sealed class NhAiToolAttribute(
     /// <see cref="NhAiToolExposure.Agent"/>, an authorization policy, the effect
     /// <see cref="NhAiToolEffect.IdempotentMutation"/> or <see cref="NhAiToolEffect.Mutation"/> and an
     /// approval that the platform decides (not <see cref="NhAiApprovalRequirement.Issuer"/> or
-    /// <see cref="NhAiApprovalRequirement.ConsumerAuthoritative"/>); the generator refuses it otherwise
-    /// (<c>NHAI019</c>). Setting it changes the tool's contract hash.
+    /// <see cref="NhAiApprovalRequirement.ConsumerAuthoritative"/>) and not <see cref="RequireIndividualDecision"/>;
+    /// the generator refuses it otherwise (<c>NHAI019</c>). Setting it changes the tool's contract hash.
     /// </summary>
     public bool AllowWithoutApproval { get; set; }
+    /// Keeps the tool's proposals out of every decision of several proposals at once: a person decides
+    /// each one on its own card. Use it for an effect that cannot be undone, such as a message to an
+    /// external party. A bulk decision of a filter leaves such proposals out of its set and says how many
+    /// it left out, and deciding several by id refuses each one with
+    /// <c>assistant-individual-decision-required</c>. It does not change the tool's contract hash.
+    /// </summary>
+    public bool RequireIndividualDecision { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
@@ -327,6 +334,10 @@ public sealed record NhAiToolDescriptor(
     /// contract that may not allow it, and the invoker never lifts an approval for such a contract.
     /// </summary>
     public bool AllowWithoutApproval { get; init; }
+    /// Whether a person decides every proposal of this tool on its own, never together with others.
+    /// See <see cref="NhAiToolAttribute.RequireIndividualDecision"/>.
+    /// </summary>
+    public bool RequireIndividualDecision { get; init; }
 
     /// <summary>
     /// The object a call of this tool concerns, declared with <see cref="NhAiSubjectAttribute"/>;

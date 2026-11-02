@@ -84,13 +84,15 @@ public static class NhAiWithoutApproval
     /// Whether the tool's contract allows running without approval: it opts in, is exposed to agents,
     /// names an authorization policy, changes data reversibly (<see cref="NhAiToolEffect.IdempotentMutation"/>
     /// or <see cref="NhAiToolEffect.Mutation"/>; never a read, an external side effect or a destructive
-    /// effect) and leaves its approval to the platform (never an issuer or a consumer-authoritative
-    /// approval).
+    /// effect), leaves its approval to the platform (never an issuer or a consumer-authoritative
+    /// approval) and lets people decide its proposals together with others (never
+    /// <see cref="NhAiToolDescriptor.RequireIndividualDecision"/>, which marks an effect that cannot be undone).
     /// </summary>
     public static bool IsAllowedBy(NhAiToolDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         return descriptor.AllowWithoutApproval
+            && !descriptor.RequireIndividualDecision
             && descriptor.CompositionFeature == NhAiCompositionFeature.None
             && (descriptor.Exposure & NhAiToolExposure.Agent) != 0
             && descriptor.RequiresAuthorization
@@ -113,7 +115,7 @@ public static class NhAiWithoutApproval
             throw new InvalidOperationException(
                 $"AI tool '{descriptor.Id}' allows running without approval, which requires Agent exposure, an authorization policy, "
                 + "the effect IdempotentMutation or Mutation and an approval the platform decides; it cannot be a composition, "
-                + "an issuer, consumer-authoritative, an external side effect or destructive.");
+                + "an issuer, consumer-authoritative, an external side effect, destructive or require an individual decision.");
         }
     }
 

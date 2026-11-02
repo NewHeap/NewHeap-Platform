@@ -715,7 +715,14 @@
     "report-scope": "Alleen voor assistentbeheerders: wat mensen zeiden toen ze voorstellen van de intake-reviewer afwezen.",
     "active-division-only": "Alleen voorstellen van mijn actieve divisie",
     "run-only": "De voorstellen van de run waarover een melding gaat",
-    "show-all": "Alle voorstellen tonen"
+    "show-all": "Alle voorstellen tonen",
+    "kind": "Soort actie",
+    "all-kinds": "Elke soort ({{count}} in de lijst)",
+    "kind-listed": "{{name}} ({{count}} in de lijst)",
+    "order": "Volgorde",
+    "order-expiry": "Verloopt het eerst",
+    "order-created": "Het eerst voorgesteld",
+    "expiring-soon": "Alleen wat binnen 24 uur verloopt ({{count}} in de lijst)"
   },
   "project-management-board": {
     "navigation": "Projectbeheer",

@@ -174,7 +174,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor InvalidWithoutApproval = new(
         "NHAI019",
         "AI tool cannot run without approval",
-        "AI tool '{0}' allows running without approval, which requires Agent exposure, an authorization policy, the effect IdempotentMutation or Mutation and an approval the platform decides; an issuer, a consumer-authoritative approval, a read, an external side effect or a destructive effect cannot allow it",
+        "AI tool '{0}' allows running without approval, which requires Agent exposure, an authorization policy, the effect IdempotentMutation or Mutation and an approval the platform decides; an issuer, a consumer-authoritative approval, a read, an external side effect, a destructive effect or a tool that requires an individual decision cannot allow it",
         "NewHeap.AI",
         DiagnosticSeverity.Error,
         true);
@@ -302,6 +302,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             var allowAgentGrant = GetNamedBool(toolAttribute, "AllowAgentGrant");
             var approvalPolicy = GetNamedString(toolAttribute, "ApprovalPolicy");
             var allowWithoutApproval = GetNamedBool(toolAttribute, "AllowWithoutApproval");
+            // How a person decides the proposals is no part of what the tool does, so it stays out of
+            // the contract hash and a pending proposal keeps its binding when the author adds it.
+            var requireIndividualDecision = GetNamedBool(toolAttribute, "RequireIndividualDecision");
             if (version < 1)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -353,10 +356,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             }
             // Running without approval is the one exception to an agent's effect waiting for a person:
             // only a reversible change of the application's own data that the platform approves, for
-            // agents and behind a policy. Effect 1 = IdempotentMutation, 2 = Mutation; approval
-            // 0 = PolicyControlled, 1 = Required, 2 = NotRequired.
+            // agents and behind a policy, and never a tool whose proposals a person decides one by one.
+            // Effect 1 = IdempotentMutation, 2 = Mutation; approval 0 = PolicyControlled, 1 = Required,
+            // 2 = NotRequired.
             if (allowWithoutApproval
-                && ((exposure & 4) == 0
+                && (requireIndividualDecision
+                    || (exposure & 4) == 0
                     || policies.Length == 0
                     || (effect != 1 && effect != 2)
                     || (approval != 0 && approval != 1 && approval != 2)))
@@ -565,7 +570,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 approvalPolicy,
                 subject.Type,
                 subject.ArgumentName,
-                allowWithoutApproval));
+                allowWithoutApproval,
+                requireIndividualDecision));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -818,6 +824,10 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         if (tool.AllowWithoutApproval)
         {
             builder.AppendLine("        AllowWithoutApproval = true,");
+        }
+        if (tool.RequireIndividualDecision)
+        {
+            builder.AppendLine("        RequireIndividualDecision = true,");
         }
         if (tool.SubjectType is not null && tool.SubjectArgument is not null)
         {
@@ -1958,7 +1968,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             string? approvalPolicy,
             string? subjectType,
             string? subjectArgument,
-            bool allowWithoutApproval)
+            bool allowWithoutApproval,
+            bool requireIndividualDecision)
         {
             Method = method;
             SetId = setId;
@@ -1998,6 +2009,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             SubjectType = subjectType;
             SubjectArgument = subjectArgument;
             AllowWithoutApproval = allowWithoutApproval;
+            RequireIndividualDecision = requireIndividualDecision;
         }
 
         public IMethodSymbol Method { get; }
@@ -2039,6 +2051,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string? SubjectType { get; }
         public string? SubjectArgument { get; }
         public bool AllowWithoutApproval { get; }
+        public bool RequireIndividualDecision { get; }
     }
 
     /// <summary>
