@@ -188,6 +188,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantAgentControl>(provider => provider.GetRequiredService<NhAssistantAgentControl>());
             // FB82: an administrator's switches that let one agent run a tool without approval.
             services.TryAddScoped<INhAssistantWithoutApprovalSwitches, NhAssistantWithoutApprovalService>();
+            // FB87-9: an administrator's switches that let one agent's model raise alerts of one kind.
+            services.TryAddScoped<INhAssistantAlertModelSwitches, NhAssistantAlertModelSwitchService>();
             services.TryAddScoped<INhAiSubjectRetention, NhAssistantSubjectRetention>();
             services.TryAddScoped<NhAssistantScheduledTriggerJob>();
             // The recurring jobs of schedules in code; a host with RunSchedules false adds none (LS11).

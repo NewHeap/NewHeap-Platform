@@ -371,6 +371,11 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed,
             NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed,
             NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid);
+        // The switches of the model tool of alerts (FB87-9): a kind the agent's model cannot raise, and live
+        // before shadow.
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantAdminErrorCodes.AlertModelNotAllowed,
+            NhAssistantAdminErrorCodes.AlertModelShadowFirst);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

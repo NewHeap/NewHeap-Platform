@@ -48,6 +48,18 @@ public static class NhAssistantAlertLimits
     /// </summary>
     public const int MaxRevalidatedAlerts = 200;
 
+    /// <summary>The longest text parameter an agent's model fills (<see cref="NhAssistantAlertModelTemplateBuilder.Text"/>).</summary>
+    public const int MaxModelTextLength = 200;
+
+    /// <summary>The most choices of one parameter an agent's model fills (<see cref="NhAssistantAlertModelTemplateBuilder.Choice"/>).</summary>
+    public const int MaxModelChoices = 50;
+
+    /// <summary>The longest choice of a parameter an agent's model fills.</summary>
+    public const int MaxModelChoiceLength = 64;
+
+    /// <summary>The longest description in an alert's template for the model: when the kind applies, or what a parameter holds.</summary>
+    public const int MaxModelDescriptionLength = 500;
+
     /// <summary>
     /// The most days one "do not tell me about this object" lasts (<c>POST alerts/{id}/dismiss</c> with
     /// <c>muteSubjectForDays</c>); the fewest is one.
@@ -145,6 +157,22 @@ public static class NhAssistantAlertCodes
     /// applies when the application revalidated its subject (<see cref="INhAssistantAlerts.RevalidateAsync"/>).
     /// </summary>
     public const string Revalidated = "revalidated";
+
+    /// <summary>
+    /// An agent's model named a kind that the platform tool <c>assistant.alert.raise</c> does not offer it:
+    /// a kind its agent does not list, that does not let a model raise it
+    /// (<see cref="NhAssistantAlertKindBuilder.RaisedByModel"/>), or whose switch for the agent is off.
+    /// Nothing was stored.
+    /// </summary>
+    public const string NotOfferedToModel = "assistant-alert-kind-not-offered";
+
+    /// <summary>
+    /// A value an agent's model gave for a parameter of an alert's template was refused before anything was
+    /// stored: missing, unknown, of the wrong type, outside its choices or bounds, too long, or a text with a
+    /// link, markup or a control character. The tool's result names the parameter and the reason
+    /// (<see cref="NhAssistantAlertParameterErrors"/>), never the value.
+    /// </summary>
+    public const string ParameterInvalid = "assistant-alert-parameter-invalid";
 }
 
 /// <summary>

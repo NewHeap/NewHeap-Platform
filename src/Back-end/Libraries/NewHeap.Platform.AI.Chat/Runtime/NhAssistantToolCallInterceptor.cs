@@ -92,6 +92,13 @@ internal sealed class NhAssistantTurnState
     public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];
 
     /// <summary>
+    /// The alert kinds the run's model may raise through <c>assistant.alert.raise</c> (FB87-9), by id with
+    /// the mode of the agent's switch (<c>shadow</c> or <c>live</c>), read once when the turn prepares its
+    /// functions; empty outside a run and when the tool is not offered.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> AlertModelKinds { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Whether the turn offers compositions and the script tool, decided once per feature when the
     /// turn first selects its tools.
     /// </summary>

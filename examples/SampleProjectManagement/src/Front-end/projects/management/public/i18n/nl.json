@@ -659,6 +659,10 @@
       "sample-deadline-watch": {
         "name": "Deadlinewacht",
         "description": "Waarschuwt de eigenaar van een project en de mensen die eraan werken als het project vandaag af moet en er nog taken openstaan."
+      },
+      "sample-deadline-reviewer": {
+        "name": "Deadlinebeoordelaar",
+        "description": "Beoordeelt de opleveringen van een project en waarschuwt, zodra een beheerder het toestaat, de mensen van het project voor een oplevering die binnenkort af moet."
       }
     },
     "policies": {
@@ -669,6 +673,9 @@
     "alert-kinds": {
       "project-due-today": {
         "name": "Project moet vandaag af"
+      },
+      "project-deliverable-due": {
+        "name": "Oplevering moet binnenkort af"
       }
     }
   },

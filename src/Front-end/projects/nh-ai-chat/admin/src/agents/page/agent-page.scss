@@ -653,6 +653,15 @@ h4[tabindex='-1']:focus {
   min-width: 0;
 }
 
+// The same for the switch of the model tool of alerts (FB87-9), which sits inside the section.
+.alert-model-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
 .switch-line {
   display: inline-flex;
   flex-wrap: wrap;

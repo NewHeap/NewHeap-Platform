@@ -85,6 +85,8 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed, StatusCodes.Status400BadRequest)]
     [InlineData(NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed, StatusCodes.Status400BadRequest)]
     [InlineData(NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAdminErrorCodes.AlertModelNotAllowed, StatusCodes.Status409Conflict)]
+    [InlineData(NhAssistantAdminErrorCodes.AlertModelShadowFirst, StatusCodes.Status409Conflict)]
     [InlineData("application-own-code", StatusCodes.Status400BadRequest)]
     public void A_code_answers_its_one_status(string code, int status)
     {

@@ -197,6 +197,26 @@ describe('NhAssistantAlertsComponent', () => {
     release();
   });
 
+  it('labels an alert that an agent\'s model raised, and shows the values it filled in as plain text', async () => {
+    const element = await render([
+      ...alerts,
+      {
+        id: 'a-model', kindId: 'task-due-today', urgency: 'warning', title: '<b>Budget</b> plan is due on 2026-11-06', text: '<i>4</i> days left.',
+        raisedByModel: true, subjectType: 'task', subjectId: 't-5', subjectDisplayName: 'Budget plan', parent: project, updatedAt: '2026-11-02T07:50:00Z'
+      }
+    ]);
+
+    const fromModel = element.querySelector('[data-alert-id="a-model"]') as HTMLElement;
+    const label = fromModel.querySelector('[data-alert-raised-by-model]') as HTMLElement;
+    expect(label.textContent?.trim()).toBe('Raised by AI');
+    expect(label.getAttribute('title')).toContain('language model');
+    expect(fromModel.querySelector('[data-alert-open]')?.textContent?.trim()).toBe('<b>Budget</b> plan is due on 2026-11-06');
+    expect(fromModel.querySelector('b, i')).withContext('markup in a value is never rendered').toBeNull();
+    expect(fromModel.querySelector('.text')?.textContent?.trim()).toBe('<i>4</i> days left.');
+    // An alert of the rules or the application carries no label.
+    expect(element.querySelector('[data-alert-id="a-report"] [data-alert-raised-by-model]')).toBeNull();
+  });
+
   it('dismisses an alert and mutes its object for a while where its kind lets the person, and withholds what follows', async () => {
     const element = await render([
       ...alerts,

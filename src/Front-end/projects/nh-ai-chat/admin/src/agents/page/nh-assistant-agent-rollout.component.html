@@ -90,6 +90,8 @@
 
   <nh-assistant-agent-without-approval [agentId]="agent().id" [names]="names()" [disabled]="disabled()" />
 
+  <nh-assistant-agent-alert-model [agentId]="agent().id" [names]="names()" [disabled]="disabled()" />
+
   @if (runs()) {
     <section class="build-section" data-rollout-variants>
       <nh-assistant-agent-shadow-variants

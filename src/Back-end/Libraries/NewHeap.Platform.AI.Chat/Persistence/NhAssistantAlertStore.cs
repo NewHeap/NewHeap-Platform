@@ -41,6 +41,9 @@ internal sealed record NhAssistantAlertDraft(
     public int MaxPerSubjectPerDay { get; init; } = int.MaxValue;
 
     public DateTimeOffset DayStart { get; init; } = DateTimeOffset.MinValue;
+
+    /// <summary>The agent's model raised the alert through <c>assistant.alert.raise</c> (FB87-9).</summary>
+    public bool RaisedByModel { get; init; }
 }
 
 /// <summary>
@@ -166,6 +169,7 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
             Shadow = draft.Shadow,
             AgentId = draft.AgentId,
             RunId = draft.RunId,
+            RaisedByModel = draft.RaisedByModel,
             RaisedAt = draft.Now,
             UpdatedAt = draft.Now,
             DeliveryPlannedAt = draft.Now,
@@ -211,6 +215,8 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
         alert.UpdatedAt = draft.Now;
         alert.AgentId = draft.AgentId;
         alert.RunId = draft.RunId;
+        // Whoever raised it last wrote its content, as AgentId names them.
+        alert.RaisedByModel = draft.RaisedByModel;
         alert.ConcurrencyStamp = Guid.NewGuid();
         Describe(alert, draft.Subject);
 

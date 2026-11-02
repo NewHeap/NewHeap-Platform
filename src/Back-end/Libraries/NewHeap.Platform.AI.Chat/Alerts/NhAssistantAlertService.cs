@@ -17,6 +17,12 @@ namespace NewHeap.Platform.AI.Chat.Alerts;
 internal sealed record NhAssistantAlertRaiser(string? AgentId, Guid? RunId, bool Shadow)
 {
     public static NhAssistantAlertRaiser Application { get; } = new(null, null, false);
+
+    /// <summary>
+    /// The agent's language model raises the alert through <c>assistant.alert.raise</c> (FB87-9), with
+    /// parameters the platform checked against the kind's template; the alert is stored as such.
+    /// </summary>
+    public bool Model { get; init; }
 }
 
 /// <summary>
@@ -212,7 +218,8 @@ internal sealed partial class NhAssistantAlertService(
                 Dropped = dropped,
                 RepeatAfter = kind.RepeatAfter,
                 MaxPerSubjectPerDay = registration.Limits.MaxAlertsPerSubjectPerDay,
-                DayStart = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero)
+                DayStart = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero),
+                RaisedByModel = raiser.Model
             },
             cancellationToken);
 

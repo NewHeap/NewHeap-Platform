@@ -9,6 +9,8 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Test;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL;
@@ -31,6 +33,9 @@ namespace SampleProjectManagement.Core.Tests;
 public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : IClassFixture<AssistantAlertSampleHost>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>The function name of the platform tool through which an agent's model raises alerts (FB87-9).</summary>
+    private const string NhAssistantAlertModelToolName = "raise_alert";
 
     [Fact]
     public async Task SPM_392_the_deadline_watch_warns_a_project_due_today_once_and_resolves_it_when_its_tasks_are_done()
@@ -233,6 +238,115 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
             using var reset = await administrator.PutAsync(route, AssistantSampleHost.Json(new { enabled = true, delivery = (object?)null, expectedVersion = current.Settings.Version }));
             Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
         }
+    }
+
+    [Fact]
+    public async Task SPM_392_the_reviewer_s_model_raises_a_deliverable_alert_through_its_template_first_in_shadow_then_for_the_project_s_people()
+    {
+        // The model tool of alerts (FB87-9): the deadline reviewer's model may raise the kind only once an
+        // administrator switched it on for the reviewer, first in shadow; it fills the kind's template and
+        // never chooses the project or the people.
+        host.MoveToNextMorning();
+        var today = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+        var project = await host.CreateProjectAsync("REVIEW", host.OwnerId, ProjectStatus.Active, SampleDeadlineAlertsComposition.StartOf(today.AddDays(30)));
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        var about = $"subjectType={ProjectSubjects.Type}&subjectId={ProjectSubjects.IdOf(project)}";
+        const string switches = $"/api/assistant/admin/agents/{SampleDeadlineAlertsComposition.ReviewerAgentId}/alert-model";
+        const string route = $"/api/assistant/admin/agents/{SampleDeadlineAlertsComposition.ReviewerAgentId}/alert-kinds/{SampleDeadlineAlertsComposition.ModelKindId}/model";
+        using var administrator = host.CreateClient("spm-392-admin", admin: true);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>();
+        var deadline = today.AddDays(5).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var call = new
+        {
+            kind = SampleDeadlineAlertsComposition.ModelKindId,
+            parameters = new { deliverable = "Design brief", deadline, daysLeft = 5, work = "in-progress" }
+        };
+        var start = new NhAssistantStartAgentRequest(
+            SampleDeadlineAlertsComposition.ReviewerAgentId,
+            ProjectSubjects.Type,
+            ProjectSubjects.IdOf(project),
+            "Review the deadlines of this project's deliverables.");
+        try
+        {
+            // The kind lists for the reviewer, off; a person outside the administration cannot switch it,
+            // and it goes live only from shadow.
+            var listed = (await administrator.GetFromJsonAsync<NhAssistantAlertModelListDto>(switches, Json))!;
+            Assert.True(listed.Applies);
+            var kind = Assert.Single(listed.Kinds);
+            Assert.Equal((SampleDeadlineAlertsComposition.ModelKindId, NhAssistantAlertModelModes.Off), (kind.KindId, kind.Mode));
+            Assert.Equal(["deliverable", "deadline", "daysLeft", "work"], kind.Parameters.Select(parameter => parameter.Name));
+            using (var forbidden = await owner.PutAsync(route, AssistantSampleHost.Json(new { mode = "shadow", expectedVersion = 0 })))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            }
+            using (var liveFirst = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "live", expectedVersion = 0 })))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, liveFirst.StatusCode);
+            }
+            using (var shadow = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "shadow", expectedVersion = 0, reason = "See what it raises first" })))
+            {
+                Assert.Equal(HttpStatusCode.OK, shadow.StatusCode);
+            }
+
+            // In shadow the reviewer's model is offered raise_alert and records a shadow alert that
+            // reaches nobody; the kind's numbers count it as what the reviewer would have sent.
+            var shadowModel = new NhAiScriptedChatClient()
+                .RespondWithFunctionCall(NhAssistantAlertModelToolName, call, "call-shadow")
+                .RespondWithText("The design brief is due in five days.");
+            host.Model.Use(shadowModel);
+            var conversationId = await StartReviewerAsync(participant, start);
+            Assert.Equal(NhAssistantRunStatuses.Completed, Assert.Single(await WaitForRunsAsync(participant, conversationId, 1)).Status);
+            Assert.Contains(shadowModel.Requests[0].Options!.Tools!, tool => tool.Name == NhAssistantAlertModelToolName);
+            Assert.Empty((await ListAlertsAsync(owner, about)).Items);
+            var period = $"?to={Uri.EscapeDataString(host.Clock.GetUtcNow().AddMinutes(1).ToString("O"))}";
+            var counted = (await administrator.GetFromJsonAsync<NhAssistantAdminAlertKindsDto>("/api/assistant/admin/alert-kinds" + period, Json))!
+                .Kinds.Single(item => item.Id == SampleDeadlineAlertsComposition.ModelKindId);
+            Assert.True(Assert.Single(counted.Shadow, agent => agent.AgentId == SampleDeadlineAlertsComposition.ReviewerAgentId).WouldHaveSent >= 1);
+
+            // Live, the same call reaches the project's owner and the member who works on it, labelled
+            // as raised by AI, with the kind's texts from the values the platform checked.
+            using (var live = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "live", expectedVersion = 1 })))
+            {
+                Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+            }
+            host.Model.Use(new NhAiScriptedChatClient()
+                .RespondWithFunctionCall(NhAssistantAlertModelToolName, call, "call-live")
+                .RespondWithText("The design brief is due in five days."));
+            await StartReviewerAsync(participant, start);
+            Assert.All(await WaitForRunsAsync(participant, conversationId, 2), run => Assert.Equal(NhAssistantRunStatuses.Completed, run.Status));
+            var alert = Assert.Single((await ListAlertsAsync(owner, about)).Items);
+            Assert.Equal((SampleDeadlineAlertsComposition.ModelKindId, true), (alert.KindId, alert.RaisedByModel));
+            Assert.Equal("Design brief is due in 5 days", alert.Title);
+            Assert.Contains("its work is in progress", alert.Text);
+            Assert.Equal(alert.Id, Assert.Single((await ListAlertsAsync(participant, about)).Items).Id);
+
+            Assert.Equal(
+                [NhAssistantAlertModelModes.Shadow, NhAssistantAlertModelModes.Live],
+                audit.Events
+                    .Where(evt => evt.Kind == NhAssistantAuditEventKind.AdminAlertModelSwitchChanged
+                        && evt.ObjectId == SampleDeadlineAlertsComposition.ReviewerAgentId)
+                    .Select(evt => evt.ResultCode));
+            Assert.Contains(audit.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentAlertRaised
+                && evt.AlertId == alert.Id
+                && evt.AlertRaisedByModel == true);
+        }
+        finally
+        {
+            // The other tests expect the reviewer's model off and the sample's own model.
+            var current = (await administrator.GetFromJsonAsync<NhAssistantAlertModelListDto>(switches, Json))!.Kinds.Single();
+            using var off = await administrator.PutAsync(route, AssistantSampleHost.Json(new { mode = "off", expectedVersion = current.Version }));
+            Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    private static async Task<Guid> StartReviewerAsync(HttpClient client, NhAssistantStartAgentRequest start)
+    {
+        using var started = await client.PostAsJsonAsync("/api/assistant/threads/start", start, Json);
+        Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+        return (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
     }
 
     private static async Task<NhAssistantAdminAlertKindDto> AlertKindAsync(HttpClient administrator, string period = "")

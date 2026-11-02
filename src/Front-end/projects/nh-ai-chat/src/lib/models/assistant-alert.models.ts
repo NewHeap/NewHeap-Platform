@@ -81,6 +81,12 @@ export interface Alert {
    */
   withheldReason?: string | null;
   /**
+   * An agent's language model raised or last updated the alert through its kind's template (FB87-9), so
+   * its title and text carry values the model chose; show it as such and render them as plain text.
+   * Missing on older servers.
+   */
+  raisedByModel?: boolean;
+  /**
    * The person may dismiss the alert with `muteSubjectForDays`, so its kind tells them nothing more about
    * its subject for a while: the kind is not required and lets them mute it. An older server sends none.
    */

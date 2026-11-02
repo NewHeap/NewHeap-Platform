@@ -1,0 +1,106 @@
+<!-- Shown once the agent lists a kind its model may raise, or the kinds could not be read. -->
+@if (loadFailed() || kinds().length > 0) {
+  <section class="build-section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-alert-model>
+    <header>
+      <div>
+        <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.agent-page.rollout.alert-model.title' | translate }}</h4>
+        <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.alert-model.description' | translate }}</p>
+      </div>
+    </header>
+
+    @if (loadFailed()) {
+      <div class="state" role="alert">
+        <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else {
+      @if (model()?.applies === false) {
+        <p class="message info" data-alert-model-not-applicable><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.agent-page.rollout.alert-model.not-applicable' | translate }}</p>
+      }
+      <ul class="not-live">
+        @for (kind of kinds(); track kind.kindId) {
+          @let name = [kind.displayNameKey] | nhAssistantTranslate: kind.kindId;
+          <li [attr.data-alert-model-kind]="kind.kindId" [attr.data-alert-model-mode]="kind.mode">
+            <span class="grow">
+              <strong>{{ name }}</strong>
+              <br />
+              <span class="muted">{{ kind.description }}</span>
+              <br />
+              <span class="muted" data-alert-model-parameters>
+                {{ 'nh-assistant.admin.agent-page.rollout.alert-model.parameters' | translate }}
+                @for (parameter of kind.parameters; track parameter.name) {
+                  <span class="tag" [attr.data-alert-model-parameter]="parameter.name" [attr.title]="parameter.description">
+                    {{ parameter.name }} · {{ 'nh-assistant.admin.agent-page.rollout.alert-model.type.' + parameter.type | translate }}@if (parameter.key) { · {{ 'nh-assistant.admin.agent-page.rollout.alert-model.key' | translate }}}
+                  </span>
+                }
+              </span>
+              @if (!kind.kindEnabled) {
+                <br />
+                <span class="muted" data-alert-model-kind-off>{{ 'nh-assistant.admin.agent-page.rollout.alert-model.kind-off' | translate }}</span>
+              }
+              @if (kind.changedAt && kind.version > 0) {
+                <br />
+                <span class="muted" [attr.title]="accountTitle(kind.changedBy)" data-alert-model-changed>
+                  {{ 'nh-assistant.admin.agent-page.rollout.alert-model.changed' | translate: { user: accountName(kind.changedBy), date: (kind.changedAt | date: 'medium'), version: kind.version } }}
+                </span>
+              }
+              @if (kind.reason) {
+                <br />
+                <span class="muted">{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: kind.reason } }}</span>
+              }
+              @if (kind.contractChanged) {
+                <br />
+                <span class="muted" data-alert-model-contract-changed>{{ 'nh-assistant.admin.agent-page.rollout.alert-model.contract-changed' | translate }}</span>
+              }
+            </span>
+            <span class="alert-model-switch" [attr.data-alert-model-switch]="kind.kindId">
+              <span class="switch-line">
+                <span class="pill" [class]="toneOf(kind)" data-alert-model-status>{{ 'nh-assistant.admin.agent-page.rollout.alert-model.mode.' + kind.mode | translate }}</span>
+                @if (model()?.applies === true) {
+                  @for (mode of modesOf(kind); track mode) {
+                    <button
+                      type="button"
+                      [class.secondary]="mode !== 'live'"
+                      [attr.data-alert-model-action]="mode"
+                      [disabled]="disabled() || busy() || change() !== null"
+                      (click)="ask(kind, mode)">
+                      {{ 'nh-assistant.admin.agent-page.rollout.alert-model.action.' + mode | translate }}
+                    </button>
+                  }
+                }
+              </span>
+              @if (change(); as pending) {
+                @if (pending.kindId === kind.kindId) {
+                  <form class="change-form" [attr.data-alert-model-form]="pending.mode" (submit)="$event.preventDefault(); apply(kind)">
+                    <p class="muted" data-alert-model-explain>{{ 'nh-assistant.admin.agent-page.rollout.alert-model.explain.' + pending.mode | translate: { kind: name } }}</p>
+                    <div class="field">
+                      <label [for]="id + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
+                      <input
+                        type="text"
+                        autocomplete="off"
+                        [id]="id + '-reason'"
+                        [attr.aria-describedby]="id + '-reason-hint'"
+                        [maxLength]="maxReason"
+                        [value]="reason()"
+                        (input)="reason.set(value($event))" />
+                      <p class="hint" [id]="id + '-reason-hint'">{{ 'nh-assistant.admin.agents.state.note-hint' | translate }}</p>
+                    </div>
+                    <div class="card-actions">
+                      <button type="submit" class="primary" data-alert-model-confirm [disabled]="busy()">
+                        {{ 'nh-assistant.admin.agent-page.rollout.alert-model.confirm.' + pending.mode | translate }}
+                      </button>
+                      <button class="secondary" type="button" (click)="cancel()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    </div>
+                    @if (error(); as failure) {
+                      <p class="form-error" role="alert" data-alert-model-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+                    }
+                  </form>
+                }
+              }
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

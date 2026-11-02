@@ -96,6 +96,10 @@
                     <!-- It reached none of the person's channels, for example a kind they muted. -->
                     <span class="badge" data-alert-withheld>{{ withheldKey(alert) | translate }}</span>
                   }
+                  @if (alert.raisedByModel) {
+                    <!-- An agent's model filled the kind's template (FB87-9); its values show as plain text only. -->
+                    <span class="badge" data-alert-raised-by-model [attr.title]="'nh-assistant.alerts.raised-by-model-title' | translate">{{ 'nh-assistant.alerts.raised-by-model' | translate }}</span>
+                  }
                 </div>
                 @if (!compact() && alert.text) {
                   <p class="text">{{ alert.text }}</p>

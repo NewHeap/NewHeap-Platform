@@ -572,7 +572,18 @@ public enum NhAssistantAuditEventKind
     /// <c>quiet-hours</c>). Never the values nor the reason. <see cref="NhAssistantAuditEvent.ConversationId"/>
     /// and <see cref="NhAssistantAuditEvent.TurnId"/> are empty.
     /// </summary>
-    AdminAlertKindChanged = 131
+    AdminAlertKindChanged = 131,
+
+    /// <summary>
+    /// An administrator or the application switched whether an agent's language model raises alerts of a
+    /// kind (FB87-9, <c>PUT admin/agents/{id}/alert-kinds/{kindId}/model</c>): <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// is the agent, <see cref="NhAssistantAuditEvent.AlertKind"/> the kind, <see cref="NhAssistantAuditEvent.ActorId"/>
+    /// who switched, <see cref="NhAssistantAuditEvent.ResultCode"/> the new mode (<c>off</c>, <c>shadow</c>
+    /// or <c>live</c>, <see cref="Entities.NhAssistantAlertModelModes"/>) and
+    /// <see cref="NhAssistantAuditEvent.AlertModelSwitchVersion"/> the switch's new version. Never the reason.
+    /// <see cref="NhAssistantAuditEvent.ConversationId"/> and <see cref="NhAssistantAuditEvent.TurnId"/> are empty.
+    /// </summary>
+    AdminAlertModelSwitchChanged = 132
 }
 
 /// <summary>
@@ -919,6 +930,19 @@ public sealed record NhAssistantAuditEvent(
     /// values. <see langword="null"/> for other events.
     /// </summary>
     public string? ChangedFields { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> on an <see cref="NhAssistantAuditEventKind.AgentAlertRaised"/> event of an
+    /// alert that the agent's language model raised through <c>assistant.alert.raise</c> (FB87-9), whose
+    /// parameters are the model's; <see langword="null"/> otherwise.
+    /// </summary>
+    public bool? AlertRaisedByModel { get; init; }
+
+    /// <summary>
+    /// The new version of the switch in an <see cref="NhAssistantAuditEventKind.AdminAlertModelSwitchChanged"/>
+    /// event; <see langword="null"/> for other events.
+    /// </summary>
+    public int? AlertModelSwitchVersion { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

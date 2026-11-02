@@ -295,6 +295,13 @@ The kind delivers in a morning and an afternoon digest and keeps quiet from 20:0
 urgent warning in the evening waits for the morning; a person chooses their own digest times and quiet
 hours, and one who dismisses the warning may hear nothing more about that project for a week, while the
 owner still does.
+The deadline reviewer shows the same kind of warning from a language model: a project member starts it
+on a project, and its model may raise the kind `project-deliverable-due` only through the template the
+kind declares in code, filling a deliverable's name, its deadline, the days left and how far its work is,
+which the platform checks as plain values; the project and the people are never the model's to choose.
+An administrator switches it on for the reviewer on the agent's Rollout, first in shadow, where its
+warnings reach nobody and count as what it would have sent, and then for the project's people, who see
+the warning labelled as raised by AI.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

@@ -225,6 +225,9 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-alert-kind-switch-off-not-allowed',
   'assistant-alert-kind-delivery-not-allowed',
   'assistant-alert-kind-delivery-invalid',
+  // The switches of the model tool of alerts
+  'assistant-alert-model-not-allowed',
+  'assistant-alert-model-shadow-first',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

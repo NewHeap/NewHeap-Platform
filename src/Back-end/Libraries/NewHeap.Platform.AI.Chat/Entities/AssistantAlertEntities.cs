@@ -95,6 +95,13 @@ public sealed class AssistantAlert
     public Guid? RunId { get; set; }
 
     /// <summary>
+    /// The language model of <see cref="AgentId"/> raised or last updated the alert through the platform
+    /// tool <c>assistant.alert.raise</c> (FB87-9), so its parameters are the model's, which are untrusted:
+    /// the platform checked them against the kind's template, and the alert list labels the alert.
+    /// </summary>
+    public bool RaisedByModel { get; set; }
+
+    /// <summary>
     /// When the alert was first raised, on the application's clock.
     /// </summary>
     public DateTimeOffset RaisedAt { get; set; }

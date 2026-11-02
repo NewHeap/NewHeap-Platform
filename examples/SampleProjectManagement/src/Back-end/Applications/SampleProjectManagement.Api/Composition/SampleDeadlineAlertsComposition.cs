@@ -45,6 +45,15 @@ namespace SampleProjectManagement.Api.Composition;
 /// its default delivery (<c>AdministratorMayChange</c>), which the Alerts section of the sample's
 /// assistant administration does through <c>PUT admin/alert-kinds/{id}</c>; the delivery and a person's
 /// preferences then follow the administrator's settings, and a kind that is off raises nothing.
+/// The model tool (FB87 phase 2, lane AM): the deadline reviewer is an agent with a language model that a
+/// project member starts on a project; its model may raise the kind <see cref="ModelKindId"/> through the
+/// platform tool <c>assistant.alert.raise</c>, because the kind allows it in code (<c>RaisedByModel</c>)
+/// with a template of typed parameters: the deliverable's name as a short plain text, its deadline as a
+/// date, the days left as a bounded whole number and how far its work is as a choice. The model never
+/// chooses the project or the people; the platform refuses links, markup and values outside the template,
+/// derives the key from the deliverable and the deadline, and labels the alert as raised by AI. An
+/// administrator switches it on for the reviewer on the agent's Rollout, first in shadow, where the
+/// model's alerts reach nobody, and then for people.
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleDeadlineAlertsComposition
@@ -52,6 +61,15 @@ public static class SampleDeadlineAlertsComposition
     public const string AgentId = "sample-deadline-watch";
     public const string KindId = "project-due-today";
     public const string TriggerId = "project-deadline-watch";
+
+    /// <summary>The deadline reviewer, whose language model may raise <see cref="ModelKindId"/> (FB87-9).</summary>
+    public const string ReviewerAgentId = "sample-deadline-reviewer";
+
+    /// <summary>The kind of alert the reviewer's model raises through its template.</summary>
+    public const string ModelKindId = "project-deliverable-due";
+
+    /// <summary>The front-end translation key of the model's kind's name.</summary>
+    public const string ModelKindNameKey = "nh-assistant.alert-kinds.project-deliverable-due.name";
 
     /// <summary>The portal's Alerts page, which lists every alert of a person (SPM-392).</summary>
     public const string AlertListUrl = "/management/alerts";
@@ -138,7 +156,45 @@ public static class SampleDeadlineAlertsComposition
                 .Subjects(ProjectsDueToday)
                 .Message(tick => $"Morning round: project {tick.Subject.Id} may be due today.")
                 .MaxSubjectsPerTick(100)
-                .OnBusy(NhAssistantTriggerConflict.Ignore)));
+                .OnBusy(NhAssistantTriggerConflict.Ignore))
+            // FB87-9: the deadline reviewer's model may raise this kind, and only through its template.
+            .AddAgent(new NhAssistantAgentDefinition(
+                Id: ReviewerAgentId,
+                Version: 1,
+                DisplayNameKey: "nh-assistant.agents.sample-deadline-reviewer.name",
+                DescriptionKey: "nh-assistant.agents.sample-deadline-reviewer.description",
+                ProfileName: SampleAssistantComposition.ProfileName,
+                Instructions: ProjectAiAssets.ProjectDeadlineReviewerInstructions,
+                ToolSelectors: ["projects.search"],
+                Autonomy: NhAiAutonomyLevel.Observe,
+                RequiredPolicy: SampleAssistantComposition.AccessPolicy))
+            .AddAlertKind(ModelKindId, kind => kind
+                .DisplayName(ModelKindNameKey)
+                .Urgency(NhAssistantAlertUrgency.Warning)
+                // The texts read only the template's parameters, in each reader's own language.
+                .Title((culture, parameters) => Format("AlertDeliverableDueTitle", culture, parameters["deliverable"], parameters["daysLeft"]))
+                .Text((culture, parameters) => Format(
+                    "AlertDeliverableDueText",
+                    culture,
+                    DateOnly.ParseExact(parameters["deadline"], "yyyy-MM-dd", CultureInfo.InvariantCulture).ToString("D", culture),
+                    Texts.GetString(parameters["work"] == "not-started" ? "AlertDeliverableWorkNotStarted" : "AlertDeliverableWorkInProgress", culture)!))
+                .Recipients(NhAssistantAlertRecipients.SubjectResponsible
+                    .Or(NhAssistantAlertRecipients.SubjectMembers(NhAiSubjectRole.Participant)))
+                // The model fills this template and nothing else; the platform checks every value.
+                .RaisedByModel(template => template
+                    .Describe("A deliverable of the project has its deadline within the next 14 days and its work is not done.")
+                    .Text("deliverable", "The deliverable's name as the project shows it, without a file extension.", 80)
+                    .Date("deadline", "The deliverable's deadline.")
+                    .WholeNumber("daysLeft", "The days left until the deadline.", 0, 14)
+                    .Choice("work", "How far the deliverable's work is.", "not-started", "in-progress")
+                    // The same deliverable and deadline update one alert; a moved deadline is another.
+                    .Key("deliverable", "deadline")))
+            .ConfigureAgent(ReviewerAgentId, agent => agent
+                // A project member starts the reviewer on a project; it reads with that person's rights.
+                .WorksOn(ProjectSubjects.Type)
+                .DelegateFromInitiator()
+                .HideFromChat()
+                .Alerts(ModelKindId)));
         return services;
     }
 

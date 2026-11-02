@@ -4,6 +4,7 @@ import {
   CompositionCeiling,
   AdminAgentInput,
   AdminAlertKind,
+  AlertModelSwitch,
   AgentPackage,
   AgentConsultationStatus,
   AgentGrantSource,
@@ -553,7 +554,17 @@ export interface NhAssistantMockAdminScenario {
    * kind delivered at once and a kind whose code allows no change, with numbers and a shadow agent.
    */
   alertKinds?: AdminAlertKind[];
+  /**
+   * The alert kinds the mock's agents list whose code lets their model raise them (FB87-9), per agent id,
+   * as `GET admin/agents/{id}/alert-model` shows them; `PUT admin/agents/{id}/alert-kinds/{kindId}/model`
+   * switches them off, to shadow and from shadow live, as the server does. The `mode`, `version` and who
+   * switched it start as given, off by default. An agent without an entry lists no kinds.
+   */
+  alertModel?: Record<string, NhAssistantMockAlertModelKind[]>;
 }
+
+/** A kind an agent of the mock lists whose code lets its model raise it. */
+export type NhAssistantMockAlertModelKind = Pick<AlertModelSwitch, 'kindId' | 'description' | 'parameters'> & Partial<AlertModelSwitch>;
 
 /** An agent package the mock's host imported, with the options of its import. */
 export interface NhAssistantMockAgentPackage {

@@ -25,6 +25,10 @@ import {
   AgentSkillState,
   AgentState,
   AgentWithoutApproval,
+  AgentAlertModel,
+  AlertModelRequest,
+  AlertModelSwitch,
+  AlertModelVersion,
   ApplicationContext,
   DataSkill,
   DataSkillRequest,
@@ -233,6 +237,33 @@ export class NhAssistantAdminApiService {
     return this.request<WithoutApprovalVersion[]>(
       'GET',
       `admin/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}/without-approval/versions`);
+  }
+
+  /**
+   * The alert kinds the agent lists whose code lets its model raise them, with their switches (FB87-9).
+   */
+  getAgentAlertModel(agentId: string): Observable<AgentAlertModel> {
+    return this.request<AgentAlertModel>('GET', `admin/agents/${encodeURIComponent(agentId)}/alert-model`);
+  }
+
+  /**
+   * Switches whether the agent's model raises alerts of the kind: `shadow` first, `live` only from
+   * shadow (`assistant-alert-model-shadow-first`), `off` at any time. A kind whose code does not let a
+   * model raise it, that the agent does not list, or an agent without work of its own fails with
+   * `assistant-alert-model-not-allowed`; a stale `expectedVersion` with `assistant-version-conflict`.
+   */
+  setAgentAlertModel(agentId: string, kindId: string, request: AlertModelRequest): Observable<AlertModelSwitch> {
+    return this.request<AlertModelSwitch>(
+      'PUT',
+      `admin/agents/${encodeURIComponent(agentId)}/alert-kinds/${encodeURIComponent(kindId)}/model`,
+      request);
+  }
+
+  /** Every version of the agent's switch for the alert kind, newest first: who switched it to what and when. */
+  getAgentAlertModelVersions(agentId: string, kindId: string): Observable<AlertModelVersion[]> {
+    return this.request<AlertModelVersion[]>(
+      'GET',
+      `admin/agents/${encodeURIComponent(agentId)}/alert-kinds/${encodeURIComponent(kindId)}/model/versions`);
   }
 
   /** Puts one skill of an agent in shadow, live, or back to the mode in code. */

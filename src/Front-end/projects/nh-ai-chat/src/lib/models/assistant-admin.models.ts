@@ -151,6 +151,80 @@ export interface WithoutApprovalVersion {
   contractHash: string;
 }
 
+/** The mode of a switch that lets an agent's model raise alerts of a kind (FB87-9). */
+export type AlertModelMode = 'off' | 'shadow' | 'live';
+
+/** One parameter the agent's model fills in a kind's template. */
+export interface AlertModelParameter {
+  name: string;
+  type: 'choice' | 'whole-number' | 'date' | 'text';
+  /** What the model writes in it, as the kind's code tells the model. */
+  description: string;
+  /** The values of a choice; empty otherwise. */
+  choices: string[];
+  minimum: number | null;
+  maximum: number | null;
+  /** The longest text, in characters. */
+  maxLength: number | null;
+  /** Its value forms the alert's key. */
+  key: boolean;
+}
+
+/**
+ * One alert kind an agent lists whose code lets a model raise it, with the switch in effect
+ * (`GET admin/agents/{id}/alert-model`).
+ */
+export interface AlertModelSwitch {
+  kindId: string;
+  /** The translation key of the kind's name. */
+  displayNameKey: string;
+  /** When the kind applies, as its template tells the model. */
+  description: string;
+  parameters: AlertModelParameter[];
+  /**
+   * `off`: the model is not offered the kind. `shadow`: the model's alerts are recorded as shadow alerts
+   * that reach nobody. `live`: they reach the people the kind chooses. `off` while the kind's template
+   * changed.
+   */
+  mode: AlertModelMode;
+  /** The switch's version, 0 before the first switch; the next change expects it. */
+  version: number;
+  /** The kind's template changed since the switch was made: it reads as off until it is switched again. */
+  contractChanged: boolean;
+  /** Whether the kind is on; an administrator may switch a kind off for everyone in the Alerts section. */
+  kindEnabled: boolean;
+  changedBy: string | null;
+  changedAt: string | null;
+  reason: string | null;
+}
+
+/** The alert kinds an agent's model may be switched on for. */
+export interface AgentAlertModel {
+  agentId: string;
+  /** False for an agent without work of its own, such as a chat-only agent or a shadow variant. */
+  applies: boolean;
+  kinds: AlertModelSwitch[];
+}
+
+/** Body of `PUT admin/agents/{id}/alert-kinds/{kindId}/model`. */
+export interface AlertModelRequest {
+  mode: AlertModelMode;
+  /** The switch's current version, 0 before the first switch. */
+  expectedVersion: number;
+  /** Optional, at most 500 characters; kept with the version and left out of the audit. */
+  reason?: string | null;
+}
+
+/** One version of a switch of the model tool of alerts. */
+export interface AlertModelVersion {
+  version: number;
+  mode: AlertModelMode;
+  changedBy: string;
+  changedAt: string;
+  reason: string | null;
+  contractHash: string;
+}
+
 /** Equals `NhAiAutonomyLevel`. */
 export type AssistantAutonomy = 'observe' | 'explain' | 'propose' | 'simulate' | 'execute';
 
