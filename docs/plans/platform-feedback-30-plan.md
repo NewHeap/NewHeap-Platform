@@ -13,7 +13,10 @@ and the sample cases are authoritative.
 Decided by Lars on 2026-11-02, one by one: FB78, FB79, FB80, FB84, FB81 and FB85 as advised (option (a)), and FB82
 option (c), with the follow-up choice that an administrator switches a kind of action on as data, first in shadow,
 once its tool allows it in code. FB83 was fixed before the plan. The decisions are summarized below; the sections
-under "Choices" keep the options that were weighed. Not built yet.
+under "Choices" keep the options that were weighed. Built on 2026-11-02 in train 33, with lanes DS (the numbers of FB82),
+QB (FB78, FB80), AE (running a kind without approval, FB82) and QU (FB79, FB81, FB84), and verified together. The
+verification found one cross-lane contract test (the administration's tool list now names `allowWithoutApproval`),
+fixed in the train. The choices each lane made are in the "Lane choices" table below, for Lars to review.
 
 ## Decisions
 
