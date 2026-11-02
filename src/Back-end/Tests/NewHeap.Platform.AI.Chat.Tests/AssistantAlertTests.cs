@@ -273,15 +273,19 @@ public sealed class AssistantAlertTests(AssistantDatabaseFixture database) : ICl
             subjects.Deleted.TryRemove(task.Id, out _);
         }
 
-        // Raised again, the reader who lost access is dropped from the waiting deliveries.
+        // Raised again, the reader who lost access is dropped from the waiting deliveries, and a person
+        // named for the first time is planned once.
         var again = (await RaiseAsync(host, new NhAssistantAlert(DueToday, task)
         {
             Key = "secret-key",
             Parameters = new Dictionary<string, string> { ["task"] = "Confidential merger" },
-            Recipients = [Reader]
+            Recipients = [Reader, Approver]
         })).Data!;
-        var reader = (await FindAsync(host, again.AlertId))!.Deliveries.Single(item => item.RecipientActorId == Reader);
-        Assert.Equal((NhAssistantAlertDeliveryStatuses.Dropped, NhAssistantAlertDropReasons.NoAccess), (reader.Status, reader.ReasonCode));
+        Assert.Equal((raised.Data.AlertId, 2), (again.AlertId, again.RecipientCount));
+        var stored = (await FindAsync(host, again.AlertId))!.Deliveries.ToDictionary(item => item.RecipientActorId);
+        Assert.Equal((NhAssistantAlertDeliveryStatuses.Dropped, NhAssistantAlertDropReasons.NoAccess), (stored[Reader].Status, stored[Reader].ReasonCode));
+        Assert.Equal(NhAssistantAlertDeliveryStatuses.Pending, stored[Approver].Status);
+        Assert.Equal(3, stored.Count);
 
         // A kind without the explicit selector names nobody itself.
         Assert.Equal(NhAssistantAlertCodes.RecipientsNotSelected, Code(await RaiseAsync(host, new NhAssistantAlert(Escalated, task) { Recipients = [Reader] })));

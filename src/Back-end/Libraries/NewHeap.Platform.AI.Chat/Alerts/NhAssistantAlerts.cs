@@ -127,7 +127,7 @@ public static class NhAssistantAlertDeliveryStatuses
     /// <summary>The alert expired before the delivery went out.</summary>
     public const string Expired = "expired";
 
-    /// <summary>The person no longer qualified, or is no longer chosen; <see cref="NhAssistantAlertDropReasons"/> says why.</summary>
+    /// <summary>The person no longer qualified; <see cref="NhAssistantAlertDropReasons"/> says why.</summary>
     public const string Dropped = "dropped";
 
     /// <summary>Whether a delivery in <paramref name="status"/> still waits to go out.</summary>
@@ -157,9 +157,6 @@ public static class NhAssistantAlertDropReasons
 
     /// <summary>The alert reached <see cref="NhAssistantAlertLimits.MaxRecipients"/> people before this one.</summary>
     public const string RecipientLimit = "recipient-limit";
-
-    /// <summary>The alert was raised again and no longer chooses the person.</summary>
-    public const string NotSelected = "not-selected";
 }
 
 /// <summary>
@@ -324,7 +321,7 @@ public enum NhAssistantAlertOutcome
 /// <param name="AlertId">The open alert of the kind, subject and key.</param>
 /// <param name="Revision">The alert's revision: 1 when it was raised, one more for every update.</param>
 /// <param name="Shadow">The alert was raised by a shadow agent or run: recorded for evaluation, delivered to nobody.</param>
-/// <param name="RecipientCount">The people the alert reaches now, after every check.</param>
+/// <param name="RecipientCount">The people the alert reaches now, after every check: those whose delivery waits, went out or was read.</param>
 public sealed record NhAssistantAlertReceipt(
     Guid AlertId,
     NhAssistantAlertOutcome Outcome,

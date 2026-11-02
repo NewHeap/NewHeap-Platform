@@ -135,7 +135,7 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
 
             var alert = Create(draft, identity);
             context.Alerts.Add(alert);
-            write = new NhAssistantAlertWrite(alert, NhAssistantAlertOutcome.Raised, alert.Deliveries.Count, expiredFirst);
+            write = new NhAssistantAlertWrite(alert, NhAssistantAlertOutcome.Raised, Reached(alert), expiredFirst);
         }
         else
         {
@@ -183,9 +183,11 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
 
     /// <summary>
     /// Updates the open alert in place: new content is its next revision, and a higher urgency or the
-    /// kind's repeat interval plans it again for everyone who did not dismiss it. People chosen for the
-    /// first time are planned either way; waiting deliveries of people who are no longer chosen, or no
-    /// longer qualify, are dropped.
+    /// kind's repeat interval plans it again for everyone chosen now who did not dismiss it. People chosen
+    /// for the first time are planned either way. A person chosen before and not now keeps their delivery,
+    /// since another raiser may name other people for the same alert; the delivery's own check leaves
+    /// them out once they no longer qualify. Waiting deliveries of people chosen now who no longer qualify
+    /// are dropped.
     /// </summary>
     private static NhAssistantAlertWrite Update(NhAssistantDbContext context, AssistantAlert alert, NhAssistantAlertDraft draft)
     {
@@ -219,9 +221,13 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
             planned.Add(recipient.ActorId);
             if (!existing.TryGetValue(recipient.ActorId, out var delivery))
             {
+                // Tracked as added; the alert's navigation picks it up through the context's fix-up.
                 var added = NewDelivery(alert, recipient, draft.Now);
                 context.AlertDeliveries.Add(added);
-                alert.Deliveries.Add(added);
+                if (!alert.Deliveries.Contains(added))
+                {
+                    alert.Deliveries.Add(added);
+                }
                 continue;
             }
 
@@ -229,11 +235,11 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
         }
 
         foreach (var delivery in alert.Deliveries.Where(delivery =>
-                     !planned.Contains(delivery.RecipientActorId)
+                     draft.Dropped.ContainsKey(delivery.RecipientActorId)
                      && delivery.Status == NhAssistantAlertDeliveryStatuses.Pending))
         {
             delivery.Status = NhAssistantAlertDeliveryStatuses.Dropped;
-            delivery.ReasonCode = draft.Dropped.GetValueOrDefault(delivery.RecipientActorId) ?? NhAssistantAlertDropReasons.NotSelected;
+            delivery.ReasonCode = draft.Dropped[delivery.RecipientActorId];
             delivery.ClosedAt = draft.Now;
             ReleaseClaim(delivery, draft.Now);
         }
@@ -241,9 +247,7 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
         var outcome = redeliver
             ? NhAssistantAlertOutcome.Redelivered
             : changed ? NhAssistantAlertOutcome.Updated : NhAssistantAlertOutcome.Unchanged;
-        var reached = alert.Deliveries.Count(delivery => planned.Contains(delivery.RecipientActorId)
-            && delivery.Status != NhAssistantAlertDeliveryStatuses.Dismissed);
-        return new NhAssistantAlertWrite(alert, outcome, reached, null);
+        return new NhAssistantAlertWrite(alert, outcome, Reached(alert), null);
     }
 
     /// <summary>
@@ -282,6 +286,17 @@ internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextF
         delivery.Attempts = 0;
         delivery.ClosedAt = null;
         ReleaseClaim(delivery, now);
+    }
+
+    /// <summary>
+    /// The people the alert reaches now: every delivery that waits, went out or was read.
+    /// </summary>
+    private static int Reached(AssistantAlert alert)
+    {
+        return alert.Deliveries.Count(delivery => delivery.Status
+            is NhAssistantAlertDeliveryStatuses.Pending
+            or NhAssistantAlertDeliveryStatuses.Sent
+            or NhAssistantAlertDeliveryStatuses.Read);
     }
 
     private static AssistantAlertDelivery NewDelivery(AssistantAlert alert, NhAssistantAlertPlannedRecipient recipient, DateTimeOffset now)
