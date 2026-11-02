@@ -23,7 +23,7 @@
   as an open duplicate and audited `AgentProposalDeduplicated`. It now returns the proposal with `Repeated`, as a
   later call does, without an audit. One proposal was recorded either way.
 
-## @newheap/nh-common: the notification bell reads its overview once per change
+## @newheap/platform-common: the notification bell reads its overview once per change
 
 - A bell or list built on `NhUserNotificationsAbstractComponent` reads its shown pages again when the polled
   overview changes, as before, but no longer reads the overview a second time right after the poll that brought
