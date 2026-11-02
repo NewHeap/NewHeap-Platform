@@ -23,8 +23,11 @@ import {
   SampleAuthService
 } from 'sample-project-management-common';
 
-/** The ids of projects and runs in the address. */
+/** The ids of projects, runs and divisions in the address. */
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The id of an agent in the address. */
+const agentIdPattern = /^[a-z0-9][a-z0-9._-]{0,99}$/i;
 
 /**
  * SPM-277: the intake reviewer's work in the management portal. The inbox lists the proposals
@@ -53,6 +56,15 @@ const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * what it decides, how many times which kind of action on how many projects, and leaves the equipment
  * orders, whose tool requires that each is decided on its own; then it decides exactly that set, each
  * proposal with its own rules, and shows what succeeded, what was refused and what had changed.
+ *
+ * SPM-277: "Compact list" shows the inbox with `density: 'compact'`: one row per proposal that expands
+ * to its card, one tab stop with the arrow keys, and the list's letters (`j`, `k`, `x`, `a`, `r`, `?`)
+ * while the focus is in a row; `a` and `r` decide the focused row, never the selection.
+ *
+ * SPM-304: the count of an agent's open proposals on the compact Project management board opens this
+ * page with `?agent=` and, on a division's board, `?division=` (`openInbox` of the board); the inbox
+ * then lists that agent's proposals in that scope until the person shows all again, and records no
+ * visit, because it shows only part of the inbox.
  *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
@@ -86,8 +98,14 @@ export class IntakeReviewsPageComponent implements OnInit {
   readonly activeDivisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id ?? null;
   /** SPM-310: whether the inbox shows the active division's proposals only. */
   readonly activeDivisionOnly = signal(false);
+  /** SPM-277: whether the inbox shows one compact row per proposal, with the list's keys. */
+  readonly compactList = signal(false);
   /** SPM-310: the run a clicked notification is about; the inbox then lists that run's proposals. */
   readonly runId = signal<string | null>(null);
+  /** SPM-304: the agent whose open proposals the board's count asked for. */
+  readonly boardAgentId = signal<string | null>(null);
+  /** SPM-304: the division of the board that asked, if any. */
+  readonly boardDivisionId = signal<string | null>(null);
   /** FB78: what the inbox lists with the page's filter, counted per kind of action; `null` while unknown. */
   readonly summary = signal<AgentInboxSummary | null>(null);
   /** FB78: the kind of action the inbox shows, or `null` for every kind. */
@@ -109,7 +127,9 @@ export class IntakeReviewsPageComponent implements OnInit {
     // The portal's launcher normally starts the assistant scope already; starting it twice is safe.
     void this.assistant.initialize();
 
-    // A subject link names the project; following one on this page keeps the page and switches.
+    // A subject link names the project; following one on this page keeps the page and switches. The
+    // agent and division a board asked for change what the inbox lists, so its counts are read again.
+    let counted = false;
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(parameters => {
@@ -119,9 +139,19 @@ export class IntakeReviewsPageComponent implements OnInit {
         }
         const run = parameters.get('run');
         this.runId.set(run && idPattern.test(run) ? run : null);
-      });
 
-    this.loadSummary();
+        const agent = parameters.get('agent');
+        const division = parameters.get('division');
+        const boardAgentId = agent && agentIdPattern.test(agent) ? agent : null;
+        const boardDivisionId = division && idPattern.test(division) ? division : null;
+        const boardChanged = boardAgentId !== this.boardAgentId() || boardDivisionId !== this.boardDivisionId();
+        this.boardAgentId.set(boardAgentId);
+        this.boardDivisionId.set(boardDivisionId);
+        if (!counted || boardChanged) {
+          counted = true;
+          this.loadSummary();
+        }
+      });
 
     this.projectApi.list(new ProjectCollectionRequestOptions({ itemsPerPage: 100 }))
       .pipe(finalize(() => this.loading.set(false)))
@@ -149,15 +179,18 @@ export class IntakeReviewsPageComponent implements OnInit {
   }
 
   /**
-   * FB78: counts what the inbox lists with the page's agent, type and division, so the kinds of action
-   * it offers are those that wait. A summary that cannot be read leaves the filter out.
+   * FB78: counts what the inbox lists with the page's agent, type and division, or with the agent and
+   * division a board asked for (SPM-304), so the kinds of action it offers are those that wait. A
+   * summary that cannot be read leaves the filter out.
    */
   loadSummary(): void {
+    const boardAgentId = this.boardAgentId();
+    const activeDivisionId = this.activeDivisionOnly() ? this.activeDivisionId ?? undefined : undefined;
     this.agentRuns
       .getInboxSummary({
-        agentId: this.agentId,
-        subjectType: 'project',
-        divisionId: this.activeDivisionOnly() ? this.activeDivisionId ?? undefined : undefined
+        agentId: boardAgentId ?? this.agentId,
+        subjectType: boardAgentId ? undefined : 'project',
+        divisionId: this.boardDivisionId() ?? activeDivisionId
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -191,11 +224,14 @@ export class IntakeReviewsPageComponent implements OnInit {
     this.panel.open(conversationId);
   }
 
-  /** SPM-310: leaves the run a notification opened and shows the whole inbox again. */
+  /**
+   * SPM-310 and SPM-304: leaves the run a notification opened, or the agent a board asked for, and shows
+   * the whole inbox again.
+   */
   showAllProposals(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { run: null },
+      queryParams: { run: null, agent: null, division: null },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });

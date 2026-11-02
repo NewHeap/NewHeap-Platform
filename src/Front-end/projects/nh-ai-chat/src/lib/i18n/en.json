@@ -985,7 +985,60 @@
         "history-loading": "Loading the runs…",
         "history-empty": "No runs yet.",
         "history-more": "Show more runs",
-        "history-limited": "Older runs are not shown here."
+        "history-limited": "Older runs are not shown here.",
+        "about": "About this agent",
+        "more": "More",
+        "less": "Less",
+        "result-of": "the latest result of {{agent}}",
+        "open-inbox": "show them with the proposals to decide"
+      },
+      "compact": {
+        "hint": "Proposals in rows. The arrow keys move between them, Enter shows a whole proposal and the question mark lists the keys.",
+        "select-label": "Select: {{summary}}",
+        "waiting": "Someone else decides",
+        "status": {
+          "selected": "Selected: {{summary}}",
+          "deselected": "No longer selected: {{summary}}",
+          "approved": "Approved: {{summary}}",
+          "rejected": "Rejected: {{summary}}",
+          "rejected-feedback": "Rejected: {{summary}}. Above the list you can say what was wrong.",
+          "not-decidable": "You cannot decide this proposal here: {{summary}}",
+          "not-selectable": "This proposal cannot be selected: {{summary}}"
+        },
+        "keys": {
+          "show": "Keyboard keys",
+          "title": "Keys of this list",
+          "close": "Close",
+          "note": "The letters work only while a proposal of the list has the focus, never in a field. a and r decide only the proposal with the focus, never the selection.",
+          "move": {
+            "keys": "Down and up arrows, j and k",
+            "does": "Go to the next or the previous proposal"
+          },
+          "edges": {
+            "keys": "Home and End",
+            "does": "Go to the first or the last proposal"
+          },
+          "expand": {
+            "keys": "Enter",
+            "does": "Show or hide the whole proposal"
+          },
+          "select": {
+            "keys": "Space or x",
+            "does": "Select the proposal, or no longer"
+          },
+          "approve": {
+            "keys": "a",
+            "does": "Approve the proposal with the focus"
+          },
+          "reject": {
+            "keys": "r",
+            "does": "Reject the proposal with the focus; you can then say what was wrong"
+          },
+          "help": {
+            "keys": "?",
+            "does": "Show or hide these keys"
+          }
+        }
       }
     },
     "subject-picker": {

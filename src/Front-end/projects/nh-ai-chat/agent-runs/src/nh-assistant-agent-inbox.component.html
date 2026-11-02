@@ -93,6 +93,7 @@
       [groups]="groups()"
       [groupByRun]="groupByRun()"
       [newIds]="newIds()"
+      [density]="density()"
       (changed)="load()"
       (openConversation)="openConversation.emit($event)" />
     @if (items().length === 0) {

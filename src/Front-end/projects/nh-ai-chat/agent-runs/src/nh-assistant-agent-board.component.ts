@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,8 +11,9 @@ import {
   signal,
   untracked
 } from '@angular/core';
+import { outputFromObservable } from '@angular/core/rxjs-interop';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import {
   AgentBoard,
   AgentBoardAgent,
@@ -39,6 +40,16 @@ import { NhAssistantRunResultComponent } from './nh-assistant-run-result.compone
 /** What a board tile shows below the agent: its latest result, its proposals or its history. */
 export type NhAssistantBoardPanel = 'result' | 'proposals' | 'history';
 
+/**
+ * What a board asks its host to show when a person chooses the count of an agent's open proposals:
+ * the host's inbox, filtered on the agent and on the board's division.
+ */
+export interface NhAssistantBoardInboxRequest {
+  agentId: string;
+  /** The board's division; `null` on the board of the whole application. */
+  divisionId: string | null;
+}
+
 let nextId = 0;
 
 /**
@@ -51,12 +62,19 @@ let nextId = 0;
  * application by its view policy, by default its required policy. With `divisionId` the board shows
  * the work of agents that work per division in that division. With live updates the board reloads by
  * itself when its agents' work changes.
+ *
+ * `compact` folds each tile for a board of busy agents: the description and what the agent works on
+ * behind "About this agent", two lines of the latest result with "More", which opens the whole result,
+ * and the count of open proposals as the way to them. A host that listens to `openInbox` gets the agent
+ * and division from that count, in either density, and routes to its own filtered inbox; without a
+ * listener the count shows the proposals in the tile's own inbox, as "Show the proposals" does.
  */
 @Component({
   selector: 'nh-assistant-agent-board',
   standalone: true,
   imports: [
     DatePipe,
+    NgTemplateOutlet,
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
@@ -88,8 +106,20 @@ export class NhAssistantAgentBoardComponent {
   readonly group = input.required<string>();
   /** The division whose board is shown; without it the board of the whole application. */
   readonly divisionId = input<string | null>(null);
+  /**
+   * Folds the tiles: the description behind "About this agent", two lines of the latest result with
+   * "More", and the count of open proposals as a button.
+   */
+  readonly compact = input(false);
   /** Emits a conversation a result or proposal offers to open, so the host can open it in the assistant panel. */
   readonly openConversation = output<string>();
+  private readonly inboxRequests = new Subject<NhAssistantBoardInboxRequest>();
+  /**
+   * Emits the agent and the board's division when a person chooses the count of the agent's open
+   * proposals, so the host routes to its inbox filtered on them. While nobody listens, the count opens
+   * the tile's own inbox.
+   */
+  readonly openInbox = outputFromObservable(this.inboxRequests);
 
   readonly id = `nh-assistant-agent-board-${nextId++}`;
   readonly codeKeys = nhAssistantCodeKeys;
@@ -102,6 +132,8 @@ export class NhAssistantAgentBoardComponent {
   readonly agents = computed(() => this.board()?.agents ?? []);
   /** Per agent what its tile shows below it; one panel per tile. */
   readonly panels = signal<Readonly<Record<string, NhAssistantBoardPanel>>>({});
+  /** The agents of a compact board whose description is unfolded. */
+  readonly about = signal<ReadonlySet<string>>(new Set());
   /** The agent the run-now dialog runs; `null` while it is closed. */
   readonly runningNow = signal<AgentBoardAgent | null>(null);
   readonly runNowAgent = computed<NhAssistantRunNowAgent | null>(() => {
@@ -126,6 +158,7 @@ export class NhAssistantAgentBoardComponent {
       this.divisionId();
       untracked(() => {
         this.panels.set({});
+        this.about.set(new Set());
         this.runningNow.set(null);
         this.fetch(false);
       });
@@ -174,6 +207,39 @@ export class NhAssistantAgentBoardComponent {
       }
       return next;
     });
+  }
+
+  /** Whether the host listens to `openInbox` and so shows an agent's open proposals in its own inbox. */
+  routesToInbox(): boolean {
+    return this.inboxRequests.observed;
+  }
+
+  /**
+   * The count of an agent's open proposals was chosen: the host's inbox shows them when it listens,
+   * otherwise the tile's own.
+   */
+  openProposals(agent: AgentBoardAgent): void {
+    if (this.routesToInbox()) {
+      this.inboxRequests.next({ agentId: agent.agentId, divisionId: this.divisionId() });
+      return;
+    }
+
+    this.toggle(agent, 'proposals');
+  }
+
+  aboutShown(agent: AgentBoardAgent): boolean {
+    return this.about().has(agent.agentId);
+  }
+
+  /** Unfolds or folds the description of an agent on a compact board. */
+  toggleAbout(agent: AgentBoardAgent): void {
+    const next = new Set(this.about());
+    if (next.has(agent.agentId)) {
+      next.delete(agent.agentId);
+    } else {
+      next.add(agent.agentId);
+    }
+    this.about.set(next);
   }
 
   runNow(agent: AgentBoardAgent): void {

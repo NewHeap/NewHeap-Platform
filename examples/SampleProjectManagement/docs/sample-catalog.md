@@ -104,7 +104,10 @@ thread offers each proposal to the approvers the server names: the lead, added a
 approver on the project members page, approves the proposal of a project the manager
 created, while the manager reads that another approver decides. The panel reaches the
 live hub over WebSockets because the portal passes its active division as `divisionId`
-through `NhAssistantConfig.getHubQueryParameters`.
+through `NhAssistantConfig.getHubQueryParameters`. With "Compact list with keyboard keys" the inbox
+shows one row per proposal (`density: 'compact'`) that expands to its card; the rows share one tab stop,
+and while the focus is in a row `a` approves and `r` rejects that row's proposal, never the selection,
+and `?` lists the keys.
 
 The project subject type describes itself where it is registered (SPM-301):
 `AddSubjectType<ProjectSubjectAccessResolver>(type => ...)` names it in English and Dutch from
@@ -191,7 +194,10 @@ of its code. `nh-assistant-agent-board` shows people who pass the follow-up's vi
 result for the whole application, marked new until they visit the board again, with run now for project
 managers, its open proposals and its history; a colleague without the permission does not see the
 follow-up there. The thread of the whole application is never readable more widely than the follow-up's
-results. The playground shows the same board on the mock.
+results. The portal's board is compact: what an agent is about folds behind "About this agent", the
+latest result shows two lines with "More", and the count of the follow-up's open proposals opens the
+intake reviews inbox filtered on the follow-up through the board's `openInbox`, since the library reads
+no route parameters. The playground shows the same board on the mock, with the comfortable tiles.
 The project assistant reads the project descriptions that match a question (SPM-291). Its
 `UseRetrievedContext` budget of 4,000 characters counts the block as the model reads it, with each
 description's source, date and format, so the lowest-ranked descriptions that do not fit stay out and
@@ -374,7 +380,9 @@ its parent, and every proposal records that parent when it is made, so the inbox
 a resolver per proposal. The intake reviews page shows the inbox grouped: a division with its projects'
 proposals, per project and run, how many of a group the page shows of its total and whether the group
 continues on another page, and "Select group" selects only the shown pending proposals the person may
-decide. The page can show the active division's proposals only. What came since the person's last
+decide. The selection follows the list: a refresh of the same page keeps it, while the next page drops
+it, so "Approve selected" never decides a proposal the person no longer sees. The page can show the
+active division's proposals only. What came since the person's last
 visit of the inbox in its scope is marked new, also what arrives while it is shown. A run's result
 lets its reader select and decide the run's proposals together. Above the inbox the page offers the
 kinds of action it lists, counted per kind with `getInboxSummary` and named as their cards name them,

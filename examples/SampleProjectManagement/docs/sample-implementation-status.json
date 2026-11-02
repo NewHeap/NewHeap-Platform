@@ -2434,7 +2434,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-278": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
@@ -3031,7 +3033,10 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRunFactsTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRunFactsTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-305": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
@@ -3162,7 +3167,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantBulkDecisionTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-bulk-decision.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-bulk-decision.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-311": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",

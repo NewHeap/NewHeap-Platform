@@ -513,8 +513,8 @@ messages itself shows it too. The mock API posts one with
 and `[writingMessageId]="store.writingMessageId()"` to `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
 
-Rejecting an agent proposal stays one click; only afterwards may the person say what was
-wrong. `nh-assistant-proposal-feedback` asks for a category from
+Rejecting an agent proposal stays one click, or the one key `r` in a compact list; only afterwards
+may the person say what was wrong. `nh-assistant-proposal-feedback` asks for a category from
 `NH_ASSISTANT_FEEDBACK_CATEGORIES` and an optional text, sends one proposal with
 `NhAssistantAgentRunApiService.giveFeedback` and proposals rejected together with
 `giveFeedbackMany`, and can always be skipped. `nh-assistant-agent-proposals` shows it
@@ -841,7 +841,11 @@ first page. With `grouped` it asks the server for groups (`AgentInboxFilter.grou
 with `groupByRun` also per run, and its description says so: grouped by object, the group with the
 proposal that expires first on top, instead of the flat list's soonest expiry first; each group says how many of its proposals it shows of its total and
 whether it continues on another page, and "Select group" selects only the shown pending proposals of the
-group that the person may decide, never those on another page. `markNew` (on by default) marks the
+group that the person may decide, never those on another page. The selection of
+`nh-assistant-agent-proposals` follows the list: it keeps only the shown pending proposals the person may
+decide, so a refresh of the same page keeps it while another page, filter or a decision elsewhere drops
+what the list no longer shows, and "Approve selected" and "Reject selected" send only the shown
+proposals, with the proposal hash the person saw, through `decideMany`. `markNew` (on by default) marks the
 proposals made since the person's last visit of the inbox in its scope, the whole application or the
 division of `divisionId`, keeps them marked while the inbox is shown and marks those that arrive live;
 `recordVisit` (on by default) records the visit once after the first read (`visitInbox`,
@@ -875,6 +879,18 @@ shown proposals, not their ids, to `decideMany`, so each decision is bound to th
 saw; a proposal of a tool that is decided one by one is refused there with
 `assistant-individual-decision-required`.
 
+For an inbox of many proposals pass `density: 'compact'` (`NhAssistantProposalDensity`) to
+`nh-assistant-agent-inbox`, which passes it to `nh-assistant-agent-proposals` (SPM-277). Each proposal is
+then one row: its object, kind of action, summary on one line, agent and expiry, with the markers that
+must not disappear: its status once it no longer waits (such as stale or replaced), new, waiting for
+someone else, from a consultation and the source of its rights. A row expands in place to the proposal's
+card. The rows share one tab stop: the arrow keys, Home and End move between them, Enter expands a row
+and Space selects it. While the focus is in a row, and never in a field or the feedback form, `j` and `k`
+move, `x` selects, `a` approves and `r` rejects the proposal of the focused row, never the selection, and
+`?` lists the keys; a held key decides nothing more. Rejecting stays one key with the optional question
+afterwards, and when a decision takes the focused row away, the row that takes its place gets the focus.
+The comfortable cards stay the default.
+
 Show a group of agents on a page of the application with `nh-assistant-agent-board`
 (`NhAssistantAgentBoardComponent`, `group`, optional `divisionId`) from
 `@newheap/platform-ai-chat/agent-runs`, for example a "Project management" page for the group the server
@@ -895,6 +911,18 @@ policies need. In the administration the agent editor lists the run catalog's `a
 (`AgentGroup`) for agents in code and agents created there, marks the groups of the agent's code and
 saves the choice with `NhAssistantAdminApiService.setAgentGroups` (`AdminAgentGroups`); the agent cards
 name the agent's groups.
+
+For a board of busy agents pass `compact` (SPM-304): what an agent is about, its description and what
+it works on, folds behind "About this agent", the latest result shows two lines with "More", which opens
+the whole result where "Show the result" did, and the count of open proposals becomes the way to them.
+The library reads no route parameters, so listen to `openInbox` (`NhAssistantBoardInboxRequest`, the
+agent and the board's division, `null` for the whole application) and route to the application's inbox
+filtered on them, with `recordVisit` off there because it shows only part of the inbox. While a host
+listens, the count is that button in either density and the tile has no inline inbox; without a
+listener the count of a compact tile opens the tile's own inbox, and a comfortable tile keeps "Show the
+proposals". A compact tile's own inbox lists the proposals in compact rows without "Decide all", which
+belongs in the full inbox; a comfortable tile's own inbox keeps both. The disclosures carry
+`aria-expanded` and `aria-controls`.
 
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
@@ -1017,11 +1045,18 @@ own table (SPM-371).
 - Showing "Run now" from the client's own idea of who may run an agent; use the server's `canStart`.
 - Grouping or sorting a page of the inbox in the client, or selecting a group's proposals beyond the
   page; ask for `grouped` and let "Select group" select what is shown.
+- Keeping a selection of proposals of your own across pages or filters and deciding it in one call; a
+  person decides only what is shown, which is what the list's own selection sends.
+- Binding letter keys of your own to the proposals on the document or the page, or letting `a` decide
+  the selection; the compact list's letters act only while the focus is in one of its rows (WCAG 2.1.4)
+  and decide only that row's proposal.
 - Recording an inbox visit from a list that shows only part of the inbox's scope; set `recordVisit`
   to `false` there.
 - Building an agents page that reads each agent's runs and decides "new" itself; use
   `nh-assistant-agent-board`, which follows the server's visibility and the person's visits.
 - Recording a board visit before reading the board; the visit then hides what is new.
+- Reading a board's route parameters in the library's place, or embedding a full inbox in every tile of
+  a busy board; listen to `openInbox` and route to the application's own filtered inbox.
 - Sending the assistant requests through host `HttpClient` interceptors or
   `EventSource`; the library streams through `fetch` with the token from
   `getAccessToken`.
@@ -1200,7 +1235,13 @@ intake reviews page, start the reviewer for a project and follow its run, memory
 files, and decide a waiting proposal from the inbox. Let a manager create a project,
 add the lead as approver on the project members page, open the thread in the assistant
 panel as the lead and approve the proposal there; confirm that the hub connects over
-WebSockets (SPM-277). The feedback tests keep sending disabled until a category is chosen,
+WebSockets (SPM-277). The compact list tests keep the cards as the default, show a row's object, kind
+of action, summary, agent, expiry and markers, expand a row in place to its card, move one tab stop with
+the arrow keys, Home, End, `j` and `k`, select with Space and `x`, decide only the focused row with `a`
+and `r` and ask afterwards, give the next row the focus, keep the letters out of fields, the feedback
+form and modified keys, list the keys with `?` and return the focus with Escape, fit 375px and pass
+through the inbox; on the intake reviews page choose "Compact list with keyboard keys" and decide with
+the keys (SPM-277). The feedback tests keep sending disabled until a category is chosen,
 send one proposal through `PUT` and several through the bulk endpoint, offer the question
 after a rejection and on closed proposals the caller may comment on, and give the panel's
 approval card the question only for proposals the user rejected; the report tests load
@@ -1282,7 +1323,14 @@ a division's board ask the inbox for that division and on the board of the whole
 and mark those of the code, and the mock API serves groups, memberships, boards and visits with the
 server's validation (`NhAssistantMockScenario.agentGroups`, `NhAssistantMockAgentGroup`). The portal's
 Project management page shows the group's board with the project follow-up against the real back-end,
-and the playground shows it on the mock API (SPM-304).
+and the playground shows it on the mock API (SPM-304). The compact board tests fold what an agent is
+about behind its disclosure, show two lines of the result with "More", which opens the whole result,
+and fit 375px; the board routing tests emit the agent and the division from the count of open
+proposals to a host that listens, in either density, without an inline inbox, and open the tile's own
+inbox from the count of a compact tile while nobody listens, in rows and without "Decide all", which a
+comfortable tile's own inbox keeps. The portal's Project management board is
+compact, and the follow-up's count of open proposals opens the intake reviews inbox filtered on the
+follow-up (SPM-304).
 The inbox overview tests pass the division, run and grouping to the inbox and reload from the first
 page when one changes, render a header per group and subject and per run, say how much of a group is
 shown and that it continues, select with "Select group" only the shown pending proposals the person may
@@ -1295,7 +1343,10 @@ and subject type what it lists, as the server does (`nh-assistant-inbox-by-kind.
 deciding the whole inbox show "Decide all" with its overview per kind, the proposals that stay, the
 tallies afterwards, the overview's own filter, token and reason, a refused decision and the switch, and
 let the mock API serve the overview, a decision of its set once, a repeat, an unknown token and the
-versions and individual decisions of several by id (`nh-assistant-inbox-bulk-decision.spec.ts`).
+versions and individual decisions of several by id (`nh-assistant-inbox-bulk-decision.spec.ts`). The
+selection tests keep a selection through a refresh of the same page, drop it on the next page so
+"Approve selected" sends only the proposal selected there, and drop a proposal the host no longer shows,
+also when it comes back (SPM-310).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 to SPM-304 and SPM-310
 are the executable references.
 

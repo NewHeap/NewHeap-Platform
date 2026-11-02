@@ -30,7 +30,7 @@
       <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
     </div>
   } @else {
-    <ul class="cards board-tiles">
+    <ul class="cards board-tiles" [class.compact]="compact()">
       @for (agent of agents(); track agent.agentId) {
         <li class="card board-tile" [class.new]="agent.isNew" [attr.data-board-agent]="agent.agentId" [attr.aria-labelledby]="id + '-' + agent.agentId + '-name'">
           <div class="card-header">
@@ -40,14 +40,49 @@
                 {{ 'nh-assistant.agent-runs.board.new' | translate }}<span class="visually-hidden">: {{ 'nh-assistant.agent-runs.board.new-label' | translate }}</span>
               </span>
             }
-            <span class="badge" [class.warning]="agent.openProposals > 0" data-open-proposals>
-              {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}
-            </span>
+            @if (agent.openProposals > 0 && (compact() || routesToInbox())) {
+              <!-- The count is the way to the proposals: the host's inbox when it listens, otherwise the tile's own. -->
+              @if (routesToInbox()) {
+                <button class="badge warning count-button" type="button" data-open-proposals data-board-open-inbox (click)="openProposals(agent)">
+                  {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}<span class="visually-hidden">: {{ 'nh-assistant.agent-runs.board.open-inbox' | translate }}</span>
+                </button>
+              } @else {
+                <button
+                  class="badge warning count-button"
+                  type="button"
+                  data-open-proposals
+                  data-board-toggle-proposals
+                  [attr.aria-expanded]="panelOf(agent) === 'proposals'"
+                  [attr.aria-controls]="id + '-' + agent.agentId + '-panel'"
+                  (click)="openProposals(agent)">
+                  {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}
+                </button>
+              }
+            } @else {
+              <span class="badge" [class.warning]="agent.openProposals > 0" data-open-proposals>
+                {{ proposalsKey(agent.openProposals) | translate: { count: agent.openProposals } }}
+              </span>
+            }
           </div>
-          @if ([agent.descriptionKey] | nhAssistantTranslate: agent.descriptionKey; as description) {
-            <p class="muted">{{ description }}</p>
+          @if (compact()) {
+            <!-- A compact tile folds what the agent is about; its name and work stay in view. -->
+            <button
+              class="text-button tile-disclosure"
+              type="button"
+              data-board-toggle-about
+              [attr.aria-expanded]="aboutShown(agent)"
+              [attr.aria-controls]="id + '-' + agent.agentId + '-about'"
+              (click)="toggleAbout(agent)">
+              {{ 'nh-assistant.agent-runs.board.about' | translate }}
+            </button>
+            @if (aboutShown(agent)) {
+              <div class="board-about" data-board-about [id]="id + '-' + agent.agentId + '-about'">
+                <ng-container *ngTemplateOutlet="aboutAgent; context: { $implicit: agent }" />
+              </div>
+            }
+          } @else {
+            <ng-container *ngTemplateOutlet="aboutAgent; context: { $implicit: agent }" />
           }
-          <p class="muted" data-works-on>{{ worksOnOf(agent) }}</p>
 
           @if (agent.subjectType) {
             @if (agent.latestRun; as run) {
@@ -66,9 +101,21 @@
                 }
                 @if (run.result; as result) {
                   <!-- Model output: rendered only through the assistant's safe Markdown rendering. -->
-                  <div class="markdown board-preview" data-latest-result [innerHTML]="previewOf(result, run.resultTruncated) | nhAssistantMarkdown"></div>
+                  <div class="markdown board-preview" data-latest-result [class.compact]="compact()" [innerHTML]="previewOf(result, run.resultTruncated) | nhAssistantMarkdown"></div>
                 } @else {
                   <p class="muted">{{ 'nh-assistant.agent-runs.object-agents.no-result' | translate }}</p>
+                }
+                @if (compact()) {
+                  <!-- Two lines of the result on a compact tile; "More" opens the whole result below. -->
+                  <button
+                    class="text-button tile-disclosure"
+                    type="button"
+                    data-board-more
+                    [attr.aria-expanded]="panelOf(agent) === 'result'"
+                    [attr.aria-controls]="id + '-' + agent.agentId + '-panel'"
+                    (click)="toggle(agent, 'result')">
+                    {{ (panelOf(agent) === 'result' ? 'nh-assistant.agent-runs.board.less' : 'nh-assistant.agent-runs.board.more') | translate }}<span class="visually-hidden">: {{ 'nh-assistant.agent-runs.board.result-of' | translate: { agent: ([agent.displayNameKey] | nhAssistantTranslate: agent.displayNameKey) } }}</span>
+                  </button>
                 }
               </div>
             } @else {
@@ -86,7 +133,7 @@
                 <nh-assistant-icon name="send" />{{ 'nh-assistant.agent-runs.board.run-now' | translate }}
               </button>
             }
-            @if (agent.latestRun) {
+            @if (agent.latestRun && !compact()) {
               <button
                 class="secondary"
                 type="button"
@@ -97,7 +144,7 @@
                 <nh-assistant-icon name="page" />{{ (panelOf(agent) === 'result' ? 'nh-assistant.agent-runs.result.hide' : 'nh-assistant.agent-runs.result.show') | translate }}
               </button>
             }
-            @if (agent.openProposals > 0) {
+            @if (agent.openProposals > 0 && !compact() && !routesToInbox()) {
               <button
                 class="secondary"
                 type="button"
@@ -132,12 +179,15 @@
             @case ('proposals') {
               <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
                 <!-- One agent's proposals are no visit of the whole inbox; the tile already marks what is new.
-                     The board of a division shows that division's proposals only. -->
+                     The board of a division shows that division's proposals only. A compact tile lists them
+                     in rows and leaves deciding the whole filter to the full inbox. -->
                 <nh-assistant-agent-inbox
                   [agentId]="agent.agentId"
                   [divisionId]="divisionId()"
                   [markNew]="false"
                   [recordVisit]="false"
+                  [decideAll]="!compact()"
+                  [density]="compact() ? 'compact' : 'comfortable'"
                   (openConversation)="openConversation.emit($event)" />
               </div>
             }
@@ -157,6 +207,14 @@
       }
     </ul>
   }
+
+  <!-- What the agent is about: always on a tile, behind "About this agent" on a compact one. -->
+  <ng-template #aboutAgent let-agent>
+    @if ([agent.descriptionKey] | nhAssistantTranslate: agent.descriptionKey; as description) {
+      <p class="muted">{{ description }}</p>
+    }
+    <p class="muted" data-works-on>{{ worksOnOf(agent) }}</p>
+  </ng-template>
 
   @if (runNowAgent(); as runAgent) {
     <nh-assistant-run-now-dialog

@@ -33,7 +33,7 @@ import {
   ɵnhAssistantWatchAgentWork as nhAssistantWatchAgentWork,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
-import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposals.component';
+import { NhAssistantAgentProposalsComponent, NhAssistantProposalDensity } from './nh-assistant-agent-proposals.component';
 
 /**
  * The approval inbox: pending agent proposals across subjects that the signed-in person may
@@ -59,6 +59,7 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * those that arrive while it is shown; with `recordVisit` (on by default) showing it records the
  * visit. Turn `recordVisit` off for an inbox that shows only part of the scope, such as one agent's
  * proposals, so the person's next visit of the whole inbox still marks what they have not seen.
+ * `density: 'compact'` shows one row per proposal with the list's keys (see `nh-assistant-agent-proposals`).
  *
  * "Decide all" (`decideAll`, on by default) decides the inbox's whole filter, not only the shown page:
  * it first shows the overview of the set the server would decide (`getBulkDecisionOverview`), how many
@@ -125,6 +126,11 @@ export class NhAssistantAgentInboxComponent {
   /** Offers "Decide all" for the inbox's whole filter, after an overview of what it decides. */
   readonly decideAll = input(true);
   readonly itemsPerPage = input(20);
+  /**
+   * How the list shows the proposals: `compact` one row each with the list's keys, for an inbox of many
+   * proposals; `comfortable`, the default, a card each.
+   */
+  readonly density = input<NhAssistantProposalDensity>('comfortable');
   /**
    * Emits the conversation of the run that placed a proposal at its object from another subject, so
    * the host opens it, for example in the assistant panel.

@@ -186,21 +186,23 @@ describe('The groups and boards of the mock API', () => {
   imports: [NhAssistantAgentBoardComponent],
   template: `
     <div class="page" [style.width.px]="width()">
-      <nh-assistant-agent-board [group]="group()" (openConversation)="opened.push($event)" />
+      <nh-assistant-agent-board [group]="group()" [compact]="compact()" (openConversation)="opened.push($event)" />
     </div>
   `
 })
 class BoardPageHost {
   readonly group = signal('project-management');
   readonly width = signal(1024);
+  readonly compact = signal(false);
   readonly opened: string[] = [];
 }
 
 describe('nh-assistant-agent-board', () => {
-  async function render(width = 1024, group = 'project-management'): Promise<{ fixture: ComponentFixture<BoardPageHost>; element: HTMLElement }> {
+  async function render(width = 1024, group = 'project-management', compact = false): Promise<{ fixture: ComponentFixture<BoardPageHost>; element: HTMLElement }> {
     const fixture = TestBed.createComponent(BoardPageHost);
     fixture.componentInstance.width.set(width);
     fixture.componentInstance.group.set(group);
+    fixture.componentInstance.compact.set(compact);
     return { fixture, element: await settle(fixture) };
   }
 
@@ -287,6 +289,54 @@ describe('nh-assistant-agent-board', () => {
     await settle(fixture);
     const latest = text(tile(element, 'statistics').querySelector('[data-latest-result]'));
     expect(latest).toBe('Counted now.');
+  });
+
+  it('folds a compact tile: what the agent is about behind a disclosure and two lines of its result with More', async () => {
+    const longResult = ['**12** projects are open.', 'Four of them wait for a review.', 'Two have no lead yet.', 'One is late.'].join('\n\n');
+    await configure(scenario({
+      runs: [{ id: 'run-statistics', agentId: 'statistics', subjectType: 'nh-system', subjectId: 'global', result: longResult, createdAt: '2026-10-19T07:00:00Z' }]
+    }));
+    const { fixture, element } = await render(1024, 'project-management', true);
+    const statistics = tile(element, 'statistics');
+
+    // What the agent is about folds away; its name and its work stay in view.
+    const about = statistics.querySelector('[data-board-toggle-about]') as HTMLButtonElement;
+    expect(text(about)).toBe('About this agent');
+    expect(about.getAttribute('aria-expanded')).toBe('false');
+    expect(statistics.querySelector('[data-works-on]')).toBeNull();
+    expect(text(statistics)).not.toContain('Counts the projects.');
+    about.click();
+    await settle(fixture);
+    expect(about.getAttribute('aria-expanded')).toBe('true');
+    const unfolded = statistics.querySelector(`#${about.getAttribute('aria-controls')}`) as HTMLElement;
+    expect(text(unfolded)).toContain('Counts the projects.');
+    expect(text(unfolded.querySelector('[data-works-on]'))).toBe('Works on Projects, the whole application');
+
+    // Two lines of the result, still rendered safely.
+    const preview = statistics.querySelector('[data-latest-result]') as HTMLElement;
+    expect(preview.classList).toContain('compact');
+    expect(preview.querySelector('strong')?.textContent).toBe('12');
+    const lineHeight = parseFloat(getComputedStyle(preview).lineHeight);
+    expect(preview.getBoundingClientRect().height).toBeLessThanOrEqual(2 * lineHeight + 1);
+    expect(preview.scrollHeight).toBeGreaterThan(preview.clientHeight);
+
+    // "More" opens the whole result; the tile has no second "Show the result".
+    expect(statistics.querySelector('[data-board-toggle-result]')).toBeNull();
+    const more = statistics.querySelector('[data-board-more]') as HTMLButtonElement;
+    expect(text(more)).toBe('More: the latest result of Weekly statistics');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    more.click();
+    await settle(fixture);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    expect(text(more)).toContain('Less');
+    const panel = statistics.querySelector(`#${more.getAttribute('aria-controls')}`) as HTMLElement;
+    expect(panel.querySelector('nh-assistant-run-result')).not.toBeNull();
+
+    // A phone keeps one column without scrolling sideways.
+    fixture.componentInstance.width.set(375);
+    await settle(fixture);
+    const page = element.querySelector('.page') as HTMLElement;
+    expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth + 1);
   });
 
   it('shows that a board is not there and fits at 375px without scrolling sideways', async () => {
