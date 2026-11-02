@@ -1035,7 +1035,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 .RespondWithText("I have no milestone information here.")
                 .RespondWithFunctionCall("mcp_milestones_next_milestone", new { project = "MILESTONE" }, "call-milestone")
                 .RespondWithText("The next milestone of MILESTONE is on Friday.");
-            host.Model.Use(model);
+            host.Model.UseFor(SampleStatusAdvisorComposition.AgentId, model);
             var start = new NhAssistantStartAgentRequest(
                 SampleStatusAdvisorComposition.AgentId,
                 ProjectSubjects.Type,
@@ -1143,7 +1143,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 .RespondWithText("I have no calendar information here.")
                 .RespondWithFunctionCall("mcp_team-calendar_next_milestone", new { project = "CALENDAR" }, "call-calendar")
                 .RespondWithText("The next milestone of CALENDAR is on Friday.");
-            host.Model.Use(model);
+            host.Model.UseFor(SampleStatusAdvisorComposition.AgentId, model);
             var start = new NhAssistantStartAgentRequest(
                 SampleStatusAdvisorComposition.AgentId,
                 ProjectSubjects.Type,
@@ -1258,7 +1258,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 .RespondWithText("I have no calendar information here.")
                 .RespondWithFunctionCall("mcp_my-calendar_next_milestone", new { project = "PERSONAL" }, "call-calendar")
                 .RespondWithText("The next milestone of PERSONAL is on Friday.");
-            host.Model.Use(model);
+            host.Model.UseFor(SampleStatusAdvisorComposition.AgentId, model);
             var start = new NhAssistantStartAgentRequest(
                 SampleStatusAdvisorComposition.AgentId,
                 ProjectSubjects.Type,
@@ -3755,10 +3755,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 new NhAssistantDataSkillRequest("Reviews a project before it starts.", "Check that the plan is complete before you propose to start.", [ProjectAiTools.ChangeStatusToolId]),
                 actor))).Success);
 
+            // Another test of this host may have imported the desks' package before: a package never goes
+            // back, so the versions here count on from the installed one.
+            var installed = await InstalledVersionAsync(SampleAgentPackagesComposition.PackageId);
+
             // The operator exports both desks as one package with the kickoff desk's instructions locked.
             using var export = await administrator.PostAsJsonAsync(
                 "/api/assistant/admin/agent-packages/export",
-                new NhAssistantAgentPackageExportRequest([desk, kickoff], SampleAgentPackagesComposition.ExportOptions()),
+                new NhAssistantAgentPackageExportRequest([desk, kickoff], SampleAgentPackagesComposition.ExportOptions(installed + 1)),
                 Json);
             Assert.Equal(HttpStatusCode.OK, export.StatusCode);
             Assert.Equal(
@@ -3766,7 +3770,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 export.Content.Headers.ContentDisposition!.FileNameStar ?? export.Content.Headers.ContentDisposition.FileName);
             Assert.Equal("[]", Assert.Single(export.Headers.GetValues(NhAssistantAgentPackageRoutes.WarningsHeader)));
             var package = NhAssistantAgentPackageFormat.Read(await export.Content.ReadAsStringAsync()).Data!;
-            Assert.Equal((SampleAgentPackagesComposition.PackageId, 1), (package.Package.Id, package.Package.Version));
+            Assert.Equal((SampleAgentPackagesComposition.PackageId, installed + 1), (package.Package.Id, package.Package.Version));
             // The technical account never travels.
             Assert.DoesNotContain(host.OperationsAccountId.ToString("D"), NhAssistantAgentPackageFormat.Write(package), StringComparison.Ordinal);
 
@@ -3778,7 +3782,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // shadow next to the live version, until it is promoted.
             var upgrade = package with
             {
-                Package = package.Package with { Version = 2 },
+                Package = package.Package with { Version = installed + 2 },
                 Agents = package.Agents
                     .Select(agent => agent.Id == kickoff
                         ? agent with
@@ -3796,7 +3800,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                        Json))
             {
                 var previewed = (await preview.Content.ReadFromJsonAsync<NhAssistantAgentPackagePreviewDto>(Json))!;
-                Assert.Equal((true, (int?)1), (previewed.Importable, previewed.InstalledVersion));
+                Assert.Equal((true, (int?)(installed + 1)), (previewed.Importable, previewed.InstalledVersion));
                 Assert.Equal(NhAssistantPackagePartOutcomes.Changed, previewed.Parts.Single(part => part.AgentId == kickoff && part.Part == "skill:" + review).Outcome);
             }
             var upgraded = await ImportPackageAsync(administrator, upgrade, shadow);
@@ -3842,14 +3846,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
             }
-            var next = await ImportPackageAsync(administrator, upgrade with { Package = upgrade.Package with { Version = 3 } }, new NhAssistantAgentPackageImportOptions());
+            var next = await ImportPackageAsync(administrator, upgrade with { Package = upgrade.Package with { Version = installed + 3 } }, new NhAssistantAgentPackageImportOptions());
             Assert.Equal(NhAssistantPackagePartOutcomes.KeptLocal, next.Parts.Single(part => part.AgentId == kickoff && part.Part == "agent").Outcome);
             Assert.Equal(
                 "Start every draft project at once.",
                 (await administrator.GetFromJsonAsync<NhAssistantAdminAgentDto[]>("/api/assistant/admin/agents", Json))!.Single(item => item.Id == kickoff).Instructions);
             var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageExported && evt.PackageId == SampleAgentPackagesComposition.PackageId);
-            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageImported && evt.PackageVersion == 2 && evt.ResultCode == "upgraded");
+            Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageImported && evt.PackageVersion == installed + 2 && evt.ResultCode == "upgraded");
             Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentPackageUnlinked && evt.AgentId == kickoff && evt.PackagePart == "agent");
         }
         finally
@@ -3956,9 +3960,13 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             }
 
             // One audit event records the promotion with the package, never its content.
+            // Another test of this host promotes the same variant into an earlier version of the package.
             var audit = Assert.Single(
                 host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
-                evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentShadowVariantPromoted && evt.ObjectId == trial);
+                evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentShadowVariantPromoted
+                    && evt.ObjectId == trial
+                    && evt.PackageId == SampleAgentPackagesComposition.NextVersionPackageId
+                    && evt.PackageVersion == next.Package.Version);
             Assert.Equal(
                 (NhAssistantShadowVariantPromotions.PromotedAsPackageVersion, SampleAgentPackagesComposition.NextVersionPackageId, (int?)next.Package.Version),
                 (audit.ResultCode, audit.PackageId, audit.PackageVersion));

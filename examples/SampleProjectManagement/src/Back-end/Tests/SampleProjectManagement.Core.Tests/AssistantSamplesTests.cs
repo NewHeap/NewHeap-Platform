@@ -663,15 +663,27 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
 }
 
 /// <summary>
-/// Lets each test install its own scripted model on the shared host.
+/// Lets each test install its own scripted model on the shared host. A script installed with
+/// <see cref="UseFor"/> answers only the turns of that agent, so a run another agent starts on its own,
+/// such as the intake reviewer on every new project once the outbox delivers the event, never takes
+/// the test's scripted answers; those turns get the client <see cref="Use"/> installed.
 /// </summary>
 public sealed class SwitchableChatClient : IChatClient
 {
     private IChatClient _current = new NhAiScriptedChatClient();
+    private (string AgentId, IChatClient Client)? _agent;
 
+    /// <summary>Installs <paramref name="client"/> for every turn and forgets a script of one agent.</summary>
     public void Use(IChatClient client)
     {
+        _agent = null;
         _current = client;
+    }
+
+    /// <summary>Installs <paramref name="client"/> for the turns of <paramref name="agentId"/> only.</summary>
+    public void UseFor(string agentId, IChatClient client)
+    {
+        _agent = (agentId, client);
     }
 
     public Task<ChatResponse> GetResponseAsync(
@@ -679,7 +691,7 @@ public sealed class SwitchableChatClient : IChatClient
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return _current.GetResponseAsync(messages, options, cancellationToken);
+        return Client().GetResponseAsync(messages, options, cancellationToken);
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -687,10 +699,19 @@ public sealed class SwitchableChatClient : IChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var update in _current.GetStreamingResponseAsync(messages, options, cancellationToken))
+        await foreach (var update in Client().GetStreamingResponseAsync(messages, options, cancellationToken))
         {
             yield return update;
         }
+    }
+
+    /// <summary>The client of the agent whose turn calls, by the turn's ambient agent scope.</summary>
+    private IChatClient Client()
+    {
+        return _agent is { } agent
+               && string.Equals(NhAiAgentInvocationScopes.Current?.AgentId, agent.AgentId, StringComparison.Ordinal)
+            ? agent.Client
+            : _current;
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)
