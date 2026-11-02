@@ -9,6 +9,7 @@ import {
   computed,
   inject,
   input,
+  linkedSignal,
   output,
   signal
 } from '@angular/core';
@@ -90,7 +91,8 @@ interface NhAssistantFeedbackRequest {
  * A list of agent proposals with their decision and execution state. People who may decide see
  * approve and reject on pending proposals and the resolution of an execution with an unknown
  * outcome; the server checks every decision again. With `selectable`, pending proposals can be
- * approved or rejected together. Deciding takes one action. After a rejection the list asks,
+ * approved or rejected together; the selection follows the list, so it holds only proposals the
+ * list shows and "Approve selected" never sends one of another page. Deciding takes one action. After a rejection the list asks,
  * optionally and above the list, what was wrong; closed proposals keep a low-key action to give or
  * change that feedback later. With `decisionRights` each proposal has its own right, for example
  * from the agent work on a subject, and a pending proposal the viewer may not decide says who does.
@@ -163,18 +165,38 @@ export class NhAssistantAgentProposalsComponent {
   readonly openConversation = output<string>();
 
   readonly busy = signal(false);
-  readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
-  /** Pending proposals the caller may decide. */
-  readonly pending = computed(() =>
-    this.proposals().filter(proposal => proposal.status === 'pending' && this.mayDecide(proposal)));
-  readonly allSelected = computed(() =>
-    this.pending().length > 0 && this.pending().every(proposal => this.selected().has(proposal.approvalId)));
   /** The feedback question. It does not depend on `proposals`, which drop rejected proposals in the inbox. */
   readonly feedback = signal<NhAssistantFeedbackRequest | null>(null);
   /** Proposals that closed as stale while shown, kept until dismissed; newest first. */
   readonly held = signal<AgentProposal[]>([]);
+  /** Pending proposals shown here that the caller may decide; a closed card the list keeps is none. */
+  readonly pending = computed(() => {
+    const heldIds = new Set(this.held().map(proposal => proposal.approvalId));
+    return this.proposals().filter(proposal =>
+      proposal.status === 'pending' && !heldIds.has(proposal.approvalId) && this.mayDecide(proposal));
+  });
+  /**
+   * The selected proposals, by approval id. The selection follows the list: it keeps only pending
+   * proposals shown here that the caller may decide. A refresh of the same page keeps it; another
+   * page, another filter or a decision elsewhere drops what the list no longer shows, also when it
+   * comes back later.
+   */
+  readonly selected = linkedSignal<readonly AgentProposal[], ReadonlySet<string>>({
+    source: () => this.pending(),
+    computation: (pending, previous) => {
+      if (!previous) {
+        return new Set();
+      }
+
+      const shown = new Set(pending.map(proposal => proposal.approvalId));
+      const kept = [...previous.value].filter(id => shown.has(id));
+      return kept.length === previous.value.size ? previous.value : new Set(kept);
+    }
+  });
+  readonly allSelected = computed(() =>
+    this.pending().length > 0 && this.pending().every(proposal => this.selected().has(proposal.approvalId)));
   /** The held closed cards first, then the proposals the host gave. */
   readonly shown = computed(() => {
     const held = this.held();
@@ -388,8 +410,15 @@ export class NhAssistantAgentProposalsComponent {
     });
   }
 
+  /**
+   * Decides the selected proposals together. Only ids of proposals this list shows are sent, in the
+   * list's order: a person decides only what they see.
+   */
   decideSelected(decision: AgentProposalDecision): void {
-    const ids = [...this.selected()];
+    const selected = this.selected();
+    const ids = this.pending()
+      .filter(proposal => selected.has(proposal.approvalId))
+      .map(proposal => proposal.approvalId);
     if (ids.length === 0) {
       return;
     }

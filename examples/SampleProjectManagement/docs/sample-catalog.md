@@ -360,7 +360,9 @@ its parent, and every proposal records that parent when it is made, so the inbox
 a resolver per proposal. The intake reviews page shows the inbox grouped: a division with its projects'
 proposals, per project and run, how many of a group the page shows of its total and whether the group
 continues on another page, and "Select group" selects only the shown pending proposals the person may
-decide. The page can show the active division's proposals only. What came since the person's last
+decide. The selection follows the list: a refresh of the same page keeps it, while the next page drops
+it, so "Approve selected" never decides a proposal the person no longer sees. The page can show the
+active division's proposals only. What came since the person's last
 visit of the inbox in its scope is marked new, also what arrives while it is shown. A run's result
 lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
 grouped order and totals across pages, the recorded parent, the division filter and what is new.

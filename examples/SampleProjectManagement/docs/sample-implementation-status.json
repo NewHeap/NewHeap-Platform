@@ -3132,7 +3132,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-311": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStarterComposition.cs",

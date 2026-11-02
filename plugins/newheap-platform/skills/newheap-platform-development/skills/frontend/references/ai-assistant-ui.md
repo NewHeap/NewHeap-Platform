@@ -816,7 +816,11 @@ first page. With `grouped` it asks the server for groups (`AgentInboxFilter.grou
 with `groupByRun` also per run, and its description says so: grouped by object, the group with the
 proposal that expires first on top, instead of the flat list's soonest expiry first; each group says how many of its proposals it shows of its total and
 whether it continues on another page, and "Select group" selects only the shown pending proposals of the
-group that the person may decide, never those on another page. `markNew` (on by default) marks the
+group that the person may decide, never those on another page. The selection of
+`nh-assistant-agent-proposals` follows the list: it keeps only the shown pending proposals the person may
+decide, so a refresh of the same page keeps it while another page, filter or a decision elsewhere drops
+what the list no longer shows, and "Approve selected" and "Reject selected" send only ids of shown
+proposals. `markNew` (on by default) marks the
 proposals made since the person's last visit of the inbox in its scope, the whole application or the
 division of `divisionId`, keeps them marked while the inbox is shown and marks those that arrive live;
 `recordVisit` (on by default) records the visit once after the first read (`visitInbox`,
@@ -967,6 +971,8 @@ own table (SPM-371).
 - Showing "Run now" from the client's own idea of who may run an agent; use the server's `canStart`.
 - Grouping or sorting a page of the inbox in the client, or selecting a group's proposals beyond the
   page; ask for `grouped` and let "Select group" select what is shown.
+- Keeping a selection of proposals of your own across pages or filters and deciding it in one call; a
+  person decides only what is shown, which is what the list's own selection sends.
 - Recording an inbox visit from a list that shows only part of the inbox's scope; set `recordVisit`
   to `false` there.
 - Building an agents page that reads each agent's runs and decides "new" itself; use
@@ -1238,7 +1244,10 @@ page when one changes, render a header per group and subject and per run, say ho
 shown and that it continues, select with "Select group" only the shown pending proposals the person may
 decide, mark what is new since the last visit and what arrives while shown, record the visit once, and
 let a run result's reader select and decide the run's proposals; the mock API serves parents, the
-division filter, the grouped order with its totals and the inbox's visits (SPM-310).
+division filter, the grouped order with its totals and the inbox's visits (SPM-310). The selection tests
+keep a selection through a refresh of the same page, drop it on the next page so "Approve selected" sends
+only the proposal selected there, and drop a proposal the host no longer shows, also when it comes back
+(SPM-310).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 to SPM-304 and SPM-310
 are the executable references.
 
