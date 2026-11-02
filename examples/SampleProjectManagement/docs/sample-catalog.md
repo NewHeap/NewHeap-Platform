@@ -281,8 +281,11 @@ raise an alert of the kind `project-due-today`, declared in code with its texts 
 recipients and its default delivery, for the owner and the people working on a project that is due
 today with open tasks. A later round on the same day is the same alert, so nobody is warned twice;
 the application's own code may name more people, and the platform leaves out everyone without a role
-on the project; once the tasks are done the watch resolves the alert. `AssistantAlertSamplesTests`
-runs three rounds on one day. The warning arrives in the 07:30 digest in each person's own time zone,
+on the project. The kind itself chooses the members who work on the project by their role, so the
+rules name nobody. Ticking off the last task resolves the alert at once, because the task consumer
+revalidates the project's alerts with the check the kind declares; a round that finds the project no
+longer due raises nothing, and the kind resolves the watch's warning by omission.
+`AssistantAlertSamplesTests` runs three rounds on one day. The warning arrives in the 07:30 digest in each person's own time zone,
 which the sample takes from the division a person works in: a colleague in New York gets it at 07:30
 there, and a colleague who muted the kind in their notification preferences gets nothing.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a

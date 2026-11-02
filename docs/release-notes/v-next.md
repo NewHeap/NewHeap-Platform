@@ -43,6 +43,23 @@
   alerts after `NhAssistantLimits.AlertRetention` (30 days). `MaxAlertsPerRun` and `MaxAlertsPerSubjectPerDay` bound
   them. Every recipient is checked before anything reaches them: the principal factory still rebuilds them for the
   subject and they have at least `Reader` on it; `INhAssistantAlertPolicy` (`UseAlertPolicy`) replaces the selectors.
+- Recipients by role (FB87 phase 2): `NhAssistantAlertRecipients.SubjectMembers(minRole)` chooses the subject's members
+  with at least that role (`NhAssistantAlertRecipientSelector.SubjectMembers`, `MinimumMemberRole`), combinable with
+  `Or`. For a kind that selects only members the check at delivery and at reading asks that role too, so a member who
+  dropped below it gets nothing more (`NhAssistantAlertDropReasons.BelowMinimumRole`); combined with another selector
+  or under an alert policy the check stays at `Reader`.
+- Resolving by omission: a kind with `ResolveWhenNotRaised()` lets an agent's rules that finish a run on a subject
+  resolve the agent's open alerts of the kind about that subject whose key they did not raise again, audited as
+  `AgentAlertResolved` with `not-raised` (`NhAssistantAlertCodes.NotRaised`). Only the run's own subject: a run on the
+  whole application (`nh-system`) resolves explicitly, a run whose rules fail, hand over or are cancelled resolves
+  nothing, and a shadow run touches only shadow alerts.
+- Revalidation (FB87-10): a kind declares its check with `Revalidate<TCheck>()` (`INhAssistantAlertCheck`,
+  `NhAssistantAlertCheckContext`, `NhAssistantAlertValidity`), and the application calls
+  `INhAssistantAlerts.RevalidateAsync(subject)` after its change committed; nothing revalidates by itself. It checks at
+  most `NhAssistantAlertLimits.MaxRevalidatedAlerts` open alerts of kinds with a check, resolves those whose check says
+  so, audited with `revalidated` (`NhAssistantAlertCodes.Revalidated`), and returns an
+  `NhAssistantAlertRevalidationResult` with the `NhAssistantResolvedAlert`s. A check that fails leaves its alert open,
+  is logged without content and stops no other.
 - The content-free audit kinds `AgentAlertRaised` (127), `AgentAlertResolved` (128), `AgentAlertDismissed` (129) and
   `AgentAlertRecipientDropped` (130), with `NhAssistantAuditEvent.AlertId`, `AlertKind`, `AlertRevision` and
   `AlertRecipientCount`. Forgetting a user also removes their alert deliveries and their notification preferences.

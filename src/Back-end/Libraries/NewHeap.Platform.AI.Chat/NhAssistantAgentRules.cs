@@ -80,7 +80,9 @@ public sealed class NhAssistantRuleResult
     /// The same result that also resolves the open alerts <paramref name="keys"/> name once the rules
     /// end, such as a warning about a task that was completed meanwhile: they close, and their deliveries
     /// that did not go out are taken back. Each key's kind must be listed with the agent's
-    /// <c>Alerts(...)</c>. A shadow run resolves only its shadow alerts.
+    /// <c>Alerts(...)</c>. A shadow run resolves only its shadow alerts. A kind declared with
+    /// <see cref="NhAssistantAlertKindBuilder.ResolveWhenNotRaised"/> needs no call for the run's own
+    /// subject: what a finished run did not raise again is resolved by omission.
     /// </summary>
     public NhAssistantRuleResult ResolveAlerts(params NhAssistantAlertKey[] keys)
     {
