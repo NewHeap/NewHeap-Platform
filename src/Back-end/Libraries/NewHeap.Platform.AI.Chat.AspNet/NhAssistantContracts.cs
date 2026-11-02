@@ -466,9 +466,11 @@ public sealed record NhAssistantAlertChannelsDto(bool Push, bool InApp);
 /// </summary>
 public sealed record NhAssistantAlertKindPreferenceUpdateDto
 {
-    private readonly string? _digestTime;
-    private readonly IReadOnlyList<string?>? _digestTimes;
-    private readonly NhAssistantQuietHoursUpdateDto? _quietHours;
+    // The values that a null resets have setters, not init accessors: the source-generated JSON contract
+    // sets every init accessor, also of a value the request left out, which would reset what was omitted.
+    private string? _digestTime;
+    private IReadOnlyList<string?>? _digestTimes;
+    private NhAssistantQuietHoursUpdateDto? _quietHours;
 
     /// <summary>The kind's id.</summary>
     public string? Id { get; init; }
@@ -483,7 +485,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
     public string? DigestTime
     {
         get => _digestTime;
-        init
+        set
         {
             _digestTime = value;
             DigestTimeGiven = true;
@@ -492,7 +494,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
 
     /// <summary>Whether the request gave <see cref="DigestTime"/>, also as <see langword="null"/>.</summary>
     [JsonIgnore]
-    public bool DigestTimeGiven { get; private init; }
+    public bool DigestTimeGiven { get; private set; }
 
     /// <summary>
     /// The times of the caller's digests of the kind as <c>HH:mm</c>, one to four a day, in their time
@@ -501,7 +503,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
     public IReadOnlyList<string?>? DigestTimes
     {
         get => _digestTimes;
-        init
+        set
         {
             _digestTimes = value;
             DigestTimesGiven = true;
@@ -510,7 +512,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
 
     /// <summary>Whether the request gave <see cref="DigestTimes"/>, also as <see langword="null"/>.</summary>
     [JsonIgnore]
-    public bool DigestTimesGiven { get; private init; }
+    public bool DigestTimesGiven { get; private set; }
 
     /// <summary>
     /// The caller's own quiet hours for the kind, in their time zone; <see langword="null"/> resets them to
@@ -519,7 +521,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
     public NhAssistantQuietHoursUpdateDto? QuietHours
     {
         get => _quietHours;
-        init
+        set
         {
             _quietHours = value;
             QuietHoursGiven = true;
@@ -528,7 +530,7 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
 
     /// <summary>Whether the request gave <see cref="QuietHours"/>, also as <see langword="null"/>.</summary>
     [JsonIgnore]
-    public bool QuietHoursGiven { get; private init; }
+    public bool QuietHoursGiven { get; private set; }
 
     /// <summary>Turns Web Push or the in-app notifications on or off for the kind.</summary>
     public NhAssistantAlertChannelsUpdateDto? Channels { get; init; }
