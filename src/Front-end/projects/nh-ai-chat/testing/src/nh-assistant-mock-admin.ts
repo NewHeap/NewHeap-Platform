@@ -26,6 +26,7 @@ import {
 } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
+import { NhAssistantMockWithoutApproval } from './nh-assistant-mock-without-approval';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 
 export type { NhAssistantMockResult } from './nh-assistant-mock-admin-shared';
@@ -57,6 +58,8 @@ export class NhAssistantMockAdmin {
   private readonly accounts: NhAssistantMockAccounts;
   private readonly runConfiguration: NhAssistantMockRunConfiguration;
   private readonly handOffs: NhAssistantMockHandOffs;
+  /** The switches that let an agent run a tool without approval (FB82). */
+  private readonly withoutApproval: NhAssistantMockWithoutApproval;
   /** The application's text assets for instructions. */
   readonly instructionAssets: NhAssistantMockInstructionAssets;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
@@ -108,6 +111,10 @@ export class NhAssistantMockAdmin {
       setAssignment: (serverId, agentId, assign) => this.agents.setMcpAssignment(agentId, serverId, assign),
       canAdminister: () => this.canAdminister
     });
+    this.withoutApproval = new NhAssistantMockWithoutApproval({
+      find: agentId => this.agents.find(agentId),
+      tools: () => this.toolCatalog()
+    }, now);
     this.presetRunConfigurations(admin.agents ?? []);
   }
 
@@ -266,6 +273,12 @@ export class NhAssistantMockAdmin {
       case 'accounts':
         return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
       case 'agents':
+        if (id !== undefined && (action === 'without-approval' || (action === 'tools' && segments[5] === 'without-approval'))) {
+          const switched = this.withoutApproval.handle(method, id, segments.slice(3), body);
+          if (switched) {
+            return switched;
+          }
+        }
         if (id !== undefined && action === 'compositions' && child === 'activity' && segments.length === 5) {
           return mockCompositionActivity(method, id, query);
         }
@@ -445,7 +458,7 @@ export class NhAssistantMockAdmin {
    */
   private toolCatalog(): ToolCatalogEntry[] {
     return [
-      ...(this.scenario.admin?.tools ?? []).map(tool => ({ ...tool, subjectType: tool.subjectType ?? null })),
+      ...(this.scenario.admin?.tools ?? []).map(tool => ({ ...tool, subjectType: tool.subjectType ?? null, allowWithoutApproval: tool.allowWithoutApproval ?? false })),
       ...this.runConfiguration.consultationTools(),
       ...this.mcp.catalogEntries()
     ];

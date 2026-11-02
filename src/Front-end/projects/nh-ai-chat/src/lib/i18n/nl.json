@@ -480,6 +480,8 @@
       "assistant-consult-proposal-moved": "Het voorstel is aan de goedkeurders van het onderwerp gelaten.",
       "assistant-moved-to-shadow": "Het werk is naar de schaduwthread van de agent gegaan, waar een run in schaduw het oppakt.",
       "assistant-shadow-variant": "Een schaduwvariant werkt altijd in schaduw.",
+      "assistant-without-approval-not-allowed": "Deze tool kan voor deze agent niet zonder goedkeuring draaien: de code staat het niet toe, de tool hoort niet bij de tools van de agent, of de agent doet geen eigen werk.",
+      "assistant-without-approval-shadow-first": "Zet dit soort actie eerst in schaduw. Het gaat alleen vanuit schaduw live, ook nadat de tool veranderde.",
       "assistant-not-shadow-variant": "Alleen een hier gemaakte schaduwvariant kan naar zijn live agent worden gepromoveerd.",
       "assistant-service-account-not-used": "Deze agent werkt niet onder een technisch account.",
       "assistant-service-account-not-found": "Er bestaat geen account met deze id dat mag inloggen.",

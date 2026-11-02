@@ -24,6 +24,7 @@ import {
   AgentCompositionStatus,
   AgentSkillState,
   AgentState,
+  AgentWithoutApproval,
   ApplicationContext,
   DataSkill,
   DataSkillRequest,
@@ -65,7 +66,10 @@ import {
   TriggerComparison,
   UpdateAdminAgentRequest,
   UpdateApplicationContextRequest,
-  UpdateMcpToolRequest
+  UpdateMcpToolRequest,
+  WithoutApprovalRequest,
+  WithoutApprovalSwitch,
+  WithoutApprovalVersion
 } from '../models/assistant-admin.models';
 import {
   AgentPackage,
@@ -196,6 +200,33 @@ export class NhAssistantAdminApiService {
    */
   setAgentShadow(agentId: string, request: SetAgentShadowRequest): Observable<AgentState> {
     return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/shadow`, request);
+  }
+
+  /**
+   * The agent's tools that allow running without approval in code, with their switches (FB82).
+   */
+  getAgentWithoutApproval(agentId: string): Observable<AgentWithoutApproval> {
+    return this.request<AgentWithoutApproval>('GET', `admin/agents/${encodeURIComponent(agentId)}/without-approval`);
+  }
+
+  /**
+   * Switches whether the agent runs the tool without approval: `shadow` first, `live` only from
+   * shadow (`assistant-without-approval-shadow-first`), `off` at any time. A tool that does not allow
+   * it in code, or an agent without work of its own, fails with `assistant-without-approval-not-allowed`;
+   * a stale `expectedVersion` with `assistant-version-conflict`.
+   */
+  setAgentWithoutApproval(agentId: string, toolId: string, request: WithoutApprovalRequest): Observable<WithoutApprovalSwitch> {
+    return this.request<WithoutApprovalSwitch>(
+      'PUT',
+      `admin/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}/without-approval`,
+      request);
+  }
+
+  /** Every version of the agent's switch for the tool, newest first: who switched it to what and when. */
+  getAgentWithoutApprovalVersions(agentId: string, toolId: string): Observable<WithoutApprovalVersion[]> {
+    return this.request<WithoutApprovalVersion[]>(
+      'GET',
+      `admin/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}/without-approval/versions`);
   }
 
   /** Puts one skill of an agent in shadow, live, or back to the mode in code. */

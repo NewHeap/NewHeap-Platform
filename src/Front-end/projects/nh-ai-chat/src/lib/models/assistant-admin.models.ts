@@ -90,6 +90,64 @@ export interface ToolCatalogEntry {
    * stay in the run's own thread. Missing on older servers.
    */
   subjectType?: string | null;
+  /**
+   * Whether the tool allows in code that an administrator lets one agent run it without approval
+   * (`AllowWithoutApproval`, FB82): the first of the two keys. MCP tools never do. Missing on older servers.
+   */
+  allowWithoutApproval?: boolean;
+}
+
+/** The mode of a switch that lets an agent run a tool without approval (FB82). */
+export type WithoutApprovalMode = 'off' | 'shadow' | 'live';
+
+/**
+ * One tool of an agent that allows running without approval, with the switch in effect
+ * (`GET admin/agents/{id}/without-approval`).
+ */
+export interface WithoutApprovalSwitch {
+  toolId: string;
+  description: string;
+  effect: 'idempotent-mutation' | 'mutation';
+  /**
+   * `off`: every call that needs approval is a proposal. `shadow`: every call is still a proposal, and
+   * the platform records that it would have run without approval. `live`: the agent's own work runs it
+   * without a proposal, audited as run without approval. `off` while the tool's contract changed.
+   */
+  mode: WithoutApprovalMode;
+  /** The switch's version, 0 before the first switch; the next change expects it. */
+  version: number;
+  /** The tool's contract changed since the switch was made: it reads as off until it is switched again. */
+  contractChanged: boolean;
+  changedBy: string | null;
+  changedAt: string | null;
+  reason: string | null;
+}
+
+/** The tools of an agent that allow running without approval. */
+export interface AgentWithoutApproval {
+  agentId: string;
+  /** False for an agent without work of its own, such as a chat-only agent or a shadow variant. */
+  applies: boolean;
+  tools: WithoutApprovalSwitch[];
+}
+
+/** Body of `PUT admin/agents/{id}/tools/{toolId}/without-approval`. */
+export interface WithoutApprovalRequest {
+  mode: WithoutApprovalMode;
+  /** The switch's current version, 0 before the first switch. */
+  expectedVersion: number;
+  /** Optional, at most 500 characters; kept with the version and left out of the audit. */
+  reason?: string | null;
+}
+
+/** One version of a switch that lets an agent run a tool without approval. */
+export interface WithoutApprovalVersion {
+  version: number;
+  mode: WithoutApprovalMode;
+  changedBy: string;
+  changedAt: string;
+  reason: string | null;
+  contractHash: string;
 }
 
 /** Equals `NhAiAutonomyLevel`. */

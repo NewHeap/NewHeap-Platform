@@ -118,9 +118,15 @@ internal sealed class NhAssistantWithoutApprovalService(
     NhAssistantRegistrationState registration,
     IEnumerable<INhAiToolCatalog> catalogs,
     NhAssistantWithoutApprovalStore store,
-    NhAssistantAgentEvents events) : INhAssistantWithoutApprovalSwitches
+    NhAssistantAgentEvents events,
+    TimeProvider? timeProvider = null) : INhAssistantWithoutApprovalSwitches
 {
     private const int MaxActorIdLength = 256;
+
+    /// <summary>
+    /// The application's clock, which a switch's time follows as a decision's does; the audit keeps the system clock.
+    /// </summary>
+    private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
 
     public async Task<NhAssistantWithoutApprovalListDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)
     {
@@ -235,7 +241,7 @@ internal sealed class NhAssistantWithoutApprovalService(
             Mode = request.Mode,
             ContractHash = tool.ContractHash,
             ChangedBy = actorId,
-            ChangedAt = DateTimeOffset.UtcNow,
+            ChangedAt = _applicationClock.GetUtcNow(),
             Reason = reason
         };
         if (!await store.AddAsync(next, cancellationToken))

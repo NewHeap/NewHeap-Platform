@@ -87,6 +87,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-skill-switch-limit',
   'assistant-moved-to-shadow',
   'assistant-shadow-variant',
+  'assistant-without-approval-not-allowed',
+  'assistant-without-approval-shadow-first',
   'assistant-not-shadow-variant',
   'assistant-service-account-not-used',
   'assistant-service-account-not-found',
