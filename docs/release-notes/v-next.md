@@ -16,6 +16,13 @@
 | On SQL Server a value without a zone, and every value for a `DateTime` member, used to be read in the host's time zone; it is now read as UTC. On a host that runs in UTC nothing changes. | Send `Z` or an offset when a filter means another zone than UTC. Keep `DateTime` columns in UTC, as the providers' guidance asks. |
 | `CollectionProcessingService.GetExpressionConstant` converts the value when it builds the constant and throws `InvalidFilterCollectionResultException` for a value the type cannot hold. | A subclass that calls it handles that exception as an invalid filter. |
 
+## NewHeap.Platform.AI.Chat.AspNet: a repeated proposal for a person while the first is recorded
+
+- `INhAssistantProposals.ProposeForAsync` with an `IdempotencyKey` returned `AlreadyOpen` instead of the repeat when
+  another call with the same key recorded the proposal while this one was still checking it: it found that proposal
+  as an open duplicate and audited `AgentProposalDeduplicated`. It now returns the proposal with `Repeated`, as a
+  later call does, without an audit. One proposal was recorded either way.
+
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: alerts (FB87)
 
 - An alert warns people about an object without a proposal: nothing is approved and nothing changes. Kinds are code:

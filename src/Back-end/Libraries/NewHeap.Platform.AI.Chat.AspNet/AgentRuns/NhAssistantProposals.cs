@@ -705,6 +705,16 @@ internal sealed class NhAssistantProposals(
                 .CheckAsync(thread, descriptor.Id, argumentsHash, keys, policy, cancellationToken);
             if (duplicate is { Outcome: not NhAssistantProposeOutcome.Created, Existing: { } existing })
             {
+                // A call with the same key raced past the key check above and recorded the proposal this
+                // key names: it is repeated, as for a later call, rather than skipped as a duplicate.
+                var recorded = key is null ? null
+                    : existing.Id == approvalId ? existing
+                    : await _store.FindApprovalAsync(approvalId, cancellationToken);
+                if (recorded is not null)
+                {
+                    return await RepeatAsync(recorded, admission, argumentsHash, cancellationToken);
+                }
+
                 return await SkipDuplicateAsync(admission, duplicate.Outcome, existing, cancellationToken);
             }
 

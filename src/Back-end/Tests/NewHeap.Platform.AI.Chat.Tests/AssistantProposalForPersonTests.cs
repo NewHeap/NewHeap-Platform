@@ -274,6 +274,39 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
         Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalRecordedForPerson);
     }
 
+    /// <summary>
+    /// A call with a key finds no proposal for it yet, and the other call with the same key records it
+    /// before this one looks for duplicates: the proposal it then finds is the one its key names, so it
+    /// is a repeat of it, not a duplicate that is skipped.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_call_that_passed_the_key_check_before_the_same_key_recorded_its_proposal_repeats_it(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, hold: true);
+        var request = Request(Proposer, projectId, "OnHold") with { IdempotencyKey = "submission-8" };
+        var hold = host.Services.GetRequiredService<ProposalHold>();
+
+        // This call checks the key, finds nothing and waits at the guards, before the duplicates.
+        var waiting = ProposeAsync(host, request);
+        await hold.Reached.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        var recording = await ProposeAsync(host, request);
+        hold.Released.SetResult();
+        var repeated = await waiting;
+
+        Assert.True(recording.Success, CodeOf(recording));
+        Assert.True(repeated.Success, CodeOf(repeated));
+        Assert.Equal((NhAssistantProposeOutcome.Created, false), (recording.Data!.Outcome, recording.Data.Repeated));
+        Assert.Equal(
+            (NhAssistantProposeOutcome.Created, true, recording.Data.ApprovalId),
+            (repeated.Data!.Outcome, repeated.Data.Repeated, repeated.Data.ApprovalId));
+        Assert.Single(await ApprovalsAsync(host));
+        Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalRecordedForPerson);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated);
+    }
+
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
@@ -328,7 +361,7 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
         Assert.Equal(NhAiGrantSource.Delegated, host.Tools.Contexts.Last().GrantSource);
     }
 
-    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, bool guard = false, AssistantTestClock? clock = null)
+    private Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, bool guard = false, AssistantTestClock? clock = null, bool hold = false)
     {
         return AssistantTestHost.CreateAsync(
             database,
@@ -350,6 +383,7 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
                 services.AddSingleton<TestPolicySelections>();
                 services.AddSingleton<TestProjectStates>();
                 services.AddSingleton<RecordingOperations>();
+                services.AddSingleton<ProposalHold>();
                 services.AddSingleton(provider => provider.GetRequiredService<RecordingOperations>().Service);
                 var rights = new PersonRights();
                 rights.Managers[Proposer] = true;
@@ -397,6 +431,10 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
                     assistant.AddProposalGuard<ProjectStatusGuard>(
                         [ChangeStatusTool],
                         NhAiProposalGuardStages.All | NhAiProposalGuardStages.Proposal);
+                }
+                if (hold)
+                {
+                    assistant.AddProposalGuard<HoldingGuard>([ChangeStatusTool], NhAiProposalGuardStages.Proposal);
                 }
             });
     }
@@ -500,6 +538,47 @@ public sealed class AssistantProposalForPersonTests(AssistantDatabaseFixture dat
             .Where(item => item.Name == NhAssistantValidationErrors.FieldPrefix + field)
             .SelectMany(item => item.ErrorMessages.Select(message => message.ToString()))
             .ToArray();
+    }
+
+    /// <summary>
+    /// Holds the first call that reaches the proposal guards until the test releases it, so another call
+    /// runs in between; every later call passes.
+    /// </summary>
+    private sealed class ProposalHold
+    {
+        private int _held;
+
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Released { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task WaitAsync(CancellationToken cancellationToken)
+        {
+            if (Interlocked.Exchange(ref _held, 1) == 0)
+            {
+                Reached.SetResult();
+                await Released.Task.WaitAsync(cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>A proposal guard that names no keys and finds every proposal needed, after the hold.</summary>
+    private sealed class HoldingGuard(ProposalHold hold) : INhAiProposalGuard
+    {
+        public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+            NhAiProposalGuardContext context,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>([]);
+        }
+
+        public async ValueTask<NhAiPreconditionResult> CheckAsync(
+            NhAiProposalGuardContext context,
+            CancellationToken cancellationToken = default)
+        {
+            await hold.WaitAsync(cancellationToken);
+            return NhAiPreconditionResult.Satisfied;
+        }
     }
 }
 
