@@ -7,30 +7,6 @@
   agent only when the first message went out, so the message reached another agent than the picker showed.
   `startNewConversation` now chooses among the agents of a new chat right away, unless they are still loading.
 
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: decision times and the view per kind of action (FB82)
-
-- `GET admin/agents/{id}/feedback/summary` rows carry `decisionTime` (`NhAssistantDecisionTimeDto`): the median and
-  the 90th percentile of the time from a proposal to a person's approval or rejection, in whole seconds, from at most
-  the newest 1,000 decisions per row (`sampled` says when there were more). Expired, withdrawn and invalidated
-  proposals and decisions of agents or of the platform do not count. Computed with provider-neutral LINQ and a
-  bounded load on SQL Server and PostgreSQL.
-- A proposal records when it was made on the application's clock, `AssistantApproval.ProposedAt`, next to
-  `CreatedAt` on the system clock, which the proposal guards keep using. Decision times run from `ProposedAt` to
-  `DecidedAt`, so an application whose `TimeProvider` runs ahead of the system clock reads true times; a proposal
-  made before this version has no `ProposedAt` and counts from `CreatedAt`.
-
-| Breaking change | Required action |
-|---|---|
-| The `ApprovalProposedAt` migrations add the nullable column `AssistantApproval.ProposedAt` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
-- `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view per kind of action over all
-  agents: per tool the counts, approval and rejection rates, decision times, the newest rejection and the name the
-  proposal cards show, and per agent a `NhAssistantRoutineCandidateDto` (`agentId`, `toolId`, the numbers,
-  `candidate`, `unmetThresholds`) by the thresholds of `NhAssistantRoutineCandidateOptions`
-  (`NewHeap:AI:Assistant:RoutineCandidates`, `NhAssistantBuilder.ConfigureRoutineCandidates`): at least 50
-  decisions, at least 98% approved, no rejection in the last 7 days of the period and none stale or failed after
-  approval by default. Filters `agentId` and `toolId`; behind the admin policy. A candidate is a suggestion only:
-  nothing about deciding changes.
-
 ## @newheap/platform-ai-chat: decision times and the Kinds of action section (FB82)
 
 - The administration (`nh-assistant-admin`) has a Kinds of action section (`NhAssistantAdminTab` `proposal-kinds`,
@@ -48,40 +24,6 @@
 |---|---|
 | `NhAssistantAdminTab` has the value `proposal-kinds`. | A host that maps its URL to the section or switches over the tab accepts `proposal-kinds`, as `sampleAssistantAdminLocation` does with `?section=proposal-kinds`. |
 
-## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Generators, NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: running a kind of action without approval (FB82)
-
-- The one exception to "an agent's effect waits for a person", with two keys and shadow first. The tool's key is in
-  code: `NhAiToolAttribute.AllowWithoutApproval` (and `NhAiToolDescriptor.AllowWithoutApproval`) says the tool's change
-  is reversible and of low risk. The generator refuses it with `NHAI019` without `Agent` exposure and a named policy,
-  for any effect but `IdempotentMutation` or `Mutation`, for an issuer or consumer-authoritative approval and for a
-  tool that declares `RequireIndividualDecision`;
-  `NhAiWithoutApproval.Validate` and `NhAiToolCatalogAttestation.Validate` refuse the same for runtime catalogs. The key
-  enters the contract hash.
-- The administrator's key is data: `INhAssistantWithoutApprovalSwitches`, `GET admin/agents/{id}/without-approval`,
-  `PUT admin/agents/{id}/tools/{toolId}/without-approval` (`{ mode, expectedVersion, reason }`) and
-  `GET .../without-approval/versions`, behind the admin policy. A switch goes from `off` to `shadow`, and only from
-  `shadow` to `live` (`409 assistant-without-approval-shadow-first`); a tool without the key, outside the agent's tools
-  or of an agent without work of its own answers `409 assistant-without-approval-not-allowed`. Each change is the next
-  version of `AssistantAgentToolSwitch` with who switched, why and the contract hash it applies to, audited as
-  `AdminAgentToolWithoutApprovalChanged`; a changed contract reads as off until it is switched again.
-- The governed invoker asks `INhAiWithoutApprovalSwitches` (default: always off) only for an agent's own run outside
-  scopes that require approval for every effect, for an approval of the default effect policy and without approval
-  evidence. In shadow the call still becomes its proposal, which records `AssistantApproval.WithoutApprovalVersion`
-  and the audit `AgentProposalWouldRunWithoutApproval`. Live, the call runs without a proposal once the approval
-  policy selector, open and rejected proposals and every guard stage agree, with every other rule intact; the audit
-  record has the approval code `without-approval` with `WithoutApprovalMode` and `WithoutApprovalSwitchVersion`, the
-  call's row `WithoutApprovalVersion` and the business audit `AgentToolRanWithoutApproval`. A person's chat, a
-  consultation, a rule turn, a shadow run and a call for another object always ask; switching off applies to the next
-  call. `GET admin/tools` reports `allowWithoutApproval` per tool.
-- The `AgentToolWithoutApproval` migrations for SQL Server and PostgreSQL add the table `AssistantAgentToolSwitch` and
-  the column `WithoutApprovalVersion` to `AssistantApproval` and `AssistantToolInvocation`.
-
-| Breaking change | Required action |
-|---|---|
-| A tool that sets `AllowWithoutApproval` gets another contract hash, so its open proposals expire as for any contract change. | Set it in a deployment where its open proposals may expire, or decide them first. |
-| The assistant's startup check refuses another registered `INhAiWithoutApprovalSwitches`. | Do not replace it; switch tools per agent through `INhAssistantWithoutApprovalSwitches`. |
-| The assistant schema has the `AgentToolWithoutApproval` migration. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
-
 ## @newheap/platform-ai-chat: running a kind of action without approval (FB82)
 
 - An agent's Rollout lists the kinds of action it may run without approval: the tools whose code allows it, each with
@@ -95,17 +37,6 @@
   texts for `assistant-without-approval-not-allowed` and `assistant-without-approval-shadow-first`.
 - The mock API of `@newheap/platform-ai-chat/testing` keeps the switches with their versions and refuses as the server
   does. The notice of the Kinds of action section now says that a candidate changes nothing by itself.
-## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the inbox by kind of action
-
-- `GET approvals/inbox` filters on the kind of action with `toolId` (repeated, at most 20) and on the decision
-  deadline with `expiresBefore`, and orders by `sort=expiresAt` or `sort=createdAt` (`NhAssistantInboxSorts`),
-  earliest first, flat and grouped. Another sort or an empty kind answers `400 assistant-message-invalid`.
-- `GET approvals/inbox/summary` counts what the inbox lists with the same filter and visibility
-  (`NhAssistantInboxSummaryDto`): in total, per agent, per kind of action with the name its cards show (the
-  stored presentation in the caller's language, otherwise the tool id), per subject type with its distinct
-  subjects, and how many expire within 24 hours on the application's clock. The counts say what is listed;
-  deciding still checks four-eyes, the approver rules and the tool's approve policy per proposal.
-- Each count is a grouped query on columns the approval row already has. No migration is needed.
 
 ## @newheap/platform-ai-chat: the inbox by kind of action
 
@@ -117,26 +48,6 @@
   "listed".
 - The mock API of `@newheap/platform-ai-chat/testing` filters and sorts the inbox the same way and serves
   `GET approvals/inbox/summary`.
-
-## NewHeap.Platform.AI.Common, NewHeap.Platform.AI.Generators, NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: deciding a whole filter of the inbox
-
-- `POST approvals/bulk-decisions/overview` puts the pending proposals the caller's inbox lists with a filter in a
-  set of at most 200 (`NhAssistantLimits.MaxBulkDecisionProposals`), counted per kind of action and subject type,
-  with a token valid for 15 minutes for the caller and tenant only. `POST approvals/bulk-decisions` decides exactly
-  that set: the inbox's visibility runs again, and each proposal keeps its own rules and the version the overview
-  counted. The result counts succeeded, refused and stale; a repeat of the token reports and decides nothing.
-- `NhAiToolAttribute.RequireIndividualDecision` keeps a tool's proposals out of every bulk decision; deciding one
-  together with others answers `assistant-individual-decision-required`. It is not part of the contract hash.
-- `POST approvals/decisions` takes `expectedProposalHashes` per id and refuses a changed proposal with
-  `assistant-proposal-hash-mismatch`.
-- `NhAssistantAuditEvent.BatchId` names the bulk decision of an `ApprovalApproved` or `ApprovalRejected` event;
-  `Channel` stays `web`.
-
-| Breaking change | Required action |
-|---|---|
-| The `BulkDecisionSets` migrations add the table `AssistantDecisionBatch` on SQL Server and PostgreSQL. | Apply the assistant migrations before the new version starts (`RunMigrations`, or your deployment's migration step). |
-| `NhAssistantErrorCodes` has the new codes `assistant-bulk-decision-not-found` (HTTP 404), `assistant-bulk-decision-expired`, `assistant-bulk-decision-in-progress` and `assistant-individual-decision-required` (HTTP 409). | Let code that maps assistant codes handle values it does not know. |
-| `NhAssistantAuditEvent` has the new property `BatchId`, set on the decisions of a bulk decision. | Let audit sinks that store every property accept it. |
 
 ## @newheap/platform-ai-chat: deciding a whole filter of the inbox
 
