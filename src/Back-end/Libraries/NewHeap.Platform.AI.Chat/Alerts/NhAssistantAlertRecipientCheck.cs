@@ -24,22 +24,27 @@ internal sealed record NhAssistantAlertRecipientVerdict(bool Qualifies, string? 
 /// and when the person reads it, so a person who lost access never receives or reads its text: the
 /// recipient is a person (no agent, a bounded actor id), the application's principal factory still
 /// rebuilds them for the subject in its division or tenant (<see cref="INhAssistantRecipientRules.IsResolvedForAsync"/>),
-/// and the subject's resolver gives them at least <see cref="NhAiSubjectRole.Reader"/> on the subject now.
+/// and the subject's resolver gives them at least <see cref="NhAiSubjectRole.Reader"/> on the subject now,
+/// or the role of the kind's members selector for a kind that selects only members (<see cref="RequiredRoleOf"/>).
 /// A read in a request also names the caller's tenant, which must reach the subject's
 /// (<see cref="NhAssistantTenancy"/>). The verdict carries no content, so a caller can audit a drop.
 /// </summary>
 internal sealed class NhAssistantAlertRecipientCheck(
     NhAssistantSubjectAccessService subjects,
     INhAssistantRecipientRules recipients,
-    NhAssistantTenancy tenancy)
+    NhAssistantTenancy tenancy,
+    NhAssistantRegistrationState registration,
+    INhAssistantAlertPolicy policy)
 {
     /// <summary>
     /// Checks <paramref name="actorId"/> against <paramref name="subject"/> as its resolver describes it
-    /// now, without a caller's tenant: the check when an alert is raised and when a delivery goes out.
+    /// now, for an alert of <paramref name="kind"/>, without a caller's tenant: the check when an alert is
+    /// raised.
     /// </summary>
     public async ValueTask<NhAssistantAlertRecipientVerdict> CheckAsync(
         string actorId,
         NhAiSubjectInfo subject,
+        NhAssistantAlertKind? kind,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subject);
@@ -53,14 +58,39 @@ internal sealed class NhAssistantAlertRecipientCheck(
         }
 
         var access = await subjects.ResolveAsync(subject.Subject, actorId, cancellationToken);
-        return access.Has(NhAiSubjectRole.Reader)
+        if (!access.Has(NhAiSubjectRole.Reader))
+        {
+            return NhAssistantAlertRecipientVerdict.Dropped(NhAssistantAlertDropReasons.NoAccess);
+        }
+
+        return access.Has(RequiredRoleOf(kind))
             ? NhAssistantAlertRecipientVerdict.Qualified
-            : NhAssistantAlertRecipientVerdict.Dropped(NhAssistantAlertDropReasons.NoAccess);
+            : NhAssistantAlertRecipientVerdict.Dropped(NhAssistantAlertDropReasons.BelowMinimumRole);
     }
 
     /// <summary>
-    /// Checks <paramref name="actorId"/> against the stored <paramref name="alert"/>: its subject is
-    /// described again, so a subject that no longer exists drops everyone. With
+    /// The role a person needs on the subject to receive and read an alert of <paramref name="kind"/>:
+    /// <see cref="NhAiSubjectRole.Reader"/>, or for a kind whose selectors are only
+    /// <see cref="NhAssistantAlertRecipients.SubjectMembers"/>, under those selectors rather than an
+    /// application's <see cref="INhAssistantAlertPolicy"/>, the role they ask for. Another selector or a
+    /// policy may have chosen the person for another reason, so they keep the Reader check.
+    /// </summary>
+    public NhAiSubjectRole RequiredRoleOf(NhAssistantAlertKind? kind)
+    {
+        if (kind?.Recipients is { MinimumMemberRole: { } memberRole } selection
+            && selection.Selectors.All(selector => selector == NhAssistantAlertRecipientSelector.SubjectMembers)
+            && policy is NhAssistantDefaultAlertPolicy)
+        {
+            return memberRole;
+        }
+
+        return NhAiSubjectRole.Reader;
+    }
+
+    /// <summary>
+    /// Checks <paramref name="actorId"/> against the stored <paramref name="alert"/>, when a delivery goes
+    /// out and when the person reads it: its subject is described again, so a subject that no longer
+    /// exists drops everyone, and its kind's required role applies. With
     /// <paramref name="callerTenantId"/>, the tenant of the caller of a read, the subject must be in the
     /// caller's tenant as well; <see langword="null"/> for a delivery, which has no caller.
     /// </summary>
@@ -87,7 +117,7 @@ internal sealed class NhAssistantAlertRecipientCheck(
             return NhAssistantAlertRecipientVerdict.Dropped(NhAssistantAlertDropReasons.NoAccess);
         }
 
-        return await CheckAsync(actorId, subject, cancellationToken);
+        return await CheckAsync(actorId, subject, registration.AlertKinds.GetValueOrDefault(alert.KindId), cancellationToken);
     }
 
     /// <summary>

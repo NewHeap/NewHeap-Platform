@@ -961,7 +961,14 @@ public sealed class NhAssistantBuilder
         ArgumentNullException.ThrowIfNull(configure);
         var builder = new NhAssistantAlertKindBuilder(kindId);
         configure(builder);
-        _state.AddAlertKind(builder.Build());
+        var kind = builder.Build();
+        if (kind.CheckType is { } checkType)
+        {
+            // FB87-10: the kind's check is the application's code, resolved per alert it checks.
+            Services.TryAddScoped(checkType);
+        }
+
+        _state.AddAlertKind(kind);
         return this;
     }
 

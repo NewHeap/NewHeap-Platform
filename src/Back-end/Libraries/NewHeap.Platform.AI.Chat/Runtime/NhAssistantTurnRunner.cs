@@ -1565,6 +1565,19 @@ internal sealed partial class NhAssistantTurnRunner(
                     result = null;
                 }
             }
+            if (result is { HandsOver: false }
+                && Alerts.NhAssistantAlertService.ResolvesWhenNotRaised(state.AgentTurn!.Options, registration))
+            {
+                // FB87 phase 2: rules that finished the run resolve what they did not raise again, for
+                // the kinds that ask for it; a failure, a hand-over or a cancellation resolves nothing.
+                var agentTurn = state.AgentTurn!;
+                await services.GetRequiredService<Alerts.NhAssistantAlertService>().ResolveNotRaisedAsync(
+                    agentTurn.Options,
+                    new Alerts.NhAssistantAlertRaiser(agentTurn.Thread.AgentId, agentTurn.RunId, agentTurn.Thread.Shadow),
+                    agentTurn.Subject,
+                    result.Alerts,
+                    timeout.Token);
+            }
         }
         catch (OperationCanceledException)
         {
