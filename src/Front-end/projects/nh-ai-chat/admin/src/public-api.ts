@@ -20,6 +20,7 @@ export * from './agents/nh-assistant-agent-run-configuration.component';
 export { NhAssistantWithoutApprovalActionComponent } from './agents/page/nh-assistant-without-approval-action.component';
 export * from './proposal-kinds/nh-assistant-admin-proposal-kinds.component';
 export * from './proposal-kinds/nh-assistant-routine-candidate-row.component';
+export * from './alert-kinds/nh-assistant-admin-alert-kinds.component';
 export * from './mcp/nh-assistant-admin-mcp-servers.component';
 export * from './mcp/nh-assistant-admin-mcp-server-editor.component';
 export * from './mcp/nh-assistant-admin-mcp-tools.component';

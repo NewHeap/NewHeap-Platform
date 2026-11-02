@@ -215,6 +215,11 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // A person's alerts
   'assistant-alert-not-found',
   'assistant-alert-filter-invalid',
+  // The administration of alert kinds, within the bounds of their code
+  'assistant-alert-kind-unknown',
+  'assistant-alert-kind-switch-off-not-allowed',
+  'assistant-alert-kind-delivery-not-allowed',
+  'assistant-alert-kind-delivery-invalid',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

@@ -1,0 +1,220 @@
+// The administration of alert kinds on top of the shared administration styles, with the cells of
+// the view per kind of action, so both tables look alike and stack the same way on a narrow page.
+@use '../../../src/lib/styles/tokens';
+@use '../proposal-kinds/proposal-kinds-table' as table;
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+
+  .field {
+    min-width: min(100%, 200px);
+  }
+}
+
+.numbers-hint {
+  flex: 1 1 260px;
+  padding-bottom: 8px;
+}
+
+.table-container {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.kinds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  @include table.cells;
+
+  thead th {
+    color: var(--nha-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .kind-row th,
+  .kind-row td {
+    background: var(--nha-surface);
+  }
+
+  tbody[data-enabled='false'] .kind-row th,
+  tbody[data-enabled='false'] .kind-row td {
+    color: var(--nha-text-muted);
+  }
+}
+
+.kind-name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-weight: 650;
+
+  .mono {
+    font-weight: 400;
+  }
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-weight: 400;
+}
+
+.summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.summary-line {
+  display: block;
+}
+
+.origin,
+.detail {
+  display: block;
+  font-size: 12px;
+}
+
+.shadow-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.actions-cell .detail {
+  max-width: 28ch;
+  margin-top: 4px;
+}
+
+.message-row td,
+.editor-row td {
+  border-bottom: 1px solid var(--nha-border);
+  padding: 10px;
+}
+
+.editor {
+  max-width: 72ch;
+}
+
+.code-delivery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+
+  legend {
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &:disabled {
+    opacity: .7;
+  }
+}
+
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+
+  input {
+    width: 8.5em;
+  }
+}
+
+.inline-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+
+  .field {
+    min-width: 8.5em;
+  }
+}
+
+@container (max-width: #{table.$stack-width}) {
+  .kinds-table thead {
+    @include tokens.visually-hidden;
+  }
+
+  .kinds-table,
+  .kinds-table tbody,
+  .kinds-table .kind-row,
+  .kinds-table .message-row,
+  .kinds-table .editor-row {
+    display: block;
+  }
+
+  .kinds-table tbody {
+    margin-bottom: 12px;
+  }
+
+  .kinds-table .kind-row {
+    margin-bottom: 8px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+    background: var(--nha-surface);
+  }
+
+  .kinds-table .kind-row {
+    @include table.stacked-cells;
+
+    th,
+    td {
+      background: none;
+    }
+
+    td[aria-hidden='true'] {
+      display: none;
+    }
+  }
+
+  .kinds-table .message-row td,
+  .kinds-table .editor-row td {
+    display: block;
+    border: 0;
+    padding: 4px 0 12px;
+  }
+}

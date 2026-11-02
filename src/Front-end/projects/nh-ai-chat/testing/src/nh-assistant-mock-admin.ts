@@ -17,6 +17,7 @@ import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
 import { mockCompositionActivity } from './nh-assistant-mock-compositions';
 import { mockProposalKinds } from './nh-assistant-mock-proposal-kinds';
+import { NhAssistantMockAlertKinds } from './nh-assistant-mock-alert-kinds';
 import { NhAssistantMockHandOffs } from './nh-assistant-mock-hand-offs';
 import {
   NhAssistantMockResult,
@@ -61,6 +62,8 @@ export class NhAssistantMockAdmin {
   private readonly handOffs: NhAssistantMockHandOffs;
   /** The switches that let an agent run a tool without approval (FB82). */
   private readonly withoutApproval: NhAssistantMockWithoutApproval;
+  /** The administrator's settings per alert kind and the numbers of its alerts (FB87 phase 2). */
+  private readonly alertKinds: NhAssistantMockAlertKinds;
   /** The application's text assets for instructions. */
   readonly instructionAssets: NhAssistantMockInstructionAssets;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
@@ -76,6 +79,7 @@ export class NhAssistantMockAdmin {
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
     this.instructionAssets = new NhAssistantMockInstructionAssets(admin.instructionAssets);
+    this.alertKinds = new NhAssistantMockAlertKinds(admin.alertKinds, now);
 
     this.agents = new NhAssistantMockAdminAgents(scenario, now, {
       hasServer: serverId => this.mcp.hasServer(serverId),
@@ -277,6 +281,8 @@ export class NhAssistantMockAdmin {
         return segments.length === 2
           ? mockProposalKinds(method, this.agents.all().filter(agent => !agent.shadowOf), query, this.now())
           : failure('assistant-not-found');
+      case 'alert-kinds':
+        return this.alertKinds.handle(method, segments.slice(1), body, query);
       case 'agents':
         if (id !== undefined && (action === 'without-approval' || (action === 'tools' && segments[5] === 'without-approval'))) {
           const switched = this.withoutApproval.handle(method, id, segments.slice(3), body);

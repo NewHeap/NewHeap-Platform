@@ -158,9 +158,9 @@ export class NhAssistantMockAlerts {
       return mockFailure('assistant-alert-filter-invalid');
     }
 
-    // A kind the person muted is listed, but never asks for their attention.
+    // A kind the person muted, or an administrator switched off, is listed but never asks for their attention.
     const unread = this.select({ ...filter, urgencies: [] }, 'unread')
-      .filter(alert => !(alert.isWithheld && alert.withheldReason === 'muted'));
+      .filter(alert => !(alert.isWithheld && (alert.withheldReason === 'muted' || alert.withheldReason === 'kind-off')));
     const count = (urgency: AlertUrgency) => unread.filter(alert => alert.urgency === urgency).length;
     return {
       status: 200,

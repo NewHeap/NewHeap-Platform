@@ -7,6 +7,7 @@
 import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus, AgentSubjectRole } from './assistant-agent-run.models';
 import { AgentPackageLink, PackagePartLink } from './assistant-agent-package.models';
 import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
+import { AlertUrgency } from './assistant-alert.models';
 
 export type AssistantStyle = 'default' | 'direct' | 'personal' | 'detailed';
 
@@ -1223,6 +1224,129 @@ export interface ProposalKindsFilter {
   to?: string;
   agentId?: string;
   toolId?: string;
+}
+
+/** How an alert kind is delivered by default: as soon as an alert is raised, or in digests at set times. */
+export type AdminAlertDeliveryMode = 'immediately' | 'daily-digest';
+
+/** Quiet hours as `HH:mm` in a person's time zone; an end before the start spans midnight. */
+export interface AdminAlertQuietHours {
+  start: string;
+  end: string;
+}
+
+/** A default delivery of an alert kind (FB87 phase 2). */
+export interface AdminAlertDelivery {
+  mode: AdminAlertDeliveryMode;
+  /** The digest times as `HH:mm`, ascending, one to four; empty for `immediately`. */
+  digestTimes: string[];
+  /** The digests go out on working days only. */
+  workdaysOnly: boolean;
+  /** An alert of this urgency or higher is delivered at once instead of in a digest; `null` for none. */
+  immediatelyFrom: AlertUrgency | null;
+  /** When nothing of the kind is delivered; `null` for none. */
+  quietHours: AdminAlertQuietHours | null;
+}
+
+/** What an alert kind's code lets an administrator change (`AdministratorMayChange`). */
+export interface AdminAlertKindChoices {
+  /** Switch the kind off; never for a required kind. */
+  switchOff: boolean;
+  /** Deliver it immediately or in digests, and the digest times. */
+  digestTimes: boolean;
+  workdaysOnly: boolean;
+  immediatelyFrom: boolean;
+  quietHours: boolean;
+}
+
+/** The administrator's settings of an alert kind as stored. */
+export interface AdminAlertKindSettings {
+  /** The administrator left the kind on. */
+  enabled: boolean;
+  /** The administrator's default delivery; `null` for the code's. */
+  delivery: AdminAlertDelivery | null;
+  /** The settings' version, which a change sends as `expectedVersion`; 0 when nobody changed the kind. */
+  version: number;
+  changedBy: string | null;
+  changedAt: string | null;
+  reason: string | null;
+}
+
+/**
+ * The numbers of an alert kind's live alerts raised in the period, per delivery to one person except
+ * `raised`. A delivery dropped because its person no longer qualified does not count.
+ */
+export interface AdminAlertKindNumbers {
+  raised: number;
+  /** Deliveries that went out to a person's channels. */
+  delivered: number;
+  read: number;
+  dismissed: number;
+  /** Deliveries of alerts resolved before their person read them. */
+  resolvedBeforeReading: number;
+  /** Deliveries that were due and reached none of the person's channels, for any reason. */
+  withheld: number;
+  /** Of `withheld`, those of a person who muted the kind. */
+  muted: number;
+}
+
+/** The shadow alerts of a kind one agent raised in the period: recorded, delivered to nobody. */
+export interface AdminAlertShadowAgent {
+  agentId: string;
+  /** A translation key for an agent in code, the typed name otherwise; `null` when it is unknown. */
+  agentDisplayName: string | null;
+  /** The shadow alerts it raised, each of which it would have sent. */
+  wouldHaveSent: number;
+}
+
+/** One alert kind in the administration: its code, the administrator's settings and what applies now. */
+export interface AdminAlertKind {
+  id: string;
+  /** The front-end translation key of the kind's name. */
+  displayNameKey: string;
+  urgency: AlertUrgency;
+  /** Nobody can mute the kind and no administrator can switch it off. */
+  required: boolean;
+  administratorMayChange: AdminAlertKindChoices;
+  /** The default delivery the kind's code declares. */
+  codeDelivery: AdminAlertDelivery;
+  settings: AdminAlertKindSettings;
+  /** The kind raises alerts now. */
+  enabled: boolean;
+  /** The default delivery that applies now; a person's own choices apply on top of it. */
+  delivery: AdminAlertDelivery;
+  /** The numbers of the period; `null` in the answer of a change. */
+  numbers: AdminAlertKindNumbers | null;
+  /** Per agent in shadow, the alerts it would have sent in the period; empty in the answer of a change. */
+  shadow: AdminAlertShadowAgent[];
+}
+
+/** Response of `GET admin/alert-kinds`: every registered alert kind, ordered by id. */
+export interface AdminAlertKinds {
+  from: string;
+  /** Exclusive end of the period. */
+  to: string;
+  kinds: AdminAlertKind[];
+}
+
+/** The period of `getAlertKinds`; the last 30 days by default. */
+export interface AdminAlertKindsFilter {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * A change of an alert kind's settings (`PUT admin/alert-kinds/{id}`): the complete settings, within what
+ * the kind's code allows. A value that repeats the code's is always accepted.
+ */
+export interface AdminAlertKindChange {
+  enabled: boolean;
+  /** The kind's default delivery; `null` for the code's. */
+  delivery: AdminAlertDelivery | null;
+  /** The settings' current version, 0 before the first change. */
+  expectedVersion: number;
+  /** Why, at most 500 characters; kept with the settings and left out of the audit. */
+  reason?: string | null;
 }
 
 /** Proposals of one tool and agent version that closed as stale for one kind and reason. */

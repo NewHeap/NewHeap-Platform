@@ -53,6 +53,9 @@
             <nh-assistant-without-approval-action [candidate]="candidate" />
           </ng-template>
         }
+        @case ('alert-kinds') {
+          <nh-assistant-admin-alert-kinds />
+        }
         @case ('mcp-servers') {
           <nh-assistant-admin-mcp-servers />
         }

@@ -3,6 +3,7 @@ import {
   AgentCompositionFeature,
   CompositionCeiling,
   AdminAgentInput,
+  AdminAlertKind,
   AgentPackage,
   AgentConsultationStatus,
   AgentGrantSource,
@@ -544,6 +545,13 @@ export interface NhAssistantMockAdminScenario {
    * the scenario at once.
    */
   agentPackages?: NhAssistantMockAgentPackage[];
+  /**
+   * The alert kinds the application registers, as `GET admin/alert-kinds` shows them with their
+   * numbers (FB87 phase 2); `PUT admin/alert-kinds/{id}` changes their settings within
+   * `administratorMayChange`. Default: an example of a deadline kind in a morning digest, a required
+   * kind delivered at once and a kind whose code allows no change, with numbers and a shadow agent.
+   */
+  alertKinds?: AdminAlertKind[];
 }
 
 /** An agent package the mock's host imported, with the options of its import. */
